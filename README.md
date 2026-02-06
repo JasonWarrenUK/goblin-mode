@@ -2,7 +2,7 @@
 
 A version-controlled setup for customising [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Anthropic's CLI tool. This repository stores skills, agents, commands, hooks, and preferences that shape how Claude behaves during development sessions.
 
-It's also a teaching resource. The specific choices here reflect one developer's workflow, but the patterns are transferable. Your setup should look nothing like this one — and that's the point.
+It's also a teaching resource. The specific choices here reflect one developer's workflow — many of them shaped by ADHD — but the patterns are transferable. Your setup should look nothing like this one — and that's the point.
 
 ## Table of Contents
 
@@ -132,7 +132,7 @@ Agents are autonomous multi-step workflows that Claude can delegate to. Each age
 | `implementation-planner` | Opus | Break vague feature requests into actionable implementation plans |
 | `roadmap-maintainer` | Opus | Keep documentation and roadmaps in sync with actual code |
 
-**How I use it:** I work across multiple projects (Iris, Rhea, Theia). The context loader exists because switching between them was painful — I'd lose track of what branch I was on, what I'd been working on, what architectural decisions I'd made. The implementation planner exists because I tend to start coding before I've thought through the full scope of a feature. The roadmap maintainer exists because documentation rots the moment you stop updating it, and I'd rather automate that discipline than rely on willpower.
+**How I use it:** I work across multiple projects (Iris, Rhea, Theia). The context loader exists because switching between them was painful — with ADHD, context-switching costs are steep, and I'd lose track of what branch I was on, what I'd been working on, what architectural decisions I'd made. Twenty minutes of reading git logs before writing a line of code, every time. The implementation planner exists because I tend to start coding the interesting bit before thinking through the full scope of a feature. The roadmap maintainer exists because documentation rots the moment you stop updating it, and I'd rather automate that discipline than rely on willpower.
 
 **The pattern:** Agents solve *process* problems, not *knowledge* problems. If you notice a recurring multi-step workflow where you keep forgetting steps or doing them inconsistently, that's an agent. Skills tell Claude what to know; agents tell Claude what to *do*. Think about the workflows you dread or skip — those are your agent candidates.
 
@@ -269,7 +269,9 @@ This didn't start as a comprehensive system. It started with a `CLAUDE.md` that 
 
 **Hooks were written when discipline failed.** The pre-push test hook exists because untested code kept reaching the remote. The post-commit documentation hook exists because the mapping between source files and their documentation was clear (API files should trigger `api.md` updates, auth files should trigger `security.md`) but the developer wasn't making those updates consistently. The evidence extraction hook exists because retrospectively hunting for apprenticeship portfolio evidence was miserable — automating it at push time turned a dreaded chore into a background process.
 
-The order matters. Each layer built on the one before it, and each addition solved a problem that was already causing friction — not one that might cause friction someday.
+The through-line, if there is one, is externalised executive function. Working memory (`remember` skill), task initiation (`task/suggest` commands), sustained process discipline (hooks), context switching (`project-context-loader` agent) — each addresses something that ADHD makes unreliable by offloading it to a system that doesn't forget, doesn't get distracted, and doesn't need motivation to follow through. That's the shape of *this* setup. Yours will have a different shape, driven by whatever your brain is worst at maintaining on its own.
+
+Each layer built on the one before it, and each addition solved a problem that was already causing friction — not one that might cause friction someday.
 
 ---
 
