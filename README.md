@@ -106,7 +106,7 @@ Contains `settings.local.json`, which manages tool permissions and MCP (Model Co
 
 Each subdirectory contains a `SKILL.md` file — a self-contained knowledge pack that Claude loads when it detects relevant context. Skills are triggered automatically by keywords in conversation.
 
-**Context cost:** Skills don't load into context when triggered — they're loaded at session start so Claude can scan their trigger keywords. The ten skills in this repo total ~7,300 lines. That's context window space consumed in every session, whether or not a skill is ever relevant. When a skill *does* trigger, the cost has already been paid; but every skill you add raises the baseline cost of every session. The `api-designer` alone is 1,374 lines. If your session never touches API design, those 1,374 lines are pure overhead.
+**Context cost:** At session start, only each skill's description (from the YAML frontmatter) loads into context — a few lines each so Claude knows what's available and when to use it. The full skill body loads only when the skill is triggered or invoked. So the idle cost of ten skills is modest (a few dozen lines of descriptions), but the active cost is significant: the ten skills in this repo total ~7,300 lines of body content. The `api-designer` alone is 1,374 lines. If you mention "Svelte" and "testing" in the same message, both `svelte-ninja` (897 lines) and `testing-obsessive` (881 lines) may load simultaneously — ~1,800 lines of context consumed before Claude has read a line of your code.
 
 | Skill | Triggers on | Purpose | Impact Example |
 |---|---|---|---|
@@ -254,7 +254,7 @@ An agent is a multi-step workflow that Claude delegates to a sub-process. Agents
 | **Model** | Inherits session model | Specifies own model | Specifies own model |
 | **User action** | None — loads silently | You invoke it | Claude delegates to it |
 | **Memory** | None | None | Can persist across sessions |
-| **Context cost** | Full file on trigger | Full file on invoke | Description only (runs in sub-process) |
+| **Context cost** | Description at start; full file on trigger | Full file on invoke | Description only (runs in sub-process) |
 | **Example** | "How to write Svelte 5 runes" | "Generate a status report" | "Rebuild project context" |
 
 ---
@@ -329,11 +329,11 @@ The costs vary dramatically by type:
 |---|---|---|---|
 | **CLAUDE.md** | Every session | 50–200 lines | Always present |
 | **Output style** | Every session (when active) | 20–40 lines | Always present |
-| **Skill** | On keyword trigger | 180–1,400 lines | Zero until triggered |
+| **Skill** | Description at start; body on trigger | 180–1,400 lines | Minimal (description only) |
 | **Agent description** | Every session | 5–10 lines (frontmatter only) | Minimal |
 | **Command** | On slash-command invoke | 30–240 lines | Zero until invoked |
 
-The dangerous ones are skills. They trigger automatically on keywords, they can stack (mentioning "Svelte" and "testing" loads ~1,800 lines) and you don't always know it's happened. Ten skills totalling 7,300 lines won't all load at once, but three or four triggering simultaneously is realistic.
+The ones to watch are skills. Their descriptions load at session start (cheap), but when triggered, the full body loads — and they trigger automatically on keywords. They can stack (mentioning "Svelte" and "testing" loads ~1,800 lines) and you don't always know it's happened. Ten skills totalling 7,300 lines won't all load at once, but three or four triggering simultaneously is realistic.
 
 **Practical guidance:**
 
