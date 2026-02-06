@@ -16,6 +16,7 @@ It's also a teaching resource. The specific choices here reflect one developer's
   - [hooks/](#hooks)
   - [output-styles/](#output-styles)
   - [library/](#library)
+- [Commands vs Skills vs Agents](#commands-vs-skills-vs-agents)
 - [How This Setup Was Built](#how-this-setup-was-built)
 - [Building Your Own](#building-your-own)
   - [Start With Friction](#start-with-friction)
@@ -161,7 +162,9 @@ Commands come in model tiers — `delta` (Haiku, fast/cheap), `gamma` (Sonnet, b
 
 ### hooks/
 
-Shell scripts (zsh) that run automatically on git events. These are symlinked into individual project `.git/hooks/` directories.
+Claude Code supports hooks that trigger on a range of events — not just git operations. The full list includes `PreToolUse` and `PostToolUse` (before/after Claude runs a tool), `UserPromptSubmit` (when you send a message), `SessionStart` and `SessionEnd`, `Stop` (when Claude finishes responding), `Notification`, and more. Hooks can be shell commands, single-prompt LLM calls, or full sub-agents with tool access.
+
+All the hooks in *this* repository happen to be git hooks (shell scripts symlinked into `.git/hooks/` directories), but that's a reflection of where my friction was, not a limitation of the system. A `PreToolUse` hook could lint every file before Claude writes it. A `SessionStart` hook could load environment-specific context. A `Stop` hook could verify that tests pass before Claude considers itself done.
 
 | Hook | Event | Purpose |
 |---|---|---|
@@ -170,11 +173,11 @@ Shell scripts (zsh) that run automatically on git events. These are symlinked in
 | `pre-push-evidence.zsh` | Before push | AI-driven extraction of apprenticeship portfolio evidence from commits |
 | `post-commit-docs.zsh` | After commit | Checks if documentation needs updating based on changed files |
 
-**How I use it:** The hooks enforce discipline I wouldn't maintain manually. The test hook catches untested code before it reaches the remote. The evidence hook is specific to my situation — I'm on a Software Development Apprenticeship (Level 4) and need to collect evidence of Knowledge, Skills, and Behaviours (KSBs) from my work. Rather than retrospectively hunting for evidence, the hook analyses each push and extracts it automatically. The documentation hook maps changed files to their relevant docs and prompts me to update them.
+**How I use it:** The hooks enforce discipline I wouldn't maintain manually — and that's the primary reason *I* reach for them. The test hook catches untested code before it reaches the remote. The evidence hook is specific to my situation — I'm on a Software Development Apprenticeship (Level 4) and need to collect evidence of Knowledge, Skills, and Behaviours (KSBs) from my work. Rather than retrospectively hunting for evidence, the hook analyses each push and extracts it automatically. The documentation hook maps changed source files to their relevant docs (API files trigger `api.md`, auth files trigger `security.md`, config changes trigger `README.md`) and prompts me to update them.
 
 The `pre-push.zsh` orchestrator has an allowlist — only specified repositories run the full hook chain. This prevents the heavier hooks (especially the AI evidence extraction) from running on every casual project.
 
-**The pattern:** Hooks are for discipline you know you need but won't consistently apply. The key insight is the allowlist approach: not every project needs every hook. Start with hooks that catch mistakes (tests, linting) and only add heavier automation (AI analysis, documentation checks) to projects that warrant it.
+**The pattern:** Hooks have different uses depending on what you need. Enforcing personal discipline (my main use) is one. Others include: automating tedious bookkeeping (logging, data collection), enforcing team standards across contributors, integrating with external tools (CI, linters, notification services), or augmenting Claude's behaviour (injecting context at session start, validating output before it's finalised). The key insight is the allowlist approach: not every project needs every hook. Start with the trigger point that matches your actual friction.
 
 ---
 
@@ -198,20 +201,75 @@ Shared resources, templates, and example configurations used by commands and age
 
 ---
 
+## Commands vs Skills vs Agents
+
+These three systems do different jobs. Understanding the distinction matters because choosing the wrong one for a task either limits what Claude can do or over-engineers something simple.
+
+### Skills: Passive Knowledge
+
+A skill is a knowledge pack that Claude loads automatically when it detects relevant keywords in conversation. You don't invoke skills — they activate on their own.
+
+**How they work:** Each skill lives in `skills/<name>/SKILL.md`. The YAML frontmatter declares trigger keywords. When you mention "Svelte" or "$state", the `svelte-ninja` skill loads its 900 lines of Svelte 5 patterns, runes conventions, and SvelteKit routing guidance into Claude's context. You never asked for it — Claude just becomes more knowledgeable about Svelte for the duration of that conversation.
+
+**What they're for:** Domain expertise. A skill tells Claude *how to think* about a subject. The `testing-obsessive` skill doesn't just list Vitest commands — it encodes a risk-based testing philosophy ("Not for 100% coverage"), a specific workflow (test-after development), and priority matrices for deciding what to test. The `data-ontologist` skill doesn't just describe databases — it provides decision frameworks for when to use relational vs. graph vs. document storage.
+
+**When to create one:** When Claude gives you generic advice in an area where you need opinionated guidance. If Claude suggests class components when you've standardised on Svelte 5 runes, that's a skill gap.
+
+### Commands: Explicit Workflows
+
+A command is a structured template you invoke deliberately with a slash command (e.g., `/doc/create/status-report`). Commands define a step-by-step workflow, specify which model to use, and often accept arguments.
+
+**How they work:** Each command lives in `commands/<category>/<name>.md`. The YAML frontmatter sets the model and description. The body defines ordered steps, input handling, output format, and rules. When you type `/git/commit`, Claude follows the commit command's specific workflow: check staging, generate a conventional commit message, show it for approval, then push.
+
+**What they're for:** Repeatable processes with defined structure. The `doc/create/status-report` command doesn't just say "write a status report" — it specifies a filename convention (`003_26-01-13-1545_xml-validation-added.md`), requires reading the previous report and the roadmap first, defines an audience ("one dev, one non-dev"), and forbids nested bullet lists. The `chore/version` command updates five specific files (README, package.json, tauri.conf.json, Cargo.toml, a UI layout file) in lockstep — a task that's easy to get wrong manually.
+
+**When to create one:** When you've given Claude the same multi-step instruction more than twice. If you keep typing "look at my git history, compare it to the roadmap, and write a status report in this format," that's a command.
+
+### Agents: Autonomous Processes
+
+An agent is a multi-step workflow that Claude delegates to a sub-process. Agents run autonomously, use their own model, and can have persistent memory across sessions.
+
+**How they work:** Each agent lives in `agents/<name>.md`. The frontmatter sets the model and a description that tells Claude *when* to delegate to the agent. When Claude recognises a matching situation, it spawns the agent as a separate process. The `roadmap-maintainer` agent, for example, runs on Opus, has its own persistent memory directory, and follows a six-step workflow: read relevant command files, assess current state, identify gaps, apply patterns, validate accuracy, and suggest updates.
+
+**What they're for:** Complex workflows that require judgement, multiple tool calls, and potentially their own accumulated context. The `project-context-loader` agent doesn't just read a README — it analyses git history, scans for ADRs, checks active branches, identifies technical debt, and synthesises everything into a 60-second context reload. That's too much orchestration for a command and too process-oriented for a skill.
+
+**When to create one:** When a workflow requires autonomous decision-making across multiple steps. If the process needs Claude to *investigate* before acting (rather than following a fixed template), that's an agent.
+
+### Quick Reference
+
+| | Skills | Commands | Agents |
+|---|---|---|---|
+| **Triggered by** | Keywords (automatic) | Slash command (explicit) | Claude's judgement (delegated) |
+| **Purpose** | Domain knowledge | Repeatable workflows | Autonomous multi-step processes |
+| **Complexity** | Static reference | Structured steps | Dynamic investigation |
+| **Model** | Inherits session model | Specifies own model | Specifies own model |
+| **User action** | None — loads silently | You invoke it | Claude delegates to it |
+| **Memory** | None | None | Can persist across sessions |
+| **Example** | "How to write Svelte 5 runes" | "Generate a status report" | "Rebuild project context" |
+
+---
+
 ## How This Setup Was Built
 
-This didn't start as a comprehensive system. It started with a `CLAUDE.md` that said "use British spelling" and a `.gitignore`.
+This didn't start as a comprehensive system. It started with a `CLAUDE.md` that said "use British spelling" and a `.gitignore`. Every addition traces back to a specific problem.
 
-Each addition came from a specific friction point:
+**CLAUDE.md grew from repeated corrections.** The "Spelling (Non-Negotiable)" section exists because Claude kept writing "organization" and "initialize." Rather than correcting it every session, the config now lists explicit rules (`-ise` not `-ize`, `-our` not `-or`, `-re` not `-er`) and links to the Oxford Learner's Dictionary as the authority. The "Code Editing" section — "Do not edit files directly unless explicitly asked" — exists because Claude would make changes without showing them first. Each rule in CLAUDE.md is a correction that happened often enough to formalise.
 
-1. **CLAUDE.md grew** because I kept correcting the same behaviours
-2. **Skills appeared** when I noticed Claude giving generic advice in areas where I needed opinionated guidance
-3. **Commands emerged** when I typed the same multi-step instructions for the third time
-4. **Agents were added** when I had workflows complex enough that a single prompt couldn't capture them
-5. **Hooks were written** when I realised I was forgetting to run tests before pushing (again)
-6. **Output styles materialised** when the default tone felt wrong often enough to fix
+**The first skills addressed gaps in Claude's default advice.** The `svelte-ninja` skill (900+ lines) was created because Claude's generic Svelte knowledge didn't cover Svelte 5's runes system well enough — it would suggest Svelte 4 patterns (`$:` reactive statements, stores) when the project had moved to `$state`, `$derived`, and `$effect`. The skill encodes the specific patterns, anti-patterns, and SvelteKit conventions that matter for this developer's stack.
 
-The order matters. Don't start by building ten skills and five agents. Start with `CLAUDE.md` and let the rest emerge from actual need.
+**Some skills exist to compensate for known weaknesses.** The CLAUDE.md states plainly: "Testing is a known weakness. No systematic TDD, no comprehensive coverage culture." The `testing-obsessive` skill was built as a counterweight — it encodes the testing approach the developer *wants* to follow (risk-based, test-after, 80% coverage target, not 100%) even when the instinct is to skip writing tests entirely. It includes specific priority matrices, Vitest configurations, and a section on portfolio evidence for KSB documentation. The skill doesn't pretend the weakness doesn't exist; it builds scaffolding around it.
+
+**Iteration is visible in the skill set.** There are two debugging skills. The first (`debugging`) is a concise five-step framework: reproduce, isolate, diagnose, fix, verify. It's 180 lines and covers the basics. The second (`systematic-debugger`) is 880 lines and adds browser DevTools workflows, Node.js debugging, Svelte-specific patterns (reactive statement logging, store debugging, component lifecycle tracing), performance profiling, and common bug pattern catalogues (race conditions, stale closures, memory leaks). The first skill wasn't deleted because it serves a different moment — sometimes you want the quick framework, sometimes you need the deep reference.
+
+**The `remember` skill is a meta-tool.** It exists because preferences kept getting lost between sessions. When you say "remember that the API uses snake_case," it parses the instruction, locates the appropriate CLAUDE.md file, determines the right section, transforms casual language into an imperative instruction ("API responses use snake_case — convert to camelCase in frontend code"), and writes it. It's a skill whose job is to grow the configuration itself.
+
+**Commands were extracted from repeated instructions.** The `chore/version` command updates version numbers across five files simultaneously — README, package.json, tauri.conf.json, Cargo.toml, and a UI layout file. It exists because those numbers kept drifting out of sync during manual updates. The `doc/create/status-report` command has a specific filename format (`003_26-01-13-1545_xml-validation-added.md`), audience guidelines ("one dev, one non-dev — explain capabilities, not implementation"), and the instruction to read the previous report before writing the new one. These details accumulated because early status reports were inconsistent — different formats, missing context, jargon that non-technical readers couldn't parse.
+
+**Agents were added when commands weren't enough.** The `project-context-loader` agent exists because switching between projects (Iris, Rhea, Theia) meant losing track of branches, recent decisions, and work in progress. A command could list files, but the context loader needs to *investigate* — scan git history, read ADRs, check for uncommitted changes, identify patterns, and synthesise a 60-second briefing. That requires autonomy, not a fixed template. The `roadmap-maintainer` agent was given persistent memory (`agent-memory/roadmap-maintainer/`) because documentation context was being lost between sessions — it needed to remember what it had found before.
+
+**Hooks were written when discipline failed.** The pre-push test hook exists because untested code kept reaching the remote. The post-commit documentation hook exists because the mapping between source files and their documentation was clear (API files should trigger `api.md` updates, auth files should trigger `security.md`) but the developer wasn't making those updates consistently. The evidence extraction hook exists because retrospectively hunting for apprenticeship portfolio evidence was miserable — automating it at push time turned a dreaded chore into a background process.
+
+The order matters. Each layer built on the one before it, and each addition solved a problem that was already causing friction — not one that might cause friction someday.
 
 ---
 
