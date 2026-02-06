@@ -1,8 +1,10 @@
 # Claude Code Config
 
-A version-controlled setup for customising [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Anthropic's CLI tool. This repository stores skills, agents, commands, hooks and preferences that shape how Claude behaves during development sessions.
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) is Anthropic's command-line tool for working with Claude. Out of the box it's useful, but you can customise how it behaves — what it knows about your tech stack, how it writes commit messages, what checks it runs before pushing code. That's what this repository does: it stores those customisations in one place so they're version-controlled and portable.
 
-It's also a teaching resource. The specific choices here reflect one developer's workflow — many of them shaped by ADHD — but the patterns are transferable. Your setup should look nothing like this one.
+If you're new to Claude Code, [this cheat sheet](https://medium.com/@tonimaxx/the-ultimate-claude-code-cheat-sheet-your-complete-command-reference-f9796013ea50) is a good starting point. This README assumes you've used it at least a few times and are wondering how to make it work better for you.
+
+The specific choices here reflect one developer's workflow — many of them shaped by ADHD — but the patterns are transferable. Your setup should look nothing like this one.
 
 ## Table of Contents
 
@@ -104,7 +106,7 @@ Contains `settings.local.json`, which manages tool permissions and MCP (Model Co
 
 Each subdirectory contains a `SKILL.md` file — a self-contained knowledge pack that Claude loads when it detects relevant context. Skills are triggered automatically by keywords in conversation.
 
-**Context cost:** When a skill triggers, its full content loads into Claude's context window. These aren't small — the ten skills in this repo total ~7,300 lines. The `api-designer` alone is 1,374 lines. If you mention "Svelte" and "testing" in the same message, both `svelte-ninja` (897 lines) and `testing-obsessive` (881 lines) may load simultaneously. That's ~1,800 lines of context window consumed before Claude has read a single line of your code. Skills are powerful, but they aren't free.
+**Context cost:** Skills don't load into context when triggered — they're loaded at session start so Claude can scan their trigger keywords. The ten skills in this repo total ~7,300 lines. That's context window space consumed in every session, whether or not a skill is ever relevant. When a skill *does* trigger, the cost has already been paid; but every skill you add raises the baseline cost of every session. The `api-designer` alone is 1,374 lines. If your session never touches API design, those 1,374 lines are pure overhead.
 
 | Skill | Triggers on | Purpose | Impact Example |
 |---|---|---|---|
