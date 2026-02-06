@@ -1,12 +1,14 @@
 # Claude Code Config
 
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) is Anthropic's command-line tool for working with Claude. Out of the box it's useful, but you can customise how it behaves — what it knows about your tech stack, how it writes commit messages, what checks it runs before pushing code. That's what this repository does: it stores those customisations in one place so they're version-controlled and portable.
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) is Anthropic's command-line tool for working with Claude. Out of the box it's useful, but you can customise how it behaves — what it knows about your tech stack, how it writes commit messages, what checks it runs before pushing code.
 
 If you're new to Claude Code, [this cheat sheet](https://medium.com/@tonimaxx/the-ultimate-claude-code-cheat-sheet-your-complete-command-reference-f9796013ea50) is a good starting point. This README assumes you've used it at least a few times and are wondering how to make it work better for you.
 
-The specific choices here reflect one developer's workflow — many of them shaped by ADHD — but the patterns are transferable. Your setup should look nothing like this one.
+> [!IMPORTANT]
+> The specific choices here reflect my particular workflow, and a lot of my approach is shaped by <strike><i>being three goblins stood on each other's shoulders in a man suit</i></strike> having ADHD... but the process of building it is completely transferable. Your setup should look nothing like this one.
 
-## Table of Contents
+<details>
+<summary><h2>Table of Contents</h2></summary>
 
 - [Repository Structure](#repository-structure)
 - [Directory Guide](#directory-guide)
@@ -28,10 +30,10 @@ The specific choices here reflect one developer's workflow — many of them shap
   - [Use Model Tiers Deliberately](#use-model-tiers-deliberately)
   - [Version Control Everything](#version-control-everything)
   - [Let It Grow Organically](#let-it-grow-organically)
+</details>
 
----
-
-## Repository Structure
+<details>
+<summary><h2>Repository Structure</h2></summary>
 
 ```
 claude-code-config/
@@ -71,6 +73,7 @@ claude-code-config/
 └── library/                      # Shared templates and examples
     └── configs/examples/
 ```
+</details>
 
 ---
 
@@ -86,9 +89,15 @@ The root configuration file. Claude reads this at the start of every session. It
 - **Git workflow** — commit format, branch naming, breaking change detection
 - **Security defaults** — no secrets in code, RLS, input validation
 
-**How I use it:** This file encodes the things I got tired of repeating. British spelling corrections, the instruction not to edit files without asking, the reminder that testing is a known weakness rather than something to pretend doesn't exist. It's accumulated over time — each section exists because its absence caused a problem at least once.
+<details>
+    <summary><strong>How I use it</strong></summary>
+    This file encodes the things I got tired of repeating. British spelling corrections, the instruction not to edit files without asking, the reminder that testing is a known weakness rather than something to pretend doesn't exist. It's accumulated over time — each section exists because its absence caused a problem at least once.
+</details>
 
-**The pattern:** CLAUDE.md is where you put the things that should be true across every project. If you find yourself correcting Claude about the same thing in different repositories, that correction belongs here.
+<details>
+    <summary><strong>The pattern</strong></summary>
+    CLAUDE.md is where you put the things that should be true across every project. If you find yourself correcting Claude about the same thing in different repositories, that correction belongs here.
+</details>
 
 ---
 
@@ -96,9 +105,15 @@ The root configuration file. Claude reads this at the start of every session. It
 
 Contains `settings.local.json`, which manages tool permissions and MCP (Model Context Protocol) server connections.
 
-**How I use it:** Currently enables the sequential thinking MCP tool (which gives Claude a structured internal reasoning step) and pre-approves `git add` and `git commit` commands so I'm not confirming every staging operation.
+<details>
+    <summary><strong>How I use it</strong></summary>
+    Currently enables the sequential thinking MCP tool (which gives Claude a structured internal reasoning step) and pre-approves `git add` and `git commit` commands so I'm not confirming every staging operation.
+</details>
 
-**The pattern:** This is Claude Code's permission system. Anything Claude does that requires tool access — running shell commands, connecting to external services — gets gated here. Start restrictive and open permissions as you build trust with specific workflows.
+<details>
+    <summary><strong>The pattern</strong></summary>
+    This is Claude Code's permission system. Anything Claude does that requires tool access — running shell commands, connecting to external services — gets gated here. Start restrictive and open permissions as you build trust with specific workflows.
+</details>
 
 ---
 
@@ -121,9 +136,15 @@ Each subdirectory contains a `SKILL.md` file — a self-contained knowledge pack
 | `remember` | "remember that", "note this" | Stores preferences in CLAUDE.md files | Writes "Omit semicolons" to CLAUDE.md instead of just acknowledging the preference |
 | `testing-obsessive` | write tests, Vitest, coverage | Risk-based testing strategy and Vitest setup | Prioritises testing payment logic over styling, targets 80% coverage not 100% |
 
-**How I use it:** The skills reflect what I actually work with. There's a Svelte skill because that's my primary framework. There's a Neo4j/Cypher skill because I work with graph databases. There are *two* debugging skills because the first one (`debugging`, 180 lines) is a quick five-step framework for when I roughly know where the problem is and just need a structured process. The second (`systematic-debugger`, 880 lines) is for when I'm genuinely stuck — it has DevTools walkthroughs, Svelte-specific reactive debugging, common bug pattern catalogues and performance profiling guides. The `testing-obsessive` skill exists precisely because testing is a weakness; it encodes the approach I want to follow even when my instinct is to skip it.
+<details>
+    <summary><strong>How I use it</strong></summary>
+    The skills reflect what I actually work with. There's a Svelte skill because that's my primary framework. There's a Neo4j/Cypher skill because I work with graph databases. There are *two* debugging skills because the first one (`debugging`, 180 lines) is a quick five-step framework for when I roughly know where the problem is and just need a structured process. The second (`systematic-debugger`, 880 lines) is for when I'm genuinely stuck — it has DevTools walkthroughs, Svelte-specific reactive debugging, common bug pattern catalogues and performance profiling guides. The `testing-obsessive` skill exists precisely because testing is a weakness; it encodes the approach I want to follow even when my instinct is to skip it.
+</details>
 
-**The pattern:** Skills should encode expertise you need but don't always have at your fingertips. They're not documentation — they're opinionated guides that tell Claude *how* to approach a domain, not just what the domain contains. A React developer would have entirely different skills here. A Python data scientist would have different skills again. The question to ask: "When I'm working in this area, what do I wish I always remembered?"
+<details>
+    <summary><strong>The pattern</strong></summary>
+    Skills should encode expertise you need but don't always have at your fingertips. They're not documentation — they're opinionated guides that tell Claude *how* to approach a domain, not just what the domain contains. A React developer would have entirely different skills here. A Python data scientist would have different skills again. The question to ask: "When I'm working in this area, what do I wish I always remembered?"
+</details>
 
 ---
 
@@ -139,9 +160,15 @@ Agents are autonomous multi-step workflows that Claude can delegate to. Each age
 | `implementation-planner` | Opus | Break vague feature requests into actionable implementation plans |
 | `roadmap-maintainer` | Opus | Keep documentation and roadmaps in sync with actual code |
 
-**How I use it:** I work across multiple projects (Iris, Rhea, Theia). The context loader exists because switching between them was painful — with ADHD, context-switching costs are steep, and I'd lose track of what branch I was on, what I'd been working on, what architectural decisions I'd made. Twenty minutes of reading git logs before writing a line of code, every time. The implementation planner exists because I tend to start coding the interesting bit before thinking through the full scope of a feature. The roadmap maintainer exists because my roadmap format is complex — milestones with numbered task IDs, dependency tracking via Mermaid diagrams, status tables and per-milestone sections that all need to agree with each other. Updating that by hand invites inconsistency.
+<details>
+    <summary><strong>How I use it</strong></summary>
+    I work across multiple projects (Iris, Rhea, Theia). The context loader exists because switching between them was painful — with ADHD, context-switching costs are steep, and I'd lose track of what branch I was on, what I'd been working on, what architectural decisions I'd made. Twenty minutes of reading git logs before writing a line of code, every time. The implementation planner exists because I tend to start coding the interesting bit before thinking through the full scope of a feature. The roadmap maintainer exists because my roadmap format is complex — milestones with numbered task IDs, dependency tracking via Mermaid diagrams, status tables and per-milestone sections that all need to agree with each other. Updating that by hand invites inconsistency.
+</details>
 
-**The pattern:** Agents solve *process* problems, not *knowledge* problems. If you notice a recurring multi-step workflow where you keep forgetting steps or doing them inconsistently, that's an agent. Skills tell Claude what to know; agents tell Claude what to *do*. Think about the workflows you dread or skip — those are your agent candidates.
+<details>
+    <summary><strong>The pattern</strong></summary>
+    Agents solve *process* problems, not *knowledge* problems. If you notice a recurring multi-step workflow where you keep forgetting steps or doing them inconsistently, that's an agent. Skills tell Claude what to know; agents tell Claude what to *do*. Think about the workflows you dread or skip — those are your agent candidates.
+</details>
 
 ---
 
@@ -163,9 +190,15 @@ Invocable templates triggered with slash commands (e.g., `/doc/create/adr`). Eac
 
 Some commands offer model tiers so the same operation can run at different levels of sophistication. The `task/suggest` command comes in three variants: `delta` (Haiku — quick suggestion when you just need momentum), `gamma` (Sonnet — balanced analysis) and `omega` (Opus — thorough codebase-vs-roadmap comparison). The `task/minima` command offers `delta` and `gamma` only — Opus would be overkill for "do this with minimal approach." Other commands don't tier at all: `git/commit` is always Haiku (commit messages don't need deep reasoning), `analyse/critique` is always Opus (shallow critiques aren't useful) and `doc/create/status-report` is always Haiku (structured enough that the template does the heavy lifting).
 
-**How I use it:** The `analyse/critique` command points Opus at my codebase and probes for weaknesses in implemented code — not missing features, just problems in what's actually there. The `doc/create/work-record` command generates session summaries from git history — useful for apprenticeship portfolio evidence. The `task/suggest` commands analyse my codebase against my roadmap and suggest what to work on next, which helps when I'm stuck or scattered. The `git/pull-request` command has an unusual rule: the summary must be a "non-technical, absurd metaphor." That's a deliberate choice to make PR reviews less tedious.
+<details>
+    <summary><strong>How I use it</strong></summary>
+    The `analyse/critique` command points Opus at my codebase and probes for weaknesses in implemented code — not missing features, just problems in what's actually there. The `doc/create/work-record` command generates session summaries from git history — useful for apprenticeship portfolio evidence. The `task/suggest` commands analyse my codebase against my roadmap and suggest what to work on next, which helps when I'm stuck or scattered. The `git/pull-request` command has an unusual rule: the summary must be a "non-technical, absurd metaphor." That's a deliberate choice to make PR reviews less tedious.
+</details>
 
-**The pattern:** Commands formalise the workflows you repeat. If you find yourself giving Claude the same multi-step instruction more than twice, extract it into a command. The model tier system is worth adopting — not every task needs your most expensive model. Status reports and version bumps work fine with Haiku; architectural analysis benefits from Opus.
+<details>
+    <summary><strong>The pattern</strong></summary>
+    Commands formalise the workflows you repeat. If you find yourself giving Claude the same multi-step instruction more than twice, extract it into a command. The model tier system is worth adopting — not every task needs your most expensive model. Status reports and version bumps work fine with Haiku; architectural analysis benefits from Opus.
+</details>
 
 ---
 
@@ -182,11 +215,16 @@ All the hooks in *this* repository happen to be git hooks (shell scripts symlink
 | `pre-push-evidence.zsh` | Before push | AI-driven extraction of apprenticeship portfolio evidence from commits |
 | `post-commit-docs.zsh` | After commit | Checks if documentation needs updating based on changed files |
 
-**How I use it:** The hooks enforce discipline I wouldn't maintain manually — and that's the primary reason *I* reach for them. The test hook catches untested code before it reaches the remote. The evidence hook is specific to my situation — I'm on a Software Development Apprenticeship (Level 4) and need to collect evidence of Knowledge, Skills, and Behaviours (KSBs) from my work. Rather than retrospectively hunting for evidence, the hook analyses each push and extracts it automatically. The documentation hook maps changed source files to their relevant docs (API files trigger `api.md`, auth files trigger `security.md`, config changes trigger `README.md`) and prompts me to update them.
+<details>
+    <summary><strong>How I use it</strong></summary>
+    <p>The hooks enforce discipline I wouldn't maintain manually — and that's the primary reason *I* reach for them. The test hook catches untested code before it reaches the remote. The evidence hook is specific to my situation — I'm on a Software Development Apprenticeship (Level 4) and need to collect evidence of Knowledge, Skills, and Behaviours (KSBs) from my work. Rather than retrospectively hunting for evidence, the hook analyses each push and extracts it automatically. The documentation hook maps changed source files to their relevant docs (API files trigger `api.md`, auth files trigger `security.md`, config changes trigger `README.md`) and prompts me to update them.</p>
+    <p>The `pre-push.zsh` orchestrator has an allowlist — only specified repositories run the full hook chain. This prevents the heavier hooks (especially the AI evidence extraction) from running on every casual project.</p>
+</details>
 
-The `pre-push.zsh` orchestrator has an allowlist — only specified repositories run the full hook chain. This prevents the heavier hooks (especially the AI evidence extraction) from running on every casual project.
-
-**The pattern:** Hooks have different uses depending on what you need. Enforcing personal discipline (my main use) is one. Others include: automating tedious bookkeeping (logging, data collection), enforcing team standards across contributors, integrating with external tools (CI, linters, notification services) or augmenting Claude's behaviour (injecting context at session start, validating output before it's finalised). The key insight is the allowlist approach: not every project needs every hook. Start with the trigger point that matches your actual friction.
+<details>
+    <summary><strong>The pattern</strong></summary>
+    Hooks have different uses depending on what you need. Enforcing personal discipline (my main use) is one. Others include: automating tedious bookkeeping (logging, data collection), enforcing team standards across contributors, integrating with external tools (CI, linters, notification services) or augmenting Claude's behaviour (injecting context at session start, validating output before it's finalised). The key insight is the allowlist approach: not every project needs every hook. Start with the trigger point that matches your actual friction.
+</details>
 
 ---
 
@@ -194,9 +232,15 @@ The `pre-push.zsh` orchestrator has an allowlist — only specified repositories
 
 Defines how Claude communicates — tone, verbosity, explanation strategy. The style file is loaded when active and stays in context for the entire session, so keep it concise.
 
-**How I use it:** The `british-dev-goblin.md` style sets a collaborative, understated tone. It tells Claude to lead with solutions, skip obvious explanations and only go deep when there's genuine learning value. "Casual but not cringe-inducing" and "English sensibility (avoid American over-enthusiasm)" are the operative instructions.
+<details>
+    <summary><strong>How I use it</strong></summary>
+    The `british-dev-goblin.md` style sets a collaborative, understated tone. It tells Claude to lead with solutions, skip obvious explanations and only go deep when there's genuine learning value. "Casual but not cringe-inducing" and "English sensibility (avoid American over-enthusiasm)" are the operative instructions.
+</details>
 
-**The pattern:** Without a style, Claude defaults to explaining things you already know — prefacing a database migration with what a migration is, or walking through how `async/await` works before answering your actual question. A style that says "skip obvious explanations" and "lead with the solution" cuts that padding and gets to the answer faster. Someone who learns best from detailed explanations would configure the opposite of what's here. Someone working in a team might want a more formal, documentation-oriented style.
+<details>
+    <summary><strong>The pattern</strong></summary>
+    Without a style, Claude defaults to explaining things you already know — prefacing a database migration with what a migration is, or walking through how `async/await` works before answering your actual question. A style that says "skip obvious explanations" and "lead with the solution" cuts that padding and gets to the answer faster. Someone who learns best from detailed explanations would configure the opposite of what's here. Someone working in a team might want a more formal, documentation-oriented style.
+</details>
 
 ---
 
@@ -204,9 +248,15 @@ Defines how Claude communicates — tone, verbosity, explanation strategy. The s
 
 Shared resources, templates and example configurations used by commands and agents.
 
-**How I use it:** Currently holds example config structures that commands reference as templates. For instance, `library/configs/examples/roadmaps.jsonc` defines the expected shape of a project's `.claude/roadmaps.json` file — the `doc/create/roadmap` command uses this format when generating a new roadmap and registering it in the project config.
+<details>
+    <summary><strong>How I use it</strong></summary>
+    Currently holds example config structures that commands reference as templates. For instance, `library/configs/examples/roadmaps.jsonc` defines the expected shape of a project's `.claude/roadmaps.json` file — the `doc/create/roadmap` command uses this format when generating a new roadmap and registering it in the project config.
+</details>
 
-**The pattern:** As your setup grows, you'll accumulate reusable fragments — data structures, template formats, example configs. Rather than duplicating these across commands, centralise them. The library is the "shared code" of your configuration.
+<details>
+    <summary><strong>The pattern</strong></summary>
+    As your setup grows, you'll accumulate reusable fragments — data structures, template formats, example configs. Rather than duplicating these across commands, centralise them. The library is the "shared code" of your configuration.
+</details>
 
 ---
 
@@ -218,31 +268,58 @@ These three systems do different jobs. Understanding the distinction matters bec
 
 A skill is a knowledge pack that Claude loads automatically when it detects relevant keywords in conversation. You don't invoke skills — they activate on their own.
 
-**How they work:** Each skill lives in `skills/<name>/SKILL.md`. The YAML frontmatter declares trigger keywords. When you mention "Svelte" or "$state", the `svelte-ninja` skill loads its 900 lines of Svelte 5 patterns, runes conventions and SvelteKit routing guidance into Claude's context. You never asked for it — Claude just becomes more knowledgeable about Svelte for the duration of that conversation.
+<details>
+  <summary><strong>How they work</strong></summary>
+  Each skill lives in `skills/<name>/SKILL.md`. The YAML frontmatter declares trigger keywords. When you mention "Svelte" or "$state", the `svelte-ninja` skill loads its 900 lines of Svelte 5 patterns, runes conventions and SvelteKit routing guidance into Claude's context. You never asked for it — Claude just becomes more knowledgeable about Svelte for the duration of that conversation.
+</details>
 
-**What they're for:** Domain expertise. A skill tells Claude *how to think* about a subject. The `testing-obsessive` skill doesn't just list Vitest commands — it encodes a risk-based testing philosophy ("Not for 100% coverage"), a specific workflow (test-after development) and priority matrices for deciding what to test. The `data-ontologist` skill doesn't just describe databases — it provides decision frameworks for when to use relational vs. graph vs. document storage.
+<details>
+  <summary><strong>What they're for</strong></summary>
+  Domain expertise. A skill tells Claude *how to think* about a subject. The `testing-obsessive` skill doesn't just list Vitest commands — it encodes a risk-based testing philosophy ("Not for 100% coverage"), a specific workflow (test-after development) and priority matrices for deciding what to test. The `data-ontologist` skill doesn't just describe databases — it provides decision frameworks for when to use relational vs. graph vs. document storage.
+</details>
 
-**When to create one:** When Claude gives you generic advice in an area where you need opinionated guidance. If Claude suggests class components when you've standardised on Svelte 5 runes, that's a skill gap.
+<details>
+  <summary><strong>When to create one</strong></summary>
+  When Claude gives you generic advice in an area where you need opinionated guidance. If Claude suggests class components when you've standardised on Svelte 5 runes, that's a skill gap.
+</details>
 
 ### Commands: Explicit Workflows
 
 A command is a structured template you invoke deliberately with a slash command (e.g., `/doc/create/status-report`). Commands define a step-by-step workflow, specify which model to use and often accept arguments.
 
-**How they work:** Each command lives in `commands/<category>/<name>.md`. The YAML frontmatter sets the model and description. The body defines ordered steps, input handling, output format and rules. When you type `/git/commit`, Claude follows the commit command's specific workflow: check staging, generate a conventional commit message, show it for approval, then push.
+<details>
+  <summary><strong>How they work</strong></summary>
+  Each command lives in `commands/<category>/<name>.md`. The YAML frontmatter sets the model and description. The body defines ordered steps, input handling, output format and rules. When you type `/git/commit`, Claude follows the commit command's specific workflow: check staging, generate a conventional commit message, show it for approval, then push.
+</details>
 
-**What they're for:** Repeatable processes with defined structure. The `doc/create/status-report` command doesn't just say "write a status report" — it specifies a filename convention (`003_26-01-13-1545_xml-validation-added.md`), requires reading the previous report and the roadmap first, defines an audience ("one dev, one non-dev") and forbids nested bullet lists. The `chore/version` command updates five specific files (README, package.json, tauri.conf.json, Cargo.toml, a UI layout file) in lockstep — a task that's easy to get wrong manually.
+<details>
+  <summary><strong>What they're for</strong></summary>
+  Repeatable processes with defined structure. The `doc/create/status-report` command doesn't just say "write a status report" — it specifies a filename convention (`003_26-01-13-1545_xml-validation-added.md`), requires reading the previous report and the roadmap first, defines an audience ("one dev, one non-dev") and forbids nested bullet lists. The `chore/version` command updates five specific files (README, package.json, tauri.conf.json, Cargo.toml, a UI layout file) in lockstep — a task that's easy to get wrong manually.
+</details>
 
-**When to create one:** When you've given Claude the same multi-step instruction more than twice. If you keep typing "look at my git history, compare it to the roadmap, and write a status report in this format," that's a command.
+<details>
+  <summary><strong>When to create one</strong></summary>
+  When you've given Claude the same multi-step instruction more than twice. If you keep typing "look at my git history, compare it to the roadmap, and write a status report in this format," that's a command.
+</details>
 
 ### Agents: Autonomous Processes
 
 An agent is a multi-step workflow that Claude delegates to a sub-process. Agents run autonomously, use their own model and can have persistent memory across sessions.
 
-**How they work:** Each agent lives in `agents/<name>.md`. The frontmatter sets the model and a description that tells Claude *when* to delegate to the agent. When Claude recognises a matching situation, it spawns the agent as a separate process. The `roadmap-maintainer` agent, for example, runs on Opus, has its own persistent memory directory and follows a six-step workflow: read relevant command files, assess current state, identify gaps, apply patterns, validate accuracy and suggest updates.
+<details>
+  <summary><strong>How they work</strong></summary>
+  Each agent lives in `agents/<name>.md`. The frontmatter sets the model and a description that tells Claude *when* to delegate to the agent. When Claude recognises a matching situation, it spawns the agent as a separate process. The `roadmap-maintainer` agent, for example, runs on Opus, has its own persistent memory directory and follows a six-step workflow: read relevant command files, assess current state, identify gaps, apply patterns, validate accuracy and suggest updates.
+</details>
 
-**What they're for:** Complex workflows that require judgement, multiple tool calls and potentially their own accumulated context. The `project-context-loader` agent doesn't just read a README — it analyses git history, scans for ADRs, checks active branches, identifies technical debt and synthesises everything into a 60-second context reload. That's too much orchestration for a command and too process-oriented for a skill.
+<details>
+  <summary><strong>What they're for</strong></summary>
+  Complex workflows that require judgement, multiple tool calls and potentially their own accumulated context. The `project-context-loader` agent doesn't just read a README — it analyses git history, scans for ADRs, checks active branches, identifies technical debt and synthesises everything into a 60-second context reload. That's too much orchestration for a command and too process-oriented for a skill.
+</details>
 
-**When to create one:** When a workflow requires autonomous decision-making across multiple steps. If the process needs Claude to *investigate* before acting (rather than following a fixed template), that's an agent.
+<details>
+  <summary><strong>When to create one</strong></summary>
+  When a workflow requires autonomous decision-making across multiple steps. If the process needs Claude to *investigate* before acting (rather than following a fixed template), that's an agent.
+</details>
 
 ### Quick Reference
 
