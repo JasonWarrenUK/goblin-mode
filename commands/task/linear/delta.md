@@ -4,4 +4,4 @@ argument-hint: [desired outcome]
 model: haiku
 ---
 
-Get the details of issue `FOU-$ARGUMENTS` from Linear, then begin working on it
+Get the details of issue `FOU-$ARGUMENTS` from Linear, then begin working on it. If the issue is indicative of a wider issue, stop and update me.
