@@ -103,6 +103,12 @@ const revM = calcMR(txs);
 - Explicit return types on exported functions
 - Leverage discriminated unions
 
+### Code Style
+
+- Files use **tabs for indentation** (not spaces)
+- When editing: preserve exact tab characters, never convert to spaces
+- Always use Edit tool for modifications, never sed/awk
+
 ### Testing
 
 Testing is a known weakness. No systematic TDD, no comprehensive coverage culture.

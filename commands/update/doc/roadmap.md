@@ -1,7 +1,7 @@
 ---
-description: Update project roadmap task organization
+description: "{{ 𝛀𝛀𝛀 }} Update project roadmap task organization"
 argument-hint: [roadmap filepath (optional)]
-model: claude-opus-4-5
+model: opus
 ---
 
 Maintain the project roadmap at docs/roadmaps/$ARGUMENTS by moving tasks between sections based on completion status and blockers, and keeping mermaid diagrams in sync.
@@ -33,7 +33,7 @@ If $ARGUMENTS provided (e.g., "m1", "m2"), process only that milestone; otherwis
      - They're explicitly marked as urgent/priority
    - Ask user to confirm moves to "In Progress"
 
-3. **Update mermaid diagrams** (milestone-specific AND aggregated "Progress Map"):
+3. **Update Progress Map** (single aggregated diagram at `<a name="map">` section):
 
    **For completed tasks:**
    - Remove the node definition line entirely (e.g., `1WA.12[...]`)
@@ -47,10 +47,6 @@ If $ARGUMENTS provided (e.g., "m1", "m2"), process only that milestone; otherwis
    - Add `:::open` class to tasks that now have no incoming dependencies
    - A task is unblocked when all its blockers are either completed or removed
 
-   **Diagram locations:**
-   - Milestone diagrams: within each `<a name="m1">` etc. section
-   - Aggregated diagram: at `<a name="map">` section (Progress Map)
-
 4. Preserve task numbering:
    - Never renumber existing tasks
    - Task format: `{Milestone}{Category}.{Seq}` (e.g., 1WA.12, 2TI.7)
@@ -61,7 +57,7 @@ If $ARGUMENTS provided (e.g., "m1", "m2"), process only that milestone; otherwis
    - List tasks moved (from → to, with task ID and description)
    - Group by milestone
    - Highlight any tasks suggested for "In Progress"
-   - List diagram modifications (nodes removed, edges updated, open classes added)
+   - List Progress Map modifications (nodes removed, edges updated, open classes added)
 
 ## Notes
 
@@ -69,4 +65,4 @@ If $ARGUMENTS provided (e.g., "m1", "m2"), process only that milestone; otherwis
 - Keep checkbox syntax: `- [ ]` (open/in-progress/blocked), `- [x]` (completed)
 - Maintain all section anchors: `#m1-doing`, `#m1-todo`, `#m1-blocked`, `#m1-done`
 - Use inference for unblocked detection, but be conservative (when uncertain, leave in Blocked)
-- Mermaid class definitions at bottom of each diagram must remain: `classDef default,blocked fill:#f9f;` etc.
+- Mermaid class definitions at bottom of Progress Map diagram must remain: `classDef default,blocked fill:#f9f;` etc.

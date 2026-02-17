@@ -1,7 +1,7 @@
 ---
-description: "{{ SONNET }} Create an Architecture Decision Record (ADR) for a significant technical decision"
+description: "{{ ƔƔƔ }} Create an Architecture Decision Record (ADR) for a significant technical decision"
 argument-hint: [brief decision title]
-model: claude-sonnet-4-5
+model: sonnet
 ---
 
 <overview>

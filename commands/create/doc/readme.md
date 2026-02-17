@@ -1,6 +1,6 @@
 ---
-description: "{{ Opus }} Generate a comprehensive README.md from project analysis"
-model: claude-opus-4-5
+description: "{{ 𝛀𝛀𝛀 }} Generate a comprehensive README.md from project analysis"
+model: opus
 ---
 
 Analyze project structure, code, and existing docs to generate an accurate README.md.

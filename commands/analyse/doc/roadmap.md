@@ -1,7 +1,7 @@
 ---
-description: "{{ OPUS }} Provide a detailed high-level overview of this codebase"
+description: "{{ 𝛀𝛀𝛀 }} Provide a detailed high-level overview of this codebase"
 argument-hint: [focus of analysis]
-model: claude-opus-4-5
+model: opus
 ---
 
 <task description="Compare development roadmaps to the current codebase state. Provide a brief digest of development status.">

@@ -1,7 +1,7 @@
 ---
-description: "{{ Sonnet }}Achieve what I say with a minimalist approach"
+description: "{{ ƔƔƔ }} Achieve what I say with a minimalist approach"
 argument-hint: [desired outcome]
-model: claude-sonnet-4-5
+model: sonnet
 ---
 
 Using the most minimal approach possible, achieve this: $ARGUMENTS
