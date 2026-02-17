@@ -1,7 +1,7 @@
 ---
-description: "{{ Haiku }} Initialize a new project from the Kamino template"
+description: "{{ 𝚫𝚫𝚫 }} Initialize a new project from the Kamino template"
 disable-model-invocation: true
-model: claude-haiku-4-5
+model: haiku
 ---
 
 <overview>

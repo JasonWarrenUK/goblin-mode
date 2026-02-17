@@ -1,7 +1,7 @@
 ---
-description: "{{ Sonnet }} Suggest the next logical task based on codebase analysis"
+description: "{{ ƔƔƔ }} Suggest the next logical task based on codebase analysis"
 argument-hint: [optional focus area]
-model: claude-sonnet-4-5
+model: sonnet
 ---
 
 Analyse the current state of the codebase, then compare it to the project documentation. Suggest the next logical task I can complete.

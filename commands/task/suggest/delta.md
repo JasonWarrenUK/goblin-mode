@@ -1,7 +1,7 @@
 ---
-description: "{{ Haiku }} Suggest the next logical task based on codebase analysis"
+description: "{{ 𝚫𝚫𝚫 }} Suggest the next logical task based on codebase analysis"
 argument-hint: [optional focus area]
-model: claude-haiku-4-5
+model: haiku
 ---
 
 Analyse the current state of the codebase, then compare it to the project documentation. Suggest the next logical task I can complete.

@@ -1,7 +1,7 @@
 ---
-description: Create a project roadmap document in structured milestone format
+description: "{{ 𝛀𝛀𝛀 }} Create a project roadmap document in structured milestone format"
 argument-hint: [roadmap name (optional)]
-model: claude-opus-4-5
+model: opus
 ---
 
 Create a project roadmap at `docs/roadmaps/{name}.md` with milestone-based task organization and dependency tracking via Mermaid diagrams.
@@ -93,8 +93,6 @@ description: [Brief one-line description from user]
 > [!IMPORTANT]
 > **Goal:** {Milestone objective}
 
-[Mermaid dependency diagram - see format below]
-
 <a name="m{N}-doing"><h4>In Progress (Milestone {N})</h4></a>
 
 - [ ] {MilestoneCategory}.{Seq}. {Task description}
@@ -112,12 +110,13 @@ description: [Brief one-line description from user]
 - [x] {MilestoneCategory}.{Seq}. {Task description}
 ```
 
-#### Mermaid Diagram Format
+#### Progress Map (single aggregated diagram)
 
-**Per-milestone diagram:**
+At `<a name="map">` section, include ONE Mermaid diagram showing ALL tasks across ALL milestones with full dependency graph:
+
 ```mermaid
 ---
-title: Milestone {N}
+title: Progress Map
 ---
 graph TD
 
@@ -129,9 +128,6 @@ classDef default,blocked fill:#f9f;
 classDef open fill:#ff9;
 classDef mile fill:#9ff;
 ```
-
-**Aggregated Progress Map:**
-At `<a name="map">` section, include ALL tasks across ALL milestones in a single diagram showing full dependency graph.
 
 ### 5. Task numbering convention
 

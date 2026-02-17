@@ -44,3 +44,4 @@ history.jsonl
 settings.json
 stats-cache.json
 usage-data
+statusline-command.sh

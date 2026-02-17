@@ -1,6 +1,6 @@
 ---
-description: "{{ Haiku }} Create a status report that knows what you've done since the last one"
-model: claude-haiku-4-5
+description: "{{ 𝚫𝚫𝚫 }} Create a status report that knows what you've done since the last one"
+model: haiku
 disable-model-invocation: true
 ---
 

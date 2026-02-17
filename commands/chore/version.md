@@ -1,7 +1,7 @@
 ---
-description: "{{ Haiku }} Check all version number props and update them"
+description: "{{ 𝚫𝚫𝚫 }} Check all version number props and update them"
 argument-hint: [version number]
-model: claude-haiku-4-5
+model: haiku
 ---
 
 # Version Checker

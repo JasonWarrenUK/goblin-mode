@@ -1,6 +1,6 @@
 ---
-description: Create a pull request for current branch
-model: claude-sonnet-4-5
+description: "{{ ƔƔƔ }} Create a pull request for current branch"
+model: sonnet
 disable-model-invocation: true
 ---
 

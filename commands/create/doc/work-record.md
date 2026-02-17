@@ -1,6 +1,6 @@
 ---
-description: "{{ Haiku }} Generate a work record summarizing today's development session"
-model: claude-haiku-4-5
+description: "{{ 𝚫𝚫𝚫 }} Generate a work record summarizing today's development session"
+model: haiku
 ---
 
 <task overview="Create a work record by analyzing today's git commits, code changes, and session context.">

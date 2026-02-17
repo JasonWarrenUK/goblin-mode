@@ -1,11 +1,11 @@
 ---
-description: "{{ Haiku }} Generate a commit message. If nothing staged, stage all changes."
-model: claude-haiku-4-5
+description: "{{ 𝚫𝚫𝚫 }} Generate a commit message. If nothing staged, stage all changes."
+model: haiku
 disable-model-invocation: true
 ---
 
 ## Steps
-1. If no changes staged, stage all. Otherwise use existing staging.
+1. If no changes staged, stage all. If files are already staged, *do not* stage more files.
 2. Generate commit message per conventional commits format.
 3. Show message and await approval:
     - If approved, push to upstream

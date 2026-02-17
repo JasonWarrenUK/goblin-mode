@@ -1,7 +1,7 @@
 ---
-description: Update existing documentation to reflect recent code changes
+description: "{{ ƔƔƔ }} Update existing documentation to reflect recent code changes"
 argument-hint: [doc name, e.g., Technical-Overview]
-model: claude-sonnet-4-5
+model: sonnet
 ---
 
 Analyze recent code changes and update the specified documentation file.

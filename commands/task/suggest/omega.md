@@ -1,7 +1,7 @@
 ---
-description: "{{ Opus }} Suggest the next logical task based on codebase analysis"
+description: "{{ 𝛀𝛀𝛀 }} Suggest the next logical task based on codebase analysis"
 argument-hint: [optional focus area]
-model: claude-opus-4-5
+model: opus
 ---
 
 Analyse the current state of the codebase, then compare it to the project documentation. Suggest the next logical task I can complete.

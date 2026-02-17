@@ -1,7 +1,7 @@
 ---
-description: "{{ OPUS }} Probe the project for weaknesses"
+description: "{{ 𝛀𝛀𝛀 }} Probe the project for weaknesses"
 argument-hint: [focus of analysis]
-model: claude-opus-4-5
+model: opus
 ---
 
 <overview>
