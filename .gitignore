@@ -45,3 +45,8 @@ settings.json
 stats-cache.json
 usage-data
 statusline-command.sh
+backups
+commands/git/.DS_Store
+commands/.DS_Store
+skills/.DS_Store
+telemetry
