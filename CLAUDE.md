@@ -40,6 +40,10 @@ If unsure: https://www.oxfordlearnersdictionaries.com
 
 ## Claude Code Behaviour
 
+### Linear Integration
+
+When working with Linear issues, set status to 'In Progress' when starting work and 'In Review' when a PR is created. Never set issues to 'Done' unless explicitly asked.
+
 ### Code Editing
 
 **Do not edit files directly unless explicitly asked.** Instead:
@@ -160,6 +164,10 @@ Format: `⚠️ Breaking change — consider feat!: or BREAKING CHANGE: footer`
 
 Branches represent minimal tangible improvements. When in doubt, go smaller.
 
+### Git Worktrees
+
+When working with git worktrees: (1) always check which branch already exists before creating a new one, (2) never try to remove a worktree while your shell is inside it, (3) use the correct existing branch name rather than creating duplicates.
+
 ---
 
 ## Security Defaults
@@ -170,6 +178,14 @@ Branches represent minimal tangible improvements. When in doubt, go smaller.
 - HTTPS only, secure cookies
 - Transactions for multi-step operations
 - Avoid N+1 queries
+
+---
+
+## Database
+
+### SQL
+
+When running SQL against the database, prefer writing to a .sql file and executing it rather than using inline shell commands with escaped quotes.
 
 ---
 
