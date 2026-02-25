@@ -168,6 +168,33 @@ Branches represent minimal tangible improvements. When in doubt, go smaller.
 
 When working with git worktrees: (1) always check which branch already exists before creating a new one, (2) never try to remove a worktree while your shell is inside it, (3) use the correct existing branch name rather than creating duplicates.
 
+### Pull Requests
+
+**Always** use this structure for PR descriptions, regardless of how the PR was triggered:
+
+- **Title:** Brief, descriptive, title case, understandable to non-devs
+- **Summary:** Describe the PR with a non-technical, absurd metaphor
+- **TL;DR:** List any steps devs must take after pulling this down
+- **Changes:** Break into files or categories depending on scope; use collapsible details
+
+Template:
+
+```md
+# {{ title }}
+## Overview
+{{ overview }}
+## Summary
+{{ absurd metaphor }}
+> [!TIP]
+> {{ tldr }}
+---
+## Changes
+{{ changes with collapsible details }}
+---
+```
+
+Before creating: analyse all commits on the branch, show the draft, and await approval.
+
 ---
 
 ## Security Defaults
