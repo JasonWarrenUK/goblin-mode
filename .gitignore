@@ -50,3 +50,4 @@ commands/git/.DS_Store
 commands/.DS_Store
 skills/.DS_Store
 telemetry
+mcp-needs-auth-cache.json
