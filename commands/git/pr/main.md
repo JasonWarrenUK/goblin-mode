@@ -1,7 +1,7 @@
 ---
-description: "{{ ƔƔƔ }} Create a pull request for current branch"
+description: "{{ ƔƔƔ }} Create a pull request to main"
 model: sonnet
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 ## Steps
@@ -18,15 +18,15 @@ disable-model-invocation: true
     2. Use title case
     3. Be understandable to non-devs
   </title-rules>
+  <summary-rules>
+    Describe the PR with a non-technical, absurd metaphor.
+  </summary-rules>
   <tldr-rules>
     1. List any steps devs must take after pulling this down
   </tldr-rules>
   <changes-rules>
     Break changes into files or categories depending on PR scope. Use collapsible details.
   </changes-rules>
-  <summary-rules>
-    Describe the PR with a non-technical, absurd metaphor.
-  </summary-rules>
 </rules>
 
 ## Template
@@ -34,11 +34,12 @@ disable-model-invocation: true
 # {{ title }}
 ## Overview
 {{ overview }}
+## Summary
+{{ absurd metaphor }}
 > [!TIP]
 > {{ tldr }}
+---
 ## Changes
 {{ changes with collapsible details }}
 ---
-## Summary
-{{ absurd metaphor }}
 ```
