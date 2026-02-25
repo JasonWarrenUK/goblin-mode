@@ -1,0 +1,16 @@
+---
+description: "{{ 𝚫𝚫𝚫 }} Generate a commit message. If nothing staged, stage all changes."
+model: haiku
+disable-model-invocation: true
+---
+
+## Steps
+1. If no changes staged, stage all. If files are already staged, *do not* stage more files.
+2. Generate commit message per conventional commits format.
+3. Show message and await approval:
+    - If approved, push to upstream
+    - If changes requested, revise and repeat
+
+<template format-reference="https://www.conventionalcommits.org/en/v1.0.0/">
+  `type(scope?): description\n\nbody (optional)\n\nBREAKING CHANGE: footer (if applicable)`
+</template>
