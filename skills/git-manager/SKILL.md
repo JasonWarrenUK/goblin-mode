@@ -393,16 +393,16 @@ git fetch --prune
 ### PR Title and Description
 
 **Title format**:
-```
-[Type] Brief description of changes
-```
+- Title case
+- Brief and descriptive
+- Understandable to non-devs — no jargon, ticket numbers, or type prefixes
 
 **Examples**:
 ```
-[Feature] Add user authentication system
-[Fix] Resolve login button crash on mobile
-[Refactor] Extract database connection logic
-[Docs] Update API documentation
+Add User Authentication System
+Fix Login Button Crash on Mobile
+Refactor Database Connection Logic
+Update API Documentation
 ```
 
 **Description template**:
