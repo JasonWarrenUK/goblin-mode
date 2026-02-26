@@ -26,10 +26,12 @@ Slash commands for Claude Code. Organised by domain, with model tier encoded in 
 | Command | Description |
 |---------|-------------|
 | `/doc:create:readme:omega` | Generate a comprehensive README |
+| `/doc:create:readme:for:gamma` | Generate a README for a specific directory |
 | `/doc:create:roadmap:omega` | Create a structured milestone roadmap |
 | `/doc:create:adr:gamma` | Guide through an Architecture Decision Record |
 | `/doc:create:work-record:delta` | Summarise today's development session |
 | `/doc:create:status-report:delta` | Generate a status report |
+| `/doc:update:readme:gamma` | Update a README to reflect recent changes |
 | `/doc:update:roadmap:omega` | Reorganise roadmap tasks and update diagrams |
 | `/doc:update:target:gamma` | Update docs to reflect recent code changes |
 
@@ -53,7 +55,8 @@ Slash commands for Claude Code. Organised by domain, with model tier encoded in 
 
 | Command | Description |
 |---------|-------------|
-| `/linear:create:issue:gamma` | Create an issue with optional relations |
+| `/linear:create:issue:related-to:gamma` | Create an issue with manually specified relations |
+| `/linear:create:issue:in-project:omega` | Create an issue with automatic dependency detection |
 | `/linear:crit-path-to:project:omega` | Decompose a project into dependency-ordered issues |
 | `/linear:crit-path-to:task:omega` | Decompose an issue into sub-issues |
 | `/linear:tackle:delta` | Fetch and begin a Linear task |
