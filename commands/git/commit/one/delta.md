@@ -14,3 +14,8 @@ disable-model-invocation: true
 <template format-reference="https://www.conventionalcommits.org/en/v1.0.0/">
   `type(scope?): description\n\nbody (optional)\n\nBREAKING CHANGE: footer (if applicable)`
 </template>
+
+<conventions>
+  - Subject line: imperative mood, lowercase, no period, max 50 chars (`add feature` not `added feature` or `adds feature`)
+  - Body: explain *what* and *why*, not *how*; wrap at 72 chars
+</conventions>
