@@ -15,6 +15,7 @@ model: sonnet
    - Does the name follow the `<prefix>/<short-description>` convention?
 4. If the name is still accurate, say so and stop
 5. If a rename is warranted, suggest a better name and explain why
+   - Format: `<prefix>/<short-description>` — all lowercase, hyphens, imperative mood (`add-feature` not `adds-feature` or `adding-feature`)
 6. Await approval — if accepted:
    - Rename locally: `git branch -m <new-name>`
    - Rename on remote: `git push origin HEAD:<new-name>` then `git push origin --delete <old-name>`
