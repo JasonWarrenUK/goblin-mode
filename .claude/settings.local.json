@@ -7,7 +7,10 @@
       "Bash(git push:*)",
       "Bash(git:*)",
       "Bash(mkdir:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(do echo:*)"
     ]
   },
   "hooks": {
