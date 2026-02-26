@@ -40,6 +40,16 @@ If unsure: https://www.oxfordlearnersdictionaries.com
 
 ## Claude Code Behaviour
 
+### Slash Commands
+
+When creating slash commands, use the Greek letter convention in the YAML frontmatter `description` field to signal which model the command uses:
+
+- `𝚫𝚫𝚫` = haiku
+- `ƔƔƔ` = sonnet
+- `𝛀𝛀𝛀` = opus
+
+Format: `description: "{{ ƔƔƔ }} Command description here"`
+
 ### Linear Integration
 
 When working with Linear issues, set status to 'In Progress' when starting work and 'In Review' when a PR is created. Never set issues to 'Done' unless explicitly asked.
