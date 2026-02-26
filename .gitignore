@@ -14,6 +14,8 @@
 !/agents/**
 !/commands/**
 !/doc-templates/**
+!/docs/**
+docs/personal/
 !/hooks/**
 !/output-styles/**
 !/skills/**
@@ -25,7 +27,6 @@
 chrome
 cache
 debug
-docs
 file-history
 hooks/post-commit
 hooks/pre-push
