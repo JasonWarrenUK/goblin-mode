@@ -23,6 +23,7 @@ When invoked for a project, you will:
 
 3. **Architectural Patterns**:
    - **Data architecture**: Relational? Graph? Document? Polyglot persistence?
+   - **Domain model**: What are the core entities and how do they relate? Produce a brief entity-relationship summary (Mermaid or plain text) showing the key nodes and connections. This helps rebuild mental context faster than reading code.
    - **Authentication approach**: Supabase Auth? Custom? OAuth?
    - **Authorization patterns**: RLS policies? Middleware? API-level checks?
    - **API design**: RESTful? Type-safe endpoints? Validation approach (Zod)?
@@ -92,6 +93,9 @@ When invoked for a project, you will:
 - **Uncommitted**: [Yes/No + what]
 - **Open Branches**: [List feature branches]
 - **Focus**: [What's the current work theme?]
+
+## Domain Model
+[Brief entity-relationship map — Mermaid ER diagram or plain text showing core entities and connections]
 
 ## Architecture Highlights
 [Key architectural decisions from ADRs or code patterns]
