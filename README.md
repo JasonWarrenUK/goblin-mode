@@ -1,4 +1,4 @@
-# Claude Code: Goblin Mode
+# ~~Claude Code~~ _Goblin Mode_
 
 A personal configuration for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — Anthropic's command-line tool for working with Claude. This repo customises how Claude behaves: what it knows, how it writes code, what it checks before pushing, and how it helps manage tasks.
 
