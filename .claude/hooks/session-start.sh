@@ -9,6 +9,17 @@ fi
 ENV="$CLAUDE_ENV_FILE"
 PROJECT="$CLAUDE_PROJECT_DIR"
 
+# ─── Project Identity ────────────────────────────────────────────────
+
+# Project name (from package.json, fallback to directory name)
+if [ -f "$PROJECT/package.json" ]; then
+	PROJECT_NAME=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' "$PROJECT/package.json" | head -1 | sed 's/"name"[[:space:]]*:[[:space:]]*"//;s/"$//')
+fi
+if [ -z "${PROJECT_NAME:-}" ]; then
+	PROJECT_NAME=$(basename "$PROJECT")
+fi
+echo "export PROJECT_NAME=\"$PROJECT_NAME\"" >> "$ENV"
+
 # ─── Project Detection ───────────────────────────────────────────────
 
 # Package manager
@@ -86,11 +97,48 @@ elif [ -f "$PROJECT/biome.json" ] || [ -f "$PROJECT/biome.jsonc" ]; then
 	echo 'export LINTER="biome"' >> "$ENV"
 fi
 
+# ─── Architecture Detection ──────────────────────────────────────────
+
+# Database ORM/client
+if [ -f "$PROJECT/prisma/schema.prisma" ]; then
+	echo 'export DATABASE_ORM="prisma"' >> "$ENV"
+elif [ -f "$PROJECT/drizzle.config.ts" ] || [ -f "$PROJECT/drizzle.config.js" ]; then
+	echo 'export DATABASE_ORM="drizzle"' >> "$ENV"
+elif [ -f "$PROJECT/package.json" ] && grep -q "@supabase/supabase-js" "$PROJECT/package.json" 2>/dev/null; then
+	echo 'export DATABASE_ORM="supabase-client"' >> "$ENV"
+fi
+
+# API style
+if [ -d "$PROJECT/src/trpc" ] || ([ -f "$PROJECT/package.json" ] && grep -q "@trpc" "$PROJECT/package.json" 2>/dev/null); then
+	echo 'export API_STYLE="trpc"' >> "$ENV"
+elif find "$PROJECT/src" -maxdepth 3 -name "*.graphql" -o -name "*.gql" 2>/dev/null | head -1 | grep -q .; then
+	echo 'export API_STYLE="graphql"' >> "$ENV"
+elif [ -d "$PROJECT/src/routes/api" ] || [ -d "$PROJECT/src/app/api" ] || [ -d "$PROJECT/src/pages/api" ]; then
+	echo 'export API_STYLE="rest"' >> "$ENV"
+fi
+
+# Monorepo detection
+if [ -f "$PROJECT/turbo.json" ]; then
+	echo 'export MONOREPO="turborepo"' >> "$ENV"
+elif [ -f "$PROJECT/nx.json" ]; then
+	echo 'export MONOREPO="nx"' >> "$ENV"
+elif [ -f "$PROJECT/pnpm-workspace.yaml" ]; then
+	echo 'export MONOREPO="pnpm-workspaces"' >> "$ENV"
+elif [ -f "$PROJECT/package.json" ] && grep -q '"workspaces"' "$PROJECT/package.json" 2>/dev/null; then
+	echo 'export MONOREPO="npm-workspaces"' >> "$ENV"
+fi
+
 # ─── Git Context ─────────────────────────────────────────────────────
 
 if git -C "$PROJECT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 	BRANCH=$(git -C "$PROJECT" branch --show-current 2>/dev/null || echo "detached")
 	echo "export GIT_BRANCH=\"$BRANCH\"" >> "$ENV"
+
+	# Branch type (feat/, fix/, enhance/, refactor/, test/, docs/, config/, claude/)
+	BRANCH_TYPE=$(echo "$BRANCH" | sed -n 's@^\([a-z]*\)/.*@\1@p')
+	if [ -n "$BRANCH_TYPE" ]; then
+		echo "export GIT_BRANCH_TYPE=\"$BRANCH_TYPE\"" >> "$ENV"
+	fi
 
 	# Default branch
 	DEFAULT_BRANCH=$(git -C "$PROJECT" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
