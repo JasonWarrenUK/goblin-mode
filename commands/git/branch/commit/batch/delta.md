@@ -10,8 +10,11 @@ disable-model-invocation: true
 3. Present the proposed commit plan as a numbered list:
    - Group name / files involved
    - Suggested commit message (conventional commits format)
-4. Await approval:
-   - If approved, execute commits sequentially: stage the relevant files for each group, commit, then move to the next.
+4. Await approval — **stop here and do not proceed until the user responds**:
+   - If approved, execute commits sequentially. For each group:
+     1. Stage **only** the files listed for that group (`git add <files>`)
+     2. Commit with the proposed message
+     3. Confirm success before moving to the next group
    - If changes requested, revise the plan and repeat from step 3.
 5. After all commits, push to upstream.
 
