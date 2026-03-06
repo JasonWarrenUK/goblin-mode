@@ -1,6 +1,15 @@
 ![Goblin Mode](D6C1BA70-D6CD-40A0-8134-1DFED56D5A4D.png)
 
-A personal configuration for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — Anthropic's command-line tool for working with Claude. This repo customises how Claude behaves: what it knows, how it writes code, what it checks before pushing, and how it helps manage tasks.
+This repo is what happens when you stop correcting Claude about the same things and start encoding your entire brain into configuration files instead.
+
+**Goblin Mode** is a working configuration system — 50+ slash commands, 12 passive skills, 3 autonomous agents, git hooks — built by one developer to solve problems they actually had. Nothing here was designed speculatively. Every command traces back to a specific friction point. Every hook enforces a habit that was being skipped. The apprenticeship evidence extraction exists because retrospective portfolio building is miserable and nobody does it voluntarily.
+
+What makes this different:
+
+- **Weakness-aware design** — Testing is a known weakness, so a dedicated skill encodes the discipline. ADHD makes executive function unreliable, so hooks enforce it instead of relying on willpower.
+- **Context window discipline** — CLAUDE.md loads every session. Skill descriptions load at start; bodies lazy-load on trigger. Commands load on invocation. Agents run in sub-processes. Every layer has a deliberate cost.
+- **Model tier thinking** — Commands specify whether they need Haiku (fast, cheap), Sonnet (balanced), or Opus (thorough). Not every task needs the biggest model.
+- **Friction-driven, not architecture-driven** — This grew organically from actual work. The process of building it is what's transferable, not the specifics.
 
 > [!NOTE]
 > This setup is specific to one developer's workflow (and brain). It's shared as a working example, not a template to copy wholesale. If you're building your own, the **process** is what's transferable — the specifics should be yours.
