@@ -34,7 +34,7 @@ Watch for these structural indicators of scope creep:
 ### 1. Establish Original Scope
 
 Determine what was originally asked for:
-- Check Linear issue description (if available)
+- Check task/issue description from the project's task source (if available)
 - Check branch name for intent signals
 - Check the first commit message on the branch
 - If none available, ask the developer: "What were you trying to do?"

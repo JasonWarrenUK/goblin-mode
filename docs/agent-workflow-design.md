@@ -66,7 +66,7 @@ Currently: `scope-coach` skill fires on keywords, `implementation-planner` inclu
 
 **Subagents:**
 - `project-context-loader` (existing) — project state
-- `linear-sync` (new, see below) — task state from Linear
+- `task-sync` (new, see below) — task state from whatever tracker the project uses
 
 **Why:** Eliminates the "staring at the screen wondering what to do" problem. Collapses 4-5 manual steps (check Linear, check branches, check roadmap, decide, context-switch) into one invocation. Directly addresses task initiation difficulty.
 
@@ -74,21 +74,27 @@ Currently: `scope-coach` skill fires on keywords, `implementation-planner` inclu
 
 ---
 
-### Agent 2: `linear-sync`
+### Agent 2: `task-sync`
 
 **Model:** Sonnet
-**Purpose:** Keeps Linear state consistent with git/codebase state.
+**Purpose:** Keeps task tracker state consistent with git/codebase state. Adapts to the project's task source — Linear, GitHub Issues, or git-native (branch conventions + local state).
 
 **What it does:**
-- On branch checkout → sets matching Linear issue to "In Progress"
-- On PR creation → sets matching issues to "In Review"
-- On merge to main → sets issues to "Done" (with confirmation)
-- Detects orphaned "In Progress" issues with no matching branch
-- Detects branches with no matching Linear issue (suggests creating one)
+- Detects task source: checks project config, then probes for Linear CLI, GitHub remote, or falls back to git-native
+- On branch checkout → sets matching task to "In Progress"
+- On PR creation → sets matching tasks to "In Review"
+- On merge to main → sets tasks to "Done" (with confirmation)
+- Detects orphaned "In Progress" tasks with no matching branch
+- Detects branches with no matching task (suggests creating one)
+
+**Task sources:**
+- **Linear**: Full status management via Linear API/CLI
+- **GitHub Issues**: Labels and PR linking via `gh` CLI
+- **Git-native**: Branch state + `.claude/session-state.json` as the sole source of truth
 
 **Subagents:** None — lightweight, event-driven.
 
-**Why:** The existing `/linear:hoover` command does retrospective matching, but status management is entirely manual. This agent makes Linear a reliable source of truth instead of a stale backlog. Every `CLAUDE.md` instruction about Linear status becomes enforced rather than aspirational.
+**Why:** The existing `/linear:hoover` command does retrospective matching, but status management is entirely manual. This agent makes whatever task tracker is in use a reliable source of truth instead of a stale backlog. Projects without Linear still get task awareness through GitHub Issues or git conventions.
 
 **Trigger:** `PostToolUse` hook on git commands (branch, commit, push), or as a subagent of `session-orchestrator`.
 
@@ -104,12 +110,12 @@ Currently: `scope-coach` skill fires on keywords, `implementation-planner` inclu
 2. Checks for untested code paths (overlaps with `pre-push-tests`, but earlier in the loop)
 3. Scans for documentation staleness (same logic as `post-commit-docs`, but proactive)
 4. Checks for breaking changes and flags them with the `BREAKING CHANGE:` format
-5. Validates Linear issues are linked and status is correct
+5. Validates tasks/issues are linked and status is correct (via task-sync)
 6. Produces a single "ready/not ready" verdict with prioritised action items
 
 **Subagents:**
 - `test-gap-scanner` (new, see below) — identifies untested code
-- `linear-sync` — validates issue state
+- `task-sync` — validates task/issue state
 
 **Why:** Currently the developer has to remember to run `/git:assess-branch`, and separately rely on hooks to catch test gaps and doc staleness. This collapses the entire "am I ready to ship?" question into one agent that front-loads the checks. Finding problems before `git push` instead of during it.
 
@@ -165,13 +171,13 @@ Currently: `scope-coach` skill fires on keywords, `implementation-planner` inclu
 **What it does:**
 1. Summarises what was accomplished (from git log since session start)
 2. Notes any uncommitted work or half-finished branches
-3. Updates Linear issue status if work is paused mid-task
+3. Updates task status if work is paused mid-task (via task-sync)
 4. Generates a work record entry (reuses `/doc:create:work-record` logic)
 5. Flags any documentation reminders that were deferred
 6. Writes a brief "next session" note to the project context
 
 **Subagents:**
-- `linear-sync` — ensure Linear state is current
+- `task-sync` — ensure task tracker state is current
 
 **Why:** Session endings are where context gets lost. The developer closes the terminal, and tomorrow everything starts from scratch. This agent creates a handoff note — whether to your future self or to the `session-orchestrator` agent that will run at the start of the next session. Directly addresses the "20 minutes reading git logs before writing a line of code" problem described in the README.
 
@@ -204,7 +210,7 @@ session-orchestrator ──→ (dev selects task) ──→ implementation
                       │
                 ┌─────┼──────────┐
                 ▼     ▼          ▼
-          test-gap  linear-sync  doc staleness
+          test-gap  task-sync    doc staleness
           scanner   validation   check
                 │     │          │
                 └─────┼──────────┘
@@ -223,17 +229,17 @@ session-orchestrator ──→ (dev selects task) ──→ implementation
 ```
 session-orchestrator
 ├── project-context-loader (existing)
-└── linear-sync
+└── task-sync
 
 ship-checker
 ├── test-gap-scanner
-└── linear-sync
+└── task-sync
 
 session-closer
-└── linear-sync
+└── task-sync
 
 scope-guard (standalone, event-driven)
-linear-sync (standalone, event-driven, also used as subagent)
+task-sync (standalone, event-driven, also used as subagent — adapts to Linear/GitHub Issues/git-native)
 test-gap-scanner (standalone, also used as subagent)
 ```
 
@@ -245,12 +251,12 @@ Ordered by impact ÷ effort, accounting for the specific friction points this se
 
 | Priority | Agent | Rationale |
 |----------|-------|-----------|
-| 1 | `linear-sync` | Highest reuse (3 agents depend on it), solves a daily friction point, low complexity |
+| 1 | `task-sync` | Highest reuse (3 agents depend on it), solves a daily friction point, low complexity, works across all projects regardless of tracker |
 | 2 | `session-orchestrator` | Directly addresses task initiation and context-switching — the two costliest ADHD tax points |
 | 3 | `session-closer` | Completes the session loop; cheap to build (Haiku, mostly summarisation) |
 | 4 | `ship-checker` | Consolidates existing scattered checks; moderate complexity |
 | 5 | `test-gap-scanner` | Valuable but narrow scope; can exist as a standalone command first |
-| 6 | `scope-guard` | Most architecturally complex (requires PostToolUse monitoring); high value but defer until the event-driven pattern is proven with `linear-sync` |
+| 6 | `scope-guard` | Most architecturally complex (requires PostToolUse monitoring); high value but defer until the event-driven pattern is proven with `task-sync` |
 
 ---
 
@@ -259,7 +265,7 @@ Ordered by impact ÷ effort, accounting for the specific friction points this se
 | Agent | Model | Justification |
 |-------|-------|---------------|
 | `session-orchestrator` | Sonnet | Coordination, not deep analysis |
-| `linear-sync` | Sonnet | API calls and pattern matching |
+| `task-sync` | Sonnet | API calls and pattern matching; task source detection adds minimal overhead |
 | `ship-checker` | Opus | Needs to reason about code quality, breaking changes, and architectural concerns |
 | `test-gap-scanner` | Sonnet | Risk assessment against a defined matrix — structured, not creative |
 | `scope-guard` | Sonnet | Pattern matching against known signals |
@@ -275,13 +281,13 @@ These proposals follow the repo's own stated principles:
 - **Context window discipline:** Agents run as subprocesses. Only descriptions load into the main session
 - **Model tier thinking:** Each agent uses the cheapest model that can do the job
 - **Weakness-aware:** `test-gap-scanner` and `scope-guard` exist because testing and scope discipline are self-identified weaknesses
-- **Organic growth:** The priority order allows building one at a time, starting with the highest-leverage, lowest-risk addition (`linear-sync`)
+- **Organic growth:** The priority order allows building one at a time, starting with the highest-leverage, lowest-risk addition (`task-sync`)
 
 ---
 
 ## Open Questions
 
 1. **`PostToolUse` monitoring cost:** `scope-guard` running on every Edit/Write could be noisy. Should it batch analysis (every N edits) or run on explicit checkpoints?
-2. **`linear-sync` automation level:** Should status changes be automatic or confirmed? Automatic reduces friction but risks wrong matches. A hybrid (auto for obvious matches, confirm for fuzzy ones) might be the pragmatic middle.
+2. **`task-sync` automation level:** Should status changes be automatic or confirmed? Automatic reduces friction but risks wrong matches. A hybrid (auto for obvious matches, confirm for fuzzy ones) might be the pragmatic middle.
 3. **`session-orchestrator` vs. enhanced `SessionStart` hook:** Could the session orchestrator be a hook rather than an agent? Hooks are lighter but less capable. An agent can investigate; a hook follows a script.
 4. **Agent memory:** `session-closer` and `session-orchestrator` form a pair — one writes state, the other reads it. Should they share a memory directory, or should state transfer happen through a file convention (e.g., `.claude/session-state.json`)?

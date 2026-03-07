@@ -47,12 +47,12 @@ Scan the diff for breaking changes:
 
 Flag any findings with the appropriate format: `⚠️ Breaking change — consider feat!: or BREAKING CHANGE: footer`
 
-### 5. Linear Validation (Subagent: linear-sync)
+### 5. Task Validation (Subagent: task-sync)
 
-Invoke `linear-sync` to verify:
-- Matching Linear issue exists and is linked
-- Issue status is correct ("In Progress" or "In Review")
-- Issue description matches what was actually built
+Invoke `task-sync` to verify:
+- Matching task/issue exists and is linked (in whatever tracker the project uses)
+- Task status is correct ("In Progress" or "In Review")
+- Task description matches what was actually built
 
 ### 6. Security Quick Check
 
@@ -102,8 +102,9 @@ Blocking issues found (security problems, breaking changes without flags, scope 
 - [✅ None detected / ⚠️ Breaking changes found]
 - [List with BREAKING CHANGE format suggestions]
 
-### Linear
-- [✅ Issue linked and status correct / ⚠️ Issues found]
+### Task Tracking
+- [✅ Task linked and status correct / ⚠️ Issues found]
+- [Source: Linear / GitHub Issues / Git-native]
 
 ### Security
 - [✅ No issues / ⚠️ Concerns found]
@@ -121,7 +122,7 @@ Blocking issues found (security problems, breaking changes without flags, scope 
 ```
 ship-checker
 ├── test-gap-scanner — identifies untested code with risk prioritisation
-└── linear-sync — validates issue state
+└── task-sync — validates task/issue state (Linear / GitHub Issues / git-native)
 ```
 
 ## Constraints
@@ -129,6 +130,6 @@ ship-checker
 - Never auto-fix issues — report them and let the developer decide
 - Prioritise action items by severity (security > breaking changes > tests > docs > style)
 - Don't block shipping for minor style issues — note them as "worth fixing" but not blocking
-- If a check can't run (no Linear access, no test framework), skip it and note the skip
+- If a check can't run (no task tracker access, no test framework), skip it and note the skip
 - Be honest about what you can and can't verify (you can't run tests, only check they exist)
 - British English in all output

@@ -26,12 +26,12 @@ Check for:
 - Stashed changes (`git stash list`)
 - TODO/FIXME comments added during this session
 
-### 3. Update Linear State
+### 3. Update Task State
 
-Invoke `linear-sync` as a subagent to:
-- Ensure in-progress issues still reflect reality
-- Flag any issues that should be paused (status → "Paused" or back to "Todo" if abandoned)
-- Note which issues made progress but aren't done
+Invoke `task-sync` as a subagent to:
+- Ensure in-progress tasks still reflect reality
+- Flag any tasks that should be paused (status → "Paused" or back to "Todo" if abandoned)
+- Note which tasks made progress but aren't done
 
 ### 4. Generate Work Record
 
@@ -67,7 +67,8 @@ Write a brief JSON file that `session-orchestrator` can read at the start of the
 	"unfinished": ["what's left to do"],
 	"nextStep": "specific action to start with next time",
 	"deferredDocs": ["docs that need updating"],
-	"linearIssues": {
+	"taskSource": "linear",
+	"tasks": {
 		"progressed": ["JAZ-123"],
 		"blocked": [],
 		"completed": ["JAZ-456"]
@@ -81,7 +82,7 @@ Store at `.claude/session-state.json` in the project root.
 
 ```
 session-closer
-└── linear-sync — ensure Linear state is current
+└── task-sync — ensure task tracker state is current (Linear / GitHub Issues / git-native)
 ```
 
 ## Output Format
@@ -96,8 +97,9 @@ session-closer
 - [Uncommitted/unpushed work]
 - [Branches without PRs]
 
-### Linear
-- [Issues progressed/completed/blocked]
+### Tasks
+- [Tasks progressed/completed/blocked]
+- [Source: Linear / GitHub Issues / Git-native]
 
 ### Next Time
 > [One sentence: what to do first next session]
@@ -110,7 +112,7 @@ Work record entry ready for copy-paste above.
 ## Constraints
 
 - Never commit or push code — only observe and report
-- Never set Linear issues to "Done" without confirmation
+- Never mark tasks as "Done"/"Closed" without confirmation
 - Keep the handoff note small — it's consumed by another agent, not a human
 - If no meaningful work was done (no commits, no changes), say so honestly rather than padding
 - The work record section should be copy-paste ready
