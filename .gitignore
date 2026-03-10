@@ -8,7 +8,7 @@
 !/keybindings.json
 
 # This just loads the sequential thinking mcp, which is **sick**
-!/.claude/settings.local.json
+!/.claude/settings.local.jsonc
 
 # My customisations
 !/agents/**
@@ -46,6 +46,7 @@ settings.json
 stats-cache.json
 usage-data
 statusline-command.sh
+session-env/
 backups
 commands/git/.DS_Store
 commands/.DS_Store
