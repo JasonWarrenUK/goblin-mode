@@ -1,6 +1,7 @@
 ---
 description: "{{ ƔƔƔ }} Rename branch if needed"
 model: sonnet
+allowed-tools: ["Bash"]
 ---
 
 ## Assess and Rename Current Branch
