@@ -1,0 +1,16 @@
+{
+  
+  "hooks": {
+    "SessionStart": [
+      {
+        
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/settings-sync.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
