@@ -13,7 +13,9 @@
       "Bash(do echo:*)",
       "Bash(python3 -c \"\nimport os, glob\nfiles = glob.glob\\('/Users/jasonwarren/Documents/Screenshots/*2026-03-11*Dia*'\\)\nfor f in files:\n    print\\(repr\\(f\\)\\)\n\")",
       "Bash(python3 -c \"\npath = '/Users/jasonwarren/Documents/Screenshots/CleanShot  2026-03-11 [Wednesday] at 3\\\\u202f.43.37  Dia@2x.jpg'\nprint\\(path\\)\n\" | xargs -I{} echo \"Path: {}\")",
-      "Bash(cd /Users/jasonwarren/code/fac/platform/fac-cra && gh pr diff 151 2>&1)"
+      "Bash(cd /Users/jasonwarren/code/fac/platform/fac-cra && gh pr diff 151 2>&1)",
+      "Bash(chmod +x /Users/jasonwarren/.claude/hooks/settings-sync.sh)",
+      "Bash(bash hooks/settings-sync.sh && echo \"done\" && cat settings.local.json)"
     ]
   },
   "hooks": {
