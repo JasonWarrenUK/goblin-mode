@@ -31,8 +31,8 @@ map_file_to_doc() {
   case "$file" in
     src/routes/api/*|src/lib/api/*) echo "api.md" ;;
     src/lib/components/*|src/components/*) echo "components.md" ;;
-    src/lib/db/*|src/lib/server/database/*|*schema*|*migration*) echo "database.md" ;;
-    *auth*|*session*) echo "security.md" ;;
+    src/lib/db/*|src/lib/server/database/*|src/**/*schema*|src/**/*migration*|*migration*) echo "database.md" ;;
+    src/**/auth*|src/**/session*) echo "security.md" ;;
     *.config.ts|*.config.js|package.json) echo "README.md" ;;
     src/routes/**/+page.svelte|src/routes/**/+layout.svelte) echo "routing.md" ;;
     src/lib/utils/*|src/lib/services/*) echo "architecture.md" ;;
@@ -116,6 +116,7 @@ for doc in "${NEEDS_UPDATE[@]}"; do
 done
 
 # Prompt user
+if [[ ! -t 0 ]]; then exit 0; fi
 read -p "? Update documentation? (y/n/later) " -r
 echo ""
 
@@ -166,14 +167,14 @@ case "$REPLY" in
         while IFS= read -r file; do
           [ -z "$file" ] && continue
           echo "  - $file"
-        done <<< "${DOC_FILES_MAP[$doc]}"
+        done < "$TEMP_DIR/$doc"
       done
     } >> "$REMINDERS_FILE"
 
     echo -e "${GREEN}✓${NC} Reminders saved to $REMINDERS_FILE"
     echo "  Run 'claude docs' to see pending updates"
     ;;
+esac
 
 # Cleanup temp files
 rm -rf "$TEMP_DIR"
-esac
