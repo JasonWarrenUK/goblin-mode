@@ -2,6 +2,7 @@
 description: "{{ 𝚫𝚫𝚫 }} Split uncommitted changes into granular commits."
 model: haiku
 disable-model-invocation: true
+allowed-tools: ["Bash"]
 ---
 
 ## Steps
