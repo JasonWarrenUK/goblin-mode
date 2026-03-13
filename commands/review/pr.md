@@ -29,12 +29,24 @@ allowed-tools: ["Bash", "Read", "Glob", "Grep"]
     ## What Works Well
     🟣 **[strength]** — [why it's good]
     ## Issues
-    ### 🔴 [Blocking issue title]
+    <details>
+    <summary><strong>🔴 [Blocking issue title]</strong></summary>
+
     [Description. Code snippet if needed.]
-    ### 🟡 [Concern title]
+
+    </details>
+    <details>
+    <summary><strong>🟡 [Concern title]</strong></summary>
+
     [Description.]
-    ### 🔵 [Minor quibble title]
+
+    </details>
+    <details>
+    <summary><strong>🔵 [Minor quibble title]</strong></summary>
+
     [Description.]
+
+    </details>
   </format>
   <key type="list">
     <guide>Omit any severity level that has no entries. Only include 🟣 sections if there's something genuinely worth praising.</guide>

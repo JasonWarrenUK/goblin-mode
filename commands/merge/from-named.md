@@ -1,11 +1,12 @@
 ---
 description: "{{ 𝛀𝛀𝛀 }} Merge from branch"
+argument-hint: ["target branch"]
 model: opus
 ---
 
 ## Merge Branch into Current Branch
 
-Arguments: $BRANCH (required) — the branch to merge from
+$ARGUMENTS (required) — the branch to merge from
 
 1. Check current branch name and confirm with user
 2. Do NOT create a worktree - work in the current directory
