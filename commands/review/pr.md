@@ -27,7 +27,12 @@ allowed-tools: ["Bash", "Read", "Glob", "Grep"]
   <format type="md">
     # Code Review
     ## What Works Well
-    🟣 **[strength]** — [why it's good]
+    <details>
+    <summary><strong>🟣 [strength]</strong></summary>
+
+    [Why it's good.]
+
+    </details>
     ## Issues
     <details>
     <summary><strong>🔴 [Blocking issue title]</strong></summary>
