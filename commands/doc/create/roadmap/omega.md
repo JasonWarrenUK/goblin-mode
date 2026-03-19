@@ -124,9 +124,9 @@ graph TD
 
 m{N}{"`**Milestone {N}**<br/>{Name}`"}:::mile
 
-classDef default,blocked fill:#f9f;
-classDef open fill:#ff9;
-classDef mile fill:#9ff;
+classDef default,blocked fill:#fff7fb;
+classDef open fill:#fff9e5;
+classDef mile fill:#c4fffe;
 ```
 
 ### 5. Task numbering convention

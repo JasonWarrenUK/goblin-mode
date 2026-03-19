@@ -123,6 +123,32 @@ const revM = calcMR(txs);
 - When editing: preserve exact tab characters, never convert to spaces
 - Always use Edit tool for modifications, never sed/awk
 
+### Colour Palette
+
+Use [Reasonable Colors](https://www.reasonable.work/colors/) as the default palette for all frontend/styling work.
+
+**Install:**
+- npm: `reasonable-colors`
+- CDN: `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css`
+
+**Variable convention:** `--color-COLORNAME-SHADE` (e.g. `--color-azure-3`)
+- 24 colour sets + grays, 6 shades each (1 = lightest, 6 = darkest)
+- Shade difference → contrast ratio: diff 2 = 3:1 (AA large), diff 3 = 4.5:1 (AA body), diff 4 = 7:1 (AAA)
+
+**Usage rules:**
+- The `color` spelling in var names is acceptable — it's a third-party convention
+- Always define semantic aliases; never use RC vars directly in components:
+  ```css
+  :root {
+    --color-primary: var(--color-azure-3);
+    --color-primary-bg: var(--color-azure-1);
+    --color-primary-text: var(--color-azure-6);
+  }
+  ```
+- Projects may override this default in project-level CLAUDE.md
+
+**Local reference:** `library/docs/reasonable-colors-reference.md`
+
 ### Testing
 
 Testing is a known weakness. No systematic TDD, no comprehensive coverage culture.
