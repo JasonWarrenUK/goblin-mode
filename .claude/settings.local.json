@@ -16,7 +16,9 @@
       "Bash(cd /Users/jasonwarren/code/fac/platform/fac-cra && gh pr diff 151 2>&1)",
       "Bash(chmod +x /Users/jasonwarren/.claude/hooks/settings-sync.sh)",
       "Bash(bash hooks/settings-sync.sh && echo \"done\" && cat settings.local.json)",
-      "Bash(find /Users/jasonwarren/Code/utils/terminal-config -type f \\\\\\( -name \"*.sh\" -o -name \"*.md\" -o -name \"*.json\" -o -name \"*.yaml\" -o -name \"*.yml\" \\\\\\) 2>/dev/null | sort)"
+      "Bash(find /Users/jasonwarren/Code/utils/terminal-config -type f \\\\\\( -name \"*.sh\" -o -name \"*.md\" -o -name \"*.json\" -o -name \"*.yaml\" -o -name \"*.yml\" \\\\\\) 2>/dev/null | sort)",
+      "WebFetch(domain:www.reasonable.work)",
+      "WebFetch(domain:unpkg.com)"
     ]
   },
   "hooks": {
