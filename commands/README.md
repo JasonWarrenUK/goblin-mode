@@ -89,6 +89,15 @@ Accomplish an arbitrary task with a minimalist approach. Pass the task inline.
 
 ---
 
+## Config (`config/`)
+
+| Command | Description |
+|---------|-------------|
+| `/config:permits:global:delta` | Grant a permission globally (all projects) |
+| `/config:permits:project:delta` | Grant a permission for the current project only |
+
+---
+
 ## WIP (`wip/`)
 
 | Command | Description |
