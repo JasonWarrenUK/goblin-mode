@@ -2,6 +2,8 @@
 description: "{{ ƔƔƔ }} Generate a README for a specific directory"
 argument-hint: [path/to/directory]
 model: sonnet
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Write"]
 ---
 
 Generate a README.md for the following directory:

@@ -1,6 +1,8 @@
 ---
 description: "{{ 𝛀𝛀𝛀 }} Squash and rebase"
 model: opus
+disable-model-invocation: true
+allowed-tools: ["Bash(git:*)", "Read", "Grep", "Edit"]
 ---
 
 ## Squash and Rebase onto Main

@@ -2,6 +2,7 @@
 description: "{{ 𝛀𝛀𝛀 }} Investigate this repo's dependencies in detail"
 argument-hint: ["optional: concerning dep"]
 model: opus
+allowed-tools: ["Read", "Glob", "Grep", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "WebSearch", "WebFetch"]
 ---
 
 <overview>

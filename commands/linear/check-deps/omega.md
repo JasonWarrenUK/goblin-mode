@@ -2,6 +2,8 @@
 description: "{{ 𝛀𝛀𝛀 }} Analyse and assign dependency relationships for Linear tasks"
 argument-hint: [FOU-123, FOU-456, ...]
 model: opus
+disable-model-invocation: true
+allowed-tools: ["mcp__plugin_linear_linear__get_issue", "mcp__plugin_linear_linear__save_issue", "mcp__plugin_linear_linear__list_issues"]
 ---
 
 Analyse dependency relationships for the following Linear task(s):

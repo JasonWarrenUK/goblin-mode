@@ -2,6 +2,8 @@
 description: "{{ ƔƔƔ }} Update a README to reflect recent changes"
 argument-hint: [path/to/directory (optional, defaults to ./)]
 model: sonnet
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(git:*)"]
 ---
 
 Update the README.md in the specified directory (or the project root if none given).

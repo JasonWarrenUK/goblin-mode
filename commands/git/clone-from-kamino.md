@@ -2,6 +2,7 @@
 description: "{{ 𝛀𝛀𝛀 }} Initialize a new project from the Kamino template"
 disable-model-invocation: true
 model: opus
+allowed-tools: ["Bash(git:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(mv:*)", "Bash(chmod:*)", "Bash(ln:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Read", "Write", "Edit", "Glob", "Grep"]
 ---
 
 <overview>

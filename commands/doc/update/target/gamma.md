@@ -2,6 +2,8 @@
 description: "{{ ƔƔƔ }} Update existing documentation to reflect recent code changes"
 argument-hint: [doc name, e.g., Technical-Overview]
 model: sonnet
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(git:*)"]
 ---
 
 Analyze recent code changes and update the specified documentation file.

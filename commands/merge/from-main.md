@@ -2,6 +2,8 @@
 description: "{{ 𝛀𝛀𝛀 }} Merge from main"
 argument-hint: ["advice or guidance when merging"]
 model: opus
+disable-model-invocation: true
+allowed-tools: ["Bash(git:*)", "Read", "Grep", "Edit"]
 ---
 
 <task name="Merge Main into Current Branch">

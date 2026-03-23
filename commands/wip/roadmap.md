@@ -1,7 +1,8 @@
 ---
-description: "{{ 𝛀𝛀𝛀 }} Provide a detailed high-level overview of this codebase"
+description: "{{ 𝛀𝛀𝛀 }} Map out project status, direction, and next steps"
 argument-hint: [focus of analysis]
 model: opus
+allowed-tools: ["Read", "Glob", "Grep"]
 ---
 
 <task description="Compare development roadmaps to the current codebase state. Provide a brief digest of development status.">

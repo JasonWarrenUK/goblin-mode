@@ -2,7 +2,8 @@
 description: "{{ ƔƔƔ }} Rename branch if needed"
 model: sonnet
 argument-hint: ["(optional) desired name"]
-allowed-tools: ["Bash"]
+disable-model-invocation: true
+allowed-tools: ["Bash(git:*)"]
 ---
 
 ## Assess and Rename Current Branch

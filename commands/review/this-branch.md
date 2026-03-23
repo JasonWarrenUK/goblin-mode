@@ -1,6 +1,7 @@
 ---
 description: "{{ 𝛀𝛀𝛀 }} Assess branch readiness for PR submission"
 model: opus
+allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)"]
 ---
 
 Assess whether this branch is ready to be submitted as a reviewable pull request.

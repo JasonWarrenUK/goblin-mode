@@ -2,8 +2,8 @@
 description: "{{ ƔƔƔ }} Create a draft pull request to main"
 argument-hint: [screenshot files]
 model: sonnet
-disable-model-invocation: false
-allowed-tools: ["Bash"]
+disable-model-invocation: true
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 ---
 
 <steps>

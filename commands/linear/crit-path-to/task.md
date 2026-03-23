@@ -2,6 +2,8 @@
 description: "{{ 𝛀𝛀𝛀 }} Decompose a Linear issue into a critical path of granular issues"
 argument-hint: [issue number]
 model: opus
+disable-model-invocation: true
+allowed-tools: ["mcp__plugin_linear_linear__get_issue", "mcp__plugin_linear_linear__save_issue", "mcp__plugin_linear_linear__list_issues", "mcp__plugin_linear_linear__list_projects", "Read", "Glob", "Grep"]
 ---
 
 ## Objective

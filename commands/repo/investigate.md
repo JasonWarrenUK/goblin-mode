@@ -2,6 +2,7 @@
 description: "{{ 𝛀𝛀𝛀 }} Investigate a codebase in detail"
 argument-hint: [focus of investigation]
 model: opus
+allowed-tools: ["Read", "Glob", "Grep", "Write"]
 ---
 
 <overview>
