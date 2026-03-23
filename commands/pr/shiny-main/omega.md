@@ -2,8 +2,8 @@
 description: "{{ 𝛀𝛀𝛀 }} Create a pull request to main"
 argument-hint: [screenshot files]
 model: opus
-disable-model-invocation: false
-allowed-tools: ["Bash"]
+disable-model-invocation: true
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 ---
 
 <steps>

@@ -2,6 +2,8 @@
 description: "{{ ƔƔƔ }} Create an Architecture Decision Record (ADR) for a significant technical decision"
 argument-hint: [brief decision title]
 model: sonnet
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Write"]
 ---
 
 <overview>

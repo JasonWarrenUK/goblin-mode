@@ -2,6 +2,8 @@
 description: "{{ 𝛀𝛀𝛀 }} Create a new Linear issue with automatic dependency detection"
 argument-hint: [description | project name (optional)]
 model: opus
+disable-model-invocation: true
+allowed-tools: ["mcp__plugin_linear_linear__get_issue", "mcp__plugin_linear_linear__save_issue", "mcp__plugin_linear_linear__list_issues", "mcp__plugin_linear_linear__list_projects"]
 ---
 
 Create a new Linear issue from the following input:

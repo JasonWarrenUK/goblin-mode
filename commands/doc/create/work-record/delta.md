@@ -1,6 +1,8 @@
 ---
 description: "{{ 𝚫𝚫𝚫 }} Generate a work record summarizing today's development session"
 model: haiku
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)"]
 ---
 
 <task overview="Create a work record by analyzing today's git commits, code changes, and session context.">

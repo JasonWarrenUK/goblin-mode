@@ -2,6 +2,8 @@
 description: "{{ 𝚫𝚫𝚫 }} Check all version number props and update them"
 argument-hint: [version number]
 model: haiku
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Edit"]
 ---
 
 # Version Checker

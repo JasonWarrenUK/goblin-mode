@@ -2,6 +2,7 @@
 description: "{{ 𝛀𝛀𝛀 }} Probe the project for weaknesses"
 argument-hint: [focus of analysis]
 model: opus
+allowed-tools: ["Read", "Glob", "Grep"]
 ---
 
 <overview>

@@ -2,7 +2,7 @@
 description: "{{ 𝚫𝚫𝚫 }} Generate a commit message. If nothing staged, stage all changes."
 model: haiku
 disable-model-invocation: true
-allowed-tools: ["Bash(git commit:*)"]
+allowed-tools: ["Bash(git:*)"]
 ---
 
 ## Steps

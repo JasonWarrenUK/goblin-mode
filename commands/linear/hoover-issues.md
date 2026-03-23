@@ -1,6 +1,8 @@
 ---
 description: "{{ 𝛀𝛀𝛀 }} Find Linear issues addressed by this branch and inject into PR body"
 model: opus
+disable-model-invocation: true
+allowed-tools: ["mcp__plugin_linear_linear__get_issue", "mcp__plugin_linear_linear__save_issue", "mcp__plugin_linear_linear__list_issues", "Bash(git:*)", "Bash(gh:*)", "Read", "Grep"]
 ---
 
 Identify any Linear issues that have been addressed by work on this branch, and inject them into the PR description.

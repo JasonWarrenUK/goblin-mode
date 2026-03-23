@@ -2,6 +2,7 @@
 description: "{{ 𝚫𝚫𝚫 }} Create a status report that knows what you've done since the last one"
 model: haiku
 disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)"]
 ---
 
 <task overview="Generate a project status report by analyzing the current state of the codebase, roadmaps, and recent work." destination="docs/status-reports/" >

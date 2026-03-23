@@ -2,6 +2,8 @@
 description: "{{ 𝛀𝛀𝛀 }} Update project roadmap task organization"
 argument-hint: [roadmap filepath (optional)]
 model: opus
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Edit"]
 ---
 
 Maintain the project roadmap at docs/roadmaps/$ARGUMENTS by moving tasks between sections based on completion status and blockers, and keeping mermaid diagrams in sync.

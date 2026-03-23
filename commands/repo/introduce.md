@@ -2,6 +2,7 @@
 description: "{{ 𝛀𝛀𝛀 }} Provide a detailed high-level overview of this codebase"
 argument-hint: [focus of analysis]
 model: opus
+allowed-tools: ["Read", "Glob", "Grep"]
 ---
 
 <overview>

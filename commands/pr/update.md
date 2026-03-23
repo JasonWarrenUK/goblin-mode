@@ -1,7 +1,8 @@
 ---
 description: "{{ ƔƔƔ }} Update a PR description to account for commits made since it was last written"
 model: sonnet
-allowed-tools: ["Bash"]
+disable-model-invocation: true
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Grep", "Glob"]
 argument-hint: "<pr-number>"
 ---
 

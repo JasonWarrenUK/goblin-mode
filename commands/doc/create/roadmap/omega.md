@@ -2,6 +2,8 @@
 description: "{{ 𝛀𝛀𝛀 }} Create a project roadmap document in structured milestone format"
 argument-hint: [roadmap name (optional)]
 model: opus
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Write"]
 ---
 
 Create a project roadmap at `docs/roadmaps/{name}.md` with milestone-based task organization and dependency tracking via Mermaid diagrams.

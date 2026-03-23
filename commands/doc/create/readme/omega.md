@@ -1,6 +1,8 @@
 ---
 description: "{{ 𝛀𝛀𝛀 }} Generate a comprehensive README.md from project analysis"
 model: opus
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Write"]
 ---
 
 Analyze project structure, code, and existing docs to generate an accurate README.md.

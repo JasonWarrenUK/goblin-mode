@@ -2,7 +2,7 @@
 description: "{{ 𝛀𝛀𝛀 }} Review a pull request and post a comment"
 model: opus
 argument-hint: "<pr-number-or-url>"
-allowed-tools: ["Bash", "Read", "Glob", "Grep"]
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 ---
 
 <pull-request-review>

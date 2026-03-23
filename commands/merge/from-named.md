@@ -2,6 +2,8 @@
 description: "{{ 𝛀𝛀𝛀 }} Merge from branch"
 argument-hint: ["target branch"]
 model: opus
+disable-model-invocation: true
+allowed-tools: ["Bash(git:*)", "Read", "Grep", "Edit"]
 ---
 
 ## Merge Branch into Current Branch

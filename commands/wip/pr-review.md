@@ -1,6 +1,7 @@
 ---
-description: "{{ Opus }} Review code changes on the current branch against its open PR"
+description: "{{ 𝛀𝛀𝛀 }} Review code changes on the current branch against its open PR"
 model: opus
+allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(gh:*)"]
 ---
 
 <overview>
