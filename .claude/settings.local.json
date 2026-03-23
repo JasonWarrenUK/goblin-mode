@@ -18,7 +18,10 @@
       "Bash(bash hooks/settings-sync.sh && echo \"done\" && cat settings.local.json)",
       "Bash(find /Users/jasonwarren/Code/utils/terminal-config -type f \\\\\\( -name \"*.sh\" -o -name \"*.md\" -o -name \"*.json\" -o -name \"*.yaml\" -o -name \"*.yml\" \\\\\\) 2>/dev/null | sort)",
       "WebFetch(domain:www.reasonable.work)",
-      "WebFetch(domain:unpkg.com)"
+      "WebFetch(domain:unpkg.com)",
+      "WebFetch(domain:blog.devgenius.io)",
+      "Bash(rm /Users/jasonwarren/.claude/commands/pr/shiny-staging.md /Users/jasonwarren/.claude/commands/pr/wordy-staging.md /Users/jasonwarren/.claude/commands/lol/think-deeply.md)",
+      "Bash(rm -rf /Users/jasonwarren/.claude/skills/doc-view-roadmap /Users/jasonwarren/.claude/skills/remember)"
     ]
   },
   "hooks": {

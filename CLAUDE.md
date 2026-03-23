@@ -202,7 +202,7 @@ Branches represent minimal tangible improvements. When in doubt, go smaller.
 
 ### Git Worktrees
 
-When working with git worktrees: (1) always check which branch already exists before creating a new one, (2) never try to remove a worktree while your shell is inside it, (3) use the correct existing branch name rather than creating duplicates.
+When working with git worktrees: (1) always check which branch already exists before creating a new one, (2) never try to remove a worktree while your shell is inside it, (3) use the correct existing branch name rather than creating duplicates, (4) after removing a worktree, cd to the main repo directory.
 
 ### Pull Requests
 
