@@ -47,6 +47,7 @@ stats-cache.json
 usage-data
 statusline-command.sh
 session-env/
+sessions/
 backups
 commands/git/.DS_Store
 commands/.DS_Store
