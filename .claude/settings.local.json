@@ -21,7 +21,8 @@
       "WebFetch(domain:unpkg.com)",
       "WebFetch(domain:blog.devgenius.io)",
       "Bash(rm /Users/jasonwarren/.claude/commands/pr/shiny-staging.md /Users/jasonwarren/.claude/commands/pr/wordy-staging.md /Users/jasonwarren/.claude/commands/lol/think-deeply.md)",
-      "Bash(rm -rf /Users/jasonwarren/.claude/skills/doc-view-roadmap /Users/jasonwarren/.claude/skills/remember)"
+      "Bash(rm -rf /Users/jasonwarren/.claude/skills/doc-view-roadmap /Users/jasonwarren/.claude/skills/remember)",
+      "Skill(update-config)"
     ]
   },
   "hooks": {
