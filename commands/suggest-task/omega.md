@@ -2,7 +2,7 @@
 description: "{{ 𝛀𝛀𝛀 }} Suggest the next logical task based on codebase analysis"
 argument-hint: [optional focus area]
 model: opus
-allowed-tools: ["Read", "Glob", "Grep", "Bash(npm:*)", "Bash(bun:*)", "Bash(deno:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
 ---
 
 Analyse the current state of the codebase, then compare it to the project documentation. Suggest the next logical task I can complete.
