@@ -7,9 +7,6 @@
 !/CLAUDE.md
 !/keybindings.json
 
-# This just loads the sequential thinking mcp, which is **sick**
-!/.claude/settings.local.jsonc
-
 # My customisations
 !/agents/**
 !/commands/**
