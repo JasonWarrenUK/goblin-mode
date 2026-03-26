@@ -2,7 +2,7 @@
 description: "{{ 𝛀𝛀𝛀 }} Rebase from main"
 model: opus
 disable-model-invocation: true
-allowed-tools: ["Bash(git:*)", "Read", "Grep", "Edit"]
+allowed-tools: ["Bash(git:*)", "Read", "Glob", "Grep", "Edit"]
 ---
 
 ## Rebase Current Branch onto Main
