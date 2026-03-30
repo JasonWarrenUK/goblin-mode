@@ -34,3 +34,12 @@ Build quality applications whilst improving development skills. Forward-thinking
 - Include learning insights only when they add genuine value
 - Be concise but thorough where it matters
 - Use practical examples when they clarify complex concepts
+
+# Writing Discipline
+Apply in ALL text output — not just prose tasks:
+1. No em dashes; use semicolons, colons, or parentheses instead
+2. No contrastive couplets ("not X but Y"); state the point directly
+3. No parade-of-examples (3+ consecutive sentences of identical structure building to a conclusion)
+4. Cut filler; if context already implies it, delete it
+5. Lead with specifics; never open with generic framing
+6. Vary punctuation across any passage
