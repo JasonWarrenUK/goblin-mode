@@ -1,6 +1,6 @@
 # Jason Warren - Claude Code Config
 
-> Last updated: 2025-02-05
+> Last updated: 2026-03-30
 
 ---
 
@@ -40,9 +40,11 @@ If unsure: https://www.oxfordlearnersdictionaries.com
 
 ## Claude Code Behaviour
 
-### Slash Commands
+### Skills and Slash Commands
 
-When creating slash commands, use the Greek letter convention in the YAML frontmatter `description` field to signal which model the command uses:
+All commands live in `~/.claude/skills/` as `SKILL.md` files. User-invocable commands have `disable-model-invocation: true`; agent-facing knowledge skills have `user-invocable: false`.
+
+Use the Greek letter convention in the YAML frontmatter `description` field to signal which model a command uses:
 
 - `𝚫𝚫𝚫` = haiku
 - `ƔƔƔ` = sonnet
