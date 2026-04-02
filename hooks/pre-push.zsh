@@ -16,7 +16,7 @@ CURRENT_REPO=$(basename "$PWD")
 # Check if the current repo is in the allowed list
 IS_ALLOWED=false
 for repo in "${ALLOWED_REPOS[@]}"; do
-  if [ "$repo" == "$CURRENT_REPO" ]; then
+  if [[ "$repo" == "$CURRENT_REPO" ]]; then
     IS_ALLOWED=true
     break
   fi
