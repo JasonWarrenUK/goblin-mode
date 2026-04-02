@@ -55,7 +55,7 @@ elif [ -f "$PROJECT/jest.config.ts" ] || [ -f "$PROJECT/jest.config.js" ] || [ -
 	echo 'export TEST_RUNNER="jest"' >> "$ENV"
 elif [ -f "$PROJECT/bun.lockb" ] && grep -q '"test"' "$PROJECT/package.json" 2>/dev/null; then
 	echo 'export TEST_RUNNER="bun test"' >> "$ENV"
-elif [ -f "$PROJECT/pytest.ini" ] || [ -f "$PROJECT/pyproject.toml" ] && grep -q "pytest" "$PROJECT/pyproject.toml" 2>/dev/null; then
+elif [ -f "$PROJECT/pytest.ini" ] || { [ -f "$PROJECT/pyproject.toml" ] && grep -q "pytest" "$PROJECT/pyproject.toml" 2>/dev/null; }; then
 	echo 'export TEST_RUNNER="pytest"' >> "$ENV"
 fi
 

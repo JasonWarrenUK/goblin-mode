@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # Test Automation Hook - Simplified
 # Trigger: pre-push
@@ -14,7 +14,7 @@ REMOTE_BRANCH="origin/main"
 CHANGED_FILES=$(git diff --name-only "$REMOTE_BRANCH"...HEAD 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || git ls-files)
 
 # Filter to only source files (not config/docs/test fixtures/barrel exports/types)
-SOURCE_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(ts|js|svelte)$' | grep -v -E '\.(test|spec)\.(ts|js)$' | grep -v -E '\.(config|setup)\.(ts|js)$' | grep -v -E '(^|/)tests?/' | grep -v -E '(^|/)index\.(ts|js)$' | grep -v -E '(^|/)types/' |  | grep -v -E '(^|/)brand?/')
+SOURCE_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(ts|js|svelte)$' | grep -v -E '\.(test|spec)\.(ts|js)$' | grep -v -E '\.(config|setup)\.(ts|js)$' | grep -v -E '(^|/)tests?/' | grep -v -E '(^|/)index\.(ts|js)$' | grep -v -E '(^|/)types/' | grep -v -E '(^|/)brand?/')
 
 if [ -z "$SOURCE_FILES" ]; then
   echo "✓ No testable source files changed"

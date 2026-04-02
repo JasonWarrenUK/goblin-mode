@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "A Bash command just ran. Check the tool input from $ARGUMENTS.\n\nIf the command was a `git commit` (not git add, git status, etc.), check whether any of the committed files are inside the `commands/` directory.\n\nTo determine this, look at the commit output for file paths, or note if the commit message references commands.\n\nIf the commit DID include changes to `commands/`:\n- Respond with: {\"ok\": true, \"additionalContext\": \"REMINDER: Files in commands/ were just committed. You should update commands/README.md to reflect the current state of the commands directory. Check the existing README structure and ensure all commands are listed accurately.\"}\n\nIf the commit did NOT include changes to `commands/`, or if this was not a git commit command:\n- Respond with: {\"ok\": true}",
+            "prompt": "A Bash command just ran. Check the tool input from $ARGUMENTS.\n\nIf the command was a `git commit` (not git add, git status, etc.), check whether any of the committed files are inside the `skills/` directory.\n\nTo determine this, look at the commit output for file paths, or note if the commit message references skills.\n\nIf the commit DID include changes to `skills/`:\n- Respond with: {\"ok\": true, \"additionalContext\": \"REMINDER: Files in skills/ were just committed. You should update skills/README.md to reflect the current state of the skills directory. Check the existing README structure and ensure all skills are listed accurately.\"}\n\nIf the commit did NOT include changes to `skills/`, or if this was not a git commit command:\n- Respond with: {\"ok\": true}",
             "timeout": 15
           }
         ]

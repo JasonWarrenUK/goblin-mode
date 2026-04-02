@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # Portfolio Evidence Extraction Hook - Batched Pre-Push
 # Trigger: pre-push

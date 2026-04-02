@@ -16,7 +16,7 @@ if [[ -z "$STATUS" ]]; then
   exit 0
 fi
 
-MODIFIED=$(echo "$STATUS" | grep -c '^ M\|^M ' 2>/dev/null || true)
+MODIFIED=$(echo "$STATUS" | grep -c '^ M\|^M \|^MM' 2>/dev/null || true)
 STAGED=$(echo "$STATUS" | grep -c '^[MADRC]' 2>/dev/null || true)
 UNTRACKED=$(echo "$STATUS" | grep -c '^??' 2>/dev/null || true)
 
