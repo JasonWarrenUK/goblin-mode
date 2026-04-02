@@ -1,0 +1,2020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Customisation Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* === TERMINAL MONO — Dark phosphor aesthetic === */
+:root {
+  --font-body: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+  --bg: #0a0e0f;
+  --surface: #0f1416;
+  --surface2: #151c1e;
+  --surface3: #1a2326;
+  --border: rgba(0, 255, 140, 0.08);
+  --border-bright: rgba(0, 255, 140, 0.18);
+  --border-dim: rgba(0, 255, 140, 0.04);
+
+  --text: #e0ece8;
+  --text-dim: #6a8a80;
+  --text-faint: #3a5050;
+
+  --green: #00ff8c;
+  --green-dim: rgba(0, 255, 140, 0.08);
+  --green-glow: rgba(0, 255, 140, 0.15);
+  --green-mid: #00c870;
+  --green-dark: rgba(0, 200, 112, 0.6);
+
+  --amber: #ffb340;
+  --amber-dim: rgba(255, 179, 64, 0.1);
+  --amber-glow: rgba(255, 179, 64, 0.2);
+
+  --blue: #40c4ff;
+  --blue-dim: rgba(64, 196, 255, 0.08);
+  --blue-glow: rgba(64, 196, 255, 0.15);
+
+  --red: #ff5c5c;
+  --red-dim: rgba(255, 92, 92, 0.08);
+
+  --purple: #c084fc;
+  --purple-dim: rgba(192, 132, 252, 0.08);
+
+  --grid-line: rgba(0, 255, 140, 0.035);
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* Grid background pattern */
+.slide {
+  position: relative;
+  min-height: 100vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.slide-inner {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Slide separators */
+.slide + .slide {
+  border-top: 1px solid var(--border);
+}
+
+/* Typography */
+h1 { font-family: var(--font-mono); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+h2 { font-family: var(--font-mono); font-weight: 600; line-height: 1.2; }
+h3 { font-family: var(--font-mono); font-weight: 500; line-height: 1.3; }
+p  { line-height: 1.65; }
+
+code, .mono { font-family: var(--font-mono); }
+
+/* === SLIDE 1: TITLE — full-bleed === */
+#slide-title {
+  background: var(--bg);
+}
+
+#slide-title .slide-inner {
+  justify-content: center;
+  align-items: flex-start;
+  padding: 10vh 8vw;
+  gap: 2rem;
+}
+
+.title-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.title-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 2rem;
+  height: 1px;
+  background: var(--green);
+}
+
+.title-main {
+  font-size: clamp(3rem, 8vw, 7rem);
+  font-weight: 800;
+  color: var(--text);
+  max-width: 14ch;
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+}
+
+.title-main .accent-word {
+  color: var(--green);
+  text-shadow: 0 0 40px var(--green-glow), 0 0 80px rgba(0,255,140,0.06);
+}
+
+.title-subtitle {
+  font-size: 1.125rem;
+  color: var(--text-dim);
+  max-width: 52ch;
+  font-weight: 400;
+  line-height: 1.7;
+}
+
+.title-meta {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.title-meta-item {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.title-meta-item strong {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+/* Title decorative right panel */
+.title-deco {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4rem 3rem;
+  gap: 0.5rem;
+}
+
+.toc-item {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: color 0.2s;
+}
+
+.toc-item .toc-num {
+  color: var(--green);
+  opacity: 0.5;
+  font-size: 0.65rem;
+  min-width: 1.5rem;
+}
+
+/* Glow orb */
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* === SECTION HEADER === */
+.section-header {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.section-header .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* === SLIDE LAYOUTS === */
+
+/* Centred layout */
+.layout-center {
+  padding: 8vh 10vw;
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+  gap: 2.5rem;
+}
+
+/* Left-heavy */
+.layout-left {
+  padding: 8vh 8vw;
+  justify-content: center;
+  gap: 2.5rem;
+}
+
+/* Split */
+.layout-split {
+  padding: 8vh 0;
+  flex-direction: row !important;
+  align-items: stretch;
+}
+
+.split-left {
+  flex: 1;
+  padding: 6vh 5vw 6vh 8vw;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  justify-content: center;
+  border-right: 1px solid var(--border);
+}
+
+.split-right {
+  flex: 1;
+  padding: 6vh 8vw 6vh 5vw;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  justify-content: center;
+}
+
+/* Edge-aligned */
+.layout-edge {
+  padding: 8vh 8vw;
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 4rem;
+  justify-content: flex-start;
+}
+
+/* Slide heading */
+.slide-heading {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.slide-heading .hl {
+  color: var(--green);
+}
+
+.slide-subheading {
+  font-size: 1rem;
+  color: var(--text-dim);
+  max-width: 60ch;
+  line-height: 1.7;
+}
+
+/* === CARDS / SURFACES === */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+}
+
+.card-green {
+  background: var(--green-dim);
+  border-color: rgba(0, 255, 140, 0.2);
+}
+
+.card-amber {
+  background: var(--amber-dim);
+  border-color: rgba(255, 179, 64, 0.25);
+}
+
+.card-blue {
+  background: var(--blue-dim);
+  border-color: rgba(64, 196, 255, 0.2);
+}
+
+.card-red {
+  background: var(--red-dim);
+  border-color: rgba(255, 92, 92, 0.2);
+}
+
+/* === CODE BLOCKS === */
+.code-block {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--text-dim);
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.code-block .kw  { color: var(--green); }
+.code-block .str { color: var(--amber); }
+.code-block .cmt { color: var(--text-faint); font-style: italic; }
+.code-block .key { color: var(--blue); }
+.code-block .num { color: var(--purple); }
+.code-block .err { color: var(--red); }
+
+.code-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.code-label .indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* === TABLES === */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.data-table th {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border-dim);
+  color: var(--text-dim);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.data-table td:first-child {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* === BADGES === */
+.badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.badge-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,255,140,0.2); }
+.badge-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,179,64,0.25); }
+.badge-blue  { background: var(--blue-dim);  color: var(--blue);  border: 1px solid rgba(64,196,255,0.2); }
+.badge-red   { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,92,92,0.2); }
+.badge-purple{ background: var(--purple-dim);color: var(--purple);border: 1px solid rgba(192,132,252,0.2); }
+
+/* === COMPARE BLOCKS === */
+.compare-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.compare-block {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.compare-header {
+  padding: 0.6rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.compare-header.good {
+  background: rgba(0, 255, 140, 0.12);
+  color: var(--green);
+  border-left: 3px solid var(--green);
+}
+
+.compare-header.bad {
+  background: rgba(255, 92, 92, 0.1);
+  color: var(--red);
+  border-left: 3px solid var(--red);
+}
+
+.compare-body {
+  padding: 1rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-top: none;
+}
+
+/* === FEATURE GRID === */
+.feature-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+}
+
+.feature-cell {
+  background: var(--surface);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.feature-num {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--green);
+  opacity: 0.6;
+}
+
+.feature-name {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.feature-desc {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+/* === FLOW / PIPELINE === */
+.pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.pipeline-step {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.pipeline-step.active {
+  background: var(--green-dim);
+  border-color: rgba(0,255,140,0.25);
+  color: var(--green);
+}
+
+.pipeline-arrow {
+  color: var(--text-faint);
+  font-size: 1.1rem;
+  padding: 0 0.5rem;
+  font-family: var(--font-mono);
+}
+
+/* === TREE STRUCTURE === */
+.file-tree {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.9;
+  color: var(--text-dim);
+}
+
+.file-tree .dir  { color: var(--blue); }
+.file-tree .file { color: var(--text-dim); }
+.file-tree .note { color: var(--text-faint); font-style: italic; }
+.file-tree .hl   { color: var(--green); }
+
+/* === SCOPE TOWER === */
+.scope-tower {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.scope-layer {
+  border-radius: 6px;
+  padding: 0.9rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  border: 1px solid transparent;
+}
+
+.scope-layer.l1 {
+  background: rgba(255, 92, 92, 0.08);
+  border-color: rgba(255, 92, 92, 0.18);
+  color: var(--red);
+  font-weight: 600;
+}
+.scope-layer.l2 {
+  background: rgba(255, 179, 64, 0.08);
+  border-color: rgba(255, 179, 64, 0.2);
+  color: var(--amber);
+}
+.scope-layer.l3 {
+  background: rgba(64, 196, 255, 0.06);
+  border-color: rgba(64, 196, 255, 0.15);
+  color: var(--blue);
+}
+.scope-layer.l4 {
+  background: var(--green-dim);
+  border-color: rgba(0, 255, 140, 0.15);
+  color: var(--green);
+}
+
+.scope-layer .scope-path {
+  font-size: 0.68rem;
+  opacity: 0.7;
+}
+
+/* === HOOK EVENT CHAIN === */
+.event-chain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.event-item {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.event-name {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px 0 0 6px;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--amber);
+  min-width: 180px;
+  display: flex;
+  align-items: center;
+}
+
+.event-desc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.event-item.blocking .event-name {
+  color: var(--red);
+}
+
+.event-item.blocking .event-desc::after {
+  content: 'CAN BLOCK';
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--red);
+  background: var(--red-dim);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* === MCP TRANSPORT === */
+.transport-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  align-items: flex-start;
+}
+
+.transport-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.transport-content { flex: 1; }
+.transport-name {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+.transport-desc {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.transport-cmd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  margin-top: 0.3rem;
+}
+
+/* === PROGRESSION STEPS === */
+.progression {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.prog-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border-dim);
+  position: relative;
+}
+
+.prog-step:last-child { border-bottom: none; }
+
+.prog-num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--green);
+  background: var(--green-dim);
+  border: 1px solid rgba(0,255,140,0.2);
+  border-radius: 50%;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.prog-content { flex: 1; }
+
+.prog-title {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 0.2rem;
+  font-weight: 600;
+}
+
+.prog-desc {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* === WORKTREE DIAGRAM === */
+.branch-diagram {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 2;
+  color: var(--text-dim);
+}
+
+.branch-diagram .main   { color: var(--green); }
+.branch-diagram .branch { color: var(--blue); }
+.branch-diagram .cmd    { color: var(--amber); }
+.branch-diagram .note   { color: var(--text-faint); }
+
+/* === SMALL UTILITIES === */
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.hl-green { color: var(--green); }
+.hl-amber { color: var(--amber); }
+.hl-blue  { color: var(--blue);  }
+.hl-red   { color: var(--red);   }
+.hl-purple{ color: var(--purple);}
+
+/* Slide number indicator */
+.slide-num {
+  position: absolute;
+  bottom: 2rem;
+  right: 3rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  z-index: 10;
+}
+
+/* Responsive tweaks */
+@media (max-width: 900px) {
+  .layout-split { flex-direction: column !important; }
+  .split-left { border-right: none; border-bottom: 1px solid var(--border); padding: 4vh 6vw; }
+  .split-right { padding: 4vh 6vw; }
+  .compare-pair { grid-template-columns: 1fr; }
+  .layout-edge { flex-direction: column !important; }
+  .title-deco { display: none; }
+  .title-main { font-size: clamp(2.5rem, 8vw, 4rem); }
+}
+
+/* Print hint */
+@media print {
+  .slide { page-break-after: always; min-height: 100vh; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SLIDE 1 — TITLE (full-bleed)
+     ============================================================ -->
+<section class="slide" id="slide-title">
+  <div class="slide-inner">
+    <div class="slide-inner layout-left" style="min-height:100vh; padding: 10vh 8vw; padding-right: calc(38% + 2rem);">
+
+      <div class="glow-orb" style="width:400px;height:400px;background:radial-gradient(circle, rgba(0,255,140,0.06) 0%, transparent 70%);top:-10%;left:-5%;"></div>
+
+      <div class="title-eyebrow">Claude Code — Developer Reference</div>
+
+      <h1 class="title-main">
+        Customise<br>
+        <span class="accent-word">Claude</span><br>
+        Code
+      </h1>
+
+      <p class="title-subtitle">
+        A practical guide to configuration scopes, CLAUDE.md files, rules, skills,
+        subagents, hooks, MCP servers, plugins, and worktrees — ordered by dependency,
+        built to make you dangerous.
+      </p>
+
+      <div class="title-meta">
+        <div class="title-meta-item">
+          <span>Features covered</span>
+          <strong>9 core systems</strong>
+        </div>
+        <div class="title-meta-item">
+          <span>Complexity order</span>
+          <strong>Low → High</strong>
+        </div>
+        <div class="title-meta-item">
+          <span>Scope</span>
+          <strong>All projects</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="title-deco">
+      <div class="label" style="margin-bottom:1rem;">Table of Contents</div>
+      <div class="toc-item"><span class="toc-num">01</span> Configuration Scopes</div>
+      <div class="toc-item"><span class="toc-num">02</span> CLAUDE.md Files</div>
+      <div class="toc-item"><span class="toc-num">03</span> Rules</div>
+      <div class="toc-item"><span class="toc-num">04</span> Skills</div>
+      <div class="toc-item"><span class="toc-num">05</span> Subagents</div>
+      <div class="toc-item"><span class="toc-num">06</span> Hooks</div>
+      <div class="toc-item"><span class="toc-num">07</span> MCP Servers</div>
+      <div class="toc-item"><span class="toc-num">08</span> Plugins</div>
+      <div class="toc-item"><span class="toc-num">09</span> Worktrees</div>
+    </div>
+  </div>
+  <div class="slide-num">01 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 2 — OVERVIEW (centred)
+     ============================================================ -->
+<section class="slide" id="slide-overview">
+  <div class="slide-inner layout-center" style="padding: 8vh 8vw;">
+
+    <div class="glow-orb" style="width:600px;height:600px;background:radial-gradient(circle, rgba(0,255,140,0.04) 0%, transparent 65%);top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+
+    <div>
+      <div class="section-header" style="justify-content:center;margin-bottom:1.5rem;">
+        <span class="dot"></span> Overview
+      </div>
+      <h2 class="slide-heading" style="text-align:center;">
+        Nine layers of <span class="hl">control</span>
+      </h2>
+      <p class="slide-subheading" style="text-align:center; margin-top:0.75rem;">
+        Each system builds on the last. Start simple, add complexity only when you need it.
+      </p>
+    </div>
+
+    <div class="feature-grid" style="grid-template-columns: repeat(3, 1fr); width:100%; max-width: 960px; border-radius: 8px; overflow:hidden; border: 1px solid var(--border);">
+      <div class="feature-cell">
+        <div class="feature-num">01</div>
+        <div class="feature-name">Config Scopes</div>
+        <div class="feature-desc">Four levels of precedence — managed, user, project, local</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-green">Foundation</span></div>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-num">02</div>
+        <div class="feature-name">CLAUDE.md</div>
+        <div class="feature-desc">Persistent context — conventions, commands, architecture notes</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-green">Essential</span></div>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-num">03</div>
+        <div class="feature-name">Rules</div>
+        <div class="feature-desc">Path-scoped instructions that only load when relevant</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-blue">Organisation</span></div>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-num">04</div>
+        <div class="feature-name">Skills</div>
+        <div class="feature-desc">Reusable instruction sets invoked via /slash-commands</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-blue">Automation</span></div>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-num">05</div>
+        <div class="feature-name">Subagents</div>
+        <div class="feature-desc">Specialised AI assistants with their own context and tools</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-amber">Power</span></div>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-num">06</div>
+        <div class="feature-name">Hooks</div>
+        <div class="feature-desc">Shell commands triggered by lifecycle events — can block actions</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-amber">Enforcement</span></div>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-num">07</div>
+        <div class="feature-name">MCP Servers</div>
+        <div class="feature-desc">External tools — databases, APIs, browsers, issue trackers</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-purple">Integration</span></div>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-num">08</div>
+        <div class="feature-name">Plugins</div>
+        <div class="feature-desc">Package and share skills, agents, hooks, and MCP configs</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-purple">Distribution</span></div>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-num">09</div>
+        <div class="feature-name">Worktrees</div>
+        <div class="feature-desc">Parallel Claude sessions on isolated branches simultaneously</div>
+        <div style="margin-top:auto; padding-top:0.75rem;"><span class="badge badge-red">Advanced</span></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="slide-num">02 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 3 — CONFIG SCOPES (split)
+     ============================================================ -->
+<section class="slide" id="slide-scopes">
+  <div class="slide-inner layout-split">
+    <div class="split-left">
+
+      <div>
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--green);"></span> Section 01</div>
+        <h2 class="slide-heading">Configuration<br><span class="hl">Scopes</span></h2>
+        <p class="slide-subheading" style="margin-top:0.75rem;">
+          Every customisation lives at one of four levels.
+          The more specific level wins when two conflict.
+        </p>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">Precedence — highest wins</div>
+        <div class="scope-tower">
+          <div class="scope-layer l1">
+            <span><strong>Managed</strong> &nbsp;<span style="font-weight:400;opacity:0.8;">— IT-deployed, all users</span></span>
+            <span class="scope-path">system-level</span>
+          </div>
+          <div class="scope-layer l2">
+            <span><strong>Local</strong> &nbsp;<span style="font-weight:400;opacity:0.8;">— personal project override</span></span>
+            <span class="scope-path">.claude/settings.local.json</span>
+          </div>
+          <div class="scope-layer l3">
+            <span><strong>Project</strong> &nbsp;<span style="font-weight:400;opacity:0.8;">— shared with team</span></span>
+            <span class="scope-path">.claude/settings.json</span>
+          </div>
+          <div class="scope-layer l4">
+            <span><strong>User</strong> &nbsp;<span style="font-weight:400;opacity:0.8;">— all your projects</span></span>
+            <span class="scope-path">~/.claude/settings.json</span>
+          </div>
+        </div>
+        <div style="margin-top:0.75rem; padding: 0.75rem 1rem; background: var(--surface2); border-radius:6px; border: 1px solid var(--border);">
+          <span class="label">Arrow of precedence: </span>
+          <span style="font-family:var(--font-mono); font-size:0.75rem; color: var(--red);">Managed</span>
+          <span style="font-family:var(--font-mono); color:var(--text-faint); font-size:0.75rem;"> › </span>
+          <span style="font-family:var(--font-mono); font-size:0.75rem; color: var(--amber);">Local</span>
+          <span style="font-family:var(--font-mono); color:var(--text-faint); font-size:0.75rem;"> › </span>
+          <span style="font-family:var(--font-mono); font-size:0.75rem; color: var(--blue);">Project</span>
+          <span style="font-family:var(--font-mono); color:var(--text-faint); font-size:0.75rem;"> › </span>
+          <span style="font-family:var(--font-mono); font-size:0.75rem; color: var(--green);">User</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="split-right">
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">Scope reference table</div>
+        <div class="card" style="padding:0; overflow:hidden;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Scope</th>
+                <th>Shared?</th>
+                <th>Use for</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="hl-red">Managed</span></td>
+                <td>All users</td>
+                <td>Org-wide policies</td>
+              </tr>
+              <tr>
+                <td><span class="hl-amber">Local</span></td>
+                <td>Just you</td>
+                <td>Personal project tweaks</td>
+              </tr>
+              <tr>
+                <td><span class="hl-blue">Project</span></td>
+                <td>Committed to git</td>
+                <td>Team-wide standards</td>
+              </tr>
+              <tr>
+                <td><span class="hl-green">User</span></td>
+                <td>Just you</td>
+                <td>Cross-project preferences</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">The same pattern applies to</div>
+        <div class="pill-row">
+          <span class="badge badge-blue">CLAUDE.md files</span>
+          <span class="badge badge-blue">Subagents</span>
+          <span class="badge badge-blue">Skills</span>
+          <span class="badge badge-blue">Rules</span>
+        </div>
+        <p style="font-size:0.82rem; color:var(--text-dim); margin-top:0.75rem; line-height:1.6;">
+          A <code style="font-family:var(--font-mono); color:var(--green);">~/.claude/</code> version is personal to you.
+          A <code style="font-family:var(--font-mono); color:var(--blue);">.claude/</code> version is shared with the team.
+        </p>
+      </div>
+
+    </div>
+  </div>
+  <div class="slide-num">03 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 4 — CLAUDE.MD (left-heavy)
+     ============================================================ -->
+<section class="slide" id="slide-claudemd">
+  <div class="slide-inner layout-left">
+
+    <div style="display:flex; align-items:flex-start; gap:4rem; flex-wrap:wrap;">
+
+      <div style="flex: 0 0 320px;">
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--amber);"></span> Section 02</div>
+        <h2 class="slide-heading">CLAUDE<span class="hl">.</span>md<br>Files</h2>
+        <p style="font-size:0.9rem; color:var(--text-dim); margin-top:1rem; line-height:1.7;">
+          Plain markdown Claude reads at the start of every session.
+          Specific, concrete instructions. Not enforced rules — Claude treats them as instructions.
+        </p>
+
+        <div style="margin-top:1.5rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Load locations</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>Path</th><th>Loaded when</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>~/.claude/CLAUDE.md</td>
+                <td>Every project</td>
+              </tr>
+              <tr>
+                <td>CLAUDE.md</td>
+                <td>This project only</td>
+              </tr>
+              <tr>
+                <td>.claude/CLAUDE.md</td>
+                <td>This project only</td>
+              </tr>
+              <tr>
+                <td>subdir/CLAUDE.md</td>
+                <td>When Claude reads that dir</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:1.25rem; padding:0.75rem 1rem; background: var(--green-dim); border: 1px solid rgba(0,255,140,0.2); border-radius:6px;">
+          <span style="font-family:var(--font-mono); font-size:0.78rem; color:var(--green);">💡 Run <strong>/init</strong> — Claude generates a starter CLAUDE.md by analysing your codebase.</span>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width:300px;">
+        <div class="compare-pair">
+          <div class="compare-block">
+            <div class="compare-header good">✓ Effective</div>
+            <div class="compare-body">
+              <div class="code-block" style="font-size:0.72rem;">
+<span class="cmt"># Project: payments-api</span>
+
+<span class="kw">## Build & test</span>
+- Run tests: <span class="str">`npm test`</span>
+- Lint: <span class="str">`npm run lint`</span>
+
+<span class="kw">## Conventions</span>
+- Use 2-space indentation
+- Handlers in <span class="str">`src/handlers/`</span>
+- Validate inputs with Zod
+- Return <span class="str">`{ error, code }`</span>
+              </div>
+              <p style="font-size:0.75rem; color:var(--green); margin-top:0.75rem; line-height:1.5;">
+                Commands are exact and runnable. Every rule is verifiable. Claude can check "did I follow this?" for each line.
+              </p>
+            </div>
+          </div>
+          <div class="compare-block">
+            <div class="compare-header bad">✗ Weak</div>
+            <div class="compare-body">
+              <div class="code-block" style="font-size:0.72rem;">
+<span class="cmt"># Project notes</span>
+
+Make sure the code is
+<span class="err">well organised</span> and follows
+<span class="err">best practices</span>.
+
+Tests are <span class="err">important</span>. Keep
+things <span class="err">clean and consistent</span>.
+              </div>
+              <p style="font-size:0.75rem; color:var(--red); margin-top:0.75rem; line-height:1.5;">
+                None of these are testable. "Well organised" means different things to different people. Claude makes its own interpretation every time.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:1rem; padding: 0.75rem 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius:6px;">
+          <div class="label" style="margin-bottom:0.4rem;">The key principle</div>
+          <p style="font-size:0.82rem; color:var(--text-dim); line-height:1.6;">
+            For each instruction, Claude should be able to answer: <em style="color:var(--amber);">"Can I verify whether I followed this?"</em> If not, the instruction is too vague.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="slide-num">04 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 5 — RULES (right-heavy / split)
+     ============================================================ -->
+<section class="slide" id="slide-rules">
+  <div class="slide-inner layout-split">
+    <div class="split-left" style="flex: 0.8;">
+
+      <div>
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--blue);"></span> Section 03</div>
+        <h2 class="slide-heading"><span class="hl">Rules</span></h2>
+        <p class="slide-subheading" style="margin-top:0.75rem;">
+          CLAUDE.md extended. Markdown files in <code style="font-family:var(--font-mono); color:var(--green);">.claude/rules/</code> — each file covers one topic.
+          Path-scoped rules only load when Claude touches matching files.
+        </p>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">Directory structure</div>
+        <div class="code-block">
+<span class="dir">.claude/</span>
+├── <span class="hl">CLAUDE.md</span>
+└── <span class="dir">rules/</span>
+    ├── <span class="file">testing.md</span>         <span class="cmt"># loads every session</span>
+    ├── <span class="file">api-design.md</span>      <span class="cmt"># loads every session</span>
+    └── <span class="hl">frontend.md</span>        <span class="cmt"># can be path-scoped</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.5rem;">Why path scoping matters</div>
+        <div class="card" style="padding:0.875rem;">
+          <p style="font-size:0.82rem; color:var(--text-dim); line-height:1.6;">
+            Rules without path scoping load at session start — same as CLAUDE.md.<br>
+            Rules <em>with</em> path scoping only appear in context when relevant, keeping the context window lean.
+          </p>
+        </div>
+      </div>
+
+    </div>
+    <div class="split-right" style="flex: 1.2;">
+
+      <div class="compare-pair">
+        <div class="compare-block">
+          <div class="compare-header good">✓ Effective path-scoped rule</div>
+          <div class="compare-body">
+            <div class="code-block" style="font-size:0.72rem;">
+<span class="cmt">---</span>
+<span class="key">paths</span>:
+  - <span class="str">"src/api/**/*.ts"</span>
+<span class="cmt">---</span>
+
+<span class="kw"># API Rules</span>
+
+- All endpoints must validate
+  inputs with <span class="str">Zod</span>
+- Return <span class="str">`{ data, error }`</span>
+  shape consistently
+- Include JSDoc on exported
+  handler functions
+            </div>
+            <p style="font-size:0.75rem; color:var(--green); margin-top:0.75rem; line-height:1.5;">
+              Path scope is correct, content is actionable. Only loads when working on API files.
+            </p>
+          </div>
+        </div>
+        <div class="compare-block">
+          <div class="compare-header bad">✗ Correct scope, weak content</div>
+          <div class="compare-body">
+            <div class="code-block" style="font-size:0.72rem;">
+<span class="cmt">---</span>
+<span class="key">paths</span>:
+  - <span class="str">"src/api/**/*.ts"</span>
+<span class="cmt">---</span>
+
+When writing API code, try
+to follow <span class="err">good API design
+principles</span> and make sure
+things <span class="err">work correctly</span>.
+            </div>
+            <p style="font-size:0.75rem; color:var(--red); margin-top:0.75rem; line-height:1.5;">
+              Correct scoping doesn't compensate for vague instructions. Path scope is doing all the work here.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:1rem; background: var(--blue-dim); border: 1px solid rgba(64,196,255,0.2); border-radius:6px;">
+        <div class="label" style="color:var(--blue); margin-bottom:0.4rem;">How path scoping triggers</div>
+        <p style="font-size:0.82rem; color:var(--text-dim); line-height:1.6;">
+          When Claude reads, writes, or edits any file matching the glob pattern, the rule loads into context.
+          Unrelated work stays clean.
+        </p>
+      </div>
+
+    </div>
+  </div>
+  <div class="slide-num">05 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 6 — SKILLS (centred)
+     ============================================================ -->
+<section class="slide" id="slide-skills">
+  <div class="slide-inner layout-left" style="padding: 7vh 8vw;">
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items:start; width:100%;">
+
+      <div>
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--purple);"></span> Section 04</div>
+        <h2 class="slide-heading">Skills</h2>
+        <p class="slide-subheading" style="margin-top:0.75rem;">
+          Reusable instruction sets in <code style="font-family:var(--font-mono); color:var(--green);">SKILL.md</code> files.
+          Directory name becomes the /slash-command.
+        </p>
+
+        <div style="margin-top:1.5rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Two skill types</div>
+          <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <div class="card card-amber">
+              <div style="font-family:var(--font-mono); font-size:0.82rem; font-weight:600; color:var(--amber); margin-bottom:0.4rem;">Command Skill</div>
+              <p style="font-size:0.78rem; color:var(--text-dim); line-height:1.5;">
+                <code style="color:var(--amber);">disable-model-invocation: true</code> — you trigger with <code>/name</code>. Good for actions with side effects like <code>/deploy</code> or <code>/commit</code>.
+              </p>
+            </div>
+            <div class="card card-blue">
+              <div style="font-family:var(--font-mono); font-size:0.82rem; font-weight:600; color:var(--blue); margin-bottom:0.4rem;">Knowledge Skill</div>
+              <p style="font-size:0.78rem; color:var(--text-dim); line-height:1.5;">
+                <code style="color:var(--blue);">user-invocable: false</code> — Claude loads it automatically when relevant. Good for reference material or domain guidelines.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Key frontmatter fields</div>
+          <table class="data-table" style="font-size:0.75rem;">
+            <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>name</td><td>Slash command name (defaults to dir name)</td></tr>
+              <tr><td>description</td><td>When Claude should load this skill — front-load the use case</td></tr>
+              <tr><td>disable-model-invocation</td><td>Only trigger manually with /name</td></tr>
+              <tr><td>user-invocable</td><td>Set false to hide from / menu</td></tr>
+              <tr><td>allowed-tools</td><td>Restrict available tools while skill runs</td></tr>
+              <tr><td>argument-hint</td><td>Autocomplete hint, e.g. [issue-number]</td></tr>
+              <tr><td>context</td><td>Set fork to run in isolated subagent</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem; color:var(--green);">✓ Effective — command skill</div>
+        <div class="code-block" style="font-size:0.72rem; margin-bottom:1rem;">
+<span class="cmt">---</span>
+<span class="key">name</span>: <span class="str">create-component</span>
+<span class="key">description</span>: <span class="str">Scaffold a new React component with tests</span>
+<span class="key">disable-model-invocation</span>: <span class="num">true</span>
+<span class="key">argument-hint</span>: <span class="str">&lt;ComponentName&gt;</span>
+<span class="key">allowed-tools</span>: <span class="str">Write, Read</span>
+<span class="cmt">---</span>
+
+Create a new React component named <span class="kw">$ARGUMENTS</span>.
+
+<span class="num">1</span>. Create <span class="str">`src/components/$ARGUMENTS/$ARGUMENTS.tsx`</span>
+<span class="num">2</span>. Create <span class="str">`src/components/$ARGUMENTS/$ARGUMENTS.test.tsx`</span>
+   with basic render test
+<span class="num">3</span>. Export from <span class="str">`src/components/index.ts`</span>
+
+Follow existing patterns in <span class="str">`src/components/`</span>.
+        </div>
+
+        <div class="label" style="margin-bottom:0.75rem; color:var(--red);">✗ Weak — vague, unsafe</div>
+        <div class="code-block" style="font-size:0.72rem;">
+<span class="cmt">---</span>
+<span class="key">name</span>: <span class="str">create-component</span>
+<span class="key">description</span>: <span class="err">Makes components</span>
+<span class="cmt">---</span>
+<span class="cmt"># no disable-model-invocation!</span>
+
+Create a component for the user.
+Make it <span class="err">look nice</span> and <span class="err">work properly</span>.
+        </div>
+        <div style="margin-top:0.75rem; padding:0.75rem; background:var(--red-dim); border:1px solid rgba(255,92,92,0.2); border-radius:6px;">
+          <p style="font-size:0.75rem; color:var(--red); line-height:1.5;">
+            Without <code>disable-model-invocation</code>, Claude might scaffold a component when you only asked a question. Vague description triggers on any UI query.
+          </p>
+        </div>
+
+        <div style="margin-top:1rem;">
+          <div class="label" style="margin-bottom:0.5rem;">Storage locations</div>
+          <div class="pill-row">
+            <span class="badge badge-green">~/.claude/skills/&lt;name&gt;/SKILL.md</span>
+            <span class="label">all projects</span>
+          </div>
+          <div class="pill-row" style="margin-top:0.4rem;">
+            <span class="badge badge-blue">.claude/skills/&lt;name&gt;/SKILL.md</span>
+            <span class="label">this project</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="slide-num">06 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 7 — SUBAGENTS (centred)
+     ============================================================ -->
+<section class="slide" id="slide-subagents">
+  <div class="slide-inner layout-center" style="padding: 7vh 8vw; align-items:flex-start; text-align:left;">
+
+    <div class="glow-orb" style="width:500px;height:500px;background:radial-gradient(circle, rgba(64,196,255,0.05) 0%, transparent 65%);top:50%;right:-10%;transform:translateY(-50%);"></div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3rem; width:100%; align-items:start;">
+      <div>
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--blue);"></span> Section 05</div>
+        <h2 class="slide-heading">Sub<span class="hl">agents</span></h2>
+        <p class="slide-subheading" style="margin-top:0.75rem; text-align:left;">
+          Specialised AI assistants that run in their own context window. Claude delegates tasks automatically based on description.
+        </p>
+
+        <div style="margin-top:1.5rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Built-in agents</div>
+          <div style="display:flex; flex-direction:column; gap:0.5rem;">
+            <div class="card" style="padding:0.75rem 1rem; display:flex; gap:0.75rem; align-items:center;">
+              <span class="badge badge-green">Explore</span>
+              <span style="font-size:0.8rem; color:var(--text-dim);">Read-only, fast codebase search</span>
+            </div>
+            <div class="card" style="padding:0.75rem 1rem; display:flex; gap:0.75rem; align-items:center;">
+              <span class="badge badge-amber">Plan</span>
+              <span style="font-size:0.8rem; color:var(--text-dim);">Used during plan mode</span>
+            </div>
+            <div class="card" style="padding:0.75rem 1rem; display:flex; gap:0.75rem; align-items:center;">
+              <span class="badge badge-blue">general-purpose</span>
+              <span style="font-size:0.8rem; color:var(--text-dim);">Fallback for unmatched tasks</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Key frontmatter fields</div>
+          <table class="data-table" style="font-size:0.75rem;">
+            <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>name</td><td>Identifier (lowercase, hyphens)</td></tr>
+              <tr><td>description</td><td>When Claude should delegate here</td></tr>
+              <tr><td>tools</td><td>Allowlist of tools</td></tr>
+              <tr><td>disallowedTools</td><td>Denylist (applied before tools)</td></tr>
+              <tr><td>model</td><td>sonnet, opus, haiku, or inherit</td></tr>
+              <tr><td>maxTurns</td><td>Max agentic turns before stopping</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem; color:var(--green);">✓ Effective — focused agent</div>
+        <div class="code-block" style="font-size:0.72rem; margin-bottom:1rem;">
+<span class="cmt">---</span>
+<span class="key">name</span>: <span class="str">security-reviewer</span>
+<span class="key">description</span>: <span class="str">Reviews code for security vulnerabilities.
+  Use when reviewing authentication, authorization,
+  input handling, database queries, or code that
+  handles user data.</span>
+<span class="key">tools</span>: <span class="str">Read, Grep, Glob</span>
+<span class="key">model</span>: <span class="str">sonnet</span>
+<span class="cmt">---</span>
+
+You are a security code reviewer. When invoked:
+
+<span class="num">1</span>. Read the changed files
+<span class="num">2</span>. Check for: SQL injection, XSS, IDOR,
+   missing auth checks, secrets in code
+<span class="num">3</span>. Report: file, line, severity, concrete fix
+
+Do not suggest unrelated refactors. Stay focused.
+        </div>
+
+        <div class="label" style="margin-bottom:0.75rem; color:var(--red);">✗ Weak — catches everything, costs everything</div>
+        <div class="code-block" style="font-size:0.72rem;">
+<span class="cmt">---</span>
+<span class="key">name</span>: <span class="str">helper</span>
+<span class="key">description</span>: <span class="err">Helps with coding tasks</span>
+<span class="key">tools</span>: <span class="err">Read, Write, Bash, Edit, Grep, Glob</span>
+<span class="key">model</span>: <span class="err">opus</span>
+<span class="cmt">---</span>
+
+You are a helpful coding assistant.
+<span class="err">Help the user with whatever they need.</span>
+        </div>
+        <div style="margin-top:0.75rem; padding:0.75rem; background:var(--red-dim); border:1px solid rgba(255,92,92,0.2); border-radius:6px;">
+          <p style="font-size:0.75rem; color:var(--red); line-height:1.5;">
+            Description matches everything — Claude delegates constantly. Opus for generic help wastes money. Full tool access including Bash is a security risk with no focused purpose.
+          </p>
+        </div>
+
+        <div style="margin-top:1rem;">
+          <div class="label" style="margin-bottom:0.5rem;">The agent body is the entire system prompt</div>
+          <p style="font-size:0.78rem; color:var(--text-dim); line-height:1.55;">
+            It receives only that — not the full Claude Code system prompt. Specificity in the description is what routes tasks correctly.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="slide-num">07 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 8 — HOOKS (left-heavy)
+     ============================================================ -->
+<section class="slide" id="slide-hooks">
+  <div class="slide-inner layout-left" style="padding: 7vh 8vw;">
+
+    <div style="display:grid; grid-template-columns: 380px 1fr; gap:3rem; align-items:start; width:100%;">
+
+      <div>
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--amber);"></span> Section 06</div>
+        <h2 class="slide-heading"><span class="hl">Hooks</span></h2>
+        <p class="slide-subheading" style="margin-top:0.75rem;">
+          Shell commands triggered by lifecycle events. Enforce rules, auto-format, log activity, or block unsafe operations.
+        </p>
+
+        <div style="margin-top:1.5rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Lifecycle events</div>
+          <div class="event-chain">
+            <div class="event-item">
+              <div class="event-name">SessionStart</div>
+              <div class="event-desc">Session begins</div>
+            </div>
+            <div class="event-item blocking">
+              <div class="event-name">PreToolUse</div>
+              <div class="event-desc">Before Claude uses a tool</div>
+            </div>
+            <div class="event-item">
+              <div class="event-name">PostToolUse</div>
+              <div class="event-desc">After a tool runs</div>
+            </div>
+            <div class="event-item">
+              <div class="event-name">Stop</div>
+              <div class="event-desc">When Claude finishes responding</div>
+            </div>
+            <div class="event-item blocking">
+              <div class="event-name">UserPromptSubmit</div>
+              <div class="event-desc">When you submit a message</div>
+            </div>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-dim); margin-top:0.75rem; line-height:1.5;">
+            To block an action: exit code <code style="color:var(--red);">2</code> + print reason to stderr.
+          </p>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:1.25rem;">
+
+        <div>
+          <div class="label" style="margin-bottom:0.5rem;">Hook configuration shape</div>
+          <div class="code-block" style="font-size:0.72rem;">
+<span class="cmt">// in settings.json</span>
+{
+  <span class="key">"hooks"</span>: {
+    <span class="key">"PostToolUse"</span>: [
+      {
+        <span class="key">"matcher"</span>: <span class="str">"Write|Edit"</span>,
+        <span class="key">"hooks"</span>: [
+          {
+            <span class="key">"type"</span>: <span class="str">"command"</span>,
+            <span class="key">"command"</span>: <span class="str">"\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/lint.sh"</span>
+          }
+        ]
+      }
+    ]
+  }
+}
+          </div>
+        </div>
+
+        <div class="compare-pair">
+          <div class="compare-block">
+            <div class="compare-header good">✓ Auto-lint after edits</div>
+            <div class="compare-body">
+              <div class="code-block" style="font-size:0.7rem;">
+<span class="cmt">#!/bin/bash</span>
+FILE=$(cat | jq -r <span class="str">'.tool_input.file_path'</span>)
+
+<span class="kw">if</span> [[ "<span class="kw">$FILE</span>" == *.js ||
+     "<span class="kw">$FILE</span>" == *.ts ]]; <span class="kw">then</span>
+  npx eslint --fix "<span class="kw">$FILE</span>" 2>/dev/null
+<span class="kw">fi</span>
+
+<span class="kw">exit</span> <span class="num">0</span>
+              </div>
+              <p style="font-size:0.72rem; color:var(--green); margin-top:0.5rem; line-height:1.4;">
+                Matcher specific. Parses stdin for file path. JS/TS only. Exit 0 = non-blocking.
+              </p>
+            </div>
+          </div>
+          <div class="compare-block">
+            <div class="compare-header bad">✗ Empty matcher catastrophe</div>
+            <div class="compare-body">
+              <div class="code-block" style="font-size:0.7rem;">
+{
+  <span class="key">"PreToolUse"</span>: [{
+    <span class="key">"matcher"</span>: <span class="err">""</span>,
+    <span class="key">"hooks"</span>: [{
+      <span class="key">"command"</span>: <span class="err">"echo 'doing
+something' >> /tmp/log"</span>
+    }]
+  }]
+}
+              </div>
+              <p style="font-size:0.72rem; color:var(--red); margin-top:0.5rem; line-height:1.4;">
+                Empty matcher fires on <em>every</em> tool call — Read, Grep, Glob — thousands of times per session. Spawns a shell each time.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">08 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 9 — MCP SERVERS (split)
+     ============================================================ -->
+<section class="slide" id="slide-mcp">
+  <div class="slide-inner layout-split">
+    <div class="split-left">
+
+      <div>
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--purple);"></span> Section 07</div>
+        <h2 class="slide-heading">MCP<br><span class="hl">Servers</span></h2>
+        <p class="slide-subheading" style="margin-top:0.75rem;">
+          Model Context Protocol. Gives Claude access to external tools: databases, APIs, issue trackers, browsers.
+        </p>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">Three transport types</div>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div class="transport-item">
+            <div class="transport-icon" style="background:var(--green-dim); border:1px solid rgba(0,255,140,0.2);">🌐</div>
+            <div class="transport-content">
+              <div class="transport-name hl-green">HTTP (recommended)</div>
+              <div class="transport-desc">Cloud services. Stable, well-supported.</div>
+              <div class="transport-cmd">claude mcp add --transport http &lt;name&gt; &lt;url&gt;</div>
+            </div>
+          </div>
+          <div class="transport-item">
+            <div class="transport-icon" style="background:var(--blue-dim); border:1px solid rgba(64,196,255,0.2);">⚙️</div>
+            <div class="transport-content">
+              <div class="transport-name hl-blue">stdio</div>
+              <div class="transport-desc">Local process on your machine.</div>
+              <div class="transport-cmd">claude mcp add --transport stdio &lt;name&gt; -- &lt;cmd&gt; [args]</div>
+            </div>
+          </div>
+          <div class="transport-item" style="opacity:0.6;">
+            <div class="transport-icon" style="background:var(--surface2);">⚠️</div>
+            <div class="transport-content">
+              <div class="transport-name hl-red">SSE (deprecated)</div>
+              <div class="transport-desc">Prefer HTTP. Being phased out.</div>
+              <div class="transport-cmd">claude mcp add --transport sse &lt;name&gt; &lt;url&gt;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">Management commands</div>
+        <div class="code-block" style="font-size:0.78rem;">
+<span class="kw">claude</span> mcp list          <span class="cmt"># all servers</span>
+<span class="kw">claude</span> mcp get &lt;name&gt;   <span class="cmt"># one server details</span>
+<span class="kw">claude</span> mcp remove &lt;name&gt;<span class="cmt"># remove a server</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="split-right">
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">Scope flags</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Flag</th><th>Stored in</th><th>Shared?</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>--scope local</td>
+              <td>~/.claude.json (per-project)</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td>--scope project</td>
+              <td>.mcp.json in project root</td>
+              <td>Yes — commit it</td>
+            </tr>
+            <tr>
+              <td>--scope user</td>
+              <td>~/.claude.json</td>
+              <td>No — all projects</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem; color:var(--green);">✓ Adding GitHub (correct way)</div>
+        <div class="code-block" style="font-size:0.75rem;">
+<span class="cmt"># Add once — user scope, all projects</span>
+<span class="kw">claude</span> mcp add \
+  --transport http \
+  --scope user \
+  github \
+  https://api.githubcopilot.com/mcp/
+        </div>
+        <div style="margin-top:0.5rem; padding:0.75rem; background:var(--green-dim); border:1px solid rgba(0,255,140,0.2); border-radius:6px;">
+          <p style="font-size:0.78rem; color:var(--green); line-height:1.5;">
+            Then run <code>/mcp</code> inside Claude Code, select GitHub, authenticate with OAuth.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem; color:var(--red);">✗ Never edit ~/.claude.json directly</div>
+        <div style="padding:0.875rem; background:var(--red-dim); border:1px solid rgba(255,92,92,0.2); border-radius:6px;">
+          <p style="font-size:0.8rem; color:var(--red); line-height:1.6;">
+            <code>~/.claude.json</code> is managed by Claude Code and may be overwritten. Absolute paths won't work on another machine or in CI. Use <code>claude mcp add</code> — it handles the correct format and location.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.5rem;">Inside Claude Code</div>
+        <div class="code-block" style="font-size:0.82rem;">
+<span class="kw">/mcp</span>   <span class="cmt"># view status, authenticate OAuth</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="slide-num">09 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 10 — PLUGINS (centred)
+     ============================================================ -->
+<section class="slide" id="slide-plugins">
+  <div class="slide-inner layout-left" style="padding: 7vh 8vw;">
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3rem; align-items:start; width:100%;">
+
+      <div>
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--green);"></span> Section 08</div>
+        <h2 class="slide-heading">Plugins</h2>
+        <p class="slide-subheading" style="margin-top:0.75rem;">
+          Package skills, subagents, hooks, and MCP servers together. Share, version, and install across projects.
+          Skills are namespaced to prevent conflicts: <code style="font-family:var(--font-mono); color:var(--green);">/my-plugin:deploy</code>
+        </p>
+
+        <div style="margin-top:1.5rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Plugin structure</div>
+          <div class="code-block" style="font-size:0.78rem;">
+<span class="dir">my-plugin/</span>
+├── <span class="dir">.claude-plugin/</span>
+│   └── <span class="hl">plugin.json</span>     <span class="cmt">← manifest (only file here)</span>
+├── <span class="dir">skills/</span>
+│   └── <span class="dir">deploy/</span>
+│       └── <span class="file">SKILL.md</span>
+├── <span class="dir">agents/</span>
+│   └── <span class="file">reviewer.md</span>
+└── <span class="dir">hooks/</span>
+    └── <span class="file">hooks.json</span>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Test and distribute</div>
+          <div class="code-block" style="font-size:0.78rem;">
+<span class="cmt"># Test locally</span>
+<span class="kw">claude</span> --plugin-dir ./my-plugin
+
+<span class="cmt"># Reload without restarting</span>
+<span class="kw">/reload-plugins</span>
+
+<span class="cmt"># Teams install from GitHub</span>
+<span class="kw">/plugin install</span> owner/repo
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem; color:var(--green);">✓ Effective plugin.json</div>
+        <div class="code-block" style="font-size:0.75rem; margin-bottom:1rem;">
+{
+  <span class="key">"name"</span>: <span class="str">"acme-standards"</span>,
+  <span class="key">"description"</span>: <span class="str">"Acme Corp coding standards —
+    linting hooks, review agents,
+    commit conventions"</span>,
+  <span class="key">"version"</span>: <span class="str">"1.2.0"</span>,
+  <span class="key">"author"</span>: {
+    <span class="key">"name"</span>: <span class="str">"Acme Platform Team"</span>
+  },
+  <span class="key">"homepage"</span>: <span class="str">"https://github.com/acme/claude-standards"</span>
+}
+        </div>
+        <p style="font-size:0.75rem; color:var(--green); line-height:1.5; margin-bottom:1rem;">
+          Clear description, semver, homepage lets teammates find the source.
+        </p>
+
+        <div class="label" style="margin-bottom:0.75rem; color:var(--red);">✗ Weak plugin.json</div>
+        <div class="code-block" style="font-size:0.75rem; margin-bottom:0.75rem;">
+{
+  <span class="key">"name"</span>: <span class="err">"MyPlugin"</span>,       <span class="cmt">← PascalCase breaks namespacing</span>
+  <span class="key">"description"</span>: <span class="err">"my plugin"</span>,
+  <span class="key">"version"</span>: <span class="err">"1"</span>           <span class="cmt">← not semver</span>
+}
+        </div>
+        <div style="padding:0.875rem; background:var(--red-dim); border:1px solid rgba(255,92,92,0.2); border-radius:6px;">
+          <p style="font-size:0.78rem; color:var(--red); line-height:1.5;">
+            Plugin names must be lowercase with hyphens — PascalCase breaks skill namespacing. Version must be semver. These are technically valid JSON but cause behavioural problems.
+          </p>
+        </div>
+
+        <div style="margin-top:1rem; padding:0.875rem; background:var(--green-dim); border:1px solid rgba(0,255,140,0.2); border-radius:6px;">
+          <div class="label" style="color:var(--green); margin-bottom:0.4rem;">The key difference from standalone config</div>
+          <p style="font-size:0.78rem; color:var(--text-dim); line-height:1.55;">
+            Plugin skills are namespaced: <code style="color:var(--green);">/plugin-name:skill-name</code>. This prevents conflicts when multiple plugins provide similarly-named skills.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="slide-num">10 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 11 — WORKTREES (edge-aligned)
+     ============================================================ -->
+<section class="slide" id="slide-worktrees">
+  <div class="slide-inner" style="min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding: 8vh 8vw; gap:2.5rem;">
+
+    <div class="glow-orb" style="width:350px;height:350px;background:radial-gradient(circle, rgba(255,92,92,0.05) 0%, transparent 65%);bottom:-5%;left:-5%;"></div>
+
+    <div style="display:flex; align-items:flex-start; gap:5vw; flex-wrap:wrap;">
+
+      <div style="flex: 0 0 340px;">
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--red);"></span> Section 09</div>
+        <h2 class="slide-heading">Work<span class="hl">trees</span></h2>
+        <p class="slide-subheading" style="margin-top:0.75rem;">
+          Run multiple Claude sessions simultaneously, each in its own isolated copy of the repository, on separate branches, without interference.
+        </p>
+
+        <div style="margin-top:1.5rem; padding:1rem; background:var(--red-dim); border:1px solid rgba(255,92,92,0.2); border-radius:8px;">
+          <div class="label" style="color:var(--red); margin-bottom:0.5rem;">Advanced topic</div>
+          <p style="font-size:0.82rem; color:var(--text-dim); line-height:1.6;">
+            Come back to this once you're comfortable with skills and subagents. The machinery behind this is git worktrees — Claude wraps the workflow.
+          </p>
+        </div>
+
+        <div style="margin-top:1.25rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Basic usage</div>
+          <div class="code-block" style="font-size:0.82rem;">
+<span class="cmt"># Start Claude in an isolated worktree</span>
+<span class="kw">claude</span> --worktree feature-name
+          </div>
+          <p style="font-size:0.78rem; color:var(--text-dim); margin-top:0.75rem; line-height:1.55;">
+            Creates <code style="font-family:var(--font-mono); color:var(--green);">.claude/worktrees/feature-name/</code> on a new branch called
+            <code style="font-family:var(--font-mono); color:var(--blue);">worktree-feature-name</code>.
+            Cleans up automatically if no changes were made.
+          </p>
+        </div>
+
+        <div style="margin-top:1.25rem;">
+          <div class="label" style="margin-bottom:0.5rem;">Subagent worktree isolation</div>
+          <div class="code-block" style="font-size:0.75rem;">
+<span class="cmt">---</span>
+<span class="key">name</span>: <span class="str">my-agent</span>
+<span class="key">isolation</span>: <span class="str">worktree</span>
+<span class="cmt">---</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1; min-width:300px; display:flex; flex-direction:column; gap:1.25rem;">
+        <div class="label" style="margin-bottom:0.25rem;">Parallel sessions diagram</div>
+
+        <div style="display:flex; flex-direction:column; gap:0.5rem;">
+          <div style="padding: 1rem 1.25rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; border-left: 3px solid var(--green);">
+            <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--green); margin-bottom:0.5rem;">Main repo &nbsp;/&nbsp; branch: main</div>
+            <div style="font-size:0.8rem; color:var(--text-dim);">Your normal Claude Code session — unaffected</div>
+          </div>
+
+          <div style="display:flex; gap:0.75rem; padding-left:1.5rem;">
+            <div style="width:1px; background: var(--border-bright);"></div>
+            <div style="display:flex; flex-direction:column; gap:0.5rem; flex:1;">
+              <div style="padding: 1rem 1.25rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; border-left: 3px solid var(--blue);">
+                <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--blue); margin-bottom:0.5rem;">Worktree 1 &nbsp;/&nbsp; branch: worktree-auth-rewrite</div>
+                <div style="font-size:0.8rem; color:var(--text-dim);">Claude session — isolated, separate branch</div>
+              </div>
+              <div style="padding: 1rem 1.25rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; border-left: 3px solid var(--purple);">
+                <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--purple); margin-bottom:0.5rem;">Worktree 2 &nbsp;/&nbsp; branch: worktree-new-api</div>
+                <div style="font-size:0.8rem; color:var(--text-dim);">Claude session — isolated, separate branch</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:0.5rem;">
+          <div class="label" style="margin-bottom:0.75rem;">Worktree safety notes</div>
+          <div style="display:flex; flex-direction:column; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.75rem; font-size:0.8rem; color:var(--text-dim);">
+              <span style="color:var(--amber);">→</span> Check which branches exist before creating new ones
+            </div>
+            <div style="display:flex; align-items:center; gap:0.75rem; font-size:0.8rem; color:var(--text-dim);">
+              <span style="color:var(--amber);">→</span> Never remove a worktree while your shell is inside it
+            </div>
+            <div style="display:flex; align-items:center; gap:0.75rem; font-size:0.8rem; color:var(--text-dim);">
+              <span style="color:var(--amber);">→</span> After removing, cd back to the main repo directory
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="slide-num">11 / 12</div>
+</section>
+
+
+<!-- ============================================================
+     SLIDE 12 — PUTTING IT TOGETHER (full-bleed)
+     ============================================================ -->
+<section class="slide" id="slide-progression">
+  <div class="slide-inner" style="min-height:100vh; display:flex; padding: 8vh 0; flex-direction:row;">
+
+    <div class="glow-orb" style="width:600px;height:600px;background:radial-gradient(circle, rgba(0,255,140,0.07) 0%, transparent 65%);bottom:-10%;right:-5%;pointer-events:none;"></div>
+
+    <div style="flex: 0 0 420px; padding: 0 6vw; display:flex; flex-direction:column; justify-content:center; gap:1.5rem; border-right: 1px solid var(--border);">
+      <div>
+        <div class="section-header" style="margin-bottom:1rem;"><span class="dot" style="background:var(--green);"></span> Progression</div>
+        <h2 class="slide-heading">Putting it<br><span class="hl">Together</span></h2>
+        <p class="slide-subheading" style="margin-top:0.75rem;">
+          A proven adoption path. Don't start at step 8.
+          Each layer earns the next.
+        </p>
+      </div>
+
+      <div style="padding: 1.25rem; background: var(--green-dim); border: 1px solid rgba(0,255,140,0.2); border-radius:8px;">
+        <p style="font-size:0.85rem; color:var(--text-dim); line-height:1.7;">
+          Resist the urge to configure everything upfront. Start with CLAUDE.md, observe where friction still exists, then add the next layer.
+          Over-configured from day one is just differently broken.
+        </p>
+      </div>
+
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">Reference links</div>
+        <div style="display:flex; flex-direction:column; gap:0.4rem;">
+          <div style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-faint);">code.claude.com/docs/en/settings</div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-faint);">code.claude.com/docs/en/memory</div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-faint);">code.claude.com/docs/en/skills</div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-faint);">code.claude.com/docs/en/sub-agents</div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-faint);">code.claude.com/docs/en/hooks</div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-faint);">code.claude.com/docs/en/mcp</div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-faint);">code.claude.com/docs/en/plugins</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1; padding: 0 6vw; display:flex; flex-direction:column; justify-content:center;">
+      <div class="progression">
+        <div class="prog-step">
+          <div class="prog-num">1</div>
+          <div class="prog-content">
+            <div class="prog-title">CLAUDE.md — project context</div>
+            <div class="prog-desc">Get Claude to understand your project: build commands, conventions, architecture. Specific and verifiable instructions only.</div>
+          </div>
+          <span class="badge badge-green" style="margin-left:auto; flex-shrink:0;">Start here</span>
+        </div>
+        <div class="prog-step">
+          <div class="prog-num">2</div>
+          <div class="prog-content">
+            <div class="prog-title">Rules — scale your instructions</div>
+            <div class="prog-desc">Move to <code style="font-family:var(--font-mono);">.claude/rules/</code> as instructions grow. Use path scoping to keep context lean.</div>
+          </div>
+        </div>
+        <div class="prog-step">
+          <div class="prog-num">3</div>
+          <div class="prog-content">
+            <div class="prog-title">Command skills — automate repetition</div>
+            <div class="prog-desc">Create skills for repetitive tasks you invoke manually: /commit, /create-component, /deploy. Use <code style="font-family:var(--font-mono);">disable-model-invocation: true</code>.</div>
+          </div>
+        </div>
+        <div class="prog-step">
+          <div class="prog-num">4</div>
+          <div class="prog-content">
+            <div class="prog-title">Knowledge skills — domain context</div>
+            <div class="prog-desc">Add skills for domain context Claude should apply automatically: architecture patterns, team conventions, testing standards.</div>
+          </div>
+        </div>
+        <div class="prog-step">
+          <div class="prog-num">5</div>
+          <div class="prog-content">
+            <div class="prog-title">Subagents — specialist reviewers</div>
+            <div class="prog-desc">Create focused agents for security review, performance analysis, documentation. Bounded tools, clear purpose.</div>
+          </div>
+        </div>
+        <div class="prog-step">
+          <div class="prog-num">6</div>
+          <div class="prog-content">
+            <div class="prog-title">Hooks — enforce standards</div>
+            <div class="prog-desc">Wire hooks for linting after edits, commit format checking, blocking dangerous operations. Specific matchers only.</div>
+          </div>
+        </div>
+        <div class="prog-step">
+          <div class="prog-num">7</div>
+          <div class="prog-content">
+            <div class="prog-title">MCP servers — external tools</div>
+            <div class="prog-desc">Add GitHub, Jira, databases. User scope for personal tools; project scope for team-shared integrations.</div>
+          </div>
+        </div>
+        <div class="prog-step" style="border-bottom:none;">
+          <div class="prog-num">8</div>
+          <div class="prog-content">
+            <div class="prog-title">Plugins — share with your team</div>
+            <div class="prog-desc">Package everything into a plugin once you want to share it. Push to GitHub. Teams install with /plugin install.</div>
+          </div>
+          <span class="badge badge-purple" style="margin-left:auto; flex-shrink:0;">Share it</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="slide-num">12 / 12</div>
+</section>
+
+</body>
+</html>
