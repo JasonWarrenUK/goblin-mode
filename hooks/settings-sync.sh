@@ -13,10 +13,14 @@ if [[ ! -f "$SRC" ]]; then
   exit 0
 fi
 
-# Strip // line comments and trailing commas before closing braces/brackets
+# Strip // line comments (only when not inside a quoted string) and trailing commas
+# The regex matches // that appears after an even number of quotes on the same line,
+# which is a reliable heuristic for "outside a string value".
+# The \s in BSD sed (macOS default) is not portable; use [[:space:]] instead.
 stripped=$(sed \
-  -e 's|//.*$||' \
-  -e 's|,\s*\([}\]]\)|\1|g' \
+  -e 's|^\([^"]*\)//.*$|\1|' \
+  -e 's|,[[:space:]]*\([}]\)|\1|g' \
+  -e 's|,[[:space:]]*\(]\)|\1|g' \
   "$SRC")
 
 # Check for keys in .json not present in .jsonc (warn only if .json already exists)

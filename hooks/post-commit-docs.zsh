@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # Documentation Sync Hook
 # Trigger: post-commit

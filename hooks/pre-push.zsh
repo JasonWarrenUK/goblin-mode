@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # ~/.claude/hooks/pre-push.zsh
 
