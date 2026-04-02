@@ -2,6 +2,9 @@
 description: An example of a roadmap from a project that is deep in development
 ---
 
+> This is a worked example of the roadmap format. For a blank template, see
+> [`library/docs/templates/roadmap.md`](../templates/roadmap.md).
+
 # Iris: MVP
 
 |          | Status                                      | Next Up                               | Blocked                               |

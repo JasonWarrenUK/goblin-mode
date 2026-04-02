@@ -40,9 +40,9 @@ If unsure: https://www.oxfordlearnersdictionaries.com
 
 ## Claude Code Behaviour
 
-### Skills and Slash Commands
+### Skills
 
-All commands live in `~/.claude/skills/` as `SKILL.md` files. User-invocable commands have `disable-model-invocation: true`; agent-facing knowledge skills have `user-invocable: false`.
+All skills live in `~/.claude/skills/` as `SKILL.md` files (66 total: 49 command skills + 17 knowledge skills). Command skills have `disable-model-invocation: true`; knowledge skills have `user-invocable: false`.
 
 Use the Greek letter convention in the YAML frontmatter `description` field to signal which model a command uses:
 
