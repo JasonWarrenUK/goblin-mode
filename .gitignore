@@ -9,8 +9,6 @@
 
 # My customisations
 !/agents/**
-!/commands/**
-!/doc-templates/**
 !/docs/**
 docs/personal/
 !/hooks/**
@@ -46,8 +44,6 @@ statusline-command.sh
 session-env/
 sessions/
 backups
-commands/git/.DS_Store
-commands/.DS_Store
 skills/.DS_Store
 telemetry
 mcp-needs-auth-cache.json
