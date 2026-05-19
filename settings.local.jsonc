@@ -1,16 +1,3 @@
 {
-  // Local overrides — edit this file, not settings.local.json (which is auto-generated)
-  "hooks": {
-    "SessionStart": [
-      {
-        // Strips JSONC comments and syncs to settings.local.json on every session start
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/settings-sync.sh"
-          }
-        ]
-      }
-    ]
-  }
+	// Local overrides — edit this file, not settings.local.json (which is auto-generated)
 }
