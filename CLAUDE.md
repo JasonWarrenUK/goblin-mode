@@ -13,6 +13,11 @@
 **Testing:** Vitest preferred, Jest familiar — coverage is a known weakness
 **Tooling:** Git, Zed, Vite, bun/npm/pnpm (project-specific)
 
+## Shell Scripting
+- Target zsh syntax (not bash) for shell scripts on this system
+- Use macOS-compatible flags: `sed -i ''` (with empty string), avoid GNU-only options
+- Suppress debug output and avoid shadowing readonly variables
+
 ---
 
 ## Communication
@@ -34,23 +39,32 @@ Use British spelling in all code comments, documentation, and output:
 - `-ogue` not `-og` (catalogue, dialogue)
 - Double consonants: travelled, cancelled, modelling
 
-If unsure: https://www.oxfordlearnersdictionaries.com
+If unsure: <https://www.oxfordlearnersdictionaries.com>
 
 ---
 
-## Claude Code Behaviour
+## Skills
 
-### Skills
+- All skills live in `~/.claude/skills/` as `SKILL.md` files
+- There are 66 total: 49 command skills & 17 knowledge skills
+- Command skills have `disable-model-invocation: true`; knowledge skills have `user-invocable: false`.
 
-All skills live in `~/.claude/skills/` as `SKILL.md` files (66 total: 49 command skills + 17 knowledge skills). Command skills have `disable-model-invocation: true`; knowledge skills have `user-invocable: false`.
+### Skill Creation
 
-Use the Greek letter convention in the YAML frontmatter `description` field to signal which model a command uses:
-
-- `𝚫𝚫𝚫` = haiku
-- `ƔƔƔ` = sonnet
-- `𝛀𝛀𝛀` = opus
+1. Always create skills in the project-local `.claude/skills/` directory unless explicitly told to create them globally
+2. Check for naming conflicts with personal-level skills (~/.claude/skills/) since personal scope shadows project scope
+3. Use the Greek letter convention in the YAML frontmatter `description` field to signal which model a command uses:
+ a. `𝚫𝚫𝚫` = haiku
+ b. `ƔƔƔ` = sonnet
+ c. `𝛀𝛀𝛀` = opus
 
 Format: `description: "{{ ƔƔƔ }} Command description here"`
+
+## Verification
+- When asked about CLI flags, config precedence, or API behaviour, verify against current source/docs before answering — do not guess from memory
+- When recommending model versions or provider defaults, check the provider's current docs first
+
+## Claude Code Behaviour
 
 ### Linear Integration
 
@@ -130,16 +144,20 @@ const revM = calcMR(txs);
 Use [Reasonable Colors](https://www.reasonable.work/colors/) as the default palette for all frontend/styling work.
 
 **Install:**
+
 - npm: `reasonable-colors`
 - CDN: `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css`
 
 **Variable convention:** `--color-COLORNAME-SHADE` (e.g. `--color-azure-3`)
+
 - 24 colour sets + grays, 6 shades each (1 = lightest, 6 = darkest)
 - Shade difference → contrast ratio: diff 2 = 3:1 (AA large), diff 3 = 4.5:1 (AA body), diff 4 = 7:1 (AAA)
 
 **Usage rules:**
+
 - The `color` spelling in var names is acceptable — it's a third-party convention
 - Always define semantic aliases; never use RC vars directly in components:
+
   ```css
   :root {
     --color-primary: var(--color-azure-3);
@@ -147,6 +165,7 @@ Use [Reasonable Colors](https://www.reasonable.work/colors/) as the default pale
     --color-primary-text: var(--color-azure-6);
   }
   ```
+
 - Projects may override this default in project-level CLAUDE.md
 
 **Local reference:** `library/docs/reasonable-colors-reference.md`
@@ -179,6 +198,11 @@ Detailed commit bodies when context needed. Good git history is documentation.
 - Commit frequently with clear, granular changes
 - Each commit should be a single logical unit
 - More atomic commits = better history
+- When splitting changes into commits, default to granular thematic splits (one logical change per commit) and confirm grouping before committing
+
+### PR & Commit Style
+
+- PR descriptions should be humble-factual, not apologetic or permission-seeking
 
 ### Breaking Change Detection
 
