@@ -1,6 +1,6 @@
 # ~~Claude Code~~ <sup><ins>`goblin mode`</ins></sup>
 
-![Goblin Mode](D6C1BA70-D6CD-40A0-8134-1DFED56D5A4D.png)
+![Goblin Mode](assets/goblin-mode.png)
 
 > [!CAUTION]
 > 50% useful tool/teaching resource for agentic coding, 50% externalised temper tantrum.
@@ -136,7 +136,7 @@ Guides for this repo. See the [Documentation Index](#documentation-index) below.
 
 ## How It All Fits Together
 
-```
+```text
 You type something in Claude Code
         │
         ├─ Keywords detected? ──→ Knowledge skill loads automatically
@@ -169,6 +169,7 @@ For more on these ideas: [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO
 ## Documentation Index
 
 ### Guides
+
 | File | Description |
 |------|-------------|
 | [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO.md) | Comprehensive guide to the entire setup; start here |
