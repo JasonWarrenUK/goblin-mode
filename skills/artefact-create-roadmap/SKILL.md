@@ -1,19 +1,19 @@
 ---
-name: doc-view-roadmap
-description: "{{ ƔƔƔ }} Visualise a project roadmap as an interactive HTML dashboard"
-model: sonnet
+name: Create Artefact:Roadmap
+description: "{{ ƔƔƔ }} Generate an HTML dashboard showing the current state of a project roadmap."
+model: opus
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(open:*)", "Bash(mkdir:*)"]
 argument-hint: [roadmap name or path (optional)]
 ---
 
-Generate a self-contained HTML dashboard showing the current state of a project roadmap. Uses the visual-explainer skill's rendering patterns and a pink-to-sky colour palette derived from the user's terminal colour scheme.
+Uses the visual-explainer skill's rendering patterns and a colour palette derived from the project's palettes colour scheme.
 
 ## Step 1 — Locate the roadmap
 
 Check in this order:
 
-1. **`$ARGUMENTS` provided** — treat as roadmap name or path. Try `docs/roadmaps/$ARGUMENTS.md` then `docs/roadmaps/$ARGUMENTS`.
+1. **`$ARGUMENTS` provided** — treat as roadmap name or path. In order, try `docs/roadmaps/$ARGUMENTS.md`, `.claude/docs/roadmaps/$ARGUMENTS.md` & `.claude/roadmaps/$ARGUMENTS.md`.
 2. **`.claude/roadmaps.json`** — parse if present. One entry: use it. Multiple entries: list names and paths, ask the user to pick one.
 3. **`docs/roadmaps/` directory** — list `.md` files. One file: use it. Multiple: ask.
 4. **Fallback scan** — `Grep` for `classDef.*mile` to find roadmap files outside the standard location.
@@ -25,12 +25,14 @@ Stop and tell the user if nothing is found.
 Read the file and extract:
 
 **Milestone blocks** — for each `<a name="m{N}">` anchor:
+
 - Milestone number and name
 - Tasks per section: In Progress (`m{N}-doing`), To Do (`m{N}-todo`), Blocked (`m{N}-blocked`), Completed (`m{N}-done`)
 - Per task: ID (e.g. `2TI.7`), description, any `depends on {IDs}` references
 
 **Counts per milestone:**
-```
+
+```text
 total    = done + in_progress + todo + blocked
 done_pct = done / total * 100
 ```
@@ -42,11 +44,13 @@ done_pct = done / total * 100
 ## Step 3 — Load visual-explainer references
 
 Resolve the installed path with Glob:
-```
+
+```text
 ~/.claude/plugins/cache/visual-explainer-marketplace/visual-explainer/*/
 ```
 
 Read these files before generating any HTML:
+
 - `references/css-patterns.md` — depth tiers, Mermaid zoom controls, overflow protection, collapsible pattern
 - `references/libraries.md` — font pairings, CDN imports, Mermaid theming guide
 - `templates/mermaid-flowchart.html` — the full `diagram-shell` pattern with zoom/pan JS (~200 lines; copy wholesale)
@@ -56,11 +60,17 @@ Do **not** skip any of these. The zoom/pan JS in particular must be reproduced e
 
 ## Step 4 — Aesthetic and palette
 
-### Colour palette
+### Project Palette & Aesthetic
+
+1. Search for `palette`, `colour` and other design files. Use what you find to style this artefact.
+2. If none is found, use `#Default-Palette` & `#Default-Aesthetic`.
+
+### Default Palette
 
 Derive from the user's terminal gradient: warm pink (`#B34480`) → steel blue (`#3E7F96`), mapped to Reasonable Colors.
 
 Load the CDN stylesheet in `<head>`:
+
 ```html
 <link rel="stylesheet" href="https://unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css">
 ```
@@ -112,9 +122,10 @@ Define semantic aliases — components reference these only, never RC vars direc
 
 Shade differences of ≥ 3 guarantee WCAG AA body text contrast on all pairs.
 
-### Aesthetic direction
+### Default Aesthetic
 
 **Editorial + Blueprint hybrid:**
+
 - Light: warm off-white (`var(--color-gray-1)`), sky-tinted milestone headers, generous whitespace, subtle CSS grid-line background pattern
 - Dark: deep near-black, muted sky/pink accents, low-opacity borders
 - Font: **IBM Plex Sans + IBM Plex Mono** — load via Google Fonts CDN
@@ -126,10 +137,10 @@ Shade differences of ≥ 3 guarantee WCAG AA body text contrast on all pairs.
 ### Output location
 
 ```bash
-mkdir -p {project_root}/docs/diagrams
+mkdir -p {project_root}/docs/artefacts
 ```
 
-Write to `{project_root}/docs/diagrams/roadmap-{name}.html`.
+Write to `{project_root}/docs/artefacts/roadmap-{name}.html`.
 
 ### Page structure
 
@@ -145,6 +156,7 @@ Use the responsive section navigation from `references/responsive-nav.md`. Four 
 Hero KPI card (`ve-card--hero`): **`{done}/{total} tasks — {pct}% complete`**. Large type, accent-tinted background.
 
 Per-milestone mini-cards in a CSS Grid row:
+
 - Milestone name and number
 - `{done}/{total}` count
 - Coloured progress bar — CSS `linear-gradient`, width set via inline `style`:
@@ -159,13 +171,15 @@ Colour the fill by milestone health: high completion → `--color-done`, in-flig
 
 ### Section 2: Milestones
 
-One `<details>/<summary>` per milestone. Open whichever milestone has In Progress tasks; collapse the rest.
+One `<details>/<summary>` per milestone. Open whichever milestone contains the most recently referenced task; collapse the rest.
 
 Inside each card, four labelled groups:
 
-```
+```text
 ● In Progress   ○ To Do   ✓ Done   ✗ Blocked
 ```
+
+Omit empty groups.
 
 Task items: ID badge (monospace, small, accent-tinted) + description + dependency note.
 
@@ -177,7 +191,7 @@ Use the full `diagram-shell` pattern from `templates/mermaid-flowchart.html`. Ne
 
 Map the roadmap's existing `:::open` / `:::blocked` / `:::mile` classDefs to the semantic palette:
 
-```
+```text
 classDef open    fill:var(--color-todo-bg),      stroke:var(--color-todo),      color:var(--color-todo);
 classDef blocked fill:var(--color-blocked-bg),   stroke:var(--color-blocked),   color:var(--color-blocked);
 classDef mile    fill:var(--color-milestone-bg), stroke:var(--color-milestone), color:var(--color-milestone-text);
@@ -188,6 +202,7 @@ classDef done    fill:var(--color-done-bg),      stroke:var(--color-done),      
 - Mermaid theme: `theme: 'base'` with `themeVariables` matching the page palette.
 - `fontSize: 16` in `themeVariables`.
 - Line breaks in labels: use `<br/>`, never `\n`.
+- Omit completed tasks & milestones
 
 ### Section 4: Next Up
 
@@ -213,6 +228,7 @@ open {project_root}/docs/diagrams/roadmap-{name}.html
 ```
 
 Report:
+
 - File path written
 - Roadmap name, milestone count, total task count
 - Any tasks currently In Progress (surfaced immediately, without needing to open the file)

@@ -1,31 +1,31 @@
 ---
-name: review-pr
-description: "{{ 𝛀𝛀𝛀 }} Review a pull request and post a comment"
+name: "Pull Request: Review"
+description: "{{ 𝛀𝛀𝛀 }} Review a pull request"
 model: opus
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
-argument-hint: "<pr-number-or-url>"
+argument-hint: "PR number/url"
 ---
 
+```xml
 <pull-request-review>
   <task>Review the pull request identified by `$ARGUMENTS`.</task>
   <steps>
     <step num="1">Run `gh pr view $ARGUMENTS` to get PR title, description, and metadata</step>
     <step num="2">Run `gh pr diff $ARGUMENTS` to get the full diff</step>
     <step num="3">Research project conventions stored in `CLAUDE.md`, `.claude/**/*` and `docs/*`</step>
-    <step num="4">Write a review comment using the `<format>` below</step>
-    <step num="5">Post it with `gh pr comment $ARGUMENTS --body "..."`</step>
+    <step num="4">Write a review comment using the `format` below - *only* paste it in this chat; DO NOT post it to github</step>
   </steps>
   <foci>
     <focus>Correctness — will this break anything?</focus>
     <focus>Security — any obvious vulnerabilities?</focus>
     <focus>Glaring convention violations</focus>
-  <foci>
-  <guidance>
+  </foci>
+  <guides>
     <guide>Keep it concise.</guide>
     <guide>Flag only the most important issues. Skip minor style nits.</guide>
     <guide>Before critiquing implementation, check whether the dev is following established project practice</guide>
-  </guidance>
+  </guides>
   <format type="md">
     # Code Review
     ## What Works Well
@@ -63,3 +63,4 @@ argument-hint: "<pr-number-or-url>"
     <key-item>🔵 Blue: minor quibble — nice to have</key-item>
   </key>
 </pull-request-review>
+```

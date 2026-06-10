@@ -1,5 +1,5 @@
 ---
-name: pr-shiny-main-omega
+name: "PR: Shiny Omega"
 description: "{{ 𝛀𝛀𝛀 }} Create a pull request to main"
 model: opus
 disable-model-invocation: true
@@ -7,17 +7,18 @@ allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 argument-hint: [screenshot files]
 ---
 
+```xml
 <steps>
     <step num="1">Look at the commits on this branch</step>
     <step num="2">Analyse the overall effect of these changes if merged into `main`</step>
-    <step num="3">Use `<template>` to write the pull request content</step>
+    <step num="3">Use `template` to write the pull request content</step>
     <step num="4">Check for my approval; If approved, create a **DRAFT** PR to `main`. If not, incorporate changes and repeat step 3</step>
 </steps>
 <rules>
     <general>Use ${template} exactly</general>
     <section-specific>
         <title>
-            <rule num="1">Brief & descriptive</rule>
+            <rule num="1">Brief and descriptive</rule>
             <rule num="2">Use title case</rule>
             <rule num="3">Be understandable to non-devs</rule>
         </title>
@@ -47,3 +48,4 @@ argument-hint: [screenshot files]
     ---
     ```
 </template>
+```

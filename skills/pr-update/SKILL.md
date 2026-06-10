@@ -1,5 +1,5 @@
 ---
-name: pr-update
+name: "PR: Update"
 description: "{{ ƔƔƔ }} Update a PR description to account for commits made since it was last written"
 model: sonnet
 disable-model-invocation: true
@@ -14,14 +14,16 @@ Update the description of PR #$ARGUMENTS.
 ### 1. Fetch current PR state
 
 Run:
-```
+
+```text
 gh pr view $ARGUMENTS --json body,title,headRefName,baseRefName
 ```
 
 ### 2. Find the watermark
 
 Look in the PR body for a comment in this exact format:
-```
+
+```text
 <!-- pr-update-watermark: <commit-sha> -->
 ```
 
@@ -32,12 +34,14 @@ If not found, treat the entire commit history on the branch as new.
 ### 3. Get new commits
 
 Run:
-```
+
+```text
 git log <baseRefName>..<headRefName> --oneline
 ```
 
 If a watermark was found, filter to only commits **after** `$WATERMARK_SHA`:
-```
+
+```text
 git log ${WATERMARK_SHA}..HEAD --oneline
 ```
 
@@ -46,7 +50,8 @@ If there are no new commits since the watermark, tell me and stop — the descri
 ### 4. Analyse the new commits
 
 For each new commit, run:
-```
+
+```text
 git show <sha> --stat
 ```
 
@@ -61,13 +66,14 @@ Take the existing PR body and update it:
 - If the description references behaviour that has changed, correct it.
 - Insert or replace the watermark comment at the very end of the body, using the SHA of the **most recent commit on the branch**:
 
-```
+```text
 <!-- pr-update-watermark: <latest-sha> -->
 ```
 
 ### 6. Show me the diff
 
 Display:
+
 - The updated PR body in full
 - A brief summary of what changed vs the previous description
 
@@ -76,7 +82,8 @@ Wait for my approval.
 ### 7. Apply the update
 
 Once approved, run:
-```
+
+```text
 gh pr edit $ARGUMENTS --body "<updated body>"
 ```
 
