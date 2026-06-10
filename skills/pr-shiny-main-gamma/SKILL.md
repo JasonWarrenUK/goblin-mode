@@ -1,5 +1,5 @@
 ---
-name: pr-shiny-main-gamma
+name: "PR: Shiny Gamma"
 description: "{{ ƔƔƔ }} Create a pull request to main"
 model: sonnet
 disable-model-invocation: true
@@ -7,6 +7,7 @@ allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 argument-hint: [screenshot files]
 ---
 
+```xml
 <steps>
     <step num="1">Look at the commits on this branch</step>
     <step num="2">Analyse the overall effect of these changes if merged into `main`</step>
@@ -17,7 +18,7 @@ argument-hint: [screenshot files]
     <general>Use ${template} exactly</general>
     <section-specific>
         <title>
-            <rule num="1">Brief & descriptive</rule>
+            <rule num="1">Brief and descriptive</rule>
             <rule num="2">Use title case</rule>
             <rule num="3">Be understandable to non-devs</rule>
         </title>
@@ -47,3 +48,4 @@ argument-hint: [screenshot files]
     ---
     ```
 </template>
+```

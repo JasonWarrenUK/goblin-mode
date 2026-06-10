@@ -1,6 +1,6 @@
 ---
-name: "Pull Request: Review"
-description: "{{ 𝛀𝛀𝛀 }} Review a pull request"
+name: "Pull Request: Review & Comment"
+description: "{{ 𝛀𝛀𝛀 }} Review a pull request and post a comment"
 model: opus
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
@@ -14,7 +14,8 @@ argument-hint: "PR number/url"
     <step num="1">Run `gh pr view $ARGUMENTS` to get PR title, description, and metadata</step>
     <step num="2">Run `gh pr diff $ARGUMENTS` to get the full diff</step>
     <step num="3">Research project conventions stored in `CLAUDE.md`, `.claude/**/*` and `docs/*`</step>
-    <step num="4">Write a review comment using the `format` below - *only* paste it in this chat; DO NOT post it to github</step>
+    <step num="4">Write a review comment using the `format` below</step>
+    <step num="5">Post it with `gh pr comment $ARGUMENTS --body "..."`</step>
   </steps>
   <foci>
     <focus>Correctness — will this break anything?</focus>
