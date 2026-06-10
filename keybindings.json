@@ -146,7 +146,6 @@
 				"ctrl+home": "scroll:top",
 				"ctrl+end": "scroll:bottom",
 				"ctrl+shift+c": "selection:copy",
-				"cmd+c": "selection:copy",
 				"shift+left": "selection:extendLeft",
 				"shift+right": "selection:extendRight",
 				"shift+up": "selection:extendUp",

@@ -1,188 +1,193 @@
 {
-	"permissions": {
-		"allow": [
-			"WebSearch",
-			"Bash(npm search:*)",
-			"Bash(uv run:*)",
-			"Bash(uv add:*)",
-			"Bash(svu current:*)",
-			"Bash(svu next:*)",
-			"Bash(test:*)",
-			"Bash(bun test:*)",
-			"Bash(git check-ignore:*)",
-			"Bash(git -C /Users/jasonwarren/Code/iris log -15 --oneline)",
-			"Bash(git -C /Users/jasonwarren/Code/iris show 0257e38 --stat)",
-			"Bash(git -C /Users/jasonwarren/Code/iris show b90dd90 --stat)",
-			"Bash(git -C /Users/jasonwarren/Code/iris show 9514f75 --stat)",
-			"Bash(git -C /Users/jasonwarren/Code/iris show:*)",
-			"Skill(version)",
-			"mcp__mcp-sequentialthinking-tools__sequentialthinking_tools",
-			"Bash(git add:*)",
-			"Bash(git commit:*)",
-			"Bash(git push:*)",
-			"Bash(git fetch:*)",
-			"Bash(cat *)",
-			"Bash(head *)",
-			"Bash(tail *)",
-			"Bash(less *)",
-			"Bash(find *)",
-			"Bash(grep *)",
-			"Bash(rg *)",
-			"Bash(ls *)",
-			"Bash(tree *)",
-			"Bash(wc *)",
-			"Bash(file *)",
-			"Bash(stat *)",
-			"Bash(du *)",
-			"Bash(df *)",
-			"Bash(which *)",
-			"Bash(where *)",
-			"Bash(type *)",
-			"Bash(echo *)",
-			"Bash(pwd)",
-			"Bash(env)",
-			"Bash(printenv *)",
-			"Bash(git log *)",
-			"Bash(git status *)",
-			"Bash(git diff *)",
-			"Bash(git show *)",
-			"Bash(git branch *)",
-			"Bash(git remote *)",
-			"Bash(gh pr list *)",
-			"Bash(gh pr view *)",
-			"Bash(gh issue list *)",
-			"Bash(gh issue view *)",
-			"Bash(jq *)",
-			"Bash(npx tsc --noEmit *)",
-			"Read",
-			"Glob",
-			"Grep",
-			"Read(/Users/jasonwarren/Screenshots/*)",
-			"Read(/Users/jasonwarren/Code/*)",
-			"Read(/var/folders/*)",
-			"Read(/tmp/*)"
-		],
-		"deny": [],
-		"ask": [],
-		"defaultMode": "auto"
-	},
-	"model": "opusplan",
-	"hooks": {
-		"SessionStart": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "~/.claude/hooks/session-start-worktree.sh"
-					},
-					{
-						"type": "command",
-						"command": "~/.claude/hooks/settings-sync.sh"
-					}
-				]
-			}
-		],
-		"PreToolUse": [
-			{
-				"matcher": "Skill",
-				"hooks": [
-					{
-						"type": "command",
-						"command": "bunx -y ccstatusline@latest --hook"
-					}
-				]
-			}
-		],
-		"Stop": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "~/.claude/hooks/stop-uncommitted-check.sh"
-					}
-				]
-			}
-		]
-	},
-	"statusLine": {
-		"type": "command",
-		"command": "bunx -y ccstatusline@latest",
-		"padding": 0,
-		"refreshInterval": 30
-	},
-	"enabledPlugins": {
-		"frontend-design@claude-plugins-official": true,
-		"feature-dev@claude-plugins-official": true,
-		"code-simplifier@claude-plugins-official": false,
-		"typescript-lsp@claude-plugins-official": true,
-		"pyright-lsp@claude-plugins-official": false,
-		"plugin-dev@claude-plugins-official": true,
-		"hookify@claude-plugins-official": true,
-		"claude-md-management@claude-plugins-official": true,
-		"claude-code-setup@claude-plugins-official": true,
-		"playwright@claude-plugins-official": true,
-		"context7@claude-plugins-official": true,
-		"linear@claude-plugins-official": true,
-		"visual-explainer@visual-explainer-marketplace": true,
-		"understand-anything@understand-anything": true,
-		"skill-creator@claude-plugins-official": true,
-		"playground@claude-plugins-official": true,
-		"discord@claude-plugins-official": true
-	},
-	"extraKnownMarketplaces": {
-		"visual-explainer-marketplace": {
-			"source": {
-				"source": "github",
-				"repo": "nicobailon/visual-explainer"
-			},
-			"autoUpdate": true
-		},
-		"understand-anything": {
-			"source": {
-				"source": "github",
-				"repo": "Lum1104/Understand-Anything"
-			},
-			"autoUpdate": true
-		}
-	},
-	"spinnerVerbs": {
-		"mode": "replace",
-		"verbs": [
-			"sKiTtErInG",
-			"hOaRdInG",
-			"cAcKlInG",
-			"sCuTtLiNg",
-			"rUmMaGiNg",
-			"sChEmInG",
-			"nIcKiNg",
-			"sKuLkInG",
-			"tInKeRiNg",
-			"uNrAvElLiNg",
-			"dIsMaNtLiNg",
-			"sPeLuNkInG",
-			"eXcAvAtInG",
-			"bReAkInG",
-			"pIlFeRiNg",
-			"cHiTtErInG",
-			"gNaWiNg",
-			"pRyInG",
-			"rAnSaCkInG",
-			"bUrRoWiNg"
-		]
-	},
-	"syntaxHighlightingDisabled": false,
-	"alwaysThinkingEnabled": false,
-	"effortLevel": "xhigh",
-	"autoUpdatesChannel": "latest",
-	"tui": "default",
-	"showThinkingSummaries": true,
-	"skipDangerousModePermissionPrompt": true,
-	"theme": "custom:delete",
-	"verbose": true,
-	"preferredNotifChannel": "iterm2",
-	"autoCompactEnabled": true,
-	"skipAutoPermissionPrompt": true,
-	"feedbackSurveyState": {
-		"lastShownTime": 1753968902528
-	}
+  "skillListingBudgetFraction": 0.03,
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npm search:*)",
+      "Bash(uv run:*)",
+      "Bash(uv add:*)",
+      "Bash(svu current:*)",
+      "Bash(svu next:*)",
+      "Bash(test:*)",
+      "Bash(bun test:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git -C /Users/jasonwarren/Code/iris log -15 --oneline)",
+      "Bash(git -C /Users/jasonwarren/Code/iris show 0257e38 --stat)",
+      "Bash(git -C /Users/jasonwarren/Code/iris show b90dd90 --stat)",
+      "Bash(git -C /Users/jasonwarren/Code/iris show 9514f75 --stat)",
+      "Bash(git -C /Users/jasonwarren/Code/iris show:*)",
+      "Skill(version)",
+      "mcp__mcp-sequentialthinking-tools__sequentialthinking_tools",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(less *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(ls *)",
+      "Bash(tree *)",
+      "Bash(wc *)",
+      "Bash(file *)",
+      "Bash(stat *)",
+      "Bash(du *)",
+      "Bash(df *)",
+      "Bash(which *)",
+      "Bash(where *)",
+      "Bash(type *)",
+      "Bash(echo *)",
+      "Bash(pwd)",
+      "Bash(env)",
+      "Bash(printenv *)",
+      "Bash(git log *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh issue view *)",
+      "Bash(jq *)",
+      "Bash(npx tsc --noEmit *)",
+      "Read",
+      "Glob",
+      "Grep",
+      "Read(/Users/jasonwarren/Screenshots/*)",
+      "Read(/Users/jasonwarren/Code/*)",
+      "Read(/var/folders/*)",
+      "Read(/tmp/*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "auto"
+  },
+  "model": "opusplan",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-start-worktree.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/settings-sync.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx -y ccstatusline@latest --hook"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/stop-uncommitted-check.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "worktree": {
+    "baseRef": "fresh"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bunx -y ccstatusline@latest",
+    "padding": 0,
+    "refreshInterval": 30
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "plugin-dev@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "visual-explainer@visual-explainer-marketplace": true,
+    "understand-anything@understand-anything": true,
+    "skill-creator@claude-plugins-official": true,
+    "playground@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": false,
+    "pyright-lsp@claude-plugins-official": false,
+    "linear@claude-plugins-official": false,
+    "discord@claude-plugins-official": false
+  },
+  "extraKnownMarketplaces": {
+    "visual-explainer-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "nicobailon/visual-explainer"
+      },
+      "autoUpdate": true
+    },
+    "understand-anything": {
+      "source": {
+        "source": "github",
+        "repo": "Lum1104/Understand-Anything"
+      },
+      "autoUpdate": true
+    }
+  },
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": [
+      "••• sKiTtErInG •••",
+      "••• hOaRdInG •••",
+      "••• cAcKlInG •••",
+      "••• sCuTtLiNg •••",
+      "••• rUmMaGiNg •••",
+      "••• sChEmInG •••",
+      "••• nIcKiNg •••",
+      "••• sKuLkInG •••",
+      "••• tInKeRiNg •••",
+      "••• uNrAvElLiNg •••",
+      "••• dIsMaNtLiNg •••",
+      "••• sPeLuNkInG •••",
+      "••• eXcAvAtInG •••",
+      "••• bReAkInG •••",
+      "••• pIlFeRiNg •••",
+      "••• cHiTtErInG •••",
+      "••• gNaWiNg •••",
+      "••• pRyInG •••",
+      "••• rAnSaCkInG •••",
+      "••• bUrRoWiNg •••"
+    ]
+  },
+  "syntaxHighlightingDisabled": false,
+  "alwaysThinkingEnabled": false,
+  "effortLevel": "xhigh",
+  "autoUpdatesChannel": "latest",
+  "tui": "fullscreen",
+  "showThinkingSummaries": true,
+  "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
+  "theme": "custom:delete",
+  "verbose": false,
+  "preferredNotifChannel": "iterm2",
+  "autoCompactEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "feedbackSurveyState": {
+    "lastShownTime": 1753968902528
+  }
 }

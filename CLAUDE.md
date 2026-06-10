@@ -13,7 +13,10 @@
 **Testing:** Vitest preferred, Jest familiar — coverage is a known weakness
 **Tooling:** Git, Zed, Vite, bun/npm/pnpm (project-specific)
 
+---
+
 ## Shell Scripting
+
 - Target zsh syntax (not bash) for shell scripts on this system
 - Use macOS-compatible flags: `sed -i ''` (with empty string), avoid GNU-only options
 - Suppress debug output and avoid shadowing readonly variables
@@ -60,9 +63,14 @@ If unsure: <https://www.oxfordlearnersdictionaries.com>
 
 Format: `description: "{{ ƔƔƔ }} Command description here"`
 
+---
+
 ## Verification
+
 - When asked about CLI flags, config precedence, or API behaviour, verify against current source/docs before answering — do not guess from memory
 - When recommending model versions or provider defaults, check the provider's current docs first
+
+---
 
 ## Claude Code Behaviour
 
