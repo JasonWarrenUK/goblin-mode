@@ -131,7 +131,9 @@
     "code-simplifier@claude-plugins-official": false,
     "pyright-lsp@claude-plugins-official": false,
     "linear@claude-plugins-official": false,
-    "discord@claude-plugins-official": false
+    "discord@claude-plugins-official": false,
+    "vhs-recorder@foundry": true,
+    "copywriter@foundry": true
   },
   "extraKnownMarketplaces": {
     "visual-explainer-marketplace": {
@@ -147,6 +149,12 @@
         "repo": "Lum1104/Understand-Anything"
       },
       "autoUpdate": true
+    },
+    "foundry": {
+      "source": {
+        "source": "github",
+        "repo": "agentic-insights/foundry"
+      }
     }
   },
   "spinnerVerbs": {
@@ -182,10 +190,11 @@
   "showThinkingSummaries": true,
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
-  "theme": "custom:delete",
+  "theme": "auto",
   "verbose": false,
   "preferredNotifChannel": "iterm2",
   "autoCompactEnabled": true,
+  "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "feedbackSurveyState": {
     "lastShownTime": 1753968902528
