@@ -118,15 +118,12 @@ Scripts that run automatically on git events and session lifecycle:
 
 | Hook | Trigger | What it does |
 |------|---------|-------------|
-| `pre-push.zsh` | Before push | Orchestrator; guards which repos run the full chain |
-| `pre-push-tests.zsh` | Before push | Detects untested files; runs test suite |
-| `pre-push-evidence.zsh` | Before push | Extracts apprenticeship KSB portfolio evidence from commits |
 | `post-commit-docs.zsh` | After commit | Checks if changed files need documentation updates |
 | `settings-sync.sh` | Session start | Strips JSONC comments from settings source of truth → settings.local.json |
 | `session-start-worktree.sh` | Session start | Injects worktree context into the session environment |
 | `stop-uncommitted-check.sh` | Stop | Warns about uncommitted changes when Claude finishes responding |
 
-The `pre-push.*` hooks are specific to an apprenticeship workflow; they enforce habits that are easy to forget (running tests, tracking evidence, updating docs). The `settings-sync.sh` hook is what makes the `.jsonc` → `.json` source-of-truth approach work.
+The `settings-sync.sh` hook is what makes the `.jsonc` → `.json` source-of-truth approach work.
 
 ### `docs/`: Documentation
 
