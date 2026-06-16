@@ -31,7 +31,7 @@ Currently: `post-commit-docs` hook detects staleness, `roadmap-maintainer` agent
 
 ### 4. Quality Gates Before Shipping
 
-Currently: `pre-push-tests` hook catches untested code, `/git:assess-branch` checks PR readiness, `design-reviewer` agent evaluates designs.
+Currently: `/git:assess-branch` checks PR readiness, `design-reviewer` agent evaluates designs.
 
 **Gap:** These are isolated checkpoints. A developer can (and will, with ADHD) skip the design review, go straight to implementation, and only hit quality gates at push time — when the cost of rework is highest.
 
@@ -107,7 +107,7 @@ Currently: `scope-coach` skill fires on keywords, `implementation-planner` inclu
 
 **What it does:**
 1. Runs `/git:assess-branch` logic (commit quality, branch naming, diff size)
-2. Checks for untested code paths (overlaps with `pre-push-tests`, but earlier in the loop)
+2. Checks for untested code paths (earlier in the loop than push time)
 3. Scans for documentation staleness (same logic as `post-commit-docs`, but proactive)
 4. Checks for breaking changes and flags them with the `BREAKING CHANGE:` format
 5. Validates tasks/issues are linked and status is correct (via task-sync)
@@ -137,7 +137,7 @@ Currently: `scope-coach` skill fires on keywords, `implementation-planner` inclu
 
 **Subagents:** None.
 
-**Why:** The `pre-push-tests` hook detects untested files, but it fires at push time and only checks for file existence. This agent applies the actual testing philosophy encoded in the skill — risk-based prioritisation, not "does a .test.ts file exist?" It turns a binary check into a nuanced recommendation that matches how you want to think about testing.
+**Why:** A naive untested-file check fires at push time and only checks file existence. This agent applies the actual testing philosophy encoded in the skill — risk-based prioritisation, not "does a .test.ts file exist?" It turns a binary check into a nuanced recommendation that matches how you want to think about testing.
 
 **Trigger:** As a subagent of `ship-checker`, or explicit invocation ("what should I test?").
 

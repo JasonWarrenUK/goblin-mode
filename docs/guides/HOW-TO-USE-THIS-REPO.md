@@ -62,9 +62,6 @@ claude-code-config/
 │   ├── doc-create-roadmap-omega/ # Command skill (invocable)
 │   └── ...                       # 60 more
 ├── hooks/                        # Shell scripts triggered by git/session events
-│   ├── pre-push.zsh
-│   ├── pre-push-tests.zsh
-│   ├── pre-push-evidence.zsh
 │   ├── post-commit-docs.zsh
 │   ├── settings-sync.sh
 │   ├── session-start-worktree.sh
@@ -222,13 +219,10 @@ Agents are autonomous multi-step workflows that Claude delegates to. Each agent 
 
 Claude Code supports hooks that trigger on a range of events — `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `Stop`, and more. Hooks can be shell commands, single-prompt LLM calls, or full sub-agents.
 
-All seven hooks in this repository:
+All hooks in this repository:
 
 | Hook | Event | Purpose |
 |---|---|---|
-| `pre-push.zsh` | Before push | Orchestrator — routes to other hooks; guards with repo allowlist |
-| `pre-push-tests.zsh` | Before push | Detects untested files, runs test suite, warns on gaps |
-| `pre-push-evidence.zsh` | Before push | AI-driven extraction of apprenticeship portfolio evidence from commits |
 | `post-commit-docs.zsh` | After commit | Checks if documentation needs updating based on changed files |
 | `settings-sync.sh` | SessionStart | Strips JSONC comments from `settings.local.jsonc` → `settings.local.json` |
 | `session-start-worktree.sh` | SessionStart | Injects git worktree context into the session environment |
@@ -238,8 +232,7 @@ There are also two project-level hooks in `.claude/hooks/`: `session-start.sh` d
 
 <details>
     <summary><strong>How I use it</strong></summary>
-    <p>The hooks enforce discipline I wouldn't maintain manually. The test hook catches untested code before it reaches the remote. The evidence hook is specific to my situation — I'm on a Software Development Apprenticeship (Level 4) and need to collect KSB evidence from my work. Rather than retrospectively hunting for evidence, the hook analyses each push and extracts it automatically. The stop hook is a lightweight prompt: "you've been in this session a while, there are uncommitted changes — should you commit before finishing?"</p>
-    <p>The `pre-push.zsh` orchestrator has an allowlist — only specified repositories run the full hook chain. This prevents the heavier hooks (especially the AI evidence extraction) from running on every casual project.</p>
+    <p>The hooks enforce discipline I wouldn't maintain manually. The stop hook is a lightweight prompt: "you've been in this session a while, there are uncommitted changes — should you commit before finishing?"</p>
     <p>The `settings-sync.sh` hook solves a specific problem: Claude Code reads `settings.local.json` but comments aren't valid JSON. The hook lets me maintain a `.jsonc` source of truth and generates the `.json` file on every session start.</p>
 </details>
 
@@ -387,7 +380,7 @@ The session orchestrator and session closer form a loop: start each session with
 <details>
 <summary><strong>Hooks Were Written When Discipline Failed</strong></summary>
 
-The pre-push test hook exists because untested code kept reaching the remote. The post-commit documentation hook exists because the mapping between source files and their documentation was clear (API files should trigger `api.md` updates, auth files should trigger `security.md`) but wasn't being acted on consistently. The evidence extraction hook exists because retrospectively hunting for apprenticeship portfolio evidence was miserable — automating it at push time turned a dreaded chore into a background process.
+The post-commit documentation hook exists because the mapping between source files and their documentation was clear (API files should trigger `api.md` updates, auth files should trigger `security.md`) but wasn't being acted on consistently.
 </details>
 
 The through-line is externalised executive function. Working memory (knowledge skills), task initiation (`suggest-task` command skills), sustained process discipline (hooks), context switching (`project-context-loader` agent) — each addresses something that ADHD makes unreliable by offloading it to a system that doesn't forget, doesn't get distracted, and doesn't need motivation to follow through.
