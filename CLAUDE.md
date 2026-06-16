@@ -1,21 +1,95 @@
 # Jason Warren - Claude Code Config
 
-> Last updated: 2026-03-30
+> Last updated: 2026-06-15
 
 ---
 
-## Technical Profile
+## 1. Technical Profile
 
-**Languages:** TypeScript (primary), JavaScript ES2022+, Python (learning)
-**Frontend:** Svelte/SvelteKit preferred, React/Next.js when required
-**Backend:** Node.js, Express, API design
-**Databases:** PostgreSQL, Supabase (RLS expertise), Neo4j, MongoDB
-**Testing:** Vitest preferred, Jest familiar — coverage is a known weakness
-**Tooling:** Git, Zed, Vite, bun/npm/pnpm (project-specific)
+Options are listed in order of preference/proficiency
+
+### 1.1. Languages
+
+| #   | Status     | Language |
+|-----|------------|----------|
+|  1  | Preferred  | TypeScript |
+|  2  | Proficient | JavaScript |
+|  3  |  Learning  |  Python  |
+|  4  |  Learning  |    Go    |
+|  5  |  Dabbled   |    C#    |
+
+### 1.2. Frontend
+
+| #   | Status        | Front End | Full Stack |
+|-----|---------------|-----------|------------|
+|  1  |   Preferred   | Svelte 5  | SvelteKit 2 |
+|  2  | When Required |   React   |  Next.js   |
+
+### 1.3. Backend
+
+| #   | Status        | Runtime | Server |
+|-----|---------------|---------|--------|
+|  1  |   Preferred   |   Bun   | undecided |
+|  2  |  Interested   |  Deno   |  Oak   |
+|  3  | When Required |  Node   | Express |
+
+### 1.4. TUI
+
+This is ordered by *familiarity*, not preference
+
+| #   | Language | Libraries |
+|-----|----------|-----------|
+|  1  |    Go    | Charm (bubbletea, bubbles, lipgloss etc) |
+|  2  |    TS    |  OpenTUI  |
+|  3  |  Python  |  Textual  |
+
+### 1.5. Databases
+
+One db tech stack per paradigm
+
+| Paradigm   | Stack                | Notes |
+|------------|----------------------|-------|
+| Relational | PostgreSQL, Supabase | RLS expertise |
+|   Graph    |        Neo4j         | Preferred data model |
+|   Object   |       MongoDB        | Limited experience |
+
+### 1.6. Testing
+
+No preference, limited knowledge. Libraries used so far: Vitest, Jest
+
+### 1.7. Tooling
+
+| Role       | Tool |
+|------------|------|
+| Versioning | git, Github, svu |
+|    IDE     | Zed  |
+| Deployment | Vercel, Deno Deploy, Github Pages |
+
+### 1.8 Packages & Apps
+
+#### 1.8.1. System Apps
+
+| #   | Tool |
+|-----|------|
+|  1  | Homebrew |
+
+#### 1.8.2. JS/TS Ecosystem
+
+Primarily determined by project context, but for tiebreaks use the following preference order:
+
+| #   | Tool |
+|-----|------|
+|  1  | bun  |
+|  2  | deno |
+|  3  | npm, pnpm |
+
+#### 1.8.3. Other Ecosystems
+
+Undecided on favoured python package manager
 
 ---
 
-## Shell Scripting
+## 2. Shell Scripting
 
 - Target zsh syntax (not bash) for shell scripts on this system
 - Use macOS-compatible flags: `sed -i ''` (with empty string), avoid GNU-only options
@@ -23,16 +97,17 @@
 
 ---
 
-## Communication
+## 3. Communication
 
-- **No sycophancy.** No "Great question!" No hedging. Direct answers only.
-- **British English** — see spelling rules below
-- Clever humour welcome when it lands; forced humour isn't
-- Concrete examples over abstract explanations
-- Explicit over implicit (neurodivergent-friendly)
-- Don't pretend weaknesses are strengths
+### 3.1. Golden Rules
 
-### Spelling (Non-Negotiable)
+*Never* break these
+
+1. **Em-dashes:** Absolutely no em-dashes under any circumstances
+2. **Phrasing:** Avoid formulaic phrase structures like "it's not x; it's y"
+3. **No sycophancy:** No "Great question!" No hedging. Direct answers only.
+
+### 3.2. Spelling (Non-Negotiable)
 
 Use British spelling in all code comments, documentation, and output:
 
@@ -44,65 +119,77 @@ Use British spelling in all code comments, documentation, and output:
 
 If unsure: <https://www.oxfordlearnersdictionaries.com>
 
+### 3.3. Guidelines
+
+1. Clever humour welcome when it lands; forced humour isn't
+2. Concrete examples over abstract explanations
+3. Explicit over implicit (neurodivergent-friendly)
+4. Don't pretend weaknesses are strengths
+
 ---
 
-## Skills
+## 4. Agent Skills
 
 - All skills live in `~/.claude/skills/` as `SKILL.md` files
-- There are 66 total: 49 command skills & 17 knowledge skills
 - Command skills have `disable-model-invocation: true`; knowledge skills have `user-invocable: false`.
 
-### Skill Creation
+### 4.1. Skill Creation
 
 1. Always create skills in the project-local `.claude/skills/` directory unless explicitly told to create them globally
 2. Check for naming conflicts with personal-level skills (~/.claude/skills/) since personal scope shadows project scope
-3. Use the Greek letter convention in the YAML frontmatter `description` field to signal which model a command uses:
+3. Use the new naming convention when creating or editing skills, but be aware of the old naming convention
+
+#### 4.1.1. YAML Frontmatter: New Convention
+
+Use the runic letter convention in the YAML frontmatter `description` field to signal which model a command uses:
  a. `𝚫𝚫𝚫` = haiku
  b. `ƔƔƔ` = sonnet
  c. `𝛀𝛀𝛀` = opus
 
 Format: `description: "{{ ƔƔƔ }} Command description here"`
 
+#### 4.1.2. YAML Frontmatter: Old Convention
+
+Use the Greek letter convention in the YAML frontmatter `description` field to signal which model a command uses:
+ a. `ᚻᛕ` = haiku
+ b. `ᛇᚤ` = sonnet
+ c. `ᛜᚹ` = opus
+ d. `ᚨᛔ` = fable
+
+Format: `description: "{{ ᛇᚤ }} Command description here"`
+
 ---
 
-## Verification
+## 5. Verification
 
 - When asked about CLI flags, config precedence, or API behaviour, verify against current source/docs before answering — do not guess from memory
 - When recommending model versions or provider defaults, check the provider's current docs first
 
 ---
 
-## Claude Code Behaviour
+## 6. Claude Code Behaviour
 
-### Linear Integration
+### 6.1. Linear Integration
 
 When working with Linear issues, set status to 'In Progress' when starting work and 'In Review' when a PR is created. Never set issues to 'Done' unless explicitly asked.
 
-### Code Editing
-
-**Do not edit files directly unless explicitly asked.** Instead:
-
-1. Show the proposed code
-2. Wait for me to make the edit
-
-This applies to all file modifications. When I say "do it" or "make the change", then edit directly.
-
-### Plans
+### 6.2. Plans
 
 When asked to plan work:
 
 - Extremely concise; sacrifice grammar for brevity
 - No preamble or context I already know
 - End with unresolved questions (if any)
+- Use the question tool until all questions are resolved
 
-### Asking vs Proceeding
+### 6.3. Asking vs Proceeding
 
 - **Ambiguous requirements:** Ask first
 - **Clear intent, unclear implementation:** Make a reasonable call, flag assumptions
 - **Refactoring adjacent code:** Stay surgical unless asked to clean up
 - **Multiple valid approaches:** Present options briefly, recommend one
 
-### Verification
+### 6.4. Verification
 
 Never commit code that hasn't been verified:
 
@@ -112,13 +199,15 @@ Never commit code that hasn't been verified:
 
 ---
 
-## Code Conventions
+## 7. Code Conventions
 
-### Paradigm
+### 7.1. Paradigm
 
 Pragmatic over ideological. OOP when it fits, functional when it fits. Clear structure matters more than paradigm purity.
 
-### Naming
+### 7.2. Naming
+
+#### 7.2.1. Variables & Functions
 
 ```typescript
 // ✅ Clear, semantic names
@@ -130,10 +219,14 @@ const authUsrId = await getAuth();
 const revM = calcMR(txs);
 ```
 
-- Files: `kebab-case.ts`, React components: `PascalCase.tsx`
-- Variables/functions: descriptive over brief
+#### 7.2.2. Files
 
-### TypeScript Standards
+| Format           | Convention |
+|------------------|------------|
+|   ts, js, json   | `ts-file.ts`, `json-file.json` |
+| jsx, tsx, svelte | `ReactComponent.tsx`, `SvelteComponent.svelte` |
+
+### 7.3. TypeScript Standards
 
 - Strict mode enabled
 - Interfaces over types for object shapes
@@ -141,13 +234,13 @@ const revM = calcMR(txs);
 - Explicit return types on exported functions
 - Leverage discriminated unions
 
-### Code Style
+### 7.4. Code Style
 
 - Files use **tabs for indentation** (not spaces)
 - When editing: preserve exact tab characters, never convert to spaces
 - Always use Edit tool for modifications, never sed/awk
 
-### Colour Palette
+### 7.5. Colour Palette
 
 Use [Reasonable Colors](https://www.reasonable.work/colors/) as the default palette for all frontend/styling work.
 
@@ -178,11 +271,9 @@ Use [Reasonable Colors](https://www.reasonable.work/colors/) as the default pale
 
 **Local reference:** `library/docs/reasonable-colors-reference.md`
 
-### Testing
+### 7.6. Testing
 
-Testing is a known weakness. No systematic TDD, no comprehensive coverage culture.
-
-When tests exist:
+Always assume that creating tests for new features is in-scope *unless* context clearly indicates otherwise
 
 - **File naming:** `module-name.test.ts` alongside source
 - **Fixtures pattern:** Test data in `tests/fixtures/<module>.ts` as named exports
@@ -191,9 +282,9 @@ When tests exist:
 
 ---
 
-## Git Workflow
+## 8. Git Workflow
 
-### Commit Style
+### 8.1. Commit Style
 
 Conventional Commits: `type(scope): description`
 
@@ -201,18 +292,40 @@ Conventional Commits: `type(scope): description`
 
 Detailed commit bodies when context needed. Good git history is documentation.
 
-### Commit Granularity
+### 8.2. Versioning with `svu`
+
+Use [`svu`](https://github.com/caarlos0/svu) as the default tool for deriving semver tags from conventional-commit history. `svu` doesn't commit, push, or merge; it computes the next version, so pair it with `git tag`.
+
+**Always tag** at these moments — run `svu next`, then tag and push:
+
+| Moment             | Command sequence |
+|--------------------|------------------|
+| PR creation        | `git tag "$(svu next)" && git push --tags` |
+| Merge to `main`    | `git tag "$(svu next)" && git push --tags` |
+| Merge to `staging` | `git tag "$(svu next)" && git push --tags` |
+
+**Mid-branch commits:** proactively offer a tag *only* when the pending bump is **major or minor**. Stay silent on **patch** bumps. Detect the bump level by comparing `svu current` with `svu next`:
+
+- Different major segment → major; offer a tag.
+- Same major, different minor → minor; offer a tag.
+- Only the patch segment changed → patch; do **not** offer.
+
+Surface the proposed version (e.g. `⬆️ minor bump available — tag v1.3.0?`) rather than tagging silently.
+
+---
+
+### 8.3. Commit Granularity
 
 - Commit frequently with clear, granular changes
 - Each commit should be a single logical unit
 - More atomic commits = better history
 - When splitting changes into commits, default to granular thematic splits (one logical change per commit) and confirm grouping before committing
 
-### PR & Commit Style
+### 8.4. PR & Commit Style
 
 - PR descriptions should be humble-factual, not apologetic or permission-seeking
 
-### Breaking Change Detection
+### 8.5. Breaking Change Detection
 
 **Always flag potential breaking changes**, even when I'm handling commits. Warn when changes might need `BREAKING CHANGE:` footer or `!` indicator:
 
@@ -226,7 +339,7 @@ Detailed commit bodies when context needed. Good git history is documentation.
 
 Format: `⚠️ Breaking change — consider feat!: or BREAKING CHANGE: footer`
 
-### Branch Naming
+### 8.6. Branch Naming
 
 `<prefix>/<short-description>` — all lowercase, hyphens between words, imperative mood
 
@@ -234,11 +347,11 @@ Format: `⚠️ Breaking change — consider feat!: or BREAKING CHANGE: footer`
 
 Branches represent minimal tangible improvements. When in doubt, go smaller.
 
-### Git Worktrees
+### 8.7. Git Worktrees
 
 When working with git worktrees: (1) always check which branch already exists before creating a new one, (2) never try to remove a worktree while your shell is inside it, (3) use the correct existing branch name rather than creating duplicates, (4) after removing a worktree, cd to the main repo directory.
 
-### Pull Requests
+### 8.8. Pull Requests
 
 **Always** use this structure for PR descriptions, regardless of how the PR was triggered:
 
@@ -267,7 +380,7 @@ Before creating: analyse all commits on the branch, show the draft, and await ap
 
 ---
 
-## Security Defaults
+## 9. Security Defaults
 
 - Never commit secrets (environment variables only)
 - Row-Level Security for multi-tenant data
@@ -278,15 +391,15 @@ Before creating: analyse all commits on the branch, show the draft, and await ap
 
 ---
 
-## Database
+## 10. Database
 
-### SQL
+### 10.1. SQL
 
 When running SQL against the database, prefer writing to a .sql file and executing it rather than using inline shell commands with escaped quotes.
 
 ---
 
-## Documentation
+## 11. Documentation
 
 - **Mermaid diagrams** for architecture and data flow
 - **Inline comments** sparingly — code should explain itself
@@ -296,7 +409,7 @@ When running SQL against the database, prefer writing to a .sql file and executi
 
 ---
 
-## Project Overrides
+## 12. Project Overrides
 
 Project-level configs take precedence:
 
