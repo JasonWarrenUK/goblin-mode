@@ -14,9 +14,6 @@ docs/personal/
 
 !/hooks/**
 hooks/post-commit
-hooks/pre-push
-hooks/pre-push-evidence
-hooks/pre-push-tests
 
 !/output-styles/**
 !/skills/**
