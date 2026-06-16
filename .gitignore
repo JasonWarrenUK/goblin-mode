@@ -52,3 +52,4 @@ mcp-needs-auth-cache.json
 /daemon.lock
 /daemon.status.json
 /jobs
+/agent-memory/roadmap-maintainer
