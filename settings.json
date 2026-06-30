@@ -67,7 +67,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "opusplan",
+  "model": "opus",
   "hooks": {
     "SessionStart": [
       {
@@ -194,6 +194,7 @@
   "verbose": false,
   "preferredNotifChannel": "iterm2",
   "autoCompactEnabled": true,
+  "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "feedbackSurveyState": {
