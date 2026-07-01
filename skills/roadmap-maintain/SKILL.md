@@ -1,19 +1,19 @@
 ---
-name: "Docs: Update Roadmap"
+name: "Docs: Maintain Roadmap"
 description: "{{ 𝛀𝛀𝛀 }} Update project roadmap task organization"
 model: opus
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(git:*)"]
-argument-hint: [roadmap filepath (optional)]
+argument-hint: [filepath (optional)]
 ---
+
+# Roadmap
 
 Maintain the project roadmap at docs/roadmaps/$ARGUMENTS by moving tasks between sections based on completion status and blockers, and keeping mermaid diagrams in sync.
 
-If $ARGUMENTS provided (e.g., "m1", "m2"), process only that milestone; otherwise process all milestones.
-
 ## Steps
 
-1. Read `docs/roadmaps/mvp.md`
+1. Read `docs/roadmaps/$ARGUMENTS.md`
 2. For each milestone (or specified milestone):
 
    **Move completed tasks:**
