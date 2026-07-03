@@ -31,6 +31,13 @@
  *
  * Output (--out): { body, comments: [...] } — exact review-create shape.
  * Stdout: { inline, folded, offDiffDemoted } stats.
+ *
+ * Prose gate: before anything is written to --out, the summary text and every
+ * comment body are validated for two classes of slop that have leaked into
+ * posted reviews before — see <follow-up-mode/> in SKILL.md for the incident
+ * this backstops (a "Since my last review" delta that used 🆕, which GitHub
+ * badge-renders as :new:, plus em-dashes in the prose). Both are hard
+ * failures (non-zero exit, nothing written) — no auto-strip, no silent fix.
  */
 
 import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
@@ -38,6 +45,75 @@ import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 
 const VALID_TYPES = ['🔴', '🟠', '🟡', '🟣'];
+
+// Dash-family characters banned everywhere in prose (summary + comment
+// bodies). Em-dash is the golden-rule violation; the others are the same
+// smell under different codepoints, so they're caught too.
+const BANNED_DASHES = new Map([
+  ['—', 'em-dash (—)'],
+  ['–', 'en-dash (–)'],
+  ['―', 'horizontal bar (―)'],
+  ['‒', 'figure dash (‒)'],
+]);
+
+// Emoji explicitly banned from the summary — known GitHub badge-renderers
+// (🆕 → :new:) or off-palette leftovers from the old ✅/⚠️ vocabulary this
+// skill has since replaced with the ⚪/⚫/🟢 circle set. Ban-list rather than
+// allow-list: summary prose can legitimately contain arbitrary emoji, an
+// allow-list would false-positive on all of them.
+const BANNED_SUMMARY_EMOJI = new Map([
+  ['\u{1F195}', '🆕 (renders as a GitHub :new: badge, not a plain glyph)'],
+  ['\u{2705}', '✅ (superseded — use ⚪ for "fixed" in the delta)'],
+  ['\u{26A0}\u{FE0F}', '⚠️ (superseded — use ⚫ for "still open" in the delta)'],
+  ['\u{26A0}', '⚠ (superseded — use ⚫ for "still open" in the delta)'],
+]);
+
+/**
+ * Throws if `text` contains any banned dash character. Used on both the
+ * summary and every comment body — the golden rule applies everywhere.
+ */
+function assertNoDashes(text, label) {
+  for (const [char, name] of BANNED_DASHES) {
+    if (text.includes(char)) {
+      const idx = text.indexOf(char);
+      const context = text.slice(Math.max(0, idx - 20), idx + 20);
+      throw new Error(
+        `${label} contains a banned ${name}: "...${context}...". ` +
+        `Rewrite using a semicolon, colon, or parentheses instead.`,
+      );
+    }
+  }
+}
+
+/** Throws if `text` (summary only — comment bodies aren't emoji-gated) contains a banned emoji. */
+function assertNoBannedEmoji(text, label) {
+  for (const [char, name] of BANNED_SUMMARY_EMOJI) {
+    if (text.includes(char)) {
+      throw new Error(
+        `${label} contains banned emoji ${name}. ` +
+        `Delta vocabulary is: 🟢 new, ⚪ fixed, ⚫ still open.`,
+      );
+    }
+  }
+}
+
+/** Full prose gate for the summary: dash ban + emoji ban. */
+function validateSummary(summaryText) {
+  assertNoDashes(summaryText, 'Summary');
+  assertNoBannedEmoji(summaryText, 'Summary');
+}
+
+/** Prose gate for a single comment body: dash ban only (finding-type emoji is validated separately by VALID_TYPES). */
+function validateCommentBody(body, path, line) {
+  assertNoDashes(body, `Comment on ${path}:${line}`);
+}
+
+/** Runs the dash gate over every assembled inline comment. */
+function validateComments(comments) {
+  for (const comment of comments) {
+    validateCommentBody(comment.body, comment.path, comment.line);
+  }
+}
 
 /**
  * Parses unified diff text into Map<filePath, Set<postableLineNumber>>.
@@ -238,11 +314,27 @@ function run({ findings: findingsPath, diff: diffPath, 'summary-file': summaryPa
     process.exit(1);
   }
 
+  // Fail fast on summary slop before doing any diff work — no point parsing
+  // hunks if the run's going to be rejected anyway.
+  try {
+    validateSummary(summaryText);
+  } catch (err) {
+    process.stderr.write(`Error: partition-findings: ${err.message}\n`);
+    process.exit(1);
+  }
+
   const postableByFile = parseDiffHunks(diffText);
 
   let result;
   try {
     result = partition(input.findings || [], postableByFile);
+  } catch (err) {
+    process.stderr.write(`Error: partition-findings: ${err.message}\n`);
+    process.exit(1);
+  }
+
+  try {
+    validateComments(result.comments);
   } catch (err) {
     process.stderr.write(`Error: partition-findings: ${err.message}\n`);
     process.exit(1);
@@ -408,6 +500,71 @@ function selfTest() {
     ].join('\n');
     const postable = parseDiffHunks(deleteDiff);
     assert.equal(postable.has('src/old.ts'), false);
+  });
+
+  // -------------------------------------------------------------------------
+  // Prose gate — dash ban + summary emoji ban.
+  // -------------------------------------------------------------------------
+
+  test('summary with an em-dash is rejected', () => {
+    assert.throws(
+      () => validateSummary('The header is fixed — both files agree now.'),
+      /em-dash/,
+    );
+  });
+
+  test('summary with an en-dash is rejected', () => {
+    assert.throws(() => validateSummary('Range 1–2 covered.'), /en-dash/);
+  });
+
+  test('summary with a horizontal bar or figure dash is rejected', () => {
+    assert.throws(() => validateSummary('Section one ― section two.'), /horizontal bar/);
+    assert.throws(() => validateSummary('Value: 5‒10.'), /figure dash/);
+  });
+
+  test('summary with 🆕 is rejected (renders as a GitHub badge)', () => {
+    assert.throws(() => validateSummary('🆕 DATABASE.md gained an ERD.'), /:new: badge/);
+  });
+
+  test('summary with ✅ or ⚠️ is rejected (superseded vocabulary)', () => {
+    assert.throws(() => validateSummary('✅ Fixed the header.'), /superseded/);
+    assert.throws(() => validateSummary('⚠️ Still open: N+1 query.'), /superseded/);
+  });
+
+  test('summary using the ⚪/⚫/🟢 circle vocabulary passes', () => {
+    assert.doesNotThrow(() => validateSummary(
+      'Since my last review:\n' +
+      '⚪ fixed: em-dash in the DBML header.\n' +
+      '⚫ still open: N+1 query on the recommendations endpoint.\n' +
+      '🟢 new: DATABASE.md gained an embedded ERD.',
+    ));
+  });
+
+  test('clean summary with no emoji at all passes', () => {
+    assert.doesNotThrow(() => validateSummary('A well-documented, correctly-hedged migration.'));
+  });
+
+  test('comment body with an em-dash is rejected', () => {
+    assert.throws(
+      () => validateComments([{ path: 'src/a.ts', line: 9, body: '🔴 Null deref — check x first.' }]),
+      /em-dash/,
+    );
+  });
+
+  test('clean comment bodies pass the dash gate', () => {
+    assert.doesNotThrow(() => validateComments([
+      { path: 'src/a.ts', line: 9, body: '🔴 Null deref: check x first.' },
+      { path: 'src/b.ts', line: 1, body: '🟡 Consider renaming (clarity).' },
+    ]));
+  });
+
+  test('run() rejects a summary file containing an em-dash before touching the diff', () => {
+    // parseDiffHunks would throw on garbage input if reached — passing a
+    // clearly-invalid diff proves validateSummary runs first and short-circuits.
+    assert.throws(() => {
+      validateSummary('Both files agree — nothing to flag.');
+      parseDiffHunks('not a real diff, should never be reached');
+    }, /em-dash/);
   });
 
   let failed = 0;

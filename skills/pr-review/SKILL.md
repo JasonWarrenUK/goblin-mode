@@ -2,7 +2,7 @@
 name: "PR: Review"
 description: "{{ 𝛀𝛀𝛀 }} Review a pull request"
 model: opus
-disable-model-invocation: true
+disable-model-invocation: false # required so pr-review-comment can call it
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 argument-hint: ["PR number/url"]
 ---
@@ -20,7 +20,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
     <step num="3">Research project conventions stored in `CLAUDE.md`, `.claude/**/*` and `docs/*`. Before critiquing implementation, check whether the dev is following established project practice</step>
     <step num="4">Classify every finding by <taxonomy/> type and by scope (line / file / cross-file)</step>
     <step num="5">Where a line-scoped 🔴/🟠/🟡 finding has a concrete fix, write it as a committable ```suggestion block per <suggestions/></step>
-    <step num="6">Write every comment body per the writing-style skill's anti-slop rules (no em dashes, no contrastive couplets, no parade-of-examples, lead with specifics)</step>
+    <step num="6">Write every comment body **and the `summary`** (including the follow-up delta, when in that mode) per the writing-style skill's anti-slop rules (no em dashes, no contrastive couplets, no parade-of-examples, lead with specifics). This isn't just style guidance here — when this skill's output feeds `pr-review-comment`, its `partition-findings.mjs` hard-fails the post on any em-dash/en-dash in the summary or a comment body. Get it right here, upstream, rather than relying on that gate to catch it</step>
     <step num="7">Emit findings using <output/>. This is the full deliverable — stop here, nothing gets posted</step>
   </steps>
   <foci>
@@ -71,7 +71,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
     - `suggestion`: optional ```suggestion block (line-scoped changes/nits only)
 
     Plus:
-    - `summary`: overall review body (top-level comment content)
+    - `summary`: overall review body (top-level comment content). When run in follow-up mode (see `pr-review-comment`'s `<follow-up-mode/>`), the leading "Since my last review" delta uses only ⚪ fixed / ⚫ still open / 🟢 new — never 🆕 (renders as a GitHub `:new:` badge) or ✅/⚠️ (superseded, off-palette)
     - `verdict`: Request Changes | Comment | Approve, derived per <verdict/>
   </output>
 </pull-request-review>
