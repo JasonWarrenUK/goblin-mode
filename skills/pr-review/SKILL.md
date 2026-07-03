@@ -34,7 +34,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
     <row emoji="🔴" type="major changes" ceiling="Request Changes">Blocking — must fix before merge</row>
     <row emoji="🟠" type="minor changes" ceiling="Comment">Should fix, won't block. Same ceiling and treatment as nits</row>
     <row emoji="🟡" type="nits" ceiling="Comment">Nice to have</row>
-    <row emoji="🟣" type="admiration" ceiling="Approve">Worth calling out — only when genuinely warranted</row>
+    <row emoji="🟣" type="admiration" ceiling="Approve">Accolade — only when genuinely warranted</row>
   </taxonomy>
   <matrix>
     <!-- Type x Scope -> where the comment anchors + suggestion eligibility -->
