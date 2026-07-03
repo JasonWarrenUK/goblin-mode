@@ -92,6 +92,15 @@
             "command": "bunx -y ccstatusline@latest --hook"
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx -y ccstatusline@latest --hook"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -100,6 +109,16 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/stop-uncommitted-check.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx -y ccstatusline@latest --hook"
           }
         ]
       }
