@@ -1,6 +1,6 @@
 ---
 name: api-designer
-description: Type-safe API design: Zod validation, Result types, SvelteKit endpoints, middleware patterns.
+description: "Type-safe API design: Zod validation, Result types, SvelteKit endpoints, middleware patterns."
 user-invocable: false
 effort: medium
 paths:
