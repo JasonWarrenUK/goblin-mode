@@ -1,0 +1,15 @@
+name: "xxx"
+description: "xxx"
+# NOTE:
+# CLOD TRIGGER
+when_to_use: "xxx"
+user-invocable: false
+model: sonnet
+effort: medium
+allowed-tools: # add more as they come up
+  - "Read"
+  - "Glob"
+  - "Grep"
+disallowed-tools:
+  - "gh"
+  - "git"
