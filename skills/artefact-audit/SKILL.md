@@ -1,0 +1,149 @@
+---
+name: "Artefacts: Create Audit"
+description: "{{ 𝛀𝛀𝛀 }} Audit a topic and render an actionable, status-grouped HTML findings artefact."
+model: opus
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash", "Bash(open:*)", "Bash(mkdir:*)"]
+argument-hint: [topic to audit, or path to a findings JSON]
+---
+
+Audit a topic and render the findings as a self-contained, actionable HTML page: findings grouped by delivery status, ranked by severity, each verified before it ships. Uses the visual-explainer plugin's rendering patterns.
+
+The output is the audit artefact this skill was distilled from: a masthead + KPI row, findings grouped into collapsible **To do / In progress / Done** sections, severity shown on both a chip and the colour of each finding number, a severity/type filter bar, and a refuted section that keeps the audit falsifiable.
+
+## Step 1 — Interpret `$ARGUMENTS` (auto-detect)
+
+- **Empty** — ask the user what to audit, then stop. Do not invent a topic.
+- **A path to a `.json` file** (matches something like `*.json` and the file exists) — **render-only mode**. Load it as the findings dataset and skip to Step 3. Expected shape is documented in Step 2.
+- **Anything else** — treat the whole string as the **topic** to audit (a roadmap, a design doc, a subsystem, a PR, a migration). Proceed to Step 2.
+
+## Step 2 — Gather findings (topic mode)
+
+Analyse the topic and produce a findings dataset. Read the relevant docs and code first; for a broad or uncertain scope, fan out parallel read-only searches (an `Explore` subagent per area) before drawing conclusions. For a genuinely large or adversarial audit, a Workflow (multi-lens find → dedupe → adversarial verify → completeness critic) produces a far stronger set; use it when the topic warrants the cost.
+
+Each finding must carry:
+
+- `id` — stable integer, assigned once, never reused
+- `title` — one sentence stating the defect
+- `category` — one of `correction` (the source says something false/stale), `issue` (a real problem), `improvement` (reduces risk/effort), `enhancement` (valuable addition currently missing)
+- `severity` — `high` | `medium` | `low`
+- `evidence` — file:line references, quoted text, or command output; no speculation as fact
+- `file_refs` — array of repo-relative paths (with optional `:line`)
+- `recommendation` — a single concrete action, not a theme
+- `anchor` — 2-4 word imperative label for the action (e.g. "Split the gate")
+- `theme` — a short grouping label (secondary axis, shown as a card tag)
+- `confidence` — `high` | `medium` | `low` from the verification pass
+- `status` — `to_do` | `in_progress` | `done` (see below)
+- `outcome_note` — one sentence on what was done, or why it is where it is
+- `verify_notes` — what a skeptic checked and found; corrections to the finding's own evidence belong here
+
+**Verify before including.** For each candidate finding, check its evidence actually holds against the current tree and history. Default to dropping it if the evidence is ambiguous. Keep the dropped ones in a `refuted` list (title + why) so the artefact is honest about what did not survive.
+
+**Status semantics** (be honest; status reflects reality, not intention):
+
+- `done` — the fix was applied in this pass
+- `in_progress` — initiated but pending external action, or only partly applied (say which part in `outcome_note`)
+- `to_do` — left as a recommendation, or genuine future work
+
+Write the dataset to `{project_root}/docs/artefacts/audit-{slug}.json` so the render is reproducible and can be re-run in render-only mode. Structure:
+
+```json
+{
+  "meta": {
+    "topic": "…", "document": "…", "generated": "YYYY-MM-DD",
+    "method": "how the findings were produced",
+    "counts": {"confirmed": N, "refuted": N,
+               "by_severity": {"high": N, "medium": N, "low": N},
+               "by_category": {"correction": N, "issue": N, "improvement": N, "enhancement": N}},
+    "applied": {"date": "YYYY-MM-DD", "done": N, "in_progress": N, "to_do": N}
+  },
+  "findings": [ { …fields above… } ],
+  "refuted": [ {"title": "…", "notes": "…"} ]
+}
+```
+
+## Step 3 — Load visual-explainer references
+
+Resolve the installed path with Glob:
+
+```text
+~/.claude/plugins/cache/visual-explainer-marketplace/visual-explainer/*/
+```
+
+Read `references/css-patterns.md` (depth tiers, collapsible pattern, overflow protection) and `references/libraries.md` (font pairings, palette guidance) before writing any HTML.
+
+## Step 4 — Aesthetic and palette
+
+**Blueprint / editorial, dark and light.** Define a `:root` with a `@media (prefers-color-scheme: dark)` counterpart. Semantic CSS custom properties only; never hard-code a hex in a component.
+
+- Fonts: **Space Grotesk** (head + body) + **IBM Plex Mono** (mono, code, labels), via Google Fonts.
+- Background: near-black blueprint grid (`linear-gradient` grid lines at low opacity) in dark; warm off-white in light.
+- Severity accents: `--high` red, `--medium` amber, `--low` green. Status accents: `--done` green, `--progress` blue, `--todo` amber. Category accents distinct from all of the above.
+- **British spelling throughout. No em dashes** (use semicolons, colons, parentheses). No contrastive "not X but Y" couplets.
+- Forbidden: Inter/Roboto body font; violet/indigo primary accents; gradient-text headings; animated glow/pulse on static content.
+
+## Step 5 — Generate the HTML
+
+### Output location
+
+```bash
+mkdir -p {project_root}/docs/artefacts
+```
+
+Write to `{project_root}/docs/artefacts/audit-{slug}.html`, self-contained (embedded CSS + JS, only Google Fonts external).
+
+### Page structure
+
+1. **Masthead** — eyebrow, title, a lede that names the source document and explains the status grouping and the severity colour key inline, and a mono `method` line (`N confirmed · N refuted`).
+2. **KPI row** — four cards: Done, In progress, To do, and total Confirmed (with a severity breakdown sub-line). Colour each card's accent bar by what it counts.
+3. **Filter bar** — sticky, `backdrop-filter` blur. Severity buttons (All / High / Medium / Low) and type buttons (Corrections / Issues / Improvements / Enhancements). Active button tints to the severity colour.
+4. **Status sections** — three `<details>` blocks in order **To do** (`open`), **In progress** (`open`), **Done** (collapsed, no `open`). Each summary shows the label, a count, and a right-aligned severity tally. Inside, a responsive card grid (`minmax(340px, 1fr)`), findings sorted by severity then id. An empty To-do section shows a short "nothing outstanding" note rather than vanishing.
+5. **Refuted section** — the dropped candidates, so the page is falsifiable not selective.
+6. **Footer** — source, method, applied date.
+
+### Finding card
+
+- Header: the **finding number** (mono, bold) whose **colour is set by `data-sev`** via a rule like `.finding[data-sev="high"] .finding__num{color:var(--high)}` — this is the second severity signal alongside the chip. Right-aligned badges: a severity chip, a category badge, and a theme chip.
+- Title (may contain `<code>` spans; convert `` `backticks` `` and strip any orphan).
+- An outcome line: a mono status label + the `outcome_note`.
+- A collapsible `<details>` holding the recommendation (led by a `▶ {anchor}` label), the file-ref chips, the evidence, and the verification note.
+- Every card carries `data-sev`, `data-cat`, `data-status` for the filter JS.
+
+### Filter JS
+
+Vanilla, inline. Buttons toggle a `.hidden` class on findings by `data-sev` or `data-cat`; status blocks whose visible-finding count drops to zero hide themselves (and auto-open when a non-`all` filter is active); a `#noresults` line shows when nothing matches.
+
+### Reliability
+
+Prefer writing the HTML directly. If the finding set is large, it is acceptable to drive a short Python generator (loop the dataset into card markup, escaping with `html.escape` and converting backticks to `<code>`) to avoid hand-escaping errors, then write the single output file. Do not leave a generator script behind as an artefact; the deliverable is the HTML (and the dataset JSON from Step 2).
+
+## Step 6 — Quality checks
+
+Before opening:
+
+- [ ] Complete self-contained HTML document; only Google Fonts is external
+- [ ] Tag balance holds (`article`, `details`, `div`, `script`, `style`)
+- [ ] Every finding `id` is unique; all findings present
+- [ ] Three status sections; To do + In progress `open`, Done collapsed
+- [ ] Severity shown by BOTH the chip and the finding-number colour (`data-sev` rule present for high/medium/low)
+- [ ] Every `var(--x)` resolves to a definition; light and dark both intentional
+- [ ] All grid/flex children have `min-width: 0`; `overflow-wrap` on long text; refs wrap
+- [ ] Filter JS targets exist (`#statuses`, `.finding`, `.statusblock`, `#noresults`)
+- [ ] KPI and section counts match the dataset
+- [ ] British spelling; no em dashes; no orphan backticks left in text
+- [ ] No Inter/Roboto, no violet/indigo accents, no gradient-text headings, no animated glow
+
+Run a quick static check (a few lines of Python: tag counts, `id` uniqueness, `var()` vs definitions, `data-status` tallies) rather than trusting a visual scan.
+
+## Step 7 — Open and report
+
+```bash
+open {project_root}/docs/artefacts/audit-{slug}.html
+```
+
+Report:
+
+- File path written (HTML and the dataset JSON)
+- Topic, total confirmed, refuted count
+- The severity split and the status split (done / in progress / to do)
+- The high-severity findings, surfaced inline so the user sees them without opening the file

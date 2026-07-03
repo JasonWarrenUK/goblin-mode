@@ -1,6 +1,5 @@
 ---
-name: "Memo
-: What's New"
+name: "Memo: What's New"
 description: "{{ ƔƔƔ }} Summarise what the user can now see or do that they couldn't before this unit of work"
 ---
 
@@ -19,6 +18,7 @@ Summarise what the user can now see or do that they couldn't before this unit of
 ## Format
 
 **Now you can:**
+
 - [observable behaviour 1]
 - [observable behaviour 2]
 - ...

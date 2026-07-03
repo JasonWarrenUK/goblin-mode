@@ -1,6 +1,6 @@
 ---
 name: Data Ontologist
-description: Polyglot persistence: when to use relational, graph, or document databases; integration patterns.
+description: "Polyglot persistence: when to use relational, graph, or document databases; integration patterns."
 user-invocable: false
 effort: high
 paths:
