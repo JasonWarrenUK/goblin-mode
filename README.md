@@ -1,4 +1,4 @@
-# ~~Claude Code~~ <sup><ins>`goblin mode`</ins></sup>
+# ~~Claude Code~~ <sup><ins>`goblin mode`</ins></sup> <!-- rumdl-disable-line MD033 -->
 
 ![Goblin Mode](assets/goblin-mode.png)
 
@@ -6,6 +6,23 @@
 > 50% useful tool/teaching resource for agentic coding, 50% externalised temper tantrum.
 
 **Goblin Mode** is a permanently-in-flux configuration system (skills[^1], agents, hooks) built by one developer to solve problems they actually had. Every skill traces back to a specific friction point. Hooks enforce habits that were being skipped.
+
+<!-- toc:start -->
+## Table of Contents
+
+- [What’s In Here](#whats-in-here)
+- [Quick Start](#quick-start)
+- [Directory Guide](#directory-guide)
+  - [CLAUDE.md: The Behaviour File](#claudemd-the-behaviour-file)
+  - [skills/: Commands and Domain Knowledge](#skills-commands-and-domain-knowledge)
+  - [agents/: Autonomous Workflows](#agents-autonomous-workflows)
+  - [hooks/: Automation](#hooks-automation)
+  - [docs/: Documentation](#docs-documentation)
+- [How It All Fits Together](#how-it-all-fits-together)
+- [Key Concepts](#key-concepts)
+- [Documentation Index](#documentation-index)
+  - [Guides](#guides)
+<!-- toc:end -->
 
 [^1]: Skills replaced slash commands after Anthropic merged the two systems.
 
@@ -21,31 +38,15 @@
 
 ---
 
-## Table of Contents
-
-- [What's In Here](#whats-in-here)
-- [Quick Start](#quick-start)
-- [Directory Guide](#directory-guide)
-  - [CLAUDE.md: The Behaviour File](#claudemd-the-behaviour-file)
-  - [Skills: Commands and Domain Knowledge](#skills-commands-and-domain-knowledge)
-  - [Agents: Autonomous Workflows](#agents-autonomous-workflows)
-  - [Hooks: Automation](#hooks-automation)
-  - [Docs: Documentation](#docs-documentation)
-- [How It All Fits Together](#how-it-all-fits-together)
-- [Key Concepts](#key-concepts)
-- [Documentation Index](#documentation-index)
-
----
-
 ## What's In Here
 
-| Component | Count | What it does |
-|-----------|-------|-------------|
-| **Skills (command)** | 49 | Slash commands you invoke (e.g. `/git:commit-one-delta`) |
-| **Skills (knowledge)** | 17 | Knowledge packs that load automatically when relevant |
-| **Agents** | 10 | Autonomous sub-processes for multi-step work |
-| **Hooks** | 7 | Scripts that run on git events and session lifecycle |
-| **Docs** | 2 files | Guides for this repo |
+| Component              | Count   | What it does |
+|------------------------|---------|--------------|
+|  **Skills (command)**  |   49    | Slash commands you invoke (e.g. `/git:commit-one-delta`) |
+| **Skills (knowledge)** |   17    | Knowledge packs that load automatically when relevant |
+|       **Agents**       |   10    | Autonomous sub-processes for multi-step work |
+|       **Hooks**        |    7    | Scripts that run on git events and session lifecycle |
+|        **Docs**        | 2 files | Guides for this repo |
 
 ---
 
@@ -81,11 +82,11 @@ Skills serve two distinct roles:
 
 **Command skills** (49) — you invoke these by typing `/skill-name` in Claude Code. Each has a model tier in its name:
 
-| Tier | Model | Best for |
-|------|-------|----------|
-| `delta` | Haiku | Fast, routine tasks |
+| Tier    | Model  | Best for |
+|---------|--------|----------|
+| `delta` | Haiku  | Fast, routine tasks |
 | `gamma` | Sonnet | Balanced reasoning |
-| `omega` | Opus | Complex analysis |
+| `omega` |  Opus  | Complex analysis |
 
 Categories: git, PR, doc, linear, merge, repo, review, suggest-task, wip, config, do.
 
@@ -97,18 +98,18 @@ Only the skill's short description loads at session start (cheap on context). Th
 
 Agents are **sub-processes** that Claude spawns to handle multi-step work independently:
 
-| Agent | Purpose |
-|-------|---------|
-| `design-reviewer` | Review proposed features against design values before implementation |
+| Agent                    | Purpose |
+|--------------------------|---------|
+|    `design-reviewer`     | Review proposed features against design values before implementation |
 | `implementation-planner` | Break vague development requests into actionable plans |
 | `project-context-loader` | Rebuild mental context when switching between projects |
-| `roadmap-maintainer` | Keep documentation and roadmaps in sync with code changes |
-| `scope-guard` | Detect and flag scope creep before it becomes entrenched |
-| `session-closer` | Capture session state, update task tracker, write handoff note |
-| `session-orchestrator` | Build a work plan at session start from git history and priorities |
-| `ship-checker` | Multi-dimensional quality check before creating a PR |
-| `task-sync` | Keep Linear/GitHub Issues consistent with git and branch state |
-| `test-gap-scanner` | Identify untested code using risk-based prioritisation |
+|   `roadmap-maintainer`   | Keep documentation and roadmaps in sync with code changes |
+|      `scope-guard`       | Detect and flag scope creep before it becomes entrenched |
+|     `session-closer`     | Capture session state, update task tracker, write handoff note |
+|  `session-orchestrator`  | Build a work plan at session start from git history and priorities |
+|      `ship-checker`      | Multi-dimensional quality check before creating a PR |
+|       `task-sync`        | Keep Linear/GitHub Issues consistent with git and branch state |
+|    `test-gap-scanner`    | Identify untested code using risk-based prioritisation |
 
 They run in their own context window, so they don't clutter your main conversation.
 
@@ -116,12 +117,12 @@ They run in their own context window, so they don't clutter your main conversati
 
 Scripts that run automatically on git events and session lifecycle:
 
-| Hook | Trigger | What it does |
-|------|---------|-------------|
-| `post-commit-docs.zsh` | After commit | Checks if changed files need documentation updates |
-| `settings-sync.sh` | Session start | Strips JSONC comments from settings source of truth → settings.local.json |
+| Hook                        | Trigger       | What it does |
+|-----------------------------|---------------|--------------|
+|   `post-commit-docs.zsh`    | After commit  | Checks if changed files need documentation updates |
+|     `settings-sync.sh`      | Session start | Strips JSONC comments from settings source of truth → settings.local.json |
 | `session-start-worktree.sh` | Session start | Injects worktree context into the session environment |
-| `stop-uncommitted-check.sh` | Stop | Warns about uncommitted changes when Claude finishes responding |
+| `stop-uncommitted-check.sh` |     Stop      | Warns about uncommitted changes when Claude finishes responding |
 
 The `settings-sync.sh` hook is what makes the `.jsonc` → `.json` source-of-truth approach work.
 
@@ -167,7 +168,7 @@ For more on these ideas: [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO
 
 ### Guides
 
-| File | Description |
-|------|-------------|
-| [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO.md) | Comprehensive guide to the entire setup; start here |
+| File                                                          | Description |
+|---------------------------------------------------------------|-------------|
+|  [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO.md)  | Comprehensive guide to the entire setup; start here |
 | [Agent Workflow Design](docs/guides/agent-workflow-design.md) | Design notes for the agent-based workflow patterns |

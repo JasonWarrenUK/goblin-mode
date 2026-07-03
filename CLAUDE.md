@@ -1,22 +1,105 @@
 # Jason Warren - Claude Code Config
 
-> Last updated: 2026-06-15
+| Prop    | Value |
+|---------|-------|
+| Updated | 2026-06-15 |
 
----
+<!-- toc:start -->
+## Table of Contents
+
+- [1. Technical Profile](#1-technical-profile)
+  - [1a. Scales: Preference & Proficiency](#1a-scales-preference-proficiency)
+    - [1a1. Preference](#1a1-preference)
+    - [1a2. Proficiency](#1a2-proficiency)
+  - [1b. Domains](#1b-domains)
+    - [1b1. Languages](#1b1-languages)
+  - [1.2. Frontend](#12-frontend)
+  - [1.3. Backend](#13-backend)
+  - [1.4. TUI](#14-tui)
+  - [1.5. Databases](#15-databases)
+  - [1.6. Testing](#16-testing)
+  - [1.7. Tooling](#17-tooling)
+  - [1.8 Packages & Apps](#18-packages-apps)
+    - [1.8.1. System Apps](#181-system-apps)
+    - [1.8.2. JS/TS Ecosystem](#182-jsts-ecosystem)
+    - [1.8.3. Other Ecosystems](#183-other-ecosystems)
+- [2. Shell Scripting](#2-shell-scripting)
+- [3. Communication](#3-communication)
+  - [3.1. Golden Rules](#31-golden-rules)
+  - [3.2. Spelling (Non-Negotiable)](#32-spelling-non-negotiable)
+  - [3.3. Guidelines](#33-guidelines)
+- [4. Agent Skills](#4-agent-skills)
+  - [4.1. Skill Creation](#41-skill-creation)
+    - [4.1.1. YAML Frontmatter: New Convention](#411-yaml-frontmatter-new-convention)
+    - [4.1.2. YAML Frontmatter: Old Convention](#412-yaml-frontmatter-old-convention)
+- [5. Verification](#5-verification)
+- [6. Claude Code Behaviour](#6-claude-code-behaviour)
+  - [6.1. Linear Integration](#61-linear-integration)
+  - [6.2. Plans](#62-plans)
+  - [6.3. Asking vs Proceeding](#63-asking-vs-proceeding)
+  - [6.4. Verification](#64-verification)
+- [7. Code Conventions](#7-code-conventions)
+  - [7.1. Paradigm](#71-paradigm)
+  - [7.2. Naming](#72-naming)
+    - [7.2.1. Variables & Functions](#721-variables-functions)
+    - [7.2.2. Files](#722-files)
+  - [7.3. TypeScript Standards](#73-typescript-standards)
+  - [7.4. Code Style](#74-code-style)
+  - [7.5. Colour Palette](#75-colour-palette)
+  - [7.6. Testing](#76-testing)
+- [8. Git Workflow](#8-git-workflow)
+  - [8.1. Commit Style](#81-commit-style)
+  - [8.2. Versioning with svu](#82-versioning-with-svu)
+  - [8.3. Commit Granularity](#83-commit-granularity)
+  - [8.4. PR & Commit Style](#84-pr-commit-style)
+  - [8.5. Breaking Change Detection](#85-breaking-change-detection)
+  - [8.6. Branch Naming](#86-branch-naming)
+  - [8.7. Git Worktrees](#87-git-worktrees)
+  - [8.8. Pull Requests](#88-pull-requests)
+- [9. Security Defaults](#9-security-defaults)
+- [10. Database](#10-database)
+  - [10.1. SQL](#101-sql)
+- [11. Documentation](#11-documentation)
+- [12. Project Overrides](#12-project-overrides)
+<!-- toc:end -->
 
 ## 1. Technical Profile
 
-Options are listed in order of preference/proficiency
+Options are listed in order of preference & proficiency
 
-### 1.1. Languages
+### 1a. Scales: Preference & Proficiency
 
-| #   | Status     | Language |
-|-----|------------|----------|
-|  1  | Preferred  | TypeScript |
-|  2  | Proficient | JavaScript |
-|  3  |  Learning  |  Python  |
-|  4  |  Learning  |    Go    |
-|  5  |  Dabbled   |    C#    |
+#### 1a1. Preference
+
+| Value | Definition |
+|-------|------------|
+|   1   | "Love using" or "Learning this is a high priority" |
+|   2   | "Like using" or "Want to learn" |
+|   3   | "No strong feelings" |
+|   4   | "Dislike using" or "Not that interested in learning" |
+|   5   | "Hate using" or "Actively don't want to learn" |
+
+#### 1a2. Proficiency
+
+| Value | Definition |
+|-------|------------|
+|   1   | Proficient with advanced features |
+|   2   | Proficient with base features |
+|   3   | Actively learning or limited experience |
+|   4   | Have dabbled slightly |
+|   5   | No experience |
+
+### 1b. Domains
+
+#### 1b1. Languages
+
+| Priority | Status     | Language |
+|----------|------------|----------|
+|    1     | Preferred  | TypeScript |
+|    2     | Proficient | JavaScript |
+|    3     |  Learning  |  Python  |
+|    4     |  Learning  |    Go    |
+|    5     |  Dabbled   |    C#    |
 
 ### 1.2. Frontend
 
@@ -300,8 +383,8 @@ Use [`svu`](https://github.com/caarlos0/svu) as the default tool for deriving se
 
 | Moment             | Command sequence |
 |--------------------|------------------|
-| PR creation        | `git tag "$(svu next)" && git push --tags` |
-| Merge to `main`    | `git tag "$(svu next)" && git push --tags` |
+|    PR creation     | `git tag "$(svu next)" && git push --tags` |
+|  Merge to `main`   | `git tag "$(svu next)" && git push --tags` |
 | Merge to `staging` | `git tag "$(svu next)" && git push --tags` |
 
 **Mid-branch commits:** proactively offer a tag *only* when the pending bump is **major or minor**. Stay silent on **patch** bumps. Detect the bump level by comparing `svu current` with `svu next`:
