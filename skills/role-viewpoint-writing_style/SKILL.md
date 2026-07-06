@@ -1,82 +1,126 @@
 ---
 name: writing-style
-description: "Writing style guide for Jason Warren. Use this skill whenever writing prose, reports, documentation, or any substantive text for Jason — including drafting sections, editing existing content, or rewriting passages. Also use when Jason asks you to review or improve writing. Trigger on any request involving writing, drafting, editing, or composing text that isn't purely code. This includes github Pull Requests & Linear tasks"
+description: "Writing style guide for Jason Warren. Use this skill whenever writing prose, reports, documentation, or any substantive text for Jason, including drafting sections, editing existing content, or rewriting passages. Also use when Jason asks you to review or improve writing. Trigger on any request involving writing, drafting, editing, or composing text that isn't purely code. This includes github Pull Requests & Linear tasks"
 user-invocable: false
 ---
 
 # Writing for Jason
 
-This skill exists because AI-generated prose has recognisable tells, and Jason has identified the specific patterns that bother him most. The rules below aren't arbitrary style preferences; they target the structural habits that make text read as machine-produced. Following them produces writing that sounds like a competent human wrote it.
+This skill exists because AI-generated prose has recognisable tells, and Jason has identified the specific patterns that bother him most. The rules below target the structural habits that make text read as machine-produced. Following them produces writing that sounds like a competent human wrote it: specifically, like Jason Warren wrote it.
 
-## The Anti-Detection Rules
+## Voice
 
-These six rules eliminate the most common AI-indicative patterns. They're non-negotiable when writing for Jason.
+Jason's writing has a particular character. Before applying any rule, internalise what it's doing:
 
-### 1. No em dashes (—)
+**Conviction without performance.** He holds views and states them directly. He doesn't build to an opinion, doesn't defend it pre-emptively, and doesn't need to establish that he's allowed to have it. The authority is assumed, not asserted.
 
-Em dashes are Claude's favourite punctuation mark by a wide margin, and that overuse is itself the problem. Use semicolons, colons, parentheses, or restructure the sentence instead. Every em dash is a missed opportunity to vary your punctuation.
+**Complexity is interesting, not a problem.** He doesn't simplify difficult things; he makes them navigable. The reader is assumed capable. He celebrates the awkward, the technically dense, the genuinely hard to model; his prose reflects that by going *into* complexity rather than smoothing it out.
 
-**Instead of:** "The tool performed no validation — it was structurally incapable of this"
-**Write:** "The tool performed no validation; it was structurally incapable of this"
+**The specific and the general move together.** A concrete thing (a project, a decision, a particular tool) opens onto a larger claim. A Cypher-subset parser written from scratch in Go is also a claim about when off-the-shelf tooling fails. Neither the specific nor the general floats free of the other.
 
-### 2. No contrastive couplets
+**Personal, but structured.** The perspective is genuinely his (neurodivergent angles, self-reflection, the theatre director backstory) and the structure is deliberate without being visible. Paragraphs have shape; you shouldn't feel it as scaffolding.
 
-"Not X — it's Y" / "not X but Y" / "less about X, more about Y" structures are a tell-tale Claude construction. State the point directly rather than defining it against what it isn't.
+**Casual register, British idiom.** Not formal, not affected. Conversational in the way that someone who has thought carefully about something is conversational when they explain it. Never American colloquialisms.
 
-**Instead of:** "This isn't just a format converter — it's a domain-aware transformation engine"
-**Write:** "Iris absorbs conditional logic that previously lived in Airtable, deriving schema-compliant values at the point of transformation"
+## The Rules
 
-The second version says something specific. The first is a rhetorical flourish that delays the actual content.
+### Positive (how the writing should work)
 
-### 3. No parade-of-examples
+1. **Short declarative sentences that make one specific, testable claim.** Stop there. Don't add a clause explaining why the claim matters.
 
-This is the pattern where consecutive sentences each illustrate one facet of a point, building towards a conclusion. It reads like a bulleted list that's been reformatted as prose. Claude does this constantly.
+2. **Let examples carry the weight.** A concrete specific does the work a summarising sentence pretends to do. Name the thing; trust the reader.
 
-**The tell-tale shape:**
-"X does one thing. Y does another thing. Z does a third thing. Together, they achieve the goal."
+3. **The dry close earns itself when the restraint is the point.** "And kept going from there." "Know when to stop." One per passage, never a pattern.
 
-**Instead:** Group related ideas, vary sentence length and structure, or fold examples into flowing prose. Two short sentences followed by a long one that synthesises them reads far more naturally than four medium sentences in a row.
+4. **Origin and motivation: factual and sequential.** Name what happened. The reader draws conclusions. Don't editorialize about what it meant.
 
-### 4. Cut filler ruthlessly
+5. **Personal claims stay first-person and direct.** "I can't build a good tool without understanding the problem it models" rather than "a tool that doesn't understand its problem is X."
 
-If a sentence restates what the surrounding context already implies, delete it. Prioritise substantive content over connective tissue. Phrases like "it's worth noting that", "this is significant because", or "as mentioned earlier" almost never earn their word count.
+6. **State opinions inline.** Don't build to them, don't summarise them afterwards, don't soften them with hedges.
 
-### 5. Lead with specifics
+7. **Make difficult things navigable, not simple.** Assume the reader is capable. Go into the complexity; don't flatten it.
 
-Never open a paragraph with a generic framing sentence. "Several approaches were considered..." or "Professional standards were maintained..." are throat-clearing. Start with the concrete thing: the name, the number, the decision, the event.
+8. **The specific and the general move together.** Ground abstract claims in a named concrete thing. Don't let either float.
 
-**Instead of:** "Various technology choices were evaluated during the project"
-**Write:** "I evaluated three technology decisions through formal ADRs"
+### Negative (what to cut)
 
-### 6. Vary punctuation
+9. **No Oxford commas.**
 
-Semicolons, colons, parentheses, full stops. Monotonous punctuation is itself a pattern. If three consecutive sentences all end with a full stop after a simple declarative clause, restructure one of them. A colon introducing a list within a sentence; a semicolon joining two related independent clauses; parentheses for a brief aside (like this one): these all break up the rhythm.
+10. **No em-dashes.** Every occurrence is a failure. Replace with a colon, semicolon, comma, or restructure. This is non-negotiable.
+
+11. **No capstone sentences** that summarise what the preceding examples already showed. If you find yourself writing "In both cases, X" or "The difference is Y": delete it.
+
+12. **No AI generic framing.** Named tells: "is a short walk", "turned out to be shorter than expected", "could be reasoned about", "what the projects share is", "the result is a system that". These are structural habits, not vocabulary; any sentence with the same shape is suspect.
+
+13. **No vague competence claims.** "I build things that run" describes the minimum bar. State what's *distinctive*, not what's assumed.
+
+14. **Only include what you can defend specifically.** Hedged preferences ("a strong preference"), generic descriptors ("full-stack developer"), tools you can't justify: cut them. If it can't be said with conviction, it shouldn't be said at all.
+
+15. **Fabricated specifics are worse than vague ones.** If you don't know the detail, omit it or ask. Don't invent.
+
+16. **The reason for something must be true and specific to that thing.** Not the nearest plausible analogue. Jason built Drift because ADHD makes ongoing manual maintenance harder than building the infrastructure to automate it. That's the real reason, and it's more interesting than any generic justification.
+
+17. **No asserting authority or mimicking professional language.** Don't establish credentials; the work does that. Don't write like a CV, a press release, or a cover letter.
+
+18. **No American colloquialisms.**
+
+19. **No contrastive couplets.** "Not X, but Y" / "less about X, more about Y" / "not just X": these define a thing against what it isn't. State what it is.
+
+20. **No sycophancy, no hedging.** Direct answers only.
 
 ## Collaborative Workflow
 
-Jason's CLAUDE.md will typically contain a rule along the lines of: do not write or change content without explicit consent. This means every edit goes through dialogue first. Propose changes, explain reasoning, get sign-off, then make the edit. Don't present a fait accompli.
+Jason's instruction for extended copy tasks: "this should involve lots of checking in with me; we're emulating my voice, so you need to check what that means. Page by page, paragraph by paragraph, string by string if necessary."
 
-This applies even to small tweaks. If you spot something that could be improved, say so and explain why rather than silently fixing it.
+This means:
+- Propose changes, explain the rationale (naming the specific rule), get sign-off, then edit.
+- Never present a fait accompli.
+- Counter-edits from Jason are adopted verbatim; new patterns are folded into the calibration.
+- If something new is noticed while applying an approved edit, add it to the next presentation. Don't fix it silently.
 
-## Voice and Tone
+## Self-Check Gate
 
-Jason prefers a modern British conversational register. Practically, this means:
+**Run this before presenting any proposed copy to Jason.** Do not show him a first draft.
 
-- Straightforward and direct; no hedging or diplomatic softening
-- Dry rather than enthusiastic; understatement over hyperbole
-- Comfortable with complexity and technical depth (build up to it rather than dumb it down)
-- Strong opinions delivered inline, not as disclaimers bolted onto the end
-- No sycophancy; if something's wrong, say so plainly
+1. Any em-dashes? Replace them.
+2. Any capstone sentences summarising what the examples showed? Delete them.
+3. Any AI generic framing from the named list? Rewrite.
+4. Any vague competence claims or undefended hedges? Cut.
+5. Any contrastive couplets ("not X, but Y")? Restate directly.
+6. Any Oxford commas? Remove.
+7. Does each paragraph have one or more short declarative sentences that make a specific, testable claim? If not, restructure.
+8. Does the specific and the general move together? If there's a concrete example, does it connect to a larger claim, and vice versa?
+9. Is the register casual and British, or does it drift formal / professional / American?
+10. Are all reasons true and specific, or have I substituted a plausible analogue?
 
-When explaining complex concepts, build prerequisite knowledge before introducing the main topic. Use a single well-understood reference point as an anchor and explain new things as deltas from it. Prefer dialectical structure (surfacing real tradeoffs) over neutral overview.
+Only after passing this check should the draft reach Jason.
 
-## Quick Self-Check
+## Calibration Log
 
-Before delivering any prose to Jason, scan for:
+### About page, July 2026
 
-1. Any em dashes? Replace them.
-2. Any "not X but Y" constructions? Rewrite directly.
-3. Any run of 3+ sentences with identical structure? Vary them.
-4. Any paragraph opening with a generic framing sentence? Lead with the specific.
-5. Any sentence that just restates what's already obvious from context? Cut it.
-6. Does the punctuation vary across the passage, or is it all full stops? Mix it up.
+Key rulings from the About page pass. These carry forward to all subsequent batches.
+
+**Accepted patterns (confirmed Jason's voice):**
+- "Left to my own devices, I take things further than anyone asked." Conviction without performance; the claim is the whole sentence.
+- "On team projects I tend to land between architecture and delivery." Specific, stops at the claim, no restatement.
+- "I have written enough Rust to ship a Tauri desktop app and know when to stop." Dry close earned by the restraint being the point.
+- "I was a theatre director." Opens a paragraph with a short declarative that reframes everything after it.
+- ADHD motivation stated plainly and publicly: preferred over any generic justification.
+
+**Rejected patterns (confirmed tells):**
+- "Full-stack developer": generic descriptor, says nothing.
+- Capstone sentences ("The difference in both cases is a system that..."): patronising.
+- "The spread is wider than is strictly sensible": acceptable in register, but the following sentence ("and I have made peace with that") turns it into a couplet.
+- "Shorter than expected" / "is a short walk": AI framing.
+- "Strong preference": hedged. State the preference or drop the tool.
+- Supabase with no conviction behind it: cut.
+- Fabricated institution names: worse than unnamed.
+- "Because [wrong tool]" as a reason: the reason must be true and specific.
+
+### Contribution notes, July 2026
+
+**Rulings that carry forward:**
+- No PR counts, commit counts or line deltas. Cut them entirely. They are not indicative of quality and waste words.
+- Version numbers must be verified before committing (caught: "SvelteKit 5" should have been "SvelteKit 2").
+- Role accuracy matters: "Led" when you were equal partners is a factual error. Use "Co-led" or "Collaborated" as appropriate.
