@@ -67,7 +67,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "opus",
+  "model": "opusplan",
   "hooks": {
     "SessionStart": [
       {
@@ -101,6 +101,15 @@
             "command": "bunx -y ccstatusline@latest --hook"
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx -y ccstatusline@latest --hook"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -114,6 +123,14 @@
       }
     ],
     "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx -y ccstatusline@latest --hook"
+          }
+        ]
+      },
       {
         "hooks": [
           {
@@ -203,7 +220,6 @@
   },
   "syntaxHighlightingDisabled": false,
   "alwaysThinkingEnabled": false,
-  "effortLevel": "xhigh",
   "autoUpdatesChannel": "latest",
   "tui": "fullscreen",
   "showThinkingSummaries": true,
