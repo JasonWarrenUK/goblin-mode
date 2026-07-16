@@ -1,5 +1,5 @@
 ---
-name: roadmap-create
+name: "Roadmap: Create"
 description: "{{ 𝛀𝛀𝛀 }} Create a project roadmap in the rich phase-array format — roadmaps.json as source of truth plus a PHASE task list and prose overview"
 model: opus
 disable-model-invocation: true
@@ -15,7 +15,7 @@ Create a roadmap as three synchronised artefacts:
 
 When creating a new phase alongside existing ones, append a new element and mark the superseded phase `"archived": true`.
 
-Shared scripts live in `~/.claude/library/scripts/` (invoke as `python3 ~/.claude/library/scripts/{name}.py`; use `"$HOME"/.claude/...` if `~` is not expanded).
+Shared conventions (status vocabulary, colour table, graph rules, formatting) live in `~/.claude/library/references/roadmap-conventions.md` — read it before writing anything. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
 
 ## Behaviour
 
@@ -31,7 +31,7 @@ Shared scripts live in `~/.claude/library/scripts/` (invoke as `python3 ~/.claud
 
 - Check if `docs/roadmaps/` exists and contains roadmaps; check if `.claude/roadmaps.json` exists.
 - If `$ARGUMENTS` is given, use it as the phase name (e.g. `PHASE_2`). If no arguments and no existing roadmap, default to `PHASE_1`. If no arguments but roadmaps exist, ask the user to clarify intent.
-- **If a roadmap already exists, check its format first** — run `python3 ~/.claude/library/scripts/detect_format.py`. Exit 3 means it is the old simple format (single Markdown, `<a name>` anchors, or a `{"roadmaps":[…]}` pointer registry). **Stop and tell the user to run the `roadmap-migrate` skill first**, so the new phase is appended to a consistent phase array rather than colliding with the old structure. Only proceed to append a phase once the existing roadmap is rich.
+- **If a roadmap already exists, check its format first** — run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`. Exit **3** = old simple format: **stop and tell the user to run the `roadmap-migrate` skill first**, so the new phase is appended to a consistent phase array. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0 (or when no roadmap exists yet).
 
 ### 2. Gather project context
 
@@ -51,12 +51,7 @@ Format: `{MilestoneNum}{Category}.{Seq}` — e.g. `1EV.1`, `3IN.6`. Sub-tasks us
 
 ### 5. Compute initial statuses (mechanical)
 
-The six statuses are `todo`, `blocked`, `paused`, `deferred`, `done`, `out_of_scope`. **There is no in-progress state.** For each task at creation:
-
-- Empty `dependsOn` → `todo`
-- Any entry in `dependsOn` not yet `done` → `blocked`
-
-No task starts `done` unless the user says the work is already complete. `paused`/`deferred` are only for tasks parked behind a gate or a later phase (see gates below).
+The mechanical status rule from the conventions reference applies: empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`. No task starts `done` unless the user says the work is already complete. `paused`/`deferred` are only for tasks parked behind a gate or a later phase.
 
 ### 6. Generate `.claude/roadmaps.json`
 
@@ -113,46 +108,19 @@ The top level is an **array of phase objects**. Append + archive the superseded 
 ## Dependency Diagram
 
 ```mermaid
-graph LR
-	classDef done fill:#c3e6cb,stroke:#1e7e34
-	classDef open fill:#d4edda,stroke:#28a745
-	classDef blocked fill:#f8d7da,stroke:#dc3545
-	classDef paused fill:#e2e3f3,stroke:#5a6ab0,stroke-dasharray:4 3
-	classDef deferred fill:#e2e3e5,stroke:#6c757d,stroke-dasharray:2 4,font-style:italic
-	classDef external fill:#fff3cd,stroke:#d39e00,stroke-dasharray:4 3,font-style:italic
-	classDef mile fill:#cce5ff,stroke:#004085,font-weight:bold
-
-	M1[M1: {Name}]:::mile
-	M2[M2: {Name}]:::mile
-
-	%% Milestone 1
-	{dep} --> {task}
-	{sink} --> M1
-
-	%% Milestone 2
-	M1 --> {taskThatDependsOnM1}
-	...
-
-	class {todo IDs ascending} open
-	class {blocked IDs ascending} blocked
-	class {paused IDs ascending} paused
-	class {deferred IDs ascending} deferred
+{output of roadmap.py graph --mermaid}
 ```
 ````
 
-**Task annotation rules:** no annotation if `dependsOn` is empty; `_(depends on {IDs})_` if all deps are done (task is `todo`); `_(blocked — depends on {IDs})_` if any dep is not done; `_(paused — reconvene {gateId})_` / `_(deferred to a later phase)_` for parked tasks.
+Task line annotations follow the conventions reference (none / `_(depends on {IDs})_` / `_(blocked — depends on {IDs})_` / `_(paused — reconvene {gateId})_` / `_(deferred to a later phase)_`).
 
-**Mermaid rules:**
+**The diagram is generated, never hand-written.** Once the JSON is written, run:
 
-- `graph LR`, classDefs **immediately after** the `graph LR` line (Mermaid rejects `classDef` before the graph-type declaration).
-- One `M{N}[M{N}: {Name}]:::mile` node per milestone; one `{gateId}[…]:::external` node per gate.
-- **Milestone nodes are TERMINAL** (the house convention): a milestone's *sink* tasks point INTO its node. Compute sinks as *tasks in the milestone that no other task in the same milestone depends on*, and emit `{sink} --> M{N}` for each. The node reads "these tasks complete the milestone".
-- **Milestone-as-dependency:** if a task lists a milestone ID in its `dependsOn`, emit `M{N} --> {task}` (the node gates the dependent). This is the only place `M{N} -->` appears as a source.
-- Never emit an initial `M{N} --> {firstTask}` entry edge.
-- Task→task deps: `{dep} --> {task}`. Soft/iterative loops: `{A} -.->|iterate| {B}`.
-- End with explicit `class {IDs} {status}` statements (IDs ascending), never inline `:::open` on task nodes, and **no** `<a name>` anchors or `#m{N}-*` patterns.
+```bash
+python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR
+```
 
-You can generate the diagram deterministically instead of by hand once the JSON is written: `python3 ~/.claude/library/scripts/roadmap_graph.py` emits the nodes and edges (including the terminal milestone edges) as JSON.
+and paste the output verbatim into the fenced `mermaid` block. It emits the classDefs (canonical status colours), nodes, edges (terminal milestone convention) and `class` statements in the right order. Do not add, remove or recolour lines by hand.
 
 ### 8. Generate `docs/reports/ROADMAP_OVERVIEW.md`
 
@@ -178,12 +146,12 @@ You can generate the diagram deterministically instead of by hand once the JSON 
 {Dependencies on external parties, unconfirmed decisions, etc.}
 ```
 
-The header task count must match `roadmaps.json`. Get it from `python3 ~/.claude/library/scripts/roadmap_stats.py` rather than counting by hand.
+The header task count must match `roadmaps.json`. Get it from `python3 "$HOME"/.claude/library/scripts/roadmap.py stats` rather than counting by hand.
 
 ### 9. Validate, confirm, and report
 
-1. Run `python3 ~/.claude/library/scripts/validate_roadmap.py` — it must report clean (dependsOn/blocks parity, acyclicity, status recompute). Fix any discrepancy before finishing.
-2. Report the three paths created, the milestone and task counts (from `roadmap_stats.py`), and the status breakdown.
+1. Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate` — it must report clean (dependsOn/blocks parity, acyclicity, status recompute). Fix any discrepancy before finishing.
+2. Report the three paths created, the milestone and task counts (from `roadmap.py stats`), and the status breakdown.
 3. Note any assumptions or areas needing user refinement.
 
 ---
@@ -192,8 +160,6 @@ The header task count must match `roadmaps.json`. Get it from `python3 ~/.claude
 
 - ID format `{MilestoneNum}{Category}.{Seq}`; never reuse IDs.
 - roadmaps.json is the source of truth; the PHASE file and overview are projections.
-- Tabs not spaces; British spelling (organise, behaviour, synchronise).
-- Status rule is mechanical: empty deps → `todo`; any non-done dep → `blocked`. No in-progress state.
-- Milestone nodes render terminal (sinks point in; milestone-deps point out).
+- Everything else (statuses, colours, graph rules, formatting): `~/.claude/library/references/roadmap-conventions.md`.
 
-These roadmaps are maintained by `roadmap-maintain` (status synchronisation) and `roadmap-update-tasks` (adding tasks). Old simple-format roadmaps are upgraded by `roadmap-migrate`.
+These roadmaps are maintained by `roadmap-maintain` (status synchronisation) and `roadmap-update-tasks` (adding tasks). Old simple-format roadmaps are upgraded by `roadmap-migrate`; the HTML dashboard comes from `artefact-roadmap` (`roadmap.py render`).
