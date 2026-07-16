@@ -1,8 +1,8 @@
 ---
-name: "Roadmap: Interviewer"
-
+name: roadmap-create-interview
 description: "{{ 𝛀𝛀𝛀 }} Run a structured interview to discover new features and produce a batch roadmap proposal. Use this skill when the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone', or 'interview me about what to build'. Produces a structured proposal for review — nothing is written to the roadmap until the user approves."
 model: opus
+allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
 ---
 
 # Roadmap Interviewer
@@ -21,21 +21,17 @@ The interview is a thinking tool as much as a discovery one. Sometimes the most 
 
 ## Step 1 — Orient to the roadmap
 
-Locate and read the roadmap using the same resolution order as the roadmap-task-adder skill:
+This is a read-only skill — it writes nothing; it produces a proposal that `roadmap-update-tasks` later writes.
 
-1. User-specified path
-2. `.claude/roadmaps.json`
-3. `docs/roadmaps/` directory scan
-4. Grep fallback for `classDef.*mile`
+Locate and read the rich-format roadmap: user-specified path → `.claude/roadmaps.json` (the source of truth, an array of phase objects; the active phase is the non-`archived` entry) → `docs/roadmaps/` scan. Check the format with `python3 ~/.claude/library/scripts/detect_format.py`; on exit 3 (old simple format), tell the user to run `roadmap-migrate` first, since the proposal must speak the rich vocabulary.
 
-Extract:
+From the active phase, extract:
 
-- All existing milestones (names, goals, completion status)
-- Current In Progress and To Do tasks (to understand active direction)
-- Blocked tasks (potential unlock targets)
-- Existing category prefixes per milestone
+- All milestones (names, goals) and their per-status task counts (`python3 ~/.claude/library/scripts/roadmap_stats.py` gives these)
+- Current `todo` tasks (active direction) and `blocked`/`paused`/`deferred` tasks (potential unlock targets)
+- The external gates (a proposed task may depend on a gate) and existing category prefixes per milestone
 
-This context informs the interview — you can connect what the user describes to what's already tracked, and avoid proposing duplicates.
+The status vocabulary is `todo`, `blocked`, `paused`, `deferred`, `done`, `out_of_scope` — there is no in-progress state. This context informs the interview — connect what the user describes to what's already tracked, and avoid proposing duplicates.
 
 ---
 
@@ -104,8 +100,8 @@ Assign:
 - **Proposed ID** — follow the existing `{Milestone}{Category}.{Seq}` convention. Use `?` for the seq number if the milestone/category is new and you can't determine the next number without the user confirming placement (e.g. `2TI.?`)
 - **Description** — clear, imperative, task-like (not "we need to..." — just "Build X" or "Add Y")
 - **Proposed milestone** — which milestone this belongs to, and why
-- **Proposed section** — Blocked, To Do, or In Progress
-- **Incoming dependencies** — existing task IDs that must complete first
+- **Proposed status** — computed mechanically: `todo` if it has no incomplete dependencies, `blocked` if it depends on anything not yet `done`, `paused`/`deferred` if it sits behind a gate that imposes those
+- **Incoming dependencies** — existing task IDs, a milestone ID, or a gate ID that must resolve first
 - **Outgoing dependencies** — existing tasks this would unblock, or new tasks in this batch that depend on it
 
 ### Cross-task dependencies within the batch
@@ -114,7 +110,7 @@ If proposed tasks depend on each other, make that explicit. Show the internal de
 
 ### Orphan and childless flags
 
-Apply the same checks as the roadmap-task-adder skill:
+Apply the same checks as `roadmap-update-tasks`:
 
 - Flag any proposed task with no connections as a potential orphan
 - For childless tasks that clearly enable further work, propose a placeholder child
@@ -128,8 +124,8 @@ Format the proposal clearly. Group tasks by milestone. For each task:
 ```text
 {ID}. {Description}
   Milestone: {N} — {Name}
-  Section: {Blocked / To Do}
-  Depends on: {IDs or "nothing"}
+  Status: {todo / blocked / paused / deferred}
+  Depends on: {task/milestone/gate IDs or "nothing"}
   Enables: {IDs — existing or new — or "nothing yet"}
   [⚠ Orphan — no connections found] (if applicable)
   [+ Placeholder child proposed: {ID}. {Description}] (if applicable)
@@ -149,9 +145,9 @@ Then ask: *"Does this look right? Any tasks to cut, rename, or move? Once you're
 
 ## Step 6 — Hand off
 
-Once the user approves (or approves with amendments), this skill's job is done. The output is a clean batch specification ready for the roadmap-task-adder skill to process — either one task at a time or as a batch if supported.
+Once the user approves (or approves with amendments), this skill's job is done. The output is a clean batch specification ready for `roadmap-update-tasks` to process — one task at a time, in dependency order (add a task before the tasks that depend on it).
 
-Tell the user: *"Approved. Use `roadmap-task-adder` (or `/doc:add:roadmap:task`) to write these to the roadmap, passing the proposal above as context."*
+Tell the user: *"Approved. Use `roadmap-update-tasks` to write these to the roadmap, passing the proposal above as context — adding them in dependency order."*
 
 ---
 
