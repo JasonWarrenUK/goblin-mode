@@ -8,10 +8,10 @@ argument-hint: [brief decision title]
 ---
 
 <overview>
-  Guide user through creating an ADR via focused questions, then generate using ~/.claude/doc-templates/ADR.md
+  Guide user through creating an ADR via focused questions, then generate using ~/.claude/library/templates/ADR.md
 </overview>
 <template-location>
-  ~/.claude/doc-templates/ADR.md
+  ~/.claude/library/templates/ADR.md
 </template-location>
 <steps>
   1. Read ADR template

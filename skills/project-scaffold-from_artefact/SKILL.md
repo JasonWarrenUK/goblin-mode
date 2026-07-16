@@ -179,7 +179,7 @@ Translate the inventory from Step 2 into real source files.
 
 ## Step 7 — Rewire styling onto Reasonable Colors
 
-Replace every hardcoded colour from Step 2 with semantic aliases backed by Reasonable Colors. **Read `~/.claude/library/docs/reasonable-colors-reference.md` first** for the shade/contrast rules and the full palette; do not guess hex values.
+Replace every hardcoded colour from Step 2 with semantic aliases backed by Reasonable Colors. **Read `~/.claude/library/references/reasonable-colors-reference.md` first** for the shade/contrast rules and the full palette; do not guess hex values.
 
 1. **Install:** `bun add reasonable-colors` (or the CDN link `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css` for a no-build HTML case). Import it once at the app root.
 2. **Define semantic aliases** in `src/lib/styles/tokens.css`, mapping RC vars to roles:
@@ -241,8 +241,8 @@ git add . && git commit -m "chore: scaffold project from Claude artefact"
 Confirm `.gitignore` covers `node_modules`, build output, and any `.env` before that first `git add`. No hook symlinks; there is no bootstrap template this skill depends on.
 
 **9c. ADR + README from Jason's templates**
-- Read `~/.claude/library/docs/templates/ADR.md` and write `docs/adrs/001-initial-tech-stack.md` recording the stack choice and the artefact-to-Svelte translation rationale. Follow the template's exact section order; do not invent a format.
-- For the README, read `~/.claude/library/docs/templates/technical-overview.md` (the README-ish template; there is no dedicated README template in the library) and emit a `README.md` from it. Note this substitution to the user.
+- Read `~/.claude/library/templates/ADR.md` and write `docs/adrs/001-initial-tech-stack.md` recording the stack choice and the artefact-to-Svelte translation rationale. Follow the template's exact section order; do not invent a format.
+- For the README, read `~/.claude/library/templates/readme-root.md` and emit a `README.md` from it.
 
 **9d. Deploy config**
 - Configure only the target chosen in Step 3: **Vercel** (`@sveltejs/adapter-vercel` or auto), **Deno Deploy** (`adapter-deno` / static), **GitHub Pages** (`@sveltejs/adapter-static` + base path). Install and set the one adapter; do not scaffold config for targets not chosen.

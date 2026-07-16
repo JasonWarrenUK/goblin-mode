@@ -3,10 +3,10 @@ name: "Docs: Create Status Report"
 description: "{{ 𝚫𝚫𝚫 }} Create a status report that knows what you've done since the last one"
 model: haiku
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)", "Bash(python3:*)"]
 ---
 
-<task overview="Generate a project status report by analyzing the current state of the codebase, roadmaps, and recent work." destination="docs/status-reports/" >
+<task overview="Generate a project status report by analysing the current state of the codebase, roadmaps, and recent work." destination="docs/dev-log/status-reports/" >
 <filename format="{PROJECT-REPORT-NUMBER}_{YY-MM-DD-HHMM}_{RECENT}.md" example="003_26-01-13-1545_xml-validation-added.md" >
 
 | Component             | Description                                      | Example |
@@ -19,14 +19,14 @@ To determine PROJECT-REPORT-NUMBER, check existing reports in the output directo
 </filename>
 <instructions>
 
-1. **Read the roadmap** at `docs/roadmaps/mvp.md` to understand milestones and progress
+1. **Read the roadmap** — `python3 "$HOME"/.claude/library/scripts/roadmap.py stats` when a rich roadmap exists (check with `roadmap.py detect`), otherwise the newest file in `docs/roadmaps/`
 2. **Check recent work records** in `docs/dev-log/work-records/` for recent activity
 3. **Review git history** for recent commits and changes
 4. **Identify blockers** from any TODO comments, failing tests, or documented issues
 5. **Read the previous status report** in `docs/dev-log/status-reports/` to understand what was last reported as completed, in progress, and upcoming
 
 </instructions>
-<output-format template-path="~/.claude/doc-templates/status-report.md">
+<output-format template-path="~/.claude/library/templates/status-report.md">
 Report should exactly mirror template structure.
 </output-format>
 <guidelines>
