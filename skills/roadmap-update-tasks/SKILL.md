@@ -1,182 +1,102 @@
 ---
-name: "Roadmap: Add Tasks"
-description: "{{ 𝛀𝛀𝛀 }} Add a task to a project roadmap with correct ID, dependency wiring, and graph integrity. Use this skill whenever the user wants to add a task, feature, or work item to a roadmap — even if they just say 'add this to the roadmap', 'put this in the plan', or 'track this as a task'. Handles task ID assignment, section placement, dependency edges in both directions, and ensures no task is left as an unconnected island."
+name: roadmap-update-tasks
+description: "{{ 𝛀𝛀𝛀 }} Add a task to a rich-format project roadmap with correct ID, dependency wiring, and graph integrity. Use this whenever the user wants to add a task, feature, or work item to a roadmap — even if they just say 'add this to the roadmap', 'put this in the plan', or 'track this as a task'. Handles ID assignment, status computation, dependency edges in both directions, and ensures no task is left an unconnected island."
 model: opus
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)"]
+argument-hint: [task description (optional)]
 ---
 
 # Roadmap Task Adder
 
-Adds a well-formed task to an existing project roadmap. The job is not just appending a line — it's placing the task correctly in the dependency graph, wiring its relationships, and leaving the roadmap in a coherent state.
+Adds a well-formed task to an existing rich-format roadmap. The job is not appending a line — it is placing the task correctly in the dependency graph, wiring its relationships in **both** artefacts (`.claude/roadmaps.json` and the PHASE file it names), and leaving the roadmap coherent.
+
+The roadmap is three synchronised artefacts: `.claude/roadmaps.json` (source of truth, an array of phase objects; operate on the active non-`archived` entry), `docs/roadmaps/{PHASE}.md` (task list + `graph LR` diagram), and `docs/reports/ROADMAP_OVERVIEW.md` (prose; header count). Shared scripts live in `~/.claude/library/scripts/`.
 
 ---
 
-## Step 1 — Locate the roadmap
+## Step 1 — Locate the roadmap and check the format
 
-Check in this order:
+Find `.claude/roadmaps.json` (or ask if several roadmaps exist). Run `python3 ~/.claude/library/scripts/detect_format.py`; exit 3 = old simple format — **stop and tell the user to run `roadmap-migrate` first**. Only proceed when rich (exit 0).
 
-1. **User specified a path** — use it directly
-2. **`.claude/roadmaps.json`** — parse if present. One entry: use it. Multiple: list and ask.
-3. **`docs/roadmaps/` directory** — list `.md` files. One file: use it. Multiple: ask.
-4. **Fallback** — `Grep` for `classDef.*mile` to find roadmap files elsewhere.
-
-Read the full roadmap file before proceeding. You need to understand the existing task graph before you can add to it.
+Read the full `roadmaps.json` and the active phase's PHASE file before adding — you need the existing task graph, milestone IDs, gates, and categories.
 
 ---
 
-## Step 2 — Understand what the user wants to add
+## Step 2 — Understand what to add
 
-Extract from the user's description:
-
-- **Task description** — what does this task involve?
-- **Milestone** — which milestone does it belong to? If unclear, ask.
-- **Category** — which 2–3 letter category prefix fits? Look at existing categories in that milestone.
-- **Dependencies** — does this task require anything to be done first? Does it unblock anything that currently exists?
-
-If any of these are ambiguous, ask before proceeding. A badly placed task is worse than a delayed one.
+Extract: **description**; **milestone** (which milestone — ask if unclear); **category** (2–3 letter prefix, reuse an existing one in that milestone where it fits); **dependencies** (what must be done first; what it unblocks). Ask before proceeding if any is ambiguous — a badly placed task is worse than a delayed one.
 
 ---
 
 ## Step 3 — Assign a task ID
 
-Read the existing tasks in the target milestone and category. Find the highest sequence number used for that category, then assign `next = highest + 1`.
-
-Format: `{Milestone}{Category}.{Seq}` — e.g. `2TI.15`, `1WA.4`
-
-Sub-tasks use alpha suffix: `2TI.15a`, `2TI.15b`
-
-**Never reuse an ID**, even if a task was removed.
+`{MilestoneNum}{Category}.{Seq}` — find the highest sequence in that category and use `next = highest + 1`. Sub-tasks: alpha suffix (`2TI.15a`). **Never reuse an ID**, even a removed one.
 
 ---
 
 ## Step 4 — Identify dependencies
 
-### Incoming dependencies (what this task depends on)
+**Incoming** (`dependsOn`): tasks this new task requires. An entry may be a **task ID**, a **milestone ID** (`M1` — resolves done only when all its tasks are done), or an **external gate ID** (from `externalGates`). If a gate is an incoming dependency, the gate's `blocks[]` must gain this task ID (parity).
 
-Scan existing tasks for ones that this new task logically requires. Candidates:
-
-- Tasks the user explicitly mentioned
-- Tasks whose descriptions suggest they're prerequisites
-- Any task marked `:::open` that this task logically extends
-
-If the task has incoming dependencies, it goes in the **Blocked** section (or **To Do** if all its dependencies are already completed).
-
-### Outgoing dependencies (what this task enables)
-
-Scan existing tasks for ones that would be unblocked or directly enabled by this new task. Ask yourself: does completing this task change the status of any existing task in the Blocked section?
-
-If yes, you'll need to add this task as a dependency to those tasks' descriptions and add the corresponding edges to the Mermaid diagram.
+**Outgoing**: existing tasks that this new task should now block — add the new ID to their `dependsOn` (and mirror any gate parity). Completing this task may change those tasks' computed status (the recompute handles that).
 
 ---
 
-## Step 5 — Graph integrity checks
+## Step 5 — Graph integrity checks (before writing)
 
-Before writing anything, verify:
+**Orphan check.** A task with no dependency edges in or out is orphaned. Warn (`"This task has no connections to the existing graph — intentional?"`), suggest the most plausible connection, and proceed on the user's call. Some tasks genuinely stand alone.
 
-### Orphan check
-
-A task is orphaned if it has no dependency edges at all — nothing flows into it, nothing flows out of it. This is a warning, not a blocker. Some tasks genuinely stand alone (e.g. a one-off spike, an independent refactor).
-
-If the new task would be orphaned:
-
-- Warn the user: *"This task has no connections to the existing graph. Is that intentional?"*
-- Suggest the most plausible connection based on the task description
-- Proceed with the user's call
-
-### Childless check
-
-A task is "childless" if nothing depends on it — it's a leaf node with no known successors. This is fine for near-future work, but for tasks that clearly enable further work, it's worth capturing that potential.
-
-If the new task is childless and its nature suggests it unlocks future work:
-
-- Create a placeholder child task in the appropriate future milestone (or the same milestone if relevant)
-- Placeholder format: `- [ ] {NewID}. {Unlocked capability} *(placeholder — depends on {NewTaskID})*`
-- Place it in the **Blocked** section
-- Add the dependency edge in the Mermaid diagram
-- Tell the user what placeholder was created and why
-
-Don't create placeholders for tasks that are obviously terminal (e.g. "deploy to production", "write final release notes").
+**Childless check.** If nothing depends on the new task but its nature clearly unlocks future work, create a placeholder child in the appropriate milestone: `- [ ] **{NewID}** — {unlocked capability} _(blocked — depends on {NewTaskID})_`, `status: "blocked"`, with the dependency edge. Skip placeholders for obviously terminal tasks (deploy, final release notes). Tell the user what placeholder was created and why.
 
 ---
 
-## Step 6 — Determine section placement
+## Step 6 — Compute the new task's status (mechanical)
 
-| Condition                          | Section |
-|------------------------------------|---------|
-| All dependencies completed (`[x]`) | **To Do** |
-|    Has incomplete dependencies     | **Blocked** |
-|     User says work has started     | **In Progress** |
-|        Work is already done        | **Completed** |
-
-Default to **Blocked** if uncertain — it's easy to move up.
+Six statuses, no in-progress. Empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`; behind a gate that `imposes: paused`/`deferred` → `paused`/`deferred`. After wiring, you can confirm the new task's status and any downstream changes with `python3 ~/.claude/library/scripts/recompute_roadmap.py --check` (preview, no write).
 
 ---
 
-## Step 7 — Prepare the proposal
-
-Do not edit the file yet. Present the proposal:
+## Step 7 — Prepare the proposal (do not edit yet)
 
 ```text
-New task: {ID}. {Description}
-Milestone: {N} — {Milestone Name}
-Section: {Blocked / To Do / In Progress}
-Dependencies (in): {list of task IDs, or "none"}
-Dependencies (out): {list of task IDs this enables, or "none"}
+New task: {ID} — {description}
+Milestone: {N} — {Milestone Name}   Status: {todo|blocked|paused|deferred}
+Dependencies (in): {IDs / milestone / gate, or "none"}
+Dependencies (out): {task IDs this gets added to, or "none"}
 Placeholder child: {ID and description, or "none"}
 
 Graph changes:
-  + node: {ID}["`*{ID}*<br/>**{Category}**<br/>{short desc}`"]:::{open|blocked}
-  + edges: {list of new edges}
-  ~ modified: {any existing task descriptions updated with new dependency clause}
+  + roadmaps.json: new task object; edits to {existing tasks' dependsOn}; gate blocks[] updates
+  + diagram: node {ID}; edges {list}; if this is a milestone sink, {ID} --> M{N}
 ```
 
 Then ask: *"Does this look right? I'll write to the roadmap on your say-so."*
 
 ---
 
-## Step 8 — Write to the roadmap
+## Step 8 — Write to both artefacts (once approved)
 
-Once approved:
-
-1. **Add the task line** in the correct section under the correct milestone anchor
-
-   ```markdown
-   - [ ] {ID}. {Description} — **depends on {IDs}**
-   ```
-
-   Omit the depends clause if there are no incoming dependencies.
-
-2. **Update any existing tasks** whose descriptions now need `— **depends on {NewID}**` added
-
-3. **Update the Mermaid Progress Map** (at `<a name="map">`):
-   - Add the node definition
-   - Add all new edges
-   - If the new task has no incoming dependencies, use `:::open`; otherwise omit (defaults to `:::blocked`)
-   - If any existing task's blockers are now all resolved, add `:::open` to it
-
-4. **Add any placeholder child task** in the appropriate section and Mermaid diagram
+1. **`roadmaps.json`** — insert the task object in its milestone's `tasks[]` (field order `id, description, status, dependsOn, iterative, notes`; tabs; British spelling). Update any existing tasks' `dependsOn`. Update any gate's `blocks[]` for parity. Add the placeholder task if any.
+2. **PHASE file** — add the task line under its milestone with the status annotation (`_(blocked — depends on {IDs})_` etc.); update any existing task lines whose dependency clause changed; add the placeholder line.
+3. **Mermaid diagram** — add the node's edges:
+   - task→task deps: `{dep} --> {ID}`;
+   - milestone-as-dependency: `M{N} --> {ID}` if the new task depends on a whole milestone;
+   - **terminal milestone edge:** if the new task is now a *sink* of its milestone (nothing else in that milestone depends on it), emit `{ID} --> M{N}`, and if it now depends on a former sink, remove that former sink's `--> M{N}` edge if the former sink is no longer a sink. (Recompute sinks for the affected milestone; `roadmap_graph.py` gives the authoritative edge set.)
+   - Add the new ID to the correct `class {IDs} {status}` line (ascending order). Never inline `:::open`.
+4. **`ROADMAP_OVERVIEW.md`** — the task total changed, so update `**N tasks across M milestones.**` (get N from `roadmap_stats.py`).
 
 ---
 
-## Step 9 — Confirm
+## Step 9 — Validate and confirm
 
-Report:
-
-- Task ID and description added
-- Section placed in
-- Dependency edges added (list)
-- Any existing tasks modified
-- Any placeholder tasks created
-- Orphan warning if applicable
+Run `python3 ~/.claude/library/scripts/validate_roadmap.py` — it must report clean (parity, acyclicity, status recompute). Then report: task added; status; edges added; existing tasks modified; placeholder created; any orphan warning.
 
 ---
 
 ## Conventions
 
-These match the existing roadmap format — never deviate:
-
-- Task line: `- [ ] {ID}. {Description}`
-- Dependency clause: `— **depends on {ID}, {ID}**`
-- Completed task: `- [x] {ID}. {Description}`
-- Mermaid node: `{ID}["`*{ID}*<br/>**{Category}**<br/>{short desc}`"]`
-- Classes: `:::open` (no blockers), default/`:::blocked` (has blockers), `:::mile` (milestone node)
-- Edges: `{A} --> {B}` (A must complete before B can start)
+- Task line: `- [ ] **{ID}** — {description}` + annotation. Completed: `- [x] **{ID}** — {description}`.
+- Edges: `{A} --> {B}` (A completes before B). Milestone nodes are **terminal** — sinks point in (`{sink} --> M{N}`), milestone-deps point out (`M{N} --> x`); never an initial `M{N} --> {firstTask}` edge.
+- classDefs come immediately after `graph LR`; explicit `class {IDs} {status}` statements, never inline.
+- Tabs not spaces; British spelling. roadmaps.json is the source of truth; the PHASE file and overview are projections.
