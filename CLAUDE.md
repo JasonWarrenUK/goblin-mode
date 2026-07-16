@@ -358,7 +358,7 @@ Use [Reasonable Colors](https://www.reasonable.work/colors/) as the default pale
 
 - Projects may override this default in project-level CLAUDE.md
 
-**Local reference:** `library/docs/reasonable-colors-reference.md`
+**Local reference:** `library/references/reasonable-colors-reference.md`
 
 ### 7.6. Testing
 
