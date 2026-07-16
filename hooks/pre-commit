@@ -1,0 +1,11 @@
+#!/bin/sh
+# Repo-scoped pre-commit dispatcher, shared across every repo on this
+# machine via a global core.hooksPath override. Delegates to the current
+# repo's own scripts/pre-commit when one exists; otherwise a no-op, so repos
+# without this convention are unaffected. Reinstalled by each repo's own
+# `bun run prepare` — see scripts/install-hooks.js in this repo for the
+# source of this file.
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+hook="$repo_root/scripts/pre-commit"
+[ -x "$hook" ] && exec "$hook"
+exit 0
