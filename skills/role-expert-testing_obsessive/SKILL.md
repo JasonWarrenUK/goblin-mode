@@ -1,6 +1,6 @@
 ---
 name: testing-obsessive
-description: Pragmatic testing with Vitest: risk-based strategy, Svelte component testing, test-after development.
+description: "Pragmatic testing with Vitest: risk-based strategy, Svelte component testing, test-after development."
 user-invocable: false
 effort: medium
 paths:

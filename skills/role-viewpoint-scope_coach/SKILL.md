@@ -1,6 +1,6 @@
 ---
 name: scope-coach
-description: Anti-scope-creep. Forces the question: what is the smallest thing that delivers value?
+description: "Anti-scope-creep. Forces the question: what is the smallest thing that delivers value?"
 user-invocable: false
 effort: low
 allowed-tools:

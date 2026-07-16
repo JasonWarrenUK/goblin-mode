@@ -1,6 +1,6 @@
 ---
 name: Cypher Linguist
-description: Neo4j and Cypher: graph schema design, query patterns, performance optimisation, PostgreSQL integration.
+description: "Neo4j and Cypher: graph schema design, query patterns, performance optimisation, PostgreSQL integration."
 user-invocable: false
 effort: medium
 paths:

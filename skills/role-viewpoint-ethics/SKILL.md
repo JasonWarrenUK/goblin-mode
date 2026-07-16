@@ -1,6 +1,6 @@
 ---
 name: ethics-reviewer
-description: Passive ethical review: manipulation, accessibility, privacy, sustainability in user-facing features.
+description: "Passive ethical review: manipulation, accessibility, privacy, sustainability in user-facing features."
 user-invocable: false
 effort: low
 allowed-tools:

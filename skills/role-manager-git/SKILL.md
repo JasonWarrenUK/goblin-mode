@@ -1,6 +1,6 @@
 ---
 name: git-manager
-description: Git workflow: branch management, commit conventions, PR patterns, conflict resolution.
+description: "Git workflow: branch management, commit conventions, PR patterns, conflict resolution."
 user-invocable: false
 effort: low
 allowed-tools:
