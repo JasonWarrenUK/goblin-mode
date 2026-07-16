@@ -1,6 +1,7 @@
 ---
-name: roadmap-create-interview
-description: "{{ 𝛀𝛀𝛀 }} Run a structured interview to discover new features and produce a batch roadmap proposal. Use this skill when the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone', or 'interview me about what to build'. Produces a structured proposal for review — nothing is written to the roadmap until the user approves."
+name: "Roadmap: Interview"
+description: "{{ 𝛀𝛀𝛀 }} Run a structured interview to discover new features and produce a batch roadmap proposal. Produces a structured proposal for review — nothing is written to the roadmap until the user approves."
+when_to_use: "When the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone', or 'interview me about what to build'."
 model: opus
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
 ---
@@ -23,15 +24,16 @@ The interview is a thinking tool as much as a discovery one. Sometimes the most 
 
 This is a read-only skill — it writes nothing; it produces a proposal that `roadmap-update-tasks` later writes.
 
-Locate and read the rich-format roadmap: user-specified path → `.claude/roadmaps.json` (the source of truth, an array of phase objects; the active phase is the non-`archived` entry) → `docs/roadmaps/` scan. Check the format with `python3 ~/.claude/library/scripts/detect_format.py`; on exit 3 (old simple format), tell the user to run `roadmap-migrate` first, since the proposal must speak the rich vocabulary.
+Locate and read the rich-format roadmap: user-specified path → `.claude/roadmaps.json` (the source of truth, an array of phase objects; the active phase is the non-`archived` entry) → `docs/roadmaps/` scan. Check the format with `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`; exit **3** (old simple format) — tell the user to run `roadmap-migrate` first, since the proposal must speak the rich vocabulary; exit **2** — ask for the path.
 
 From the active phase, extract:
 
-- All milestones (names, goals) and their per-status task counts (`python3 ~/.claude/library/scripts/roadmap_stats.py` gives these)
-- Current `todo` tasks (active direction) and `blocked`/`paused`/`deferred` tasks (potential unlock targets)
+- All milestones (names, goals) and their per-status task counts (`python3 "$HOME"/.claude/library/scripts/roadmap.py stats` gives these)
+- The actionable frontier: `python3 "$HOME"/.claude/library/scripts/roadmap.py ready` lists the unblocked `todo` tasks with leverage signals — what the project can start now shapes what is worth proposing next
+- `blocked`/`paused`/`deferred` tasks (potential unlock targets)
 - The external gates (a proposed task may depend on a gate) and existing category prefixes per milestone
 
-The status vocabulary is `todo`, `blocked`, `paused`, `deferred`, `done`, `out_of_scope` — there is no in-progress state. This context informs the interview — connect what the user describes to what's already tracked, and avoid proposing duplicates.
+Shared conventions (status vocabulary, graph rules): `~/.claude/library/references/roadmap-conventions.md` — there is no in-progress state. This context informs the interview — connect what the user describes to what's already tracked, and avoid proposing duplicates.
 
 ---
 
@@ -69,7 +71,7 @@ Ask 2–4 questions per round. Never dump a long list of questions at once — i
 
 - "Does this require anything that isn't built yet?"
 - "Would this unlock anything else on the roadmap?"
-- "Is this blocked by any of the current In Progress tasks?"
+- "Is this blocked by anything currently `todo` or `blocked` on the roadmap?"
 
 **Scope questions** — keep things honest
 
