@@ -3,7 +3,7 @@ name: "Artefacts: Create Audit"
 description: "{{ 𝛀𝛀𝛀 }} Audit a topic and render an actionable, status-grouped HTML findings artefact."
 model: opus
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash", "Bash(open:*)", "Bash(mkdir:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(open:*)", "Bash(mkdir:*)", "Bash(python3:*)"]
 argument-hint: [topic to audit, or path to a findings JSON]
 ---
 
@@ -45,7 +45,7 @@ Each finding must carry:
 - `in_progress` — initiated but pending external action, or only partly applied (say which part in `outcome_note`)
 - `to_do` — left as a recommendation, or genuine future work
 
-Write the dataset to `{project_root}/docs/artefacts/audit-{slug}.json` so the render is reproducible and can be re-run in render-only mode. Structure:
+Write the dataset to `{project_root}/docs/artefacts/audit-{slug}.json` so the render is reproducible and can be re-run in render-only mode. Then gate it before any HTML: `python3 "$HOME"/.claude/library/scripts/validate_audit_findings.py {dataset}.json` must exit 0 (it checks required fields, enum values, id uniqueness, count consistency and the dash ban). Fix the dataset on failure — never render an invalid one. Render-only mode (Step 1) runs the same gate on the supplied file. Structure:
 
 ```json
 {
