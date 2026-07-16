@@ -46,7 +46,9 @@ backups
 skills/.DS_Store
 telemetry
 mcp-needs-auth-cache.json
-/image-cache/46743513-a5a9-4057-b187-8e8b46ca3b2a
+gh-pr-status-cache.json
+/image-cache/
+__pycache__/
 /.last-cleanup
 /daemon
 /daemon.lock
@@ -55,4 +57,3 @@ mcp-needs-auth-cache.json
 /agent-memory/roadmap-maintainer
 /policy-limits.json
 /uploads/25920271-3ad6-493d-9fe4-7d29872ed730
-image-cache/3cb74613-ad62-4086-9560-e63fd152f416/
