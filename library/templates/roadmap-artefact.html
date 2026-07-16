@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<!--
+	roadmap-artefact.html — template consumed by `roadmap.py render`.
+	Placeholders: %%TITLE%% (phase name), %%DATA%% (JSON blob:
+	{phase, generated, stats, ready, mermaid, validation}).
+	Everything else is static so regenerated artefacts diff cleanly.
+	Palette: the canonical status→colour table from
+	library/references/roadmap-conventions.md (STATUS_STYLE in roadmap.py).
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap — %%TITLE%%</title>
+<link rel="stylesheet" href="https://unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+	/* Milestone — sky (structural, steel-blue half of the terminal gradient) */
+	--color-milestone:       var(--color-sky-4);
+	--color-milestone-bg:    var(--color-sky-1);
+	--color-milestone-text:  var(--color-sky-6);
+	/* Primary accent — pink (warm half of the gradient; never a status) */
+	--color-primary:         var(--color-pink-4);
+	--color-primary-bg:      var(--color-pink-1);
+	--color-primary-text:    var(--color-pink-6);
+	/* Status semantics: green finished, gray blank, red stop, purple parked,
+	   cinnamon shelved, faded gray struck, yellow external */
+	--color-done:            var(--color-green-4);
+	--color-done-bg:         var(--color-green-1);
+	--color-todo:            var(--color-gray-4);
+	--color-todo-bg:         var(--color-gray-1);
+	--color-blocked:         var(--color-red-4);
+	--color-blocked-bg:      var(--color-red-1);
+	--color-paused:          var(--color-purple-4);
+	--color-paused-bg:       var(--color-purple-1);
+	--color-deferred:        var(--color-cinnamon-4);
+	--color-deferred-bg:     var(--color-cinnamon-1);
+	--color-out-of-scope:    var(--color-gray-3);
+	--color-out-of-scope-bg: var(--color-gray-1);
+	--color-gate:            var(--color-yellow-4);
+	--color-gate-bg:         var(--color-yellow-1);
+
+	--bg: var(--color-gray-1);
+	--surface: #ffffff;
+	--text: var(--color-gray-6);
+	--muted: var(--color-gray-4);
+	--line: var(--color-gray-2);
+	--grid-line: rgba(0, 117, 144, 0.06);
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-milestone:       var(--color-sky-2);
+		--color-milestone-bg:    var(--color-sky-6);
+		--color-milestone-text:  var(--color-sky-1);
+		--color-primary:         var(--color-pink-2);
+		--color-primary-bg:      var(--color-pink-6);
+		--color-primary-text:    var(--color-pink-1);
+		--color-done:            var(--color-green-2);
+		--color-done-bg:         var(--color-green-6);
+		--color-todo:            var(--color-gray-3);
+		--color-todo-bg:         var(--color-gray-6);
+		--color-blocked:         var(--color-red-2);
+		--color-blocked-bg:      var(--color-red-6);
+		--color-paused:          var(--color-purple-2);
+		--color-paused-bg:       var(--color-purple-6);
+		--color-deferred:        var(--color-cinnamon-2);
+		--color-deferred-bg:     var(--color-cinnamon-6);
+		--color-out-of-scope:    var(--color-gray-5);
+		--color-out-of-scope-bg: var(--color-gray-6);
+		--color-gate:            var(--color-yellow-2);
+		--color-gate-bg:         var(--color-yellow-6);
+
+		--bg: #121216;
+		--surface: #1b1b21;
+		--text: var(--color-gray-1);
+		--muted: var(--color-gray-3);
+		--line: var(--color-gray-5);
+		--grid-line: rgba(174, 233, 255, 0.05);
+	}
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+	font-family: "IBM Plex Sans", system-ui, sans-serif;
+	background:
+		linear-gradient(var(--grid-line) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+		var(--bg);
+	background-size: 32px 32px, 32px 32px, auto;
+	color: var(--text);
+	line-height: 1.55;
+}
+.layout { display: flex; max-width: 1200px; margin: 0 auto; gap: 2rem; padding: 0 1.25rem; }
+nav {
+	position: sticky; top: 0; align-self: flex-start;
+	width: 180px; flex-shrink: 0; padding: 2rem 0;
+	font-family: "IBM Plex Mono", monospace; font-size: 0.8rem;
+}
+nav a { display: block; padding: 0.35rem 0.6rem; color: var(--muted); text-decoration: none; border-left: 2px solid var(--line); }
+nav a:hover, nav a.active { color: var(--color-milestone); border-left-color: var(--color-milestone); }
+main { flex: 1; min-width: 0; padding: 2rem 0 4rem; }
+
+header.page h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.2rem; }
+header.page .meta { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
+
+section { margin-top: 2.5rem; }
+h2 {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; font-weight: 500;
+	text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+	display: flex; align-items: center; gap: 0.5rem; margin: 0 0 1rem;
+}
+h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--color-milestone); flex-shrink: 0; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1.1rem 1.3rem; min-width: 0; }
+.card--hero { background: var(--color-milestone-bg); border-color: var(--color-milestone); }
+.card--hero .kpi { font-size: 2.1rem; font-weight: 600; color: var(--color-milestone-text); }
+.card--hero .kpi small { font-size: 1rem; font-weight: 400; color: var(--color-milestone); margin-left: 0.5rem; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.9rem; margin-top: 0.9rem; }
+.grid > * { min-width: 0; }
+.mini h3 { margin: 0 0 0.3rem; font-size: 0.9rem; font-weight: 600; overflow-wrap: break-word; }
+.mini .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
+.progress-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 0.55rem; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; }
+
+details.milestone { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 0.8rem; }
+details.milestone > summary {
+	cursor: pointer; padding: 0.85rem 1.2rem; font-weight: 600;
+	display: flex; align-items: center; gap: 0.7rem; list-style: none; min-width: 0;
+}
+details.milestone > summary::-webkit-details-marker { display: none; }
+details.milestone > summary .mid {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+	background: var(--color-milestone-bg); color: var(--color-milestone-text);
+	border: 1px solid var(--color-milestone); border-radius: 4px; padding: 0.1rem 0.4rem;
+}
+details.milestone > summary .count { margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+details.milestone .body { padding: 0 1.2rem 1rem; }
+.group h4 { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
+.group ul { list-style: none; margin: 0; padding: 0; }
+.group li { position: relative; padding: 0.28rem 0 0.28rem 1.15rem; overflow-wrap: break-word; min-width: 0; }
+.group li::before { content: ""; position: absolute; left: 0; top: 0.72rem; width: 8px; height: 8px; border-radius: 50%; background: var(--g-colour, var(--muted)); }
+.tid {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+	background: var(--color-primary-bg); color: var(--color-primary-text);
+	border: 1px solid var(--color-primary); border-radius: 4px; padding: 0.05rem 0.35rem; margin-right: 0.45rem;
+}
+.depnote { color: var(--muted); font-size: 0.82rem; }
+li.oos { text-decoration: line-through; color: var(--muted); }
+
+.diagram-shell { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; position: relative; overflow: hidden; }
+.diagram-toolbar { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 2; display: flex; gap: 0.25rem; }
+.diagram-toolbar button {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; line-height: 1;
+	background: var(--bg); color: var(--text); border: 1px solid var(--line);
+	border-radius: 4px; padding: 0.3rem 0.5rem; cursor: pointer;
+}
+.diagram-toolbar button:hover { border-color: var(--color-milestone); color: var(--color-milestone); }
+.mermaid-wrap { overflow: hidden; cursor: grab; min-height: 320px; }
+.mermaid-wrap:active { cursor: grabbing; }
+.mermaid-wrap svg { display: block; transform-origin: 0 0; max-width: none !important; }
+.diagram-shell.expanded { position: fixed; inset: 1.5rem; z-index: 10; box-shadow: 0 4px 40px rgba(0,0,0,0.35); }
+.diagram-shell.expanded .mermaid-wrap { height: calc(100% - 0px); }
+
+.nextup li { display: block; }
+.pill {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+	background: var(--color-milestone-bg); color: var(--color-milestone-text);
+	border: 1px solid var(--color-milestone); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.45rem; white-space: nowrap;
+}
+.signal { color: var(--muted); font-size: 0.78rem; font-family: "IBM Plex Mono", monospace; margin-left: 0.4rem; }
+
+.validation { border-left: 3px solid var(--color-blocked); background: var(--color-blocked-bg); color: var(--text); padding: 0.7rem 1rem; border-radius: 0 6px 6px 0; margin-top: 1rem; font-size: 0.85rem; }
+.validation ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+
+@media (max-width: 760px) {
+	.layout { flex-direction: column; gap: 0; }
+	nav { position: sticky; top: 0; width: auto; display: flex; overflow-x: auto; gap: 0.25rem; padding: 0.6rem 0; background: var(--bg); z-index: 5; }
+	nav a { border-left: none; border-bottom: 2px solid var(--line); white-space: nowrap; }
+	nav a:hover, nav a.active { border-bottom-color: var(--color-milestone); }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+	<nav>
+		<a href="#overview">Overview</a>
+		<a href="#milestones">Milestones</a>
+		<a href="#graph">Dependency Graph</a>
+		<a href="#nextup">Next Up</a>
+	</nav>
+	<main>
+		<header class="page">
+			<h1>%%TITLE%%</h1>
+			<div class="meta" id="meta"></div>
+		</header>
+		<div id="validation"></div>
+
+		<section id="overview">
+			<h2><span class="dot"></span>Overview</h2>
+			<div class="card card--hero"><div class="kpi" id="hero"></div></div>
+			<div class="grid" id="milestone-cards"></div>
+		</section>
+
+		<section id="milestones">
+			<h2><span class="dot"></span>Milestones</h2>
+			<div id="milestone-details"></div>
+		</section>
+
+		<section id="graph">
+			<h2><span class="dot"></span>Dependency Graph</h2>
+			<div class="diagram-shell" id="shell">
+				<div class="diagram-toolbar">
+					<button data-act="in" title="Zoom in">+</button>
+					<button data-act="out" title="Zoom out">−</button>
+					<button data-act="reset" title="Reset">⌂</button>
+					<button data-act="expand" title="Expand">⤢</button>
+				</div>
+				<div class="mermaid-wrap" id="wrap"><div id="diagram"></div></div>
+			</div>
+		</section>
+
+		<section id="nextup">
+			<h2><span class="dot"></span>Next Up</h2>
+			<div class="card"><ul class="nextup group" id="ready" style="list-style:none;margin:0;padding:0"></ul></div>
+		</section>
+	</main>
+</div>
+
+<script id="roadmap-data" type="application/json">%%DATA%%</script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+const DATA = JSON.parse(document.getElementById("roadmap-data").textContent);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+	c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+document.getElementById("meta").textContent =
+	`generated ${DATA.generated} · source .claude/roadmaps.json`;
+
+/* Validation banner (empty when clean) */
+if (DATA.validation && DATA.validation.length) {
+	document.getElementById("validation").innerHTML =
+		`<div class="validation"><strong>${DATA.validation.length} validation ` +
+		`discrepancy(ies)</strong> — the numbers below reflect the file as-is.` +
+		`<ul>${DATA.validation.map(v => `<li>${esc(v)}</li>`).join("")}</ul></div>`;
+}
+
+/* Section 1 — Overview */
+const st = DATA.stats;
+document.getElementById("hero").innerHTML =
+	`${st.byStatus.done}/${st.total} tasks<small>${st.donePct}% complete</small>`;
+
+const health = m => {
+	const s = m.byStatus;
+	if (m.donePct === 100) return "done";
+	if (s.todo > 0) return "todo";
+	if (s.blocked > 0) return "blocked";
+	if (s.paused > 0) return "paused";
+	if (s.deferred > 0) return "deferred";
+	return "done";
+};
+document.getElementById("milestone-cards").innerHTML = st.milestones.map(m => `
+	<div class="card mini">
+		<h3>${esc(m.id)}: ${esc(m.name)}</h3>
+		<span class="count">${m.done}/${m.total} done · ${m.donePct}%</span>
+		<div class="progress-bar"><div class="progress-fill"
+			style="width:${m.donePct}%;background:var(--color-${health(m)})"></div></div>
+	</div>`).join("");
+
+/* Section 2 — Milestones. Groups lead with actionable work. */
+const GROUPS = [
+	["todo",        "○ To Do",        "todo"],
+	["blocked",     "✗ Blocked",      "blocked"],
+	["paused",      "⏸ Paused",       "paused"],
+	["deferred",    "⤓ Deferred",     "deferred"],
+	["done",        "✓ Done",         "done"],
+	["out_of_scope","⊘ Out of Scope", "out-of-scope"],
+];
+const readyIds = new Set(DATA.ready.candidates.map(c => c.id));
+const tasksByMilestone = {};
+for (const t of DATA.tasks) (tasksByMilestone[t.milestone] ??= []).push(t);
+
+document.getElementById("milestone-details").innerHTML = st.milestones.map((m, i) => {
+	const tasks = tasksByMilestone[m.id] || [];
+	const groups = GROUPS.map(([status, label, varName]) => {
+		const members = tasks.filter(t => t.status === status);
+		if (!members.length) return "";
+		const items = members.map(t => {
+			const dep = (t.dependsOn && t.dependsOn.length)
+				? `<span class="depnote">depends on ${esc(t.dependsOn.join(", "))}</span>` : "";
+			return `<li class="${status === "out_of_scope" ? "oos" : ""}"
+				style="--g-colour:var(--color-${varName})">
+				<span class="tid">${esc(t.id)}</span>${esc(t.description)} ${dep}</li>`;
+		}).join("");
+		return `<div class="group" style="--g-colour:var(--color-${varName})">
+			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
+	}).join("");
+	const open = tasks.some(t => readyIds.has(t.id)) || i === 0 ? " open" : "";
+	return `<details class="milestone"${open}>
+		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
+			<span class="count">${m.done}/${m.total}</span></summary>
+		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>
+	</details>`;
+}).join("");
+
+/* Section 3 — Dependency graph */
+mermaid.initialize({
+	startOnLoad: false,
+	theme: "base",
+	themeVariables: {
+		fontSize: "16px",
+		fontFamily: '"IBM Plex Mono", monospace',
+	},
+});
+const { svg } = await mermaid.render("roadmap-graph", DATA.mermaid);
+document.getElementById("diagram").innerHTML = svg;
+
+/* Zoom/pan: buttons, ctrl+wheel, drag; expand toggles a fixed overlay */
+const wrap = document.getElementById("wrap");
+const shell = document.getElementById("shell");
+const svgEl = wrap.querySelector("svg");
+let scale = 1, tx = 0, ty = 0;
+const apply = () => { svgEl.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
+const zoom = f => { scale = Math.min(4, Math.max(0.25, scale * f)); apply(); };
+shell.querySelector(".diagram-toolbar").addEventListener("click", e => {
+	const act = e.target.dataset.act;
+	if (act === "in") zoom(1.25);
+	else if (act === "out") zoom(0.8);
+	else if (act === "reset") { scale = 1; tx = ty = 0; apply(); }
+	else if (act === "expand") shell.classList.toggle("expanded");
+});
+wrap.addEventListener("wheel", e => {
+	if (!e.ctrlKey && !e.metaKey) return;
+	e.preventDefault();
+	zoom(e.deltaY < 0 ? 1.1 : 0.9);
+}, { passive: false });
+let drag = null;
+wrap.addEventListener("pointerdown", e => { drag = { x: e.clientX - tx, y: e.clientY - ty }; wrap.setPointerCapture(e.pointerId); });
+wrap.addEventListener("pointermove", e => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); } });
+wrap.addEventListener("pointerup", () => { drag = null; });
+svgEl.addEventListener("dblclick", () => shell.classList.toggle("expanded"));
+
+/* Section 4 — Next Up (pre-vetted by roadmap.py ready) */
+document.getElementById("ready").innerHTML = DATA.ready.candidates.length
+	? DATA.ready.candidates.map(c => `
+		<li style="--g-colour:var(--color-todo)">
+			<span class="tid">${esc(c.id)}</span>${esc(c.description)}
+			<span class="pill">${esc(c.milestone)}: ${esc(c.milestoneName)}</span>
+			<span class="signal">unblocks ${c.transitiveUnblocks}${c.isMilestoneSink ? " · completes milestone" : ""}</span>
+		</li>`).join("")
+	: "<li>No unblocked tasks — clear a blocker or a gate.</li>";
+
+/* Nav highlight */
+const links = [...document.querySelectorAll("nav a")];
+const highlight = new IntersectionObserver(entries => {
+	for (const en of entries) if (en.isIntersecting) {
+		links.forEach(a => a.classList.toggle("active", a.hash === "#" + en.target.id));
+	}
+}, { rootMargin: "-30% 0px -60% 0px" });
+links.forEach(a => highlight.observe(document.querySelector(a.hash)));
+</script>
+</body>
+</html>
