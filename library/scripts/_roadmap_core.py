@@ -11,10 +11,9 @@ the dependency graph under the precedence rule
 with `done` and `out_of_scope` terminal, and root-seeded `paused`/`deferred`
 (a parked status on a task with empty `dependsOn`) held as authored.
 
-This module is imported by validate_roadmap.py, recompute_roadmap.py,
-roadmap_stats.py, roadmap_graph.py and detect_format.py, which live beside it
-in ~/.claude/library/scripts/. It has no dependencies outside the standard
-library. British spelling throughout.
+This module is imported by roadmap.py (the single CLI entry point), which
+lives beside it in ~/.claude/library/scripts/. It has no dependencies outside
+the standard library and requires Python 3.8+. British spelling throughout.
 """
 from __future__ import annotations
 
@@ -71,11 +70,13 @@ def load(explicit=None):
     return path, data
 
 
-def active_phase(data):
+def active_phase(data, selector=None):
     """The single non-archived phase. `data` may be a phase array or one phase.
 
     Rejects the old simple-format pointer registry (`{"roadmaps": [...]}`),
-    which is not a phase array — callers should run detect_format / migrate.
+    which is not a phase array — callers should run `roadmap.py detect` /
+    migrate. When more than one non-archived phase exists this raises rather
+    than silently picking one; pass `selector` (a phase name) to disambiguate.
     """
     if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
         raise RoadmapError(
@@ -85,15 +86,36 @@ def active_phase(data):
     live = [p for p in phases if not p.get("archived")]
     if not live:
         raise RoadmapError("no active (non-archived) phase found")
-    if not live[-1].get("milestones"):
+    if selector:
+        matches = [p for p in live if p.get("name") == selector]
+        if not matches:
+            names = ", ".join(repr(p.get("name")) for p in live)
+            raise RoadmapError(
+                f"no active phase named {selector!r} (active: {names})")
+        chosen = matches[-1]
+    elif len(live) > 1:
+        names = ", ".join(repr(p.get("name")) for p in live)
+        raise RoadmapError(
+            f"{len(live)} active phases ({names}); archive the finished ones "
+            "or select one with --phase")
+    else:
+        chosen = live[0]
+    if not chosen.get("milestones"):
         raise RoadmapError(
             "active phase has no 'milestones' array — not a rich-format roadmap")
-    return live[-1]
+    return chosen
 
 
 def count_active_phases(data):
     phases = data if isinstance(data, list) else [data]
     return sum(1 for p in phases if not p.get("archived"))
+
+
+def _require_id(obj, kind, context):
+    """Return obj['id'] or raise RoadmapError (clean exit 2, not a KeyError)."""
+    if not isinstance(obj, dict) or "id" not in obj:
+        raise RoadmapError(f"{kind} in {context} is missing its 'id' field")
+    return obj["id"]
 
 
 def build_index(phase):
@@ -102,14 +124,22 @@ def build_index(phase):
     tasks: {task_id: task_dict}
     milestones: {milestone_id: [member task ids]}
     gates: {gate_id: gate_dict}
+
+    Malformed entries (missing 'id') raise RoadmapError so every caller fails
+    with a clean exit 2 rather than a KeyError traceback.
     """
     tasks = {}
     milestones = {}
     for m in phase.get("milestones", []):
-        milestones[m["id"]] = [t["id"] for t in m.get("tasks", [])]
+        mid = _require_id(m, "milestone", f"phase {phase.get('name')!r}")
+        milestones[mid] = [
+            _require_id(t, "task", f"milestone {mid}") for t in m.get("tasks", [])
+        ]
         for t in m.get("tasks", []):
             tasks[t["id"]] = t
-    gates = {g["id"]: g for g in phase.get("externalGates", [])}
+    gates = {}
+    for g in phase.get("externalGates", []):
+        gates[_require_id(g, "gate", f"phase {phase.get('name')!r}")] = g
     return tasks, milestones, gates
 
 
@@ -159,28 +189,35 @@ def is_held(t):
     return False
 
 
-def find_cycles(tasks):
-    """Detect cycles in the task->task dependsOn graph.
+def find_cycles(tasks, milestones=None):
+    """Detect cycles in the dependsOn graph, including through milestones.
 
-    Only task->task edges are considered: dependsOn entries that resolve to
-    milestones or gates are not task nodes and cannot form a task cycle. The
-    skills require dependsOn to stay acyclic — a conceptual loop (e.g. an
+    Task->task edges are direct. A milestone participates as its own node:
+    a task depending on M{N} follows an edge into M{N}, and M{N} "depends on"
+    every member task (it completes when they do). This catches convergence
+    loops such as task -> M2 -> member -> task, which the fixed-point
+    recompute would otherwise mask behind its iteration cap. The skills
+    require dependsOn to stay acyclic — a conceptual loop (e.g. an
     iterative-flagged pair) is expressed via the `iterative` flag, never via a
     real back-edge. A stored cycle would let the fixed-point recompute
     self-confirm corrupt statuses, so we surface it instead of recomputing.
 
-    Returns a list of cycles, each a list of task ids closing the loop, e.g.
-    ["1SF.1", "1SF.2", "1SF.1"].
+    Returns a list of cycles, each a list of node ids closing the loop, e.g.
+    ["1SF.1", "1SF.2", "1SF.1"] or ["1SF.1", "M2", "2SF.3", "1SF.1"].
     """
+    milestones = milestones or {}
     edges = {
-        tid: [d for d in task.get("dependsOn", []) if d in tasks]
+        tid: [d for d in task.get("dependsOn", [])
+              if d in tasks or d in milestones]
         for tid, task in tasks.items()
     }
+    for mid, member_ids in milestones.items():
+        edges[mid] = [t for t in member_ids if t in tasks]
     WHITE, GREY, BLACK = 0, 1, 2
-    colour = {tid: WHITE for tid in tasks}
+    colour = {nid: WHITE for nid in edges}
     cycles = []
 
-    for start in tasks:
+    for start in edges:
         if colour[start] != WHITE:
             continue
         # Iterative DFS: stack holds (node, index-into-its-edges).
@@ -242,7 +279,9 @@ def milestone_sinks(phase):
     """
     result = {}
     for m in phase.get("milestones", []):
-        member_ids = [t["id"] for t in m.get("tasks", [])]
+        mid = _require_id(m, "milestone", f"phase {phase.get('name')!r}")
+        member_ids = [_require_id(t, "task", f"milestone {mid}")
+                      for t in m.get("tasks", [])]
         members = set(member_ids)
         depended_on = set()
         for t in m.get("tasks", []):
@@ -250,5 +289,5 @@ def milestone_sinks(phase):
                 if d in members:
                     depended_on.add(d)
         sinks = [tid for tid in member_ids if tid not in depended_on]
-        result[m["id"]] = sorted(sinks)
+        result[mid] = sorted(sinks)
     return result
