@@ -64,6 +64,7 @@ Understand what changed and why. Group related commits into coherent change cate
 Take the existing PR body and update it:
 
 - **Do not rewrite from scratch.** Preserve existing content unless it is now inaccurate.
+- The body structure follows `~/.claude/library/templates/pr-description.md` (the same template `pr-create` fills) — keep updates within that structure rather than adding new top-level sections.
 - Update the `## Changes` section to incorporate the new commits. If collapsible `<details>` blocks already exist, add new entries or update existing ones as appropriate.
 - If the description references behaviour that has changed, correct it.
 - Insert or replace the watermark comment at the very end of the body, using the SHA of the **most recent commit on the branch**:
