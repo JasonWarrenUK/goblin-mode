@@ -9,7 +9,7 @@ argument-hint: ["(optional) desired name"]
 
 ## Assess and Rename Current Branch
 
-1. If user has specified a new name, apply it; otheriwse, get the current branch name with `git branch --show-current`
+1. If user has specified a new name, apply it; otherwise, get the current branch name with `git branch --show-current`
 2. Get a summary of what's actually been done on this branch:
    - `git log main..HEAD --oneline` to see commits
    - `git diff main..HEAD --name-only` to see changed files

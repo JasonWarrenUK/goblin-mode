@@ -2,13 +2,21 @@
 name: "Commit: Batch"
 description: "{{ 𝚫𝚫𝚫 }} Split uncommitted changes into granular commits."
 model: haiku
+effort: low
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)"]
 ---
 
+## Current state
+
+```!
+git status --short
+git diff --stat HEAD
+```
+
 ## Steps
 
-1. Run `git diff --stat HEAD` and `git status` to get a full picture of all changes.
+1. The current state above was captured at invocation; run `git diff HEAD` on specific files only where the stat alone can't tell you what a change is.
 2. Analyse the changes and group them into logical commit units — each group should represent a single coherent change (e.g. one feature, one fix, one refactor).
 3. Present the proposed commit plan as a numbered list:
    - Group name / files involved

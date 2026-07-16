@@ -5,7 +5,7 @@ model: sonnet
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]
 arguments: ["mode", "target"]
-argument-hint: [create|update] [directory, default ./]
+argument-hint: "[create|update] [directory, default ./]"
 ---
 
 # README create/update

@@ -4,7 +4,7 @@ description: "{{ ƔƔƔ }} Create a pull request to main — wordy or shiny (wit
 model: sonnet
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
-argument-hint: [shiny|wordy] [draft] [screenshot files or issue numbers...]
+argument-hint: "[shiny|wordy] [draft] [screenshot files or issue numbers...]"
 ---
 
 # Open a PR to `main`

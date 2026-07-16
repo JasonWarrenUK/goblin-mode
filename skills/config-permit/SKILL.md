@@ -8,7 +8,7 @@ disable-model-invocation: true
 # broader shell access than the command it exists to run.
 allowed-tools: ["Bash(python3 ~/.claude/library/scripts/config_permit.py:*)", "Read"]
 arguments: ["scope", "rule"]
-argument-hint: [global|project] [permission rule, e.g. "Bash(svu:*)"]
+argument-hint: "[global|project] [permission rule, e.g. Bash(svu:*)]"
 ---
 
 Add the permission rule to `permissions.allow` at the requested scope. Replaces the former config-permit-global / config-permit-project pair; the JSON handling lives in a script so the array append, dedupe and sync are one deterministic command — do not hand-edit the settings files as a fallback.

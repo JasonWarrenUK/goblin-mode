@@ -1,9 +1,9 @@
 ---
 name: "Project: Scaffold from Artefact"
-description: "{{ 𝛀𝛀𝛀 }} Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project: interview for the project-shaping decisions, translate React idioms, rewire styling onto Reasonable Colors, then optionally wire up tests, git, docs, and deploy."
+description: "{{ 𝛀𝛀𝛀 }} Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project"
 model: opus
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash", "Bash(bun:*)", "Bash(npm:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(open:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(bun:*)", "Bash(bunx:*)", "Bash(npm:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(open:*)", "Bash(find:*)"]
 argument-hint: [path to the exported .html/.jsx artefact (optional); add "react" to opt into React/Next]
 ---
 
@@ -94,28 +94,7 @@ State the artefact→stack mapping from the approved config:
 - **HTML artefact → a SvelteKit route.** Markup goes into `+page.svelte`; page-load data (if any) into `+page.ts` or `+page.server.ts` if a backend was chosen.
 - **React opt-in:** mirror the artefact's own framework: JSX stays React components, HTML becomes a Next.js/Vite React page. Skip the rune mapping below but keep the styling and tail steps.
 
-**React idiom → Svelte 5 rune mapping** (state the ones actually used):
-
-| React (JSX) | Svelte 5 (runes) | Notes |
-|-------------|------------------|-------|
-| `useState(x)` | `let v = $state(x)` | Direct reassignment; no setter function |
-| `useEffect(fn, deps)` | `$effect(() => { ... })` | Reactive deps are tracked automatically; drop the deps array |
-| `useEffect` cleanup (`return () => ...`) | `$effect(() => { ...; return () => cleanup })` | Return value is the teardown; verify it still fires on the right dependency change |
-| `useMemo(fn, deps)` | `let d = $derived.by(() => ...)` (or `$derived(expr)`) | Recomputes when tracked deps change |
-| `useCallback` | plain function | Rarely needed; Svelte does not re-create closures per render |
-| props (`function C({a, b})`) | `let { a, b } = $props()` | Type with an interface: `let { a, b }: Props = $props()` |
-| `children` | `{@render children()}` + `let { children } = $props()` | Snippets replace `props.children` |
-| named slots / render props | snippets (`{#snippet}` / `{@render}`) | |
-| `onClick={fn}` | `onclick={fn}` | Lowercase native event names in Svelte 5 |
-| `{cond && <X/>}` | `{#if cond}<X/>{/if}` | |
-| `list.map(i => <X/>)` | `{#each list as i (i.id)}<X/>{/each}` | Always provide a key expression |
-| `useRef` (DOM) | `bind:this={el}` | |
-| `useRef` (mutable box) | plain `let` (no rune) | Not reactive by design |
-| `useContext` / `createContext` | `setContext` / `getContext` | Call during component init, not inside effects |
-| `createPortal` | Svelte has no portal primitive | Use a top-level container + an action, or a small `{@render}` into a fixed element; flag as a manual port |
-| `dangerouslySetInnerHTML` | `{@html value}` | Sanitise untrusted input |
-
-**Gotchas to call out explicitly when present:** effect cleanup timing (`$effect` teardown fires before re-run and on destroy, which differs subtly from React's dependency-array semantics); context must be set synchronously during init; portals have no direct equivalent; a `useRef` used as a mutable box must NOT become `$state`.
+**React idiom → Svelte 5 rune mapping:** read `~/.claude/library/references/react-to-svelte5.md` and state the mappings actually used by this artefact (plus the gotchas it lists that apply — effect cleanup timing, synchronous context, portals, ref-as-box).
 
 - [ ] Every React idiom in the artefact has a named Svelte target (or a flagged manual port)
 
@@ -286,7 +265,7 @@ Summarise: artefact source path; approved config (stack, backend, auth, deploy);
 - **Guessing colour hexes.** Read `reasonable-colors-reference.md`.
 - **Spaces instead of tabs, or sed/awk edits.** Tabs only; Edit tool only.
 - **Running tail parts the user didn't choose.** The interview decides the tail; don't add scope back in.
-- **Inventing a README format.** Use `technical-overview.md`; use `ADR.md` for the ADR.
+- **Inventing a README format.** Use `readme-root.md`; use `ADR.md` for the ADR.
 - **Guessing the scaffold command.** Verify the current `create svelte`/`sv create` invocation against docs before running.
 
 ## Red Flags
