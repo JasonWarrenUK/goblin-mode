@@ -67,7 +67,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "opusplan",
+  "model": "fable",
   "hooks": {
     "SessionStart": [
       {
@@ -83,35 +83,6 @@
         ]
       }
     ],
-    "PreToolUse": [
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bunx -y ccstatusline@latest --hook"
-          }
-        ]
-      },
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bunx -y ccstatusline@latest --hook"
-          }
-        ]
-      },
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bunx -y ccstatusline@latest --hook"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
@@ -122,15 +93,18 @@
         ]
       }
     ],
-    "UserPromptSubmit": [
+    "PreToolUse": [
       {
+        "matcher": "Skill",
         "hooks": [
           {
             "type": "command",
             "command": "bunx -y ccstatusline@latest --hook"
           }
         ]
-      },
+      }
+    ],
+    "UserPromptSubmit": [
       {
         "hooks": [
           {
