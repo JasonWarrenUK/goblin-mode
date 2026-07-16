@@ -1,25 +1,30 @@
 ---
 name: "Docs: Update Target"
-description: "{{ ƔƔƔ }} Update existing documentation to reflect recent code changes"
+description: "{{ ƔƔƔ }} Update an existing documentation file to reflect recent code changes"
 model: sonnet
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(git:*)"]
-argument-hint: [doc name, e.g., Technical-Overview]
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(git:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]
+argument-hint: [doc path or name, e.g. Technical-Overview]
 ---
 
-Analyze recent code changes and update the specified documentation file.
+Analyse recent code changes and update the specified documentation file. (For READMEs specifically, use `doc-readme` — this skill covers everything else: technical overviews, ADRs, guides.)
 
 ## Steps
 
-1. Identify doc to update (from argument, or check ~/.claude/doc-reminders.txt)
-2. Review recent commits (git log -10 --oneline) and relevant diffs
-3. Read existing doc to understand structure and style
-4. Identify specific updates needed (outdated sections, new sections, examples)
-5. Generate updates preserving existing structure; show diff
-6. Apply on approval; remove from doc-reminders.txt if applicable
+1. Resolve the doc from `$ARGUMENTS` (a path, or a name to Glob for under `docs/`). If nothing was given or nothing matches, ask — do not guess which doc was meant.
+2. Read the doc to understand its structure and style, then gather what changed in one command:
+
+   ```bash
+   "$HOME"/.claude/library/scripts/git-doc-history.sh {doc-path} {scope-dir}
+   ```
+
+   Pass the code directory the doc describes as the scope (default: the doc's own directory, which is rarely right for docs living under `docs/` — pick the source dir it documents).
+3. Identify specific updates needed: outdated sections, missing coverage of new behaviour, stale examples.
+4. Generate updates preserving the existing structure; show a diff; apply on approval.
+5. Update any timestamp in the doc's frontmatter.
 
 ## Notes
 
-- Match existing documentation style
-- Don't remove content unless obsolete
-- Update timestamps in doc frontmatter
+- Match the existing documentation style; British spelling.
+- Don't remove content unless it is genuinely obsolete.
+- If nothing needs updating, say so plainly.
