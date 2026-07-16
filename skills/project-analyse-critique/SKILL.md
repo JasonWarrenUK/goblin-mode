@@ -3,6 +3,11 @@ name: "Repo: Critique"
 description: "{{ 𝛀𝛀𝛀 }} Probe the project for weaknesses"
 model: opus
 disable-model-invocation: true
+# Forked into a read-only Explore agent: needs no conversation history, and
+# its large read footprint stays out of the main context. $ARGUMENTS must
+# carry the whole brief.
+context: fork
+agent: Explore
 allowed-tools: ["Read", "Glob", "Grep"]
 argument-hint: [focus of analysis]
 ---
