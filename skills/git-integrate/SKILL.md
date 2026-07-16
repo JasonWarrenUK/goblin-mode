@@ -5,7 +5,7 @@ model: haiku
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(~/.claude/library/scripts/git-integrate.sh:*)", "Read", "Glob", "Grep", "Edit"]
 arguments: ["strategy", "target"]
-argument-hint: [merge|rebase|squash] [target branch, default main]
+argument-hint: "[merge|rebase|squash] [target branch, default main]"
 ---
 
 # Integrate `$target` into the current branch

@@ -13,7 +13,7 @@ allowed-tools:
   - "Edit"
   - "Write"
   - "AskUserQuestion"
-  - "Bash(scripts/find-scaffold.sh:*)"
+  - "Bash(~/.claude/skills/task-execute-stud/scripts/find-scaffold.sh:*)"
 disallowed-tools:
   - "Bash(git:*)"
   - "Bash(gh:*)"
@@ -93,7 +93,7 @@ A stud skeleton that doesn't run is just a doc; the point is that it runs. Befor
 - Syntax/lint clean (the banners are comments, so linters must still pass).
 - **Run it** on the fake data and show the flow firing, e.g. start the process and watch the log lines, or drive the entry points directly. The point is to prove the plumbing (calls, wiring, shutdown) before any real logic exists.
 - Confirm the working tree contains only intended changes.
-- Confirm every scaffold marker is intentional: `scripts/find-scaffold.sh --markers <studded-path>` should list exactly the banners you placed (it's expected to find them now; they get removed in Stage 2). Point it at the files you studded, not the whole repo.
+- Confirm every scaffold marker is intentional: `${CLAUDE_SKILL_DIR}/scripts/find-scaffold.sh --markers <studded-path>` should list exactly the banners you placed (it's expected to find them now; they get removed in Stage 2). Point it at the files you studded, not the whole repo.
 
 ### 7. STOP and hand back for review
 
@@ -101,7 +101,7 @@ This skill ends at a reviewable skeleton. **Do not start Stage 2.** Fill in `tem
 
 - **What ran:** the flow the skeleton exercised (Step 6 output).
 - **Carried assumptions:** every unresolved item from Step 1, flagged.
-- **Seam inventory:** run `scripts/find-scaffold.sh --seams <path>`.
+- **Seam inventory:** run `${CLAUDE_SKILL_DIR}/scripts/find-scaffold.sh --seams <path>`.
 - **Proposed fill order** (pure/leaf first; see the conventions reference):
   1. Pure, unit-testable helpers (calculations, transforms, get-or-create); their `should` bullets become the tests.
   2. I/O (network, subprocess, DB reads/writes).

@@ -1,9 +1,9 @@
 ---
-name: "Repo: Introduce"
-description: "{{ 𝛀𝛀𝛀 }} Provide a detailed high-level overview of this codebase"
+name: "Artefacts: Introduce Repo"
+description: "{{ 𝛀𝛀𝛀 }} Render a visual HTML introduction to this codebase for a newly-joined developer"
 model: opus
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Bash", "Write"]
+allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(open:*)", "Bash(mkdir:*)", "Write"]
 argument-hint: [focus of analysis]
 ---
 

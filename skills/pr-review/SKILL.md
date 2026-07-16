@@ -4,6 +4,7 @@ description: "{{ 𝛀𝛀𝛀 }} Review a pull request"
 model: opus
 disable-model-invocation: false # required so pr-review-comment can call it
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
+disallowed-tools: ["Edit", "Write", "NotebookEdit"] # reviews, never fixes
 argument-hint: ["PR number/url"]
 ---
 
