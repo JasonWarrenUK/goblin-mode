@@ -3,13 +3,14 @@ name: "Branch: Review"
 description: "{{ 𝛀𝛀𝛀 }} Assess branch readiness for PR submission"
 model: opus
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)"]
 ---
 
 Assess whether this branch is ready to be submitted as a reviewable pull request.
 
 ## Analysis Steps
 
+0. Gather the exact numbers first: `"$HOME"/.claude/library/scripts/branch-facts.sh [base]` emits JSON (ahead/behind, conventional-commit and branch-name compliance, WIP commits, diff size, conflict markers, TODOs and console.logs added, test files touched, svu bump). Judge from these facts; the steps below are the judgement layer, not fact-gathering to repeat by hand.
 1. Identify the base branch (usually `main`) and list all commits since diverging
 2. Review the full diff for:
    - Incomplete work (half-implemented features, placeholder logic)

@@ -3,7 +3,8 @@ name: "Docs: Create Status Report"
 description: "{{ 𝚫𝚫𝚫 }} Create a status report that knows what you've done since the last one"
 model: haiku
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)", "Bash(python3:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)", "Bash(python3:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]
+effort: low
 ---
 
 <task overview="Generate a project status report by analysing the current state of the codebase, roadmaps, and recent work." destination="docs/dev-log/status-reports/" >
@@ -21,7 +22,7 @@ To determine PROJECT-REPORT-NUMBER, check existing reports in the output directo
 
 1. **Read the roadmap** — `python3 "$HOME"/.claude/library/scripts/roadmap.py stats` when a rich roadmap exists (check with `roadmap.py detect`), otherwise the newest file in `docs/roadmaps/`
 2. **Check recent work records** in `docs/dev-log/work-records/` for recent activity
-3. **Review git history** for recent commits and changes
+3. **Review git history** in one command: `"$HOME"/.claude/library/scripts/git-doc-history.sh {previous-report-path} .` — commits, file changes and diff stat since the last report; accurate numbers, not estimates
 4. **Identify blockers** from any TODO comments, failing tests, or documented issues
 5. **Read the previous status report** in `docs/dev-log/status-reports/` to understand what was last reported as completed, in progress, and upcoming
 
