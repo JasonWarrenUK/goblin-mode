@@ -1,6 +1,6 @@
 ---
 name: user-empathy-lens
-description: Empathy-driven design: think through how real people experience the software; surface and challenge assumptions.
+description: "Empathy-driven design: think through how real people experience the software; surface and challenge assumptions."
 user-invocable: false
 effort: low
 allowed-tools:

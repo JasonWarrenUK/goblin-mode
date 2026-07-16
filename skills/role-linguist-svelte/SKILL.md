@@ -1,6 +1,6 @@
 ---
 name: svelte-ninja
-description: Svelte 5 and SvelteKit: runes reactivity, component composition, routing, data loading, form handling.
+description: "Svelte 5 and SvelteKit: runes reactivity, component composition, routing, data loading, form handling."
 user-invocable: false
 effort: medium
 paths:

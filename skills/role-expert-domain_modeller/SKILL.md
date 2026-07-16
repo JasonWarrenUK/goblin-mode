@@ -1,6 +1,6 @@
 ---
 name: domain-modeller
-description: Model-first design: map entities, relationships, and boundaries before writing code.
+description: "Model-first design: map entities, relationships, and boundaries before writing code."
 user-invocable: false
 effort: high
 allowed-tools:

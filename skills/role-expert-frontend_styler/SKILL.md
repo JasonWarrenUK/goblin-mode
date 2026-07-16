@@ -1,6 +1,6 @@
 ---
 name: frontend-styler
-description: Frontend styling: layout debugging, style consistency, CSS best practices for Svelte/SvelteKit.
+description: "Frontend styling: layout debugging, style consistency, CSS best practices for Svelte/SvelteKit."
 user-invocable: false
 effort: medium
 paths:
