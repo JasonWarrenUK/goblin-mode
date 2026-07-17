@@ -22,3 +22,4 @@ Shared conventions (statuses, colour table): `~/.claude/library/references/roadm
 
 - The dashboard refreshes automatically when `roadmap-maintain` runs (`recompute --render`); invoke this skill for the first render or an on-demand refresh.
 - Sections, palette and behaviour live in the template. To change the dashboard's look, edit `library/templates/roadmap-artefact.html`; to change status colours, change the canonical table (`STATUS_STYLE` in `roadmap.py` + the conventions reference) — never patch a generated file.
+- The artefact is generated in the CLI's own canonical form (tabs, single-line JSON payload), not Prettier's. A repo that runs Prettier (or another formatter) in a pre-commit hook or CI should exclude it — add `docs/artefacts/roadmap-*.html` to `.prettierignore`, the same way `.claude/roadmaps.json` is already excluded — so regenerating the dashboard never fights the formatter.

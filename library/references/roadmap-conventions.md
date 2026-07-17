@@ -132,6 +132,11 @@ auto-reverted — absence still isn't evidence.
 
 - `roadmaps.json`: tab indentation, `ensure_ascii` off, trailing newline
   (`recompute` refuses to write non-canonical files without `--reformat`)
+- `docs/artefacts/roadmap-*.html`: `render`'s own canonical form (tabs,
+  single-line JSON payload), not a formatter's. A repo running Prettier (or
+  another formatter) in a hook or CI should exclude the artefact glob from
+  it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
+  dashboard never fights the formatter.
 - Task field order: `id, description, status, dependsOn, iterative?, notes?`
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
 - Phase field order: `name, path, archived?, externalGates, milestones`
