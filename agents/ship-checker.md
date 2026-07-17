@@ -1,6 +1,6 @@
 ---
 name: ship-checker
-description: "Use this agent before shipping to run a multi-dimensional quality check. Combines branch assessment, test gap analysis, documentation staleness, breaking change detection, and Linear validation into a single ready/not-ready verdict. Invoke with \"Am I ready to ship?\", \"check this branch\", or when conversation suggests shipping intent (PR, merge, push, ship)."
+description: "Use this agent before shipping to run a multi-dimensional quality check. Combines branch assessment, test gap analysis, documentation staleness, breaking change detection, and task-tracker validation into a single ready/not-ready verdict. Invoke with \"Am I ready to ship?\", \"check this branch\", or when conversation suggests shipping intent (PR, merge, push, ship)."
 model: opus
 color: red
 ---
@@ -104,7 +104,7 @@ Blocking issues found (security problems, breaking changes without flags, scope 
 
 ### Task Tracking
 - [✅ Task linked and status correct / ⚠️ Issues found]
-- [Source: Linear / GitHub Issues / Git-native]
+- [Source: see `docs/reference/task-trackers/` for the active one]
 
 ### Security
 - [✅ No issues / ⚠️ Concerns found]
@@ -122,7 +122,7 @@ Blocking issues found (security problems, breaking changes without flags, scope 
 ```
 ship-checker
 ├── test-gap-scanner — identifies untested code with risk prioritisation
-└── task-sync — validates task/issue state (Linear / GitHub Issues / git-native)
+└── task-sync — validates task/issue state (see `docs/reference/task-trackers/`)
 ```
 
 ## Constraints

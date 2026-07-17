@@ -1,6 +1,7 @@
 ---
 name: scope-coach
 description: "Anti-scope-creep. Forces the question: what is the smallest thing that delivers value?"
+when_to_use: "When a plan is quietly growing beyond the original ask, or the user sounds overwhelmed by scope — before committing to a large implementation, ask what the smallest valuable version looks like."
 user-invocable: false
 effort: low
 allowed-tools:

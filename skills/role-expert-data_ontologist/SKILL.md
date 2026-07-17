@@ -1,6 +1,7 @@
 ---
 name: Data Ontologist
 description: "Polyglot persistence: when to use relational, graph, or document databases; integration patterns."
+when_to_use: "When choosing a data store or storage pattern for new data, or reviewing a schema/migration — auto-loads on schema or migration files, or when the conversation raises 'which database', 'relational vs graph', or cross-store integration."
 user-invocable: false
 effort: high
 paths:
@@ -16,8 +17,6 @@ allowed-tools:
 
 Architectural guidance for using multiple database technologies together, with emphasis on PostgreSQL/Supabase (relational), Neo4j (graph), and MongoDB (document). Demonstrates when to use each database type and how to integrate them effectively.
 
----
-
 ## When This Skill Applies
 
 Use this skill when:
@@ -29,8 +28,6 @@ Use this skill when:
 - Query optimization across databases
 - Migration strategies
 - Questions about when to use which database paradigm
-
----
 
 ## Core Principle
 
@@ -71,21 +68,17 @@ Then decide:
 - MEMBER_OF, ENROLLED_IN, REQUIRES → **Neo4j** (traversal, recommendations, paths)
 - Course content, Module materials → **MongoDB** (flexible nested content)
 
----
-
 ## When to Use Relational (PostgreSQL/Supabase)
 
 ### Strong Fit
 
 **Transactional Data**:
-
 - User accounts and authentication
 - Order processing
 - Financial records
 - Inventory management
 
 **Structured Records**:
-
 - Clear schema with defined fields
 - Data fits naturally into tables
 - ACID guarantees required
@@ -116,7 +109,6 @@ CREATE TABLE orders (
 ### Weak Fit
 
 **Highly Connected Data**:
-
 - Social networks (many-to-many relationships)
 - Recommendation engines
 - Organizational hierarchies with flexible depth
@@ -124,21 +116,17 @@ CREATE TABLE orders (
 **Reason**: Joins become expensive, recursive queries complex.
 
 **Rapidly Evolving Schemas**:
-
 - Frequently adding new fields
 - Different record types need different fields
 - Exploratory data modeling
 
 **Reason**: Migrations expensive, rigid structure.
 
----
-
 ## When to Use Graph (Neo4j)
 
 ### Strong Fit
 
 **Relationships as Primary Concern**:
-
 - Social graphs (followers, friends, connections)
 - Recommendation systems (collaborative filtering)
 - Knowledge graphs
@@ -146,7 +134,6 @@ CREATE TABLE orders (
 - Dependencies and prerequisites
 
 **Variable-Depth Traversals**:
-
 - "Find all users within 3 degrees"
 - "Shortest path between entities"
 - "All ancestors in org chart"
@@ -171,7 +158,6 @@ CREATE TABLE orders (
 ### Weak Fit
 
 **Simple Lookups**:
-
 - User by email
 - Order by ID
 - Product details
@@ -179,21 +165,17 @@ CREATE TABLE orders (
 **Reason**: Relational databases excel at indexed lookups.
 
 **Large Aggregations**:
-
 - Sum all orders this month
 - Count users by region
 - Analytics dashboards
 
 **Reason**: SQL aggregations and window functions more powerful.
 
----
-
 ## When to Use Document (MongoDB)
 
 ### Strong Fit
 
 **Semi-Structured Data**:
-
 - Content management systems (blog posts, articles)
 - Product catalogs with varying attributes
 - User-generated content
@@ -201,14 +183,12 @@ CREATE TABLE orders (
 - API responses that need storage
 
 **Nested/Embedded Data**:
-
 - Comments within posts
 - Order items within orders
 - Addresses within user profiles
 - Metadata with varying fields
 
 **Flexible Schemas**:
-
 - Rapid prototyping
 - Evolving data models
 - Different document types in same collection
@@ -222,24 +202,13 @@ CREATE TABLE orders (
   _id: ObjectId("..."),
   title: "Getting Started with SvelteKit",
   slug: "getting-started-sveltekit",
-  author: {
-    id: "user-123",
-    name: "Alice"
-  },
+  author: { id: "user-123", name: "Alice" },
   content: "...",
   tags: ["svelte", "javascript", "tutorial"],
   comments: [
-    {
-      id: "comment-1",
-      userId: "user-456",
-      text: "Great article!",
-      createdAt: ISODate("2024-01-15")
-    }
+    { id: "comment-1", userId: "user-456", text: "Great article!", createdAt: ISODate("2024-01-15") }
   ],
-  metadata: {
-    views: 1250,
-    readingTime: "5 min"
-  },
+  metadata: { views: 1250, readingTime: "5 min" },
   publishedAt: ISODate("2024-01-10")
 }
 
@@ -249,12 +218,7 @@ CREATE TABLE orders (
   name: "Laptop",
   category: "electronics",
   price: 999.99,
-  specs: {
-    cpu: "Intel i7",
-    ram: "16GB",
-    storage: "512GB SSD",
-    screen: "15.6 inch"
-  }
+  specs: { cpu: "Intel i7", ram: "16GB", storage: "512GB SSD", screen: "15.6 inch" }
 }
 
 // Different product type, different fields
@@ -272,7 +236,6 @@ CREATE TABLE orders (
 ### Weak Fit
 
 **Complex Transactions**:
-
 - Multi-step financial operations
 - Strong ACID guarantees across documents
 - Complex foreign key relationships
@@ -280,7 +243,6 @@ CREATE TABLE orders (
 **Reason**: Relational databases better at multi-document transactions.
 
 **Relationship-Heavy Data**:
-
 - Social networks
 - Graph traversals
 - "Friends of friends" queries
@@ -288,661 +250,57 @@ CREATE TABLE orders (
 **Reason**: Graph databases handle this natively.
 
 **Highly Normalized Data**:
-
 - No duplication tolerance
 - Frequent joins needed
 - Strong referential integrity
 
 **Reason**: Relational databases enforce this better.
 
----
-
 ## Decision Framework
 
 ### Question 1: What's the primary data concern?
 
-**RELATIONSHIPS** → Neo4j (Graph)
+**RELATIONSHIPS** → Neo4j (Graph) — social connections, recommendations, dependency trees, path finding
 
-- Social connections
-- Recommendations
-- Dependency trees
-- Path finding
+**STRUCTURED ENTITIES** → PostgreSQL (Relational) — user accounts, financial transactions, inventory, orders
 
-**STRUCTURED ENTITIES** → PostgreSQL (Relational)
-
-- User accounts
-- Financial transactions
-- Inventory
-- Orders
-
-**DOCUMENTS/CONTENT** → MongoDB (Document)
-
-- Blog posts
-- Product catalogs
-- CMS content
-- API data storage
+**DOCUMENTS/CONTENT** → MongoDB (Document) — blog posts, product catalogs, CMS content, API data storage
 
 ### Question 2: How stable is your schema?
 
-**VERY STABLE** → PostgreSQL
+**VERY STABLE** → PostgreSQL — well-defined entities, clear field types, rare schema changes, strong typing needed
 
-- Well-defined entities
-- Clear field types
-- Rare schema changes
-- Strong typing needed
+**EVOLVING** → MongoDB — prototyping phase, frequently adding fields, different record structures, flexible modeling
 
-**EVOLVING** → MongoDB
-
-- Prototyping phase
-- Frequently adding fields
-- Different record structures
-- Flexible modeling
-
-**SCHEMA-OPTIONAL** → Neo4j
-
-- Relationships more important than structure
-- Dynamic properties
-- Graph structure evolves
+**SCHEMA-OPTIONAL** → Neo4j — relationships more important than structure, dynamic properties, graph structure evolves
 
 ### Question 3: How is data accessed?
 
-**BY KEY/ID** → PostgreSQL or MongoDB
+**BY KEY/ID** → PostgreSQL or MongoDB — user by email, product by SKU, order by ID
 
-- User by email
-- Product by SKU
-- Order by ID
+**BY TRAVERSAL** → Neo4j — friends of friends, shortest path, recommendations
 
-**BY TRAVERSAL** → Neo4j
-
-- Friends of friends
-- Shortest path
-- Recommendations
-
-**BY CONTENT/QUERY** → MongoDB
-
-- Full-text search
-- Filtering nested documents
-- Flexible queries on varying fields
+**BY CONTENT/QUERY** → MongoDB — full-text search, filtering nested documents, flexible queries on varying fields
 
 ### Question 4: Do you need strong consistency?
 
-**ABSOLUTE** → PostgreSQL
+**ABSOLUTE** → PostgreSQL — financial transactions, ACID guarantees, multi-step operations
 
-- Financial transactions
-- ACID guarantees
-- Multi-step operations
-
-**EVENTUAL OKAY** → MongoDB or Neo4j
-
-- Content updates
-- Social interactions
-- Non-critical data
+**EVENTUAL OKAY** → MongoDB or Neo4j — content updates, social interactions, non-critical data
 
 ### Question 5: Is data naturally nested?
 
-**YES** → MongoDB
+**YES** → MongoDB — posts with comments, orders with line items, documents with metadata
 
-- Posts with comments
-- Orders with line items
-- Documents with metadata
+**NO** → PostgreSQL — flat entities, many-to-many relationships, normalized structure
 
-**NO** → PostgreSQL
+## Additional resources
 
-- Flat entities
-- Many-to-many relationships
-- Normalized structure
+Worked examples and mechanical detail, loaded only when needed:
 
----
-
-## Real-World Examples
-
-### Example 1: Social Application (WorkWise)
-
-**Supabase (PostgreSQL)**:
-
-- User authentication and profiles
-- Organization/company records
-- Subscription billing
-- Audit logs
-
-**Neo4j**:
-
-- Social connections (followers, following)
-- Content interactions (likes, shares)
-- Recommendation engine
-- Activity feed generation
-
-**MongoDB**:
-
-- User-generated posts/content
-- Comments and nested discussions
-- Rich media metadata
-- Activity logs with flexible structure
-
-**Why All Three?**:
-
-- Auth needs ACID (Supabase)
-- Social graph needs traversal (Neo4j)
-- Posts need flexible schema (MongoDB)
-- User lookups fast in PG
-- "People you may know" fast in Neo4j
-- Content queries flexible in MongoDB
-
-### Example 2: Learning Platform (Rhea)
-
-**Supabase (PostgreSQL)**:
-
-- User accounts and enrollment
-- Payment transactions
-- Progress tracking (completion %)
-- Subscriptions
-
-**Neo4j**:
-
-- Course prerequisites and dependencies
-- Learning path recommendations
-- Skill relationships
-- "What should I learn next?" queries
-
-**MongoDB**:
-
-- Course content (lessons, modules)
-- Rich lesson materials (videos, exercises, notes)
-- Student submissions and feedback
-- Curriculum templates
-
-**Why All Three?**:
-
-- Enrollment is transactional (Supabase)
-- Prerequisites are graph traversal (Neo4j)
-- Course content is nested documents (MongoDB)
-- Payment requires ACID (PG)
-- Learning paths require traversal (Neo4j)
-- Lessons have varying structures (MongoDB)
-
-### Example 3: E-commerce Platform
-
-**Supabase (PostgreSQL)**:
-
-- User accounts
-- Order transactions
-- Inventory counts
-- Payment records
-
-**Neo4j**:
-
-- Product recommendations
-- "Customers who bought X also bought Y"
-- Similar products
-
-**MongoDB**:
-
-- Product catalog with varying attributes
-- User reviews and ratings
-- Shopping cart state
-- Product images and metadata
-
-**Why All Three?**:
-
-- Orders need transactions (Supabase)
-- Recommendations need graph (Neo4j)
-- Products have varying specs (MongoDB)
-- Inventory atomic updates (PG)
-- "Similar items" fast in graph
-- Product attributes flexible in documents
-
-### Example 4: Content Platform (CMS)
-
-**Supabase (PostgreSQL)**:
-
-- User authentication
-- User roles and permissions
-- Subscription management
-
-**MongoDB**:
-
-- Articles, blog posts, pages
-- Media library
-- Draft versions
-- Comments and nested discussions
-- SEO metadata
-
-**Neo4j** (Optional):
-
-- Content relationships
-- Tag networks
-- Content recommendations
-
-**Why This Mix?**:
-
-- Users need auth (Supabase)
-- Content varies by type (MongoDB)
-- Articles have nested comments (MongoDB)
-- Permissions are relational (PG)
-- Tags can be graphed (Neo4j optional)
-
----
-
-## Integration Patterns
-
-### Pattern 1: Shared Primary Keys
-
-Use same IDs across all databases:
-
-```typescript
-const userId = generateId();
-
-// Supabase - Auth and profile
-await supabase.from('users').insert({
-  id: userId,
-  email,
-  name
-});
-
-// Neo4j - Social graph node
-await neo4j.run(`
-  CREATE (u:User {id: $userId, name: $name})
-`, { userId, name });
-
-// MongoDB - User preferences
-await mongo.collection('user_preferences').insertOne({
-  _id: userId,
-  theme: 'dark',
-  notifications: {
-    email: true,
-    push: false
-  }
-});
-```
-
-### Pattern 2: Reference by ID
-
-Store references, fetch as needed:
-
-```typescript
-// MongoDB - Blog post
-{
-  _id: ObjectId("..."),
-  title: "My Post",
-  authorId: "user-123",  // Reference to PostgreSQL user
-  content: "...",
-  tags: ["javascript", "svelte"]
-}
-
-// Query pattern
-const post = await mongo.collection('posts').findOne({ _id });
-const author = await supabase
-  .from('users')
-  .select('*')
-  .eq('id', post.authorId)
-  .single();
-```
-
-### Pattern 3: Embed vs Reference Decision
-
-**Embed when**:
-
-- Data accessed together
-- One-to-few relationship
-- Child data not shared
-
-```javascript
-// Good: Embed comments in post
-{
-  title: "My Post",
-  comments: [
-    { text: "Great!", userId: "user-123" }
-  ]
-}
-```
-
-**Reference when**:
-
-- Data accessed independently
-- One-to-many or many-to-many
-- Child data shared across parents
-
-```javascript
-// Good: Reference author
-{
-  title: "My Post",
-  authorId: "user-123"  // Author data in PostgreSQL
-}
-```
-
-### Pattern 4: Event-Driven Sync
-
-Keep databases in sync via events:
-
-```typescript
-// User created in Supabase
-supabase.on('INSERT', 'users', async (payload) => {
-  const user = payload.record;
-
-  // Create in Neo4j
-  await createUserNode(user);
-
-  // Create preferences in MongoDB
-  await mongo.collection('user_preferences').insertOne({
-    _id: user.id,
-    theme: 'light',
-    notifications: {}
-  });
-});
-```
-
-### Pattern 5: Aggregate from Multiple Sources
-
-```typescript
-async function getUserDashboard(userId) {
-  // PostgreSQL - Account info
-  const account = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  // Neo4j - Social metrics
-  const social = await neo4j.run(`
-    MATCH (u:User {id: $userId})
-    OPTIONAL MATCH (u)-[:FOLLOWS]->(following)
-    OPTIONAL MATCH (follower)-[:FOLLOWS]->(u)
-    RETURN
-      count(DISTINCT following) as followingCount,
-      count(DISTINCT follower) as followerCount
-  `, { userId });
-
-  // MongoDB - Recent content
-  const posts = await mongo
-    .collection('posts')
-    .find({ authorId: userId })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .toArray();
-
-  return {
-    account: account.data,
-    social: social.records[0],
-    recentPosts: posts
-  };
-}
-```
-
----
-
-## Schema Design Patterns
-
-### Relational Schema (Supabase)
-
-**Normalized Structure**:
-
-```sql
--- Users table
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email TEXT UNIQUE NOT NULL,
-  name TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Clear foreign keys
-CREATE TABLE orders (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  total DECIMAL(10,2)
-);
-```
-
-### Graph Schema (Neo4j)
-
-**Labels and Relationships**:
-
-```cypher
-// Node labels
-(:User)
-(:Organization)
-(:Course)
-
-// Typed relationships
-(:User)-[:MEMBER_OF {role}]->(:Organization)
-(:User)-[:FOLLOWS {since}]->(:User)
-(:Course)-[:REQUIRES]->(:Course)
-```
-
-### Document Schema (MongoDB)
-
-**Flexible Structure**:
-
-```javascript
-// Embedded approach (1-to-few)
-{
-  _id: ObjectId("..."),
-  userId: "user-123",
-  title: "My Blog Post",
-  content: "...",
-  comments: [  // Embedded
-    {
-      id: "comment-1",
-      userId: "user-456",
-      text: "Great post!",
-      createdAt: ISODate("2024-01-15")
-    }
-  ],
-  tags: ["tutorial", "javascript"],
-  metadata: {
-    views: 150,
-    likes: 23
-  }
-}
-
-// Reference approach (1-to-many)
-{
-  _id: ObjectId("..."),
-  title: "E-commerce Order",
-  userId: "user-123",  // Reference
-  items: [
-    { productId: "prod-789", quantity: 2 },  // Reference
-    { productId: "prod-456", quantity: 1 }
-  ],
-  total: 149.99
-}
-```
-
----
-
-## Query Optimization
-
-### PostgreSQL Optimization
-
-**Indexes**:
-
-```sql
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_orders_user_date ON orders(user_id, created_at DESC);
-```
-
-### Neo4j Optimization
-
-**Constraints and Indexes**:
-
-```cypher
-CREATE CONSTRAINT user_id_unique
-FOR (u:User) REQUIRE u.id IS UNIQUE;
-
-CREATE INDEX user_email
-FOR (u:User) ON (u.email);
-```
-
-### MongoDB Optimization
-
-**Indexes**:
-
-```javascript
-// Single field
-db.posts.createIndex({ authorId: 1 });
-
-// Compound index
-db.posts.createIndex({ authorId: 1, createdAt: -1 });
-
-// Text search
-db.posts.createIndex({ title: "text", content: "text" });
-
-// Embedded field
-db.posts.createIndex({ "metadata.views": -1 });
-```
-
-**Query Patterns**:
-
-```javascript
-// Efficient: Uses index
-db.posts.find({ authorId: userId }).sort({ createdAt: -1 });
-
-// Inefficient: Full collection scan
-db.posts.find({ "comments.text": /keyword/ });
-
-// Better: Index comment text separately or use aggregation
-```
-
----
-
-## Anti-Patterns
-
-### Don't: Use Document DB for Transactions
-
-```javascript
-// ✗ Bad: Complex multi-document transaction in MongoDB
-session.startTransaction();
-await orders.insertOne({ userId, total });
-await inventory.updateOne({ productId }, { $inc: { stock: -1 } });
-await session.commitTransaction();
-```
-
-**Why**: PostgreSQL designed for this, ACID guarantees stronger.
-
-### Don't: Embed Everything
-
-```javascript
-// ✗ Bad: Embedding user data in every post
-{
-  title: "My Post",
-  author: {
-    id: "user-123",
-    name: "Alice",
-    email: "alice@example.com",
-    bio: "...",
-    avatar: "..."  // Duplicated everywhere!
-  }
-}
-```
-
-**Better**: Store author ID, fetch user data separately.
-
-### Don't: Use Graph for Simple Lookups
-
-```cypher
-// ✗ Bad: Using Neo4j for key-value lookup
-MATCH (u:User {email: $email})
-RETURN u;
-```
-
-**Why**: PostgreSQL or MongoDB faster for indexed lookups.
-
-### Don't: Force Relational Patterns into Documents
-
-```javascript
-// ✗ Bad: Normalized MongoDB (defeats the purpose)
-// users collection
-{ _id: "user-123", name: "Alice" }
-
-// posts collection
-{ _id: "post-456", authorId: "user-123", title: "..." }
-
-// comments collection
-{ _id: "comment-789", postId: "post-456", text: "..." }
-```
-
-**Why**: If normalizing this much, use PostgreSQL instead.
-
----
-
-## Migration Strategies
-
-### Starting Point
-
-**Begin with PostgreSQL**:
-
-- Authentication
-- Core transactional data
-- Well-understood entities
-
-**Add MongoDB When**:
-
-- Content becomes varied
-- Schema evolution frequent
-- Nested data structures emerge
-
-**Add Neo4j When**:
-
-- Relationships become complex
-- Traversal queries needed
-- Recommendations required
-
-### Data Migration Examples
-
-**PostgreSQL → MongoDB**:
-
-```typescript
-// Export from PG
-const posts = await supabase.from('posts').select('*');
-
-// Transform and insert to MongoDB
-await mongo.collection('posts').insertMany(
-  posts.map(post => ({
-    _id: post.id,
-    ...post,
-    metadata: {
-      views: post.view_count,
-      likes: post.like_count
-    }
-  }))
-);
-```
-
-**MongoDB → Neo4j** (relationships):
-
-```typescript
-// Get follows from MongoDB
-const follows = await mongo.collection('follows').find().toArray();
-
-// Create relationships in Neo4j
-await neo4j.run(`
-  UNWIND $follows AS follow
-  MATCH (follower:User {id: follow.followerId})
-  MATCH (followed:User {id: follow.followedId})
-  CREATE (follower)-[:FOLLOWS {since: follow.createdAt}]->(followed)
-`, { follows });
-```
-
----
-
-## Portfolio Evidence
-
-**KSBs Demonstrated**:
-
-- **K2**: All Stages of Software Development Lifecycle (architecture decisions)
-- **K3**: Roles and Responsibilities (database selection justification)
-- **S1**: Analyse Requirements (choosing right tool for problem)
-- **S6**: Design and Implement Database Systems (polyglot approach)
-
-**How to Document**:
-
-- Architecture Decision Records (ADRs) explaining database choices
-- Diagrams showing which data lives where
-- Performance comparisons (before/after changes)
-- Migration scripts and sync strategies
-- Trade-off analysis documentation
-
----
+- [real-world-examples.md](real-world-examples.md) — four full worked splits (social app, learning platform, e-commerce, CMS) showing which data lives where and why
+- [integration-and-schema.md](integration-and-schema.md) — shared-key/reference/embed/event-sync/aggregation integration patterns, per-database schema design, query optimisation and indexing
+- [anti-patterns-and-migration.md](anti-patterns-and-migration.md) — common mistakes (document-DB transactions, over-embedding, graph for simple lookups), migration strategy and worked migration scripts, portfolio evidence framing
 
 ## Success Criteria
 

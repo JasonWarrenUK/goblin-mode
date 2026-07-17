@@ -1,6 +1,7 @@
 ---
 name: "PR: Update"
 description: "{{ ƔƔƔ }} Update a PR description to account for commits made since it was last written"
+when_to_use: "When new commits landed on a branch after its PR was opened and the description no longer reflects the full diff."
 model: sonnet
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]

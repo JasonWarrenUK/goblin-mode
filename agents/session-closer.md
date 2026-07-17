@@ -1,6 +1,6 @@
 ---
 name: session-closer
-description: "Use this agent at the end of a session to capture state for next time. Summarises accomplishments, notes uncommitted work, updates Linear status, generates a work record entry, and writes a handoff note for the next session-orchestrator run. Invoke with \"I'm done for today\", \"wrap up\", or triggered by SessionEnd."
+description: "Use this agent at the end of a session to capture state for next time. Summarises accomplishments, notes uncommitted work, updates task-tracker status, generates a work record entry, and writes a handoff note for the next session-orchestrator run. Invoke with \"I'm done for today\", \"wrap up\", or triggered by SessionEnd."
 model: haiku
 color: yellow
 ---
@@ -67,11 +67,11 @@ Write a brief JSON file that `session-orchestrator` can read at the start of the
 	"unfinished": ["what's left to do"],
 	"nextStep": "specific action to start with next time",
 	"deferredDocs": ["docs that need updating"],
-	"taskSource": "linear",
+	"taskSource": "git",
 	"tasks": {
-		"progressed": ["JAZ-123"],
+		"progressed": ["feat/add-auth"],
 		"blocked": [],
-		"completed": ["JAZ-456"]
+		"completed": ["fix/login-bug"]
 	}
 }
 ```
@@ -82,7 +82,7 @@ Store at `.claude/session-state.json` in the project root.
 
 ```
 session-closer
-└── task-sync — ensure task tracker state is current (Linear / GitHub Issues / git-native)
+└── task-sync — ensure task tracker state is current (see `docs/reference/task-trackers/`)
 ```
 
 ## Output Format
@@ -99,7 +99,7 @@ session-closer
 
 ### Tasks
 - [Tasks progressed/completed/blocked]
-- [Source: Linear / GitHub Issues / Git-native]
+- [Source: see `docs/reference/task-trackers/` for the active one]
 
 ### Next Time
 > [One sentence: what to do first next session]

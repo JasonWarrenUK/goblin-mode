@@ -1,6 +1,7 @@
 ---
 name: writing-style
-description: "Writing style guide for Jason Warren. Use this skill whenever writing prose, reports, documentation, or any substantive text for Jason, including drafting sections, editing existing content, or rewriting passages. Also use when Jason asks you to review or improve writing. Trigger on any request involving writing, drafting, editing, or composing text that isn't purely code. This includes github Pull Requests & Linear tasks"
+description: "Writing style guide for Jason Warren. Applies whenever writing or editing substantive prose for Jason — drafting sections, reports, documentation, or rewriting passages."
+when_to_use: "Any request involving writing, drafting, editing, or composing text that isn't purely code — including GitHub PR descriptions and task-tracker entries — or when Jason asks you to review or improve writing."
 user-invocable: false
 ---
 
