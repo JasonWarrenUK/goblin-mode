@@ -1,6 +1,7 @@
 ---
 name: "Repo: Investigate Target"
-description: "{{ 𝛀𝛀𝛀 }} Investigate a codebase in detail"
+description: "{{ 𝛀𝛀𝛀 }} Investigate a codebase in detail and write findings to a document, for a named concept, subsystem, or question"
+when_to_use: "When you need a deep, written-down investigation of how something works or why it's built a certain way — deeper than a quick grep, and the output should persist as a doc."
 model: opus
 disable-model-invocation: true
 # Forked, but on the default general-purpose agent rather than Explore: this

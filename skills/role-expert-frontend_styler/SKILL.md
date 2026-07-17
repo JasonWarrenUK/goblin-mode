@@ -1,6 +1,7 @@
 ---
 name: frontend-styler
 description: "Frontend styling: layout debugging, style consistency, CSS best practices for Svelte/SvelteKit."
+when_to_use: "When a layout is broken, styles are inconsistent across components, or CSS needs a best-practice review — auto-loads on .svelte/.css files, or when the conversation is about styling, layout bugs, or visual consistency."
 user-invocable: false
 effort: medium
 paths:

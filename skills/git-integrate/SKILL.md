@@ -1,6 +1,7 @@
 ---
 name: "Git: Integrate Branch"
 description: "{{ 𝚫𝚫𝚫 }} Integrate a target branch into the current one by merge, rebase or squash"
+when_to_use: "When main (or another branch) has moved on and needs folding into the current branch — picks merge/rebase/squash and handles conflicts."
 model: haiku
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(~/.claude/library/scripts/git-integrate.sh:*)", "Read", "Glob", "Grep", "Edit"]

@@ -1,6 +1,7 @@
 ---
 name: "Stud"
 description: "{{ ƔƔƔ }} Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a runnable walking-skeleton (fake data, real wiring) so names, placement, and contracts can be reviewed before any real logic is written. Stops for review; fill is a separate pass."
+when_to_use: "When about to build a non-trivial feature and you want the shape agreed before real logic is written — spans several functions/files, or you want a checkpoint before implementation starts."
 arguments: ["outcome", "questions"]
 argument-hint: ["desired outcome", "open questions to resolve"]
 disable-model-invocation: true
@@ -13,7 +14,7 @@ allowed-tools:
   - "Edit"
   - "Write"
   - "AskUserQuestion"
-  - "Bash(~/.claude/skills/task-execute-stud/scripts/find-scaffold.sh:*)"
+  - "Bash(${CLAUDE_SKILL_DIR}/scripts/find-scaffold.sh:*)"
 disallowed-tools:
   - "Bash(git:*)"
   - "Bash(gh:*)"

@@ -11,7 +11,7 @@ allowed-tools:
   - "Grep"
   - "Edit"
   - "Write"
-  - "Bash(scripts/find-scaffold.sh:*)"
+  - "Bash(${CLAUDE_SKILL_DIR}/scripts/find-scaffold.sh:*)"
 disallowed-tools:
   - "Bash(git:*)"
   - "Bash(gh:*)"
@@ -89,14 +89,14 @@ A stud skeleton that doesn't run is just a doc; the point is that it runs. Befor
 - Syntax/lint clean (the banners are comments, so linters must still pass).
 - **Run it** on the fake data and show the flow firing, e.g. start the process and watch the log lines, or drive the entry points directly. The point is to prove the plumbing (calls, wiring, shutdown) before any real logic exists.
 - Confirm the working tree contains only intended changes.
-- `scripts/find-scaffold.sh --markers <studded-path>` should list exactly the banners you placed (expected now; removed in Stage 2). Point it at the files you studded, not the whole repo.
+- `${CLAUDE_SKILL_DIR}/scripts/find-scaffold.sh --markers <studded-path>` should list exactly the banners you placed (expected now; removed in Stage 2). Point it at the files you studded, not the whole repo.
 
 ### 6. Checkpoint before filling
 
 You triggered this yourself mid-task, so don't barrel straight into Stage 2. Surface the shape and let it be reviewed **before** any real logic:
 
 - Show what ran and the flow it exercised (Step 5 output).
-- List the seams the reviewer must sign off: run `scripts/find-scaffold.sh --seams <path>`.
+- List the seams the reviewer must sign off: run `${CLAUDE_SKILL_DIR}/scripts/find-scaffold.sh --seams <path>`.
 - State the fill order you'd take next (pure/leaf first; see the conventions reference):
 
   1. Pure, unit-testable helpers (calculations, transforms, get-or-create); their `should` bullets become the tests.

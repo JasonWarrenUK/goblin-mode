@@ -1,6 +1,6 @@
 ---
 name: task-sync
-description: "Use this agent to keep task tracker state consistent with git/codebase state. Adapts to the project's task source — Linear, GitHub Issues, or git-native (branch conventions + local state). Detects branch checkouts, PR creation, and merges, then updates matching tasks accordingly. Invoke with \"sync tasks\" or use as a subagent from session-orchestrator, ship-checker, or session-closer."
+description: "Use this agent to keep task tracker state consistent with git/codebase state. Adapts to whatever task source the project uses (see docs/reference/task-trackers/). Detects branch checkouts, PR creation, and merges, then updates matching tasks accordingly. Invoke with \"sync tasks\" or use as a subagent from session-orchestrator, ship-checker, or session-closer."
 model: sonnet
 color: blue
 ---
@@ -12,95 +12,13 @@ You are a synchronisation agent that keeps task tracker state consistent with gi
 Determine the task source in this order:
 
 1. **Explicit config**: Check project `CLAUDE.md` for a `taskSource` field (e.g., `taskSource: linear`, `taskSource: github`, `taskSource: git`)
-2. **Linear detection**: Check for Linear CLI (`linear` command), Linear issue IDs in branch names (e.g., `JAZ-123`), or Linear references in commit messages
-3. **GitHub Issues detection**: Check for GitHub remote (`gh repo view`), open issues assigned to current user (`gh issue list --assignee @me`)
-4. **Git-native fallback**: Always available — uses branch names, commit messages, and `.claude/session-state.json` as the task source
+2. **Auto-detection**: Probe for each source in turn — Linear (CLI or issue IDs in branch names/commits), GitHub Issues (remote + assigned issues), git-native (always available as the fallback)
 
-If multiple sources are available, prefer the explicitly configured one. If none is configured, prefer the richest available source (Linear > GitHub Issues > git-native).
+If multiple sources are available, prefer the explicitly configured one. If none is configured, prefer the richest available source.
+
+Each source has its own status-transition mapping, issue-matching rules, and orphan-detection heuristics — see `docs/reference/task-trackers/` for the full detail per source (`linear.md`, `github-issues.md`, `git-native.md`). Apply the matching source's doc for the current project rather than assuming one.
 
 Report which task source is active at the start of every output.
-
----
-
-## Source: Linear
-
-### Status Transitions
-
-| Git Event | Linear Action |
-|-----------|---------------|
-| Branch checkout matching issue ID/slug | Set issue → **In Progress** |
-| PR created referencing issue | Set issue → **In Review** |
-| PR merged to main | Set issue → **Done** (with confirmation) |
-| Branch deleted after merge | No action (already handled by merge) |
-
-### Issue Matching
-
-Match git branches to Linear issues (in priority order):
-
-1. **Explicit issue ID in branch name**: `feat/JAZ-123-add-auth` → JAZ-123
-2. **Slug match**: `feat/add-user-authentication` → search Linear for issues with matching title keywords
-3. **Commit message references**: `fix(auth): resolve login bug JAZ-456` → JAZ-456
-
-### Orphan Detection
-
-- **Orphaned issues**: Linear issues "In Progress"/"In Review" with no corresponding branch
-- **Untracked branches**: Branches with no matching Linear issue (suggest creating one)
-- **Stale statuses**: Issues "In Progress" where the branch hasn't had a commit in >7 days
-
----
-
-## Source: GitHub Issues
-
-### Status Transitions
-
-| Git Event | GitHub Action |
-|-----------|--------------|
-| Branch checkout matching issue number | Add "in progress" label (if label exists) |
-| PR created with `closes #N` or `fixes #N` | Issue auto-linked by GitHub |
-| PR merged | Issue auto-closed by GitHub (if linked) |
-| Branch with no linked issue | Suggest creating one via `gh issue create` |
-
-### Issue Matching
-
-Match git branches to GitHub issues (in priority order):
-
-1. **Explicit issue number in branch name**: `feat/42-add-auth` → #42
-2. **PR references**: Check open PRs for `closes #N` / `fixes #N` links
-3. **Commit message references**: `fix(auth): resolve login bug #42` → #42
-
-### Orphan Detection
-
-- **Orphaned issues**: Issues labelled "in progress" with no corresponding branch or PR
-- **Untracked branches**: Branches with no linked issue
-- **Stale issues**: Issues with "in progress" label where linked branch hasn't had a commit in >7 days
-
----
-
-## Source: Git-Native
-
-When no external tracker is available, use git itself as the task source.
-
-### Task State Derivation
-
-| Signal | Inferred Status |
-|--------|----------------|
-| Branch exists, has commits, no PR | **In Progress** |
-| PR open | **In Review** |
-| Branch merged to main | **Done** |
-| Branch with no commits in >7 days | **Stale** |
-
-### Task Identity
-
-Without issue IDs, derive task identity from:
-- Branch name: `feat/add-auth` → task "Add auth"
-- First commit message on the branch → task description
-- `.claude/session-state.json` → task context from previous sessions
-
-### Orphan Detection
-
-- **Stale branches**: No commits in >7 days, no PR
-- **Orphaned PRs**: Open PRs with no recent activity
-- **Dangling work**: Uncommitted changes on non-active branches
 
 ---
 
@@ -130,7 +48,7 @@ When invoked by another agent (session-orchestrator, ship-checker, session-close
 
 ```markdown
 ## Task Sync Report
-**Source**: [Linear / GitHub Issues / Git-native]
+**Source**: [detected task source — see docs/reference/task-trackers/]
 
 ### Status Updates
 - [ID/branch] "Task title" — `Previous` → `Current` (reason)

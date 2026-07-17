@@ -1,6 +1,7 @@
 ---
 name: "Commit: Batch"
 description: "{{ 𝚫𝚫𝚫 }} Split uncommitted changes into granular commits."
+when_to_use: "When several unrelated changes have piled up uncommitted and a single commit would bundle them — split into one logical commit per change."
 model: haiku
 effort: low
 disable-model-invocation: true

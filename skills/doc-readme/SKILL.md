@@ -1,6 +1,7 @@
 ---
 name: "Docs: Readme"
 description: "{{ ƔƔƔ }} Create or update a README — project root or any directory"
+when_to_use: "When a project or directory has no README, or its existing one no longer matches the current structure or setup steps."
 model: sonnet
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]

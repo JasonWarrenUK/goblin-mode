@@ -1,6 +1,7 @@
 ---
 name: "Branch: Review"
 description: "{{ 𝛀𝛀𝛀 }} Assess branch readiness for PR submission"
+when_to_use: "Before opening a PR, when you want a readiness verdict on commit quality, diff size, and branch naming grounded in exact git facts rather than a skim."
 model: opus
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)"]

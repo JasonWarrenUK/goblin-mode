@@ -1,6 +1,7 @@
 ---
 name: "Commit: One"
 description: "{{ 𝚫𝚫𝚫 }} Generate a commit message. If nothing staged, stage all changes."
+when_to_use: "When the working tree holds one logical change ready to commit and you just need a well-formed conventional-commit message written."
 model: haiku
 effort: low
 disable-model-invocation: true

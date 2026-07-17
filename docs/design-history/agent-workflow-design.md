@@ -1,4 +1,21 @@
+← [Wiki home](../README.md)
+
 # Agent & Workflow Design Analysis
+
+> [!NOTE]
+> **Design history, not a live plan.** All six agents proposed below (`session-orchestrator`, `task-sync`, `ship-checker`, `test-gap-scanner`, `scope-guard`, `session-closer`) have since shipped — see [Agents](../reference/agents.md) for their current state. This document is kept as provenance: it explains *why* each agent exists, which the reference page doesn't restate. Skill names below use the naming scheme current when this was written and don't match today's — see the mapping table just below before reading further.
+>
+> | Then | Now |
+> |---|---|
+> | `/suggest:task` | `/task-suggest` |
+> | `/linear:tackle` | *(never migrated — the staged `linear-skills/` holding area was removed when this config went tracker-agnostic; see [Task Trackers](../reference/task-trackers/README.md))* |
+> | `/git:commit` | `/git-commit-one` / `/git-commit-batch` |
+> | `/git:assess-branch` | `/git-branch-review` |
+> | `/git:pr` | `/pr-create` |
+> | `/linear:hoover` | *(never migrated — see above)* |
+> | `/linear:crit-path-to` | *(never migrated — see above)* |
+> | `scope-coach` skill | `role-viewpoint-scope_coach` |
+> | `testing-obsessive` skill | `role-expert-testing_obsessive` |
 
 Analysis of the workflows this repo encodes, and proposals for agents and subagents that would benefit a developer using this setup.
 

@@ -1,6 +1,7 @@
 ---
 name: "Repo: Analyse Package Deps"
 description: "{{ 𝛀𝛀𝛀 }} Investigate this repo's dependencies in detail"
+when_to_use: "When auditing dependency health — outdated packages, security advisories, a specific package that looks suspect — rather than eyeballing package.json."
 model: opus
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(~/.claude/library/scripts/deps-dump.sh:*)", "WebSearch", "WebFetch"]

@@ -1,6 +1,7 @@
 ---
 name: "Docs: Update Target"
 description: "{{ ƔƔƔ }} Update an existing documentation file to reflect recent code changes"
+when_to_use: "When a doc (other than README or an ADR) has drifted from the code and needs its content reconciled with what actually shipped since it was last touched."
 model: sonnet
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(git:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]
