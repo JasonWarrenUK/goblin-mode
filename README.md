@@ -5,170 +5,61 @@
 > [!CAUTION]
 > 50% useful tool/teaching resource for agentic coding, 50% externalised temper tantrum.
 
-**Goblin Mode** is a permanently-in-flux configuration system (skills[^1], agents, hooks) built by one developer to solve problems they actually had. Every skill traces back to a specific friction point. Hooks enforce habits that were being skipped.
-
-<!-- toc:start -->
-## Table of Contents
-
-- [What’s In Here](#whats-in-here)
-- [Quick Start](#quick-start)
-- [Directory Guide](#directory-guide)
-  - [CLAUDE.md: The Behaviour File](#claudemd-the-behaviour-file)
-  - [skills/: Commands and Domain Knowledge](#skills-commands-and-domain-knowledge)
-  - [agents/: Autonomous Workflows](#agents-autonomous-workflows)
-  - [hooks/: Automation](#hooks-automation)
-  - [docs/: Documentation](#docs-documentation)
-- [How It All Fits Together](#how-it-all-fits-together)
-- [Key Concepts](#key-concepts)
-- [Documentation Index](#documentation-index)
-  - [Guides](#guides)
-<!-- toc:end -->
-
-[^1]: Skills replaced slash commands after Anthropic merged the two systems.
-
-- **Weakness-aware design:** Testing is a known weakness, so a dedicated skill encodes the discipline. ADHD makes executive function unreliable, so hooks enforce it instead of relying on willpower.
-- **Context window discipline:** CLAUDE.md loads every session. Skill descriptions load at start; bodies lazy-load on trigger. Agents run in sub-processes. Every layer has a deliberate cost.
-- **Model tier thinking:** Skills specify whether they need Haiku (fast, cheap), Sonnet (balanced), or Opus (thorough). Not every task needs the biggest model.
-- **Friction-driven, not architecture-driven:** This grew organically from actual work. The process of building it is what's transferable, not the specifics.
+**Goblin Mode** is a permanently-in-flux configuration system (skills, agents, hooks) built by one developer to solve problems they actually had. Every skill traces back to a specific friction point. Hooks enforce habits that were being skipped.
 
 > [!NOTE]
-> This setup is specific to one developer's workflow (and brain). If you're building your own, the **process** is what's transferable; the specifics should be yours.
->
-> For the full story on how and why this was built, see [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO.md).
+> This setup is specific to one developer's workflow (and brain). If you're building your own, the **process** is what's transferable; the specifics should be yours. Start with [Building Your Own](docs/guides/building-your-own.md).
 
 ---
 
 ## What's In Here
 
-| Component              | Count   | What it does |
-|------------------------|---------|--------------|
-|  **Skills (command)**  |   49    | Slash commands you invoke (e.g. `/git:commit-one-delta`) |
-| **Skills (knowledge)** |   17    | Knowledge packs that load automatically when relevant |
-|       **Agents**       |   10    | Autonomous sub-processes for multi-step work |
-|       **Hooks**        |    7    | Scripts that run on git events and session lifecycle |
-|        **Docs**        | 2 files | Guides for this repo |
+| Component     | Count | What it does |
+|----------------|-------|--------------|
+| **Skills (command)** | 27 | Slash commands you invoke (e.g. `/git-commit-one`) |
+| **Skills (role)**    | 15 | Ambient knowledge that loads automatically when relevant |
+| **Skills (model-invocable command)** | 3 | Command skills the model can also self-invoke |
+| **Agents**     | 10 | Autonomous sub-processes for multi-step work |
+| **Hooks**      | 3 global + 2 project-level | Scripts triggered by git and session events |
+
+These counts are generated, not hand-counted — see [Keeping this wiki honest](docs/README.md#keeping-this-wiki-honest).
 
 ---
 
 ## Quick Start
 
-If you've cloned this and want to understand what you're looking at:
-
-1. **Read [CLAUDE.md](CLAUDE.md):** the main behaviour file — tells Claude how to write code, format commits, and communicate.
-2. **Browse [skills/README.md](skills/README.md):** full index of available commands.
-3. **Read [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO.md):** explains every directory and the thinking behind each one.
-
-If you're new to Claude Code customisation entirely, start with the [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO.md) guide.
-
----
+1. **Read [CLAUDE.md](CLAUDE.md)** — the behaviour file, loaded every session: tone, code conventions, git workflow.
+2. **Browse [docs/README.md](docs/README.md)** — the documentation wiki: architecture, and a reference page per subsystem.
+3. **Browse [skills/README.md](skills/README.md)** — the full generated index of every skill.
 
 ## Directory Guide
 
-### `CLAUDE.md`: The Behaviour File
+| Directory | What's there |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | The behaviour file — technical profile, communication rules, code conventions, git workflow, security defaults. Loaded every session. |
+| [`skills/`](skills/) | Command skills (invoked with `/name`) and role skills (load automatically). See [Skills reference](docs/reference/skills.md). |
+| [`agents/`](agents/) | Autonomous multi-step workflows Claude delegates to. See [Agents reference](docs/reference/agents.md). |
+| [`hooks/`](hooks/) | Scripts on git/session events. See [Hooks reference](docs/reference/hooks.md). |
+| [`library/`](library/) | Shared references, templates, scripts, and config examples used by skills. See [Library reference](docs/reference/library.md). |
+| [`output-styles/`](output-styles/) | Tone and personality definitions — `british-dev-goblin.md` is the active one. |
+| [`docs/`](docs/) | This wiki — architecture, per-subsystem reference, guides, and design history. |
 
-The single most important file. Loaded into every Claude Code session and defines:
-
-- **Technical profile:** languages, frameworks, preferred tools
-- **Communication rules:** British English, no sycophancy, direct answers
-- **Code conventions:** tabs for indentation, naming patterns, TypeScript strict mode
-- **Git workflow:** conventional commits, branch naming, PR structure
-- **Security defaults:** no committed secrets, input validation, RLS
-
-Think of it as "if I had to brief a new developer on how I work, what would I say?"
-
-### `skills/`: Commands and Domain Knowledge
-
-Skills serve two distinct roles:
-
-**Command skills** (49) — you invoke these by typing `/skill-name` in Claude Code. Each has a model tier in its name:
-
-| Tier    | Model  | Best for |
-|---------|--------|----------|
-| `delta` | Haiku  | Fast, routine tasks |
-| `gamma` | Sonnet | Balanced reasoning |
-| `omega` |  Opus  | Complex analysis |
-
-Categories: git, PR, doc, linear, merge, repo, review, suggest-task, wip, config, do.
-
-**Knowledge skills** (17) — Claude loads these automatically when it detects relevant keywords in your conversation. Mentioning "Svelte" triggers `svelte-ninja`; mentioning "Neo4j" triggers `cypher-linguist`. You never invoke them directly.
-
-Only the skill's short description loads at session start (cheap on context). The full knowledge pack loads on demand.
-
-### `agents/`: Autonomous Workflows
-
-Agents are **sub-processes** that Claude spawns to handle multi-step work independently:
-
-| Agent                    | Purpose |
-|--------------------------|---------|
-|    `design-reviewer`     | Review proposed features against design values before implementation |
-| `implementation-planner` | Break vague development requests into actionable plans |
-| `project-context-loader` | Rebuild mental context when switching between projects |
-|   `roadmap-maintainer`   | Keep documentation and roadmaps in sync with code changes |
-|      `scope-guard`       | Detect and flag scope creep before it becomes entrenched |
-|     `session-closer`     | Capture session state, update task tracker, write handoff note |
-|  `session-orchestrator`  | Build a work plan at session start from git history and priorities |
-|      `ship-checker`      | Multi-dimensional quality check before creating a PR |
-|       `task-sync`        | Keep Linear/GitHub Issues consistent with git and branch state |
-|    `test-gap-scanner`    | Identify untested code using risk-based prioritisation |
-
-They run in their own context window, so they don't clutter your main conversation.
-
-### `hooks/`: Automation
-
-Scripts that run automatically on git events and session lifecycle:
-
-| Hook                        | Trigger       | What it does |
-|-----------------------------|---------------|--------------|
-|   `post-commit-docs.zsh`    | After commit  | Checks if changed files need documentation updates |
-|     `settings-sync.sh`      | Session start | Strips JSONC comments from settings source of truth → settings.local.json |
-| `session-start-worktree.sh` | Session start | Injects worktree context into the session environment |
-| `stop-uncommitted-check.sh` |     Stop      | Warns about uncommitted changes when Claude finishes responding |
-
-The `settings-sync.sh` hook is what makes the `.jsonc` → `.json` source-of-truth approach work.
-
-### `docs/`: Documentation
-
-Guides for this repo. See the [Documentation Index](#documentation-index) below.
+For the full picture — how the layers fit together, what each costs to load, and the deterministic-half pattern behind several skills — see **[Architecture](docs/architecture.md)**.
 
 ---
 
-## How It All Fits Together
+## Building Your Own
 
-```text
-You type something in Claude Code
-        │
-        ├─ Keywords detected? ──→ Knowledge skill loads automatically
-        │
-        ├─ You type /skill-name? ──→ Command skill runs a defined workflow
-        │
-        ├─ Skill or Claude spawns agent? ──→ Agent works autonomously
-        │
-        └─ You push code? ──→ Hooks run checks and extraction
-
-Meanwhile, CLAUDE.md shapes every response throughout.
-```
-
-The key insight: **CLAUDE.md is always active**, knowledge skills activate on context, command skills activate on demand, and hooks activate on git and session events. Each layer has a different trigger and a different cost to your context window.
-
----
-
-## Key Concepts
-
-**Context window cost:** Everything Claude reads uses up its working memory. This setup is designed to be efficient: only descriptions load upfront, full content loads on demand. If you're building your own, this matters more than you'd think.
-
-**Model tiers:** Not every task needs the most powerful model. Haiku is fast and cheap for routine work. Opus is thorough but slower and more expensive. The tier system makes this choice explicit.
-
-**Organic growth:** None of this was planned upfront. Every skill and hook traces back to a specific problem that came up during actual work. If you're building your own setup, start with one friction point and go from there.
-
-For more on these ideas: [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO.md)
+The full guide is at [docs/guides/building-your-own.md](docs/guides/building-your-own.md). The short version: respect the context window, start from friction rather than speculation, encode decisions rather than preferences, and let it grow one problem at a time.
 
 ---
 
 ## Documentation Index
 
-### Guides
-
-| File                                                          | Description |
-|---------------------------------------------------------------|-------------|
-|  [How to Use This Repo](docs/guides/HOW-TO-USE-THIS-REPO.md)  | Comprehensive guide to the entire setup; start here |
-| [Agent Workflow Design](docs/guides/agent-workflow-design.md) | Design notes for the agent-based workflow patterns |
+| Page | Description |
+|---|---|
+| [Documentation wiki](docs/README.md) | Full index — start here for anything beyond this README |
+| [Architecture](docs/architecture.md) | How the layers fit, context-window cost, the deterministic-half pattern |
+| [Skills](docs/reference/skills.md) · [Agents](docs/reference/agents.md) · [Hooks](docs/reference/hooks.md) · [Library](docs/reference/library.md) · [Configuration](docs/reference/configuration.md) | Per-subsystem reference |
+| [Building Your Own](docs/guides/building-your-own.md) | Transferable process for building your own setup |
+| [Glossary](docs/glossary.md) | Vocabulary specific to this config |
