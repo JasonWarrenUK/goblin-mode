@@ -1,10 +1,17 @@
 <!DOCTYPE html>
 <!--
-	roadmap-artefact.html — template consumed by `roadmap.py render`.
-	Placeholders: %%TITLE%% (phase name), %%DATA%% (JSON blob:
-	{phase, generated, stats, ready, mermaid, validation}).
+	roadmap-artefact.html: template consumed by `roadmap.py render`.
+	Two placeholders, each substituted exactly once below: the phase-name
+	title (in the head and heading) and the JSON data blob
+	(phase, generated, stats, ready, mermaid, validation), which lands in the
+	roadmap-data script element near the foot of the document. Render does a
+	global string replace, so the data-blob token must appear verbatim exactly
+	once in this file (the render step asserts this); a second copy here would
+	inject the blob into this comment and the mermaid edge arrows would close
+	the comment early and spill the JSON onto the page. For the same reason
+	this comment must not contain a raw comment-close sequence.
 	Everything else is static so regenerated artefacts diff cleanly.
-	Palette: the canonical status→colour table from
+	Palette: the canonical status to colour table from
 	library/references/roadmap-conventions.md (STATUS_STYLE in roadmap.py).
 -->
 <html lang="en-GB">

@@ -646,6 +646,33 @@ def _default_render_path(json_path, phase):
             / f"roadmap-{_slug(phase.get('name'))}.html")
 
 
+def _assert_header_comment_clean(template_html, template):
+    """Guard against a stray comment-close in the template's header comment.
+
+    The template opens with an HTML comment block documenting its placeholders.
+    Its first comment-close sequence terminates that block; any *earlier* raw
+    close in the prose (or a data blob accidentally injected there) ends the
+    comment prematurely and spills the remainder onto the rendered page. The
+    header comment therefore must hold exactly one close sequence, and it must
+    fall before the <html> root. Fail render loudly rather than corrupt the
+    artefact.
+    """
+    open_marker = "<!--"
+    close_marker = "--" + ">"
+    start = template_html.find(open_marker)
+    root = template_html.find("<html")
+    if start == -1 or root == -1:
+        return
+    header = template_html[start:root]
+    closes = header.count(close_marker)
+    if closes != 1:
+        raise RoadmapError(
+            f"template header comment must contain exactly one comment-close "
+            f"sequence before <html>, found {closes} in {template}: a stray "
+            "close in the prose spills the page. Reword so the comment holds "
+            "no raw close sequence except its own terminator.")
+
+
 def _render_to(json_path, data, phase, out):
     template = _template_path()
     if not template.exists():
@@ -671,8 +698,21 @@ def _render_to(json_path, data, phase, out):
                                   omit_done=True, palette="vars"),
         "validation": _validate_phase(phase),
     }
-    payload = json.dumps(blob, ensure_ascii=False).replace("</", "<\\/")
-    html = (template.read_text()
+    # Escape every "<" and ">" as its \uXXXX form so the payload can never
+    # break out of its host element: "<" defuses "</script>" and the "<!--"
+    # comment open, ">" defuses the "-->" comment close (the mermaid source is
+    # full of "-->" edge arrows). < / > are valid JSON escapes and
+    # JSON.parse restores the literal characters, so the data is unchanged.
+    payload = (json.dumps(blob, ensure_ascii=False)
+               .replace("<", "\\u003c")
+               .replace(">", "\\u003e"))
+    template_html = template.read_text()
+    if template_html.count("%%DATA%%") != 1:
+        raise RoadmapError(
+            "template must contain exactly one %%DATA%% placeholder; found "
+            f"{template_html.count('%%DATA%%')} in {template}")
+    _assert_header_comment_clean(template_html, template)
+    html = (template_html
             .replace("%%TITLE%%", str(phase.get("name") or "Roadmap"))
             .replace("%%DATA%%", payload))
     out.parent.mkdir(parents=True, exist_ok=True)
