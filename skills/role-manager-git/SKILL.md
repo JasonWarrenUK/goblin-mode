@@ -1,6 +1,7 @@
 ---
 name: git-manager
 description: "Git workflow: branch management, commit conventions, PR patterns, conflict resolution."
+when_to_use: "When a git operation needs judgement beyond a single command — resolving a conflict, deciding a branch/commit strategy, or a workflow question that isn't already covered by one of the git-* command skills."
 user-invocable: false
 effort: low
 allowed-tools:

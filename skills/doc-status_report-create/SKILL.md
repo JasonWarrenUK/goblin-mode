@@ -1,6 +1,7 @@
 ---
 name: "Docs: Create Status Report"
 description: "{{ 𝚫𝚫𝚫 }} Create a status report that knows what you've done since the last one"
+when_to_use: "When you need a periodic progress update for someone non-technical or semi-technical — checks in at a cadence, so read the previous report first."
 model: haiku
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)", "Bash(python3:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]

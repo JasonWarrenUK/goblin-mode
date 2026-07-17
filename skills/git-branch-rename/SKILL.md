@@ -1,6 +1,7 @@
 ---
 name: "Branch: Rename If Needed"
-description: "{{ ƔƔƔ }} Rename branch if needed"
+description: "{{ ƔƔƔ }} Check the current branch name against convention (type/short-description) and rename it if it drifted — e.g. work started on a misnamed or default branch."
+when_to_use: "Before opening a PR, or whenever the branch name no longer reflects what it actually contains."
 model: sonnet
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)"]

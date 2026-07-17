@@ -1,6 +1,7 @@
 ---
 name: testing-obsessive
 description: "Pragmatic testing with Vitest: risk-based strategy, Svelte component testing, test-after development."
+when_to_use: "When writing or reviewing tests, or deciding what's worth testing at all — auto-loads on test/spec files, or when the conversation raises test coverage, Vitest setup, or 'should I test this'."
 user-invocable: false
 effort: medium
 paths:

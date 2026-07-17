@@ -1,6 +1,7 @@
 ---
 name: "Artefacts: Create Roadmap"
 description: "{{ 𝚫𝚫𝚫 }} Generate the HTML roadmap dashboard deterministically via roadmap.py render."
+when_to_use: "When you want to view or share the current roadmap as an interactive dashboard rather than reading roadmaps.json directly."
 model: haiku
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Bash(python3:*)", "Bash(open:*)"]

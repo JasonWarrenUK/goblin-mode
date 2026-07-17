@@ -1,6 +1,7 @@
 ---
 name: Debugging
 description: Systematic debugging methodology — runtime errors, test failures, logic bugs, performance issues, production incidents. Five-step framework, root-cause analysis, browser/Node/Svelte tooling, and common bug patterns.
+when_to_use: "When something is broken and the cause isn't obvious yet — an error, a failing test, unexpected behaviour, or a performance regression that needs systematic root-causing rather than guessing."
 user-invocable: false
 ---
 

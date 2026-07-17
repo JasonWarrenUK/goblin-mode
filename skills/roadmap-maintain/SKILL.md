@@ -1,6 +1,7 @@
 ---
 name: "Roadmap: Maintain"
 description: "{{ 𝛀𝛀𝛀 }} Recompute and synchronise roadmap task statuses across roadmaps.json and its projections"
+when_to_use: "When roadmap task statuses might have drifted from actual progress — after a batch of merges, or periodically to keep the dashboard trustworthy."
 model: opus
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)"]

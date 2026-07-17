@@ -1,6 +1,7 @@
 ---
 name: opentui-operative
 description: OpenTUI terminal UI library reference. Use when working with @opentui/core, terminal UIs, renderables, Yoga layouts, or Zig-native rendering.
+when_to_use: "When building or debugging a terminal UI with @opentui/core — renderable composition, Yoga layout issues, or anything touching the Zig-native rendering layer."
 user-invocable: false
 ---
 
