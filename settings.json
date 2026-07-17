@@ -67,7 +67,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "fable",
+  "model": "opusplan",
   "hooks": {
     "SessionStart": [
       {
@@ -140,7 +140,6 @@
     "playground@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": false,
     "pyright-lsp@claude-plugins-official": false,
-    "linear@claude-plugins-official": false,
     "discord@claude-plugins-official": false,
     "vhs-recorder@foundry": true,
     "copywriter@foundry": true

@@ -55,9 +55,5 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 
 `gen-skills-index.py` also lives here — see [Skills](skills.md#regenerating-the-index).
 
-## `skill-library/linear-skills/`
-
-Nine staged/inactive Linear-integration skills (`linear-check-deps-omega`, `linear-create-issue-in-project`, `linear-crit-path-to-project`, `linear-crit-path-to-task`, `linear-hoover-issues`, `linear-tackle-issue-{delta,gamma,omega}`, `linear-create-issue-related-to`). Written against the old `delta`/`gamma`/`omega` naming convention and not yet migrated into `skills/` proper — kept here as a holding area rather than deleted, since the Linear integration they cover is still relevant (see [CLAUDE.md §6.1](../../CLAUDE.md)).
-
 ---
 ← [Wiki home](../README.md) · [Skills](skills.md) · [Configuration](configuration.md)

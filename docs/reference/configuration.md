@@ -45,7 +45,7 @@ Delegates to the [ccstatusline](https://www.npmjs.com/package/ccstatusline) pack
 
 ## Enabled plugins
 
-`enabledPlugins` lists installed marketplace plugins and whether each is active. Currently on: `frontend-design`, `feature-dev`, `typescript-lsp`, `plugin-dev`, `hookify`, `claude-md-management`, `claude-code-setup`, `playwright`, `context7`, `visual-explainer`, `understand-anything`, `skill-creator`, `playground`, `vhs-recorder`, `copywriter`. Off: `code-simplifier`, `pyright-lsp`, `linear`, `discord`.
+`enabledPlugins` lists installed marketplace plugins and whether each is active. Currently on: `frontend-design`, `feature-dev`, `typescript-lsp`, `plugin-dev`, `hookify`, `claude-md-management`, `claude-code-setup`, `playwright`, `context7`, `visual-explainer`, `understand-anything`, `skill-creator`, `playground`, `vhs-recorder`, `copywriter`. Off: `code-simplifier`, `pyright-lsp`, `discord`.
 
 `extraKnownMarketplaces` registers three non-default marketplace sources (`visual-explainer-marketplace`, `understand-anything`, `foundry`) that some of the above plugins are installed from.
 

@@ -21,7 +21,8 @@ Factual, per-subsystem pages. These describe what exists, not why it was built.
 | [Skills](reference/skills.md) | Command vs. role skills, the runic model-tier convention, `when_to_use`, the generated index |
 | [Agents](reference/agents.md) | The 10 autonomous agents, the session and shipping loops |
 | [Hooks](reference/hooks.md) | Global and project-level Claude Code hooks, plus the unrelated git `pre-commit` dispatcher |
-| [Library](reference/library.md) | `references/`, `templates/`, `configs/examples/`, `scripts/` — the deterministic halves, and the staged Linear skills |
+| [Library](reference/library.md) | `references/`, `templates/`, `configs/examples/`, `scripts/` — the deterministic halves |
+| [Task Trackers](reference/task-trackers/README.md) | Tracker-agnostic status-transition convention, plus tool-specific detail for Linear, GitHub Issues, and git-native |
 | [Configuration](reference/configuration.md) | `settings.json` — model, permissions, worktree, plugins, personality knobs |
 
 For the full generated skill list (not duplicated here), see **[skills/README.md](../skills/README.md)**.

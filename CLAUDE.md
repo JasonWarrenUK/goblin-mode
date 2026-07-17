@@ -34,7 +34,7 @@
     - [4.1.2. YAML Frontmatter: Old Convention](#412-yaml-frontmatter-old-convention)
 - [5. Verification](#5-verification)
 - [6. Claude Code Behaviour](#6-claude-code-behaviour)
-  - [6.1. Linear Integration](#61-linear-integration)
+  - [6.1. Task Tracker Integration](#61-task-tracker-integration)
   - [6.2. Plans](#62-plans)
   - [6.3. Asking vs Proceeding](#63-asking-vs-proceeding)
   - [6.4. Verification](#64-verification)
@@ -258,9 +258,9 @@ Format: `description: "{{ ᛇᚤ }} Command description here"`
 
 ## 6. Claude Code Behaviour
 
-### 6.1. Linear Integration
+### 6.1. Task Tracker Integration
 
-When working with Linear issues, set status to 'In Progress' when starting work and 'In Review' when a PR is created. Never set issues to 'Done' unless explicitly asked.
+This config is tracker-agnostic — it makes no assumption about which project-management tool (if any) a given project uses. See `docs/reference/task-trackers/` for the shared status-transition convention (In Progress → In Review → Done, never automatic) and tool-specific detail for Linear, GitHub Issues, and git-native.
 
 ### 6.2. Plans
 
