@@ -8,12 +8,12 @@
 > | Then | Now |
 > |---|---|
 > | `/suggest:task` | `/task-suggest` |
-> | `/linear:tackle` | *(not yet migrated — see [Library → skill-library](../reference/library.md#skill-librarylinear-skills))* |
+> | `/linear:tackle` | *(never migrated — the staged `linear-skills/` holding area was removed when this config went tracker-agnostic; see [Task Trackers](../reference/task-trackers/README.md))* |
 > | `/git:commit` | `/git-commit-one` / `/git-commit-batch` |
 > | `/git:assess-branch` | `/git-branch-review` |
 > | `/git:pr` | `/pr-create` |
-> | `/linear:hoover` | *(not yet migrated)* |
-> | `/linear:crit-path-to` | *(not yet migrated)* |
+> | `/linear:hoover` | *(never migrated — see above)* |
+> | `/linear:crit-path-to` | *(never migrated — see above)* |
 > | `scope-coach` skill | `role-viewpoint-scope_coach` |
 > | `testing-obsessive` skill | `role-expert-testing_obsessive` |
 

@@ -10,14 +10,14 @@ See [Skills vs Agents](skills.md#skills-vs-agents) for how the two systems divid
 
 | Agent | Model | Purpose | Invoke with |
 |---|---|---|---|
-| `session-orchestrator` | Sonnet | Builds a ranked work plan at session start from project context, Linear state, open branches, and roadmap priorities. Primes the session on selection (sets Linear status, checks out the branch). | "What should I work on?" or `SessionStart` |
+| `session-orchestrator` | Sonnet | Builds a ranked work plan at session start from project context, task-tracker state, open branches, and roadmap priorities. Primes the session on selection (sets task-tracker status, checks out the branch). | "What should I work on?" or `SessionStart` |
 | `project-context-loader` | Sonnet | Rebuilds mental context when switching projects — git history, architectural decisions, current work state. | "What's the state of this project?" / "Catch me up on X" |
 | `implementation-planner` | Opus | Breaks a vague development request into a detailed, actionable implementation plan. | A feature request that needs structuring |
 | `design-reviewer` | Opus | Reviews a proposed feature against design values: sophistication, empowerment, robustness, ethics, explainability. | "Review this design" / "Does this approach hold up?" |
 | `scope-guard` | Sonnet | Proactively monitors scope during planning and implementation — plan step count, branch diff vs. stated task, drift. | "Is this getting too big?" / "Check scope" |
 | `test-gap-scanner` | Sonnet | Identifies undertested code via risk-based prioritisation (impact × complexity × change frequency) against the branch diff. | "What should I test?" or as a subagent of `ship-checker` |
 | `ship-checker` | Opus | Multi-dimensional pre-ship check: branch readiness, test gaps, doc staleness, breaking changes, task-tracker state, into one ready/not-ready verdict. | "Am I ready to ship?" / "check this branch" |
-| `task-sync` | Sonnet | Keeps the task tracker (Linear, GitHub Issues, or git-native) consistent with git/branch state. | "sync tasks" or as a subagent |
+| `task-sync` | Sonnet | Keeps the task tracker (see [Task Trackers](task-trackers/README.md) for supported sources) consistent with git/branch state. | "sync tasks" or as a subagent |
 | `roadmap-maintainer` | Opus | Keeps documentation and roadmaps aligned with actual code changes. | After significant progress, or a roadmap/doc request |
 | `session-closer` | Haiku | End-of-session wrap-up: summarises accomplishments, notes uncommitted work, updates task status, writes a handoff note. | "I'm done for today" / "wrap up" or `SessionEnd` |
 
