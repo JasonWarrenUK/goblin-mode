@@ -1,6 +1,7 @@
 ---
 name: api-designer
 description: "Type-safe API design: Zod validation, Result types, SvelteKit endpoints, middleware patterns."
+when_to_use: "When designing or reviewing an API endpoint, request/response contract, or validation layer — auto-loads on files under routes/ or api/, or when the conversation turns to API design, Zod schemas, or error handling."
 user-invocable: false
 effort: medium
 paths:

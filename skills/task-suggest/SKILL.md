@@ -1,6 +1,7 @@
 ---
 name: "Suggest: Task"
 description: "{{ 𝚫𝚫𝚫 }} Suggest the next logical task — grounded in the roadmap's pre-vetted ready-set when one exists, codebase analysis otherwise"
+when_to_use: "When you don't know what to work on next and want a grounded recommendation rather than picking arbitrarily."
 model: haiku
 effort: low
 disable-model-invocation: true

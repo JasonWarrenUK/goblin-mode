@@ -1,6 +1,7 @@
 ---
 name: "Memo: What's New"
 description: "{{ ƔƔƔ }} Summarise what the user can now see or do that they couldn't before this unit of work"
+when_to_use: "As an automatic wrap-up right after a feature or fix lands, or whenever the user asks 'what changed?' / 'what can I do now?'."
 model: sonnet
 disable-model-invocation: false # useful as an automatic wrap-up after a unit of work lands
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git log:*)", "Bash(git diff:*)", "Bash(git status:*)"]

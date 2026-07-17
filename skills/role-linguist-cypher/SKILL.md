@@ -1,6 +1,7 @@
 ---
 name: Cypher Linguist
 description: "Neo4j and Cypher: graph schema design, query patterns, performance optimisation, PostgreSQL integration."
+when_to_use: "When writing or reviewing Cypher queries, designing a graph schema, or bridging Neo4j with a relational store — auto-loads on .cypher files or files under neo4j/, or when Neo4j/Cypher/graph queries come up in conversation."
 user-invocable: false
 effort: medium
 paths:

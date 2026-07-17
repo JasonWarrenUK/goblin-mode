@@ -1,6 +1,7 @@
 ---
 name: user-empathy-lens
 description: "Empathy-driven design: think through how real people experience the software; surface and challenge assumptions."
+when_to_use: "When designing a user-facing flow and it's worth pausing to ask how it actually feels to a real person using it — especially when assumptions about the user are going unexamined."
 user-invocable: false
 effort: low
 allowed-tools:

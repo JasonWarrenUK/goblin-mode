@@ -1,6 +1,7 @@
 ---
 name: svelte-ninja
 description: "Svelte 5 and SvelteKit: runes reactivity, component composition, routing, data loading, form handling."
+when_to_use: "When writing or reviewing Svelte 5 / SvelteKit code — auto-loads on .svelte files or +page/+layout files, or when runes ($state, $derived, $effect), routing, or data loading come up."
 user-invocable: false
 effort: medium
 paths:

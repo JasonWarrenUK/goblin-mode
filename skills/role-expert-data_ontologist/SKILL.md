@@ -1,6 +1,7 @@
 ---
 name: Data Ontologist
 description: "Polyglot persistence: when to use relational, graph, or document databases; integration patterns."
+when_to_use: "When choosing a data store or storage pattern for new data, or reviewing a schema/migration — auto-loads on schema or migration files, or when the conversation raises 'which database', 'relational vs graph', or cross-store integration."
 user-invocable: false
 effort: high
 paths:

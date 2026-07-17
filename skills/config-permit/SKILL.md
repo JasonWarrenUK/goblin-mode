@@ -1,6 +1,7 @@
 ---
 name: "Config: Grant Permission"
 description: "{{ 𝚫𝚫𝚫 }} Grant a permission rule globally or for the current project"
+when_to_use: "When the user says things like 'allow X', 'add permission for Y', 'stop asking me about Z', or wants a Bash/tool rule added to settings without hand-editing JSON."
 model: haiku
 effort: low
 disable-model-invocation: true
