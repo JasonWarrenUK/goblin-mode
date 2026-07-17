@@ -14,7 +14,7 @@ allowed-tools:
   - "Edit"
   - "Write"
   - "AskUserQuestion"
-  - "Bash(~/.claude/skills/task-execute-stud/scripts/find-scaffold.sh:*)"
+  - "Bash(${CLAUDE_SKILL_DIR}/scripts/find-scaffold.sh:*)"
 disallowed-tools:
   - "Bash(git:*)"
   - "Bash(gh:*)"
