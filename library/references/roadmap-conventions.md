@@ -89,6 +89,45 @@ for todo and Bootstrap-era hexes; regenerating via `graph --mermaid` replaces
 both. classDef lines always come straight after the `graph LR`/`graph TD`
 line — before it is a silent render failure.
 
+## Codebase reconciliation (inference)
+
+Inference — deciding a task's status from the actual code rather than the
+dependency graph — lives in exactly one place: `roadmap-maintain`'s
+reconciliation step. Every other status change is mechanical (see above).
+This is deliberately narrow so the rest of the family can keep treating
+status as computed, not judged.
+
+**What inference may propose**, never write directly:
+
+- **`done`** — the task's described feature is fully implemented in code.
+- **Dependency/gate edge removal** — a blocker's prerequisite is now
+  satisfied, so the edge is removed from `dependsOn` (and a gate's `blocks[]`
+  in step); recompute then unblocks the task, same as any other edit to the
+  graph.
+
+Nothing else. Inference never hand-sets `todo`, `blocked`, `paused` or
+`deferred` directly — those stay purely derived. It never re-opens `done`,
+flips `out_of_scope`, or disturbs a root-seeded held status.
+
+**Evidence rule:** positive, specific, whole-task evidence only. Absence of a
+match is never evidence of completion. A task whose feature is only partly
+built is left as-is (there is no in-progress status) rather than marked
+done. Corroboration (a passing test, a real call-site) outweighs a lone
+definition.
+
+**Candidate seeding (efficiency):** only non-terminal tasks (`todo`,
+`blocked`, `paused`; never `done`/`out_of_scope`/`deferred`) are candidates,
+ordered by leverage (`ready --json`). Search is bounded to files changed
+since the last reconciliation (or a recent window on first run), with 1–3
+targeted search terms drawn from each candidate's description/notes — never
+a whole-tree scan.
+
+**Confirmation gate:** every proposed edit is shown with its evidence and
+applied only once approved — mirrors the proposal-then-write pattern in
+`roadmap-update-tasks`. Discrepancies found in the other direction (a task
+marked `done` whose code can no longer be found) are reported as drift, never
+auto-reverted — absence still isn't evidence.
+
 ## File formatting
 
 - `roadmaps.json`: tab indentation, `ensure_ascii` off, trailing newline
