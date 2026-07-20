@@ -42,6 +42,8 @@ Extract: **description**; **milestone** (which milestone — ask if unclear); **
 
 **Outgoing**: existing tasks that this new task should now block — add the new ID to their `dependsOn` (and mirror any gate parity). Completing this task may change those tasks' computed status (the recompute handles that).
 
+**Soft (`softDependsOn`):** an optional, best-effort link worth drawing but not worth blocking on — ask if the relationship is a real dependency or a soft one before defaulting to `dependsOn`. Renders dotted, imposes no status, no cycle constraint (see conventions reference for direction).
+
 ---
 
 ## Step 5 — Graph integrity checks (before writing)
@@ -54,7 +56,7 @@ Extract: **description**; **milestone** (which milestone — ask if unclear); **
 
 ## Step 6 — Compute the new task's status (mechanical)
 
-The mechanical status rule applies (see conventions reference): empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`; behind a gate that `imposes: paused`/`deferred` → `paused`/`deferred`. After wiring, confirm the new task's status and any downstream changes with `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute --check` (preview, no write).
+The mechanical status rule applies (see conventions reference): empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`; behind a gate that `imposes: paused`/`deferred` → `paused`/`deferred`. `softDependsOn` never feeds this rule. After wiring, confirm the new task's status and any downstream changes with `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute --check` (preview, no write).
 
 ---
 
@@ -79,7 +81,7 @@ Then ask: *"Does this look right? I'll write to the roadmap on your say-so."*
 
 ## Step 8 — Write to both artefacts (once approved)
 
-1. **`roadmaps.json`** — insert the task object in its milestone's `tasks[]` (field order `id, description, status, dependsOn, iterative, notes, assignee`; tabs; British spelling). Include `assignee` only when the user gave one — omit it entirely otherwise, exactly like `notes`. Update any existing tasks' `dependsOn`. Update any gate's `blocks[]` for parity. Add the placeholder task if any.
+1. **`roadmaps.json`** — insert the task object in its milestone's `tasks[]` (field order `id, description, status, dependsOn, softDependsOn, iterative, notes, assignee`; tabs; British spelling). Include `assignee`/`softDependsOn` only when the user gave one — omit them entirely otherwise, exactly like `notes`. Update any existing tasks' `dependsOn`. Update any gate's `blocks[]` for parity. Add the placeholder task if any.
 2. **PHASE file** — add the task line under its milestone with the status annotation (`_(blocked — depends on {IDs})_` etc.); update any existing task lines whose dependency clause changed; add the placeholder line.
 3. **Mermaid diagram** — replace the entire fenced `mermaid` block with the output of `python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR`. Never hand-edit edges, sinks or class lines — the generator recomputes milestone sinks (including any former sink displaced by the new task) and the canonical colours.
 4. **`ROADMAP_OVERVIEW.md`** — the task total changed, so update `**N tasks across M milestones.**` (get N from `roadmap.py stats`).

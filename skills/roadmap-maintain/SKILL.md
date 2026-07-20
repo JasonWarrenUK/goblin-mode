@@ -65,7 +65,9 @@ Read `.claude/roadmaps.json`, the active phase's PHASE file (its `path`), and `d
 
 ### 2. Apply the explicit status changes and edge removals requested
 
-If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first — preserving tab indentation, field order (`id, description, status, dependsOn, iterative, notes, assignee`), and the `notes`/`iterative`/`assignee` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here — this step edits status only.
+If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first — preserving tab indentation, field order (`id, description, status, dependsOn, softDependsOn, iterative, notes, assignee`), and the `notes`/`iterative`/`assignee`/`softDependsOn` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here — this step edits status only.
+
+If the user asks to add or remove a soft (optional, best-effort) link between two nodes, edit the relevant task's `softDependsOn` array directly — see the conventions reference for direction and semantics. Soft edges never go through the recompute in step 3; they're pure data, picked up automatically when the diagram regenerates in step 5.
 
 If Step 0 ran, this is also where its **approved** edits land: set `status: done` on each approved done-ID, and remove each approved dependency/gate edge from the relevant task's `dependsOn` (and the gate's `blocks[]`, keeping the two in parity). Apply only what was explicitly approved — an unconfirmed or reverse-drift item from Step 0 is never written here.
 
@@ -96,6 +98,8 @@ For each task whose status changed (from the script's output), update its line i
 
 Line format: `- [ ] **{ID}** — {description}` + annotation. Indented `- Note:` sub-bullets stay attached to their task and are never moved. Do not reorder tasks — they stay in milestone/category/sequence order.
 
+Soft edges have no annotation of their own — they're carried entirely by the Mermaid diagram (step 5), never by a checkbox-line annotation.
+
 ### 5. Regenerate the Mermaid dependency diagram
 
 Replace the entire fenced `mermaid` block under `## Dependency Diagram` with the output of:
@@ -104,7 +108,7 @@ Replace the entire fenced `mermaid` block under `## Dependency Diagram` with the
 python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR
 ```
 
-Wholesale replacement — never line-edit class lists or recolour by hand. The generated block carries the canonical classDefs, every edge under the terminal milestone convention, and correct `class` statements, so the diagram cannot drift from the JSON. (A legacy diagram that used the `open` class or old hexes is fixed by this same replacement.)
+Wholesale replacement — never line-edit class lists or recolour by hand. The generated block carries the canonical classDefs, every edge under the terminal milestone convention, and correct `class` statements, so the diagram cannot drift from the JSON. (A legacy diagram that used the `open` class or old hexes is fixed by this same replacement.) `softDependsOn` entries render as dotted edges (`X -.-> Y`) in this same output — never hand-add a dotted edge afterwards; it authors as data or it gets wiped by the next reconcile.
 
 ### 6. Keep ROADMAP_OVERVIEW.md in sync
 

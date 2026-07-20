@@ -53,7 +53,7 @@ Format: `{MilestoneNum}{Category}.{Seq}` — e.g. `1EV.1`, `3IN.6`. Sub-tasks us
 
 ### 5. Compute initial statuses (mechanical)
 
-The mechanical status rule from the conventions reference applies: empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`. No task starts `done` unless the user says the work is already complete. `paused`/`deferred` are only for tasks parked behind a gate or a later phase.
+The mechanical status rule from the conventions reference applies: empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`. No task starts `done` unless the user says the work is already complete. `paused`/`deferred` are only for tasks parked behind a gate or a later phase. `softDependsOn` never feeds this rule.
 
 ### 6. Generate `.claude/roadmaps.json`
 
@@ -80,10 +80,11 @@ The top level is an **array of phase objects**. Append + archive the superseded 
 ]
 ```
 
-- Field order — tasks: `id, description, status, dependsOn, iterative, notes, assignee`; gates: `id, name, status, imposes, blocks, notes`. Include `notes`/`iterative`/`assignee` only when meaningful — `assignee` is free-text with no roster, and must never be guessed.
+- Field order — tasks: `id, description, status, dependsOn, softDependsOn, iterative, notes, assignee`; gates: `id, name, status, imposes, blocks, notes`. Include `softDependsOn`/`notes`/`iterative`/`assignee` only when meaningful — `assignee` is free-text with no roster, and must never be guessed.
 - **External gates** (`externalGates`, per phase, beside `milestones`) model things outside the team's control that block work: `{id, name, status:"external", imposes?, blocks[], notes?}`. `imposes` (default `blocked`; may be `paused` or `deferred`) is the status the gate forces on its blocked children; `blocks[]` is the reverse edge — every task ID that lists this gate in its `dependsOn`. A gate ID can appear in a task's `dependsOn`.
 - A `dependsOn` entry may be a **milestone ID** (`M1`, `MP`…): it resolves `done` only when every task in that milestone is `done`.
 - The `iterative: true` flag marks a task that loops to convergence — descriptive only, never a cyclic `dependsOn`.
+- A `softDependsOn` entry authors an optional, best-effort link that renders dotted in the diagram (`X -.-> Y`) but imposes no status, no cycle constraint, and no sink effect (full semantics in the conventions reference). Use it for relationships worth showing but not worth blocking on — never hand-draw a dotted line into the generated diagram instead.
 
 ### 7. Generate `docs/roadmaps/{PHASE}.md`
 
