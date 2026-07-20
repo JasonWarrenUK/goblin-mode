@@ -214,6 +214,14 @@ class Ready(unittest.TestCase):
         self.assertEqual(ids[0], "a")  # highest leverage first
         self.assertTrue(by_id["d"]["isMilestoneSink"])
 
+    def test_assignee_projected_when_set_and_empty_when_absent(self):
+        ph = phase([{"id": "M1", "name": "m1", "tasks": [
+            task("a", assignee="jason"),
+            task("b")]}])
+        by_id = {c["id"]: c for c in roadmap.build_ready(ph)["candidates"]}
+        self.assertEqual(by_id["a"]["assignee"], "jason")
+        self.assertEqual(by_id["b"]["assignee"], "")
+
 
 class Mermaid(unittest.TestCase):
     def setUp(self):
@@ -258,6 +266,28 @@ class Mermaid(unittest.TestCase):
     def test_vars_palette_uses_custom_properties(self):
         src = roadmap.mermaid_source(self.ph, palette="vars")
         self.assertIn("fill:var(--color-todo-bg)", src)
+
+    def test_orphan_gates_are_not_drawn(self):
+        ph = phase(
+            [{"id": "M1", "name": "m", "tasks": [task("a", "todo", ["G1"])]}],
+            gates=[{"id": "G1", "name": "live", "status": "todo",
+                    "blocks": ["a"]},
+                   {"id": "G2", "name": "resolved", "status": "todo",
+                    "blocks": []}])
+        src = roadmap.mermaid_source(ph)
+        self.assertIn('G1["', src)
+        self.assertNotIn('G2["', src)
+
+    def test_nodes_declared_in_topological_order(self):
+        src = roadmap.mermaid_source(self.ph)
+        lines = src.splitlines()
+
+        def decl(nid):
+            return next(i for i, l in enumerate(lines)
+                        if l.strip().startswith(f'{nid}["'))
+        self.assertLess(decl("a"), decl("b"))   # a --> b
+        self.assertLess(decl("b"), decl("M1"))  # sink into milestone
+        self.assertLess(decl("M1"), decl("c"))  # milestone as dependency
 
 
 class FileBased(unittest.TestCase):
@@ -342,6 +372,16 @@ class FileBased(unittest.TestCase):
         self.assertNotIn("%%DATA%%", html)
         self.assertNotIn("%%TITLE%%", html)
         self.assertIn("roadmap-data", html)
+
+    def test_render_includes_assignee_when_set(self):
+        data = [phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", "todo", assignee="jason")]}], name="My Phase")]
+        root, jp = self._project(data)
+        rc = roadmap.main(["render", str(jp)])
+        self.assertEqual(rc, 0)
+        out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
+        html = out.read_text()
+        self.assertIn("jason", html)  # assignee reaches the embedded data blob
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@ Requires Python 3.8+, stdlib only. British spelling throughout.
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 import os
 import re
@@ -471,10 +472,38 @@ def _classdef_lines(palette):
     return lines
 
 
+def _topological_order(ids, order, edges):
+    """Stable Kahn's algorithm: among the ready nodes, always emit the one
+    that appears first in the roadmap. Any cycle remainder (invalid, but the
+    diagram should still draw) is appended in roadmap order."""
+    indeg = {}
+    out = {}
+    for e in edges:
+        indeg[e["to"]] = indeg.get(e["to"], 0) + 1
+        out.setdefault(e["from"], []).append(e["to"])
+    heap = [(order[i], i) for i in ids if indeg.get(i, 0) == 0]
+    heapq.heapify(heap)
+    topo = []
+    while heap:
+        _, nid = heapq.heappop(heap)
+        topo.append(nid)
+        for tgt in out.get(nid, []):
+            indeg[tgt] -= 1
+            if indeg[tgt] == 0:
+                heapq.heappush(heap, (order[tgt], tgt))
+    emitted = set(topo)
+    topo.extend(sorted((i for i in ids if i not in emitted), key=order.get))
+    return topo
+
+
 def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     """The complete Mermaid diagram for a phase, classDefs included, so the
     PHASE.md projection and the artefact can never drift. classDefs come
     straight after the graph-type line (before it is a silent render failure).
+    Gates that gate nothing (resolved/superseded, kept in the data for the
+    record) are not drawn. Nodes and edges are emitted in topological order —
+    every source declared before its dependants — which gives the layout
+    engine a cleaner rank assignment and a more readable diagram.
     """
     graph = build_graph(phase)
     by_id = {n["id"]: n for n in graph["nodes"]}
@@ -493,13 +522,24 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
             if n["kind"] == "milestone" and not milestone_live.get(n["id"], False):
                 skipped.add(n["id"])
 
+    live_edges = [e for e in graph["edges"]
+                  if e["from"] not in skipped and e["to"] not in skipped]
+    connected = ({e["from"] for e in live_edges}
+                 | {e["to"] for e in live_edges})
+    skipped.update(n["id"] for n in graph["nodes"]
+                   if n["kind"] == "gate" and n["id"] not in connected)
+
+    order = {n["id"]: i for i, n in enumerate(graph["nodes"])}
+    ids = [n["id"] for n in graph["nodes"] if n["id"] not in skipped]
+    topo = _topological_order(ids, order, live_edges)
+    topo_idx = {nid: i for i, nid in enumerate(topo)}
+
     lines = [f"graph {direction}"]
     lines.extend(_classdef_lines(palette))
 
     status_members = {}
-    for n in graph["nodes"]:
-        if n["id"] in skipped:
-            continue
+    for nid in topo:
+        n = by_id[nid]
         if n["kind"] == "milestone":
             lines.append(f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::mile')
         elif n["kind"] == "gate":
@@ -513,9 +553,8 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
             if cls:
                 status_members.setdefault(cls, []).append(n["id"])
 
-    for e in graph["edges"]:
-        if e["from"] in skipped or e["to"] in skipped:
-            continue
+    for e in sorted(live_edges,
+                    key=lambda e: (topo_idx[e["from"]], topo_idx[e["to"]])):
         lines.append(f'\t{e["from"]} --> {e["to"]}')
 
     for cls in ["todo", "blocked", "paused", "deferred", "done", "outOfScope"]:
@@ -601,6 +640,7 @@ def build_ready(phase):
             "transitiveUnblocks": len(transitive(tid)),
             "isMilestoneSink": tid in sinks.get(mid, []),
             "notes": t.get("notes", ""),
+            "assignee": t.get("assignee", ""),
         })
     candidates.sort(key=lambda c: (-c["transitiveUnblocks"],
                                    -c["milestoneDonePct"], c["id"]))
@@ -624,8 +664,9 @@ def cmd_ready(args) -> int:
           "highest leverage first")
     for c in ready["candidates"]:
         sink = "  [completes milestone]" if c["isMilestoneSink"] else ""
+        who = f"  ({c['assignee']})" if c.get("assignee") else ""
         print(f"  {c['id']:8} unblocks {c['transitiveUnblocks']:<3} "
-              f"{c['milestone']} {c['milestoneDonePct']}% done{sink}")
+              f"{c['milestone']} {c['milestoneDonePct']}% done{sink}{who}")
         print(f"           {c['description']}")
     return 0
 
@@ -687,6 +728,7 @@ def _render_to(json_path, data, phase, out):
                 "dependsOn": t.get("dependsOn", []),
                 "milestone": m["id"],
                 "notes": t.get("notes", ""),
+                "assignee": t.get("assignee", ""),
             })
     blob = {
         "phase": phase.get("name"),
