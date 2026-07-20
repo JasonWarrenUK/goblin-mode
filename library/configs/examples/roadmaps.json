@@ -1,0 +1,76 @@
+[
+	{
+		"name": "Example Phase",
+		"path": "docs/roadmaps/EXAMPLE.md",
+		"archived": false,
+		"externalGates": [
+			{
+				"id": "GDEPLOY",
+				"name": "Staging environment provisioned",
+				"status": "external",
+				"imposes": "blocked",
+				"blocks": [
+					"2SR.2"
+				]
+			}
+		],
+		"milestones": [
+			{
+				"id": "M1",
+				"name": "Data ingestion",
+				"goal": "Get raw data flowing into the pipeline reliably.",
+				"tasks": [
+					{
+						"id": "1IN.1",
+						"description": "Write the CSV ingest adapter",
+						"status": "done",
+						"dependsOn": [],
+						"assignee": "jason"
+					},
+					{
+						"id": "1IN.2",
+						"description": "Add schema validation on ingest",
+						"status": "todo",
+						"dependsOn": [
+							"1IN.1"
+						],
+						"assignee": "jason"
+					},
+					{
+						"id": "1IN.3",
+						"description": "Handle malformed rows without failing the batch",
+						"status": "blocked",
+						"dependsOn": [
+							"1IN.2"
+						]
+					}
+				]
+			},
+			{
+				"id": "M2",
+				"name": "Search",
+				"goal": "Make ingested data searchable.",
+				"tasks": [
+					{
+						"id": "2SR.1",
+						"description": "Index ingested records",
+						"status": "blocked",
+						"dependsOn": [
+							"M1"
+						]
+					},
+					{
+						"id": "2SR.2",
+						"description": "Deploy the search API to staging",
+						"status": "blocked",
+						"dependsOn": [
+							"2SR.1",
+							"GDEPLOY"
+						],
+						"notes": "Waiting on infra to provision the staging box."
+					}
+				]
+			}
+		]
+	}
+]
