@@ -137,7 +137,10 @@ auto-reverted — absence still isn't evidence.
   another formatter) in a hook or CI should exclude the artefact glob from
   it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
   dashboard never fights the formatter.
-- Task field order: `id, description, status, dependsOn, iterative?, notes?`
+- Task field order: `id, description, status, dependsOn, iterative?, notes?, assignee?`
+- `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
+  Never inferred — a skill setting it must ask, never guess from description,
+  git author, category, or who's running the skill.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
 - Phase field order: `name, path, archived?, externalGates, milestones`
 - British spelling in all descriptions, notes and prose projections

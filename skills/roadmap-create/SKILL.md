@@ -45,6 +45,7 @@ Ask targeted questions before generating anything (2–3 per round, not a long f
 - **Milestones:** how many (typical 3–5)? Each milestone's goal and its completion criterion.
 - **Categories:** the logical groupings within each milestone. Use 2–3 letter prefixes (e.g. `EV` = evaluation, `IN` = ingestion, `SR` = search).
 - **Dependencies:** which milestones are sequential vs parallel; any known external blockers or prerequisites.
+- **Assignees (optional):** if the user wants to attribute tasks to people up front, ask who owns what. Never infer an assignee from category, milestone, or anything else — leave it unset for any task the user doesn't name an owner for.
 
 ### 4. Assign task IDs
 
@@ -79,7 +80,7 @@ The top level is an **array of phase objects**. Append + archive the superseded 
 ]
 ```
 
-- Field order — tasks: `id, description, status, dependsOn, iterative, notes`; gates: `id, name, status, imposes, blocks, notes`. Include `notes`/`iterative` only when meaningful.
+- Field order — tasks: `id, description, status, dependsOn, iterative, notes, assignee`; gates: `id, name, status, imposes, blocks, notes`. Include `notes`/`iterative`/`assignee` only when meaningful — `assignee` is free-text with no roster, and must never be guessed.
 - **External gates** (`externalGates`, per phase, beside `milestones`) model things outside the team's control that block work: `{id, name, status:"external", imposes?, blocks[], notes?}`. `imposes` (default `blocked`; may be `paused` or `deferred`) is the status the gate forces on its blocked children; `blocks[]` is the reverse edge — every task ID that lists this gate in its `dependsOn`. A gate ID can appear in a task's `dependsOn`.
 - A `dependsOn` entry may be a **milestone ID** (`M1`, `MP`…): it resolves `done` only when every task in that milestone is `done`.
 - The `iterative: true` flag marks a task that loops to convergence — descriptive only, never a cyclic `dependsOn`.

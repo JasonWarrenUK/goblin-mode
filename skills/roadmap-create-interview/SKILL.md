@@ -105,6 +105,7 @@ Assign:
 - **Proposed status** — computed mechanically: `todo` if it has no incomplete dependencies, `blocked` if it depends on anything not yet `done`, `paused`/`deferred` if it sits behind a gate that imposes those
 - **Incoming dependencies** — existing task IDs, a milestone ID, or a gate ID that must resolve first
 - **Outgoing dependencies** — existing tasks this would unblock, or new tasks in this batch that depend on it
+- **Assignee** — only if the user names one during the interview. Ask, don't infer — unlike status, this is never computed. Leave unset if nobody said who owns it.
 
 ### Cross-task dependencies within the batch
 
@@ -127,6 +128,7 @@ Format the proposal clearly. Group tasks by milestone. For each task:
 {ID}. {Description}
   Milestone: {N} — {Name}
   Status: {todo / blocked / paused / deferred}
+  Assignee: {name, or "unassigned"}
   Depends on: {task/milestone/gate IDs or "nothing"}
   Enables: {IDs — existing or new — or "nothing yet"}
   [⚠ Orphan — no connections found] (if applicable)
