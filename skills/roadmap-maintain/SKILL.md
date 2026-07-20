@@ -65,7 +65,7 @@ Read `.claude/roadmaps.json`, the active phase's PHASE file (its `path`), and `d
 
 ### 2. Apply the explicit status changes and edge removals requested
 
-If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first — preserving tab indentation, field order (`id, description, status, dependsOn, iterative, notes`), and the `notes`/`iterative` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds.
+If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first — preserving tab indentation, field order (`id, description, status, dependsOn, iterative, notes, assignee`), and the `notes`/`iterative`/`assignee` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here — this step edits status only.
 
 If Step 0 ran, this is also where its **approved** edits land: set `status: done` on each approved done-ID, and remove each approved dependency/gate edge from the relevant task's `dependsOn` (and the gate's `blocks[]`, keeping the two in parity). Apply only what was explicitly approved — an unconfirmed or reverse-drift item from Step 0 is never written here.
 

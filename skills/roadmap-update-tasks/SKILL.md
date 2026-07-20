@@ -26,7 +26,7 @@ Read the full `roadmaps.json` and the active phase's PHASE file before adding �
 
 ## Step 2 — Understand what to add
 
-Extract: **description**; **milestone** (which milestone — ask if unclear); **category** (2–3 letter prefix, reuse an existing one in that milestone where it fits); **dependencies** (what must be done first; what it unblocks). Ask before proceeding if any is ambiguous — a badly placed task is worse than a delayed one.
+Extract: **description**; **milestone** (which milestone — ask if unclear); **category** (2–3 letter prefix, reuse an existing one in that milestone where it fits); **dependencies** (what must be done first; what it unblocks); **assignee** (ask the user directly — never infer it from the description, the git author, the category owner, or who is running this skill; leave it unset if the user doesn't say). Ask before proceeding if any is ambiguous — a badly placed task is worse than a delayed one.
 
 ---
 
@@ -63,6 +63,7 @@ The mechanical status rule applies (see conventions reference): empty `dependsOn
 ```text
 New task: {ID} — {description}
 Milestone: {N} — {Milestone Name}   Status: {todo|blocked|paused|deferred}
+Assignee: {name, or "unassigned"}
 Dependencies (in): {IDs / milestone / gate, or "none"}
 Dependencies (out): {task IDs this gets added to, or "none"}
 Placeholder child: {ID and description, or "none"}
@@ -78,7 +79,7 @@ Then ask: *"Does this look right? I'll write to the roadmap on your say-so."*
 
 ## Step 8 — Write to both artefacts (once approved)
 
-1. **`roadmaps.json`** — insert the task object in its milestone's `tasks[]` (field order `id, description, status, dependsOn, iterative, notes`; tabs; British spelling). Update any existing tasks' `dependsOn`. Update any gate's `blocks[]` for parity. Add the placeholder task if any.
+1. **`roadmaps.json`** — insert the task object in its milestone's `tasks[]` (field order `id, description, status, dependsOn, iterative, notes, assignee`; tabs; British spelling). Include `assignee` only when the user gave one — omit it entirely otherwise, exactly like `notes`. Update any existing tasks' `dependsOn`. Update any gate's `blocks[]` for parity. Add the placeholder task if any.
 2. **PHASE file** — add the task line under its milestone with the status annotation (`_(blocked — depends on {IDs})_` etc.); update any existing task lines whose dependency clause changed; add the placeholder line.
 3. **Mermaid diagram** — replace the entire fenced `mermaid` block with the output of `python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR`. Never hand-edit edges, sinks or class lines — the generator recomputes milestone sinks (including any former sink displaced by the new task) and the canonical colours.
 4. **`ROADMAP_OVERVIEW.md`** — the task total changed, so update `**N tasks across M milestones.**` (get N from `roadmap.py stats`).
