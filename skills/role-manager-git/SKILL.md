@@ -295,6 +295,10 @@ git rebase -i HEAD~4  # Interactive squash if needed
 git push origin feat/add-user-authentication
 ```
 
+## GitHub Operations
+
+A `github` MCP server (`@modelcontextprotocol/server-github`, user-scoped) is available for GitHub operations — PRs, issues, repo metadata — as an alternative to shelling out to `gh`. Prefer the MCP tools when working with GitHub-hosted repos and structured data is useful (e.g. parsing PR review comments); `gh` remains fine for quick one-off CLI calls. Note: the server needs `GITHUB_PERSONAL_ACCESS_TOKEN` set to do anything beyond unauthenticated public reads.
+
 ## Additional resources
 
 Mechanical how-to and reference material, loaded only when needed:
