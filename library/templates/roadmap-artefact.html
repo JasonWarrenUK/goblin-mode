@@ -172,6 +172,17 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 .diagram-shell.expanded { position: fixed; inset: 1.5rem; z-index: 10; box-shadow: 0 4px 40px rgba(0,0,0,0.35); }
 .diagram-shell.expanded .mermaid-wrap { height: calc(100% - 0px); }
 
+.legend {
+	display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; align-items: center;
+	margin-top: 0.6rem; font-size: 0.78rem; color: var(--muted);
+	font-family: "IBM Plex Mono", monospace;
+}
+.legend .key { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend .sw { width: 0.9rem; height: 0.9rem; border-radius: 3px; border: 1.5px solid; box-sizing: border-box; }
+.legend .key--mile { font-weight: 600; }
+.legend .key--gate { font-style: italic; }
+.legend .keynote { flex-basis: 100%; }
+
 .nextup li { display: block; }
 .pill {
 	font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
@@ -227,6 +238,16 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 					<button data-act="expand" title="Expand">⤢</button>
 				</div>
 				<div class="mermaid-wrap" id="wrap"><div id="diagram"></div></div>
+			</div>
+			<div class="legend">
+				<span class="key"><i class="sw" style="background:var(--color-todo-bg);border-color:var(--color-todo)"></i>todo</span>
+				<span class="key"><i class="sw" style="background:var(--color-blocked-bg);border-color:var(--color-blocked);border-width:2px"></i>blocked</span>
+				<span class="key"><i class="sw" style="background:var(--color-paused-bg);border-color:var(--color-paused);border-style:dashed"></i>paused</span>
+				<span class="key"><i class="sw" style="background:var(--color-deferred-bg);border-color:var(--color-deferred);border-style:dashed"></i>deferred</span>
+				<span class="key"><i class="sw" style="background:var(--color-out-of-scope-bg);border-color:var(--color-out-of-scope);border-style:dotted"></i>out of scope</span>
+				<span class="key key--mile"><i class="sw" style="background:var(--color-milestone-bg);border-color:var(--color-milestone)"></i>milestone</span>
+				<span class="key key--gate"><i class="sw" style="background:var(--color-gate-bg);border-color:var(--color-gate);border-style:dashed"></i>external gate</span>
+				<span class="keynote">tasks flow into the milestone node that they complete; done tasks and fully-done milestones are hidden</span>
 			</div>
 		</section>
 
@@ -299,9 +320,10 @@ document.getElementById("milestone-details").innerHTML = st.milestones.map((m, i
 		const items = members.map(t => {
 			const dep = (t.dependsOn && t.dependsOn.length)
 				? `<span class="depnote">depends on ${esc(t.dependsOn.join(", "))}</span>` : "";
+			const who = t.assignee ? `<span class="pill">${esc(t.assignee)}</span>` : "";
 			return `<li class="${status === "out_of_scope" ? "oos" : ""}"
 				style="--g-colour:var(--color-${varName})">
-				<span class="tid">${esc(t.id)}</span>${esc(t.description)} ${dep}</li>`;
+				<span class="tid">${esc(t.id)}</span>${esc(t.description)} ${dep}${who}</li>`;
 		}).join("");
 		return `<div class="group" style="--g-colour:var(--color-${varName})">
 			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
@@ -315,23 +337,54 @@ document.getElementById("milestone-details").innerHTML = st.milestones.map((m, i
 }).join("");
 
 /* Section 3 — Dependency graph */
+/* ELK lays out this dense a graph with far fewer crossings than the default
+   dagre engine; if its module fails to load, dagre still renders. */
+let layout = "dagre";
+try {
+	const elkLayouts = (await import("https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0/dist/mermaid-layout-elk.esm.min.mjs")).default;
+	mermaid.registerLayoutLoaders(elkLayouts);
+	layout = "elk";
+} catch { /* CDN unreachable — fall back */ }
 mermaid.initialize({
 	startOnLoad: false,
 	theme: "base",
+	layout,
 	themeVariables: {
 		fontSize: "16px",
 		fontFamily: '"IBM Plex Mono", monospace',
 	},
 });
-const { svg } = await mermaid.render("roadmap-graph", DATA.mermaid);
-document.getElementById("diagram").innerHTML = svg;
-
-/* Zoom/pan: buttons, ctrl+wheel, drag; expand toggles a fixed overlay */
+/* Mermaid 11's classDef parser rejects var(--x), so the semantic variables
+   are resolved to concrete colours before rendering, and the graph re-renders
+   when the colour scheme flips so it keeps tracking the page theme. A render
+   failure is contained to the diagram shell — the sections after it must
+   still populate. */
 const wrap = document.getElementById("wrap");
 const shell = document.getElementById("shell");
-const svgEl = wrap.querySelector("svg");
+const diagram = document.getElementById("diagram");
+let svgEl = null;
 let scale = 1, tx = 0, ty = 0;
-const apply = () => { svgEl.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
+const apply = () => { if (svgEl) svgEl.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
+const renderGraph = async () => {
+	const rootStyle = getComputedStyle(document.documentElement);
+	const src = DATA.mermaid.replace(/var\((--[\w-]+)\)/g,
+		(_, name) => rootStyle.getPropertyValue(name).trim() || "#888888");
+	try {
+		const { svg } = await mermaid.render("roadmap-graph", src);
+		diagram.innerHTML = svg;
+	} catch (err) {
+		document.getElementById("droadmap-graph")?.remove();
+		diagram.innerHTML = `<p class="depnote">Dependency graph failed to render: ${esc(String(err))}</p>`;
+		return;
+	}
+	svgEl = wrap.querySelector("svg");
+	svgEl.addEventListener("dblclick", () => shell.classList.toggle("expanded"));
+	apply();
+};
+await renderGraph();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderGraph);
+
+/* Zoom/pan: buttons, ctrl+wheel, drag; expand toggles a fixed overlay */
 const zoom = f => { scale = Math.min(4, Math.max(0.25, scale * f)); apply(); };
 shell.querySelector(".diagram-toolbar").addEventListener("click", e => {
 	const act = e.target.dataset.act;
@@ -349,7 +402,6 @@ let drag = null;
 wrap.addEventListener("pointerdown", e => { drag = { x: e.clientX - tx, y: e.clientY - ty }; wrap.setPointerCapture(e.pointerId); });
 wrap.addEventListener("pointermove", e => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); } });
 wrap.addEventListener("pointerup", () => { drag = null; });
-svgEl.addEventListener("dblclick", () => shell.classList.toggle("expanded"));
 
 /* Section 4 — Next Up (pre-vetted by roadmap.py ready) */
 document.getElementById("ready").innerHTML = DATA.ready.candidates.length
@@ -357,6 +409,7 @@ document.getElementById("ready").innerHTML = DATA.ready.candidates.length
 		<li style="--g-colour:var(--color-todo)">
 			<span class="tid">${esc(c.id)}</span>${esc(c.description)}
 			<span class="pill">${esc(c.milestone)}: ${esc(c.milestoneName)}</span>
+			${c.assignee ? `<span class="pill">${esc(c.assignee)}</span>` : ""}
 			<span class="signal">unblocks ${c.transitiveUnblocks}${c.isMilestoneSink ? " · completes milestone" : ""}</span>
 		</li>`).join("")
 	: "<li>No unblocked tasks — clear a blocker or a gate.</li>";
