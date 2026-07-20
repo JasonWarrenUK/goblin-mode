@@ -24,9 +24,11 @@ from _roadmap_core import (
 )
 
 
-def task(tid, status="todo", depends=None, **extra):
+def task(tid, status="todo", depends=None, soft=None, **extra):
     t = {"id": tid, "description": f"task {tid}", "status": status,
          "dependsOn": depends or []}
+    if soft:
+        t["softDependsOn"] = soft
     t.update(extra)
     return t
 
@@ -97,6 +99,12 @@ class RecomputePrecedence(unittest.TestCase):
                     "imposes": "nonsense", "blocks": ["a"]}])
         self.assertEqual(self.compute(ph)["a"], "blocked")
 
+    def test_soft_dep_imposes_no_status(self):
+        # b's only inbound edge is soft; it must stay todo, never blocked.
+        ph = phase([{"id": "M1", "name": "m", "tasks": [
+            task("a"), task("b", "todo", soft=["a"])]}])
+        self.assertEqual(self.compute(ph)["b"], "todo")
+
 
 class Cycles(unittest.TestCase):
     def test_task_cycle_detected(self):
@@ -124,6 +132,14 @@ class Cycles(unittest.TestCase):
         tasks, milestones, _ = build_index(ph)
         self.assertEqual(find_cycles(tasks, milestones), [])
 
+    def test_soft_cycle_is_not_a_cycle(self):
+        # a --> b (hard) closed by b -.-> a (soft): find_cycles must ignore
+        # softDependsOn entirely, since find_cycles only reads dependsOn.
+        ph = phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", "todo", ["b"]), task("b", soft=["a"])]}])
+        tasks, milestones, _ = build_index(ph)
+        self.assertEqual(find_cycles(tasks, milestones), [])
+
 
 class Sinks(unittest.TestCase):
     def test_sinks_ignore_cross_milestone_dependents(self):
@@ -134,6 +150,14 @@ class Sinks(unittest.TestCase):
         sinks = milestone_sinks(ph)
         self.assertEqual(sinks["M1"], ["b"])   # a feeds b in-milestone
         self.assertEqual(sinks["M2"], ["c"])
+
+    def test_sinks_ignore_soft_dependents(self):
+        # b's only in-milestone dependent (a) is soft, not hard: a stays a
+        # sink. milestone_sinks reads dependsOn only.
+        ph = phase([{"id": "M1", "name": "m1", "tasks": [
+            task("a"), task("b", soft=["a"])]}])
+        sinks = milestone_sinks(ph)
+        self.assertEqual(sinks["M1"], ["a", "b"])
 
 
 class ActivePhase(unittest.TestCase):
@@ -278,6 +302,18 @@ class Mermaid(unittest.TestCase):
         self.assertIn('G1["', src)
         self.assertNotIn('G2["', src)
 
+    def test_soft_edge_renders_dotted(self):
+        # a -.-> b is soft-only; c --> d is hard-only, so both arrow forms
+        # are asserted against unambiguous pairs.
+        ph = phase([{"id": "M1", "name": "m1", "tasks": [
+            task("a"), task("b", soft=["a"])]},
+            {"id": "M2", "name": "m2", "tasks": [
+                task("c"), task("d", "todo", ["c"])]}])
+        src = roadmap.mermaid_source(ph)
+        self.assertIn("a -.-> b", src)
+        self.assertIn("c --> d", src)
+        self.assertNotIn("c -.-> d", src)
+
     def test_nodes_declared_in_topological_order(self):
         src = roadmap.mermaid_source(self.ph)
         lines = src.splitlines()
@@ -372,6 +408,27 @@ class FileBased(unittest.TestCase):
         self.assertNotIn("%%DATA%%", html)
         self.assertNotIn("%%TITLE%%", html)
         self.assertIn("roadmap-data", html)
+
+    def test_soft_edges_survive_recompute_and_reconsecutive_graph_runs(self):
+        # The regression this prevents: hand-authored dotted edges wiped by
+        # a subsequent reconcile. softDependsOn must survive `recompute`
+        # (which rewrites the file) and `graph --mermaid` must emit the
+        # same dotted edge identically across two consecutive calls.
+        data = [phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", "done"),
+            task("b", "todo", soft=["a"])]}])]
+        root, jp = self._project(data)
+        self.assertEqual(roadmap.main(["recompute", str(jp)]), 0)
+        after = json.loads(jp.read_text())
+        self.assertEqual(
+            after[0]["milestones"][0]["tasks"][1]["softDependsOn"], ["a"])
+
+        _path, reloaded = roadmap.load(str(jp))
+        ph = roadmap.active_phase(reloaded)
+        first = roadmap.mermaid_source(ph)
+        second = roadmap.mermaid_source(ph)
+        self.assertIn("a -.-> b", first)
+        self.assertEqual(first, second)
 
     def test_render_includes_assignee_when_set(self):
         data = [phase([{"id": "M1", "name": "m", "tasks": [

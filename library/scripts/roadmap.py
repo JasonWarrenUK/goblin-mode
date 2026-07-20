@@ -185,6 +185,9 @@ def _validate_phase(phase):
                 problems.append(f"{tid}: dependsOn {dep!r} resolves to nothing")
             if dep in gates:
                 gate_expected_blocks[dep].add(tid)
+        for dep in task.get("softDependsOn", []):
+            if dep not in known:
+                problems.append(f"{tid}: softDependsOn {dep!r} resolves to nothing")
 
     for gid, gate in gates.items():
         imposes = gate.get("imposes")
@@ -441,6 +444,9 @@ def build_graph(phase):
                 edges.append({"from": dep, "to": tid, "kind": "milestone-dep"})
             elif dep in gates:
                 edges.append({"from": dep, "to": tid, "kind": "gate"})
+        for dep in task.get("softDependsOn", []):
+            if dep in tasks or dep in milestones or dep in gates:
+                edges.append({"from": dep, "to": tid, "kind": "soft", "soft": True})
     for mid, sink_ids in sinks.items():
         for sid in sink_ids:
             edges.append({"from": sid, "to": mid, "kind": "milestone-complete"})
@@ -504,6 +510,12 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     record) are not drawn. Nodes and edges are emitted in topological order —
     every source declared before its dependants — which gives the layout
     engine a cleaner rank assignment and a more readable diagram.
+
+    softDependsOn edges render dotted (-.->) and are fed into the same
+    topological ordering as hard edges for layout stability; unlike
+    dependsOn they may form cycles (Kahn's tolerates this by appending the
+    remainder in roadmap order) and never impose status, block a milestone
+    sink, or fail validation's acyclicity check.
     """
     graph = build_graph(phase)
     by_id = {n["id"]: n for n in graph["nodes"]}
@@ -554,8 +566,10 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
                 status_members.setdefault(cls, []).append(n["id"])
 
     for e in sorted(live_edges,
-                    key=lambda e: (topo_idx[e["from"]], topo_idx[e["to"]])):
-        lines.append(f'\t{e["from"]} --> {e["to"]}')
+                    key=lambda e: (topo_idx.get(e["from"], len(topo)),
+                                   topo_idx.get(e["to"], len(topo)))):
+        arrow = "-.->" if e.get("soft") else "-->"
+        lines.append(f'\t{e["from"]} {arrow} {e["to"]}')
 
     for cls in ["todo", "blocked", "paused", "deferred", "done", "outOfScope"]:
         members = status_members.get(cls)
