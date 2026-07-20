@@ -27,6 +27,7 @@ local -a files=(
 	"skills/roadmap-update-tasks/SKILL.md"
 	"skills/artefact-roadmap/SKILL.md"
 	"skills/task-suggest/SKILL.md"
+	"skills/roadmap-build-zip/SKILL.md"
 )
 
 cd "$repo_root"
