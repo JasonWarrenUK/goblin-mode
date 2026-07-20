@@ -41,7 +41,10 @@ dependency → at least `blocked`, escalating under the precedence
 A root-seeded `paused`/`deferred` (parked status with empty `dependsOn`) is
 held as authored and never recomputed. A `todo` task is by definition
 unblocked. Statuses are computed, not judged — run `recompute`, do not
-hand-assign (except the held seeds and the terminal pair).
+hand-assign (except the held seeds and the terminal pair). `softDependsOn`
+never feeds this rule — a soft dependency can never impose `blocked` (or any
+other status) on its dependant, regardless of the soft dependency's own
+status.
 
 ## Graph conventions
 
@@ -59,6 +62,29 @@ tasks and a SOURCE for anything depending on the whole milestone:
 (a → M2 → member → a is a cycle). Conceptual loops use the `iterative: true`
 flag, never a real back-edge; the flag surfaces as a `↻` marker in diagrams,
 not an edge.
+
+**Soft edges (`softDependsOn`):** an optional, best-effort link — "renders
+in the diagram, imposes nothing" — for relationships worth showing but not
+worth blocking on. A task's `softDependsOn` list holds ids (task, milestone,
+or gate) the same way `dependsOn` does, but resolved through a wholly
+separate code path so it stays invisible to every hard-dependency consumer
+by construction:
+
+- renders as a dotted arrow `X -.-> Y` (never `-->`) in `graph --mermaid`
+  and the artefact
+- never imposes status — a soft dependency cannot make its dependant
+  `blocked`, no matter the soft dependency's own status
+- exempt from the acyclicity rule above — a soft edge may close a loop that
+  would be invalid as a hard `dependsOn` edge (that's often the point: an
+  override or best-effort refresh that intentionally points "backwards")
+- never disqualifies a task from being a milestone sink — only `dependsOn`
+  entries within a milestone count toward the sink computation
+- an unresolvable `softDependsOn` id is reported by `validate` (mirroring
+  `dependsOn`'s unresolvable-id check), not silently dropped
+
+Author soft edges as data in `roadmaps.json`; never hand-draw a `-.->` line
+into a generated `PHASE.md` or artefact — the next regeneration wipes
+anything not in the source data.
 
 ## Status → colour table (canonical)
 
@@ -137,7 +163,7 @@ auto-reverted — absence still isn't evidence.
   another formatter) in a hook or CI should exclude the artefact glob from
   it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
   dashboard never fights the formatter.
-- Task field order: `id, description, status, dependsOn, iterative?, notes?, assignee?`
+- Task field order: `id, description, status, dependsOn, softDependsOn?, iterative?, notes?, assignee?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred — a skill setting it must ask, never guess from description,
   git author, category, or who's running the skill.
