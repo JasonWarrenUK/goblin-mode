@@ -249,9 +249,9 @@ function partition(findings, postableByFile) {
   };
 }
 
-/** Renders a finding as a single body bullet, e.g. "- 🟡 `path` — text". */
+/** Renders a finding as a single body bullet, e.g. "- 🟡 `path`: text". */
 function renderBullet(finding) {
-  const location = finding.file ? `\`${finding.file}\` — ` : '';
+  const location = finding.file ? `\`${finding.file}\`: ` : '';
   return `- ${finding.type} ${location}${finding.body}`;
 }
 
