@@ -67,7 +67,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "opusplan",
+  "model": "fable",
   "hooks": {
     "SessionStart": [
       {
@@ -195,6 +195,10 @@
   "alwaysThinkingEnabled": false,
   "autoUpdatesChannel": "latest",
   "tui": "fullscreen",
+  "voice": {
+    "enabled": false,
+    "mode": "hold"
+  },
   "showThinkingSummaries": true,
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
@@ -205,6 +209,7 @@
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
+  "voiceEnabled": false,
   "feedbackSurveyState": {
     "lastShownTime": 1753968902528
   }
