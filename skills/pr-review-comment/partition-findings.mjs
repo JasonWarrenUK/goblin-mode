@@ -19,18 +19,18 @@
  * all, which is why every non-inlineable finding folds into `body` instead.
  * See SKILL.md's <api-constraints> block for the full rationale.
  *
- * Usage:
- *   node partition-findings.mjs \
- *     --findings <path>.json --diff <path>.diff \
- *     --summary-file <path>.md --out <path>.json
+ * Usage (stdin/stdout only — no scratch files):
+ *   <assemble JSON> | node partition-findings.mjs > review-payload.json
  *   node partition-findings.mjs --self-test
  *
- * Input (--findings): { verdict, findings: [...] }
+ * Stdin: { verdict, findings: [...], diff, summary }
  *   Each finding: { type: "🔴"|"🟠"|"🟡"|"🟣", scope: "line"|"file"|"cross-file",
  *                    file?, line?, range?: {start,end}, body, suggestion? }
+ *   diff: verbatim `gh pr diff` output. summary: review summary prose.
  *
- * Output (--out): { body, comments: [...] } — exact review-create shape.
- * Stdout: { inline, folded, offDiffDemoted } stats.
+ * Stdout: { body, comments: [...] } — exact review-create shape, ready to
+ * pipe into `gh api ... --input -`. Stats ({ inline, folded, offDiffDemoted })
+ * go to stderr so stdout stays pure JSON.
  *
  * Prose gate: before anything is written to --out, the summary text and every
  * comment body are validated for two classes of slop that have leaked into
@@ -40,9 +40,14 @@
  * failures (non-zero exit, nothing written) — no auto-strip, no silent fix.
  */
 
-import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+
+/** Reads all of stdin synchronously as utf-8 text. */
+function readStdin() {
+  return readFileSync(0, 'utf-8');
+}
 
 const VALID_TYPES = ['🔴', '🟠', '🟡', '🟣'];
 
@@ -279,72 +284,56 @@ function composeBody(summary, sections) {
 
 function parseArgs(argv) {
   const args = {};
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === '--self-test') { args.selfTest = true; continue; }
-    const m = arg.match(/^--([a-z-]+)$/);
-    if (m) { args[m[1]] = argv[++i]; }
+  for (const arg of argv) {
+    if (arg === '--self-test') args.selfTest = true;
   }
   return args;
 }
 
-function run({ findings: findingsPath, diff: diffPath, 'summary-file': summaryPath, out: outPath }) {
-  if (!findingsPath || !diffPath || !summaryPath || !outPath) {
+/**
+ * Runs the full partition+validate+compose pipeline over one input object
+ * and returns the review-create payload. Pure function — no I/O — so it's
+ * usable both from the stdin CLI entrypoint and from the self-tests.
+ */
+function buildPayload({ findings, diff, summary }) {
+  validateSummary(summary);
+  const postableByFile = parseDiffHunks(diff);
+  const result = partition(findings || [], postableByFile);
+  validateComments(result.comments);
+  const body = composeBody(summary, result.sections);
+  return { payload: { body, comments: result.comments }, stats: result.stats };
+}
+
+function run() {
+  const raw = readStdin();
+
+  let input;
+  try {
+    input = JSON.parse(raw);
+  } catch (err) {
+    process.stderr.write(`Error: partition-findings: stdin is not valid JSON: ${err.message}\n`);
+    process.exit(1);
+  }
+
+  const { findings, diff, summary } = input;
+  if (diff == null || summary == null) {
     process.stderr.write(
-      'Usage: node partition-findings.mjs --findings <path> --diff <path> ' +
-      '--summary-file <path> --out <path>\n',
+      'Error: partition-findings: stdin must be { verdict, findings, diff, summary } — ' +
+      '"diff" and "summary" are required.\n',
     );
     process.exit(1);
   }
 
-  let input;
+  let built;
   try {
-    input = JSON.parse(readFileSync(findingsPath, 'utf-8'));
-  } catch (err) {
-    process.stderr.write(`Error: partition-findings: unreadable/invalid --findings JSON at ${findingsPath}: ${err.message}\n`);
-    process.exit(1);
-  }
-
-  let diffText, summaryText;
-  try {
-    diffText = readFileSync(diffPath, 'utf-8');
-    summaryText = readFileSync(summaryPath, 'utf-8');
-  } catch (err) {
-    process.stderr.write(`Error: partition-findings: unreadable input file: ${err.message}\n`);
-    process.exit(1);
-  }
-
-  // Fail fast on summary slop before doing any diff work — no point parsing
-  // hunks if the run's going to be rejected anyway.
-  try {
-    validateSummary(summaryText);
+    built = buildPayload({ findings, diff, summary });
   } catch (err) {
     process.stderr.write(`Error: partition-findings: ${err.message}\n`);
     process.exit(1);
   }
 
-  const postableByFile = parseDiffHunks(diffText);
-
-  let result;
-  try {
-    result = partition(input.findings || [], postableByFile);
-  } catch (err) {
-    process.stderr.write(`Error: partition-findings: ${err.message}\n`);
-    process.exit(1);
-  }
-
-  try {
-    validateComments(result.comments);
-  } catch (err) {
-    process.stderr.write(`Error: partition-findings: ${err.message}\n`);
-    process.exit(1);
-  }
-
-  const body = composeBody(summaryText, result.sections);
-  const payload = { body, comments: result.comments };
-
-  writeFileSync(outPath, JSON.stringify(payload, null, 2), 'utf-8');
-  process.stdout.write(JSON.stringify(result.stats) + '\n');
+  process.stdout.write(JSON.stringify(built.payload, null, 2) + '\n');
+  process.stderr.write(JSON.stringify(built.stats) + '\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -598,7 +587,7 @@ if (isCliEntry()) {
     if (args.selfTest) {
       selfTest();
     } else {
-      run(args);
+      run();
     }
   } catch (err) {
     process.stderr.write(`partition-findings.mjs failed: ${err.message}\n${err.stack}\n`);

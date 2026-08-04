@@ -4,13 +4,13 @@ description: "{{ 𝛀𝛀𝛀 }} Review a pull request and post it as a GitHub r
 when_to_use: "When you want a PR review posted directly as a GitHub review (inline comments + verdict), not just printed to the terminal."
 model: opus
 disable-model-invocation: true
-allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(node:*)", "Bash(jq:*)", "Read", "Glob", "Grep"]
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(node:*)", "Bash(jq:*)"]
 argument-hint: ["PR number/url"]
 ---
 
 # PR Review with Comment
 
-Thin wrapper around `pr-review` — all methodology (foci, taxonomy, matrix, verdict logic, writing rules) lives there. This skill turns those findings into a single GitHub review, using `partition-findings.mjs` (in this skill's folder) to do the deterministic diff-matching and payload assembly.
+Thin wrapper around `pr-review` — all methodology (foci, taxonomy, matrix, verdict logic, writing rules) lives there. This skill turns those findings into a single GitHub review, using `partition-findings.mjs` (in this skill's folder) to do the deterministic diff-matching and payload assembly. Everything stays in context and in a single shell pipeline: no scratch files are read or written at any point.
 
 ```xml
 <pull-request-review-and-comment>
@@ -18,11 +18,16 @@ Thin wrapper around `pr-review` — all methodology (foci, taxonomy, matrix, ver
   <steps>
     <step num="1">Resolve `owner`, `repo`, and `pull_number` — from `$ARGUMENTS` if it's a full URL, otherwise via `gh pr view $ARGUMENTS --json number,headRepositoryOwner,headRepository`.</step>
     <step num="2">Check for prior reviews from this skill: resolve the authenticated login via `gh api user --jq .login`, then `gh api repos/{owner}/{repo}/pulls/{pull_number}/reviews --jq '[.[] | select(.user.login == "<login>")]'` and `gh api repos/{owner}/{repo}/pulls/{pull_number}/comments --jq '[.[] | select(.user.login == "<login>")]'`. If either returns entries, this is a re-review — enter <follow-up-mode/>. Otherwise proceed cold.</step>
-    <step num="3">Load the pr-review skill and run it against `$ARGUMENTS` to produce structured findings, a summary, and a derived verdict. In follow-up mode, pass the prior findings in as context per <follow-up-mode/>. Do not skip or duplicate pr-review's methodology here.</step>
-    <step num="4">Write the findings to a scratch file as `{ "verdict": ..., "findings": [...] }` (e.g. `/tmp/pr-findings.json`) — build via a direct file write, not inline-escaped JSON, to avoid quoting issues with emoji/backticks/suggestion fences. Capture `gh pr diff $ARGUMENTS` verbatim to `/tmp/pr.diff` and the review summary prose verbatim to `/tmp/pr-summary.md`. The summary prose (and every comment body) must contain **no em-dashes, en-dashes, or other dash-family separators** — use a semicolon, colon, or parentheses instead. `partition-findings.mjs` hard-fails the run if it finds one, so getting this right up front avoids a wasted round-trip.</step>
-    <step num="5">Run `node ${CLAUDE_SKILL_DIR}/partition-findings.mjs --findings /tmp/pr-findings.json --diff /tmp/pr.diff --summary-file /tmp/pr-summary.md --out /tmp/review-payload.json` (`${CLAUDE_SKILL_DIR}` resolves to this skill's directory wherever it is installed). This partitions findings per <mapping/>, composes the review body, **validates the summary and every comment body** (dash-family ban + a banned-emoji check on the summary — see <api-constraints/>), and writes the ready-to-POST payload. It prints `{inline, folded, offDiffDemoted}` stats to stdout. On non-zero exit, treat stderr as a hard failure — read the message, fix the offending prose in `/tmp/pr-summary.md` or the findings, and re-run step 5. Do not attempt to hand-build the payload as a fallback.</step>
-    <step num="6">Create the review as **pending**: `gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/reviews --input /tmp/review-payload.json`. Omit `event` entirely — this is what keeps the review PENDING (author-only) rather than publishing immediately. Capture the returned `review_id`.</step>
-    <step num="7">Auto-submit immediately using the verdict from pr-review: `gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/events -f event="$VERDICT"`, where `$VERDICT` is one of `APPROVE` / `REQUEST_CHANGES` / `COMMENT`.</step>
+    <step num="3">Load the pr-review skill and run it against `$ARGUMENTS` to produce structured findings, a summary, and a derived verdict. In follow-up mode, pass the prior findings in as context per <follow-up-mode/>. Do not skip or duplicate pr-review's methodology here. Keep the findings, summary, and verdict in context — nothing gets written to disk at any point in this skill.</step>
+    <step num="4">Assemble one JSON object in context (never on disk): `{ "verdict": ..., "findings": [...], "diff": "<verbatim gh pr diff $ARGUMENTS output>", "summary": "<verbatim review summary prose>" }`. The summary prose (and every comment body inside `findings[].body`) must contain **no em-dashes, en-dashes, or other dash-family separators** — use a semicolon, colon, or parentheses instead. `partition-findings.mjs` hard-fails the run if it finds one, so getting this right up front avoids a wasted round-trip.</step>
+    <step num="5">Feed that JSON straight into a single pipeline, with `partition-findings.mjs` reading it from stdin and `gh api` reading the resulting payload from stdin in turn — nothing touches disk at any point:
+      <code>
+node ${CLAUDE_SKILL_DIR}/partition-findings.mjs <<'JSON_EOF' | gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/reviews --input -
+{ "verdict": "...", "findings": [...], "diff": "...", "summary": "..." }
+JSON_EOF
+      </code>
+      `${CLAUDE_SKILL_DIR}` resolves to this skill's directory wherever it is installed. The script partitions findings per <mapping/>, composes the review body, **validates the summary and every comment body** (dash-family ban + a banned-emoji check on the summary — see <api-constraints/>), and writes the ready-to-POST payload to stdout; stats `{inline, folded, offDiffDemoted}` go to stderr so stdout stays pure JSON for `gh api` to consume. Omitting `event` on the `gh api` call is what keeps the review **pending** (author-only) rather than publishing immediately. Capture the returned `review_id` from the response. On non-zero exit from the node step, treat stderr as a hard failure — read the message, fix the offending prose in the heredoc's summary or findings, and re-run the whole pipeline. Do not attempt to hand-build the payload as a fallback, and do not split this into separate write-then-read steps through a file.</step>
+    <step num="6">Auto-submit immediately using the verdict from pr-review: `gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/events -f event="$VERDICT"`, where `$VERDICT` is one of `APPROVE` / `REQUEST_CHANGES` / `COMMENT`.</step>
   </steps>
   <api-constraints>
     <!-- Verified against GitHub REST docs (2022-11-28). State these plainly so the model never re-derives them live and never reintroduces the bug this skill used to have. -->
@@ -52,7 +57,7 @@ Thin wrapper around `pr-review` — all methodology (foci, taxonomy, matrix, ver
     <rule>pr-review verdict "Approve" → event `APPROVE`</rule>
   </verdict-map>
   <toggle>
-    <guide>To switch to manual submission (review pending in the GitHub UI until a human submits it): skip step 7 entirely and stop after step 6. One-line change — do not add complexity beyond deleting the step.</guide>
+    <guide>To switch to manual submission (review pending in the GitHub UI until a human submits it): skip step 6 entirely and stop after step 5. One-line change — do not add complexity beyond deleting the step.</guide>
   </toggle>
 </pull-request-review-and-comment>
 ```
