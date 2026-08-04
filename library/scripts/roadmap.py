@@ -661,6 +661,26 @@ def build_ready(phase):
     return {"phase": phase.get("name"), "candidates": candidates}
 
 
+def _truncate_notes(candidates, limit=200):
+    """Cap each candidate's notes field for the --json path.
+
+    build_ready() carries full notes prose because _render_to() reuses the
+    same shape for the HTML dashboard, where the full history is the point.
+    The AI-consumed --json path only needs enough to justify a pick — Step 1
+    of task-suggest reasons over transitiveUnblocks/isMilestoneSink/
+    milestoneDonePct, not notes prose — so truncate here rather than at the
+    source and regress the dashboard.
+    """
+    out = []
+    for c in candidates:
+        c = dict(c)
+        notes = c.get("notes", "")
+        if len(notes) > limit:
+            c["notes"] = notes[:limit].rsplit(" ", 1)[0] + "…"
+        out.append(c)
+    return out
+
+
 def cmd_ready(args) -> int:
     try:
         _path, data = load(args.path)
@@ -669,6 +689,7 @@ def cmd_ready(args) -> int:
         print(f"✗ {exc}")
         return 2
     if args.json:
+        ready = {**ready, "candidates": _truncate_notes(ready["candidates"])}
         print(json.dumps(ready, indent="\t"))
         return 0
     if not ready["candidates"]:
