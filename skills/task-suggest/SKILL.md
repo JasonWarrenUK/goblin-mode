@@ -38,12 +38,14 @@ Name the chosen task by its roadmap ID and say which signals drove the choice. I
 
 ## Step 2 — Fallback: codebase analysis
 
-Analyse the current state of the codebase, then compare it to the project documentation. Rules:
+Analyse the current state of the codebase, then compare it to the project documentation. Hard caps, not suggestions:
 
-1. Conserve tokens by being selective in which files you read.
-2. Where possible, use dev scripts in @./package.json & @./scripts rather than reading file content.
-3. If a focus area was given, focus suggestions on that area.
-4. There is no roadmap data here to filter by assignee — if an assignee was given, say this fallback can't honour it rather than guessing.
+1. **Read budget: 5 files max.** README/CLAUDE.md + package.json first; stop once you can name a task, don't keep reading "for completeness".
+2. **No open-ended Grep/Glob sweeps.** One targeted Grep at most (e.g. TODO/FIXME markers), scoped to a path — never a bare repo-wide search.
+3. Prefer `git log --oneline -15` and `git status` over reading source: recent commits + open changes usually reveal "what's next" faster than re-deriving it from code.
+4. Where possible, use dev scripts in @./package.json & @./scripts rather than reading file content.
+5. If a focus area was given, restrict all reads/greps to that area only — don't scan the whole repo first.
+6. There is no roadmap data here to filter by assignee — if an assignee was given, say this fallback can't honour it rather than guessing.
 
 ## Always
 
