@@ -1,6 +1,6 @@
 # Stud conventions (mechanical reference)
 
-Agent-reference material shared by the stud skills (`task-execute-stud`, `role-approach-stud`). Loaded at runtime; not written for a human reader. The skill bodies carry the *why*; this file carries the mechanical *how* so the two lineages can't drift on the mechanics.
+Agent-reference material shared by the stud skills (`do-stud`, `clod-approach-stud`). Loaded at runtime; not written for a human reader. The skill bodies carry the *why*; this file carries the mechanical *how* so the two lineages can't drift on the mechanics.
 
 ## Scaffold banners: new vs edited
 
