@@ -22,11 +22,10 @@ Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 
 | Template | Filled in by |
 |---|---|
-| `ADR.md` | `doc-adr-create` |
+| `ADR.md` | `doc-adr` |
 | `api-reference.md`, `technical-overview.md`, `feature-spec.md` | `doc-readme` / `doc-misc-update`, ad hoc |
 | `readme-root.md`, `readme-sub.md` | `doc-readme` — root vs. directory-level READMEs get different section sets |
 | `roadmap.md`, `roadmap-artefact.html` | `roadmap-create` (prose) / `artefact-roadmap` (the HTML dashboard shell, rendered by `roadmap.py render`) |
-| `status-report.md` | `doc-status_report-create` |
 | `work-record.md` | Session/agent work-record entries (e.g. `session-closer`) |
 | `pr-description.md` | `pr-create` and `pr-update` share this template so the two can't drift on PR body structure |
 
@@ -46,8 +45,11 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 |---|---|---|
 | `branch-facts.sh` | `git-branch-review` | Emits branch-readiness facts as JSON — commit quality, diff size, naming — so the model judges from exact numbers |
 | `deps-dump.sh` | `project-investigate-deps` | Detects the package manager from lockfiles, dumps declared vs. installed vs. latest versions plus audit output in one pass |
-| `git-doc-history.sh` | `doc-misc-update`, `doc-readme`, `doc-status_report-create` | "What changed since this doc was last touched" — one structured dump instead of several exploratory git calls |
+| `git-doc-history.sh` | `doc-misc-update`, `doc-readme` | "What changed since this doc was last touched" — one structured dump instead of several exploratory git calls |
 | `git-integrate.sh` | `git-integrate` | Mechanical merge/rebase/squash execution; the model only steps in on exit code 3 (conflicts) or to write the squash message |
+| `pr-facts.sh` | `pr-update` | PR metadata, current body, watermark and every commit since it in one dump |
+| `pr-wall.sh` | `hud-pr_wall` | Buckets open PRs by relationship to the user (GraphQL search) and cross-references local clones |
+| `safe-version-next.sh` | `distro-tag_version`, `pr-land` | `svu next` with a programmatic guard: never crosses 0.x → 1.x automatically |
 | `roadmap.py` + `_roadmap_core.py` | The whole roadmap-\* family | Single CLI for the rich phase-array roadmap system — ID assignment, status computation, dependency graph integrity, HTML rendering |
 | `config_permit.py` | `config-permit` | Deterministic half of permission-granting — the skill's `allowed-tools` is scoped to only this one script |
 | `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data — fails fast on a malformed finding instead of rendering it wrong |
