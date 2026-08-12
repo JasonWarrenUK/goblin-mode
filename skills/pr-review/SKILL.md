@@ -1,80 +1,63 @@
 ---
 name: "PR: Review"
-description: "{{ 𝛀𝛀𝛀 }} Review a pull request"
-when_to_use: "When you want a read-only review of a PR's diff printed to the conversation — for a posted GitHub review use pr-review-comment, which calls this skill internally."
+description: "{{ 𝛀𝛀𝛀 }} Review a pull request and post it as a GitHub review"
+when_to_use: "When you want a PR review posted directly as a GitHub review (inline comments + verdict), not just printed to the terminal."
 model: opus
-disable-model-invocation: false # required so pr-review-comment can call it
-allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
-disallowed-tools: ["Edit", "Write", "NotebookEdit"] # reviews, never fixes
+disable-model-invocation: true
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(node:*)", "Bash(jq:*)"]
 argument-hint: ["PR number/url"]
 ---
 
-# PR Review
+# PR Review with Comment
 
-Canonical review methodology. Produces structured findings only; **never posts to GitHub**. `pr-review-comment` loads this skill and handles posting — keep all methodology here to avoid divergence.
+Thin wrapper around `pr-review-dry_run` — all methodology (foci, taxonomy, matrix, verdict logic, writing rules) lives there. This skill turns those findings into a single GitHub review, using `partition-findings.mjs` (in this skill's folder) to do the deterministic diff-matching and payload assembly. Everything stays in context and in a single shell pipeline: no scratch files are read or written at any point.
 
 ```xml
-<pull-request-review>
-  <task>Review the pull request identified by `$ARGUMENTS` and produce structured findings. Do not post anything to GitHub.</task>
+<pull-request-review-and-comment>
+  <task>Review the pull request identified by `$ARGUMENTS` and post the findings as one GitHub review. If this skill has reviewed this PR before, build on that prior review instead of starting cold.</task>
   <steps>
-    <step num="1">Run `gh pr view $ARGUMENTS` to get PR title, description, and metadata</step>
-    <step num="2">Run `gh pr diff $ARGUMENTS` to get the full diff — always PR vs `origin/main`, regardless of the local branch checked out</step>
-    <step num="3">Research project conventions stored in `CLAUDE.md`, `.claude/**/*` and `docs/*`. Before critiquing implementation, check whether the dev is following established project practice</step>
-    <step num="4">Classify every finding by <taxonomy/> type and by scope (line / file / cross-file)</step>
-    <step num="5">Where a line-scoped 🔴/🟠/🟡 finding has a concrete fix, write it as a committable ```suggestion block per <suggestions/></step>
-    <step num="6">Write every comment body **and the `summary`** (including the follow-up delta, when in that mode) per the writing-style skill's anti-slop rules (no em dashes, no contrastive couplets, no parade-of-examples, lead with specifics). This isn't just style guidance here — when this skill's output feeds `pr-review-comment`, its `partition-findings.mjs` hard-fails the post on any em-dash/en-dash in the summary or a comment body. Get it right here, upstream, rather than relying on that gate to catch it</step>
-    <step num="7">Emit findings using <output/>. This is the full deliverable — stop here, nothing gets posted</step>
+    <step num="1">Resolve `owner`, `repo`, and `pull_number` — from `$ARGUMENTS` if it's a full URL, otherwise via `gh pr view $ARGUMENTS --json number,headRepositoryOwner,headRepository`.</step>
+    <step num="2">Check for prior reviews from this skill: resolve the authenticated login via `gh api user --jq .login`, then `gh api repos/{owner}/{repo}/pulls/{pull_number}/reviews --jq '[.[] | select(.user.login == "<login>")]'` and `gh api repos/{owner}/{repo}/pulls/{pull_number}/comments --jq '[.[] | select(.user.login == "<login>")]'`. If either returns entries, this is a re-review — enter <follow-up-mode/>. Otherwise proceed cold.</step>
+    <step num="3">Load the pr-review-dry_run skill and run it against `$ARGUMENTS` to produce structured findings, a summary, and a derived verdict. In follow-up mode, pass the prior findings in as context per <follow-up-mode/>. Do not skip or duplicate pr-review-dry_run's methodology here. Keep the findings, summary, and verdict in context — nothing gets written to disk at any point in this skill.</step>
+    <step num="4">Assemble one JSON object in context (never on disk): `{ "verdict": ..., "findings": [...], "diff": "<verbatim gh pr diff $ARGUMENTS output>", "summary": "<verbatim review summary prose>" }`. The summary prose (and every comment body inside `findings[].body`) must contain **no em-dashes, en-dashes, or other dash-family separators** — use a semicolon, colon, or parentheses instead. `partition-findings.mjs` hard-fails the run if it finds one, so getting this right up front avoids a wasted round-trip.</step>
+    <step num="5">Feed that JSON straight into a single pipeline, with `partition-findings.mjs` reading it from stdin and `gh api` reading the resulting payload from stdin in turn — nothing touches disk at any point:
+      <code>
+node ${CLAUDE_SKILL_DIR}/partition-findings.mjs <<'JSON_EOF' | gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/reviews --input -
+{ "verdict": "...", "findings": [...], "diff": "...", "summary": "..." }
+JSON_EOF
+      </code>
+      `${CLAUDE_SKILL_DIR}` resolves to this skill's directory wherever it is installed. The script partitions findings per <mapping/>, composes the review body, **validates the summary and every comment body** (dash-family ban + a banned-emoji check on the summary — see <api-constraints/>), and writes the ready-to-POST payload to stdout; stats `{inline, folded, offDiffDemoted}` go to stderr so stdout stays pure JSON for `gh api` to consume. Omitting `event` on the `gh api` call is what keeps the review **pending** (author-only) rather than publishing immediately. Capture the returned `review_id` from the response. On non-zero exit from the node step, treat stderr as a hard failure — read the message, fix the offending prose in the heredoc's summary or findings, and re-run the whole pipeline. Do not attempt to hand-build the payload as a fallback, and do not split this into separate write-then-read steps through a file.</step>
+    <step num="6">Auto-submit immediately using the verdict from pr-review-dry_run: `gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/events -f event="$VERDICT"`, where `$VERDICT` is one of `APPROVE` / `REQUEST_CHANGES` / `COMMENT`.</step>
   </steps>
-  <foci>
-    <focus>Correctness — will this break anything?</focus>
-    <focus>Security — any obvious vulnerabilities?</focus>
-    <focus>Glaring convention violations</focus>
-    <focus>Reinforcement — genuine strengths worth calling out, not token praise</focus>
-  </foci>
-  <taxonomy>
-    <!-- Replaces any older 🟣/🔴/🟡/🔵 four-colour key. This is the only taxonomy. -->
-    <row emoji="🔴" type="major changes" ceiling="Request Changes">Blocking — must fix before merge</row>
-    <row emoji="🟠" type="minor changes" ceiling="Comment">Should fix, won't block. Same ceiling and treatment as nits</row>
-    <row emoji="🟡" type="nits" ceiling="Comment">Nice to have</row>
-    <row emoji="🟣" type="admiration" ceiling="Approve">Accolade — only when genuinely warranted</row>
-  </taxonomy>
-  <matrix>
-    <!-- Type x Scope -> where the comment anchors + suggestion eligibility -->
-    <row type="major/minor changes, nits" scope="line" anchor="line highlight (inline diff comment)" suggestion="yes, if a concrete fix exists" />
-    <row type="major/minor changes, nits" scope="file" anchor="file-level comment" suggestion="no" />
-    <row type="major/minor changes, nits" scope="cross-file" anchor="top-level review comment" suggestion="no" />
-    <row type="admiration" scope="line" anchor="file-level comment — admiration never uses a line highlight, even when the praise is line-scoped" suggestion="no" />
-    <row type="admiration" scope="file" anchor="file-level comment" suggestion="no" />
-    <row type="admiration" scope="cross-file" anchor="top-level review comment" suggestion="no" />
-  </matrix>
-  <suggestions>
-    <guide>Emit a ```suggestion block only for line-scoped 🔴/🟠/🟡 findings with a concrete, single-location fix.</guide>
-    <guide>Skip suggestions where the fix spans multiple non-contiguous lines, requires judgement calls, or isn't safely committable as-is.</guide>
-    <guide>Never emit suggestions for admiration — there's nothing to commit.</guide>
-  </suggestions>
-  <verdict>
-    <guide>Derive one overall verdict from the highest ceiling present across all findings (highest-ceiling-wins):</guide>
-    <rule>Any 🔴 present → Request Changes</rule>
-    <rule>Else any 🟠 or 🟡 present → Comment</rule>
-    <rule>Else only 🟣 present (or no findings) → Approve</rule>
-  </verdict>
-  <guides>
-    <guide>Keep it concise. Flag only the most important issues — skip minor style nits unless they're genuinely worth a 🟡.</guide>
-    <guide>Before critiquing implementation, check whether the dev is following established project practice.</guide>
-    <guide>Omit any type that has no entries. Only include 🟣 findings if there's something genuinely worth praising — token praise is worse than none.</guide>
-  </guides>
-  <output type="structured">
-    For each finding:
-    - `type`: 🔴 | 🟠 | 🟡 | 🟣
-    - `scope`: line | file | cross-file
-    - `file`: path (omit for cross-file)
-    - `line` or `range`: omit for file/cross-file scope
-    - `body`: the comment text (writing-style rules applied)
-    - `suggestion`: optional ```suggestion block (line-scoped changes/nits only)
-
-    Plus:
-    - `summary`: overall review body (top-level comment content). When run in follow-up mode (see `pr-review-comment`'s `<follow-up-mode/>`), the leading "Since my last review" delta uses only ⚪ fixed / ⚫ still open / 🟢 new — never 🆕 (renders as a GitHub `:new:` badge) or ✅/⚠️ (superseded, off-palette)
-    - `verdict`: Request Changes | Comment | Approve, derived per <verdict/>
-  </output>
-</pull-request-review>
+  <api-constraints>
+    <!-- Verified against GitHub REST docs (2022-11-28). State these plainly so the model never re-derives them live and never reintroduces the bug this skill used to have. -->
+    <fact>The review-create endpoint's `comments[]` array accepts ONLY line-anchored entries (path, body, line, side, start_line, start_side). It does NOT accept `subject_type` — that field is response-only on this endpoint, not a request field. File-level comments therefore CANNOT be batched into a pending review. This is why file-level, cross-file, off-diff, and admiration findings all fold into the top-level review `body` instead — see <mapping/>.</fact>
+    <fact>This endpoint is REST, not GraphQL. `gh api` calls it directly as REST. Don't chase a GraphQL explanation if a payload is rejected — check the payload shape against this block first.</fact>
+    <fact>Omitting `event` on review-create leaves the review PENDING. `POST .../reviews/{review_id}/events` with an `event` value submits it.</fact>
+    <fact>There is no endpoint to append file-level comments to an existing pending review after creation. Get the body right in the initial POST.</fact>
+    <fact>`partition-findings.mjs` validates prose before writing the payload: the summary and every comment body are rejected if they contain an em-dash, en-dash, horizontal bar, or figure dash; the summary is additionally rejected if it contains 🆕, ✅, or ⚠️ (superseded vocabulary — 🆕 in particular renders as a GitHub `:new:` badge, not a plain glyph). This is a ban-list, not an allow-list — the summary can otherwise carry any emoji. This backstops a real incident where a posted review's follow-up delta used that banned vocabulary; see <follow-up-mode/> for the correct one.</fact>
+  </api-constraints>
+  <mapping>
+    <!-- What partition-findings.mjs does — documentation of its behaviour, not instructions for the model to reimplement. -->
+    <rule scope="line" condition="in-diff">→ `comments[]` entry: { path, line (or start_line+line for a range), side: "RIGHT", body: type-emoji-prefixed, + suggestion block if present }</rule>
+    <rule scope="line" condition="off-diff">a finding whose target line isn't inside a diff hunk is demoted into the body's "Off-diff notes" section — never dropped, never misrouted into comments[]</rule>
+    <rule scope="file">folds into the body's "File-scoped notes" section</rule>
+    <rule scope="cross-file">folds into the body's "Cross-file notes" section</rule>
+    <rule type="admiration">🟣 always folds into the body's "Accolades" section, one bullet per finding, each individually prefixed with 🟣 — never an inline comment, never a single umbrella heading absorbing the emoji, even when the finding is line-scoped</rule>
+  </mapping>
+  <follow-up-mode>
+    <guide>Triggered when step 2 finds any prior review or review comment on this PR from the authenticated user. This means the skill has reviewed this PR before — treat it as a continuation, not a fresh review.</guide>
+    <guide>Pass the prior findings (path, line, body, submitted_at) into the pr-review-dry_run run as context. pr-review-dry_run should evaluate whether each prior finding was addressed in the current diff, not re-flag it from scratch as if seeing the code for the first time.</guide>
+    <guide>The composed summary leads with a short "Since my last review" delta before the current findings: one line each for what's now fixed (⚪), what's still open (⚫), and what's newly introduced (🟢). This is the only emoji vocabulary the delta may use — never 🆕 (renders as a GitHub `:new:` badge, not a plain glyph) and never ✅/⚠️ (superseded, off-palette next to the circle set). `partition-findings.mjs` hard-fails the run if it sees the banned set, so use the circles from the start. This is a brief acknowledgement, not a full changelog — a sentence per item, not a status table with links back to original threads.</guide>
+    <guide>The verdict reflects the PR's current state, not a mechanical re-scan. A prior 🔴 that's now fixed should not resurface; a prior 🟡 left unaddressed can be repeated, but say so explicitly ("still open from last review") rather than presenting it as newly discovered.</guide>
+  </follow-up-mode>
+  <verdict-map>
+    <rule>pr-review-dry_run verdict "Request Changes" → event `REQUEST_CHANGES`</rule>
+    <rule>pr-review-dry_run verdict "Comment" → event `COMMENT`</rule>
+    <rule>pr-review-dry_run verdict "Approve" → event `APPROVE`</rule>
+  </verdict-map>
+  <toggle>
+    <guide>To switch to manual submission (review pending in the GitHub UI until a human submits it): skip step 6 entirely and stop after step 5. One-line change — do not add complexity beyond deleting the step.</guide>
+  </toggle>
+</pull-request-review-and-comment>
 ```
