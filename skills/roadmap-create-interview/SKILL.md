@@ -1,7 +1,7 @@
 ---
-name: "Roadmap: Interview"
-description: "{{ 𝛀𝛀𝛀 }} Run a structured interview to discover new features and produce a batch roadmap proposal. Produces a structured proposal for review — nothing is written to the roadmap until the user approves."
-when_to_use: "When the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone', or 'interview me about what to build'."
+name: "Roadmap: Propose"
+description: "{{ 𝛀𝛀𝛀 }} Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks — read-only; roadmap-update-tasks writes the approved proposal"
+when_to_use: "When the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone', or 'interview me about what to build'. Not for adding a single already-specified task — that's roadmap-update-tasks."
 model: opus
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
 ---

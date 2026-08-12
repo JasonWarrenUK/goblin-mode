@@ -1,9 +1,9 @@
 ---
 name: "Roadmap: Maintain"
-description: "{{ 𝛀𝛀𝛀 }} Recompute and synchronise roadmap task statuses across roadmaps.json and its projections, with optional codebase reconciliation"
+description: "{{ 𝛀𝛀𝛀 }} Sync roadmap statuses after work lands — recompute from the dependency graph and refresh every projection, with optional codebase reconciliation"
 when_to_use: "When roadmap task statuses might have drifted from actual progress — after a batch of merges, or periodically to keep the dashboard trustworthy. Pass 'reconcile' (or ask to check the roadmap against the code) to also infer done/unblocked tasks from the actual codebase."
 model: opus
-disable-model-invocation: true
+disable-model-invocation: false # invocable by Claude so it can offer a status sync after merges; the reconcile confirmation gate still applies
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)", "Bash(git:*)"]
 argument-hint: [milestone id, or "reconcile" to also check against the codebase]
 ---
