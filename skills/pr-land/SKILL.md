@@ -37,10 +37,10 @@ Merge commit, never squash or rebase: the branch's atomic commits are the histor
 From the main checkout: `git checkout main && git pull`, then:
 
 ```bash
-git tag "$("$HOME"/.claude/library/scripts/safe-version-next.sh)" && git push --tags
+TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" && git tag "$TAG" && git push origin "$TAG"
 ```
 
-If the script printed its guard note to stderr, relay it: the user should know a major bump was requested and deliberately held at 0.x.
+Push the single tag, never `git push --tags` (that publishes every local tag, strays included). Script exit **3** means nothing to release — no version-bumping commits since the current tag (a docs-only or chore-only PR); say so and skip to Step 4. If the script printed its 0.x guard note to stderr, relay it: the user should know a major bump was requested and deliberately held at 0.x.
 
 ## Step 4 — Clean up the checkout
 
@@ -54,7 +54,7 @@ If the repo has a rich roadmap (`python3 "$HOME"/.claude/library/scripts/roadmap
 
 ## Step 6 — Report
 
-PR merged (URL), tag created, branch/worktree state after cleanup, roadmap synced or skipped. If the changelog matters for this project, note that `distro-changelog` picks up from exactly this moment — new tag, fresh commits.
+PR merged (URL), tag created, branch/worktree state after cleanup, roadmap synced or skipped. If the changelog matters for this project, note that `doc-changelog` picks up from exactly this moment: new tag, fresh commits.
 
 ## Red flags
 
