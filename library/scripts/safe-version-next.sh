@@ -9,7 +9,9 @@
 #
 # usage: safe-version-next.sh
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
-#             2 environment error
+#             2 environment error,
+#             3 nothing to release (no version-bumping commits since the
+#               current tag — creating a tag would fail on a duplicate)
 set -u
 
 command -v svu >/dev/null 2>&1 || { print -u2 "svu not installed"; exit 2 }
@@ -17,6 +19,11 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { print -u2 "not inside a
 
 current=$(svu current 2>/dev/null) || current="v0.0.0"
 next=$(svu next) || { print -u2 "svu next failed"; exit 2 }
+
+if [[ "$next" == "$current" ]]; then
+	print -u2 "nothing to release: no version-bumping commits since $current"
+	exit 3
+fi
 
 cur_major=${${current#v}%%.*}
 next_major=${${next#v}%%.*}
