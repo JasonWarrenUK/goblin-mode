@@ -6,7 +6,7 @@ model: haiku
 effort: low
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
-argument-hint: [named dev (default none)] [topic focus (optional)]
+argument-hint: "[named dev (default none)] [topic focus (optional)]"
 ---
 
 Suggest the next logical task I can complete. Selection is grounded in deterministic data wherever possible — you choose between pre-vetted options rather than deriving them.

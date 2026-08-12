@@ -23,7 +23,7 @@ Assess whether this branch is ready to be submitted as a reviewable pull request
    - No WIP, fixup, or junk commits that should have been cleaned up
 4. Check branch name against naming conventions:
    - Format: `<prefix>/<short-description>` (lowercase, hyphens, imperative)
-   - Valid prefixes: `feat`, `fix`, `enhance`, `refactor`, `types`, `perf`, `styles`, `layout`, `docs`, `test`, `deps`, `config`, `build`, `agents`, `chore`, `ci`, `deploy`, `spike`, `experiment`, `wip`, `hotfix`
+   - Valid prefixes (canonical set, matches CLAUDE.md §8.6): `feat`, `fix`, `enhance`, `refactor`, `test`, `docs`, `config`, `chore`, `ci`, `deps`, `hotfix`, `spike`, `agents`
    - Breaking change branches should use `<prefix>/breaking-<description>`
 5. Scan for anti-patterns:
    - Debugging artefacts (`console.log`, commented-out code)
@@ -68,4 +68,4 @@ Ordered list — blockers first, then improvements, then nice-to-haves.
 
 ---
 
-If the verdict is **Ready**, offer to run `/git:pull-request` immediately.
+If the verdict is **Ready**, offer to run the `pr-create` skill immediately.
