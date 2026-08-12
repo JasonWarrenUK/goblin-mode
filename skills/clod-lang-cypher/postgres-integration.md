@@ -1,4 +1,4 @@
-# Integration with PostgreSQL/Supabase and Portfolio Evidence
+# Integration with PostgreSQL/Supabase
 
 Detail for `Cypher Linguist`.
 
@@ -85,17 +85,3 @@ return {
   }
 };
 ```
-
-## Portfolio Evidence
-
-**KSBs Demonstrated**:
-- **S6**: Design and Implement Database Systems (graph modeling)
-- **S1**: Analyse Requirements (choosing graph for relationships)
-- **S8**: Create Analysis Artefacts (query optimization)
-
-**How to Document**:
-- Schema diagrams showing graph structure
-- Query examples with performance comparisons
-- Explain why graph chosen over relational
-- Document traversal patterns
-- Show integration with other databases

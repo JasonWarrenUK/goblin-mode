@@ -1,4 +1,4 @@
-# Anti-Patterns, Migration Strategies, and Portfolio Evidence
+# Anti-Patterns and Migration Strategies
 
 Detail for `Data Ontologist`.
 
@@ -114,18 +114,3 @@ await neo4j.run(`
   CREATE (follower)-[:FOLLOWS {since: follow.createdAt}]->(followed)
 `, { follows });
 ```
-
-## Portfolio Evidence
-
-**KSBs Demonstrated**:
-- **K2**: All Stages of Software Development Lifecycle (architecture decisions)
-- **K3**: Roles and Responsibilities (database selection justification)
-- **S1**: Analyse Requirements (choosing right tool for problem)
-- **S6**: Design and Implement Database Systems (polyglot approach)
-
-**How to Document**:
-- Architecture Decision Records (ADRs) explaining database choices
-- Diagrams showing which data lives where
-- Performance comparisons (before/after changes)
-- Migration scripts and sync strategies
-- Trade-off analysis documentation

@@ -16,7 +16,7 @@ allowed-tools:
 
 # Testing Foundations
 
-Comprehensive testing guidance for JavaScript/TypeScript applications, with emphasis on Vitest, Svelte component testing, and pragmatic test-after development. Addresses testing as a professional skill for portfolio evidence and code quality.
+Comprehensive testing guidance for JavaScript/TypeScript applications, with emphasis on Vitest, Svelte component testing, and pragmatic test-after development. Addresses testing as a professional skill for code quality.
 
 ## When This Skill Applies
 
@@ -278,8 +278,6 @@ Mechanical how-to and reference material, loaded only when needed:
 
 - [vitest-patterns.md](vitest-patterns.md) — Vitest setup, unit/component/mocking/async test patterns, test organisation, coverage config, matcher and query quick reference
 - [pitfalls-and-accessibility.md](pitfalls-and-accessibility.md) — common testing mistakes (over-mocking, brittle selectors, implementation-detail testing) and accessibility test patterns
-- [portfolio-evidence.md](portfolio-evidence.md) — how testing decisions double as apprenticeship/portfolio evidence
-
 ## Success Criteria
 
 Tests are effective when they:
