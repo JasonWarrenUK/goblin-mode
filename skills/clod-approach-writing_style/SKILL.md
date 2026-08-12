@@ -73,6 +73,8 @@ Jason's writing has a particular character. Before applying any rule, internalis
 
 22. **No sycophancy, no hedging.** Direct answers only.
 
+23. **No portent pairings.** A concrete noun yoked to an abstraction to borrow weight: "a module about a hundred lines long, and a discipline the rest of the engine has to keep"; "one config file and a philosophy". The concrete half is a claim; the abstract half is a trailer for the passage. State the concrete claim, then state the discipline as its own testable fact ("every generation function takes the PRNG as a parameter"). Diagnostic: if the second beat can't be checked where it stands, it's a trailer.
+
 ## Collaborative Workflow
 
 Jason's instruction for extended copy tasks: "this should involve lots of checking in with me; we're emulating my voice, so you need to check what that means. Page by page, paragraph by paragraph, string by string if necessary."
@@ -140,6 +142,7 @@ When Jason says a title is close, change the minimum: one word, one beat. "Ortho
 12. Does punctuation vary across the passage, or is it all full stops? Mix it up.
 13. Any paragraph opening with a generic framing sentence ("Several approaches were considered...")? Lead with the specific instead.
 14. If this is a title: does it pass the stranger test, and does it avoid every item on the hard-ban list?
+15. Any portent pairings (a concrete noun yoked to an abstraction that can't be checked where it stands)? Split them: concrete claim first, the discipline as its own testable fact.
 
 Only after passing this check should the draft reach Jason.
 
