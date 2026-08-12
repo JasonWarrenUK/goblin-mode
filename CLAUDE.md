@@ -190,7 +190,7 @@ Undecided on favoured python package manager
 4. **No Oxford commas.**
 5. **No vague competence claims or undefended preferences.** Only include what can be said with conviction.
 
-For writing prose specifically, the `clod-lens-writing-style` skill is the authoritative source. It includes a self-check gate that must run before any draft reaches Jason.
+For writing prose specifically, the `clod-approach-writing_style` skill is the authoritative source. It includes a self-check gate that must run before any draft reaches Jason.
 
 ### 3.2. Spelling (Non-Negotiable)
 
@@ -361,7 +361,7 @@ Detailed commit bodies when context needed. Good git history is documentation.
 
 ### 8.2. Versioning with `svu`
 
-See the `distro-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `library/scripts/safe-version-next.sh`, never bare `svu next` — the script programmatically refuses to cross 0.x → 1.x (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Later major bumps pass through.
+See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `library/scripts/safe-version-next.sh`, never bare `svu next` — the script programmatically refuses to cross 0.x → 1.x (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Later major bumps pass through.
 
 ---
 
