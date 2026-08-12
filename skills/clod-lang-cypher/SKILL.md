@@ -273,7 +273,7 @@ Worked query patterns and mechanical detail, loaded only when needed:
 
 - [query-patterns.md](query-patterns.md) — social graph (followers, blocking), hierarchy (org charts, categories), recommendation (collaborative/content-based filtering), path-finding (shortest path, Dijkstra), access control
 - [performance-and-schema.md](performance-and-schema.md) — indexes/constraints, PROFILE-driven optimisation tips, batch operations with UNWIND/APOC, schema modelling guidelines (relationships vs properties, multiple labels)
-- [postgres-integration-and-portfolio.md](postgres-integration-and-portfolio.md) — shared-key and event-driven sync patterns with Supabase, hybrid query examples, portfolio evidence framing
+- [postgres-integration.md](postgres-integration.md) — shared-key and event-driven sync patterns with Supabase, hybrid query examples
 
 ## Success Criteria
 

@@ -300,7 +300,7 @@ Worked examples and mechanical detail, loaded only when needed:
 
 - [real-world-examples.md](real-world-examples.md) — four full worked splits (social app, learning platform, e-commerce, CMS) showing which data lives where and why
 - [integration-and-schema.md](integration-and-schema.md) — shared-key/reference/embed/event-sync/aggregation integration patterns, per-database schema design, query optimisation and indexing
-- [anti-patterns-and-migration.md](anti-patterns-and-migration.md) — common mistakes (document-DB transactions, over-embedding, graph for simple lookups), migration strategy and worked migration scripts, portfolio evidence framing
+- [anti-patterns-and-migration.md](anti-patterns-and-migration.md) — common mistakes (document-DB transactions, over-embedding, graph for simple lookups), migration strategy and worked migration scripts
 
 ## Success Criteria
 
