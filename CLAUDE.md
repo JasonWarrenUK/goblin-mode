@@ -2,7 +2,7 @@
 
 | Prop    | Value |
 |---------|-------|
-| Updated | 2026-06-15 |
+| Updated | 2026-08-12 |
 
 <!-- toc:start -->
 ## Table of Contents
@@ -30,8 +30,6 @@
   - [3.3. Guidelines](#33-guidelines)
 - [4. Agent Skills](#4-agent-skills)
   - [4.1. Skill Creation](#41-skill-creation)
-    - [4.1.1. YAML Frontmatter: New Convention](#411-yaml-frontmatter-new-convention)
-    - [4.1.2. YAML Frontmatter: Old Convention](#412-yaml-frontmatter-old-convention)
 - [5. Verification](#5-verification)
 - [6. Claude Code Behaviour](#6-claude-code-behaviour)
   - [6.1. Task Tracker Integration](#61-task-tracker-integration)
@@ -192,7 +190,7 @@ Undecided on favoured python package manager
 4. **No Oxford commas.**
 5. **No vague competence claims or undefended preferences.** Only include what can be said with conviction.
 
-For writing prose specifically, the `role-viewpoint-writing_style` skill is the authoritative source. It includes a self-check gate that must run before any draft reaches Jason.
+For writing prose specifically, the `clod-lens-writing-style` skill is the authoritative source. It includes a self-check gate that must run before any draft reaches Jason.
 
 ### 3.2. Spelling (Non-Negotiable)
 
@@ -221,31 +219,11 @@ If unsure: <https://www.oxfordlearnersdictionaries.com>
 
 - All skills live in `~/.claude/skills/` as `SKILL.md` files
 - Command skills have `disable-model-invocation: true`; knowledge skills have `user-invocable: false`.
+- Exception: a command skill may set `disable-model-invocation: false` when its trigger moment is one Claude sees before the user does (stale PR description, post-merge status drift) **and** it contains its own approval gate before anything irreversible. The gate is the safety net; without one, keep it `true`.
 
 ### 4.1. Skill Creation
 
-1. Always create skills in the project-local `.claude/skills/` directory unless explicitly told to create them globally
-2. Check for naming conflicts with personal-level skills (~/.claude/skills/) since personal scope shadows project scope
-3. Use the new naming convention when creating or editing skills, but be aware of the old naming convention
-
-#### 4.1.1. YAML Frontmatter: New Convention
-
-Use the runic letter convention in the YAML frontmatter `description` field to signal which model a command uses:
- a. `𝚫𝚫𝚫` = haiku
- b. `ƔƔƔ` = sonnet
- c. `𝛀𝛀𝛀` = opus
-
-Format: `description: "{{ ƔƔƔ }} Command description here"`
-
-#### 4.1.2. YAML Frontmatter: Old Convention
-
-Use the Greek letter convention in the YAML frontmatter `description` field to signal which model a command uses:
- a. `ᚻᛕ` = haiku
- b. `ᛇᚤ` = sonnet
- c. `ᛜᚹ` = opus
- d. `ᚨᛔ` = fable
-
-Format: `description: "{{ ᛇᚤ }} Command description here"`
+See the `clod-config-skill_conventions` skill for placement rules and the model-tag frontmatter convention (new runic and old Greek-letter forms).
 
 ---
 
@@ -383,23 +361,7 @@ Detailed commit bodies when context needed. Good git history is documentation.
 
 ### 8.2. Versioning with `svu`
 
-Use [`svu`](https://github.com/caarlos0/svu) as the default tool for deriving semver tags from conventional-commit history. `svu` doesn't commit, push, or merge; it computes the next version, so pair it with `git tag`.
-
-**Always tag** at these moments — run `svu next`, then tag and push:
-
-| Moment             | Command sequence |
-|--------------------|------------------|
-|    PR creation     | `git tag "$(svu next)" && git push --tags` |
-|  Merge to `main`   | `git tag "$(svu next)" && git push --tags` |
-| Merge to `staging` | `git tag "$(svu next)" && git push --tags` |
-
-**Mid-branch commits:** proactively offer a tag *only* when the pending bump is **major or minor**. Stay silent on **patch** bumps. Detect the bump level by comparing `svu current` with `svu next`:
-
-- Different major segment → major; offer a tag.
-- Same major, different minor → minor; offer a tag.
-- Only the patch segment changed → patch; do **not** offer.
-
-Surface the proposed version (e.g. `⬆️ minor bump available — tag v1.3.0?`) rather than tagging silently.
+See the `distro-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `library/scripts/safe-version-next.sh`, never bare `svu next` — the script programmatically refuses to cross 0.x → 1.x (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Later major bumps pass through.
 
 ---
 
@@ -432,7 +394,7 @@ Format: `⚠️ Breaking change — consider feat!: or BREAKING CHANGE: footer`
 
 `<prefix>/<short-description>` — all lowercase, hyphens between words, imperative mood
 
-**Prefixes:** `feat/`, `fix/`, `enhance/`, `refactor/`, `test/`, `docs/`, `config/`
+**Prefixes:** `feat/`, `fix/`, `enhance/`, `refactor/`, `test/`, `docs/`, `config/`, `chore/`, `ci/`, `deps/`, `hotfix/`, `spike/`, `agents/`
 
 Branches represent minimal tangible improvements. When in doubt, go smaller.
 
@@ -442,30 +404,7 @@ When working with git worktrees: (1) always check which branch already exists be
 
 ### 8.8. Pull Requests
 
-**Always** use this structure for PR descriptions, regardless of how the PR was triggered:
-
-- **Title:** Brief, descriptive, title case, understandable to non-devs
-- **Summary:** Describe the PR with a non-technical, absurd metaphor
-- **TL;DR:** List any steps devs must take after pulling this down
-- **Changes:** Break into files or categories depending on scope; use collapsible details
-
-Template:
-
-```md
-# {{ title }}
-## Overview
-{{ overview }}
-## Summary
-{{ absurd metaphor }}
-> [!TIP]
-> {{ tldr }}
----
-## Changes
-{{ changes with collapsible details }}
----
-```
-
-Before creating: analyse all commits on the branch, show the draft, and await approval.
+Handled by the `pr-create` and `pr-update` skills, both filling the shared template at `library/templates/pr-description.md`. Review feedback is worked through with `pr-handle_review` (verify independently, fix, reply); approved PRs land with `pr-land` (merge commit, tag, roadmap sync, cleanup).
 
 ---
 
