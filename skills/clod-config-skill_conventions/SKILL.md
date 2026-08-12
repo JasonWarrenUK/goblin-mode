@@ -4,7 +4,7 @@ description: "{{ 𝚫𝚫𝚫 }} Jason's placement and model-tag conventions for
 when_to_use: "Before creating or editing a skill — checking where it should live and how to tag its model in frontmatter."
 model: haiku
 effort: low
-disable-model-invocation: true
+disable-model-invocation: false # Claude must be able to load the conventions at the moment it's creating or editing a skill; read-only guidance needs no gate
 ---
 
 # Skill creation conventions
