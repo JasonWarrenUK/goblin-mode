@@ -449,7 +449,10 @@ def build_graph(phase):
                 edges.append({"from": dep, "to": tid, "kind": "soft", "soft": True})
     for mid, sink_ids in sinks.items():
         for sid in sink_ids:
-            edges.append({"from": sid, "to": mid, "kind": "milestone-complete"})
+            edge = {"from": sid, "to": mid, "kind": "milestone-complete"}
+            if tasks.get(sid, {}).get("softMilestone"):
+                edge["soft"] = True
+            edges.append(edge)
 
     return {"phase": phase.get("name"), "nodes": nodes, "edges": edges}
 
@@ -652,7 +655,8 @@ def build_ready(phase):
             "milestoneDonePct": milestone_pct.get(mid, 0),
             "directDependents": len(dependents.get(tid, ())),
             "transitiveUnblocks": len(transitive(tid)),
-            "isMilestoneSink": tid in sinks.get(mid, []),
+            "isMilestoneSink": (tid in sinks.get(mid, [])
+                                and not t.get("softMilestone")),
             "notes": t.get("notes", ""),
             "assignee": t.get("assignee", ""),
         })

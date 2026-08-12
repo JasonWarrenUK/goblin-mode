@@ -152,6 +152,7 @@ def imposed_status(dep, computed, tasks, milestones, gates):
 
     Task/milestone deps propagate a parked status: a not-done dependency
     imposes at least 'blocked', and more if it is itself paused/deferred.
+    A softMilestone member never gates its milestone's completion.
     """
     if dep in tasks:
         dep_status = computed.get(dep, tasks[dep].get("status"))
@@ -164,6 +165,8 @@ def imposed_status(dep, computed, tasks, milestones, gates):
         member_ids = milestones[dep]
         worst = None
         for tid in member_ids:
+            if tasks.get(tid, {}).get("softMilestone"):
+                continue
             s = computed.get(tid, tasks.get(tid, {}).get("status"))
             if s == "done" or s in TERMINAL:
                 continue
@@ -212,7 +215,8 @@ def find_cycles(tasks, milestones=None):
         for tid, task in tasks.items()
     }
     for mid, member_ids in milestones.items():
-        edges[mid] = [t for t in member_ids if t in tasks]
+        edges[mid] = [t for t in member_ids
+                      if t in tasks and not tasks[t].get("softMilestone")]
     WHITE, GREY, BLACK = 0, 1, 2
     colour = {nid: WHITE for nid in edges}
     cycles = []
