@@ -1,9 +1,9 @@
 ---
 name: "Roadmap: Add Task"
-description: "{{ 𝛀𝛀𝛀 }} Add a task to a rich-format project roadmap with correct ID, dependency wiring, and graph integrity — ID assignment, status computation, dependency edges in both directions, and no unconnected islands."
-when_to_use: "Whenever the user wants to add a task, feature, or work item to a roadmap — even phrased as 'add this to the roadmap', 'put this in the plan', or 'track this as a task'."
+description: "{{ 𝛀𝛀𝛀 }} Add a single well-formed task to a rich-format roadmap — ID assignment, dependency wiring in both directions, graph integrity"
+when_to_use: "Whenever the user wants to add a task, feature, or work item to a roadmap — even phrased as 'add this to the roadmap', 'put this in the plan', or 'track this as a task'. For a batch of half-formed ideas, run roadmap-create-interview first and feed its proposal here one task at a time."
 model: opus
-disable-model-invocation: true
+disable-model-invocation: false # invocable by Claude so "add this to the roadmap" loads this skill instead of hand-editing the JSON; Step 7's approval gate still applies
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)"]
 argument-hint: [task description (optional)]
 ---
