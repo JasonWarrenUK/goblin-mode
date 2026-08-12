@@ -86,6 +86,21 @@ Author soft edges as data in `roadmaps.json`; never hand-draw a `-.->` line
 into a generated `PHASE.md` or artefact — the next regeneration wipes
 anything not in the source data.
 
+**Soft milestone members (`softMilestone: true`):** a task-level flag making
+the derived milestone-complete edge (`{task} -.-> M{N}`) soft instead of
+hard. The task stays a member of its milestone (counted in `donePct`,
+listed under the milestone) but:
+
+- never gates milestone completion — anything depending on `M{N}` is
+  satisfied without it
+- its milestone-complete edge renders dotted and is exempt from the
+  through-milestone acyclicity check
+- it is never reported as `isMilestoneSink` by `ready` — closing it does
+  not close the milestone
+
+Use it for best-effort milestone work (eval coverage, polish) that should
+stay visible in the milestone without holding up everything downstream.
+
 ## Status → colour table (canonical)
 
 One palette for every projection. `STATUS_STYLE` in `roadmap.py` is the
@@ -163,7 +178,7 @@ auto-reverted — absence still isn't evidence.
   another formatter) in a hook or CI should exclude the artefact glob from
   it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
   dashboard never fights the formatter.
-- Task field order: `id, description, status, dependsOn, softDependsOn?, iterative?, notes?, assignee?`
+- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred — a skill setting it must ask, never guess from description,
   git author, category, or who's running the skill.
@@ -183,3 +198,19 @@ auto-reverted — absence still isn't evidence.
 | `docs/roadmaps/{PHASE}.md` | task-list projection + Mermaid diagram | skill prose + `graph --mermaid --direction LR` for the diagram block |
 | `docs/reports/ROADMAP_OVERVIEW.md` | prose overview | skill prose; header counts from `stats` |
 | `docs/artefacts/roadmap-{slug}.html` | interactive dashboard | `render` (fully deterministic; `recompute --render` refreshes it) |
+
+## Which skill when
+
+| Situation | Skill |
+|---|---|
+| No roadmap yet | `roadmap-create` |
+| Old single-file format detected | `roadmap-migrate` |
+| Half-formed ideas to explore into tasks | `roadmap-create-interview` |
+| One known task to add | `roadmap-update-tasks` |
+| Work landed / statuses drifted | `roadmap-maintain` (add `reconcile` to check against code) |
+| Dependency graph sanity check | `roadmap-audit-deps` |
+| Priorities / freshness / health review | `roadmap-review` |
+| Render the HTML dashboard | `artefact-roadmap` |
+| Choose the next task (one pick) | `next-task-suggest` |
+| See the whole ready-set | `next-task-group` |
+| Ship the next task end-to-end | `next-task-ship` |
