@@ -74,6 +74,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 - Supporting files: one structural change — clod-role-frontend_styler split (458 → 183 lines) into workflows-and-checklists.md and svelte-and-patterns.md, matching its siblings. The roadmap family's "shared namespace-level files" already exist as library/ (scripts, conventions reference, template); recorded as the deliberate architecture.
 - Dynamic context: the commit twins' ```! blocks are the reference pattern, and its preconditions turn out to be strict — the command must not depend on arguments, must not legitimately fail (a non-zero exit aborts the whole invocation), and its output must be consumable as a one-shot snapshot. Every other candidate fails at least one precondition; each records which.
 
+## Phase 9 (added 2026-08-13 at Jason's direction): intent-gap dialogue
+
+After Phase 8, a conversational pass through every skill, family by family, inferring gaps between what Jason *wants* each skill to do and what it *actually* does. Method: for each skill, state its observable behaviour in one or two sentences, Jason confirms or corrects, divergences become fixes. First documented specimen (found before the pass began): pr-update appended an updates block despite Step 3 instructing integration — fixed by naming the failure mode explicitly and giving provenance its own collapsible trail so "append a block" stops doubling as the provenance strategy.
+
 ## Per-skill record
 
 ### analyse-concept
@@ -102,6 +106,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### analyse-critique
 
@@ -129,6 +134,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### artefact-audit
 
@@ -156,6 +162,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### artefact-intro
 
@@ -183,6 +190,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### artefact-roadmap
 
@@ -210,6 +218,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### branch-integrate
 
@@ -237,6 +246,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### branch-qa_review
 
@@ -264,6 +274,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### branch-rename
 
@@ -291,6 +302,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-approach-stud
 
@@ -318,6 +330,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-approach-writing_style
 
@@ -345,6 +358,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-config-skill_conventions
 
@@ -372,6 +386,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-lens-empathy
 
@@ -399,6 +414,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-lens-ethics
 
@@ -426,6 +442,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-lens-scope
 
@@ -453,6 +470,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-api_designer
 
@@ -480,6 +498,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-data_ontologist
 
@@ -507,6 +526,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-debug_dervish
 
@@ -534,6 +554,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-domain_modeller
 
@@ -561,6 +582,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-frontend_styler
 
@@ -588,6 +610,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-git_manager
 
@@ -615,6 +638,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-testing_obsessive
 
@@ -642,6 +666,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-stack-cypher
 
@@ -669,6 +694,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-stack-opentui
 
@@ -696,6 +722,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### clod-stack-svelte
 
@@ -723,6 +750,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### commit-batch
 
@@ -750,6 +778,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### commit-one
 
@@ -777,6 +806,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### config-clod_permits
 
@@ -804,6 +834,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### do-minima
 
@@ -831,6 +862,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### do-stud
 
@@ -858,6 +890,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### doc-adr
 
@@ -885,6 +918,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### doc-changelog
 
@@ -912,6 +946,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### doc-readme
 
@@ -939,6 +974,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### doc-update_misc
 
@@ -966,6 +1002,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### export-roadmap_zip
 
@@ -993,6 +1030,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### hud-pr_wall
 
@@ -1020,6 +1058,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### hud-whats_new
 
@@ -1047,6 +1086,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### hud-worktrees
 
@@ -1074,6 +1114,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### import-scaffold_artefact
 
@@ -1101,6 +1142,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### next-task-group
 
@@ -1128,6 +1170,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### next-task-ship
 
@@ -1155,6 +1198,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### next-task-suggest
 
@@ -1182,6 +1226,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### pr-create
 
@@ -1209,6 +1254,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### pr-handle_review
 
@@ -1236,6 +1282,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### pr-land
 
@@ -1263,6 +1310,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### pr-review-dry_run
 
@@ -1290,6 +1338,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### pr-review
 
@@ -1317,6 +1366,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | Skill(pr-review) + Skill(pr-review *) ask rules added to settings.json | mechanical gate on model-invoked posting (the Phase 3 deferral); user slash invocation is not a Skill tool call, so /pr-review stays frictionless |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### pr-update
 
@@ -1344,6 +1394,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### project-audit_deps
 
@@ -1371,6 +1422,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### project-tag_version
 
@@ -1398,6 +1450,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-audit-deps
 
@@ -1425,6 +1478,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-create-interview
 
@@ -1452,6 +1506,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-create
 
@@ -1479,6 +1534,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-maintain
 
@@ -1506,6 +1562,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-migrate
 
@@ -1533,6 +1590,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-review
 
@@ -1560,6 +1618,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-update-tasks
 
@@ -1587,4 +1646,5 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
+| 9.1 intent-gap dialogue | TBD | |
 

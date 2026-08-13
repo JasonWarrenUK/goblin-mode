@@ -37,7 +37,17 @@ Take the existing body (in the dump) and update it:
 
 - **Do not rewrite from scratch.** Preserve existing content unless it is now inaccurate.
 - The body structure follows `~/.claude/library/templates/pr-description.md` (the same template `pr-create` fills) — keep updates within that structure rather than adding new top-level sections.
-- Update the `## Changes` section to incorporate the new commits. If collapsible `<details>` blocks already exist, add new entries or update existing ones as appropriate.
+- **Integrate, never append.** Fold the new work into the existing sections — `## Changes` gains or amends entries, summaries absorb the new scope, stale statements get corrected in place. Bolting an "updates since" block onto the end of the description is the failure mode this step exists to prevent: the reader must see one coherent current description, not a base version plus a changelog of patches.
+- **Provenance lives in its own trail, not in the body content.** Maintain a single collapsible block immediately above the watermark:
+
+  ```markdown
+  <details><summary>Update history</summary>
+
+  - 2026-08-13 — folded in <one-line summary> (`<first-sha>..<last-sha>`)
+  </details>
+  ```
+
+  Append one dated line per update run. This block records *that* and *when* the description changed; the substantive content itself always lands in the sections above.
 - If the description references behaviour that has changed, correct it.
 - Insert or replace the watermark comment at the very end of the body, using the `next watermark sha` from the dump:
 
