@@ -2,7 +2,8 @@
 name: "Ship: Next"
 description: "{{ 𝛀𝛀𝛀 }} Autonomously run the full delivery loop for the next roadmap task — suggest, worktree, implement, roadmap-sync, PR, self-review"
 when_to_use: "When you want to hand over a whole task cycle unattended: pick the next unblocked roadmap task, build it in an isolated worktree with tests green, keep roadmaps.json and its projections coherent, open a PR, and have it self-reviewed and fixed before handing back control."
-model: opus
+model: fable
+effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(python3:*)", "Bash(node:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
 argument-hint: "[assignee] [focus area] (both optional, forwarded to next-task-suggest)"
@@ -19,6 +20,7 @@ This skill does not reimplement any of those four skills' methodology — it inv
 1. **Roadmap files are never hand-edited.** `.claude/roadmaps.json` is the only source of truth. Never directly edit the PHASE file's task list, the Mermaid block, `ROADMAP_OVERVIEW.md`, or the HTML artefact — those are `roadmap-maintain`'s job, driven off `roadmaps.json`. If something about the roadmap looks wrong, fix `roadmaps.json` (or flag it) and let `roadmap-maintain` propagate it.
 2. **Never run `git stash` blind.** Before any stash, run `git status` and `git stash list` first, and only stash what those show is genuinely in the way. Prefer not stashing at all when a worktree already isolates the work.
 3. **Unmet dependencies → stop and write `BLOCKED.md`, never guess.** If the suggested task turns out to have an unmet dependency, an ambiguous requirement no reasonable default resolves, or a blocker `roadmap-maintain`/`next-task-suggest` didn't already surface, stop the loop at that point and write a `BLOCKED.md` report (template in Step 8) instead of improvising a workaround.
+4. **The gate loop is capped at 6 rounds.** Step 3's implement/test/typecheck/lint cycle gets at most 6 fix-and-rerun rounds. If the gate still isn't green after the sixth, stop and write `BLOCKED.md` with the failing output — a gate that won't converge means the task is misunderstood or the ground is broken, and grinding on it unattended burns usage without progress. The same cap applies to Step 7's post-review fix gate.
 
 ## Step 0 — Parse arguments
 

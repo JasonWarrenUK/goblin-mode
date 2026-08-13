@@ -3,6 +3,7 @@ name: "PR: Update"
 description: "{{ ƔƔƔ }} Update a PR description to account for commits made since it was last written"
 when_to_use: "When commits have been pushed to a branch after its PR was opened or last described — offer this whenever new work lands on a branch with an open PR, rather than leaving the description stale."
 model: sonnet
+effort: medium
 disable-model-invocation: false # invocable by Claude so it can offer a refresh when new commits leave the description stale; its approval step still gates the write
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Read", "Glob", "Grep"]
 argument-hint: "<pr-number>"

@@ -3,6 +3,7 @@ name: "Roadmap: Build Zip"
 description: "{{ 𝚫𝚫𝚫 }} Rebuild roadmap-system.zip, the distributable snapshot of the roadmap tooling (scripts, HTML template, conventions reference, and every roadmap-touching skill, including this one)."
 when_to_use: "When the roadmap scripts, conventions reference, or any roadmap-* skill have changed and the distributable zip needs refreshing before sharing it outside this repo."
 model: haiku
+effort: low
 disable-model-invocation: true
 allowed-tools: ["Bash(zsh:*)"]
 ---

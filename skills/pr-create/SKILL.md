@@ -3,6 +3,7 @@ name: "PR: Create"
 description: "{{ ƔƔƔ }} Create a pull request to main — wordy or shiny (with screenshots), ready-for-review or draft"
 when_to_use: "When a branch is ready (or nearly ready) to open as a PR and needs a description written from its commits."
 model: sonnet
+effort: medium
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 argument-hint: "[shiny|wordy] [draft] [screenshot files or issue numbers...]"

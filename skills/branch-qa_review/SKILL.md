@@ -3,6 +3,7 @@ name: "Branch: QA Review"
 description: "{{ 𝛀𝛀𝛀 }} Assess branch readiness for PR submission — full review methodology plus the checks only a local checkout allows"
 when_to_use: "Before opening a PR, when you want everything pr-review would later flag caught now, grounded in exact git facts and a real test/typecheck/lint run."
 model: opus
+effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
 ---

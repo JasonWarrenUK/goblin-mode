@@ -2,7 +2,8 @@
 name: "Artefacts: Introduce Repo"
 description: "{{ 𝛀𝛀𝛀 }} Render a visual HTML introduction to this codebase for a newly-joined developer"
 when_to_use: "When onboarding someone new to a codebase, or when you want a visual architecture primer rather than a README skim."
-model: opus
+model: sonnet
+effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(open:*)", "Bash(mkdir:*)", "Write"]
 argument-hint: [focus of analysis]

@@ -3,6 +3,7 @@ name: "Roadmap: Review"
 description: "{{ 𝛀𝛀𝛀 }} Interview-led review of the roadmap's health — status freshness, the priorities the graph implies, and whether the plan still matches reality"
 when_to_use: "Periodically, or when the roadmap feels stale, the priorities feel off, a milestone dragged past its intent, or the user asks 'is the roadmap still right?' — the strategic complement to roadmap-maintain's mechanical sync."
 model: opus
+effort: high
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)", "Bash(git log:*)", "Bash(git diff:*)"]
 argument-hint: [milestone id (optional, to scope the review)]
 ---

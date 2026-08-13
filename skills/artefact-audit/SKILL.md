@@ -3,6 +3,7 @@ name: "Artefacts: Create Audit"
 description: "{{ 𝛀𝛀𝛀 }} Audit a topic and render an actionable, status-grouped HTML findings artefact."
 when_to_use: "When you want a shareable, visual audit of a topic (security, tech debt, dependency risk) with findings grouped by status and ranked by severity — not a text report."
 model: opus
+effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(open:*)", "Bash(mkdir:*)", "Bash(python3:*)"]
 argument-hint: [topic to audit, or path to a findings JSON]

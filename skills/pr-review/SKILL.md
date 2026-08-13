@@ -3,6 +3,7 @@ name: "PR: Review"
 description: "{{ 𝛀𝛀𝛀 }} Review a pull request and post it as a GitHub review"
 when_to_use: "When you want a PR review posted directly as a GitHub review (inline comments + verdict), not just printed to the terminal."
 model: opus
+effort: high
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(node:*)", "Bash(jq:*)"]
 arguments: ["mode", "pr"]

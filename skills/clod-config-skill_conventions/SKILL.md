@@ -2,8 +2,8 @@
 name: "Skill: Conventions"
 description: "{{ 𝚫𝚫𝚫 }} Jason's placement and model-tag conventions for creating or editing skills"
 when_to_use: "Before creating or editing a skill — checking where it should live and how to tag its model in frontmatter."
-model: haiku
-effort: low
+# No model/effort override: reference content that loads inline — an override
+# would downgrade the very session that's editing skills
 disable-model-invocation: false # Claude must be able to load the conventions at the moment it's creating or editing a skill; read-only guidance needs no gate
 ---
 
