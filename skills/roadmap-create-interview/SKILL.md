@@ -10,6 +10,7 @@ metadata:
   bundle: roadmap-system
 disable-model-invocation: false # explicit: read-only interview, so "help me think through features" phrasing can load it
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
+disallowed-tools: ["Edit", "Write", "NotebookEdit"] # read-only by contract; roadmap-update-tasks writes the approved proposal
 arguments: ["focus"]
 argument-hint: "[milestone, theme or focus (optional)]"
 ---

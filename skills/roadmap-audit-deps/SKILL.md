@@ -10,6 +10,7 @@ metadata:
   bundle: roadmap-system
 disable-model-invocation: false # explicit: read-only interview, safe for Claude to open when the graph smells wrong
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
+disallowed-tools: ["Edit", "Write", "NotebookEdit"] # interview only; edits belong to roadmap-maintain/update-tasks
 arguments: ["milestone"]
 argument-hint: "[milestone id (optional, to scope the audit)]"
 ---

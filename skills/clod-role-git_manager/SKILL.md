@@ -7,7 +7,7 @@ metadata:
   family: clod-role
 allowed-tools:
   - Read
-  - Bash
+  - "Bash(git:*)"
 ---
 
 # Git Workflow Patterns

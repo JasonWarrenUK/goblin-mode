@@ -16,7 +16,6 @@
       "Bash(git -C /Users/jasonwarren/Code/iris show b90dd90 --stat)",
       "Bash(git -C /Users/jasonwarren/Code/iris show 9514f75 --stat)",
       "Bash(git -C /Users/jasonwarren/Code/iris show:*)",
-      "Skill(version)",
       "mcp__mcp-sequentialthinking-tools__sequentialthinking_tools",
       "Bash(git add:*)",
       "Bash(git commit:*)",
@@ -88,7 +87,10 @@
       "Read(/tmp/*)"
     ],
     "deny": [],
-    "ask": [],
+    "ask": [
+      "Skill(pr-review)",
+      "Skill(pr-review *)"
+    ],
     "defaultMode": "auto"
   },
   "model": "fable",

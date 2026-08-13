@@ -11,7 +11,11 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-  - Bash
+  - "Bash(npm:*)"
+  - "Bash(bun:*)"
+  - "Bash(pnpm:*)"
+  - "Bash(deno:*)"
+  - "Bash(vitest:*)"
 ---
 
 # Testing Foundations

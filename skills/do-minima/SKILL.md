@@ -8,6 +8,9 @@ metadata:
   family: do
 disable-model-invocation: true
 argument-hint: "[desired outcome]"
+# Reads pre-approved only: the task domain is unbounded, so any broader grant
+# would blanket-approve arbitrary work
+allowed-tools: ["Read", "Glob", "Grep"]
 ---
 
 Using the most minimal approach possible, achieve this: $ARGUMENTS

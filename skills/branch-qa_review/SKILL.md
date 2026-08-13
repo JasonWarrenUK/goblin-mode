@@ -9,6 +9,7 @@ metadata:
   family: branch
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
+disallowed-tools: ["Edit", "Write", "NotebookEdit"] # assesses readiness, never fixes
 arguments: ["base"]
 argument-hint: "[base branch (default main)]"
 ---

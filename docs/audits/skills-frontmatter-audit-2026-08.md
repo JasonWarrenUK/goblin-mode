@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | Phase 4 complete (applied 2026-08-13) — Phase 5 (tools & permissions) next |
+| Status | Phase 5 complete (applied 2026-08-13) — Phase 6 (body & structure) next |
 | Skills | 56 |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
@@ -59,6 +59,14 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 - Metadata: glyph (ᚺᛊᛟᚠ mirroring model), family, and bundle applied to all 56; Greek tags stripped from every description; clod-config-skill_conventions' body rewritten to teach the metadata convention and mark both old tag forms as recognise-and-migrate.
 - Shell: omitted everywhere (macOS, bash default).
 
+## Phase 5 findings (2026-08-13)
+
+- allowed-tools now present on all 56 (was 52): writing_style, debug_dervish, opentui gained read grants; do-minima gained reads-only with the unbounded-domain justification as a comment.
+- Two unscoped `Bash` grants tightened: git_manager to Bash(git:*), testing_obsessive to the test runners. An unscoped Bash in allowed-tools pre-approves the entire shell for the invoking turn.
+- disallowed-tools added to six skills whose bodies promise read-only or no-fix behaviour (pr-review, branch-qa_review, the three roadmap interviews, project-tag_version's --tags ban). The promise is now mechanical, not prose.
+- settings.json: stale `Skill(version)` allow rule removed; `Skill(pr-review)`/`Skill(pr-review *)` ask rules added — the mechanical gate Phase 3 deferred. Ask rules bind the Skill *tool*, so Claude-initiated posting prompts while typed /pr-review does not.
+- No other settings-level permissions needed: every remaining control was expressible in frontmatter (audit item 8's "if and only if" satisfied).
+
 ## Per-skill record
 
 ### analyse-concept
@@ -70,8 +78,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | fork confirmed; background:false ADDED | backgrounded forks run a narrower tool set (this needs Write) and the doc should land in-turn |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -84,7 +92,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -97,8 +105,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | not needed | Explore agent carries no Edit/Write tools at all |
 | 5.1 context / agent / background | fork + agent:Explore confirmed; stays backgrounded | read-only fits the background tool set; result returns on completion |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -111,7 +119,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -124,8 +132,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | polymorphic arg (topic or JSON path); a single name would mislead |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -138,7 +146,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -151,8 +159,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | cross-skill dependency: loads the visual-explainer plugin skill |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -165,7 +173,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -178,8 +186,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["phase"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -192,7 +200,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -205,8 +213,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["strategy","target"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -219,7 +227,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -232,8 +240,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | AMENDED: added "[base branch (default main)]" | [base] arg implemented at Jason's direction |
 | 3.3 arguments (named) | AMENDED: added ["base"], wired through branch-facts.sh and the review diff | |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | ADDED Edit/Write/NotebookEdit | assesses readiness, never fixes |
 | 5.1 context / agent / background | no fork | cross-skill dependency: loads pr-review-dry_run and offers pr-create |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -246,7 +254,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -259,8 +267,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual (dmi:false + gate comment) confirmed; when_to_use strong | recognise-before-user moment; rename awaits approval |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["desired-name"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -273,7 +281,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -286,8 +294,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | present, confirmed (git/gh banned) | skeleton stage must not commit |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -300,7 +308,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -313,8 +321,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | ADDED ["Read"] | was the only skill with no allowed-tools; pure guidance needs only reads |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -327,7 +335,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -340,8 +348,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + comment); loads at skill-editing moments | read-only guidance needs no gate |
 | 3.2 argument-hint | n/a — takes no arguments |  |
 | 3.3 arguments (named) | n/a — takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -354,7 +362,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -367,8 +375,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -381,7 +389,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -394,8 +402,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -408,7 +416,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -421,8 +429,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -435,7 +443,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -448,8 +456,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | REMOVED paths | API design conversations start before route files exist; the glob suppressed the skill's core trigger |
@@ -462,7 +470,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -475,8 +483,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | REMOVED paths | 'which database?' happens before schema files exist |
@@ -489,7 +497,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -502,8 +510,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | ADDED ["Read","Glob","Grep"] | was missing; lets it read its own reference files unprompted |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -516,7 +524,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -529,8 +537,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -543,7 +551,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -556,8 +564,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | paths KEPT (*.svelte, *.css) | file identity is a reliable proxy; conversation-only styling questions are marginal |
@@ -570,7 +578,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -583,8 +591,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | TIGHTENED Bash → Bash(git:*) | unscoped Bash pre-approved the entire shell whenever the skill fired |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
@@ -597,7 +605,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -610,8 +618,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | TIGHTENED Bash → npm/bun/pnpm/deno/vitest | same unscoped-Bash hole, scoped to test runners |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | REMOVED paths | 'should I test this?' happens while writing source, with no test file to match |
@@ -624,7 +632,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -637,8 +645,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | REMOVED paths | Cypher lives inside .ts strings; file identity is an unreliable proxy |
@@ -651,7 +659,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -664,8 +672,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | ADDED ["Read","Glob","Grep"] | was missing; matches sibling stack skills |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | considered, not added | no reliable glob — OpenTUI code is plain .ts |
@@ -678,7 +686,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -691,8 +699,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | user-invocable:false confirmed; when_to_use present and trigger-rich | agent-only knowledge; correct per convention |
 | 3.2 argument-hint | n/a — not user-invoked, takes no arguments |  |
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | paths KEPT (*.svelte, +page.*, +layout.*) | dominant trigger is file work; keeps a 421-line skill from loading on passing mentions |
@@ -705,7 +713,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -718,8 +726,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | n/a — takes no arguments |  |
 | 3.3 arguments (named) | AMENDED: added ["hints"] + Step 2 wiring | grouping intent is exactly what the user knows and the diff doesn't show |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -732,7 +740,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -745,8 +753,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | n/a — takes no arguments |  |
 | 3.3 arguments (named) | AMENDED: added ["hint"] + Step 2 wiring | a type/scope/why nudge beats regenerating the message |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -759,7 +767,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -772,8 +780,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["scope","rule"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -786,7 +794,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -799,8 +807,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | ADDED ["Read","Glob","Grep"] + comment | reads only — unbounded task domain makes any broader grant a blanket approval |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | one-liner that deliberately inherits the session's full context |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -813,7 +821,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -826,8 +834,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["outcome","questions"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | present, confirmed (git/gh banned) | same |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -840,7 +848,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -853,8 +861,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["title"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -867,7 +875,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -880,8 +888,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + gate comment); when_to_use names its trigger moment (pr-land) |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | re-checked: no range arg | range derives from tags/commits automatically |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -894,7 +902,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -907,8 +915,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + gate comment) |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["mode","target"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -921,7 +929,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -934,8 +942,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + gate comment) |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["doc"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -948,7 +956,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -961,8 +969,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | n/a — takes no arguments |  |
 | 3.3 arguments (named) | re-checked: no args | deterministic script, nothing to parameterise |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -975,7 +983,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -988,8 +996,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + comment); read-only |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["scope","root"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1002,7 +1010,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1015,8 +1023,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + comment); read-only wrap-up |  |
 | 3.2 argument-hint | AMENDED: added "[since ref (optional)]" | |
 | 3.3 arguments (named) | AMENDED: added ["since"] + Scope section pinning the measurement window | |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1029,7 +1037,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1042,8 +1050,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + comment); mutations approval-gated |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["action","branch"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1056,7 +1064,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1069,8 +1077,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | path plus optional 'react' flag; variadic-ish |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1083,7 +1091,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1096,8 +1104,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | re-checked: no assignee filter | panorama view by design; per-dev picks are next-task-suggest's job |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1110,7 +1118,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1123,8 +1131,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | forwards $ARGUMENTS verbatim to next-task-suggest |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | orchestrator: needs the Skill tool and stops at user gates a subagent cannot present |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1137,7 +1145,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1150,8 +1158,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | CHANGED dmi true→false + comment: next-task-ship Step 1 invokes it via the Skill tool, which dmi:true mechanically blocks; also a natural 'what should I work on?' trigger. Read-only, no gate needed | orchestrator dependency |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | body parses by intent, not position; named args would misrepresent the contract |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1164,7 +1172,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1177,8 +1185,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | CHANGED dmi true→false + comment: invoked by next-task-ship Step 6 and branch-qa_review's Ready offer — both were mechanically blocked. Internal approval step is the gate; when_to_use rewritten with explicit never-invoke-speculatively guardrail | orchestrator dependency + existing gate |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | re-checked: no base-branch arg | PR workflow targets main by design (pr-land assumes it too) |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1191,7 +1199,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1204,8 +1212,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["pr"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1218,7 +1226,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1231,8 +1239,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["pr"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1245,7 +1253,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1258,8 +1266,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false, required by pr-review + branch-qa_review); read-only via disallowed-tools |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["mode","pr"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | present, confirmed (Edit/Write/NotebookEdit) | reviews, never fixes |
 | 5.1 context / agent / background | no fork | cross-skill dependency: called BY pr-review and branch-qa_review — findings must land in the caller's context |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1272,7 +1280,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1285,8 +1293,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | CHANGED dmi true→false + comment: next-task-ship Step 7 invokes it. No internal gate before posting, so when_to_use carries a hard guardrail and Phase 5 will consider a Skill(pr-review) ask rule as the mechanical gate | orchestrator dependency; gate deferred to permissions |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | present (["mode","pr"]), confirmed |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | ADDED Edit/Write/NotebookEdit | mirrors dry_run: posts a review, never touches the tree |
 | 5.1 context / agent / background | no fork | cross-skill dependency: loads pr-review-dry_run; posts from main context |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1299,7 +1307,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | Skill(pr-review) + Skill(pr-review *) ask rules added to settings.json | mechanical gate on model-invoked posting (the Phase 3 deferral); user slash invocation is not a Skill tool call, so /pr-review stays frictionless |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1312,8 +1320,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + gate comment) |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["pr"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1326,7 +1334,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1339,8 +1347,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["dep"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | ADDED context:fork + agent:Explore | self-contained read-only investigation; large read/web footprint stays out of the main context |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1353,7 +1361,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1366,8 +1374,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | n/a — no arguments (body has no $ARGUMENTS) |  |
 | 3.3 arguments (named) | n/a — takes no arguments |  |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | ADDED Bash(git push --tags:*) | the body's hard warning made mechanical |
 | 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1380,7 +1388,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1393,8 +1401,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | was implicitly dual (no dmi field) — made EXPLICIT dmi:false + rationale comment | read-only interview; convention wants the exception annotated |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["milestone"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | ADDED Edit/Write/NotebookEdit | interview only; edits belong to the writer skills |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1407,7 +1415,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1420,8 +1428,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | was implicitly dual — made EXPLICIT dmi:false + rationale comment | read-only interview |
 | 3.2 argument-hint | n/a — no arguments (scope emerges in the interview) |  |
 | 3.3 arguments (named) | AMENDED: added ["focus"] + Step 2 wiring | seeds the interview scope, skipping the warm-up questions |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | ADDED Edit/Write/NotebookEdit | read-only by contract |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1434,7 +1442,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1447,8 +1455,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["phase"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1461,7 +1469,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1474,8 +1482,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + gate comment) |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | arg is milestone-id-or-'reconcile'; dual semantics resist a single name |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no | a validate-after-edit hook would fire on the deliberately inconsistent intermediate state (statuses edited before recompute); end-of-flow validation is already mandated |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1488,7 +1496,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1501,8 +1509,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["roadmap"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1515,7 +1523,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1528,8 +1536,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | was implicitly dual — made EXPLICIT dmi:false + rationale comment | read-only interview, writes nothing |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | added ["milestone"] | single clean slot |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | ADDED Edit/Write/NotebookEdit | writes nothing itself |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1542,7 +1550,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 
@@ -1555,8 +1563,8 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + gate comment); when_to_use already phrase-rich |  |
 | 3.2 argument-hint | present, confirmed |  |
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
-| 4.1 allowed-tools | TBD | |
-| 4.2 disallowed-tools | TBD | |
+| 4.1 allowed-tools | present, confirmed — scoped to the skill's commands |  |
+| 4.2 disallowed-tools | none — considered | nothing destructive to ban; unlisted tools still prompt under normal permissions |
 | 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
 | 5.2 hooks | no | same intermediate-state problem; roadmap.py validate runs as the final step by design |
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
@@ -1569,7 +1577,7 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
-| 7.4 permissions | TBD | |
+| 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
 

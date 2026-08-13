@@ -10,6 +10,7 @@ metadata:
   bundle: roadmap-system
 disable-model-invocation: false # explicit: read-only interview that writes nothing itself
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)", "Bash(git log:*)", "Bash(git diff:*)"]
+disallowed-tools: ["Edit", "Write", "NotebookEdit"] # writes nothing itself; hands actions to the roadmap-* writers
 arguments: ["milestone"]
 argument-hint: "[milestone id (optional, to scope the review)]"
 ---
