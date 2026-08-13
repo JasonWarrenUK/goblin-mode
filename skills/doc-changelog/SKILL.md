@@ -1,9 +1,12 @@
 ---
 name: "Docs: Changelog"
-description: "{{ ƔƔƔ }} Build or update the changelog from conventional commits and project it to every surface the project uses"
+description: "Build or update the changelog from conventional commits and project it to every surface the project uses"
 when_to_use: "After a release tag lands (pr-land names this moment), or when the user asks for a changelog, release notes, a what's-new page, or to bring an existing CHANGELOG.md up to date."
 model: haiku
 effort: medium
+metadata:
+  glyph: ᚺ
+  family: doc
 disable-model-invocation: false # programmatic (built from commits), and its trigger moment follows pr-land; approval gates the write
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)"]
 arguments: ["targets"]

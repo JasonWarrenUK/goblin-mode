@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | Phase 3 complete (applied 2026-08-13) — Phase 4 next |
+| Status | Phase 4 complete (applied 2026-08-13) — Phase 5 (tools & permissions) next |
 | Skills | 56 |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
@@ -48,6 +48,17 @@ Record of decisions for every skill across every audit step. Each cell starts as
 
 Every one of the 56 skills re-examined for candidate NEW arguments under the clarified policy. Added (with body wiring): commit-batch ["hints"] (grouping intent feeds the split plan), commit-one ["hint"] (type/scope/emphasis nudge for the message), roadmap-create-interview ["focus"] (seeds Step 2's scope questions, skipping to the interview proper). Deliberate skips, each recorded in its row: pr-create base branch (the whole PR workflow targets main by design), next-task-group assignee filter (the panorama view is the point; per-dev picks belong to next-task-suggest), doc-changelog range (derived from tags automatically), export-roadmap_zip (deterministic script, nothing to parameterise), analyse-*/artefact-* output paths (the free-form brief already carries them). All other skills either have their arguments already or take none for structural reasons recorded in Phase 3.
 
+## Phase 4 findings (2026-08-13)
+
+Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context decisions (the scaffold numbered steps before the plan reordered phases); rows 4.1–4.2 hold Phase 5's tools decisions.
+
+- **build-roadmap-zip.sh was already broken**: its hardcoded list referenced `skills/task-suggest/` and `skills/roadmap-build-zip/`, both stale pre-rename paths — the exact rot `bundle:` metadata prevents. The script now discovers members by grepping frontmatter for `bundle: roadmap-system` (11 members; rebuilt zip verified).
+- Forks: project-audit_deps gains fork+Explore; analyse-concept pins background:false; analyse-critique confirmed. Everything else records why not (approval gates/interviews a subagent cannot conduct, cross-skill loads, or work too small to fork).
+- Paths: 4 of 6 users removed — each glob suppressed the skill's primary conversational trigger, contradicting its own when_to_use. Kept on frontend_styler and svelte where file identity is genuinely the dominant trigger (their when_to_use conversation clauses queue for a Phase 8 trim).
+- Hooks: none anywhere. The tempting candidate (validate roadmaps.json after each Edit) fails because the maintain/update workflows pass through a deliberately inconsistent intermediate state before the recompute; a hook would abort the designed flow.
+- Metadata: glyph (ᚺᛊᛟᚠ mirroring model), family, and bundle applied to all 56; Greek tags stripped from every description; clod-config-skill_conventions' body rewritten to teach the metadata convention and mark both old tag forms as recognise-and-migrate.
+- Shell: omitted everywhere (macOS, bash default).
+
 ## Per-skill record
 
 ### analyse-concept
@@ -61,11 +72,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | fork confirmed; background:false ADDED | backgrounded forks run a narrower tool set (this needs Write) and the doc should land in-turn |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: analyse | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -88,11 +99,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | fork + agent:Explore confirmed; stays backgrounded | read-only fits the background tool set; result returns on completion |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: analyse | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -115,11 +126,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | polymorphic arg (topic or JSON path); a single name would mislead |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: artefact | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -142,11 +153,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | cross-skill dependency: loads the visual-explainer plugin skill |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: artefact | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -169,11 +180,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["phase"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: artefact, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -196,11 +207,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["strategy","target"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: branch | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -223,11 +234,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | AMENDED: added ["base"], wired through branch-facts.sh and the review diff | |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | cross-skill dependency: loads pr-review-dry_run and offers pr-create |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: branch | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -250,11 +261,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["desired-name"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: branch | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -277,11 +288,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-approach (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -304,11 +315,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-approach (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -331,11 +342,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-config (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -358,11 +369,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-lens (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -385,11 +396,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-lens (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -412,11 +423,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-lens (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -439,11 +450,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | REMOVED paths | API design conversations start before route files exist; the glob suppressed the skill's core trigger |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -466,11 +477,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | REMOVED paths | 'which database?' happens before schema files exist |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -493,11 +504,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -520,11 +531,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -547,11 +558,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | paths KEPT (*.svelte, *.css) | file identity is a reliable proxy; conversation-only styling questions are marginal |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -574,11 +585,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -601,11 +612,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | REMOVED paths | 'should I test this?' happens while writing source, with no test file to match |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -628,11 +639,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | REMOVED paths | Cypher lives inside .ts strings; file identity is an unreliable proxy |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-stack (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -655,11 +666,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | considered, not added | no reliable glob — OpenTUI code is plain .ts |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-stack (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -682,11 +693,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — not user-invoked, takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | never fork | docs warn: guideline-only content forked into a subagent has no actionable task |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | paths KEPT (*.svelte, +page.*, +layout.*) | dominant trigger is file work; keeps a 421-line skill from loading on passing mentions |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: clod-stack (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -709,11 +720,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | AMENDED: added ["hints"] + Step 2 wiring | grouping intent is exactly what the user knows and the diff doesn't show |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: commit | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -736,11 +747,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | AMENDED: added ["hint"] + Step 2 wiring | a type/scope/why nudge beats regenerating the message |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: commit | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -763,11 +774,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["scope","rule"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: config | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -790,11 +801,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | one-liner that deliberately inherits the session's full context |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | family: do (no glyph — no model pin) | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -817,11 +828,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["outcome","questions"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: do | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -844,11 +855,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["title"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: doc | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -871,11 +882,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | re-checked: no range arg | range derives from tags/commits automatically |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: doc | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -898,11 +909,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["mode","target"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: doc | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -925,11 +936,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["doc"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: doc | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -952,11 +963,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | re-checked: no args | deterministic script, nothing to parameterise |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -979,11 +990,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["scope","root"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: hud | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1006,11 +1017,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | AMENDED: added ["since"] + Scope section pinning the measurement window | |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: hud | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1033,11 +1044,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["action","branch"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: hud | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1060,11 +1071,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | path plus optional 'react' flag; variadic-ish |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: import | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1087,11 +1098,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | re-checked: no assignee filter | panorama view by design; per-dev picks are next-task-suggest's job |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: next-task, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1114,11 +1125,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | forwards $ARGUMENTS verbatim to next-task-suggest |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | orchestrator: needs the Skill tool and stops at user gates a subagent cannot present |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚠ, family: next-task | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1141,11 +1152,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | body parses by intent, not position; named args would misrepresent the contract |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: next-task, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1168,11 +1179,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | re-checked: no base-branch arg | PR workflow targets main by design (pr-land assumes it too) |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: pr | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1195,11 +1206,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["pr"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: pr | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1222,11 +1233,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["pr"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: pr | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1249,11 +1260,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["mode","pr"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | cross-skill dependency: called BY pr-review and branch-qa_review — findings must land in the caller's context |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: pr | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1276,11 +1287,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | present (["mode","pr"]), confirmed |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | cross-skill dependency: loads pr-review-dry_run; posts from main context |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: pr | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1303,11 +1314,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["pr"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: pr | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1330,11 +1341,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["dep"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | ADDED context:fork + agent:Explore | self-contained read-only investigation; large read/web footprint stays out of the main context |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: project | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1357,11 +1368,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | n/a — takes no arguments |  |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | instant script/summary; fork overhead exceeds the work |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᚺ, family: project | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1384,11 +1395,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["milestone"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1411,11 +1422,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | AMENDED: added ["focus"] + Step 2 wiring | seeds the interview scope, skipping the warm-up questions |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1438,11 +1449,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["phase"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1465,11 +1476,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | arg is milestone-id-or-'reconcile'; dual semantics resist a single name |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no | a validate-after-edit hook would fire on the deliberately inconsistent intermediate state (statuses edited before recompute); end-of-flow validation is already mandated |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1492,11 +1503,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["roadmap"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1519,11 +1530,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | added ["milestone"] | single clean slot |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no — nothing to enforce beyond allowed/disallowed-tools and in-body validators |  |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛟ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |
@@ -1546,11 +1557,11 @@ Every one of the 56 skills re-examined for candidate NEW arguments under the cla
 | 3.3 arguments (named) | skip — recorded | single free-form text blob; positional naming would fight shell quoting |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
-| 5.1 context / agent / background | TBD | |
-| 5.2 hooks | TBD | |
-| 5.3 paths | TBD | |
-| 5.4 shell | TBD | |
-| 5.5 metadata | TBD | |
+| 5.1 context / agent / background | no fork | mid-flow user interaction (approval gate or interview) that a forked subagent cannot conduct |
+| 5.2 hooks | no | same intermediate-state problem; roadmap.py validate runs as the final step by design |
+| 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
+| 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
+| 5.5 metadata | glyph: ᛊ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
 | 6.1 namespace conversion | TBD | |
 | 6.2 string substitutions | TBD | |
 | 6.3 supporting files | TBD | |

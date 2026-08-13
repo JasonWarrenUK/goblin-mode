@@ -1,14 +1,18 @@
 ---
 name: "Repo: Investigate Target"
-description: "{{ 𝛀𝛀𝛀 }} Investigate a codebase in detail and write findings to a document, for a named concept, subsystem, or question"
+description: "Investigate a codebase in detail and write findings to a document, for a named concept, subsystem, or question"
 when_to_use: "When you need a deep, written-down investigation of how something works or why it's built a certain way — deeper than a quick grep, and the output should persist as a doc."
 model: opus
 effort: high
+metadata:
+  glyph: ᛟ
+  family: analyse
 disable-model-invocation: true
 # Forked, but on the default general-purpose agent rather than Explore: this
 # skill Writes its investigation doc, and Explore is read-only. $ARGUMENTS
 # must carry the whole brief.
 context: fork
+background: false # keep the full tool set (backgrounded forks run with a narrower one, and this skill needs Write) and deliver the doc in-turn
 allowed-tools: ["Read", "Glob", "Grep", "Write"]
 argument-hint: "[focus of investigation]"
 ---

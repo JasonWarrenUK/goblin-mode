@@ -1,9 +1,12 @@
 ---
 name: "Version: Tag"
-description: "{{ 𝚫𝚫𝚫 }} Tag the release after a merge to main, computing the next semver tag with svu"
+description: "Tag the release after a merge to main, computing the next semver tag with svu"
 when_to_use: "When a merge to main has landed and the release should be tagged, or to report what bump is pending on a branch. Never tags at PR creation, mid-branch or on staging — releases are things that happened to main."
 model: haiku
 effort: low
+metadata:
+  glyph: ᚺ
+  family: project
 disable-model-invocation: true
 allowed-tools: ["Bash(svu:*)", "Bash(git:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)"]
 ---

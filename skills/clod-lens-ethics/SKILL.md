@@ -3,6 +3,8 @@ name: ethics-reviewer
 description: "Passive ethical review: manipulation, accessibility, privacy, sustainability in user-facing features."
 when_to_use: "When designing or reviewing a user-facing feature — dark patterns, accessibility gaps, privacy overreach, or sustainability trade-offs worth surfacing before it ships."
 user-invocable: false
+metadata:
+  family: clod-lens
 allowed-tools:
   - Read
 ---

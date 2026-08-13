@@ -1,9 +1,13 @@
 ---
 name: "Roadmap: Review"
-description: "{{ 𝛀𝛀𝛀 }} Interview-led review of the roadmap's health — status freshness, the priorities the graph implies, and whether the plan still matches reality"
+description: "Interview-led review of the roadmap's health — status freshness, the priorities the graph implies, and whether the plan still matches reality"
 when_to_use: "Periodically, or when the roadmap feels stale, the priorities feel off, a milestone dragged past its intent, or the user asks 'is the roadmap still right?' — the strategic complement to roadmap-maintain's mechanical sync."
 model: opus
 effort: high
+metadata:
+  glyph: ᛟ
+  family: roadmap
+  bundle: roadmap-system
 disable-model-invocation: false # explicit: read-only interview that writes nothing itself
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)", "Bash(git log:*)", "Bash(git diff:*)"]
 arguments: ["milestone"]

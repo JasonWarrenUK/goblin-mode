@@ -1,9 +1,13 @@
 ---
 name: "Roadmap: Create"
-description: "{{ 𝛀𝛀𝛀 }} Create a project roadmap in the rich phase-array format — roadmaps.json as source of truth plus a PHASE task list and prose overview"
+description: "Create a project roadmap in the rich phase-array format — roadmaps.json as source of truth plus a PHASE task list and prose overview"
 when_to_use: "When a project has no roadmap yet, or an existing simple-style one needs superseding with a new phase built from scratch (for converting an old roadmap, use roadmap-migrate instead)."
 model: opus
 effort: high
+metadata:
+  glyph: ᛟ
+  family: roadmap
+  bundle: roadmap-system
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)"]
 arguments: ["phase"]

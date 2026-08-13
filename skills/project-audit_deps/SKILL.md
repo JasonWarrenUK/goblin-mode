@@ -1,10 +1,18 @@
 ---
 name: "Repo: Analyse Package Deps"
-description: "{{ 𝛀𝛀𝛀 }} Investigate this repo's dependencies in detail"
+description: "Investigate this repo's dependencies in detail"
 when_to_use: "When auditing dependency health — outdated packages, security advisories, a specific package that looks suspect — rather than eyeballing package.json."
 model: sonnet
 effort: high
+metadata:
+  glyph: ᛊ
+  family: project
 disable-model-invocation: true
+# Forked into a read-only Explore agent: a self-contained investigation whose
+# large read/web footprint stays out of the main context. $ARGUMENTS carries
+# the concerning dep when there is one.
+context: fork
+agent: Explore
 allowed-tools: ["Read", "Glob", "Grep", "Bash(~/.claude/library/scripts/deps-dump.sh:*)", "WebSearch", "WebFetch"]
 arguments: ["dep"]
 argument-hint: "[package of concern (optional)]"

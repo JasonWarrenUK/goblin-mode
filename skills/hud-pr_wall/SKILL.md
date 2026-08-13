@@ -1,9 +1,12 @@
 ---
 name: "HUD: PR Wall"
-description: "{{ 𝚫𝚫𝚫 }} Show every open PR that involves you, bucketed by what each one is waiting on"
+description: "Show every open PR that involves you, bucketed by what each one is waiting on"
 when_to_use: "When the user asks what PRs are open, what's awaiting review, what needs their review, where their PRs stand, or wants a cross-project pull-request overview — also the natural first step before picking a target for pr-handle_review or pr-land."
 model: haiku
 effort: low
+metadata:
+  glyph: ᚺ
+  family: hud
 disable-model-invocation: false # "where do my PRs stand?" should load this; it's read-only
 allowed-tools: ["Bash(~/.claude/library/scripts/pr-wall.sh:*)"]
 arguments: ["scope", "root"]

@@ -1,9 +1,12 @@
 ---
 name: "Ship: Next"
-description: "{{ 𝛀𝛀𝛀 }} Autonomously run the full delivery loop for the next roadmap task — suggest, worktree, implement, roadmap-sync, PR, self-review"
+description: "Autonomously run the full delivery loop for the next roadmap task — suggest, worktree, implement, roadmap-sync, PR, self-review"
 when_to_use: "When you want to hand over a whole task cycle unattended: pick the next unblocked roadmap task, build it in an isolated worktree with tests green, keep roadmaps.json and its projections coherent, open a PR, and have it self-reviewed and fixed before handing back control."
 model: fable
 effort: high
+metadata:
+  glyph: ᚠ
+  family: next-task
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(python3:*)", "Bash(node:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
 argument-hint: "[assignee] [focus area] (both optional, forwarded to next-task-suggest)"
