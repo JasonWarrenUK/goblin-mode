@@ -1,10 +1,10 @@
 ---
 name: "PR: Create"
 description: "{{ ƔƔƔ }} Create a pull request to main — wordy or shiny (with screenshots), ready-for-review or draft"
-when_to_use: "When a branch is ready (or nearly ready) to open as a PR and needs a description written from its commits."
+when_to_use: "When a branch is ready (or nearly ready) to open as a PR and needs a description written from its commits — reached via next-task-ship's Step 6, branch-qa_review's Ready verdict, or an explicit ask. Never invoke just because a branch looks finished; its approval step gates the actual creation."
 model: sonnet
 effort: medium
-disable-model-invocation: true
+disable-model-invocation: false # invocable so next-task-ship (Step 6) and branch-qa_review's Ready offer can call it; its own approval step gates PR creation
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 argument-hint: "[shiny|wordy] [draft] [screenshot files or issue numbers...]"
 ---

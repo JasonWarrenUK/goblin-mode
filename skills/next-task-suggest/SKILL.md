@@ -4,7 +4,7 @@ description: "{{ 𝚫𝚫𝚫 }} Suggest the next logical task — grounded in t
 when_to_use: "When you don't know what to work on next and want a grounded recommendation rather than picking arbitrarily."
 model: haiku
 effort: low
-disable-model-invocation: true
+disable-model-invocation: false # read-only suggestion; invocable so next-task-ship's Step 1 can call it and "what should I work on?" loads it
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
 argument-hint: "[named dev (default none)] [topic focus (optional)]"
 ---

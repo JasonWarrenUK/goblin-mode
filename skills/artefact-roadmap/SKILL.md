@@ -6,6 +6,7 @@ model: haiku
 effort: low
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Bash(python3:*)", "Bash(open:*)"]
+arguments: ["phase"]
 argument-hint: [phase name (optional, when several are active)]
 ---
 

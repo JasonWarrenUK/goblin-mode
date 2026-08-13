@@ -6,6 +6,7 @@ model: sonnet
 effort: medium
 disable-model-invocation: true
 allowed-tools: ["Read", "Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
+arguments: ["pr"]
 argument-hint: ["PR number/url"]
 ---
 

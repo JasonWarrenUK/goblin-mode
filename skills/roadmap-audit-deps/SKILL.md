@@ -4,7 +4,9 @@ description: "{{ 𝛀𝛀𝛀 }} Interview-led audit of the roadmap's dependency
 when_to_use: "When the dependency graph deserves scrutiny — tasks that feel blocked for no reason, suspiciously parallel milestones, before committing to a milestone's build order, or periodically once a roadmap has grown past its original shape."
 model: opus
 effort: high
+disable-model-invocation: false # explicit: read-only interview, safe for Claude to open when the graph smells wrong
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
+arguments: ["milestone"]
 argument-hint: [milestone id (optional, to scope the audit)]
 ---
 

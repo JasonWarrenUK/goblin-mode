@@ -6,6 +6,7 @@ model: opus
 effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)"]
+arguments: ["phase"]
 argument-hint: [phase name (optional, e.g. PHASE_1)]
 ---
 

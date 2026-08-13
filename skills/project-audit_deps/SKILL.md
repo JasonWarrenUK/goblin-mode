@@ -6,6 +6,7 @@ model: sonnet
 effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(~/.claude/library/scripts/deps-dump.sh:*)", "WebSearch", "WebFetch"]
+arguments: ["dep"]
 argument-hint: ["optional: concerning dep"]
 ---
 

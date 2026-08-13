@@ -6,6 +6,7 @@ model: haiku
 effort: low
 disable-model-invocation: true
 allowed-tools: ["Bash(python3:*)"]
+arguments: ["pivot"]
 argument-hint: "[milestone|topic] (grouping pivot, default milestone)"
 ---
 
