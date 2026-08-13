@@ -16,7 +16,11 @@ allowed-tools:
 
 # Frontend Styling
 
-Comprehensive guidance for debugging layout issues, ensuring style consistency, and applying best practices in frontend development, with emphasis on Svelte/SvelteKit projects.
+Guidance for debugging layout issues, ensuring style consistency, and applying best practices in frontend development, with emphasis on Svelte/SvelteKit projects.
+
+**Detailed material loads on demand:**
+- Step-by-step layout debugging, the style-consistency workflow, and the accessibility/debugging checklists: [workflows-and-checklists.md](workflows-and-checklists.md)
+- Svelte-specific styling, common flexbox/grid patterns, and anti-patterns: [svelte-and-patterns.md](svelte-and-patterns.md)
 
 ---
 
@@ -73,6 +77,8 @@ Accessibility is not a polish step — it's a structural requirement. Every styl
 }
 ```
 
+The full pre-ship checklist is in [workflows-and-checklists.md](workflows-and-checklists.md).
+
 ### 2. Plan Before Execute
 For non-trivial styling changes:
 1. **Analyse** - Understand the current implementation
@@ -92,154 +98,6 @@ When fixing multiple issues:
 2. Address layout structure before fine-tuning
 3. Edit CSS files before component files when possible
 4. Work through child components before parent components
-
----
-
-## Svelte-Specific Guidelines
-
-### Component-Scoped Styles
-Svelte's `<style>` blocks are scoped by default - leverage this:
-
-```svelte
-<style>
-  /* Scoped automatically - no class name collisions */
-  .button {
-    padding: 0.5rem 1rem;
-    border-radius: 0.25rem;
-  }
-  
-  .button--primary {
-    background: var(--color-primary);
-  }
-</style>
-```
-
-### Global Styles
-Use `:global()` sparingly and intentionally:
-
-```svelte
-<style>
-  /* Only when deliberately styling external elements */
-  :global(.markdown-content h1) {
-    margin-top: 2rem;
-  }
-</style>
-```
-
-### CSS Custom Properties
-Prefer CSS variables for theming and consistency:
-
-```svelte
-<style>
-  .card {
-    background: var(--card-bg, #fff);
-    border: 1px solid var(--card-border, #e5e7eb);
-    border-radius: var(--radius-md, 0.5rem);
-  }
-</style>
-```
-
-### Reactive Classes
-Use Svelte's class directive for dynamic styling:
-
-```svelte
-<button 
-  class="btn" 
-  class:btn--active={isActive}
-  class:btn--disabled={disabled}
->
-  Click me
-</button>
-```
-
----
-
-## Layout Debugging Workflow
-
-### Step 1: Identify Root Cause
-Common layout issues and their causes:
-
-**Alignment Problems:**
-- Check parent container's `display` property (flex/grid/block)
-- Verify `align-items`, `justify-content`, `align-self`
-- Check for unexpected margins/padding
-- Look for `position: absolute` breaking flow
-
-**Spacing Issues:**
-- Examine margin collapse behaviour
-- Check for inconsistent spacing units
-- Look for `box-sizing` mismatches
-- Verify padding vs margin usage
-
-**Responsive Breakage:**
-- Check media query breakpoints
-- Verify `min-width` vs `max-width` logic
-- Look for fixed widths instead of flexible units
-- Check for overflow issues
-
-**Z-Index Conflicts:**
-- Verify stacking context creation
-- Check `position` property (relative/absolute/fixed)
-- Look for competing `z-index` values
-- Examine parent-child z-index relationships
-
-### Step 2: Determine Fix Location
-Ask: "Should this be fixed in the component or its parent?"
-
-**Fix in Component When:**
-- Issue is internal to component layout
-- Component violates its own design contract
-- Changes won't affect siblings or parent
-
-**Fix in Parent When:**
-- Issue involves multiple children
-- Problem is container-level (flexbox/grid)
-- Fix benefits component reusability
-
-### Step 3: Apply Fixes Systematically
-1. Start with structural changes (display, position, layout)
-2. Then spacing (margin, padding, gap)
-3. Then sizing (width, height, flex-grow/shrink)
-4. Finally visual polish (borders, shadows, etc.)
-
----
-
-## Style Consistency Workflow
-
-### Step 1: Analyse Current Implementation
-Check for:
-- **Naming conventions** - BEM, utility classes, or other patterns
-- **Styling location** - Component `<style>` vs external CSS
-- **Value patterns** - Hard-coded vs CSS variables
-- **Units** - rem, px, em usage patterns
-- **Responsiveness** - Media query patterns
-
-### Step 2: Identify Inconsistencies
-Compare component styling against project patterns:
-
-```
-✗ Inconsistent: <div class="cardContainer">
-✓ Consistent:   <div class="card-container">
-
-✗ Inconsistent: padding: 8px;
-✓ Consistent:   padding: 0.5rem;
-
-✗ Inconsistent: background: #3B82F6;
-✓ Consistent:   background: var(--color-primary); /* → --color-azure-3 */
-```
-
-### Step 3: Propose Changes
-List specific changes needed to match project patterns:
-- "Replace hard-coded colors with CSS variables"
-- "Convert class names from camelCase to kebab-case"
-- "Move inline styles to component `<style>` block"
-- "Use rem units instead of px for spacing"
-
-### Step 4: Execute After Approval
-Apply changes in logical order:
-1. CSS files first (if applicable)
-2. Child components
-3. Parent component last
 
 ---
 
@@ -285,140 +143,6 @@ Apply changes in logical order:
 
 ---
 
-## Common Patterns
-
-### Flexbox Layouts
-```css
-/* Center content */
-.container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Responsive row to column */
-.flex-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-```
-
-### Grid Layouts
-```css
-/* Responsive grid */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-}
-```
-
-### Component Structure
-```svelte
-<script>
-  // Logic
-</script>
-
-<div class="component">
-  <!-- Template -->
-</div>
-
-<style>
-  .component {
-    /* Styles scoped to component */
-  }
-</style>
-```
-
----
-
-## Anti-Patterns to Avoid
-
-### Don't: Mix Styling Approaches
-```svelte
-<!-- ✗ Bad: Mixing inline styles with classes -->
-<div class="card" style="margin: 10px;">
-```
-
-### Don't: Over-Nest Selectors
-```css
-/* ✗ Bad: Deep nesting */
-.container .wrapper .card .header .title {
-  font-size: 1.5rem;
-}
-
-/* ✓ Good: Flat structure */
-.card-title {
-  font-size: 1.5rem;
-}
-```
-
-### Don't: Use `!important` Without Cause
-```css
-/* ✗ Bad: Using important as a crutch */
-.button {
-  color: red !important;
-}
-
-/* ✓ Good: Increase specificity properly */
-.card .button {
-  color: red;
-}
-```
-
-### Don't: Hard-Code Values Repeatedly
-```css
-/* ✗ Bad: Repeated magic numbers */
-.card { padding: 16px; }
-.modal { padding: 16px; }
-.panel { padding: 16px; }
-
-/* ✓ Good: Use variables */
-:root {
-  --spacing-md: 1rem;
-}
-.card, .modal, .panel {
-  padding: var(--spacing-md);
-}
-```
-
----
-
-## Accessibility Checklist
-
-When building or reviewing UI components:
-
-- [ ] Does every interactive element have a visible focus indicator?
-- [ ] Does the colour contrast pass WCAG 2.1 AA? (Use browser DevTools audit — or use Reasonable Colors where shade diff ≥ 3 guarantees AA body text)
-- [ ] Is information conveyed by more than just colour?
-- [ ] Are all images/icons either decorative (`aria-hidden`) or labelled (`alt`/`aria-label`)?
-- [ ] Do form inputs have associated `<label>` elements?
-- [ ] Are error messages linked to inputs via `aria-describedby`?
-- [ ] Does the component work with keyboard only (Tab, Enter, Escape)?
-- [ ] Does `prefers-reduced-motion` disable animations?
-- [ ] Are touch targets at least 44×44px?
-- [ ] Is text readable at 200% zoom without horizontal scrolling?
-
----
-
-## Debugging Checklist
-
-When encountering styling issues, verify:
-
-- [ ] Is `box-sizing: border-box` set globally?
-- [ ] Are there competing CSS specificity issues?
-- [ ] Is the element in the correct stacking context?
-- [ ] Are flexbox/grid properties on the correct element (parent vs child)?
-- [ ] Are units consistent (rem vs px vs em)?
-- [ ] Does the issue exist at all breakpoints?
-- [ ] Are CSS variables defined and accessible?
-- [ ] Is the component's `<style>` block scoped correctly?
-- [ ] Are there any typos in class names or property names?
-- [ ] Is the browser's developer tools showing overridden styles?
-
----
-
 ## Permission and Confirmation
 
 **Always ask permission before:**
@@ -432,16 +156,6 @@ When encountering styling issues, verify:
 - What knock-on effects changes might have
 - Which order changes will be applied
 - Alternative approaches if multiple options exist
-
----
-
-## References
-
-For deeper dives into specific topics:
-- [Svelte Style Docs](https://svelte.dev/docs/svelte-components#style)
-- [CSS Tricks Flexbox Guide](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
-- [CSS Tricks Grid Guide](https://css-tricks.com/snippets/css/complete-guide-grid/)
-- [BEM Naming Convention](http://getbem.com/naming/)
 
 ---
 
