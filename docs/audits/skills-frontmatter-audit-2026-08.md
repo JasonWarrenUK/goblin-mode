@@ -44,6 +44,10 @@ Record of decisions for every skill across every audit step. Each cell starts as
 - **argument-hint normalisation**: all hints normalised to quoted YAML strings in "[...]" style (previously a mix of flow-sequences, bare brackets and one "<pr-number>"); weak wordings clarified (pr-update, pr-handle_review, pr-land, project-audit_deps, pr-review's "[#|URL]").
 - **New arguments added** (upgrading two Phase 3 skips): branch-qa_review gains ["base"] wired through branch-facts.sh and the review diff; hud-whats_new gains ["since"] with a Scope section defining the measurement window. project-tag_version considered again and skipped: tag-vs-report mode is auto-detected from the branch, which beats an argument.
 
+## Full argument re-sweep (2026-08-13, at Jason's challenge)
+
+Every one of the 56 skills re-examined for candidate NEW arguments under the clarified policy. Added (with body wiring): commit-batch ["hints"] (grouping intent feeds the split plan), commit-one ["hint"] (type/scope/emphasis nudge for the message), roadmap-create-interview ["focus"] (seeds Step 2's scope questions, skipping to the interview proper). Deliberate skips, each recorded in its row: pr-create base branch (the whole PR workflow targets main by design), next-task-group assignee filter (the panorama view is the point; per-dev picks belong to next-task-suggest), doc-changelog range (derived from tags automatically), export-roadmap_zip (deterministic script, nothing to parameterise), analyse-*/artefact-* output paths (the free-form brief already carries them). All other skills either have their arguments already or take none for structural reasons recorded in Phase 3.
+
 ## Per-skill record
 
 ### analyse-concept
@@ -702,7 +706,7 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.2 effort | low (keep) | confirmed |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | n/a — takes no arguments |  |
-| 3.3 arguments (named) | n/a — takes no arguments |  |
+| 3.3 arguments (named) | AMENDED: added ["hints"] + Step 2 wiring | grouping intent is exactly what the user knows and the diff doesn't show |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |
@@ -729,7 +733,7 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.2 effort | low (keep) | confirmed |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | n/a — takes no arguments |  |
-| 3.3 arguments (named) | n/a — takes no arguments |  |
+| 3.3 arguments (named) | AMENDED: added ["hint"] + Step 2 wiring | a type/scope/why nudge beats regenerating the message |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |
@@ -864,7 +868,7 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.2 effort | medium (add) | curation across surfaces needs some care |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + gate comment); when_to_use names its trigger moment (pr-land) |  |
 | 3.2 argument-hint | present, confirmed |  |
-| 3.3 arguments (named) | present (["targets"]), confirmed |  |
+| 3.3 arguments (named) | re-checked: no range arg | range derives from tags/commits automatically |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |
@@ -945,7 +949,7 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.2 effort | low (add) | deterministic |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | n/a — takes no arguments |  |
-| 3.3 arguments (named) | n/a — takes no arguments |  |
+| 3.3 arguments (named) | re-checked: no args | deterministic script, nothing to parameterise |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |
@@ -1080,7 +1084,7 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.2 effort | low (keep) | confirmed |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
 | 3.2 argument-hint | present, confirmed |  |
-| 3.3 arguments (named) | added ["pivot"] | single clean slot |
+| 3.3 arguments (named) | re-checked: no assignee filter | panorama view by design; per-dev picks are next-task-suggest's job |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |
@@ -1161,7 +1165,7 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.2 effort | medium (add) | outward-facing but bounded |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | CHANGED dmi true→false + comment: invoked by next-task-ship Step 6 and branch-qa_review's Ready offer — both were mechanically blocked. Internal approval step is the gate; when_to_use rewritten with explicit never-invoke-speculatively guardrail | orchestrator dependency + existing gate |
 | 3.2 argument-hint | present, confirmed |  |
-| 3.3 arguments (named) | skip — recorded | variadic: mode flags plus screenshot files/issue numbers |
+| 3.3 arguments (named) | re-checked: no base-branch arg | PR workflow targets main by design (pr-land assumes it too) |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |
@@ -1404,7 +1408,7 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.2 effort | high (add) | quality of questions drives quality of plan |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | was implicitly dual — made EXPLICIT dmi:false + rationale comment | read-only interview |
 | 3.2 argument-hint | n/a — no arguments (scope emerges in the interview) |  |
-| 3.3 arguments (named) | n/a — takes no arguments |  |
+| 3.3 arguments (named) | AMENDED: added ["focus"] + Step 2 wiring | seeds the interview scope, skipping the warm-up questions |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |
