@@ -6,7 +6,8 @@ model: opus
 disable-model-invocation: false # required so pr-review can call it
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 disallowed-tools: ["Edit", "Write", "NotebookEdit"] # reviews, never fixes
-argument-hint: ["PR number/url"]
+arguments: ["mode", "pr"]
+argument-hint: "[loose|strict] [#|URL]"
 ---
 
 # PR Review
@@ -15,10 +16,10 @@ Canonical review methodology. Produces structured findings only; **never posts t
 
 ```xml
 <pull-request-review>
-  <task>Review the pull request identified by `$ARGUMENTS` and produce structured findings. Do not post anything to GitHub.</task>
+  <task>Review the pull request identified within `$ARGUMENTS` (an optional loose/strict mode keyword plus the PR number/URL, in either order) and produce structured findings. Do not post anything to GitHub.</task>
   <steps>
-    <step num="1">Run `gh pr view $ARGUMENTS` to get PR title, description, and metadata</step>
-    <step num="2">Run `gh pr diff $ARGUMENTS` to get the full diff — always PR vs `origin/main`, regardless of the local branch checked out</step>
+    <step num="1">Split `$ARGUMENTS` into the mode keyword (`loose` or `strict`, if present, case-insensitive, order-agnostic; absent means loose) and the PR identifier — see <verdict/> for the mode rule. Run `gh pr view <identifier>` to get PR title, description, and metadata</step>
+    <step num="2">Run `gh pr diff <identifier>` to get the full diff — always PR vs `origin/main`, regardless of the local branch checked out</step>
     <step num="3">Research project conventions stored in `CLAUDE.md`, `.claude/**/*` and `docs/*`. Before critiquing implementation, check whether the dev is following established project practice</step>
     <step num="4">Classify every finding by <taxonomy/> type and by scope (line / file / cross-file)</step>
     <step num="5">Where a line-scoped 🔴/🟠/🟡 finding has a concrete fix, write it as a committable ```suggestion block per <suggestions/></step>
@@ -34,8 +35,8 @@ Canonical review methodology. Produces structured findings only; **never posts t
   <taxonomy>
     <!-- Replaces any older 🟣/🔴/🟡/🔵 four-colour key. This is the only taxonomy. -->
     <row emoji="🔴" type="major changes" ceiling="Request Changes">Blocking — must fix before merge</row>
-    <row emoji="🟠" type="minor changes" ceiling="Comment">Should fix, won't block. Same ceiling and treatment as nits</row>
-    <row emoji="🟡" type="nits" ceiling="Comment">Nice to have</row>
+    <row emoji="🟠" type="minor changes" ceiling="Comment (strict) / Approve (loose)">Should fix, won't block. Same ceiling and treatment as nits</row>
+    <row emoji="🟡" type="nits" ceiling="Comment (strict) / Approve (loose)">Nice to have</row>
     <row emoji="🟣" type="admiration" ceiling="Approve">Accolade — only when genuinely warranted</row>
   </taxonomy>
   <matrix>
@@ -53,10 +54,14 @@ Canonical review methodology. Produces structured findings only; **never posts t
     <guide>Never emit suggestions for admiration — there's nothing to commit.</guide>
   </suggestions>
   <verdict>
+    <guide>Two modes, `loose` and `strict`, either given explicitly anywhere in `$ARGUMENTS` (order-agnostic, case-insensitive). Absent keyword means loose. A mode keyword is never a PR identifier. Any other unrecognised bare word in the mode slot is an error, not a silent fallback.</guide>
+    <guide>Mode changes the verdict only. Findings, taxonomy, scope classification, suggestion eligibility and comment bodies are identical in both modes; a 🟠 is still written and posted as a 🟠.</guide>
     <guide>Derive one overall verdict from the highest ceiling present across all findings (highest-ceiling-wins):</guide>
-    <rule>Any 🔴 present → Request Changes</rule>
-    <rule>Else any 🟠 or 🟡 present → Comment</rule>
-    <rule>Else only 🟣 present (or no findings) → Approve</rule>
+    <rule mode="both">Any 🔴 present → Request Changes</rule>
+    <rule mode="strict">Else any 🟠 or 🟡 present → Comment</rule>
+    <rule mode="loose">Else any 🟠 or 🟡 present → Approve (the Comment rung collapses; findings still post as inline comments)</rule>
+    <rule mode="both">Else only 🟣 present (or no findings) → Approve</rule>
+    <guide>Loose posts no marker to the PR explaining the collapsed verdict. The finding emoji already carry severity. Report the mode in the terminal output only.</guide>
   </verdict>
   <guides>
     <guide>Keep it concise. Flag only the most important issues — skip minor style nits unless they're genuinely worth a 🟡.</guide>
@@ -75,6 +80,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
     Plus:
     - `summary`: overall review body (top-level comment content). When run in follow-up mode (see `pr-review`'s `<follow-up-mode/>`), the leading "Since my last review" delta uses only ⚪ fixed / ⚫ still open / 🟢 new — never 🆕 (renders as a GitHub `:new:` badge) or ✅/⚠️ (superseded, off-palette)
     - `verdict`: Request Changes | Comment | Approve, derived per <verdict/>
+    - `mode`: loose | strict — which rule set produced the verdict, so the caller doesn't have to re-derive it
   </output>
 </pull-request-review>
 ```

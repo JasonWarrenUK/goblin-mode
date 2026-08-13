@@ -5,21 +5,22 @@ when_to_use: "When you want a PR review posted directly as a GitHub review (inli
 model: opus
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(node:*)", "Bash(jq:*)"]
-argument-hint: ["PR number/url"]
+arguments: ["mode", "pr"]
+argument-hint: "[loose|strict] [#|URL]"
 ---
 
 # PR Review with Comment
 
-Thin wrapper around `pr-review-dry_run` — all methodology (foci, taxonomy, matrix, verdict logic, writing rules) lives there. This skill turns those findings into a single GitHub review, using `partition-findings.mjs` (in this skill's folder) to do the deterministic diff-matching and payload assembly. Everything stays in context and in a single shell pipeline: no scratch files are read or written at any point.
+Thin wrapper around `pr-review-dry_run` — all methodology (foci, taxonomy, matrix, verdict logic, writing rules) lives there, including the loose/strict mode split. This skill only parses the mode keyword out of `$ARGUMENTS` and forwards it; it turns the resulting findings into a single GitHub review, using `partition-findings.mjs` (in this skill's folder) to do the deterministic diff-matching and payload assembly. Everything stays in context and in a single shell pipeline: no scratch files are read or written at any point.
 
 ```xml
 <pull-request-review-and-comment>
-  <task>Review the pull request identified by `$ARGUMENTS` and post the findings as one GitHub review. If this skill has reviewed this PR before, build on that prior review instead of starting cold.</task>
+  <task>Review the pull request identified within `$ARGUMENTS` (an optional loose/strict mode keyword plus the PR number/URL, in either order — see step 1) and post the findings as one GitHub review. If this skill has reviewed this PR before, build on that prior review instead of starting cold.</task>
   <steps>
-    <step num="1">Resolve `owner`, `repo`, and `pull_number` — from `$ARGUMENTS` if it's a full URL, otherwise via `gh pr view $ARGUMENTS --json number,headRepositoryOwner,headRepository`.</step>
+    <step num="1">Before resolving the PR, split `$ARGUMENTS` into the mode keyword (`loose` or `strict`, if present, case-insensitive, order-agnostic) and the PR identifier. Pass only the identifier onward: resolve `owner`, `repo`, and `pull_number` — from it if it's a full URL, otherwise via `gh pr view <identifier> --json number,headRepositoryOwner,headRepository`.</step>
     <step num="2">Check for prior reviews from this skill: resolve the authenticated login via `gh api user --jq .login`, then `gh api repos/{owner}/{repo}/pulls/{pull_number}/reviews --jq '[.[] | select(.user.login == "<login>")]'` and `gh api repos/{owner}/{repo}/pulls/{pull_number}/comments --jq '[.[] | select(.user.login == "<login>")]'`. If either returns entries, this is a re-review — enter <follow-up-mode/>. Otherwise proceed cold.</step>
-    <step num="3">Load the pr-review-dry_run skill and run it against `$ARGUMENTS` to produce structured findings, a summary, and a derived verdict. In follow-up mode, pass the prior findings in as context per <follow-up-mode/>. Do not skip or duplicate pr-review-dry_run's methodology here. Keep the findings, summary, and verdict in context — nothing gets written to disk at any point in this skill.</step>
-    <step num="4">Assemble one JSON object in context (never on disk): `{ "verdict": ..., "findings": [...], "diff": "<verbatim gh pr diff $ARGUMENTS output>", "summary": "<verbatim review summary prose>" }`. The summary prose (and every comment body inside `findings[].body`) must contain **no em-dashes, en-dashes, or other dash-family separators** — use a semicolon, colon, or parentheses instead. `partition-findings.mjs` hard-fails the run if it finds one, so getting this right up front avoids a wasted round-trip.</step>
+    <step num="3">Load the pr-review-dry_run skill and run it against the resolved PR identifier, forwarding the resolved mode (loose applies when no keyword was given), to produce structured findings, a summary, and a derived verdict. In follow-up mode, pass the prior findings in as context per <follow-up-mode/>. Do not skip or duplicate pr-review-dry_run's methodology here. Keep the findings, summary, and verdict in context — nothing gets written to disk at any point in this skill.</step>
+    <step num="4">Assemble one JSON object in context (never on disk): `{ "verdict": ..., "findings": [...], "diff": "<verbatim gh pr diff output for the resolved PR identifier>", "summary": "<verbatim review summary prose>" }`. The summary prose (and every comment body inside `findings[].body`) must contain **no em-dashes, en-dashes, or other dash-family separators** — use a semicolon, colon, or parentheses instead. `partition-findings.mjs` hard-fails the run if it finds one, so getting this right up front avoids a wasted round-trip.</step>
     <step num="5">Feed that JSON straight into a single pipeline, with `partition-findings.mjs` reading it from stdin and `gh api` reading the resulting payload from stdin in turn — nothing touches disk at any point:
       <code>
 node ${CLAUDE_SKILL_DIR}/partition-findings.mjs <<'JSON_EOF' | gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/reviews --input -
@@ -52,6 +53,7 @@ JSON_EOF
     <guide>The verdict reflects the PR's current state, not a mechanical re-scan. A prior 🔴 that's now fixed should not resurface; a prior 🟡 left unaddressed can be repeated, but say so explicitly ("still open from last review") rather than presenting it as newly discovered.</guide>
   </follow-up-mode>
   <verdict-map>
+    <guide>Mode selection happens in pr-review-dry_run. This map is mode-agnostic: it translates the derived verdict, whichever rule set produced it.</guide>
     <rule>pr-review-dry_run verdict "Request Changes" → event `REQUEST_CHANGES`</rule>
     <rule>pr-review-dry_run verdict "Comment" → event `COMMENT`</rule>
     <rule>pr-review-dry_run verdict "Approve" → event `APPROVE`</rule>
