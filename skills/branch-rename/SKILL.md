@@ -2,7 +2,8 @@
 name: "Branch: Rename If Needed"
 description: "{{ ƔƔƔ }} Check the current branch name against convention (type/short-description) and rename it if it drifted — e.g. work started on a misnamed or default branch."
 when_to_use: "Before opening a PR, when work started on a misnamed or default branch, or whenever the branch name no longer reflects what the branch actually contains."
-model: sonnet
+model: haiku
+effort: low
 disable-model-invocation: false # invocable by Claude so it can flag a drifted branch name before PR creation; the rename still awaits approval
 allowed-tools: ["Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)"]
 arguments: ["desired-name"]

@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | Phase 2 — decisions recorded, edits pending sign-off on two policies |
+| Status | Phase 2 complete (applied 2026-08-13) — Phase 3 next |
 | Skills | 56 |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
@@ -21,6 +21,15 @@ Record of decisions for every skill across every audit step. Each cell starts as
 - Stale `Skill(version)` permission: removal is in scope (Phase 5).
 - `when_to_use` must work hard on dual-invocable skills: agent discoverability there, `description` kept concise for humans.
 - Interim note: skills whose model changes in Phase 2 will briefly disagree with the old Greek tag still in their description; the tag sweep happens in the metadata phase.
+
+## Phase 2 sign-off outcomes (2026-08-13)
+
+- roadmap-update-tasks → sonnet confirmed: the semantic wiring is proposal-quality output that Step 7's approval gate and roadmap.py validate both check before anything is written.
+- roadmap-maintain → sonnet confirmed, but effort raised medium→high specifically because the reconcile path infers completion from codebase evidence; the confirmation gate remains the backstop. Recorded in frontmatter comment.
+- Knowledge-skill exceptions double-checked: none survive. The tempting ones (domain_modeller/data_ontologist `effort: high`, debug_dervish) fail because the override is absolute, not a floor — a session at xhigh/max triggering the skill would be *downgraded* to high. All 16 inherit.
+- next-task-ship → fable approved with safeguard: new hard rule 4 caps the gate loop at 6 fix-and-rerun rounds (implement gate and post-review fix gate), converging on BLOCKED.md instead of unbounded overnight burn. Also load-bearing: pr-create's approval gate stops the loop before PR creation, so one invocation cannot chain into a second task.
+- Glyphs agreed: ᚺ haiku, ᛊ sowilo/sonnet, ᛟ othala/opus, ᚠ fehu/fable — single glyph in `metadata`, swept in Phase 4.4.
+- Metadata keys agreed: `glyph`, `family`, `bundle` (roadmap-system membership for export-roadmap_zip discovery).
 
 ## Per-skill record
 
@@ -1433,7 +1442,7 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | Step | Decision | Reasoning |
 |------|----------|-----------|
 | 2.1 model | sonnet (down from opus) | roadmap.py does the graph maths; skill orchestrates and narrates |
-| 2.2 effort | medium (add) | validator-gated |
+| 2.2 effort | high (add) | raised from proposed medium: reconcile path infers from codebase evidence |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | TBD | |
 | 3.2 argument-hint | TBD | |
 | 3.3 arguments (named) | TBD | |

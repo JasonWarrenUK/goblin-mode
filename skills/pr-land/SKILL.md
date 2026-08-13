@@ -3,6 +3,7 @@ name: "PR: Land"
 description: "{{ ƔƔƔ }} Land an approved PR — merge to main, delete the branch, tag the version, sync the roadmap, clean up"
 when_to_use: "When a PR is approved with checks green and the user wants it merged and the aftermath handled — including after hud-pr_wall shows a PR in the approved bucket."
 model: sonnet
+effort: medium
 disable-model-invocation: true
 allowed-tools: ["Read", "Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
 argument-hint: ["PR number/url"]

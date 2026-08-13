@@ -2,7 +2,8 @@
 name: "Project: Scaffold from Artefact"
 description: "{{ 𝛀𝛀𝛀 }} Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project"
 when_to_use: "When a design or prototype exported from an Artifact (HTML or React/JSX) needs turning into a real, runnable project scaffold."
-model: opus
+model: sonnet
+effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(bun:*)", "Bash(bunx:*)", "Bash(npm:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(open:*)", "Bash(find:*)"]
 argument-hint: [path to the exported .html/.jsx artefact (optional); add "react" to opt into React/Next]
