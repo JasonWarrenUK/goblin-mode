@@ -6,6 +6,7 @@ model: opus
 effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3:*)"]
+arguments: ["pr"]
 argument-hint: ["PR number/url"]
 ---
 

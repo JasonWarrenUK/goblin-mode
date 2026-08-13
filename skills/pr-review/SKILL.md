@@ -1,10 +1,10 @@
 ---
 name: "PR: Review"
 description: "{{ 𝛀𝛀𝛀 }} Review a pull request and post it as a GitHub review"
-when_to_use: "When you want a PR review posted directly as a GitHub review (inline comments + verdict), not just printed to the terminal."
+when_to_use: "When the user explicitly asks for a review posted to GitHub (inline comments + verdict), or when next-task-ship's Step 7 self-review runs. Posts to the PR immediately — for a read-only review printed to the terminal use pr-review-dry_run instead, and never invoke this speculatively."
 model: opus
 effort: high
-disable-model-invocation: true
+disable-model-invocation: false # invocable so next-task-ship's Step 7 self-review can call it; it posts to GitHub, so never invoke without an explicit ask or that orchestration
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(node:*)", "Bash(jq:*)"]
 arguments: ["mode", "pr"]
 argument-hint: "[loose|strict] [#|URL]"

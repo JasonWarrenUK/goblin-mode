@@ -6,6 +6,7 @@ model: sonnet
 effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)", "Bash(git status:*)", "Bash(git stash:*)"]
+arguments: ["roadmap"]
 argument-hint: [roadmap path or name (optional)]
 ---
 
