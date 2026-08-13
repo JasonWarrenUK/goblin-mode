@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | Phase 6 complete (applied 2026-08-13) — Phase 7 (visibility, evals, visual output) next |
+| Status | Phase 7 complete (applied 2026-08-13) — Phase 8 (names & descriptions) next, then Phase 9 (intent-gap dialogue), then Phase 10 (final artefact) |
 | Skills | 56 |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
@@ -78,6 +78,16 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 
 After Phase 8, a conversational pass through every skill, family by family, inferring gaps between what Jason *wants* each skill to do and what it *actually* does. Method: for each skill, state its observable behaviour in one or two sentences, Jason confirms or corrects, divergences become fixes. First documented specimen (found before the pass began): pr-update appended an updates block despite Step 3 instructing integration — fixed by naming the failure mode explicitly and giving provenance its own collapsible trail so "append a block" stops doubling as the provenance strategy.
 
+## Phase 7 findings (2026-08-13)
+
+- Visibility: verified clean across settings.json, settings.local.json and ~/.claude.json — no skillOverrides, no disableBundledSkills, no disableSkillShellExecution. Every visibility decision lives in the skills themselves.
+- Evals: six candidates recorded (pr-review-dry_run the strongest — checkable taxonomy and verdict rules; plus commit-batch, branch-rename, roadmap-update-tasks, hud-whats_new, doc-changelog's haiku benchmark). Execution deliberately queued until after Phase 8, because description rewrites change trigger behaviour and skill-creator's description-tuning mode should grade the final text. Everything else records its disqualifier: script-owned behaviour, ungradable knowledge content, or interview flows a harness cannot conduct.
+- Visual output: one addition — roadmap-audit-deps now offers to render substantial findings through artefact-audit's render-only mode (the schemas align). The artefact-* family is visual by design; review flows keep the terminal/GitHub as their surface; analyse-critique flagged for the Phase 9 dialogue.
+
+## Phase 10 (added 2026-08-13, always last — position N+1 even if more phases are added)
+
+Create an HTML artefact documenting the skills setup. Jason will be interviewed at that point for specific steering (audience, scope, depth, aesthetic). Not started until every other phase, including any added later, is complete.
+
 ## Per-skill record
 
 ### analyse-concept
@@ -100,9 +110,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | the written doc is the artefact |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -128,9 +138,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | considered | findings could map to artefact-audit's schema; left to the Phase 9 dialogue — depends whether Jason shares these |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -156,9 +166,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | considered split, skipped | under the 500-line cap and a single linear flow; indirection would cost more than it saves |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | already visual by design |  |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -184,9 +194,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | already visual by design |  |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -212,9 +222,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | already visual by design |  |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -240,9 +250,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the candidate command exits non-zero in legitimate situations (unfetched origin, no tags, outside a repo) and would abort the invocation; and for worktrees the state must be re-read after each mutation anyway |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -268,9 +278,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the candidate command exits non-zero in legitimate situations (unfetched origin, no tags, outside a repo) and would abort the invocation; and for worktrees the state must be re-read after each mutation anyway |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | verdict + findings belong in the terminal; GitHub is the visual surface once the PR exists |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -296,9 +306,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | CANDIDATE — queued post-Phase 8 | name-suggestion quality and trigger accuracy both checkable |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -324,9 +334,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ${CLAUDE_SKILL_DIR} already used for bundled scripts — the canonical pattern |
 | 6.3 supporting files | present, confirmed | find-scaffold.sh (+ handoff template on do-stud) |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -352,9 +362,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -380,9 +390,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -408,9 +418,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -436,9 +446,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -464,9 +474,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -492,9 +502,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -520,9 +530,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -548,9 +558,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -576,9 +586,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -604,9 +614,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | SPLIT APPLIED: 458 → 183 lines | workflows-and-checklists.md + svelte-and-patterns.md extracted, matching the sibling pattern; both carry tables of contents |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -632,9 +642,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -660,9 +670,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -688,9 +698,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -716,9 +726,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -744,9 +754,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
 | 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
 | 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
+| 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -772,9 +782,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | confirmed — reference pattern | ```! blocks capture git status/diff at invocation; command cannot legitimately fail, takes no arguments, state consumed once |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | CANDIDATE — queued post-Phase 8 | grouping quality is assertable against fixture diffs |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -800,9 +810,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | confirmed — reference pattern | ```! blocks capture git status/diff at invocation; command cannot legitimately fail, takes no arguments, state consumed once |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -828,9 +838,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -856,9 +866,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -884,9 +894,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ${CLAUDE_SKILL_DIR} already used for bundled scripts — the canonical pattern |
 | 6.3 supporting files | present, confirmed | find-scaffold.sh (+ handoff template on do-stud) |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -912,9 +922,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | fills templates from library/templates/ |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -940,9 +950,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | CANDIDATE — queued post-Phase 8 | haiku downshift deserves a with/without benchmark on fixture history |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -968,9 +978,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | fills templates from library/templates/ |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -996,9 +1006,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1024,9 +1034,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1052,9 +1062,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1080,9 +1090,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | CANDIDATE — queued post-Phase 8 | observable-behaviour-only rule is easy to violate and easy to grade |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1108,9 +1118,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the candidate command exits non-zero in legitimate situations (unfetched origin, no tags, outside a repo) and would abort the invocation; and for worktrees the state must be re-read after each mutation anyway |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1136,9 +1146,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | considered split, skipped | under the 500-line cap and a single linear flow; indirection would cost more than it saves |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1164,9 +1174,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1192,9 +1202,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | considered extracting BLOCKED.md template, skipped | small and load-bearing inline |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1220,9 +1230,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1248,9 +1258,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | fills templates from library/templates/ |
 | 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1276,9 +1286,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1304,9 +1314,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1332,9 +1342,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | CANDIDATE — queued post-Phase 8 | structured findings with a checkable taxonomy and verdict rules — the strongest eval target in the collection |
+| 7.3 visual output | no | deliberately terminal-only by contract |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1360,9 +1370,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ${CLAUDE_SKILL_DIR} already used for bundled scripts — the canonical pattern |
 | 6.3 supporting files | present, confirmed | partition-findings.mjs; pr-review-dry_run serves as the shared methodology 'file' for this skill and branch-qa_review |
 | 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | GitHub review IS the visual output |
 | 7.4 permissions | Skill(pr-review) + Skill(pr-review *) ask rules added to settings.json | mechanical gate on model-invoked posting (the Phase 3 deferral); user slash invocation is not a Skill tool call, so /pr-review stays frictionless |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1388,9 +1398,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1416,9 +1426,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, none useful |  |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1444,9 +1454,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
 | 6.4 dynamic context | considered, rejected | the candidate command exits non-zero in legitimate situations (unfetched origin, no tags, outside a repo) and would abort the invocation; and for worktrees the state must be re-read after each mutation anyway |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1472,9 +1482,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
+| 7.3 visual output | ADDED: offers artefact-audit render-only mode for substantial findings lists | the findings shape maps onto artefact-audit's JSON schema |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1500,9 +1510,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1528,9 +1538,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1556,9 +1566,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1584,9 +1594,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1612,9 +1622,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
+| 7.3 visual output | no — but the dashboard already exists | artefact-roadmap is the visual surface; the review's value is the conversation |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1640,9 +1650,9 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 | 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
 | 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
-| 7.1 visibility lives in skill | TBD | |
-| 7.2 evals | TBD | |
-| 7.3 visual output | TBD | |
+| 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
+| 7.2 evals | CANDIDATE — queued post-Phase 8 | graph-integrity assertions on fixture roadmaps; roadmap.py validate doubles as the grader |
+| 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
