@@ -328,8 +328,8 @@ document.getElementById("milestone-details").innerHTML = st.milestones.map((m, i
 		return `<div class="group" style="--g-colour:var(--color-${varName})">
 			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
 	}).join("");
-	const open = tasks.some(t => readyIds.has(t.id)) || i === 0 ? " open" : "";
-	return `<details class="milestone"${open}>
+	// All milestones render collapsed; the reader chooses what to expand
+	return `<details class="milestone">
 		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
 			<span class="count">${m.done}/${m.total}</span></summary>
 		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>

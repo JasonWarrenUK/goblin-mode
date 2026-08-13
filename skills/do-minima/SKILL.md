@@ -5,7 +5,7 @@ when_to_use: "When the ask is small and well-understood and you want the smalles
 # No model override: the task domain is unbounded, so inherit the session model
 effort: medium
 disable-model-invocation: true
-argument-hint: [desired outcome]
+argument-hint: "[desired outcome]"
 ---
 
 Using the most minimal approach possible, achieve this: $ARGUMENTS

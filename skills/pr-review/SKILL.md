@@ -7,7 +7,7 @@ effort: high
 disable-model-invocation: false # invocable so next-task-ship's Step 7 self-review can call it; it posts to GitHub, so never invoke without an explicit ask or that orchestration
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(node:*)", "Bash(jq:*)"]
 arguments: ["mode", "pr"]
-argument-hint: "[loose|strict] [#|URL]"
+argument-hint: "[loose|strict] [PR number | URL]"
 ---
 
 # PR Review with Comment

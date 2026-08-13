@@ -7,7 +7,7 @@ effort: high
 disable-model-invocation: false # explicit: read-only interview that writes nothing itself
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)", "Bash(git log:*)", "Bash(git diff:*)"]
 arguments: ["milestone"]
-argument-hint: [milestone id (optional, to scope the review)]
+argument-hint: "[milestone id (optional, to scope the review)]"
 ---
 
 # Roadmap: Review

@@ -38,6 +38,12 @@ Record of decisions for every skill across every audit step. Each cell starts as
 - when_to_use on user-only (dmi:true) skills is invisible to the model AND costs zero context; retained everywhere as maintainer documentation (one blanket decision).
 - Named `arguments` added to 9 skills with single clean slots; skips recorded for free-form, variadic, polymorphic and intent-parsed argument shapes.
 
+## Interim amendments (2026-08-13, post-Phase 3)
+
+- **Roadmap collapsibles**: default-open logic removed from `library/templates/roadmap-artefact.html` (line 331: first/ready milestones auto-opened). All roadmap HTML flows through `roadmap.py render` + this template, so the fix covers artefact-roadmap, roadmap-maintain, roadmap-update-tasks and pr-land in one place. Guard lines added to artefact-roadmap (Notes) and roadmap-maintain (Step 3): never re-add `open` attributes. artefact-audit's separate audit artefact also uses collapsibles but is not roadmap output; unchanged, flagged as available.
+- **argument-hint normalisation**: all hints normalised to quoted YAML strings in "[...]" style (previously a mix of flow-sequences, bare brackets and one "<pr-number>"); weak wordings clarified (pr-update, pr-handle_review, pr-land, project-audit_deps, pr-review's "[#|URL]").
+- **New arguments added** (upgrading two Phase 3 skips): branch-qa_review gains ["base"] wired through branch-facts.sh and the review diff; hud-whats_new gains ["since"] with a Scope section defining the measurement window. project-tag_version considered again and skipped: tag-vs-report mode is auto-detected from the branch, which beats an argument.
+
 ## Per-skill record
 
 ### analyse-concept
@@ -209,8 +215,8 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.1 model | opus (keep) | full pr-review methodology plus gate interpretation |
 | 2.2 effort | high (add) | review quality is the product |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dmi:true confirmed; when_to_use retained as maintainer documentation | user-only, so description/when_to_use never reach the model; when_to_use costs zero context and documents intent |
-| 3.2 argument-hint | n/a — no arguments (body has no $ARGUMENTS) | considered a [base] arg for branch-facts.sh; deferred as scope creep |
-| 3.3 arguments (named) | n/a — takes no arguments |  |
+| 3.2 argument-hint | AMENDED: added "[base branch (default main)]" | [base] arg implemented at Jason's direction |
+| 3.3 arguments (named) | AMENDED: added ["base"], wired through branch-facts.sh and the review diff | |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |
@@ -992,8 +998,8 @@ Record of decisions for every skill across every audit step. Each cell starts as
 | 2.1 model | sonnet (keep) | user-facing synthesis of diffs |
 | 2.2 effort | low (add) | quick memo, not analysis |
 | 3.1 invocation (disable-model-invocation / user-invocable / when_to_use) | dual confirmed (dmi:false + comment); read-only wrap-up |  |
-| 3.2 argument-hint | n/a — takes no arguments |  |
-| 3.3 arguments (named) | n/a — takes no arguments |  |
+| 3.2 argument-hint | AMENDED: added "[since ref (optional)]" | |
+| 3.3 arguments (named) | AMENDED: added ["since"] + Scope section pinning the measurement window | |
 | 4.1 allowed-tools | TBD | |
 | 4.2 disallowed-tools | TBD | |
 | 5.1 context / agent / background | TBD | |

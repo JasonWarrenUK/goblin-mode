@@ -6,7 +6,7 @@ model: sonnet
 effort: high # high rather than medium: the reconcile path infers task completion from codebase evidence
 disable-model-invocation: false # invocable by Claude so it can offer a status sync after merges; the reconcile confirmation gate still applies
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)", "Bash(git:*)"]
-argument-hint: [milestone id, or "reconcile" to also check against the codebase]
+argument-hint: '[milestone id | "reconcile" to also check against the codebase]'
 ---
 
 Keep the roadmap coherent across its artefacts — `.claude/roadmaps.json` (machine-readable source of truth; operate on the active non-`archived` phase), the PHASE file it names (task list + dependency diagram), `docs/reports/ROADMAP_OVERVIEW.md` (prose overview) and the HTML dashboard if one exists — by recomputing statuses from the dependency graph and synchronising every artefact. Optionally, first reconcile the graph itself against the actual codebase.
@@ -74,7 +74,7 @@ If Step 0 ran, this is also where its **approved** edits land: set `status: done
 
 ### 3. Recompute every derived status (delegated to the script)
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute --render`. It applies the fixed-point recompute under the precedence rule `deferred > paused > blocked > todo`, **writes the corrected statuses back** atomically, and refreshes the HTML artefact when one exists. It prints each `{ID}: old -> new` change; capture that list — it drives the projection sync below.
+Run `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute --render`. It applies the fixed-point recompute under the precedence rule `deferred > paused > blocked > todo`, **writes the corrected statuses back** atomically, and refreshes the HTML artefact when one exists. The refreshed artefact renders every collapsible section closed by default (template convention); never hand-add `open` attributes to it. It prints each `{ID}: old -> new` change; capture that list — it drives the projection sync below.
 
 Failure modes, all surfaced by exit 1 with a message — stop and report, never work around:
 

@@ -6,7 +6,7 @@ model: sonnet
 effort: medium
 disable-model-invocation: false # invocable by Claude so "add this to the roadmap" loads this skill instead of hand-editing the JSON; Step 7's approval gate still applies
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)"]
-argument-hint: [task description (optional)]
+argument-hint: "[task description (optional)]"
 ---
 
 # Roadmap Task Adder

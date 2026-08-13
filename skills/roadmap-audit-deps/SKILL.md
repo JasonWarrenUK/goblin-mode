@@ -7,7 +7,7 @@ effort: high
 disable-model-invocation: false # explicit: read-only interview, safe for Claude to open when the graph smells wrong
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
 arguments: ["milestone"]
-argument-hint: [milestone id (optional, to scope the audit)]
+argument-hint: "[milestone id (optional, to scope the audit)]"
 ---
 
 # Roadmap: Audit Dependencies

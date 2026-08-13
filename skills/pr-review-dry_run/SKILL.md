@@ -8,7 +8,7 @@ disable-model-invocation: false # required so pr-review can call it
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 disallowed-tools: ["Edit", "Write", "NotebookEdit"] # reviews, never fixes
 arguments: ["mode", "pr"]
-argument-hint: "[loose|strict] [#|URL]"
+argument-hint: "[loose|strict] [PR number | URL]"
 ---
 
 # PR Review

@@ -11,7 +11,7 @@ disable-model-invocation: true
 context: fork
 agent: Explore
 allowed-tools: ["Read", "Glob", "Grep"]
-argument-hint: [focus of analysis]
+argument-hint: "[focus of analysis]"
 ---
 
 # Repo Critique

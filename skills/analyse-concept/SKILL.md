@@ -10,7 +10,7 @@ disable-model-invocation: true
 # must carry the whole brief.
 context: fork
 allowed-tools: ["Read", "Glob", "Grep", "Write"]
-argument-hint: [focus of investigation]
+argument-hint: "[focus of investigation]"
 ---
 
 # Targeted Repo Investigation

@@ -6,7 +6,7 @@ model: sonnet
 effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(open:*)", "Bash(mkdir:*)", "Write"]
-argument-hint: [focus of analysis]
+argument-hint: "[focus of analysis (optional)]"
 ---
 
 # Repo Introduction
