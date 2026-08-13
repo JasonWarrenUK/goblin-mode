@@ -91,7 +91,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "opusplan",
+  "model": "fable",
   "hooks": {
     "SessionStart": [
       {
