@@ -26,6 +26,7 @@ argument-hint: "[focus of analysis]"
   <step num="1">Analyse the codebase as a developer would when reading unfamiliar code.</step>
   <step num="2">If $ARGUMENTS contains content, focus analysis on that area.</step>
   <step num="3">Provide practical overview of weaknesses in implemented code only (not missing features).</step>
+  <step num="4">Close the report by noting that, if it's worth sharing, the findings map onto `artefact-audit`'s JSON shape and its render-only mode produces a shareable HTML page. (This skill runs in a read-only fork; rendering happens back in the main conversation if the offer is taken.)</step>
 </steps>
 <inputs>
   $ARGUMENTS
