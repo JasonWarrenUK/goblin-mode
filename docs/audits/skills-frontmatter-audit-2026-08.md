@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | Phase 5 complete (applied 2026-08-13) — Phase 6 (body & structure) next |
+| Status | Phase 6 complete (applied 2026-08-13) — Phase 7 (visibility, evals, visual output) next |
 | Skills | 56 |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
@@ -67,6 +67,13 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 - settings.json: stale `Skill(version)` allow rule removed; `Skill(pr-review)`/`Skill(pr-review *)` ask rules added — the mechanical gate Phase 3 deferred. Ask rules bind the Skill *tool*, so Claude-initiated posting prompts while typed /pr-review does not.
 - No other settings-level permissions needed: every remaining control was expressible in frontmatter (audit item 8's "if and only if" satisfied).
 
+## Phase 6 findings (2026-08-13)
+
+- Namespaces: recorded per skill as not-possible (personal-skill commands come from the flat directory name); the family axis lives in metadata instead.
+- Substitutions: the collection already uses the right forms — ${CLAUDE_SKILL_DIR} for bundled scripts (stud twins, pr-review), absolute ~/.claude/library paths for the shared layer, argument placeholders from Phase 3. SESSION_ID and EFFORT have no current use case anywhere.
+- Supporting files: one structural change — clod-role-frontend_styler split (458 → 183 lines) into workflows-and-checklists.md and svelte-and-patterns.md, matching its siblings. The roadmap family's "shared namespace-level files" already exist as library/ (scripts, conventions reference, template); recorded as the deliberate architecture.
+- Dynamic context: the commit twins' ```! blocks are the reference pattern, and its preconditions turn out to be strict — the command must not depend on arguments, must not legitimately fail (a non-zero exit aborts the whole invocation), and its output must be consumable as a one-shot snapshot. Every other candidate fails at least one precondition; each records which.
+
 ## Per-skill record
 
 ### analyse-concept
@@ -85,10 +92,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: analyse | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -112,10 +119,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: analyse | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -139,10 +146,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: artefact | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | considered split, skipped | under the 500-line cap and a single linear flow; indirection would cost more than it saves |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -166,10 +173,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: artefact | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -193,10 +200,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: artefact, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -220,10 +227,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: branch | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the candidate command exits non-zero in legitimate situations (unfetched origin, no tags, outside a repo) and would abort the invocation; and for worktrees the state must be re-read after each mutation anyway |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -247,10 +254,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: branch | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the candidate command exits non-zero in legitimate situations (unfetched origin, no tags, outside a repo) and would abort the invocation; and for worktrees the state must be re-read after each mutation anyway |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -274,10 +281,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: branch | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -301,10 +308,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-approach (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ${CLAUDE_SKILL_DIR} already used for bundled scripts — the canonical pattern |
+| 6.3 supporting files | present, confirmed | find-scaffold.sh (+ handoff template on do-stud) |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -328,10 +335,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-approach (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -355,10 +362,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-config (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -382,10 +389,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-lens (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -409,10 +416,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-lens (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -436,10 +443,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-lens (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -463,10 +470,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | REMOVED paths | API design conversations start before route files exist; the glob suppressed the skill's core trigger |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -490,10 +497,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | REMOVED paths | 'which database?' happens before schema files exist |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -517,10 +524,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -544,10 +551,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -571,10 +578,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | paths KEPT (*.svelte, *.css) | file identity is a reliable proxy; conversation-only styling questions are marginal |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | SPLIT APPLIED: 458 → 183 lines | workflows-and-checklists.md + svelte-and-patterns.md extracted, matching the sibling pattern; both carry tables of contents |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -598,10 +605,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | no paths (correct as-is) | conversation-triggered knowledge; no reliable file proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -625,10 +632,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | REMOVED paths | 'should I test this?' happens while writing source, with no test file to match |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-role (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -652,10 +659,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | REMOVED paths | Cypher lives inside .ts strings; file identity is an unreliable proxy |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-stack (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -679,10 +686,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | considered, not added | no reliable glob — OpenTUI code is plain .ts |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-stack (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -706,10 +713,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | paths KEPT (*.svelte, +page.*, +layout.*) | dominant trigger is file work; keeps a 421-line skill from loading on passing mentions |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: clod-stack (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | nothing applicable | no commands, no arguments, no bundled files |
+| 6.3 supporting files | present, confirmed | reference files linked one level deep from SKILL.md |
+| 6.4 dynamic context | n/a | knowledge content; no invocation-time commands to inject |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -733,10 +740,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: commit | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | confirmed — reference pattern | ```! blocks capture git status/diff at invocation; command cannot legitimately fail, takes no arguments, state consumed once |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -760,10 +767,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: commit | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | confirmed — reference pattern | ```! blocks capture git status/diff at invocation; command cannot legitimately fail, takes no arguments, state consumed once |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -787,10 +794,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: config | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -814,10 +821,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | family: do (no glyph — no model pin) | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -841,10 +848,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: do | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ${CLAUDE_SKILL_DIR} already used for bundled scripts — the canonical pattern |
+| 6.3 supporting files | present, confirmed | find-scaffold.sh (+ handoff template on do-stud) |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -868,10 +875,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: doc | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | fills templates from library/templates/ |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -895,10 +902,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: doc | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -922,10 +929,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: doc | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | fills templates from library/templates/ |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -949,10 +956,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: doc | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -976,10 +983,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1003,10 +1010,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: hud | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1030,10 +1037,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: hud | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1057,10 +1064,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: hud | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the candidate command exits non-zero in legitimate situations (unfetched origin, no tags, outside a repo) and would abort the invocation; and for worktrees the state must be re-read after each mutation anyway |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1084,10 +1091,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: import | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | considered split, skipped | under the 500-line cap and a single linear flow; indirection would cost more than it saves |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1111,10 +1118,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: next-task, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1138,10 +1145,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚠ, family: next-task | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | considered extracting BLOCKED.md template, skipped | small and load-bearing inline |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1165,10 +1172,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: next-task, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1192,10 +1199,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: pr | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | fills templates from library/templates/ |
+| 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1219,10 +1226,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: pr | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1246,10 +1253,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: pr | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1273,10 +1280,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: pr | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | argument placeholders wired in Phase 3; SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1300,10 +1307,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: pr | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ${CLAUDE_SKILL_DIR} already used for bundled scripts — the canonical pattern |
+| 6.3 supporting files | present, confirmed | partition-findings.mjs; pr-review-dry_run serves as the shared methodology 'file' for this skill and branch-qa_review |
+| 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1327,10 +1334,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: pr | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the natural command depends on arguments/PR resolution not available at render time |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1354,10 +1361,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: project | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1381,10 +1388,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᚺ, family: project | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none needed | body well under the 500-line budget; single flow |
+| 6.4 dynamic context | considered, rejected | the candidate command exits non-zero in legitimate situations (unfetched origin, no tags, outside a repo) and would abort the invocation; and for worktrees the state must be re-read after each mutation anyway |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1408,10 +1415,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1435,10 +1442,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1462,10 +1469,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1489,10 +1496,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1516,10 +1523,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1543,10 +1550,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛟ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
@@ -1570,10 +1577,10 @@ Note: the per-skill rows numbered 5.1–5.5 hold Phase 4's execution-context dec
 | 5.3 paths | n/a — auto-load relevance is conversational or the skill is user-only |  |
 | 5.4 shell | omit (blanket: macOS, bash is the default; powershell N/A) | |
 | 5.5 metadata | glyph: ᛊ, family: roadmap, bundle: roadmap-system | Greek tag stripped from description where present |
-| 6.1 namespace conversion | TBD | |
-| 6.2 string substitutions | TBD | |
-| 6.3 supporting files | TBD | |
-| 6.4 dynamic context | TBD | |
+| 6.1 namespace conversion | not possible for personal skills — flat prefix stays; family axis captured in metadata instead | |
+| 6.2 string substitutions | confirmed | ~/.claude/library paths are deliberately absolute (shared layer, not skill-local); SESSION_ID/EFFORT considered, no use case |
+| 6.3 supporting files | none in-skill — by design | library/ (roadmap.py, conventions reference, HTML template) is the shared namespace-level layer the audit brief asked about |
+| 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | TBD | |
 | 7.2 evals | TBD | |
 | 7.3 visual output | TBD | |
