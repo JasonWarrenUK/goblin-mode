@@ -1,9 +1,13 @@
 ---
 name: "Roadmap: Audit Dependencies"
-description: "{{ 𝛀𝛀𝛀 }} Interview-led audit of the roadmap's dependency graph — are the edges, gates and milestone boundaries actually rational?"
+description: "Interview-led audit of the roadmap's dependency graph — are the edges, gates and milestone boundaries actually rational?"
 when_to_use: "When the dependency graph deserves scrutiny — tasks that feel blocked for no reason, suspiciously parallel milestones, before committing to a milestone's build order, or periodically once a roadmap has grown past its original shape."
 model: opus
 effort: high
+metadata:
+  glyph: ᛟ
+  family: roadmap
+  bundle: roadmap-system
 disable-model-invocation: false # explicit: read-only interview, safe for Claude to open when the graph smells wrong
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
 arguments: ["milestone"]

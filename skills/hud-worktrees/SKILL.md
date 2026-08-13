@@ -1,9 +1,12 @@
 ---
 name: "HUD: Worktrees"
-description: "{{ ƔƔƔ }} Map every worktree in this repo in plain language and shepherd safe create/remove actions"
+description: "Map every worktree in this repo in plain language and shepherd safe create/remove actions"
 when_to_use: "When the user asks what worktrees exist, seems confused about which checkout they're in, wants to create or remove a worktree, or a worktree-related git error appears — this skill exists because worktrees are easy to get wrong."
 model: sonnet
 effort: medium
+metadata:
+  glyph: ᛊ
+  family: hud
 disable-model-invocation: false # confusion about worktrees is exactly when it should appear; every mutation awaits approval
 allowed-tools: ["Bash(git:*)", "Read", "Glob"]
 arguments: ["action", "branch"]

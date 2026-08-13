@@ -1,9 +1,12 @@
 ---
 name: "Docs: ADR"
-description: "{{ ƔƔƔ }} Create an Architecture Decision Record for a significant technical decision"
+description: "Create an Architecture Decision Record for a significant technical decision"
 when_to_use: "When a technical choice was hard-won or non-obvious enough that future-you (or a teammate) will ask 'why did we do it this way?' — schema shape, library swap, architectural pattern."
 model: sonnet
 effort: medium
+metadata:
+  glyph: ᛊ
+  family: doc
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write"]
 arguments: ["title"]

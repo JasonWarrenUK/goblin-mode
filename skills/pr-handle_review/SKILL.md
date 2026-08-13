@@ -1,9 +1,12 @@
 ---
 name: "PR: Handle Review"
-description: "{{ 𝛀𝛀𝛀 }} Work through a PR's change requests — verify each independently, fix what holds up, reply to every thread"
+description: "Work through a PR's change requests — verify each independently, fix what holds up, reply to every thread"
 when_to_use: "When a PR has received review feedback (human or pr-review) and the change requests need triaging, fixing and answering rather than blind acceptance."
 model: opus
 effort: high
+metadata:
+  glyph: ᛟ
+  family: pr
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3:*)"]
 arguments: ["pr"]

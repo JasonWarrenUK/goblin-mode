@@ -1,9 +1,13 @@
 ---
 name: "Next: Task Group"
-description: "{{ 𝚫𝚫𝚫 }} Show every currently unblocked roadmap task, grouped by milestone or topic"
+description: "Show every currently unblocked roadmap task, grouped by milestone or topic"
 when_to_use: "When you want the whole actionable frontier laid out to choose from — next-task-suggest picks one; this shows them all."
 model: haiku
 effort: low
+metadata:
+  glyph: ᚺ
+  family: next-task
+  bundle: roadmap-system
 disable-model-invocation: true
 allowed-tools: ["Bash(python3:*)"]
 arguments: ["pivot"]

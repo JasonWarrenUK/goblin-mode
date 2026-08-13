@@ -1,9 +1,13 @@
 ---
 name: "Roadmap: Migrate"
-description: "{{ 𝛀𝛀𝛀 }} Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json pointer registry) into the rich phase-array format (roadmaps.json source of truth + PHASE task list + prose overview)."
+description: "Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json pointer registry) into the rich phase-array format (roadmaps.json source of truth + PHASE task list + prose overview)."
 when_to_use: "When a project still has the old single-Markdown-file roadmap format and needs upgrading to the rich phase-array format before roadmap-create or roadmap-update-tasks can be used on it."
 model: sonnet
 effort: high
+metadata:
+  glyph: ᛊ
+  family: roadmap
+  bundle: roadmap-system
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)", "Bash(git status:*)", "Bash(git stash:*)"]
 arguments: ["roadmap"]

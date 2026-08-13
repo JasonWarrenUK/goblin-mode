@@ -3,6 +3,8 @@ name: domain-modeller
 description: "Model-first design: map entities, relationships, and boundaries before writing code."
 when_to_use: "Before writing code for a new feature that introduces new entities or relationships — when the shape of the data model isn't settled yet, or an existing model feels like it's straining under a new requirement."
 user-invocable: false
+metadata:
+  family: clod-role
 allowed-tools:
   - Read
   - Glob

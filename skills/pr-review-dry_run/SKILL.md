@@ -1,9 +1,12 @@
 ---
 name: "PR: Review (Dry Run)"
-description: "{{ 𝛀𝛀𝛀 }} Review a pull request"
+description: "Review a pull request"
 when_to_use: "When you want a read-only review of a PR's diff printed to the conversation — for a posted GitHub review use pr-review, which calls this skill internally."
 model: opus
 effort: high
+metadata:
+  glyph: ᛟ
+  family: pr
 disable-model-invocation: false # required so pr-review can call it
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 disallowed-tools: ["Edit", "Write", "NotebookEdit"] # reviews, never fixes

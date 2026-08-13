@@ -11,8 +11,9 @@ local script_dir="${0:A:h}"
 local repo_root="${script_dir:h:h}"
 local out="$repo_root/roadmap-system.zip"
 
-# Single source of truth for what ships. Add a line here when a new file
-# starts touching the roadmap system; remove one when it goes stale.
+cd "$repo_root"
+
+# Non-skill files ship from this fixed list.
 local -a files=(
 	"library/scripts/_roadmap_core.py"
 	"library/scripts/roadmap.py"
@@ -20,17 +21,15 @@ local -a files=(
 	"library/templates/roadmap-artefact.html"
 	"library/references/roadmap-conventions.md"
 	"library/configs/examples/roadmaps.json"
-	"skills/roadmap-create/SKILL.md"
-	"skills/roadmap-create-interview/SKILL.md"
-	"skills/roadmap-maintain/SKILL.md"
-	"skills/roadmap-migrate/SKILL.md"
-	"skills/roadmap-update-tasks/SKILL.md"
-	"skills/artefact-roadmap/SKILL.md"
-	"skills/task-suggest/SKILL.md"
-	"skills/roadmap-build-zip/SKILL.md"
 )
 
-cd "$repo_root"
+# Skill membership is discovered from frontmatter: any SKILL.md declaring
+# `bundle: roadmap-system` in its metadata ships in the zip. A new
+# roadmap-touching skill opts in by adding that line — no edit here needed.
+local skill
+for skill in skills/*/SKILL.md(N); do
+	grep -q "bundle: roadmap-system" "$skill" && files+=("$skill")
+done
 
 for f in "${files[@]}"; do
 	if [[ ! -f "$f" ]]; then

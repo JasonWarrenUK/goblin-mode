@@ -1,9 +1,13 @@
 ---
 name: "Roadmap: Propose"
-description: "{{ 𝛀𝛀𝛀 }} Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks — read-only; roadmap-update-tasks writes the approved proposal"
+description: "Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks — read-only; roadmap-update-tasks writes the approved proposal"
 when_to_use: "When the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone', or 'interview me about what to build'. Not for adding a single already-specified task — that's roadmap-update-tasks."
 model: opus
 effort: high
+metadata:
+  glyph: ᛟ
+  family: roadmap
+  bundle: roadmap-system
 disable-model-invocation: false # explicit: read-only interview, so "help me think through features" phrasing can load it
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
 arguments: ["focus"]

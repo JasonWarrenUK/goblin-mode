@@ -1,9 +1,12 @@
 ---
 name: "Docs: Readme"
-description: "{{ ƔƔƔ }} Create or update a README — project root or any directory"
+description: "Create or update a README — project root or any directory"
 when_to_use: "When a project or directory has no README, or its existing one no longer matches the current structure or setup steps."
 model: sonnet
 effort: medium
+metadata:
+  glyph: ᛊ
+  family: doc
 disable-model-invocation: false # programmatic (derives from repo facts), so Claude can offer a refresh when structure drifts; approval gates the write
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]
 arguments: ["mode", "target"]
