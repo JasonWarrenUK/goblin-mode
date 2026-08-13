@@ -57,6 +57,8 @@ Present decisions made, grouped by the skill that executes them:
 
 Offer to run the first of these now. This skill writes nothing itself.
 
+When the findings are substantial or worth sharing, also offer to render them visually: map them to `artefact-audit`'s JSON shape and run that skill in render-only mode. Decline gracefully if the terminal summary is all that's wanted.
+
 ## Red flags
 
 **Never:** edit any roadmap artefact directly; mark anything done without `roadmap-maintain`'s evidence gate; turn the review into feature brainstorming (route it); manufacture findings when the roadmap is healthy — "nothing needs changing" is a valid, complete outcome.

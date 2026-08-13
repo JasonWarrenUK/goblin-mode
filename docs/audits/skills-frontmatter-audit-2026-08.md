@@ -82,7 +82,7 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 
 - Visibility: verified clean across settings.json, settings.local.json and ~/.claude.json — no skillOverrides, no disableBundledSkills, no disableSkillShellExecution. Every visibility decision lives in the skills themselves.
 - Evals: six candidates recorded (pr-review-dry_run the strongest — checkable taxonomy and verdict rules; plus commit-batch, branch-rename, roadmap-update-tasks, hud-whats_new, doc-changelog's haiku benchmark). Execution deliberately queued until after Phase 8, because description rewrites change trigger behaviour and skill-creator's description-tuning mode should grade the final text. Everything else records its disqualifier: script-owned behaviour, ungradable knowledge content, or interview flows a harness cannot conduct.
-- Visual output: one addition — roadmap-audit-deps now offers to render substantial findings through artefact-audit's render-only mode (the schemas align). The artefact-* family is visual by design; review flows keep the terminal/GitHub as their surface; analyse-critique flagged for the Phase 9 dialogue.
+- Visual output (amended after Jason's challenge — four amendments total): the cut runs on four disqualifiers (ephemeral output, canonical dashboard already exists, output is already the artefact, interactive flow). Applying them consistently added project-audit_deps, roadmap-review and analyse-critique alongside the original — roadmap-audit-deps now offers to render substantial findings through artefact-audit's render-only mode (the schemas align). The artefact-* family is visual by design; review flows keep the terminal/GitHub as their surface; analyse-critique flagged for the Phase 9 dialogue.
 
 ## Phase 10 (added 2026-08-13, always last — position N+1 even if more phases are added)
 
@@ -140,7 +140,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
-| 7.3 visual output | considered | findings could map to artefact-audit's schema; left to the Phase 9 dialogue — depends whether Jason shares these |
+| 7.3 visual output | AMENDED: closes with an artefact-audit render pointer when worth sharing | decided now rather than punted to Phase 9; read-only fork, so pointer-form |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1428,7 +1428,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 6.4 dynamic context | considered, none useful |  |
 | 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
-| 7.3 visual output | no | terminal output is the right surface |
+| 7.3 visual output | AMENDED: closes its report with an artefact-audit render pointer | consistency fix after Jason's challenge — severity-ranked findings revisited over days; runs in a read-only fork so the pointer is textual and rendering happens in the main conversation |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
@@ -1624,7 +1624,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 6.4 dynamic context | considered, rejected | a failed injected command aborts the whole invocation; the body's exit-code protocol handles failure gracefully |
 | 7.1 visibility lives in skill | clean | no skillOverrides/disableBundledSkills/shell-execution overrides anywhere; the only external control is the deliberate Skill(pr-review) ask pair, which gates invocation, not listing |
 | 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
-| 7.3 visual output | no — but the dashboard already exists | artefact-roadmap is the visual surface; the review's value is the conversation |
+| 7.3 visual output | AMENDED: offers artefact-audit render-only mode like roadmap-audit-deps | the 'value is the conversation' distinction applied equally to audit-deps; inconsistency resolved |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | TBD | |
 | 8.2 description | TBD | |
