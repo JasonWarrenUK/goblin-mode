@@ -7,7 +7,7 @@ effort: medium
 disable-model-invocation: false # invocable by Claude so it can offer a refresh when new commits leave the description stale; its approval step still gates the write
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Read", "Glob", "Grep"]
 arguments: ["pr"]
-argument-hint: "<pr-number>"
+argument-hint: "[PR number]"
 ---
 
 # Update an Existing PR

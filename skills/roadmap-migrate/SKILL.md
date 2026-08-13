@@ -7,7 +7,7 @@ effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)", "Bash(git status:*)", "Bash(git stash:*)"]
 arguments: ["roadmap"]
-argument-hint: [roadmap path or name (optional)]
+argument-hint: "[roadmap path or name (optional)]"
 ---
 
 Upgrade an old **simple-format** roadmap to the **rich phase-array format** the other `roadmap-*` skills expect. This is a one-way structural rewrite of the source of truth, so it is user-initiated only (never model-triggered) — the other skills detect the old format and point the user here.

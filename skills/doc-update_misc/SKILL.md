@@ -7,7 +7,7 @@ effort: medium
 disable-model-invocation: false # programmatic (reconciles doc with shipped code), so Claude can offer it when a doc drifts; approval gates the write
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(git:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]
 arguments: ["doc"]
-argument-hint: [doc path or name, e.g. Technical-Overview]
+argument-hint: "[doc path or name, e.g. Technical-Overview]"
 ---
 
 Analyse recent code changes and update the specified documentation file. (For READMEs specifically, use `doc-readme` — this skill covers everything else: technical overviews, ADRs, guides.)

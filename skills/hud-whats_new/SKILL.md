@@ -6,11 +6,17 @@ model: sonnet
 effort: low
 disable-model-invocation: false # useful as an automatic wrap-up after a unit of work lands
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git log:*)", "Bash(git diff:*)", "Bash(git status:*)"]
+arguments: ["since"]
+argument-hint: "[since ref (optional) — tag, commit or branch to measure from]"
 ---
 
 # What's New
 
 Summarise what the user can now see or do that they couldn't before this unit of work.
+
+## Scope
+
+`$since` (optional) pins the start of the unit of work: measure from that ref with `git log $since..HEAD` and `git diff $since...HEAD`. Without it, infer the unit — typically the current branch's commits, or everything since the last merge or tag.
 
 ## Rules
 

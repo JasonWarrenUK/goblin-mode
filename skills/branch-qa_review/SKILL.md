@@ -6,13 +6,15 @@ model: opus
 effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
+arguments: ["base"]
+argument-hint: "[base branch (default main)]"
 ---
 
 Assess whether this branch is ready to be submitted as a reviewable pull request. Three layers: the mechanical facts, the gate run and the same review methodology `pr-review` applies after the PR exists. Anything that would surface in the PR review should surface here, one step earlier.
 
 ## Step 0 — Facts
 
-Gather the exact numbers first: `"$HOME"/.claude/library/scripts/branch-facts.sh [base]` emits JSON (ahead/behind, conventional-commit and branch-name compliance, WIP commits, diff size, conflict markers, TODOs and console.logs added, test files touched, svu bump). Judge from these facts; the steps below are the judgement layer, not fact-gathering to repeat by hand.
+Gather the exact numbers first: `"$HOME"/.claude/library/scripts/branch-facts.sh $base` (blank `$base` = the script's default, `main`) emits JSON (ahead/behind, conventional-commit and branch-name compliance, WIP commits, diff size, conflict markers, TODOs and console.logs added, test files touched, svu bump). Judge from these facts; the steps below are the judgement layer, not fact-gathering to repeat by hand.
 
 ## Step 1 — Run the gate
 
@@ -20,7 +22,7 @@ Discover the project's test, typecheck and lint commands from `package.json` (or
 
 ## Step 2 — Review the code with pr-review's methodology
 
-Load the `pr-review-dry_run` skill and run its full methodology against this branch — foci (correctness, security, conventions, reinforcement), taxonomy (🔴/🟠/🟡/🟣), scope classification and its conventions-research step (`CLAUDE.md`, `.claude/**/*`, `docs/`). The local diff `git diff main...HEAD` substitutes for its `gh pr diff` step; everything else applies unchanged.
+Load the `pr-review-dry_run` skill and run its full methodology against this branch — foci (correctness, security, conventions, reinforcement), taxonomy (🔴/🟠/🟡/🟣), scope classification and its conventions-research step (`CLAUDE.md`, `.claude/**/*`, `docs/`). The local diff `git diff <base>...HEAD` (the same `$base`, default `main`) substitutes for its `gh pr diff` step; everything else applies unchanged.
 
 Do not re-derive or abbreviate that methodology here. A thinner duplicate of it is exactly what this skill used to carry, and it routinely missed what the PR review then caught: structured per-focus passes find what "check for obvious bugs" skims past.
 

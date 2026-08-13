@@ -6,7 +6,7 @@ model: opus
 effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(open:*)", "Bash(mkdir:*)", "Bash(python3:*)"]
-argument-hint: [topic to audit, or path to a findings JSON]
+argument-hint: "[topic to audit | path to a findings JSON]"
 ---
 
 Audit a topic and render the findings as a self-contained, actionable HTML page: findings grouped by delivery status, ranked by severity, each verified before it ships. Uses the visual-explainer plugin's rendering patterns.

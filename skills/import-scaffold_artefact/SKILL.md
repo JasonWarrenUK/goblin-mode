@@ -6,7 +6,7 @@ model: sonnet
 effort: high
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(bun:*)", "Bash(bunx:*)", "Bash(npm:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(open:*)", "Bash(find:*)"]
-argument-hint: [path to the exported .html/.jsx artefact (optional); add "react" to opt into React/Next]
+argument-hint: '[artefact path (.html/.jsx, optional)] ["react" to opt into React/Next]'
 ---
 
 Take a single-file artefact exported from Claude Chat or Cowork (an interactive HTML page or a JSX component) and grow it into a real, runnable project in Jason's default stack. Understand the artefact, interview for the decisions only a human can make, then port it: scaffold a project, translate the artefact into components or routes, and rewire its styling onto Reasonable Colors. A **full-project tail** (tests, git, docs, deploy) follows and is skippable.

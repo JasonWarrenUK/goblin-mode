@@ -7,7 +7,7 @@ effort: low
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Bash(python3:*)", "Bash(open:*)"]
 arguments: ["phase"]
-argument-hint: [phase name (optional, when several are active)]
+argument-hint: "[phase name (optional, when several are active)]"
 ---
 
 Render the interactive roadmap dashboard. The HTML is generated deterministically by `roadmap.py render` from the template at `~/.claude/library/templates/roadmap-artefact.html` — this skill runs the command and opens the result; it writes no HTML itself. Same data in, same file out, so regenerated artefacts diff cleanly and can never drift from `roadmaps.json`.
@@ -23,5 +23,6 @@ Shared conventions (statuses, colour table): `~/.claude/library/references/roadm
 ## Notes
 
 - The dashboard refreshes automatically when `roadmap-maintain` runs (`recompute --render`); invoke this skill for the first render or an on-demand refresh.
+- Collapsible sections (the milestone `<details>` blocks) default to **closed**; the template owns this. Never re-add `open` attributes, in the template or any generated file.
 - Sections, palette and behaviour live in the template. To change the dashboard's look, edit `library/templates/roadmap-artefact.html`; to change status colours, change the canonical table (`STATUS_STYLE` in `roadmap.py` + the conventions reference) — never patch a generated file.
 - The artefact is generated in the CLI's own canonical form (tabs, single-line JSON payload), not Prettier's. A repo that runs Prettier (or another formatter) in a pre-commit hook or CI should exclude it — add `docs/artefacts/roadmap-*.html` to `.prettierignore`, the same way `.claude/roadmaps.json` is already excluded — so regenerating the dashboard never fights the formatter.
