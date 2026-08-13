@@ -6,6 +6,8 @@ model: haiku
 effort: low
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)"]
+arguments: ["hints"]
+argument-hint: "[grouping hints (optional), e.g. 'docs together, config separate']"
 ---
 
 ## Current state
@@ -18,7 +20,7 @@ git diff --stat HEAD
 ## Steps
 
 1. The current state above was captured at invocation; run `git diff HEAD` on specific files only where the stat alone can't tell you what a change is.
-2. Analyse the changes and group them into logical commit units — each group should represent a single coherent change (e.g. one feature, one fix, one refactor).
+2. Analyse the changes and group them into logical commit units — each group should represent a single coherent change (e.g. one feature, one fix, one refactor). If `$hints` was given, honour it as the intended grouping; it overrides the guidelines below where they conflict.
 3. Present the proposed commit plan as a numbered list:
    - Group name / files involved
    - Suggested commit message (conventional commits format)

@@ -6,6 +6,8 @@ model: haiku
 effort: low
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)"]
+arguments: ["hint"]
+argument-hint: "[message emphasis (optional), e.g. a type, scope or the why]"
 ---
 
 ## Current state
@@ -18,7 +20,7 @@ git diff --cached --stat
 ## Steps
 
 1. Per the state above: if no changes staged, stage all. If files are already staged, *do not* stage more files.
-2. Generate commit message per conventional commits format.
+2. Generate commit message per conventional commits format, honouring `$hint` (a type, scope or emphasis nudge) when given.
 3. Show message and await approval:
     - If approved, push to upstream
     - If changes requested, revise and repeat

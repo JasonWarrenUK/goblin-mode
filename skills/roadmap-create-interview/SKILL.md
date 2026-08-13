@@ -6,6 +6,8 @@ model: opus
 effort: high
 disable-model-invocation: false # explicit: read-only interview, so "help me think through features" phrasing can load it
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
+arguments: ["focus"]
+argument-hint: "[milestone, theme or focus (optional)]"
 ---
 
 # Roadmap Interviewer
@@ -47,7 +49,7 @@ Before asking anything about features, clarify:
 - **Is there a theme?** (e.g. "we want to improve onboarding", "tightening the auth flow", "M2 planning")
 - **Rough quantity** — a handful of tasks, or a full milestone's worth?
 
-Keep this brief — one or two questions at most. If the user's opening message already answers these, skip straight to Step 3.
+Keep this brief — one or two questions at most. If `$focus` was passed or the user's opening message already answers these, take that as the scope and skip straight to Step 3.
 
 ---
 
