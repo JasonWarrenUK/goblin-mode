@@ -62,6 +62,8 @@ Note updates:     {task} — record kept-edge rationale
 
 Confirm the list, then hand off: edge/gate/status changes go to `roadmap-maintain` (its Step 2 applies explicit edits, recomputes and re-projects); new tasks or milestone moves go to `roadmap-update-tasks`. This skill writes nothing itself.
 
+When the findings list is substantial (roughly eight or more, or worth sharing), also offer to render it visually: map the findings to `artefact-audit`'s JSON shape and run that skill in render-only mode. Decline gracefully if the user just wants the terminal summary.
+
 ## Red flags
 
 **Never:** edit `roadmaps.json` or any projection directly; propose removing an edge just because it's inconvenient (the question is whether it's *true*); treat a user's "I don't remember why" as licence to delete — an unexplained edge that keeps coming up gets a note, not a silent removal; let the audit balloon into feature planning (that's `roadmap-create-interview`).
