@@ -5,6 +5,7 @@ when_to_use: "Any request involving writing, drafting, editing, or composing tex
 user-invocable: false
 metadata:
   family: clod-approach
+allowed-tools: ["Read"]
 ---
 
 # Writing for Jason

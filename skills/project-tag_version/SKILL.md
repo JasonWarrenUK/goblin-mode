@@ -9,6 +9,7 @@ metadata:
   family: project
 disable-model-invocation: true
 allowed-tools: ["Bash(svu:*)", "Bash(git:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)"]
+disallowed-tools: ["Bash(git push --tags:*)"] # publishes every stray local tag; this skill pushes single tags only
 ---
 
 # Tag the release with `svu`

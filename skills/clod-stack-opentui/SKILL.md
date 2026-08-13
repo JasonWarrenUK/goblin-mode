@@ -5,6 +5,7 @@ when_to_use: "When building or debugging a terminal UI with @opentui/core — re
 user-invocable: false
 metadata:
   family: clod-stack
+allowed-tools: ["Read", "Glob", "Grep"]
 ---
 
 # OpenTUI Operative

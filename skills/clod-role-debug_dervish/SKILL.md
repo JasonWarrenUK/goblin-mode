@@ -5,6 +5,7 @@ when_to_use: "When something is broken and the cause isn't obvious yet — an er
 user-invocable: false
 metadata:
   family: clod-role
+allowed-tools: ["Read", "Glob", "Grep"]
 ---
 
 # Systematic Debugging
