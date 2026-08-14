@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | Phase 9 COMPLETE (2026-08-14): all 56 original skills dialogued, 9 ditched, 1 merged, 14 gap-fixes applied — Phase 10 (artefact + steering interview) remains |
+| Status | AUDIT COMPLETE (2026-08-14). Phase 10 artefact published: https://claude.ai/code/artifact/abf1c959-e14d-4d7b-94b4-4026819fa6f9 |
 | Skills | 47 (was 56: nine ditched, one merged) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
@@ -97,6 +97,10 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 - **Body purge verified complete**: 617 instances replaced by five parallel agents plus 24 in the conventions reference and the generator, independently re-verified. Justified survivors only: partition-findings.mjs's dash ban-list regex (the validator needs the characters it bans), four "no default" table placeholders in opentui reference tables, two backticked legacy-format literals roadmap-migrate must parse, the legacy-format example in library/templates/roadmap.md, code comments in the two find-scaffold.sh scripts, and clod-approach-writing_style (defines the ban; already contained none in its body).
 - **Generated-format ripple handled**: the PHASE task-line and annotation formats the roadmap skills specify changed to colon forms, consistently across roadmap-create/maintain/update-tasks AND library/references/roadmap-conventions.md. roadmap.py is unaffected (its old-format detection keys on `graph TD` plus the legacy `**depends on` literal, both untouched); test_roadmap.py exits 0. Zip rebuilt with the updated conventions.
 - **skills/README.md regenerated**: gen-skills-index.py was still keying on the retired Greek tags and emitting dashes of its own; it now reads metadata.glyph, carries the ᚺ/ᛊ/ᛟ/ᚠ legend (fable added) and prints dash-free. --check confirms idempotence.
+
+## Phase 10 (2026-08-14)
+
+Steering interview: audience Jason + Jaz; scope the conventions; aesthetic goblin terminal with runic motifs; format chosen to serve the scope (terminal-session long-read, native collapsibles closed by default). Published as "A Skill Is Mostly Metadata" (a register example from the writing-style skill's own approved list): anatomy of a real frontmatter, the three invocation shapes and the orchestration law, the glyph table and inline-hijack rule, tool scoping, execution-context rules, the library layer and regeneration principle, the prose rules, and a copy-ready skeleton for Jaz.
 
 ## Per-skill record
 
