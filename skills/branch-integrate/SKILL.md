@@ -26,7 +26,7 @@ Replaces the former git-branch-merge / git-branch-rebase / git-branch-squash tri
 3. Run `"$HOME"/.claude/library/scripts/git-integrate.sh $strategy $target` (bare `$strategy` when `$target` is empty). Its exit codes:
    - **0**: integration done. For `squash` the branch's changes are staged as one unit: write a single descriptive commit message (conventional commits) and commit.
    - **2**: state error (dirty tree, detached HEAD, wrong branch, fetch failure). Report the script's message and stop; fix only what the user asks you to fix.
-   - **3**: conflicts, left in place. List them, resolve preserving **our branch's intent**, then `git commit` (merge) or `git rebase --continue` after each (rebase/squash). Never resolve by discarding our changes wholesale.
+   - **3**: conflicts, left in place. List them, then resolve with judgement about whose change is *right*: our branch's intent wins for the work this branch is about; the incoming side (usually main) wins elsewhere, since its conflicting change typically carries a fix this branch predates. Never resolve by discarding our changes wholesale, and never by discarding main's either. Then `git commit` (merge) or `git rebase --continue` after each (rebase/squash).
 4. Run the project's tests to verify the integration.
 5. **Only when tests pass**, push: `git push` after a merge; `git push --force-with-lease` after a rebase or squash. Never plain `--force`.
 

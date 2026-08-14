@@ -266,7 +266,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Branch: Integrate" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, conflict resolution now weighs both sides (our intent wins for this branch's subject; the incoming side wins elsewhere) |  |
 
 ### branch-qa_review
 
@@ -294,7 +294,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, >500-line split flag removed from mechanics and verdict — small branches are a start-of-branch aspiration, never a PR-ready blocker |  |
 
 ### branch-rename
 
@@ -322,7 +322,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | description trimmed of the example duplicating when_to_use | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, pushed-branch rename now checks gh pr list --head first and refuses when an open PR would be closed by the head-branch delete |  |
 
 ### clod-approach-stud
 
@@ -798,7 +798,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed incl. bundled auto-push |  |
 
 ### commit-one
 
@@ -826,7 +826,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed incl. bundled auto-push |  |
 
 ### config-clod_permits
 
