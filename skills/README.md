@@ -19,8 +19,6 @@ User-invocable slash commands (`disable-model-invocation: true`).
 
 | Command | Model | Description |
 |---------|-------|-------------|
-| `/analyse-concept` | ᛟ opus | Investigate a codebase in detail and write findings to a document, for a named concept, subsystem or… |
-| `/analyse-critique` | ᛟ opus | Probe the project for architectural weaknesses, technical debt and risk; a deliberately critical rea… |
 | `/artefact-audit` | ᛟ opus | Audit a topic and render an actionable, status-grouped HTML findings artefact. |
 | `/artefact-intro` | ᛊ sonnet | Render a visual HTML introduction to this codebase for a newly-joined developer |
 | `/artefact-roadmap` | ᚺ haiku | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |

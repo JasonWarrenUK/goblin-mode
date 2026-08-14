@@ -32,7 +32,7 @@ argument-hint: "[focus of analysis (optional)]"
      - Project identity: what it does, who uses it, what stage it's at
      - Mental model essentials: invariants, non-obvious coupling, naming conventions, gotchas
      - Module map with responsibilities
-  5. Write to ~/.agent/diagrams/ and open in browser.
+  5. Write to {project_root}/docs/artefacts/intro-{slug}.html (the same home as every other project artefact) and open in browser.
 </steps>
 <inputs>
   $ARGUMENTS
