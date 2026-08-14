@@ -3,8 +3,8 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | Phase 8 COMPLETE (2026-08-14) — Phase 9 dialogue next, Phase 10 last |
-| Skills | 48 (was 56: config-clod_permits joins the seven ditched; one merged) |
+| Status | Phase 9 COMPLETE (2026-08-14): all 56 original skills dialogued, 9 ditched, 1 merged, 14 gap-fixes applied — Phase 10 (artefact + steering interview) remains |
+| Skills | 47 (was 56: nine ditched, one merged) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
 
@@ -378,7 +378,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Approach: Writing Style" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed; the audit's own governing text |  |
 
 ### clod-config-skill_conventions
 
@@ -406,7 +406,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Config: Skill Conventions" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | description and when_to_use rewritten for the metadata convention | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-lens-empathy
 
@@ -434,7 +434,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Lens: Empathy" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: kept for now (trio retained on Jason's call) |  |
 
 ### clod-lens-ethics
 
@@ -462,7 +462,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Lens: Ethics" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: kept for now |  |
 
 ### clod-lens-scope
 
@@ -490,7 +490,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Lens: Scope" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: kept for now |  |
 
 ### clod-role-api_designer
 
@@ -518,7 +518,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Role: API Designer" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | when_to_use rewritten: stale auto-load mechanism claim dropped | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-role-data_ontologist
 
@@ -546,7 +546,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Role: Data Ontologist" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | when_to_use rewritten: stale auto-load mechanism claim dropped | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-role-debug_dervish
 
@@ -574,7 +574,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Role: Debug Dervish" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: DITCHED (superseded by the bundled /debug era) |  |
 
 ### clod-role-domain_modeller
 
@@ -602,7 +602,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Role: Domain Modeller" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-role-frontend_styler
 
@@ -630,7 +630,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Role: Frontend Styler" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | when_to_use rewritten: paths gate stated honestly | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-role-git_manager
 
@@ -658,7 +658,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Role: Git Manager" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | when_to_use fixed: stale git-* skill reference now names branch-*/commit-* | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-role-testing_obsessive
 
@@ -686,7 +686,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Role: Testing Obsessive" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | when_to_use rewritten: stale auto-load mechanism claim dropped | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-stack-cypher
 
@@ -714,7 +714,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Stack: Cypher" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | when_to_use rewritten: stale auto-load mechanism claim dropped; embedded-strings reality named | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-stack-opentui
 
@@ -742,7 +742,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Stack: OpenTUI" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### clod-stack-svelte
 
@@ -770,7 +770,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Stack: Svelte" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | when_to_use rewritten: paths gate stated honestly | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### commit-batch
 
