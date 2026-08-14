@@ -21,13 +21,14 @@ Replaces the former pr-shiny-create / pr-shiny-draft / pr-wordy-create / pr-word
     <arguments>
         <axis name="style">First token of $ARGUMENTS if it is `shiny` or `wordy`. Default: `wordy`. Shiny adds a Screenshots section.</axis>
         <axis name="mode">If the token `draft` appears anywhere in $ARGUMENTS, create the PR as a draft. Default: ready for review.</axis>
+        <axis name="auto">If the token `auto` appears anywhere in $ARGUMENTS (passed only by an orchestrating skill whose own gate already ran, e.g. next-task-ship), skip step 4's pause and create immediately.</axis>
         <axis name="extras">Remaining tokens: screenshot file paths (shiny) or issue numbers to close (wordy). Empty means no screenshots section content / no issue-closing line; never invent either.</axis>
     </arguments>
     <steps>
         <step num="1">Look at the commits on this branch (`git log` against `origin/main`)</step>
         <step num="2">Analyse the overall effect of these changes if merged into `main`</step>
         <step num="3">Fill the template at `~/.claude/library/templates/pr-description.md` exactly; each {{ slot }} describes its content. For wordy style, omit the Screenshots block entirely (and its trailing `---`). For shiny style, one collapsible `&lt;details&gt;` per named screenshot.</step>
-        <step num="4">Show the draft description and **stop for approval**. If changes are requested, incorporate them and repeat step 3.</step>
+        <step num="4">Show the draft description and **stop for approval**; if changes are requested, incorporate them and repeat step 3. Under the `auto` token, show the description but do not pause.</step>
         <step num="5">On approval, create the PR to `main` with `gh pr create`; add `--draft` when mode is draft. Report the PR URL.</step>
     </steps>
     <rules>

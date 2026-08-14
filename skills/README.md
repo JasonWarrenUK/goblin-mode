@@ -58,7 +58,7 @@ Claude can load these automatically when relevant.
 | `/hud-pr_wall` | ᚺ haiku | Show every open PR that involves you, bucketed by what each one is waiting on |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language and shepherd safe create/remove actions |
-| `/next-task-suggest` | ᚺ haiku | Suggest the next logical task: grounded in the roadmap's pre-vetted ready-set when one exists, codeb… |
+| `/next-task-suggest` | ᚺ haiku | Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signal… |
 | `/pr-create` | ᛊ sonnet | Create a pull request to main: wordy or shiny (with screenshots), ready-for-review or draft |
 | `/pr-review` | ᛟ opus | Review a pull request and post it as a GitHub review |
 | `/pr-review-dry_run` | ᛟ opus | Review a pull request's diff and print structured findings to the terminal. Holds the canonical revi… |

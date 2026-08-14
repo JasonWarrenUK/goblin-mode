@@ -1,6 +1,6 @@
 ---
 name: "Next Task: Suggest"
-description: "Suggest the next logical task: grounded in the roadmap's pre-vetted ready-set when one exists, codebase analysis otherwise"
+description: "Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signals"
 when_to_use: "When you don't know what to work on next and want a grounded recommendation rather than picking arbitrarily."
 model: haiku
 effort: low
@@ -24,7 +24,7 @@ Suggest the next logical task I can complete. Selection is grounded in determini
 - Two tokens/phrases where the first is a name and the rest is a topic → first is **assignee**, remainder is **focus**.
 - If genuinely ambiguous which is which, ask rather than guess.
 
-## Step 1: Try the roadmap first
+## Step 1: The roadmap
 
 Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`.
 
@@ -37,18 +37,7 @@ Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`.
 
 Name the chosen task by its roadmap ID and say which signals drove the choice. If `candidates` is empty, say so and name the cheapest unblock instead (which blocker or gate, if cleared, frees the most tasks; read the `stats` breakdown).
 
-**Exit 3 or 2 (no rich roadmap):** fall back to Step 2.
-
-## Step 2: Fallback to codebase analysis
-
-Analyse the current state of the codebase, then compare it to the project documentation. Hard caps, not suggestions:
-
-1. **Read budget: 5 files max.** README/CLAUDE.md + package.json first; stop once you can name a task, don't keep reading "for completeness".
-2. **No open-ended Grep/Glob sweeps.** One targeted Grep at most (e.g. TODO/FIXME markers), scoped to a path; never a bare repo-wide search.
-3. Prefer `git log --oneline -15` and `git status` over reading source: recent commits + open changes usually reveal "what's next" faster than re-deriving it from code.
-4. Where possible, use dev scripts in @./package.json & @./scripts rather than reading file content.
-5. If a focus area was given, restrict all reads/greps to that area only; don't scan the whole repo first.
-6. There is no roadmap data here to filter by assignee: if an assignee was given, say this fallback can't honour it rather than guessing.
+**Exit 3:** tell the user to run `roadmap-migrate` and stop. **Exit 2:** no roadmap; point at `roadmap-create` (or ask for the path if one exists somewhere unusual) and stop. This skill suggests from roadmap data only; it never derives tasks from the codebase.
 
 ## Always
 
