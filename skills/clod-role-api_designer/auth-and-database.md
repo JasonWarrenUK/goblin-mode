@@ -1,6 +1,6 @@
 # Session Management and Database Layer
 
-Detail for `role-expert-api_designer` — auth session patterns and typed database wrappers.
+Detail for `role-expert-api_designer`: auth session patterns and typed database wrappers.
 
 ## Session Management Patterns
 

@@ -1,6 +1,6 @@
 ---
 name: "Do: Minima"
-description: "Achieve what I say with a minimalist approach"
+description: "Achieve the stated outcome with the smallest change that satisfies it"
 when_to_use: "When the ask is small and well-understood and you want the smallest change that satisfies it, without the interview/scaffold ceremony of do-stud."
 # No model override: the task domain is unbounded, so inherit the session model
 effort: medium

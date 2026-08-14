@@ -66,7 +66,7 @@ input.on(RenderableEvents.FOCUSED, () => { })
 input.on(RenderableEvents.BLURRED, () => { })
 ```
 
-**Internal key routing:** `focus()` uses `_internalKeyInput.onInternal()` — the renderer's internal key handler that ensures global handlers can `preventDefault` before renderable handlers process events.
+**Internal key routing:** `focus()` uses `_internalKeyInput.onInternal()`, the renderer's internal key handler that ensures global handlers can `preventDefault` before renderable handlers process events.
 
 ## Colours
 
@@ -116,9 +116,9 @@ renderer.console.toggle()
 **Keyboard (when focused):** Arrow keys to scroll, `+`/`-` to resize.
 
 **Env vars:**
-- `OTUI_USE_CONSOLE=false` — disable capture
-- `SHOW_CONSOLE=true` — start visible
-- `OTUI_DUMP_CAPTURES=true` — output on exit
+- `OTUI_USE_CONSOLE=false`: disable capture
+- `SHOW_CONSOLE=true`: start visible
+- `OTUI_DUMP_CAPTURES=true`: output on exit
 
 ## Environment Variables
 

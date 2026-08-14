@@ -196,20 +196,20 @@ function createMockRenderer() {
 
 **Key testing patterns:**
 - `SelectRenderable.focus()` requires `_internalKeyInput` with `onInternal`/`offInternal`
-- Screen `render()` returns a Promise that waits for user input — don't `await` in tests
-- `TextRenderable.content` returns `StyledText`, not string — access via `.content.chunks[0].text`
+- Screen `render()` returns a Promise that waits for user input; don't `await` in tests
+- `TextRenderable.content` returns `StyledText`, not string; access via `.content.chunks[0].text`
 - Call `buildUI()` before testing event handlers that depend on the renderable tree
 
 ## Gotchas & Pitfalls
 
-1. **`remove()` takes a string ID, not a renderable instance** — `parent.remove(child.id)` not `parent.remove(child)`
-2. **`renderer.destroy()` not `stop()`** — `destroy()` restores terminal state. `stop()` only stops the render loop.
-3. **`exitOnCtrlC: true` is default** — no manual Ctrl+C handler needed
-4. **Automatic rendering** — no `renderer.start()` call needed; re-renders on tree changes
-5. **`SelectRenderable.focus()` is required** — keyboard input won't work without it
-6. **`backgroundColor` defaults to transparent** — set explicitly on SelectRenderable or items appear black
-7. **`TextRenderable.content` returns `StyledText`** — not a plain string. Read via `.chunks[0].text`
-8. **`_internalKeyInput` needed for `focus()`** — mock renderers must include this with `onInternal`/`offInternal`
-9. **OpenTUI does NOT auto-cleanup** — `process.exit` or unhandled errors won't restore terminal. Always call `destroy()`.
-10. **Mouse events bubble** — stop with `event.stopPropagation()`
-11. **`visible = false` removes from layout** — equivalent to CSS `display: none`, not `visibility: hidden`
+1. **`remove()` takes a string ID, not a renderable instance**: `parent.remove(child.id)` not `parent.remove(child)`
+2. **`renderer.destroy()` not `stop()`**: `destroy()` restores terminal state. `stop()` only stops the render loop.
+3. **`exitOnCtrlC: true` is default**; no manual Ctrl+C handler needed
+4. **Automatic rendering**: no `renderer.start()` call needed; re-renders on tree changes
+5. **`SelectRenderable.focus()` is required**; keyboard input won't work without it
+6. **`backgroundColor` defaults to transparent**; set explicitly on SelectRenderable or items appear black
+7. **`TextRenderable.content` returns `StyledText`**, not a plain string. Read via `.chunks[0].text`
+8. **`_internalKeyInput` needed for `focus()`**: mock renderers must include this with `onInternal`/`offInternal`
+9. **OpenTUI does NOT auto-cleanup**: `process.exit` or unhandled errors won't restore terminal. Always call `destroy()`.
+10. **Mouse events bubble**; stop with `event.stopPropagation()`
+11. **`visible = false` removes from layout**: equivalent to CSS `display: none`, not `visibility: hidden`

@@ -1,7 +1,7 @@
 ---
-name: svelte-ninja
+name: "Stack: Svelte"
 description: "Svelte 5 and SvelteKit: runes reactivity, component composition, routing, data loading, form handling."
-when_to_use: "When writing or reviewing Svelte 5 / SvelteKit code — auto-loads on .svelte files or +page/+layout files, or when runes ($state, $derived, $effect), routing, or data loading come up."
+when_to_use: "When writing or reviewing Svelte 5 / SvelteKit code: runes ($state, $derived, $effect), routing and data loading. Auto-loads only when work touches .svelte or +page/+layout files."
 user-invocable: false
 metadata:
   family: clod-stack
@@ -341,9 +341,9 @@ export function createCounter(initial = 0) {
 
 Deep-dive detail lives in supporting files, loaded only when needed:
 
-- [component-patterns.md](component-patterns.md) — slot patterns (basic, named, slot props) and composition (compound components, higher-order components)
-- [sveltekit-routing-and-data.md](sveltekit-routing-and-data.md) — file-based routing, dynamic/optional route params, load functions (client and server), streaming, form actions
-- [performance-and-common-patterns.md](performance-and-common-patterns.md) — lazy loading, list virtualisation, memoisation, keyed each blocks, form validation, modal management, debounced input
+- [component-patterns.md](component-patterns.md): slot patterns (basic, named, slot props) and composition (compound components, higher-order components)
+- [sveltekit-routing-and-data.md](sveltekit-routing-and-data.md): file-based routing, dynamic/optional route params, load functions (client and server), streaming, form actions
+- [performance-and-common-patterns.md](performance-and-common-patterns.md): lazy loading, list virtualisation, memoisation, keyed each blocks, form validation, modal management, debounced input
 
 ## Anti-Patterns
 

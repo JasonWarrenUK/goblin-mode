@@ -1,12 +1,12 @@
 ---
-name: Data Ontologist
-description: "Polyglot persistence: when to use relational, graph, or document databases; integration patterns."
-when_to_use: "When choosing a data store or storage pattern for new data, or reviewing a schema/migration — auto-loads on schema or migration files, or when the conversation raises 'which database', 'relational vs graph', or cross-store integration."
+name: "Role: Data Ontologist"
+description: "Polyglot persistence: when to use relational, graph or document databases; integration patterns."
+when_to_use: "When choosing a data store or storage pattern for new data, or reviewing a schema or migration; fires on 'which database', 'relational vs graph' and cross-store integration questions."
 user-invocable: false
 metadata:
   family: clod-role
 # No paths gate: "which database?" conversations happen before any schema or
-# migration file exists — the skill's core moment has no matching files
+# migration file exists; the skill's core moment has no matching files
 allowed-tools:
   - Read
   - Glob
@@ -33,7 +33,7 @@ Use this skill when:
 
 **Start with the graph. Optimise from there.**
 
-Most real-world domains are fundamentally about relationships. The graph is the truest representation of how entities connect. Start by thinking in nodes and edges — then decide where to persist based on access patterns and consistency needs.
+Most real-world domains are fundamentally about relationships. The graph is the truest representation of how entities connect. Start by thinking in nodes and edges, then decide where to persist based on access patterns and consistency needs.
 
 **Right database for right data concern**
 
@@ -47,11 +47,11 @@ Don't force all data into one database type. Use:
 
 Before choosing databases, model the domain as a graph:
 
-1. **Identify nodes** — What are the entities? (Users, Courses, Organisations, Products)
-2. **Identify edges** — How do they connect? (ENROLLED_IN, REPORTS_TO, PURCHASED)
-3. **Annotate edges** — Do relationships carry data? (role, since, quantity)
-4. **Spot patterns** — Trees? DAGs? Social graphs? Bipartite structures?
-5. **Then persist** — Given the graph, which parts need relational guarantees, which need traversal, which need flexible schemas?
+1. **Identify nodes**: What are the entities? (Users, Courses, Organisations, Products)
+2. **Identify edges**: How do they connect? (ENROLLED_IN, REPORTS_TO, PURCHASED)
+3. **Annotate edges**: Do relationships carry data? (role, since, quantity)
+4. **Spot patterns**: Trees? DAGs? Social graphs? Bipartite structures?
+5. **Then persist**: Given the graph, which parts need relational guarantees, which need traversal, which need flexible schemas?
 
 ```cypher
 // Step 1-3: Model the domain as a graph first
@@ -260,47 +260,47 @@ CREATE TABLE orders (
 
 ### Question 1: What's the primary data concern?
 
-**RELATIONSHIPS** → Neo4j (Graph) — social connections, recommendations, dependency trees, path finding
+**RELATIONSHIPS** → Neo4j (Graph): social connections, recommendations, dependency trees, path finding
 
-**STRUCTURED ENTITIES** → PostgreSQL (Relational) — user accounts, financial transactions, inventory, orders
+**STRUCTURED ENTITIES** → PostgreSQL (Relational): user accounts, financial transactions, inventory, orders
 
-**DOCUMENTS/CONTENT** → MongoDB (Document) — blog posts, product catalogs, CMS content, API data storage
+**DOCUMENTS/CONTENT** → MongoDB (Document): blog posts, product catalogs, CMS content, API data storage
 
 ### Question 2: How stable is your schema?
 
-**VERY STABLE** → PostgreSQL — well-defined entities, clear field types, rare schema changes, strong typing needed
+**VERY STABLE** → PostgreSQL: well-defined entities, clear field types, rare schema changes, strong typing needed
 
-**EVOLVING** → MongoDB — prototyping phase, frequently adding fields, different record structures, flexible modeling
+**EVOLVING** → MongoDB: prototyping phase, frequently adding fields, different record structures, flexible modeling
 
-**SCHEMA-OPTIONAL** → Neo4j — relationships more important than structure, dynamic properties, graph structure evolves
+**SCHEMA-OPTIONAL** → Neo4j: relationships more important than structure, dynamic properties, graph structure evolves
 
 ### Question 3: How is data accessed?
 
-**BY KEY/ID** → PostgreSQL or MongoDB — user by email, product by SKU, order by ID
+**BY KEY/ID** → PostgreSQL or MongoDB: user by email, product by SKU, order by ID
 
-**BY TRAVERSAL** → Neo4j — friends of friends, shortest path, recommendations
+**BY TRAVERSAL** → Neo4j: friends of friends, shortest path, recommendations
 
-**BY CONTENT/QUERY** → MongoDB — full-text search, filtering nested documents, flexible queries on varying fields
+**BY CONTENT/QUERY** → MongoDB: full-text search, filtering nested documents, flexible queries on varying fields
 
 ### Question 4: Do you need strong consistency?
 
-**ABSOLUTE** → PostgreSQL — financial transactions, ACID guarantees, multi-step operations
+**ABSOLUTE** → PostgreSQL: financial transactions, ACID guarantees, multi-step operations
 
-**EVENTUAL OKAY** → MongoDB or Neo4j — content updates, social interactions, non-critical data
+**EVENTUAL OKAY** → MongoDB or Neo4j: content updates, social interactions, non-critical data
 
 ### Question 5: Is data naturally nested?
 
-**YES** → MongoDB — posts with comments, orders with line items, documents with metadata
+**YES** → MongoDB: posts with comments, orders with line items, documents with metadata
 
-**NO** → PostgreSQL — flat entities, many-to-many relationships, normalized structure
+**NO** → PostgreSQL: flat entities, many-to-many relationships, normalized structure
 
 ## Additional resources
 
 Worked examples and mechanical detail, loaded only when needed:
 
-- [real-world-examples.md](real-world-examples.md) — four full worked splits (social app, learning platform, e-commerce, CMS) showing which data lives where and why
-- [integration-and-schema.md](integration-and-schema.md) — shared-key/reference/embed/event-sync/aggregation integration patterns, per-database schema design, query optimisation and indexing
-- [anti-patterns-and-migration.md](anti-patterns-and-migration.md) — common mistakes (document-DB transactions, over-embedding, graph for simple lookups), migration strategy and worked migration scripts
+- [real-world-examples.md](real-world-examples.md): four full worked splits (social app, learning platform, e-commerce, CMS) showing which data lives where and why
+- [integration-and-schema.md](integration-and-schema.md): shared-key/reference/embed/event-sync/aggregation integration patterns, per-database schema design, query optimisation and indexing
+- [anti-patterns-and-migration.md](anti-patterns-and-migration.md): common mistakes (document-DB transactions, over-embedding, graph for simple lookups), migration strategy and worked migration scripts
 
 ## Success Criteria
 

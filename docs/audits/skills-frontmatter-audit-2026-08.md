@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | Phase 7 complete (applied 2026-08-13) — Phase 8 (names & descriptions) next, then Phase 9 (intent-gap dialogue), then Phase 10 (final artefact) |
+| Status | Phase 8 COMPLETE (2026-08-14) — Phase 9 dialogue next, Phase 10 last |
 | Skills | 56 |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
@@ -88,6 +88,16 @@ After Phase 8, a conversational pass through every skill, family by family, infe
 
 Create an HTML artefact documenting the skills setup. Jason will be interviewed at that point for specific steering (audience, scope, depth, aesthetic). Not started until every other phase, including any added later, is complete.
 
+## Phase 8 findings (2026-08-14)
+
+- 27 display names aligned to the Family: Action convention, families matching metadata.family; the knowledge skills' four naming styles (kebab, Title Case, bare words, parenthetical) collapse into Lens/Role/Stack/Approach prefixes. Personality names (svelte-ninja, Cypher Linguist) retired with Jason's sign-off.
+- All ten approved description/when_to_use rewrites applied, plus casualties found during the sweep: git_manager's when_to_use referenced non-existent "git-*" command skills (now branch-*/commit-*), analyse-critique carried a contrastive couplet, do-minima was first-person.
+- Em-dash ruling: purge ruthlessly, everywhere, per the writing-style skill. Frontmatter of all 56 now clean (five stragglers included two added by this very audit). Body purge (~580 instances) and supporting files (~38) delegated to five parallel agents with the replacement palette, the mention-vs-punctuation exception and a per-file verification requirement; clod-approach-writing_style excluded as the document that defines the ban.
+- Oxford commas swept from frontmatter alongside the dashes.
+- **Body purge verified complete**: 617 instances replaced by five parallel agents plus 24 in the conventions reference and the generator, independently re-verified. Justified survivors only: partition-findings.mjs's dash ban-list regex (the validator needs the characters it bans), four "no default" table placeholders in opentui reference tables, two backticked legacy-format literals roadmap-migrate must parse, the legacy-format example in library/templates/roadmap.md, code comments in the two find-scaffold.sh scripts, and clod-approach-writing_style (defines the ban; already contained none in its body).
+- **Generated-format ripple handled**: the PHASE task-line and annotation formats the roadmap skills specify changed to colon forms, consistently across roadmap-create/maintain/update-tasks AND library/references/roadmap-conventions.md. roadmap.py is unaffected (its old-format detection keys on `graph TD` plus the legacy `**depends on` literal, both untouched); test_roadmap.py exits 0. Zip rebuilt with the updated conventions.
+- **skills/README.md regenerated**: gen-skills-index.py was still keying on the retired Greek tags and emitting dashes of its own; it now reads metadata.glyph, carries the ᚺ/ᛊ/ᛟ/ᚠ legend (fable added) and prints dash-free. --check confirms idempotence.
+
 ## Per-skill record
 
 ### analyse-concept
@@ -114,8 +124,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | the written doc is the artefact |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Analyse: Investigate Target" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### analyse-critique
@@ -142,8 +152,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | AMENDED: closes with an artefact-audit render pointer when worth sharing | decided now rather than punted to Phase 9; read-only fork, so pointer-form |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Analyse: Critique" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | contrastive couplet and Oxford comma removed alongside the dash purge | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### artefact-audit
@@ -170,8 +180,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | already visual by design |  |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### artefact-intro
@@ -198,8 +208,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | already visual by design |  |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### artefact-roadmap
@@ -226,8 +236,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | already visual by design |  |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### branch-integrate
@@ -254,8 +264,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Branch: Integrate" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### branch-qa_review
@@ -282,8 +292,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | verdict + findings belong in the terminal; GitHub is the visual surface once the PR exists |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### branch-rename
@@ -310,8 +320,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | CANDIDATE — queued post-Phase 8 | name-suggestion quality and trigger accuracy both checkable |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | description trimmed of the example duplicating when_to_use | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-approach-stud
@@ -338,8 +348,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Approach: Stud" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | description restructured: leads with what it does, triggers stay in when_to_use | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-approach-writing_style
@@ -366,8 +376,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Approach: Writing Style" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-config-skill_conventions
@@ -394,8 +404,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Config: Skill Conventions" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | description and when_to_use rewritten for the metadata convention | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-lens-empathy
@@ -422,8 +432,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Lens: Empathy" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-lens-ethics
@@ -450,8 +460,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Lens: Ethics" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-lens-scope
@@ -478,8 +488,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Lens: Scope" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-api_designer
@@ -506,8 +516,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Role: API Designer" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | when_to_use rewritten: stale auto-load mechanism claim dropped | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-data_ontologist
@@ -534,8 +544,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Role: Data Ontologist" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | when_to_use rewritten: stale auto-load mechanism claim dropped | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-debug_dervish
@@ -562,8 +572,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Role: Debug Dervish" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-domain_modeller
@@ -590,8 +600,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Role: Domain Modeller" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-frontend_styler
@@ -618,8 +628,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Role: Frontend Styler" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | when_to_use rewritten: paths gate stated honestly | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-git_manager
@@ -646,8 +656,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Role: Git Manager" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | when_to_use fixed: stale git-* skill reference now names branch-*/commit-* | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-role-testing_obsessive
@@ -674,8 +684,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Role: Testing Obsessive" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | when_to_use rewritten: stale auto-load mechanism claim dropped | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-stack-cypher
@@ -702,8 +712,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Stack: Cypher" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | when_to_use rewritten: stale auto-load mechanism claim dropped; embedded-strings reality named | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-stack-opentui
@@ -730,8 +740,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Stack: OpenTUI" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### clod-stack-svelte
@@ -758,8 +768,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | knowledge content; no mechanically gradable output, and trigger tuning is covered by the dual-invocable set |
 | 7.3 visual output | no | output is conversational or a file; a visual layer adds nothing |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Stack: Svelte" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | when_to_use rewritten: paths gate stated honestly | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### commit-batch
@@ -786,8 +796,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | CANDIDATE — queued post-Phase 8 | grouping quality is assertable against fixture diffs |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### commit-one
@@ -814,8 +824,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### config-clod_permits
@@ -842,8 +852,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### do-minima
@@ -870,8 +880,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | description rewritten out of first person | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### do-stud
@@ -898,8 +908,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Do: Stud" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### doc-adr
@@ -926,8 +936,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### doc-changelog
@@ -954,8 +964,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | CANDIDATE — queued post-Phase 8 | haiku downshift deserves a with/without benchmark on fixture history |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### doc-readme
@@ -982,8 +992,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### doc-update_misc
@@ -1010,8 +1020,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### export-roadmap_zip
@@ -1038,8 +1048,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | description and when_to_use updated for bundle-tag discovery | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### hud-pr_wall
@@ -1066,8 +1076,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### hud-whats_new
@@ -1094,8 +1104,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | CANDIDATE — queued post-Phase 8 | observable-behaviour-only rule is easy to violate and easy to grade |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "HUD: What's New" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### hud-worktrees
@@ -1122,8 +1132,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### import-scaffold_artefact
@@ -1150,8 +1160,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Import: Scaffold from Artefact" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### next-task-group
@@ -1178,8 +1188,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Next Task: Group" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### next-task-ship
@@ -1206,8 +1216,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Next Task: Ship" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### next-task-suggest
@@ -1234,8 +1244,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Next Task: Suggest" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### pr-create
@@ -1262,8 +1272,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### pr-handle_review
@@ -1290,8 +1300,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### pr-land
@@ -1318,8 +1328,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### pr-review-dry_run
@@ -1346,8 +1356,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | CANDIDATE — queued post-Phase 8 | structured findings with a checkable taxonomy and verdict rules — the strongest eval target in the collection |
 | 7.3 visual output | no | deliberately terminal-only by contract |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | description rewritten (was three words; now names the terminal output and its role as the shared methodology) | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### pr-review
@@ -1374,8 +1384,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | GitHub review IS the visual output |
 | 7.4 permissions | Skill(pr-review) + Skill(pr-review *) ask rules added to settings.json | mechanical gate on model-invoked posting (the Phase 3 deferral); user slash invocation is not a Skill tool call, so /pr-review stays frictionless |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### pr-update
@@ -1402,8 +1412,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### project-audit_deps
@@ -1430,8 +1440,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | AMENDED: closes its report with an artefact-audit render pointer | consistency fix after Jason's challenge — severity-ranked findings revisited over days; runs in a read-only fork so the pointer is textual and rendering happens in the main conversation |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Project: Audit Dependencies" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### project-tag_version
@@ -1458,8 +1468,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | CHANGED → "Project: Tag Version" | display name aligned to the Family: Action convention and metadata.family |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-audit-deps
@@ -1486,8 +1496,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
 | 7.3 visual output | ADDED: offers artefact-audit render-only mode for substantial findings lists | the findings shape maps onto artefact-audit's JSON schema |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-create-interview
@@ -1514,8 +1524,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-create
@@ -1542,8 +1552,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-maintain
@@ -1570,8 +1580,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-migrate
@@ -1598,8 +1608,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | behaviour is the script's, not the skill's — the test suite/validator is the eval harness |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-review
@@ -1626,8 +1636,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | not warranted | approval-gated/interview flow; an eval harness cannot conduct the conversation |
 | 7.3 visual output | AMENDED: offers artefact-audit render-only mode like roadmap-audit-deps | the 'value is the conversation' distinction applied equally to audit-deps; inconsistency resolved |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 
 ### roadmap-update-tasks
@@ -1654,7 +1664,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.2 evals | CANDIDATE — queued post-Phase 8 | graph-integrity assertions on fixture roadmaps; roadmap.py validate doubles as the grader |
 | 7.3 visual output | no | terminal output is the right surface |
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
-| 8.1 name | TBD | |
-| 8.2 description | TBD | |
+| 8.1 name | confirmed | already on convention |
+| 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
 | 9.1 intent-gap dialogue | TBD | |
 

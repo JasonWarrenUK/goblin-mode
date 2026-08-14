@@ -1,7 +1,7 @@
 ---
-name: "Repo: Critique"
-description: "Probe the project for architectural weaknesses, technical debt, and risk — a deliberately critical read, not a balanced overview"
-when_to_use: "When you want an honest 'what's actually wrong here' pass on a codebase — before a big refactor, before onboarding someone, or when something feels fragile but you can't name why."
+name: "Analyse: Critique"
+description: "Probe the project for architectural weaknesses, technical debt and risk; a deliberately critical read"
+when_to_use: "When you want an honest 'what's actually wrong here' pass on a codebase: before a big refactor, before onboarding someone or when something feels fragile but you can't name why."
 model: opus
 effort: high
 metadata:

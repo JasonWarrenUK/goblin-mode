@@ -1,7 +1,7 @@
 ---
-name: domain-modeller
-description: "Model-first design: map entities, relationships, and boundaries before writing code."
-when_to_use: "Before writing code for a new feature that introduces new entities or relationships — when the shape of the data model isn't settled yet, or an existing model feels like it's straining under a new requirement."
+name: "Role: Domain Modeller"
+description: "Model-first design: map entities, relationships and boundaries before writing code."
+when_to_use: "Before writing code for a new feature that introduces new entities or relationships: when the shape of the data model isn't settled yet, or an existing model feels like it's straining under a new requirement."
 user-invocable: false
 metadata:
   family: clod-role
@@ -34,7 +34,7 @@ Use this skill when:
 
 **Understand the domain before solving it.**
 
-Sophistication is not clever code — it's depth of understanding. A well-modelled domain makes implementation obvious. A poorly modelled domain makes every line of code a fight.
+Sophistication is not clever code; it's depth of understanding. A well-modelled domain makes implementation obvious. A poorly modelled domain makes every line of code a fight.
 
 The sequence is always: **Model → Design → Build**
 
@@ -56,7 +56,7 @@ What are the nouns? What things exist in this domain?
 Example: "Users can enrol on courses and track progress"
 
 Entities: User, Course, Enrolment, Progress
-Hidden entity: Enrolment is not just a boolean — it has state (enrolled, active, completed, dropped)
+Hidden entity: Enrolment is not just a boolean; it has state (enrolled, active, completed, dropped)
 ```
 
 ### Step 2: Map Relationships
@@ -101,9 +101,9 @@ Given the model, where does each entity live?
 ### Step 5: Output the Model
 
 Produce a visual representation. Prefer:
-1. **Mermaid ER diagram** — for entity-relationship overview
-2. **Cypher patterns** — for graph-oriented domains
-3. **Plain text table** — when the model is simple enough
+1. **Mermaid ER diagram**: for entity-relationship overview
+2. **Cypher patterns**: for graph-oriented domains
+3. **Plain text table**: when the model is simple enough
 
 ---
 
@@ -136,7 +136,7 @@ erDiagram
 
 When in doubt, start with the graph.
 
-Most real-world domains are fundamentally about relationships. Tables and documents are storage optimisations — the graph is the truth. Start by drawing nodes and edges, then decide where to persist them.
+Most real-world domains are fundamentally about relationships. Tables and documents are storage optimisations; the graph is the truth. Start by drawing nodes and edges, then decide where to persist them.
 
 **Process**:
 1. Draw entities as nodes
@@ -155,7 +155,7 @@ Most real-world domains are fundamentally about relationships. Tables and docume
 
 ## Red Flags in Domain Models
 
-Watch for these — they usually indicate the model needs more thought:
+Watch for these; they usually indicate the model needs more thought:
 
 - **God entity**: One entity with 20+ properties → probably multiple entities merged
 - **Implicit relationships**: Using foreign keys where the relationship itself has meaning → model the relationship explicitly

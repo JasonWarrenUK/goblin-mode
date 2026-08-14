@@ -1,6 +1,6 @@
 # Component Patterns
 
-Detail for `svelte-ninja` — slots and composition.
+Detail for `svelte-ninja`: slots and composition.
 
 ## Slot Patterns
 

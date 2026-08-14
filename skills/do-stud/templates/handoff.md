@@ -24,10 +24,10 @@ Stage 1 (stud) is complete. This is the review gate; Stage 2 (fill) does not sta
 
 Pure/leaf first, then outward. Map each studded function to its slot:
 
-1. **Pure/leaf helpers** — {{ functions }} (their `should` bullets become the tests)
-2. **I/O** — {{ functions }}
-3. **Timing / orchestration** — {{ functions }}
-4. **State + UI** — {{ functions }}
+1. **Pure/leaf helpers**: {{ functions }} (their `should` bullets become the tests)
+2. **I/O**: {{ functions }}
+3. **Timing / orchestration**: {{ functions }}
+4. **State + UI**: {{ functions }}
 
 Removing the `&&&&`/`!!!!` scaffold markers happens as each chunk is filled in Stage 2.
 

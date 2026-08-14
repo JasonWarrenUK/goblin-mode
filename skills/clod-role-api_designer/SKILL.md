@@ -1,7 +1,7 @@
 ---
-name: api-designer
+name: "Role: API Designer"
 description: "Type-safe API design: Zod validation, Result types, SvelteKit endpoints, middleware patterns."
-when_to_use: "When designing or reviewing an API endpoint, request/response contract, or validation layer — auto-loads on files under routes/ or api/, or when the conversation turns to API design, Zod schemas, or error handling."
+when_to_use: "When designing or reviewing an API endpoint, request/response contract or validation layer; fires for API design, Zod schemas and error handling whether or not route files exist yet."
 user-invocable: false
 metadata:
   family: clod-role
@@ -130,11 +130,11 @@ export interface ApiEndpoints {
 
 Deep-dive detail lives in supporting files, loaded only when needed:
 
-- [validation-and-errors.md](validation-and-errors.md) — Zod schemas, Result types vs. Error classes, centralised error handling
-- [sveltekit-and-middleware.md](sveltekit-and-middleware.md) — GET/POST/PATCH/DELETE endpoint patterns, auth/validation/rate-limit/composed middleware
-- [auth-and-database.md](auth-and-database.md) — cookie/JWT/Supabase session patterns, typed PostgreSQL and Neo4j wrappers
-- [versioning-and-clients.md](versioning-and-clients.md) — URL-based versioning, type-safe API clients, OpenAPI generation, endpoint/business-logic testing
-- [privacy.md](privacy.md) — response filtering, request minimisation, sensitive-data handling, auth scoping, data deletion
+- [validation-and-errors.md](validation-and-errors.md): Zod schemas, Result types vs. Error classes, centralised error handling
+- [sveltekit-and-middleware.md](sveltekit-and-middleware.md): GET/POST/PATCH/DELETE endpoint patterns, auth/validation/rate-limit/composed middleware
+- [auth-and-database.md](auth-and-database.md): cookie/JWT/Supabase session patterns, typed PostgreSQL and Neo4j wrappers
+- [versioning-and-clients.md](versioning-and-clients.md): URL-based versioning, type-safe API clients, OpenAPI generation, endpoint/business-logic testing
+- [privacy.md](privacy.md): response filtering, request minimisation, sensitive-data handling, auth scoping, data deletion
 
 ## Best Practices
 

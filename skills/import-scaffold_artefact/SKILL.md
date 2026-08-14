@@ -1,5 +1,5 @@
 ---
-name: "Project: Scaffold from Artefact"
+name: "Import: Scaffold from Artefact"
 description: "Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project"
 when_to_use: "When a design or prototype exported from an Artifact (HTML or React/JSX) needs turning into a real, runnable project scaffold."
 model: sonnet
@@ -18,7 +18,7 @@ Default target is **Svelte 5 (runes) / SvelteKit 2**. A JSX artefact becomes Sve
 
 **Announce at start:** "I'm using the Scaffold-from-Artefact skill. I'll read `{file}` first, then ask a few quick questions before building anything."
 
-## Step 1 — Interpret `$ARGUMENTS` and locate the artefact
+## Step 1: Interpret `$ARGUMENTS` and locate the artefact
 
 - **A path is given and the file exists:** use it. Record its extension (`.html`, `.htm`, `.jsx`, `.tsx`, `.svelte`).
 - **`react` (or `next`) appears in the arguments:** set the target stack to React/Next.js instead of the Svelte default. Note it and carry it into Step 3.
@@ -37,7 +37,7 @@ Confirm the resolved absolute path and the detected artefact type back to the us
 - [ ] Artefact type detected (HTML vs JSX/TSX)
 - [ ] Any stack opt-in from the arguments recorded
 
-## Step 2 — Read and understand the artefact
+## Step 2: Read and understand the artefact
 
 Read the whole file. Build an inventory before translating anything or asking any questions; a rushed port loses interactivity, and an uninformed interview asks questions the artefact already answers. Capture:
 
@@ -57,7 +57,7 @@ Produce a short written inventory (components, state, deps, backend signals, Rea
 - [ ] React-specific idioms flagged (JSX case)
 - [ ] Hardcoded colours collected for the styling step
 
-## Step 3 — Interview for the project-shaping decisions
+## Step 3: Interview for the project-shaping decisions
 
 Some decisions are the user's to make, not yours to assume. Run a short structured interview, adapting the round discipline of the `roadmap-create-interview` skill: ask **2–4 questions per round**, never dump a long list at once, acknowledge briefly (don't repeat answers verbatim), and end each round with *"Anything else, or shall I write up the config?"*. This is a conversation, not a form.
 
@@ -91,7 +91,7 @@ Get explicit approval before scaffolding. Nothing is built until the user signs 
 - [ ] Closed choices used `AskUserQuestion` with a recommendation
 - [ ] Config proposal shown and approved before Step 4 begins
 
-## Step 4 — Announce the translation
+## Step 4: Announce the translation
 
 State the artefact→stack mapping from the approved config:
 
@@ -99,11 +99,11 @@ State the artefact→stack mapping from the approved config:
 - **HTML artefact → a SvelteKit route.** Markup goes into `+page.svelte`; page-load data (if any) into `+page.ts` or `+page.server.ts` if a backend was chosen.
 - **React opt-in:** mirror the artefact's own framework: JSX stays React components, HTML becomes a Next.js/Vite React page. Skip the rune mapping below but keep the styling and tail steps.
 
-**React idiom → Svelte 5 rune mapping:** read `~/.claude/library/references/react-to-svelte5.md` and state the mappings actually used by this artefact (plus the gotchas it lists that apply — effect cleanup timing, synchronous context, portals, ref-as-box).
+**React idiom → Svelte 5 rune mapping:** read `~/.claude/library/references/react-to-svelte5.md` and state the mappings actually used by this artefact (plus the gotchas it lists that apply: effect cleanup timing, synchronous context, portals, ref-as-box).
 
 - [ ] Every React idiom in the artefact has a named Svelte target (or a flagged manual port)
 
-## Step 5 — Scaffold the project skeleton
+## Step 5: Scaffold the project skeleton
 
 Choose the scaffold from the artefact type and approved stack:
 
@@ -144,7 +144,7 @@ If the interview chose a backend/database, note where it wires in but do not bui
 - [ ] `tsconfig` strict verified
 - [ ] Directory layout matches the stack and approved config
 
-## Step 6 — Port the artefact into components/routes
+## Step 6: Port the artefact into components/routes
 
 Translate the inventory from Step 2 into real source files.
 
@@ -161,7 +161,7 @@ Translate the inventory from Step 2 into real source files.
 - [ ] External deps resolved (added, kept, or removed)
 - [ ] No `any`; exported functions have explicit return types
 
-## Step 7 — Rewire styling onto Reasonable Colors
+## Step 7: Rewire styling onto Reasonable Colors
 
 Replace every hardcoded colour from Step 2 with semantic aliases backed by Reasonable Colors. **Read `~/.claude/library/references/reasonable-colors-reference.md` first** for the shade/contrast rules and the full palette; do not guess hex values.
 
@@ -188,7 +188,7 @@ Replace every hardcoded colour from Step 2 with semantic aliases backed by Reaso
 - [ ] Zero direct RC-var references in components (aliases only)
 - [ ] Body text meets at least AA (shade diff ≥ 3)
 
-## Step 8 — Verify it runs (core deliverable)
+## Step 8: Verify it runs (core deliverable)
 
 The port is not done until the page runs and the interactivity works end-to-end. This step is part of the **core**, not the skippable tail.
 
@@ -207,7 +207,7 @@ Report what runs and any behaviour that did not survive the port (with the reaso
 - [ ] Every catalogued interaction verified live
 - [ ] `bun run check` / typecheck clean
 
-## Step 9 — Full-project tail (only the parts chosen in Step 3)
+## Step 9: Full-project tail (only the parts chosen in Step 3)
 
 Run only the tail parts the user selected during the interview. Each sub-section stands alone.
 
@@ -237,7 +237,7 @@ Confirm `.gitignore` covers `node_modules`, build output, and any `.env` before 
 - [ ] ADR + README generated from the library templates (not invented)
 - [ ] Deploy adapter matches the interviewed target, nothing else configured
 
-## Step 10 — Report
+## Step 10: Report
 
 Summarise: artefact source path; approved config (stack, backend, auth, deploy); component/route layout; interactions verified; which tail parts ran; anything that did not survive the port (with reasons). Surface any flagged React idiom that needed a manual workaround inline so the user sees it without opening files.
 

@@ -1,7 +1,7 @@
 ---
-name: "Git: Integrate Branch"
+name: "Branch: Integrate"
 description: "Integrate a target branch into the current one by merge, rebase or squash"
-when_to_use: "When main (or another branch) has moved on and needs folding into the current branch — picks merge/rebase/squash and handles conflicts."
+when_to_use: "When main (or another branch) has moved on and needs folding into the current branch: picks merge/rebase/squash and handles conflicts."
 model: sonnet
 effort: medium
 metadata:
@@ -22,11 +22,11 @@ Replaces the former git-branch-merge / git-branch-rebase / git-branch-squash tri
 ## Steps
 
 1. Check the current branch name and **confirm with the user** before proceeding.
-2. Do NOT create a worktree — work in the current directory.
+2. Do NOT create a worktree; work in the current directory.
 3. Run `"$HOME"/.claude/library/scripts/git-integrate.sh $strategy $target` (bare `$strategy` when `$target` is empty). Its exit codes:
-   - **0** — integration done. For `squash` the branch's changes are staged as one unit: write a single descriptive commit message (conventional commits) and commit.
-   - **2** — state error (dirty tree, detached HEAD, wrong branch, fetch failure). Report the script's message and stop; fix only what the user asks you to fix.
-   - **3** — conflicts, left in place. List them, resolve preserving **our branch's intent**, then `git commit` (merge) or `git rebase --continue` after each (rebase/squash). Never resolve by discarding our changes wholesale.
+   - **0**: integration done. For `squash` the branch's changes are staged as one unit: write a single descriptive commit message (conventional commits) and commit.
+   - **2**: state error (dirty tree, detached HEAD, wrong branch, fetch failure). Report the script's message and stop; fix only what the user asks you to fix.
+   - **3**: conflicts, left in place. List them, resolve preserving **our branch's intent**, then `git commit` (merge) or `git rebase --continue` after each (rebase/squash). Never resolve by discarding our changes wholesale.
 4. Run the project's tests to verify the integration.
 5. **Only when tests pass**, push: `git push` after a merge; `git push --force-with-lease` after a rebase or squash. Never plain `--force`.
 

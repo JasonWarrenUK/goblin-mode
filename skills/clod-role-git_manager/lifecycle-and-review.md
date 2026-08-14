@@ -99,7 +99,7 @@ git fetch --prune
 **Title format**:
 - Title case
 - Brief and descriptive
-- Understandable to non-devs — no jargon, ticket numbers, or type prefixes
+- Understandable to non-devs: no jargon, ticket numbers, or type prefixes
 
 **Examples**:
 ```
