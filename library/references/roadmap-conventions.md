@@ -208,8 +208,7 @@ auto-reverted; absence still isn't evidence.
 | Half-formed ideas to explore into tasks | `roadmap-create-interview` |
 | One known task to add | `roadmap-update-tasks` |
 | Work landed / statuses drifted | `roadmap-maintain` (add `reconcile` to check against code) |
-| Dependency graph sanity check | `roadmap-audit-deps` |
-| Priorities / freshness / health review | `roadmap-review` |
+| Priorities / freshness / health / dependency-graph review | `roadmap-review` (lens: `health`, `deps` or default full) |
 | Render the HTML dashboard | `artefact-roadmap` |
 | Choose the next task (one pick) | `next-task-suggest` |
 | See the whole ready-set | `next-task-group` |

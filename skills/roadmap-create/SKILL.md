@@ -7,7 +7,6 @@ effort: high
 metadata:
   glyph: ᛟ
   family: roadmap
-  bundle: roadmap-system
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)"]
 arguments: ["phase"]
@@ -28,7 +27,7 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 
 | Codebase Context  | Arguments Passed | Action                                                    |
 | ----------------- | ---------------- | --------------------------------------------------------- |
-| No other roadmaps | 0                | Create the first project roadmap (default `PHASE_1.md`)   |
+| No other roadmaps | 0                | Propose a phase name drawn from the project's goal and confirm it   |
 | N/A               | 1                | Create the roadmap/phase named in the argument            |
 | Roadmaps exist    | 0                | Ask the user which phase to create or if starting a new phase |
 
@@ -37,21 +36,23 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 ### 1. Determine scope, context, and format
 
 - Check if `docs/roadmaps/` exists and contains roadmaps; check if `.claude/roadmaps.json` exists.
-- If `$ARGUMENTS` is given, use it as the phase name (e.g. `PHASE_2`). If no arguments and no existing roadmap, default to `PHASE_1`. If no arguments but roadmaps exist, ask the user to clarify intent.
+- If `$ARGUMENTS` is given, use it as the phase name (e.g. `PHASE_2`). If no arguments and no existing roadmap, propose a phase name drawn from the project's goal and confirm it; never default to a bare `PHASE_1`. If no arguments but roadmaps exist, ask the user to clarify intent.
 - **If a roadmap already exists, check its format first**: run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`. Exit **3** = old simple format: **stop and tell the user to run the `roadmap-migrate` skill first**, so the new phase is appended to a consistent phase array. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0 (or when no roadmap exists yet).
 
 ### 2. Gather project context
 
 Read what is available to understand the project: `README.md`, `CLAUDE.md`, `docs/` (architecture, proposals, ADRs), and any existing roadmaps in `docs/roadmaps/`.
 
-### 3. Elicit milestones, categories, and dependencies
+### 3. Elicit the work; let the structure emerge
 
-Ask targeted questions before generating anything (2–3 per round, not a long form):
+Feature first, structure second: milestones reveal themselves as the conversation groups the work, so never open with "how many milestones?". Ask targeted questions (2–3 per round, not a long form):
 
-- **Milestones:** how many (typical 3–5)? Each milestone's goal and its completion criterion.
-- **Categories:** the logical groupings within each milestone. Use 2–3 letter prefixes (e.g. `EV` = evaluation, `IN` = ingestion, `SR` = search).
-- **Dependencies:** which milestones are sequential vs parallel; any known external blockers or prerequisites.
+- **The work:** what must exist by the end of this phase? What's frustrating enough to fix, and what does each piece unlock?
+- **Grouping (proposed, not demanded):** once the features are on the table, propose a milestone grouping (typically 3–5, each with a goal and completion criterion) and 2–3 letter category prefixes (e.g. `EV` = evaluation, `IN` = ingestion). The user corrects a concrete proposal rather than designing structure cold.
+- **Dependencies:** which groups are sequential vs parallel; any known external blockers or prerequisites.
 - **Assignees (optional):** if the user wants to attribute tasks to people up front, ask who owns what. Never infer an assignee from category, milestone, or anything else; leave it unset for any task the user doesn't name an owner for.
+
+For a big batch of half-formed ideas, `roadmap-create-interview` is the deeper feature interview; its approved proposal can seed this step's grouping.
 
 ### 4. Assign task IDs
 

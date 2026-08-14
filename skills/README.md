@@ -32,7 +32,6 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
 | `/doc-adr` | ᛊ sonnet | Create an Architecture Decision Record for a significant technical decision |
-| `/export-roadmap_zip` | ᚺ haiku | Rebuild roadmap-system.zip, the distributable snapshot of the roadmap tooling: scripts, HTML templat… |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
 | `/next-task-group` | ᚺ haiku | Show every currently unblocked roadmap task, grouped by milestone or topic |
 | `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
@@ -64,11 +63,10 @@ Claude can load these automatically when relevant.
 | `/pr-review` | ᛟ opus | Review a pull request and post it as a GitHub review |
 | `/pr-review-dry_run` | ᛟ opus | Review a pull request's diff and print structured findings to the terminal. Holds the canonical revi… |
 | `/pr-update` | ᛊ sonnet | Update a PR description to account for commits made since it was last written |
-| `/roadmap-audit-deps` | ᛟ opus | Interview-led audit of the roadmap's dependency graph: are the edges, gates and milestone boundaries… |
 | `/roadmap-create-interview` | ᛟ opus | Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks. Read-only… |
 | `/roadmap-maintain` | ᛊ sonnet | Sync roadmap statuses after work lands: recompute from the dependency graph and refresh every projec… |
-| `/roadmap-review` | ᛟ opus | Interview-led review of the roadmap's health: status freshness, the priorities the graph implies and… |
-| `/roadmap-update-tasks` | ᛊ sonnet | Add a single well-formed task to a rich-format roadmap: ID assignment, dependency wiring in both dir… |
+| `/roadmap-review` | ᛟ opus | Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) a… |
+| `/roadmap-update-tasks` | ᛊ sonnet | Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, depend… |
 
 ---
 

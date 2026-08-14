@@ -7,7 +7,6 @@ effort: high
 metadata:
   glyph: ᛊ
   family: roadmap
-  bundle: roadmap-system
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)", "Bash(git status:*)", "Bash(git stash:*)"]
 arguments: ["roadmap"]

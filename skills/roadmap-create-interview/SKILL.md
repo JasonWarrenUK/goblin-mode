@@ -7,7 +7,6 @@ effort: high
 metadata:
   glyph: ᛟ
   family: roadmap
-  bundle: roadmap-system
 disable-model-invocation: false # explicit: read-only interview, so "help me think through features" phrasing can load it
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
 disallowed-tools: ["Edit", "Write", "NotebookEdit"] # read-only by contract; roadmap-update-tasks writes the approved proposal
@@ -158,7 +157,7 @@ Then ask: *"Does this look right? Any tasks to cut, rename, or move? Once you're
 
 ## Step 6: Hand off
 
-Once the user approves (or approves with amendments), this skill's job is done. The output is a clean batch specification ready for `roadmap-update-tasks` to process: one task at a time, in dependency order (add a task before the tasks that depend on it).
+Once the user approves (or approves with amendments), this skill's job is done. The output is a clean batch specification ready for `roadmap-update-tasks` to process in its batch mode: all IDs assigned and edges wired in one pass, one consolidated proposal, one write.
 
 Tell the user: *"Approved. Use `roadmap-update-tasks` to write these to the roadmap, passing the proposal above as context, adding them in dependency order."*
 

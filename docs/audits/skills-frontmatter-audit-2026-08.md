@@ -4,7 +4,7 @@
 |------|-------|
 | Started | 2026-08-13 |
 | Status | Phase 8 COMPLETE (2026-08-14) — Phase 9 dialogue next, Phase 10 last |
-| Skills | 56 |
+| Skills | 54 (was 56: export-roadmap_zip ditched, roadmap-audit-deps merged into roadmap-review) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
 
@@ -238,7 +238,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed as-is |  |
 
 ### branch-integrate
 
@@ -1050,7 +1050,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | description and when_to_use updated for bundle-tag discovery | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: DITCHED at Jason's direction; skill, build script, zip artefact and all bundle: metadata removed |  |
 
 ### hud-pr_wall
 
@@ -1498,7 +1498,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: MERGED into roadmap-review as its 'deps' lens; directory deleted |  |
 
 ### roadmap-create-interview
 
@@ -1526,7 +1526,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: batch hand-off adopted; proposal now feeds roadmap-update-tasks' new batch mode |  |
 
 ### roadmap-create
 
@@ -1554,7 +1554,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAPS FIXED — interview restructured feature-first (milestones proposed from the grouping, never demanded cold) and the PHASE_1 default replaced with a proposed, confirmed phase name |  |
 
 ### roadmap-maintain
 
@@ -1582,7 +1582,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: behaviour confirmed; automatic trigger wish met with a SessionStart drift hook (roadmap-drift-check.sh) that nudges when validate reports discrepancies | trigger condition: detect==rich AND validate!=clean, silent everywhere else |
 
 ### roadmap-migrate
 
@@ -1610,7 +1610,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed as-is |  |
 
 ### roadmap-review
 
@@ -1638,7 +1638,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: absorbed roadmap-audit-deps; now lens-driven ([health|deps|full], default full) with the suspect-list machinery as axis 5 |  |
 
 ### roadmap-update-tasks
 
@@ -1666,5 +1666,5 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed good, incl. placeholder children; gained batch mode (one consolidated proposal/approval/write for multi-task proposals) |  |
 

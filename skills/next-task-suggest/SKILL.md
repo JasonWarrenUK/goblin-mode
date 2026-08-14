@@ -7,7 +7,6 @@ effort: low
 metadata:
   glyph: ᚺ
   family: next-task
-  bundle: roadmap-system
 disable-model-invocation: false # read-only suggestion; invocable so next-task-ship's Step 1 can call it and "what should I work on?" loads it
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
 argument-hint: "[named dev (default none)] [topic focus (optional)]"

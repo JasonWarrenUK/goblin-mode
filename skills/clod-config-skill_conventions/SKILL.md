@@ -31,7 +31,6 @@ effort: high         # explicit on every command skill; omit on knowledge skills
 metadata:
   glyph: ᛟ           # mirrors the model: field; omit when model is omitted
   family: pr         # the skill's family prefix (pr, roadmap, doc, clod-lens, …)
-  bundle: roadmap-system   # only on skills shipped by build-roadmap-zip.sh
 ```
 
 | Glyph | Rune | Model |

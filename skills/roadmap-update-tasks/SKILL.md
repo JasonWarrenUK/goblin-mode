@@ -1,13 +1,12 @@
 ---
 name: "Roadmap: Add Task"
-description: "Add a single well-formed task to a rich-format roadmap: ID assignment, dependency wiring in both directions, graph integrity"
-when_to_use: "Whenever the user wants to add a task, feature or work item to a roadmap, even phrased as 'add this to the roadmap', 'put this in the plan' or 'track this as a task'. For a batch of half-formed ideas, run roadmap-create-interview first and feed its proposal here one task at a time."
+description: "Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, dependency wiring in both directions, graph integrity"
+when_to_use: "Whenever the user wants to add a task, feature or work item to a roadmap, even phrased as 'add this to the roadmap', 'put this in the plan' or 'track this as a task'. For a batch of half-formed ideas, run roadmap-create-interview first and feed its approved proposal here as one batch."
 model: sonnet
 effort: medium
 metadata:
   glyph: ᛊ
   family: roadmap
-  bundle: roadmap-system
 disable-model-invocation: false # invocable by Claude so "add this to the roadmap" loads this skill instead of hand-editing the JSON; Step 7's approval gate still applies
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)"]
 argument-hint: "[task description (optional)]"
@@ -18,6 +17,10 @@ argument-hint: "[task description (optional)]"
 Adds a well-formed task to an existing rich-format roadmap. The job is not appending a line; it is placing the task correctly in the dependency graph, wiring its relationships in **both** artefacts (`.claude/roadmaps.json` and the PHASE file it names), and leaving the roadmap coherent.
 
 Shared conventions: `~/.claude/library/references/roadmap-conventions.md`. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
+
+## Batch mode
+
+When the input is a multi-task proposal (typically `roadmap-create-interview`'s approved output), run Steps 1–6 for the batch as a whole rather than once per task: assign every ID up front, wire all edges including those between the new tasks themselves, and run the Step 5 integrity checks across the combined graph. Steps 7–9 stay singular: one consolidated proposal, one approval, one write pass, one validate. Never loop the full skill per task; fifteen approval gates for one already-reviewed proposal is ceremony, not safety.
 
 ---
 
