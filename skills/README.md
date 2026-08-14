@@ -53,7 +53,6 @@ Claude can load these automatically when relevant.
 | `/clod-config-skill_conventions` |  | Jason's placement, invocation and metadata conventions for creating or editing skills |
 | `/doc-changelog` | ᚺ haiku | Build or update the changelog from conventional commits and project it to every surface the project… |
 | `/doc-readme` | ᛊ sonnet | Create or update a README for the project root or any directory |
-| `/hud-pr_wall` | ᚺ haiku | Show every open PR that involves you, bucketed by what each one is waiting on |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language and shepherd safe create/remove actions |
 | `/next-task-suggest` | ᚺ haiku | Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signal… |

@@ -1,7 +1,7 @@
 ---
 name: "PR: Land"
 description: "Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up"
-when_to_use: "When a PR is approved with checks green and the user wants it merged and the aftermath handled, including after hud-pr_wall shows a PR in the approved bucket."
+when_to_use: "When a PR is approved with checks green and the user wants it merged and the aftermath handled."
 model: sonnet
 effort: medium
 metadata:
@@ -59,7 +59,7 @@ If the repo has a rich roadmap (`python3 "$HOME"/.claude/library/scripts/roadmap
 
 ## Step 6: Report
 
-PR merged (URL), tag created, branch/worktree state after cleanup, roadmap synced or skipped. If the changelog matters for this project, offer `/doc-changelog md {tag}` with the tag just created; that skill's version argument scopes it to exactly this release.
+PR merged (URL), tag created, branch/worktree state after cleanup, roadmap synced or skipped. If the changelog matters for this project, offer `/doc-changelog md {tag}` with the tag just created; that skill's version argument scopes it to exactly this release. Also offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
 
 ## Red flags
 
