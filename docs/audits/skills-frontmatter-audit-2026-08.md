@@ -4,7 +4,7 @@
 |------|-------|
 | Started | 2026-08-13 |
 | Status | Phase 8 COMPLETE (2026-08-14) — Phase 9 dialogue next, Phase 10 last |
-| Skills | 51 (was 56: export-roadmap_zip, doc-adr, doc-update_misc and hud-pr_wall ditched; roadmap-audit-deps merged into roadmap-review) |
+| Skills | 49 (was 56: seven ditched, one merged) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
 
@@ -126,7 +126,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Analyse: Investigate Target" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: DITCHED, no longer used (its @-directory footgun dies with it) |  |
 
 ### analyse-critique
 
@@ -154,7 +154,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Analyse: Critique" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | contrastive couplet and Oxford comma removed alongside the dash purge | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: DITCHED, no longer used |  |
 
 ### artefact-audit
 
@@ -182,7 +182,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue in progress: Jason questioning its use case now the roadmap family is robust; assessment delivered, decision pending |  |
 
 ### artefact-intro
 
@@ -210,7 +210,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, output moves from the global ~/.agent/diagrams dump to the project's docs/artefacts/ home |  |
 
 ### artefact-roadmap
 
@@ -1162,7 +1162,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Import: Scaffold from Artefact" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed, the collection's most thorough body |  |
 
 ### next-task-group
 
