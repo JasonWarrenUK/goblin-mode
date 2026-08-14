@@ -4,7 +4,7 @@
 |------|-------|
 | Started | 2026-08-13 |
 | Status | Phase 8 COMPLETE (2026-08-14) — Phase 9 dialogue next, Phase 10 last |
-| Skills | 49 (was 56: seven ditched, one merged) |
+| Skills | 48 (was 56: config-clod_permits joins the seven ditched; one merged) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
 
@@ -350,7 +350,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Approach: Stud" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | description restructured: leads with what it does, triggers stay in when_to_use | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: RESTRUCTURED — same extraction; this file keeps the announce, checkpoint and its unique mistakes |  |
 
 ### clod-approach-writing_style
 
@@ -854,7 +854,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: DITCHED (never used) along with config_permit.py |  |
 
 ### do-minima
 
@@ -882,7 +882,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | description rewritten out of first person | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed, the purest skill in the set |  |
 
 ### do-stud
 
@@ -910,7 +910,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Do: Stud" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: RESTRUCTURED — shared methodology extracted to library/references/stud/methodology.md (161→~60 lines); this file keeps the interview, handoff and its unique mistakes. Duplicate find-scaffold.sh consolidated to library/scripts/ |  |
 
 ### doc-adr
 
@@ -1442,7 +1442,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Project: Audit Dependencies" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### project-tag_version
 
@@ -1470,7 +1470,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Project: Tag Version" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed |  |
 
 ### roadmap-audit-deps
 
