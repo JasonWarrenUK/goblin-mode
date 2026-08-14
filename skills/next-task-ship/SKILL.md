@@ -1,7 +1,7 @@
 ---
 name: "Next Task: Ship"
 description: "Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roadmap-sync, PR, self-review"
-when_to_use: "When you want to hand over a whole task cycle unattended: pick the next unblocked roadmap task, build it in an isolated worktree with tests green, keep roadmaps.json and its projections coherent, open a PR and have it self-reviewed and fixed before handing back control."
+when_to_use: "When you want to hand over a whole task cycle unattended: the user's veto over the task pick is the run's only gate, then it builds in an isolated worktree with tests green, keeps roadmaps.json and its projections coherent, opens the PR and self-reviews, fixes and re-reviews before handing back control."
 model: fable
 effort: high
 metadata:
@@ -31,13 +31,15 @@ This skill does not reimplement any of those four skills' methodology; it invoke
 
 ## Step 1: Suggest the next task
 
-Invoke the `next-task-suggest` skill with `$ARGUMENTS`. Take its chosen task (roadmap ID, description, dependencies) as this run's target. If `next-task-suggest` reports no ready candidate (empty candidate set, or an assignee filter matched nothing and the fallback pick also looks wrong for this loop), stop here; write `BLOCKED.md` (Step 8) rather than picking arbitrarily.
+Invoke the `next-task-suggest` skill with `$ARGUMENTS`. Take its chosen task (roadmap ID, description, dependencies) as this run's target. If `next-task-suggest` reports no ready candidate (empty candidate set, or an assignee filter matched nothing), stop here; write `BLOCKED.md` (Step 8) rather than picking arbitrarily.
+
+**The run's only gate:** present the chosen task (ID, description, dependencies, the signals that drove the pick) and **await the user's approval before touching anything**. A veto ends the run cleanly; offer `next-task-group` so they can choose manually. Everything after this gate runs unattended to completion.
 
 Cross-check the chosen task's `dependsOn` against `roadmaps.json` directly: every dependency must show `status: done`. `next-task-suggest`'s `ready` set should already guarantee this, but this is the hard-rule-3 checkpoint: if anything is unmet, stop and write `BLOCKED.md` now, before touching git.
 
 ## Step 2: Worktree and branch
 
-1. `git status` on the main checkout; confirm it's clean enough to branch from (uncommitted work here is the user's, not this task's; if present, stop and ask rather than assuming it's abandoned).
+1. `git status` on the main checkout; confirm it's clean enough to branch from (uncommitted work here is the user's, not this task's; if present, stop and write `BLOCKED.md` (Step 8) rather than assuming it's abandoned; an unattended run never asks mid-flight).
 2. Derive a branch name from the task: `<prefix>/<short-description>` per the branch-naming convention (`feat/`, `fix/`, `enhance/`, `refactor/`, `test/`, `docs/`, `config/`; pick the prefix from the task's nature). Check it doesn't already exist (`git branch --list`, `git worktree list`) before creating; reuse rather than duplicate if it does.
 3. Create the worktree: `git worktree add <path> -b <branch-name>` (path convention: sibling directory, e.g. `../<repo>-worktrees/<branch-name>`, or the project's existing worktree convention if `git worktree list` shows one already).
 4. Install dependencies inside the new worktree before doing anything else there: `git worktree add` never carries over `node_modules` (it's gitignored), so skipping this produces confusing false-positive failures (missing-module errors, generated-config-dependent path aliases like SvelteKit's `$lib` failing to resolve) that look like real bugs but are just a bare worktree. Use the project's package manager (`bun install` / `npm install` / etc, per the ecosystem preference order) and, if the project has a codegen step its own tooling depends on (e.g. `svelte-kit sync`), run that too before trusting any test/typecheck output from this worktree.
@@ -63,14 +65,14 @@ Commit the implementation and the `roadmaps.json` change (plus its synced projec
 
 ## Step 6: Open the PR
 
-Invoke the `pr-create` skill from this branch. Let it draft the description from the commits and stop for its own approval step: this orchestrator does not bypass that; show the draft and wait before it creates the PR. Once approved and created, capture the PR URL/number.
+Invoke the `pr-create` skill from this branch with the `auto` token: the user's veto already happened at task selection, so the PR is created without a second pause. Capture the PR URL/number.
 
 ## Step 7: Self-review and fix
 
 1. Invoke `pr-review` against the PR just opened. It posts a real GitHub review (inline comments + verdict); let it run its full methodology (via `pr-review` underneath) rather than re-deriving findings here.
 2. Read back the posted findings. Anything marked actionable and correctness/quality-bearing (not stylistic bikeshedding, not a finding the review itself flags as low-confidence) gets fixed in a **follow-up commit** on the same branch; never amend the commits already reviewed.
 3. Re-run the full test/typecheck/lint gate (Step 3.4) after the fix commit, same bar: all green.
-4. Push the follow-up commit. Do not re-invoke `pr-review` again automatically after fixing: one self-review cycle per run. If the findings warrant a second look, say so and let the user decide whether to loop again.
+4. Push the follow-up commit, then re-invoke `pr-review` once so the posted verdict reflects the fixed state rather than leaving the PR wearing its own pre-fix REQUEST_CHANGES. Findings from this second review are reported in the final summary, never fixed in this run: one fix cycle per run is the cap.
 
 ## Step 8: BLOCKED.md (only if a hard rule triggers a stop)
 

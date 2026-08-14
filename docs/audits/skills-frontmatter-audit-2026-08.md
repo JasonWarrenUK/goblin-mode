@@ -1190,7 +1190,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Next Task: Group" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: confirmed, topic pivot actively used |  |
 
 ### next-task-ship
 
@@ -1218,7 +1218,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Next Task: Ship" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, now fully autonomous end-to-end with the task-pick veto as the run's ONLY gate. pr-create invoked with new auto token (no second pause); dirty-tree check writes BLOCKED.md instead of asking; after the fix cycle it re-reviews once so the verdict reflects the fixed state. PENDING: Skill(pr-review) ask-rule removal blocked by permission classifier; without it the unattended run stalls at a prompt when Step 7 posts |  |
 
 ### next-task-suggest
 
@@ -1246,7 +1246,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "Next Task: Suggest" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, codebase-analysis fallback removed entirely (Jason only uses roadmap structures); no-roadmap now routes to roadmap-create/migrate and stops. Haiku concern dissolves with it; 45-min threshold confirmed by silence |  |
 
 ### pr-create
 
