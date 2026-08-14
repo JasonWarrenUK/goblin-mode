@@ -67,7 +67,7 @@ One reply per item, written per the writing-style skill's rules (no em-dashes, n
 
 - **Fixed**: what changed and the commit SHA that carries it. One or two sentences; the diff speaks.
 - **Deferred**: acknowledge the point, say where it's now tracked, and why it's out of this PR's scope.
-- **Pushback**: the evidence, politely: what the code actually does, with `file:line` citations or test output. State the disagreement plainly and leave the door open ("happy to change if I'm missing something"); the reviewer decides whether to press.
+- **Pushback**: the evidence, politely: what the code actually does, with `file:line` citations or test output. State the disagreement plainly and leave the door open in your own words, matched to the thread's tone; never a stock closing phrase. The reviewer decides whether to press.
 
 ## Gate 2: Reply approval
 
