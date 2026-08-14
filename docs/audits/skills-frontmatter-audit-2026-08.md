@@ -182,7 +182,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | dialogue in progress: Jason questioning its use case now the roadmap family is robust; assessment delivered, decision pending |  |
+| 9.1 intent-gap dialogue | dialogue done: TRIMMED to renderer-plus-schema per option (a) — standalone topic-investigation machinery cut, feeders named as the findings source, collapsibles now closed by default, model downshifted opus→sonnet with the investigation half gone, display name and description reframed as Render |  |
 
 ### artefact-intro
 

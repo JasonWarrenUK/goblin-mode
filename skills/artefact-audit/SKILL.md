@@ -1,30 +1,29 @@
 ---
-name: "Artefacts: Create Audit"
-description: "Audit a topic and render an actionable, status-grouped HTML findings artefact."
-when_to_use: "When you want a shareable, visual audit of a topic (security, tech debt, dependency risk) with findings grouped by status and ranked by severity."
-model: opus
+name: "Artefact: Render Audit"
+description: "Render verified findings as an actionable, status-grouped HTML artefact."
+when_to_use: "When findings need a shareable visual surface: roadmap-review and project-audit_deps hand off here, any in-conversation findings can be mapped into its schema, and render-only mode rebuilds the page from a saved dataset JSON."
+model: sonnet
 effort: high
 metadata:
-  glyph: ᛟ
+  glyph: ᛊ
   family: artefact
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(open:*)", "Bash(mkdir:*)", "Bash(python3:*)"]
-argument-hint: "[topic to audit | path to a findings JSON]"
+argument-hint: "[label for in-hand findings | path to a findings JSON]"
 ---
 
-Audit a topic and render the findings as a self-contained, actionable HTML page: findings grouped by delivery status, ranked by severity, each verified before it ships. Uses the visual-explainer plugin's rendering patterns.
+Render verified findings as a self-contained, actionable HTML page: grouped by delivery status, ranked by severity, each verified before it ships. Uses the visual-explainer plugin's rendering patterns.
 
 The output is the audit artefact this skill was distilled from: a masthead + KPI row, findings grouped into collapsible **To do / In progress / Done** sections, severity shown on both a chip and the colour of each finding number, a severity/type filter bar, and a refuted section that keeps the audit falsifiable.
 
 ## Step 1: Interpret `$ARGUMENTS` (auto-detect)
 
-- **Empty**: ask the user what to audit, then stop. Do not invent a topic.
 - **A path to a `.json` file** (matches something like `*.json` and the file exists): **render-only mode**. Load it as the findings dataset and skip to Step 3. Expected shape is documented in Step 2.
-- **Anything else**: treat the whole string as the **topic** to audit (a roadmap, a design doc, a subsystem, a PR, a migration). Proceed to Step 2.
+- **Anything else, or empty**: the findings themselves come from a feeder skill's hand-off (`roadmap-review`, `project-audit_deps`) or from findings already established in the conversation; `$ARGUMENTS` supplies the label/slug when given. This skill renders findings; it does not investigate topics. If someone hands it a bare topic with nothing behind it, say so and point at the feeder skills.
 
-## Step 2: Gather findings (topic mode)
+## Step 2: Assemble the dataset
 
-Analyse the topic and produce a findings dataset. Read the relevant docs and code first; for a broad or uncertain scope, fan out parallel read-only searches (an `Explore` subagent per area) before drawing conclusions. For a genuinely large or adversarial audit, a Workflow (multi-lens find → dedupe → adversarial verify → completeness critic) produces a far stronger set; use it when the topic warrants the cost.
+Map the in-hand findings into the schema below, verifying each claim still holds before including it.
 
 Each finding must carry:
 
@@ -102,7 +101,7 @@ Write to `{project_root}/docs/artefacts/audit-{slug}.html`, self-contained (embe
 1. **Masthead**: eyebrow, title, a lede that names the source document and explains the status grouping and the severity colour key inline, and a mono `method` line (`N confirmed · N refuted`).
 2. **KPI row**: four cards: Done, In progress, To do, and total Confirmed (with a severity breakdown sub-line). Colour each card's accent bar by what it counts.
 3. **Filter bar**: sticky, `backdrop-filter` blur. Severity buttons (All / High / Medium / Low) and type buttons (Corrections / Issues / Improvements / Enhancements). Active button tints to the severity colour.
-4. **Status sections**: three `<details>` blocks in order **To do** (`open`), **In progress** (`open`), **Done** (collapsed, no `open`). Each summary shows the label, a count, and a right-aligned severity tally. Inside, a responsive card grid (`minmax(340px, 1fr)`), findings sorted by severity then id. An empty To-do section shows a short "nothing outstanding" note rather than vanishing.
+4. **Status sections**: three `<details>` blocks in order **To do**, **In progress**, **Done**, all rendered **collapsed** (no `open` attribute); the reader chooses what to expand. Each summary shows the label, a count, and a right-aligned severity tally. Inside, a responsive card grid (`minmax(340px, 1fr)`), findings sorted by severity then id. An empty To-do section shows a short "nothing outstanding" note rather than vanishing.
 5. **Refuted section**: the dropped candidates, so the page is falsifiable not selective.
 6. **Footer**: source, method, applied date.
 
@@ -129,7 +128,7 @@ Before opening:
 - [ ] Complete self-contained HTML document; only Google Fonts is external
 - [ ] Tag balance holds (`article`, `details`, `div`, `script`, `style`)
 - [ ] Every finding `id` is unique; all findings present
-- [ ] Three status sections; To do + In progress `open`, Done collapsed
+- [ ] Three status sections, all collapsed by default (filter interaction may auto-open)
 - [ ] Severity shown by BOTH the chip and the finding-number colour (`data-sev` rule present for high/medium/low)
 - [ ] Every `var(--x)` resolves to a definition; light and dark both intentional
 - [ ] All grid/flex children have `min-width: 0`; `overflow-wrap` on long text; refs wrap

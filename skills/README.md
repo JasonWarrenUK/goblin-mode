@@ -19,7 +19,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 
 | Command | Model | Description |
 |---------|-------|-------------|
-| `/artefact-audit` | ᛟ opus | Audit a topic and render an actionable, status-grouped HTML findings artefact. |
+| `/artefact-audit` | ᛊ sonnet | Render verified findings as an actionable, status-grouped HTML artefact. |
 | `/artefact-intro` | ᛊ sonnet | Render a visual HTML introduction to this codebase for a newly-joined developer |
 | `/artefact-roadmap` | ᚺ haiku | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
 | `/branch-integrate` | ᛊ sonnet | Integrate a target branch into the current one by merge, rebase or squash |
