@@ -34,7 +34,9 @@ Render as a table plus one plain-English sentence per worktree: what it is, what
 | ~/code/app-worktrees/feat/search | feat/search | 2 uncommitted files, 3 ahead | ◀ |
 ```
 
-Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch is already merged to main (candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere.
+Group the table in two sections, both always shown: **deliberate worktrees** (the main checkout plus paths following the project's worktree convention, e.g. the sibling `../<repo>-worktrees/<branch>` layout) first, then **machine-made worktrees** (session- or tool-created: paths under temp directories or `.claude`, or generated names following no human convention). When provenance is unclear, treat it as deliberate.
+
+Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch is already merged to main (candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere. An abandoned machine-made worktree (clean, branch merged or never pushed) is a first-class cleanup candidate here.
 
 With no arguments, stop here; the map is the deliverable.
 

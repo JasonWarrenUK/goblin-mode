@@ -4,7 +4,7 @@
 |------|-------|
 | Started | 2026-08-13 |
 | Status | Phase 8 COMPLETE (2026-08-14) — Phase 9 dialogue next, Phase 10 last |
-| Skills | 52 (was 56: export-roadmap_zip, doc-adr and doc-update_misc ditched; roadmap-audit-deps merged into roadmap-review) |
+| Skills | 51 (was 56: export-roadmap_zip, doc-adr, doc-update_misc and hud-pr_wall ditched; roadmap-audit-deps merged into roadmap-review) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
 
@@ -1078,7 +1078,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: DITCHED (skill + pr-wall.sh); pr-land's reference cleaned up |  |
 
 ### hud-whats_new
 
@@ -1106,7 +1106,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | CHANGED → "HUD: What's New" | display name aligned to the Family: Action convention and metadata.family |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, wired into pr-land's report step as an offered wrap-up |  |
 
 ### hud-worktrees
 
@@ -1134,7 +1134,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, map now groups deliberate vs machine-made worktrees (both always shown, unclear provenance defaults to deliberate) and abandoned machine-made trees become first-class cleanup candidates |  |
 
 ### import-scaffold_artefact
 
