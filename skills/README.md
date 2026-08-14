@@ -26,7 +26,6 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/branch-qa_review` | ᛟ opus | Assess branch readiness for PR submission: full review methodology plus the checks only a local chec… |
 | `/commit-batch` | ᚺ haiku | Split uncommitted changes into granular commits. |
 | `/commit-one` | ᚺ haiku | Generate a commit message. If nothing staged, stage all changes. |
-| `/config-clod_permits` | ᚺ haiku | Grant a permission rule globally or for the current project |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
