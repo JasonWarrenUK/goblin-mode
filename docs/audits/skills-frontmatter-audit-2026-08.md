@@ -4,7 +4,7 @@
 |------|-------|
 | Started | 2026-08-13 |
 | Status | Phase 8 COMPLETE (2026-08-14) — Phase 9 dialogue next, Phase 10 last |
-| Skills | 54 (was 56: export-roadmap_zip ditched, roadmap-audit-deps merged into roadmap-review) |
+| Skills | 52 (was 56: export-roadmap_zip, doc-adr and doc-update_misc ditched; roadmap-audit-deps merged into roadmap-review) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
 
@@ -938,7 +938,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: DITCHED, never used |  |
 
 ### doc-changelog
 
@@ -966,7 +966,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: improvement proposals presented (first-parent PR-level entries, refactor to omit-unless-user-visible, version argument for the pr-land handoff, Unreleased promotion); corrections probe self-answered by the unread half of the body |  |
 
 ### doc-readme
 
@@ -994,7 +994,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, vestigial backup step replaced with 'git is the backup' |  |
 
 ### doc-update_misc
 
@@ -1022,7 +1022,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: DITCHED, never used |  |
 
 ### export-roadmap_zip
 
