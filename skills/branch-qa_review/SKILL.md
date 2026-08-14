@@ -38,7 +38,6 @@ From the Step 0 facts, briefly:
 
 - Conventional-commit compliance, atomicity, no WIP/fixup/junk commits
 - Branch name: `<prefix>/<short-description>`, prefix from the canonical set (matches CLAUDE.md §8.6): `feat`, `fix`, `enhance`, `refactor`, `test`, `docs`, `config`, `chore`, `ci`, `deps`, `hotfix`, `spike`, `agents`; breaking-change branches use `<prefix>/breaking-<description>`
-- Diff size over 500 lines: flag for a possible split
 
 ## Step 4: Breaking changes
 
@@ -55,7 +54,7 @@ From the Step 0 facts, briefly:
 | Verdict | Criteria |
 |---|---|
 | **Blocked** | Unresolved conflict markers, or a red gate that predates the branch (needs a human call before any PR makes sense) |
-| **Needs Work** | Any 🔴 finding, a red gate this branch caused, WIP/fixup commits, or an unsplit >500-line diff |
+| **Needs Work** | Any 🔴 finding, a red gate this branch caused, or WIP/fixup commits |
 | **Ready** | Green gate and nothing above 🟠/🟡; remaining findings are listed as improvements, not blockers |
 
 ## Output Format

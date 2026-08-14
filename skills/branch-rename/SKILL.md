@@ -8,7 +8,7 @@ metadata:
   glyph: ᚺ
   family: branch
 disable-model-invocation: false # invocable by Claude so it can flag a drifted branch name before PR creation; the rename still awaits approval
-allowed-tools: ["Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)"]
+allowed-tools: ["Bash(git:*)", "Bash(gh pr list:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)"]
 arguments: ["desired-name"]
 argument-hint: "[desired name (optional; omit and a name is suggested from the branch's contents)]"
 ---
@@ -24,7 +24,7 @@ argument-hint: "[desired name (optional; omit and a name is suggested from the b
 4. If the current name already satisfies convention **and** accurately describes the work, say so and stop; no rename for renaming's sake.
 5. Otherwise present the suggested (or user-supplied) name against the current one, with one line of reasoning, and **await approval**. On approval:
    - Rename locally: `git branch -m <new-name>`
-   - If the old branch was pushed: `git push origin HEAD:<new-name>`, then `git push origin --delete <old-name>`, then `git branch --set-upstream-to=origin/<new-name>`
+   - If the old branch was pushed: first run `gh pr list --head <old-name>`. An open PR means **stop and rename nothing**: deleting its head branch would close the PR permanently (GitHub does not follow renames). Report that; the rename can happen after the PR merges or closes. With no open PR: `git push origin HEAD:<new-name>`, then `git push origin --delete <old-name>`, then `git branch --set-upstream-to=origin/<new-name>`
    - Never touch the remote when the branch was never pushed; the facts output shows whether an upstream exists.
 
 <raw-arguments value="$ARGUMENTS" />
