@@ -1,6 +1,6 @@
 # SvelteKit Routes and Middleware
 
-Detail for `role-expert-api_designer` — SvelteKit endpoint patterns and middleware composition.
+Detail for `role-expert-api_designer`: SvelteKit endpoint patterns and middleware composition.
 
 ## SvelteKit API Routes
 

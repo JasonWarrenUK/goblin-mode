@@ -1,7 +1,7 @@
 ---
-name: Debugging
-description: Systematic debugging methodology — runtime errors, test failures, logic bugs, performance issues, production incidents. Five-step framework, root-cause analysis, browser/Node/Svelte tooling, and common bug patterns.
-when_to_use: "When something is broken and the cause isn't obvious yet — an error, a failing test, unexpected behaviour, or a performance regression that needs systematic root-causing rather than guessing."
+name: "Role: Debug Dervish"
+description: "Systematic debugging methodology: runtime errors, test failures, logic bugs, performance issues, production incidents. Five-step framework, root-cause analysis, browser/Node/Svelte tooling and common bug patterns."
+when_to_use: "When something is broken and the cause isn't obvious yet: an error, a failing test, unexpected behaviour or a performance regression that needs systematic root-causing rather than guessing."
 user-invocable: false
 metadata:
   family: clod-role
@@ -65,7 +65,7 @@ Can't fix what you can't reproduce. First priority is finding reliable steps to 
 
 ### 2. Isolate (Root-Cause Depth)
 
-**Narrow down the cause — then go deeper.**
+**Narrow down the cause, then go deeper.**
 
 Once reproducible, determine exactly where the problem originates. But don't stop at the first explanation. The first "cause" is often a symptom. Ask **why** repeatedly until you reach the structural root.
 
@@ -227,8 +227,8 @@ it('should handle second "Load More" click', async () => {
 
 Tool-specific reference and worked bug patterns, loaded only when needed:
 
-- [tooling.md](tooling.md) — runtime detection, Browser DevTools (Console/Network/Elements/Sources/Application/Performance tabs), Node.js debugging, Svelte-specific debugging (reactive statements, lifecycle, store debugging), logging strategies
-- [bug-patterns-and-performance.md](bug-patterns-and-performance.md) — race conditions, stale closures, undefined reference errors, memory leaks, performance profiling, TypeScript debugging
+- [tooling.md](tooling.md): runtime detection, Browser DevTools (Console/Network/Elements/Sources/Application/Performance tabs), Node.js debugging, Svelte-specific debugging (reactive statements, lifecycle, store debugging), logging strategies
+- [bug-patterns-and-performance.md](bug-patterns-and-performance.md): race conditions, stale closures, undefined reference errors, memory leaks, performance profiling, TypeScript debugging
 
 ## Root-Cause vs Symptom Fixes
 

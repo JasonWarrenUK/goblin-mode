@@ -1,6 +1,6 @@
 ---
-name: "Stud (approach)"
-description: "Use when about to build a non-trivial feature and you want the shape reviewable before the logic. Studs every function in its real file as a runnable walking-skeleton (fake data, real wiring) so names, placement, and contracts are visible before any real logic is written. Lay the skeleton, then checkpoint for review."
+name: "Approach: Stud"
+description: "Studs every function of a planned feature in its real file as a runnable walking-skeleton (fake data, real wiring), so names, placement and contracts are reviewable before any real logic is written. Lays the skeleton, then checkpoints for review."
 when_to_use: ">=1 of the following are true: (a) spans several functions/files; (b) touches existing code in more than one place; (c) user wants to review the approach before implementation; (d) user is learning the codebase"
 user-invocable: false
 metadata:

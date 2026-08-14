@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""gen-skills-index.py — regenerates skills/README.md from skill frontmatter.
+"""gen-skills-index.py: regenerates skills/README.md from skill frontmatter.
 
 Reads every skills/*/SKILL.md, classifies each by its invocation shape, and
 writes the three-table index (Command Skills / Model-Invocable Skills / Role
 Skills). The index carries a "regenerate from frontmatter; do not hand-edit"
-banner precisely so this script is the single source of truth for it —
+banner precisely so this script is the single source of truth for it;
 running it after any frontmatter change keeps the counts and descriptions
 honest instead of letting them drift, the way they drifted before this sweep.
 
@@ -23,9 +23,10 @@ SKILLS_DIR = REPO_ROOT / "skills"
 INDEX_PATH = SKILLS_DIR / "README.md"
 
 TIER_ROWS = [
-	("𝚫𝚫𝚫", "Haiku — fast"),
-	("ƔƔƔ", "Sonnet — balanced"),
-	("𝛀𝛀𝛀", "Opus — thorough"),
+	("ᚺ", "Haiku (fast)"),
+	("ᛊ", "Sonnet (balanced)"),
+	("ᛟ", "Opus (thorough)"),
+	("ᚠ", "Fable (frontier)"),
 ]
 
 DESC_MAX = 100  # matches the truncation width already in use in skills/README.md
@@ -80,11 +81,12 @@ def main() -> int:
 		raw_desc = (fm.get("description") or "").strip()
 		desc, glyph_model = strip_runic(raw_desc)
 		model = fm.get("model") or glyph_model or ""
+		glyph = (fm.get("metadata") or {}).get("glyph", "")
 		rows.append(
 			{
 				"dir": skill_dir.name,
 				"name": fm.get("name", skill_dir.name),
-				"model": model,
+				"model": f"{glyph} {model}".strip(),
 				"description": desc,
 				"when_to_use": (fm.get("when_to_use") or "").strip(),
 				"kind": classify(skill_dir.name, fm),
@@ -92,7 +94,7 @@ def main() -> int:
 		)
 
 	if not rows:
-		print("gen-skills-index.py: no skills found — refusing to write an empty index", file=sys.stderr)
+		print("gen-skills-index.py: no skills found; refusing to write an empty index", file=sys.stderr)
 		return 1
 
 	command_rows = [r for r in rows if r["kind"] == "command"]
@@ -159,14 +161,14 @@ def main() -> int:
 	if check_only:
 		old_content = INDEX_PATH.read_text() if INDEX_PATH.exists() else ""
 		if old_content != new_content:
-			print("skills/README.md is stale — run gen-skills-index.py to regenerate.", file=sys.stderr)
+			print("skills/README.md is stale; run gen-skills-index.py to regenerate.", file=sys.stderr)
 			return 1
 		print("skills/README.md is up to date.")
 		return 0
 
 	INDEX_PATH.write_text(new_content)
 	print(
-		f"Wrote {INDEX_PATH.relative_to(REPO_ROOT)} — "
+		f"Wrote {INDEX_PATH.relative_to(REPO_ROOT)}: "
 		f"{len(command_rows)} command, {len(invocable_rows)} model-invocable, "
 		f"{len(role_rows)} role skills."
 	)

@@ -1,7 +1,7 @@
 ---
-name: testing-obsessive
+name: "Role: Testing Obsessive"
 description: "Pragmatic testing with Vitest: risk-based strategy, Svelte component testing, test-after development."
-when_to_use: "When writing or reviewing tests, or deciding what's worth testing at all — auto-loads on test/spec files, or when the conversation raises test coverage, Vitest setup, or 'should I test this'."
+when_to_use: "When writing or reviewing tests, or deciding what's worth testing at all; fires on test coverage, Vitest setup and 'should I test this'."
 user-invocable: false
 metadata:
   family: clod-role
@@ -280,8 +280,8 @@ This test now prevents the bug from returning.
 
 Mechanical how-to and reference material, loaded only when needed:
 
-- [vitest-patterns.md](vitest-patterns.md) — Vitest setup, unit/component/mocking/async test patterns, test organisation, coverage config, matcher and query quick reference
-- [pitfalls-and-accessibility.md](pitfalls-and-accessibility.md) — common testing mistakes (over-mocking, brittle selectors, implementation-detail testing) and accessibility test patterns
+- [vitest-patterns.md](vitest-patterns.md): Vitest setup, unit/component/mocking/async test patterns, test organisation, coverage config, matcher and query quick reference
+- [pitfalls-and-accessibility.md](pitfalls-and-accessibility.md): common testing mistakes (over-mocking, brittle selectors, implementation-detail testing) and accessibility test patterns
 ## Success Criteria
 
 Tests are effective when they:

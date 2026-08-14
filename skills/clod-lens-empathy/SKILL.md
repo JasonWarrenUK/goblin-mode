@@ -1,7 +1,7 @@
 ---
-name: user-empathy-lens
+name: "Lens: Empathy"
 description: "Empathy-driven design: think through how real people experience the software; surface and challenge assumptions."
-when_to_use: "When designing a user-facing flow and it's worth pausing to ask how it actually feels to a real person using it — especially when assumptions about the user are going unexamined."
+when_to_use: "When designing a user-facing flow and it's worth pausing to ask how it actually feels to a real person using it; especially when assumptions about the user are going unexamined."
 user-invocable: false
 metadata:
   family: clod-lens
@@ -11,7 +11,7 @@ allowed-tools:
 
 # User Empathy Lens
 
-Empathy-driven design skill. Helps think through how real people will experience the software. Uses inference and scenario-building rather than formal user research — surface assumptions, challenge them, and design for actual human behaviour.
+Empathy-driven design skill. Helps think through how real people will experience the software. Uses inference and scenario-building rather than formal user research: surface assumptions, challenge them, and design for actual human behaviour.
 
 ---
 
@@ -42,11 +42,11 @@ Design for them, not for the demo.
 
 ### Step 1: Who Is This Person?
 
-Not a formal persona — a quick sketch of the actual human:
+Not a formal persona, a quick sketch of the actual human:
 
 **Questions to ask**:
 - How tech-savvy are they? (Developer? Office worker? Someone's grandparent?)
-- What are they trying to accomplish? (Not "use the feature" — what's their real goal?)
+- What are they trying to accomplish? (Not "use the feature"; what's their real goal?)
 - What's their emotional state? (Rushed? Curious? Frustrated? Forced to be here?)
 - What device and context? (Desktop at work? Phone on a commute? Tablet in bed?)
 - Have they used this before? (First time? Daily user? Returning after months away?)
@@ -176,7 +176,7 @@ For any user-facing feature:
 Empathy and ethics overlap heavily. "Would the user feel tricked?" is both an empathy question and an ethics question. Use empathy lens for UX and ethics-reviewer for systemic concerns.
 
 ### With frontend-styler
-Empathy informs styling decisions — what's visually prominent, how feedback is communicated, how errors appear. Frontend-styler handles the implementation.
+Empathy informs styling decisions: what's visually prominent, how feedback is communicated, how errors appear. Frontend-styler handles the implementation.
 
 ### With scope-coach
 Empathy can expand scope ("But what about this edge case for this user type?"). Scope coach moderates: "Is that the common case or a rare edge? Ship for the common case first."

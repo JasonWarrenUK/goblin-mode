@@ -1,7 +1,7 @@
 ---
 name: "HUD: Worktrees"
 description: "Map every worktree in this repo in plain language and shepherd safe create/remove actions"
-when_to_use: "When the user asks what worktrees exist, seems confused about which checkout they're in, wants to create or remove a worktree, or a worktree-related git error appears — this skill exists because worktrees are easy to get wrong."
+when_to_use: "When the user asks what worktrees exist, seems confused about which checkout they're in, wants to create or remove a worktree, or a worktree-related git error appears; worktrees are easy to get wrong, which is why this skill exists."
 model: sonnet
 effort: medium
 metadata:
@@ -21,11 +21,11 @@ Worktrees go wrong in predictable ways: removing the one you're standing in, cre
 
 Regardless of arguments, gather first:
 
-1. `git worktree list --porcelain` — every worktree, its path, branch, HEAD.
+1. `git worktree list --porcelain`: every worktree, its path, branch, HEAD.
 2. For each worktree: `git -C <path> status --porcelain` (dirty?) and `git -C <path> rev-list --left-right --count origin/main...HEAD` (ahead/behind, skip if no upstream).
-3. `pwd` — establish **which worktree you are standing in right now**. This drives every safety check below.
+3. `pwd`: establish **which worktree you are standing in right now**. This drives every safety check below.
 
-Render as a table plus one plain-English sentence per worktree — what it is, what state it's in, whether it's safe to touch:
+Render as a table plus one plain-English sentence per worktree: what it is, what state it's in, whether it's safe to touch:
 
 ```markdown
 | Worktree | Branch | State | You are here |
@@ -36,24 +36,24 @@ Render as a table plus one plain-English sentence per worktree — what it is, w
 
 Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch is already merged to main (candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere.
 
-With no arguments, stop here — the map is the deliverable.
+With no arguments, stop here; the map is the deliverable.
 
 ## Action: `new <branch>`
 
-1. Check whether `<branch>` already exists (`git branch --list <branch>`, `git worktree list`). If it exists **use it** — never create `feat/search-2` because `feat/search` was taken. If it's already checked out in another worktree, point there instead of creating anything.
+1. Check whether `<branch>` already exists (`git branch --list <branch>`, `git worktree list`). If it exists **use it**; never create `feat/search-2` because `feat/search` was taken. If it's already checked out in another worktree, point there instead of creating anything.
 2. Follow the project's existing worktree path convention if the map shows one; otherwise default to a sibling directory: `../<repo>-worktrees/<branch>`.
 3. Show the exact command (`git worktree add <path> <branch>` or `-b <branch>` for a new branch), **await approval**, run it.
-4. Remind: a fresh worktree has no `node_modules` — run the project's install (and any codegen like `svelte-kit sync`) before trusting test output there.
+4. Remind: a fresh worktree has no `node_modules`, so run the project's install (and any codegen like `svelte-kit sync`) before trusting test output there.
 
 ## Action: `clean`
 
-1. From the map, list removal candidates: worktrees whose branch is merged into main and whose tree is clean. A dirty worktree is **never** a silent candidate — show what's uncommitted and ask.
+1. From the map, list removal candidates: worktrees whose branch is merged into main and whose tree is clean. A dirty worktree is **never** a silent candidate; show what's uncommitted and ask.
 2. **Never remove the worktree you are standing in.** If the target is the current directory, first give the user the `cd` back to the main checkout, and only proceed after they've moved.
-3. For each approved removal, in order: `git worktree remove <path>`, then offer `git branch -d <branch>` (only `-d`, never `-D` — if git refuses, the branch isn't merged and that's worth knowing, not overriding).
+3. For each approved removal, in order: `git worktree remove <path>`, then offer `git branch -d <branch>` (only `-d`, never `-D`; if git refuses, the branch isn't merged and that's worth knowing, not overriding).
 4. Finish with `git worktree prune` and a fresh map so the user sees the end state.
 
 ## Red flags
 
-**Never:** remove a worktree while inside it; use `git worktree remove --force` or `git branch -D` to silence a refusal (the refusal is information); create a new branch when one with the intended name already exists; leave the user in a deleted directory — always land them back in the main checkout.
+**Never:** remove a worktree while inside it; use `git worktree remove --force` or `git branch -D` to silence a refusal (the refusal is information); create a new branch when one with the intended name already exists; leave the user in a deleted directory; always land them back in the main checkout.
 
 <raw-arguments value="$ARGUMENTS" />

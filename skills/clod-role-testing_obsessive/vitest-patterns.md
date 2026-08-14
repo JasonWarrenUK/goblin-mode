@@ -1,6 +1,6 @@
 # Vitest Setup and Test Patterns
 
-Detail for `testing-obsessive` — mechanical how-to once risk assessment (see SKILL.md) has decided what to test.
+Detail for `testing-obsessive`: mechanical how-to once risk assessment (see SKILL.md) has decided what to test.
 
 ## Vitest Setup
 

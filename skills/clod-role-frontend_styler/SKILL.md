@@ -1,7 +1,7 @@
 ---
-name: frontend-styler
+name: "Role: Frontend Styler"
 description: "Frontend styling: layout debugging, style consistency, CSS best practices for Svelte/SvelteKit."
-when_to_use: "When a layout is broken, styles are inconsistent across components, or CSS needs a best-practice review — auto-loads on .svelte/.css files, or when the conversation is about styling, layout bugs, or visual consistency."
+when_to_use: "When a layout is broken, styles are inconsistent across components or CSS needs a best-practice review; auto-loads only when work touches .svelte or .css files."
 user-invocable: false
 metadata:
   family: clod-role
@@ -39,7 +39,7 @@ Use this skill when:
 ## Core Principles
 
 ### 1. Accessibility First
-Accessibility is not a polish step — it's a structural requirement. Every styling decision should pass the accessibility check before considering aesthetics.
+Accessibility is not a polish step; it's a structural requirement. Every styling decision should pass the accessibility check before considering aesthetics.
 
 **Non-negotiable**:
 - Colour contrast meets WCAG 2.1 AA (4.5:1 normal text, 3:1 large text)

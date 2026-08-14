@@ -1,7 +1,7 @@
 ---
 name: "PR: Review (Dry Run)"
-description: "Review a pull request"
-when_to_use: "When you want a read-only review of a PR's diff printed to the conversation — for a posted GitHub review use pr-review, which calls this skill internally."
+description: "Review a pull request's diff and print structured findings to the terminal. Holds the canonical review methodology that pr-review and branch-qa_review both call."
+when_to_use: "When you want a read-only review of a PR's diff printed to the conversation: for a posted GitHub review use pr-review, which calls this skill internally."
 model: opus
 effort: high
 metadata:
@@ -16,46 +16,46 @@ argument-hint: "[loose|strict] [PR number | URL]"
 
 # PR Review
 
-Canonical review methodology. Produces structured findings only; **never posts to GitHub**. `pr-review` loads this skill and handles posting — keep all methodology here to avoid divergence.
+Canonical review methodology. Produces structured findings only; **never posts to GitHub**. `pr-review` loads this skill and handles posting; keep all methodology here to avoid divergence.
 
 ```xml
 <pull-request-review>
   <task>Review the pull request identified within `$ARGUMENTS` (an optional loose/strict mode keyword plus the PR number/URL, in either order) and produce structured findings. Do not post anything to GitHub.</task>
   <steps>
-    <step num="1">Split `$ARGUMENTS` into the mode keyword (`loose` or `strict`, if present, case-insensitive, order-agnostic; absent means loose) and the PR identifier — see <verdict/> for the mode rule. Run `gh pr view <identifier>` to get PR title, description, and metadata</step>
-    <step num="2">Run `gh pr diff <identifier>` to get the full diff — always PR vs `origin/main`, regardless of the local branch checked out</step>
+    <step num="1">Split `$ARGUMENTS` into the mode keyword (`loose` or `strict`, if present, case-insensitive, order-agnostic; absent means loose) and the PR identifier; see <verdict/> for the mode rule. Run `gh pr view <identifier>` to get PR title, description, and metadata</step>
+    <step num="2">Run `gh pr diff <identifier>` to get the full diff: always PR vs `origin/main`, regardless of the local branch checked out</step>
     <step num="3">Research project conventions stored in `CLAUDE.md`, `.claude/**/*` and `docs/*`. Before critiquing implementation, check whether the dev is following established project practice</step>
     <step num="4">Classify every finding by <taxonomy/> type and by scope (line / file / cross-file)</step>
     <step num="5">Where a line-scoped 🔴/🟠/🟡 finding has a concrete fix, write it as a committable ```suggestion block per <suggestions/></step>
-    <step num="6">Write every comment body **and the `summary`** (including the follow-up delta, when in that mode) per the writing-style skill's anti-slop rules (no em dashes, no contrastive couplets, no parade-of-examples, lead with specifics). This isn't just style guidance here — when this skill's output feeds `pr-review`, its `partition-findings.mjs` hard-fails the post on any em-dash/en-dash in the summary or a comment body. Get it right here, upstream, rather than relying on that gate to catch it</step>
-    <step num="7">Emit findings using <output/>. This is the full deliverable — stop here, nothing gets posted</step>
+    <step num="6">Write every comment body **and the `summary`** (including the follow-up delta, when in that mode) per the writing-style skill's anti-slop rules (no em dashes, no contrastive couplets, no parade-of-examples, lead with specifics). This isn't just style guidance here: when this skill's output feeds `pr-review`, its `partition-findings.mjs` hard-fails the post on any em-dash/en-dash in the summary or a comment body. Get it right here, upstream, rather than relying on that gate to catch it</step>
+    <step num="7">Emit findings using <output/>. This is the full deliverable; stop here, nothing gets posted</step>
   </steps>
   <foci>
-    <focus>Correctness — will this break anything?</focus>
-    <focus>Security — any obvious vulnerabilities?</focus>
+    <focus>Correctness: will this break anything?</focus>
+    <focus>Security: any obvious vulnerabilities?</focus>
     <focus>Glaring convention violations</focus>
-    <focus>Reinforcement — genuine strengths worth calling out, not token praise</focus>
+    <focus>Reinforcement: genuine strengths worth calling out, not token praise</focus>
   </foci>
   <taxonomy>
     <!-- Replaces any older 🟣/🔴/🟡/🔵 four-colour key. This is the only taxonomy. -->
-    <row emoji="🔴" type="major changes" ceiling="Request Changes">Blocking — must fix before merge</row>
+    <row emoji="🔴" type="major changes" ceiling="Request Changes">Blocking: must fix before merge</row>
     <row emoji="🟠" type="minor changes" ceiling="Comment (strict) / Approve (loose)">Should fix, won't block. Same ceiling and treatment as nits</row>
     <row emoji="🟡" type="nits" ceiling="Comment (strict) / Approve (loose)">Nice to have</row>
-    <row emoji="🟣" type="admiration" ceiling="Approve">Accolade — only when genuinely warranted</row>
+    <row emoji="🟣" type="admiration" ceiling="Approve">Accolade: only when genuinely warranted</row>
   </taxonomy>
   <matrix>
     <!-- Type x Scope -> where the comment anchors + suggestion eligibility -->
     <row type="major/minor changes, nits" scope="line" anchor="line highlight (inline diff comment)" suggestion="yes, if a concrete fix exists" />
     <row type="major/minor changes, nits" scope="file" anchor="file-level comment" suggestion="no" />
     <row type="major/minor changes, nits" scope="cross-file" anchor="top-level review comment" suggestion="no" />
-    <row type="admiration" scope="line" anchor="file-level comment — admiration never uses a line highlight, even when the praise is line-scoped" suggestion="no" />
+    <row type="admiration" scope="line" anchor="file-level comment; admiration never uses a line highlight, even when the praise is line-scoped" suggestion="no" />
     <row type="admiration" scope="file" anchor="file-level comment" suggestion="no" />
     <row type="admiration" scope="cross-file" anchor="top-level review comment" suggestion="no" />
   </matrix>
   <suggestions>
     <guide>Emit a ```suggestion block only for line-scoped 🔴/🟠/🟡 findings with a concrete, single-location fix.</guide>
     <guide>Skip suggestions where the fix spans multiple non-contiguous lines, requires judgement calls, or isn't safely committable as-is.</guide>
-    <guide>Never emit suggestions for admiration — there's nothing to commit.</guide>
+    <guide>Never emit suggestions for admiration; there's nothing to commit.</guide>
   </suggestions>
   <verdict>
     <guide>Two modes, `loose` and `strict`, either given explicitly anywhere in `$ARGUMENTS` (order-agnostic, case-insensitive). Absent keyword means loose. A mode keyword is never a PR identifier. Any other unrecognised bare word in the mode slot is an error, not a silent fallback.</guide>
@@ -68,9 +68,9 @@ Canonical review methodology. Produces structured findings only; **never posts t
     <guide>Loose posts no marker to the PR explaining the collapsed verdict. The finding emoji already carry severity. Report the mode in the terminal output only.</guide>
   </verdict>
   <guides>
-    <guide>Keep it concise. Flag only the most important issues — skip minor style nits unless they're genuinely worth a 🟡.</guide>
+    <guide>Keep it concise. Flag only the most important issues; skip minor style nits unless they're genuinely worth a 🟡.</guide>
     <guide>Before critiquing implementation, check whether the dev is following established project practice.</guide>
-    <guide>Omit any type that has no entries. Only include 🟣 findings if there's something genuinely worth praising — token praise is worse than none.</guide>
+    <guide>Omit any type that has no entries. Only include 🟣 findings if there's something genuinely worth praising; token praise is worse than none.</guide>
   </guides>
   <output type="structured">
     For each finding:
@@ -82,9 +82,9 @@ Canonical review methodology. Produces structured findings only; **never posts t
     - `suggestion`: optional ```suggestion block (line-scoped changes/nits only)
 
     Plus:
-    - `summary`: overall review body (top-level comment content). When run in follow-up mode (see `pr-review`'s `<follow-up-mode/>`), the leading "Since my last review" delta uses only ⚪ fixed / ⚫ still open / 🟢 new — never 🆕 (renders as a GitHub `:new:` badge) or ✅/⚠️ (superseded, off-palette)
+    - `summary`: overall review body (top-level comment content). When run in follow-up mode (see `pr-review`'s `<follow-up-mode/>`), the leading "Since my last review" delta uses only ⚪ fixed / ⚫ still open / 🟢 new; never 🆕 (renders as a GitHub `:new:` badge) or ✅/⚠️ (superseded, off-palette)
     - `verdict`: Request Changes | Comment | Approve, derived per <verdict/>
-    - `mode`: loose | strict — which rule set produced the verdict, so the caller doesn't have to re-derive it
+    - `mode`: loose | strict; which rule set produced the verdict, so the caller doesn't have to re-derive it
   </output>
 </pull-request-review>
 ```

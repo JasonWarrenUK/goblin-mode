@@ -1,7 +1,7 @@
 ---
-name: opentui-operative
-description: OpenTUI terminal UI library reference. Use when working with @opentui/core, terminal UIs, renderables, Yoga layouts, or Zig-native rendering.
-when_to_use: "When building or debugging a terminal UI with @opentui/core — renderable composition, Yoga layout issues, or anything touching the Zig-native rendering layer."
+name: "Stack: OpenTUI"
+description: "OpenTUI terminal UI library reference: @opentui/core, terminal UIs, renderables, Yoga layouts, Zig-native rendering."
+when_to_use: "When building or debugging a terminal UI with @opentui/core: renderable composition, Yoga layout issues or anything touching the Zig-native rendering layer."
 user-invocable: false
 metadata:
   family: clod-stack
@@ -11,15 +11,15 @@ allowed-tools: ["Read", "Glob", "Grep"]
 # OpenTUI Operative
 
 > Comprehensive reference for building terminal UIs with OpenTUI (@opentui/core).
-> Source: https://opentui.com/docs/ — all 29 documentation pages.
+> Source: https://opentui.com/docs/, all 29 documentation pages.
 
 ## Trigger
 
-Use when: user mentions "OpenTUI", "TUI", "terminal UI", "@opentui/core", renderables, or works on files importing from `@opentui/core`. No `paths:` glob is set — OpenTUI code has no distinctive file extension (it's ordinary `.ts`/`.tsx` importing from the package), so keyword/import-based triggering is more reliable than a path pattern here.
+Use when: user mentions "OpenTUI", "TUI", "terminal UI", "@opentui/core", renderables, or works on files importing from `@opentui/core`. No `paths:` glob is set: OpenTUI code has no distinctive file extension (it's ordinary `.ts`/`.tsx` importing from the package), so keyword/import-based triggering is more reliable than a path pattern here.
 
 ## Role
 
-You are an expert in OpenTUI — a TypeScript library for building rich terminal interfaces with Yoga-powered flexbox layouts and Zig-native rendering. You know every API surface, every gotcha, and every pattern. You write correct OpenTUI code on the first attempt.
+You are an expert in OpenTUI, a TypeScript library for building rich terminal interfaces with Yoga-powered flexbox layouts and Zig-native rendering. You know every API surface, every gotcha, and every pattern. You write correct OpenTUI code on the first attempt.
 
 ## 1. Quick Start
 
@@ -40,7 +40,7 @@ Run with `bun index.ts`. Press Ctrl+C to exit.
 
 ## 2. Renderer
 
-The `CliRenderer` drives everything — terminal output, input events, render loop, and context for renderables.
+The `CliRenderer` drives everything: terminal output, input events, render loop, and context for renderables.
 
 ### Creation
 
@@ -89,20 +89,20 @@ The factory:
 
 ### Render Loop Control
 
-**Automatic mode (default)** — re-renders only when the component tree changes:
+**Automatic mode (default)** re-renders only when the component tree changes:
 ```typescript
 const renderer = await createCliRenderer()
 renderer.root.add(Text({ content: "Static content" }))
-// No start() needed — renders automatically on tree changes
+// No start() needed; renders automatically on tree changes
 ```
 
-**Continuous mode** — runs at targetFps:
+**Continuous mode** runs at targetFps:
 ```typescript
 renderer.start()   // Begin continuous rendering
 renderer.stop()    // Stop continuous rendering
 ```
 
-**Live rendering** — for animations:
+**Live rendering**, for animations:
 ```typescript
 renderer.requestLive()   // Request continuous rendering
 renderer.dropLive()      // Drop live rendering request
@@ -187,7 +187,7 @@ renderer.root.add(greeting)
 | `MarkdownRenderable` | Markdown renderer |
 | `SliderRenderable` | Numeric slider control |
 
-Full per-component API (options, events, gotchas) is in [component-reference.md](component-reference.md) — load it when working with a specific component beyond basic construction.
+Full per-component API (options, events, gotchas) is in [component-reference.md](component-reference.md); load it when working with a specific component beyond basic construction.
 
 ### The Renderable Tree
 
@@ -205,20 +205,20 @@ container.add(title)
 container.add(body)
 renderer.root.add(container)
 
-// Remove a child — MUST use string ID, not the renderable instance
+// Remove a child: MUST use string ID, not the renderable instance
 container.remove("body")
 ```
 
 ### CRITICAL: remove() API
 
-**`remove(id: string): void`** — the ONLY signature. Always pass a string ID.
+**`remove(id: string): void`** is the ONLY signature. Always pass a string ID.
 
 ```typescript
 // CORRECT
 container.remove("body")
 container.remove(child.id)     // .id returns the auto-generated or explicit ID
 
-// WRONG — will fail at runtime
+// WRONG: will fail at runtime
 container.remove(child)        // passes object, not string
 ```
 
@@ -275,7 +275,7 @@ container.destroyRecursively()    // Destroy self and all children
 class CustomRenderable extends Renderable {
   onUpdate(deltaTime: number) { /* called each frame before render */ }
   onResize(width: number, height: number) { /* dimensions changed */ }
-  onRemove() { /* removed from parent — cleanup here */ }
+  onRemove() { /* removed from parent; cleanup here */ }
   renderSelf(buffer: OptimizedBuffer, deltaTime: number) { /* custom drawing */ }
 }
 ```
@@ -301,7 +301,7 @@ const complex = new BoxRenderable(renderer, {
 
 ## 4. Constructs (Declarative API)
 
-Factory functions that create VNodes — lightweight descriptions of components. VNodes become actual Renderables when added to the tree.
+Factory functions that create VNodes: lightweight descriptions of components. VNodes become actual Renderables when added to the tree.
 
 ```typescript
 import { Box, Text, Input } from "@opentui/core"
@@ -321,7 +321,7 @@ Box(
 
 ### Method Chaining on VNodes
 
-VNodes queue method calls — applied after the component is created:
+VNodes queue method calls, applied after the component is created:
 ```typescript
 const input = Input({ placeholder: "Name..." })
 input.focus()   // Queued, applied when added to tree
@@ -387,7 +387,7 @@ renderer.root.add(container)
 ### Positioning
 
 ```typescript
-{ position: "relative" }   // default — flows in layout
+{ position: "relative" }   // default; flows in layout
 { position: "absolute", left: 10, top: 5 }   // removed from flow
 ```
 
@@ -409,6 +409,6 @@ renderer.root.add(container)
 
 Deep-dive detail lives in supporting files, loaded only when needed:
 
-- [component-reference.md](component-reference.md) — full API for every renderable (BoxRenderable through FrameBufferRenderable): options, events, gotchas
-- [input-and-styling.md](input-and-styling.md) — keyboard input, focus management, colours/RGBA, console overlay, environment variables
-- [advanced-and-testing.md](advanced-and-testing.md) — tree-sitter integration, Solid.js/React framework bindings, common patterns (screen pattern, lifecycle, dynamic updates), mock-renderer testing, the full gotchas list
+- [component-reference.md](component-reference.md): full API for every renderable (BoxRenderable through FrameBufferRenderable): options, events, gotchas
+- [input-and-styling.md](input-and-styling.md): keyboard input, focus management, colours/RGBA, console overlay, environment variables
+- [advanced-and-testing.md](advanced-and-testing.md): tree-sitter integration, Solid.js/React framework bindings, common patterns (screen pattern, lifecycle, dynamic updates), mock-renderer testing, the full gotchas list
