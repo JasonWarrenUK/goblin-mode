@@ -23,7 +23,7 @@ Replaces the former doc-readme-create / doc-readme-create-sub / doc-readme-updat
 2. Analyse it: purpose, contents, structure, key modules, build system, existing docs. For a sub-directory, read the surrounding context too (parent README, siblings, project docs) to place it in the codebase.
 3. Fill the matching skeleton: `~/.claude/library/templates/readme-root.md` for the project root, `readme-sub.md` for a sub-directory. Each {{ slot }} describes its content; drop sections that do not apply, never invent content to fill one.
 4. Include actual paths and commands, not placeholders. Match the style of existing project READMEs. Keep it proportional: a README is an overview, not full docs.
-5. Show the draft and **stop for approval** before writing. Back up an existing README first if one is present.
+5. Show the draft and **stop for approval** before writing. Git is the backup; never leave `.bak` files in the tree.
 
 ## Mode: update
 

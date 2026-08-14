@@ -31,7 +31,6 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/config-clod_permits` | ᚺ haiku | Grant a permission rule globally or for the current project |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
-| `/doc-adr` | ᛊ sonnet | Create an Architecture Decision Record for a significant technical decision |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
 | `/next-task-group` | ᚺ haiku | Show every currently unblocked roadmap task, grouped by milestone or topic |
 | `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
@@ -54,7 +53,6 @@ Claude can load these automatically when relevant.
 | `/clod-config-skill_conventions` |  | Jason's placement, invocation and metadata conventions for creating or editing skills |
 | `/doc-changelog` | ᚺ haiku | Build or update the changelog from conventional commits and project it to every surface the project… |
 | `/doc-readme` | ᛊ sonnet | Create or update a README for the project root or any directory |
-| `/doc-update_misc` | ᛊ sonnet | Update an existing documentation file to reflect recent code changes |
 | `/hud-pr_wall` | ᚺ haiku | Show every open PR that involves you, bucketed by what each one is waiting on |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language and shepherd safe create/remove actions |
