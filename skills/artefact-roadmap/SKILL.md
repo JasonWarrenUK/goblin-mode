@@ -7,7 +7,6 @@ effort: low
 metadata:
   glyph: ᚺ
   family: artefact
-  bundle: roadmap-system
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Bash(python3:*)", "Bash(open:*)"]
 arguments: ["phase"]

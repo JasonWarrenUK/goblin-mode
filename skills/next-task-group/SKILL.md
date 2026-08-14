@@ -7,7 +7,6 @@ effort: low
 metadata:
   glyph: ᚺ
   family: next-task
-  bundle: roadmap-system
 disable-model-invocation: true
 allowed-tools: ["Bash(python3:*)"]
 arguments: ["pivot"]

@@ -7,7 +7,6 @@ effort: high # high rather than medium: the reconcile path infers task completio
 metadata:
   glyph: ᛊ
   family: roadmap
-  bundle: roadmap-system
 disable-model-invocation: false # invocable by Claude so it can offer a status sync after merges; the reconcile confirmation gate still applies
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)", "Bash(git:*)"]
 argument-hint: '[milestone id | "reconcile" to also check against the codebase]'
