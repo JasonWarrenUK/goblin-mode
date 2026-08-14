@@ -59,7 +59,7 @@ If the repo has a rich roadmap (`python3 "$HOME"/.claude/library/scripts/roadmap
 
 ## Step 6: Report
 
-PR merged (URL), tag created, branch/worktree state after cleanup, roadmap synced or skipped. If the changelog matters for this project, note that `doc-changelog` picks up from exactly this moment: new tag, fresh commits.
+PR merged (URL), tag created, branch/worktree state after cleanup, roadmap synced or skipped. If the changelog matters for this project, offer `/doc-changelog md {tag}` with the tag just created; that skill's version argument scopes it to exactly this release.
 
 ## Red flags
 

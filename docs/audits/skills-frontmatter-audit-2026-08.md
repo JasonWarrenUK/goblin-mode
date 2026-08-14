@@ -966,7 +966,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | dialogue done: improvement proposals presented (first-parent PR-level entries, refactor to omit-unless-user-visible, version argument for the pr-land handoff, Unreleased promotion); corrections probe self-answered by the unread half of the body |  |
+| 9.1 intent-gap dialogue | dialogue done: all four improvements APPLIED — first-parent PR-level entries, refactor moved to omit-unless-user-visible, version argument wired into pr-land's hand-off, Unreleased promotion over regeneration |  |
 
 ### doc-readme
 

@@ -9,8 +9,8 @@ metadata:
   family: doc
 disable-model-invocation: false # programmatic (built from commits), and its trigger moment follows pr-land; approval gates the write
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)"]
-arguments: ["targets"]
-argument-hint: "[md|release|app|docs|all] (default: md + whatever already exists)"
+arguments: ["targets", "version"]
+argument-hint: "[md|release|app|docs|all] [tag (optional, scopes to one release)] (default targets: md + whatever already exists)"
 ---
 
 # Distro: Changelog
@@ -33,17 +33,21 @@ No arguments: build `md`, then refresh any projection that already exists in the
 
 `git tag --sort=-v:refname` for existing tags; `svu current` for the latest version. The unit of work is tag-to-tag: each version section covers `previousTag..tag`, and `[Unreleased]` covers `latestTag..HEAD`. If `CHANGELOG.md` exists, its most recent version heading shows where it stopped: only generate forward from there; never rewrite sections already published.
 
+`$version` names a tag: scope the run to that single release (`previousTag..$version`), leaving every other section untouched. This is pr-land's hand-off; it can invoke `/doc-changelog md {tag}` right after tagging.
+
+**Promote, don't regenerate:** when a new tag lands and `[Unreleased]` already carries curated entries, promote that content into the new version section, verify nothing in the tag range is missing (add what is), and rebuild `[Unreleased]` from `newTag..HEAD`. Hand-polish survives; only genuinely new material gets derived.
+
 ## Step 2: Build the canonical entries
 
-For each version in range, read `git log previousTag..tag --format='%h %s%n%b'` and map conventional-commit types to Keep a Changelog sections:
+For each version in range, read `git log --first-parent previousTag..tag --format='%h %s%n%b'`: with merge-commit landings this yields one commit per merged PR (plus direct-to-main commits), so each entry derives from a PR-level change rather than branch-internal noise. Fall back to the full log only when the first-parent output is too thin to describe the release. Map conventional-commit types to Keep a Changelog sections:
 
 | Commit type | Section |
 |---|---|
 | `feat` | Added |
 | `fix` | Fixed |
-| `enhance`, `refactor`, `perf` | Changed |
+| `enhance`, `perf` | Changed |
 | `BREAKING CHANGE` footer or `!` | its own **Breaking** entry, listed first |
-| `docs`, `test`, `chore`, `ci`, `deps` | omitted unless user-visible |
+| `refactor`, `docs`, `test`, `chore`, `ci`, `deps` | omitted unless user-visible |
 
 Entries describe the change from the user's side ("Exports now include timestamps"), not the commit's ("add timestamp to export serialiser"). Collapse commit-level noise: one entry per coherent change, not per commit. British spelling; no em-dashes.
 
