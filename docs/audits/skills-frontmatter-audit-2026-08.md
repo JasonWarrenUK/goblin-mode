@@ -1274,7 +1274,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: behaviour confirmed, absurd-metaphor summary confirmed intentional everywhere |  |
 
 ### pr-handle_review
 
@@ -1302,7 +1302,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, stock pushback closer removed | door stays open in Claude's own words, matched to thread tone |
 
 ### pr-land
 
@@ -1330,7 +1330,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: GAP FIXED, APPROVED requirement now waived for github.com/jasonwarrenuk/* repos | personal repos have no reviewer; the value can never appear |
 
 ### pr-review-dry_run
 
@@ -1358,7 +1358,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | description rewritten (was three words; now names the terminal output and its role as the shared methodology) | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: behaviour confirmed |  |
 
 ### pr-review
 
@@ -1386,7 +1386,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | Skill(pr-review) + Skill(pr-review *) ask rules added to settings.json | mechanical gate on model-invoked posting (the Phase 3 deferral); user slash invocation is not a Skill tool call, so /pr-review stays frictionless |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: auto-submit without a preview gate probed and confirmed intentional | speed over ceremony; ask-rule gates model invocation |
 
 ### pr-update
 
@@ -1414,7 +1414,7 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 | 7.4 permissions | none needed | frontmatter expresses every control this skill wants |
 | 8.1 name | confirmed | already on convention |
 | 8.2 description | confirmed, dash/Oxford purge applied where needed | writing-style gate run on every edited string |
-| 9.1 intent-gap dialogue | TBD | |
+| 9.1 intent-gap dialogue | dialogue done: behaviour confirmed incl. watermark convention (gap already fixed pre-pass) |  |
 
 ### project-audit_deps
 

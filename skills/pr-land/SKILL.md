@@ -25,7 +25,7 @@ The post-approval sequence as one skill: verify the PR is genuinely ready, merge
 
 Resolve the PR from `$ARGUMENTS`, then `gh pr view --json state,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,headRefName,baseRefName,title`.
 
-Proceed only when: state `OPEN`, `reviewDecision` is `APPROVED`, no failing checks in `statusCheckRollup`, and `mergeable` isn't `CONFLICTING`. Anything short of that: report exactly what's unmet and stop. This skill lands ready PRs; it doesn't chase approvals (`pr-handle_review`) or fix branches.
+Proceed only when: state `OPEN`, no failing checks in `statusCheckRollup`, and `mergeable` isn't `CONFLICTING`. `reviewDecision` must additionally be `APPROVED` unless the repo lives under `github.com/jasonwarrenuk/` (personal repos have no reviewer, so that value never appears; check the resolved owner, not the local remote string). Anything short of that: report exactly what's unmet and stop. This skill lands ready PRs; it doesn't chase approvals (`pr-handle_review`) or fix branches.
 
 ## Step 2: Confirm and merge
 
