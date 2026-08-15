@@ -1,11 +1,16 @@
 ---
 name: "Commit: One"
-description: "{{ 𝚫𝚫𝚫 }} Generate a commit message. If nothing staged, stage all changes."
+description: "Generate a commit message. If nothing staged, stage all changes."
 when_to_use: "When the working tree holds one logical change ready to commit and you just need a well-formed conventional-commit message written."
 model: haiku
 effort: low
-disable-model-invocation: true
+metadata:
+  glyph: ᚺ
+  family: commit
+disable-model-invocation: false
 allowed-tools: ["Bash(git:*)"]
+arguments: ["hint"]
+argument-hint: "[message emphasis (optional), e.g. a type, scope or the why]"
 ---
 
 ## Current state
@@ -18,7 +23,7 @@ git diff --cached --stat
 ## Steps
 
 1. Per the state above: if no changes staged, stage all. If files are already staged, *do not* stage more files.
-2. Generate commit message per conventional commits format.
+2. Generate commit message per conventional commits format, honouring `$hint` (a type, scope or emphasis nudge) when given.
 3. Show message and await approval:
     - If approved, push to upstream
     - If changes requested, revise and repeat

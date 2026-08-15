@@ -57,7 +57,7 @@
 	--grid-line: rgba(0, 117, 144, 0.06);
 }
 @media (prefers-color-scheme: dark) {
-	:root {
+	:root:not([data-theme="light"]) {
 		--color-milestone:       var(--color-sky-2);
 		--color-milestone-bg:    var(--color-sky-6);
 		--color-milestone-text:  var(--color-sky-1);
@@ -86,6 +86,40 @@
 		--line: var(--color-gray-5);
 		--grid-line: rgba(174, 233, 255, 0.05);
 	}
+}
+/* Third theming state: an explicit toggle wins in both directions, even
+   against a light OS preference. No toggle UI ships today, but the contract
+   is the same three-state shape every other artefact uses (see
+   library/references/artefact-conventions.md), so a future toggle just
+   works. */
+:root[data-theme="dark"] {
+	--color-milestone:       var(--color-sky-2);
+	--color-milestone-bg:    var(--color-sky-6);
+	--color-milestone-text:  var(--color-sky-1);
+	--color-primary:         var(--color-pink-2);
+	--color-primary-bg:      var(--color-pink-6);
+	--color-primary-text:    var(--color-pink-1);
+	--color-done:            var(--color-green-2);
+	--color-done-bg:         var(--color-green-6);
+	--color-todo:            var(--color-gray-3);
+	--color-todo-bg:         var(--color-gray-6);
+	--color-blocked:         var(--color-red-2);
+	--color-blocked-bg:      var(--color-red-6);
+	--color-paused:          var(--color-purple-2);
+	--color-paused-bg:       var(--color-purple-6);
+	--color-deferred:        var(--color-cinnamon-2);
+	--color-deferred-bg:     var(--color-cinnamon-6);
+	--color-out-of-scope:    var(--color-gray-5);
+	--color-out-of-scope-bg: var(--color-gray-6);
+	--color-gate:            var(--color-yellow-2);
+	--color-gate-bg:         var(--color-yellow-6);
+
+	--bg: #121216;
+	--surface: #1b1b21;
+	--text: var(--color-gray-1);
+	--muted: var(--color-gray-3);
+	--line: var(--color-gray-5);
+	--grid-line: rgba(174, 233, 255, 0.05);
 }
 
 * { box-sizing: border-box; }
@@ -328,8 +362,8 @@ document.getElementById("milestone-details").innerHTML = st.milestones.map((m, i
 		return `<div class="group" style="--g-colour:var(--color-${varName})">
 			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
 	}).join("");
-	const open = tasks.some(t => readyIds.has(t.id)) || i === 0 ? " open" : "";
-	return `<details class="milestone"${open}>
+	// All milestones render collapsed; the reader chooses what to expand
+	return `<details class="milestone">
 		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
 			<span class="count">${m.done}/${m.total}</span></summary>
 		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>

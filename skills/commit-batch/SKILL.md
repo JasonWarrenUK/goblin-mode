@@ -1,11 +1,16 @@
 ---
 name: "Commit: Batch"
-description: "{{ 𝚫𝚫𝚫 }} Split uncommitted changes into granular commits."
-when_to_use: "When several unrelated changes have piled up uncommitted and a single commit would bundle them — split into one logical commit per change."
+description: "Split uncommitted changes into granular commits."
+when_to_use: "When several unrelated changes have piled up uncommitted and a single commit would bundle them; splits into one logical commit per change."
 model: haiku
 effort: low
-disable-model-invocation: true
+metadata:
+  glyph: ᚺ
+  family: commit
+disable-model-invocation: false
 allowed-tools: ["Bash(git:*)"]
+arguments: ["hints"]
+argument-hint: "[grouping hints (optional), e.g. 'docs together, config separate']"
 ---
 
 ## Current state
@@ -18,11 +23,11 @@ git diff --stat HEAD
 ## Steps
 
 1. The current state above was captured at invocation; run `git diff HEAD` on specific files only where the stat alone can't tell you what a change is.
-2. Analyse the changes and group them into logical commit units — each group should represent a single coherent change (e.g. one feature, one fix, one refactor).
+2. Analyse the changes and group them into logical commit units; each group should represent a single coherent change (e.g. one feature, one fix, one refactor). If `$hints` was given, honour it as the intended grouping; it overrides the guidelines below where they conflict.
 3. Present the proposed commit plan as a numbered list:
    - Group name / files involved
    - Suggested commit message (conventional commits format)
-4. Await approval — **stop here and do not proceed until the user responds**:
+4. Await approval: **stop here and do not proceed until the user responds**:
    - If approved, execute commits sequentially. For each group:
      1. Stage **only** the files listed for that group (`git add <files>`)
      2. Commit with the proposed message

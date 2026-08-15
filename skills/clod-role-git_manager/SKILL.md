@@ -1,12 +1,13 @@
 ---
-name: git-manager
+name: "Role: Git Manager"
 description: "Git workflow: branch management, commit conventions, PR patterns, conflict resolution."
-when_to_use: "When a git operation needs judgement beyond a single command — resolving a conflict, deciding a branch/commit strategy, or a workflow question that isn't already covered by one of the git-* command skills."
+when_to_use: "When a git operation needs judgement beyond a single command: resolving a conflict, deciding a branch/commit strategy or a workflow question not covered by the branch-* and commit-* command skills."
 user-invocable: false
-effort: low
+metadata:
+  family: clod-role
 allowed-tools:
   - Read
-  - Bash
+  - "Bash(git:*)"
 ---
 
 # Git Workflow Patterns
@@ -131,7 +132,7 @@ enhance/breaking-change-auth-flow
 - Easy to grep: `git branch | grep breaking`
 - Breaking nature still prominent (first word after `/`)
 
-See [breaking-changes.md](breaking-changes.md) for the full detection reference — what counts as breaking across APIs, types, schema, HTTP endpoints, config, and component props.
+See [breaking-changes.md](breaking-changes.md) for the full detection reference: what counts as breaking across APIs, types, schema, HTTP endpoints, config, and component props.
 
 ### Decision Tree
 
@@ -297,15 +298,15 @@ git push origin feat/add-user-authentication
 
 ## GitHub Operations
 
-A `github` MCP server (`@modelcontextprotocol/server-github`, user-scoped) is available for GitHub operations — PRs, issues, repo metadata — as an alternative to shelling out to `gh`. Prefer the MCP tools when working with GitHub-hosted repos and structured data is useful (e.g. parsing PR review comments); `gh` remains fine for quick one-off CLI calls. Note: the server needs `GITHUB_PERSONAL_ACCESS_TOKEN` set to do anything beyond unauthenticated public reads.
+A `github` MCP server (`@modelcontextprotocol/server-github`, user-scoped) is available for GitHub operations (PRs, issues, repo metadata) as an alternative to shelling out to `gh`. Prefer the MCP tools when working with GitHub-hosted repos and structured data is useful (e.g. parsing PR review comments); `gh` remains fine for quick one-off CLI calls. Note: the server needs `GITHUB_PERSONAL_ACCESS_TOKEN` set to do anything beyond unauthenticated public reads.
 
 ## Additional resources
 
 Mechanical how-to and reference material, loaded only when needed:
 
-- [lifecycle-and-review.md](lifecycle-and-review.md) — branch creation/update/cleanup, PR checklist and description template, merge strategy trade-offs, conflict resolution
-- [lazygit-and-advanced.md](lazygit-and-advanced.md) — LazyGit key bindings and workflows, stash/cherry-pick/bisect/reflog
-- [breaking-changes.md](breaking-changes.md) — the full breaking-change detection reference (APIs, types, schema, HTTP endpoints, config, component props) backing CLAUDE.md §8.5
+- [lifecycle-and-review.md](lifecycle-and-review.md): branch creation/update/cleanup, PR checklist and description template, merge strategy trade-offs, conflict resolution
+- [lazygit-and-advanced.md](lazygit-and-advanced.md): LazyGit key bindings and workflows, stash/cherry-pick/bisect/reflog
+- [breaking-changes.md](breaking-changes.md): the full breaking-change detection reference (APIs, types, schema, HTTP endpoints, config, component props) backing CLAUDE.md §8.5
 
 ## Success Criteria
 

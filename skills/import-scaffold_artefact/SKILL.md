@@ -1,11 +1,15 @@
 ---
-name: "Project: Scaffold from Artefact"
-description: "{{ 𝛀𝛀𝛀 }} Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project"
+name: "Import: Scaffold from Artefact"
+description: "Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project"
 when_to_use: "When a design or prototype exported from an Artifact (HTML or React/JSX) needs turning into a real, runnable project scaffold."
-model: opus
+model: sonnet
+effort: high
+metadata:
+  glyph: ᛊ
+  family: import
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(bun:*)", "Bash(bunx:*)", "Bash(npm:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(open:*)", "Bash(find:*)"]
-argument-hint: [path to the exported .html/.jsx artefact (optional); add "react" to opt into React/Next]
+argument-hint: '[artefact path (.html/.jsx, optional)] ["react" to opt into React/Next]'
 ---
 
 Take a single-file artefact exported from Claude Chat or Cowork (an interactive HTML page or a JSX component) and grow it into a real, runnable project in Jason's default stack. Understand the artefact, interview for the decisions only a human can make, then port it: scaffold a project, translate the artefact into components or routes, and rewire its styling onto Reasonable Colors. A **full-project tail** (tests, git, docs, deploy) follows and is skippable.
@@ -14,7 +18,7 @@ Default target is **Svelte 5 (runes) / SvelteKit 2**. A JSX artefact becomes Sve
 
 **Announce at start:** "I'm using the Scaffold-from-Artefact skill. I'll read `{file}` first, then ask a few quick questions before building anything."
 
-## Step 1 — Interpret `$ARGUMENTS` and locate the artefact
+## Step 1: Interpret `$ARGUMENTS` and locate the artefact
 
 - **A path is given and the file exists:** use it. Record its extension (`.html`, `.htm`, `.jsx`, `.tsx`, `.svelte`).
 - **`react` (or `next`) appears in the arguments:** set the target stack to React/Next.js instead of the Svelte default. Note it and carry it into Step 3.
@@ -33,7 +37,7 @@ Confirm the resolved absolute path and the detected artefact type back to the us
 - [ ] Artefact type detected (HTML vs JSX/TSX)
 - [ ] Any stack opt-in from the arguments recorded
 
-## Step 2 — Read and understand the artefact
+## Step 2: Read and understand the artefact
 
 Read the whole file. Build an inventory before translating anything or asking any questions; a rushed port loses interactivity, and an uninformed interview asks questions the artefact already answers. Capture:
 
@@ -53,7 +57,7 @@ Produce a short written inventory (components, state, deps, backend signals, Rea
 - [ ] React-specific idioms flagged (JSX case)
 - [ ] Hardcoded colours collected for the styling step
 
-## Step 3 — Interview for the project-shaping decisions
+## Step 3: Interview for the project-shaping decisions
 
 Some decisions are the user's to make, not yours to assume. Run a short structured interview, adapting the round discipline of the `roadmap-create-interview` skill: ask **2–4 questions per round**, never dump a long list at once, acknowledge briefly (don't repeat answers verbatim), and end each round with *"Anything else, or shall I write up the config?"*. This is a conversation, not a form.
 
@@ -87,7 +91,7 @@ Get explicit approval before scaffolding. Nothing is built until the user signs 
 - [ ] Closed choices used `AskUserQuestion` with a recommendation
 - [ ] Config proposal shown and approved before Step 4 begins
 
-## Step 4 — Announce the translation
+## Step 4: Announce the translation
 
 State the artefact→stack mapping from the approved config:
 
@@ -95,11 +99,11 @@ State the artefact→stack mapping from the approved config:
 - **HTML artefact → a SvelteKit route.** Markup goes into `+page.svelte`; page-load data (if any) into `+page.ts` or `+page.server.ts` if a backend was chosen.
 - **React opt-in:** mirror the artefact's own framework: JSX stays React components, HTML becomes a Next.js/Vite React page. Skip the rune mapping below but keep the styling and tail steps.
 
-**React idiom → Svelte 5 rune mapping:** read `~/.claude/library/references/react-to-svelte5.md` and state the mappings actually used by this artefact (plus the gotchas it lists that apply — effect cleanup timing, synchronous context, portals, ref-as-box).
+**React idiom → Svelte 5 rune mapping:** read `~/.claude/library/references/react-to-svelte5.md` and state the mappings actually used by this artefact (plus the gotchas it lists that apply: effect cleanup timing, synchronous context, portals, ref-as-box).
 
 - [ ] Every React idiom in the artefact has a named Svelte target (or a flagged manual port)
 
-## Step 5 — Scaffold the project skeleton
+## Step 5: Scaffold the project skeleton
 
 Choose the scaffold from the artefact type and approved stack:
 
@@ -140,7 +144,7 @@ If the interview chose a backend/database, note where it wires in but do not bui
 - [ ] `tsconfig` strict verified
 - [ ] Directory layout matches the stack and approved config
 
-## Step 6 — Port the artefact into components/routes
+## Step 6: Port the artefact into components/routes
 
 Translate the inventory from Step 2 into real source files.
 
@@ -157,9 +161,11 @@ Translate the inventory from Step 2 into real source files.
 - [ ] External deps resolved (added, kept, or removed)
 - [ ] No `any`; exported functions have explicit return types
 
-## Step 7 — Rewire styling onto Reasonable Colors
+## Step 7: Rewire styling onto Reasonable Colors
 
 Replace every hardcoded colour from Step 2 with semantic aliases backed by Reasonable Colors. **Read `~/.claude/library/references/reasonable-colors-reference.md` first** for the shade/contrast rules and the full palette; do not guess hex values.
+
+This step's job is preserving the *source artefact's own design* in the new codebase — not imposing a different aesthetic on top of one the user already approved. `~/.claude/library/references/artefact-conventions.md` is a useful cross-check for masthead structure, typography-pairing logic, and the honesty/status-marking rule if the ported app is *itself* a reference/status-style artefact (e.g. a dashboard), but it never overrides what Step 6 already preserved from the artefact's own markup and voice.
 
 1. **Install:** `bun add reasonable-colors` (or the CDN link `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css` for a no-build HTML case). Import it once at the app root.
 2. **Define semantic aliases** in `src/lib/styles/tokens.css`, mapping RC vars to roles:
@@ -184,7 +190,7 @@ Replace every hardcoded colour from Step 2 with semantic aliases backed by Reaso
 - [ ] Zero direct RC-var references in components (aliases only)
 - [ ] Body text meets at least AA (shade diff ≥ 3)
 
-## Step 8 — Verify it runs (core deliverable)
+## Step 8: Verify it runs (core deliverable)
 
 The port is not done until the page runs and the interactivity works end-to-end. This step is part of the **core**, not the skippable tail.
 
@@ -203,7 +209,7 @@ Report what runs and any behaviour that did not survive the port (with the reaso
 - [ ] Every catalogued interaction verified live
 - [ ] `bun run check` / typecheck clean
 
-## Step 9 — Full-project tail (only the parts chosen in Step 3)
+## Step 9: Full-project tail (only the parts chosen in Step 3)
 
 Run only the tail parts the user selected during the interview. Each sub-section stands alone.
 
@@ -233,7 +239,7 @@ Confirm `.gitignore` covers `node_modules`, build output, and any `.env` before 
 - [ ] ADR + README generated from the library templates (not invented)
 - [ ] Deploy adapter matches the interviewed target, nothing else configured
 
-## Step 10 — Report
+## Step 10: Report
 
 Summarise: artefact source path; approved config (stack, backend, auth, deploy); component/route layout; interactions verified; which tail parts ran; anything that did not survive the port (with reasons). Surface any flagged React idiom that needed a manual workaround inline so the user sees it without opening files.
 

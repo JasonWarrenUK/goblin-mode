@@ -1,6 +1,6 @@
 # Component Reference
 
-Detail for `opentui-operative` — the full renderable catalogue (BoxRenderable through FrameBufferRenderable).
+Detail for `opentui-operative`: the full renderable catalogue (BoxRenderable through FrameBufferRenderable).
 
 ## BoxRenderable
 
@@ -119,7 +119,7 @@ interface SelectOption {
 - `setSelectedIndex(n)` / `moveUp()` / `moveDown()` / `selectCurrent()`
 - Dynamic updates: set `options`, `showDescription`, `showScrollIndicator`, `wrapSelection` as properties
 
-**GOTCHA:** `backgroundColor` defaults to transparent — set it explicitly or items appear with black backgrounds.
+**GOTCHA:** `backgroundColor` defaults to transparent; set it explicitly or items appear with black backgrounds.
 
 ## InputRenderable
 
@@ -216,8 +216,8 @@ const scrollbox = new ScrollBoxRenderable(renderer, {
 **Keyboard (when focused):** Arrow keys, Page Up/Down, Home, End.
 
 **Methods:**
-- `scrollBy()` — relative scrolling by lines, pixels, or viewport
-- `scrollTo()` — absolute positioning
+- `scrollBy()`: relative scrolling by lines, pixels, or viewport
+- `scrollTo()`: absolute positioning
 
 **Internal structure:** `wrapper`, `viewport`, `content`, `horizontalScrollBar`, `verticalScrollBar`
 
