@@ -7,7 +7,7 @@ effort: low
 metadata:
   glyph: ᚺ
   family: commit
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: ["Bash(git:*)"]
 arguments: ["hints"]
 argument-hint: "[grouping hints (optional), e.g. 'docs together, config separate']"

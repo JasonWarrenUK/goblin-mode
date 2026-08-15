@@ -59,7 +59,7 @@ Present a triage table: thread reference, one-line summary of the ask, verdict, 
 
 1. Fix each approved item. **Follow-up commits only; never amend or rebase commits the reviewers have already seen.**
 2. Discover the project's test, typecheck and lint commands from `package.json` (or ecosystem equivalent) and run all three until green. A red gate never proceeds to commit.
-3. Invoke the `commit-batch` skill to split the fixes into granular commits and push. Its own plan-approval pause applies as normal: that pause belongs to `commit-batch`, not this skill; don't suppress it and don't treat it as a substitute for Gate 2.
+3. Once every approved item is fixed and the gate is green, invoke the `commit-batch` skill to split the fixes into granular commits and push. Its own plan-approval pause applies as normal: that pause belongs to `commit-batch`, not this skill; don't suppress it and don't treat it as a substitute for Gate 2.
 
 ## Step 5: Draft the replies
 
