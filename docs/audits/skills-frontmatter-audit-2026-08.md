@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | AUDIT COMPLETE (2026-08-14). Phase 10 artefact published: https://claude.ai/code/artifact/abf1c959-e14d-4d7b-94b4-4026819fa6f9 |
+| Status | AUDIT COMPLETE (2026-08-14). Phase 10 artefact published: https://claude.ai/code/artifact/abf1c959-e14d-4d7b-94b4-4026819fa6f9 (repo copy: `docs/artefacts/skills-frontmatter.html`) |
 | Skills | 47 (was 56: nine ditched, one merged) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
@@ -101,6 +101,8 @@ Create an HTML artefact documenting the skills setup. Jason will be interviewed 
 ## Phase 10 (2026-08-14)
 
 Steering interview: audience Jason + Jaz; scope the conventions; aesthetic goblin terminal with runic motifs; format chosen to serve the scope (terminal-session long-read, native collapsibles closed by default). Published as "A Skill Is Mostly Metadata" (a register example from the writing-style skill's own approved list): anatomy of a real frontmatter, the three invocation shapes and the orchestration law, the glyph table and inline-hijack rule, tool scoping, execution-context rules, the library layer and regeneration principle, the prose rules, and a copy-ready skeleton for Jaz.
+
+**Rebuilt 2026-08-15**: original dark palette scored well below AA on body and footer text (murk-on-bog ≈5.2:1 body, ≈2.1:1 footer). Rebuilt on Reasonable Colors (light ground, gray-6 ink, amber-4/emerald-4 accents) following the contrast-and-layout checklist distilled from Jason's own reference artefact collection; content unchanged, saved to `docs/artefacts/skills-frontmatter.html` and redeployed to the same artefact URL.
 
 ## Per-skill record
 
