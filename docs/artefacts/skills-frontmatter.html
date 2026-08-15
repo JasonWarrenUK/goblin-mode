@@ -1,0 +1,287 @@
+<title>A Skill Is Mostly Metadata</title>
+<style>
+:root{
+	--bg:#f6f6f6; --surface:#ffffff; --surface-sunk:#eeeeee;
+	--ink:#222222; --muted:#3e3e3e; --faint:#6f6f6f; --line:#e2e2e2; --line-strong:#c7c7c7;
+	--terra:#926700; --terra-soft:#fff8ef;
+	--verd:#008147; --verd-soft:#dcffe6;
+	--code-bg:#1c1a17; --code-ink:#f0ece2; --code-faint:#8b8578;
+	--mono:ui-monospace,'SF Mono','Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace;
+	--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{
+	background:var(--bg); color:var(--ink); font-family:var(--sans);
+	font-size:17px; line-height:1.65; margin:0; padding:0;
+	-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:46rem; margin:0 auto; padding:3rem 1.25rem 6rem}
+::selection{background:var(--terra); color:#fff}
+
+/* ── hero ── */
+header{margin:1.5rem 0 3.2rem}
+.runes{
+	font-family:var(--mono); font-size:1.7rem; letter-spacing:.8rem;
+	color:var(--terra); margin-bottom:1.1rem;
+}
+h1{
+	font-family:var(--sans); font-weight:700; font-size:clamp(1.7rem,4.5vw,2.5rem);
+	line-height:1.15; margin:0 0 .9rem; letter-spacing:-.01em; text-wrap:balance; color:var(--ink);
+}
+.lede{color:var(--muted); max-width:38rem; margin:0 0 1.4rem; font-size:1.05rem}
+.lede strong{color:var(--ink); font-weight:600}
+.statline{
+	font-family:var(--mono); font-size:.82rem; color:var(--muted);
+	border-top:1px solid var(--line-strong); border-bottom:1px solid var(--line-strong);
+	padding:.6rem 0; display:flex; gap:1.6rem; flex-wrap:wrap;
+	font-variant-numeric:tabular-nums;
+}
+.statline b{color:var(--verd); font-weight:700}
+
+/* ── session blocks ── */
+section{margin:0 0 1.4rem}
+.prompt{
+	font-family:var(--mono); font-size:.82rem; margin:0 0 0; color:var(--faint);
+	overflow-x:auto; white-space:nowrap;
+}
+.prompt .cmd{color:var(--verd); font-weight:600}
+.prompt .arg{color:var(--terra)}
+h2{position:relative; margin:0}
+p{max-width:42rem; margin:.9rem 0}
+p code,li code,td code{
+	font-family:var(--mono); font-size:.85em; color:#5c3d00;
+	background:var(--terra-soft); padding:.1em .35em; border-radius:3px;
+}
+.law{
+	border-left:3px solid var(--terra); background:var(--terra-soft);
+	padding:.85rem 1.1rem; margin:1.1rem 0; max-width:42rem; border-radius:0 6px 6px 0;
+}
+.law p{margin:0; max-width:none}
+.law .tag{
+	font-family:var(--mono); font-size:.72rem; letter-spacing:.1em;
+	text-transform:uppercase; color:#5c3d00; display:block; margin-bottom:.4rem; font-weight:700;
+}
+.gotcha{border-left-color:var(--verd); background:var(--verd-soft)}
+.gotcha .tag{color:#00512c}
+ul{max-width:42rem; padding-left:1.3rem}
+li{margin:.5rem 0}
+li::marker{color:var(--terra)}
+
+/* ── details (the actual sections) ── */
+details.sec{
+	border:1px solid var(--line-strong); border-radius:8px; margin:0 0 1rem;
+	background:var(--surface); overflow:hidden;
+}
+details.sec>summary{
+	cursor:pointer; padding:.95rem 1.2rem; list-style:none;
+	display:flex; align-items:baseline; gap:.7rem; flex-wrap:wrap;
+}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::before{
+	content:"▸"; color:var(--terra); font-size:.8rem; flex:none;
+	transition:transform .12s ease;
+}
+details.sec[open]>summary::before{transform:rotate(90deg)}
+details.sec>summary .stitle{
+	font-family:var(--mono); font-weight:700; font-size:.98rem; color:var(--ink);
+}
+details.sec>summary .sgloss{
+	font-size:.86rem; color:var(--faint); font-weight:400;
+}
+details.sec>summary:hover .stitle{color:var(--terra)}
+details.sec>summary:focus-visible{outline:2px solid var(--terra); outline-offset:-2px}
+details.sec>.secbody{padding:0 1.2rem 1.3rem}
+@media (prefers-reduced-motion:reduce){details.sec>summary::before{transition:none}}
+
+/* ── code panels ── */
+pre{
+	background:var(--code-bg); border:1px solid #302c26; border-radius:6px;
+	padding:1rem 1.2rem; overflow-x:auto; font-family:var(--mono);
+	font-size:.82rem; line-height:1.7; margin:1.1rem 0; color:var(--code-ink);
+}
+pre .k{color:#7fd9a0}      /* yaml key */
+pre .v{color:var(--code-ink)} /* value */
+pre .c{color:var(--code-faint); font-style:italic} /* comment */
+pre .p{color:#ffb454}      /* highlight value */
+.anno{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:1.2rem; align-items:start}
+.anno aside{font-size:.85rem; color:var(--muted)}
+.anno aside div{margin-bottom:.85rem; border-left:2px solid var(--line-strong); padding-left:.75rem}
+.anno aside b{color:var(--ink); font-weight:700; font-family:var(--mono); font-size:.8rem}
+@media (max-width:720px){.anno{grid-template-columns:1fr}}
+
+/* ── tables ── */
+.tablewrap{overflow-x:auto; margin:1.1rem 0; border:1px solid var(--line); border-radius:6px}
+table{border-collapse:collapse; font-size:.87rem; min-width:100%; background:var(--surface)}
+th{
+	font-family:var(--mono); font-size:.76rem; letter-spacing:.06em; text-transform:uppercase;
+	color:var(--muted); text-align:left; padding:.55rem .9rem; background:var(--surface-sunk);
+	border-bottom:1px solid var(--line-strong); white-space:nowrap;
+}
+td{padding:.6rem .9rem; border-bottom:1px solid var(--line); vertical-align:top; color:var(--muted)}
+tr:last-child td{border-bottom:none}
+td:first-child{font-family:var(--mono); white-space:nowrap; color:var(--ink)}
+.rune-cell{font-size:1.1rem; color:var(--terra)}
+
+footer{
+	margin-top:3rem; border-top:1px solid var(--line-strong); padding-top:1.2rem;
+	font-family:var(--mono); font-size:.78rem; color:var(--faint);
+	display:flex; justify-content:space-between; flex-wrap:wrap; gap:.6rem;
+}
+footer .sig{color:var(--terra); font-weight:600}
+</style>
+
+<div class="wrap">
+
+<header>
+	<div class="runes">ᚺ ᛊ ᛟ ᚠ</div>
+	<h1>A Skill Is Mostly Metadata</h1>
+	<p class="lede">The conventions of the goblin-mode skills system: how a skill declares <strong>who invokes it, what it may touch, which model runs it and where its shared parts live</strong>. The body teaches Claude a job; the frontmatter decides whether that teaching ever fires. Written for Jason and for Jaz, who may nick any of it.</p>
+	<div class="statline">
+		<span><b>47</b> skills</span>
+		<span><b>18</b> commands</span>
+		<span><b>15</b> dual-invocable</span>
+		<span><b>14</b> knowledge</span>
+		<span><b>1</b> shared library layer</span>
+	</div>
+</header>
+
+<details class="sec" open>
+	<summary><span class="stitle">01 · Anatomy</span><span class="sgloss">a real frontmatter, annotated line by line</span></summary>
+	<div class="secbody">
+	<p class="prompt"><span class="cmd">cat</span> <span class="arg">roadmap-maintain/SKILL.md</span></p>
+	<div class="anno">
+<pre><span class="c"># real frontmatter, lightly trimmed</span>
+<span class="k">name</span>: <span class="v">"Roadmap: Maintain"</span>
+<span class="k">description</span>: <span class="v">"Sync roadmap statuses…"</span>
+<span class="k">when_to_use</span>: <span class="v">"When statuses might
+  have drifted…"</span>
+<span class="k">model</span>: <span class="p">sonnet</span>
+<span class="k">effort</span>: <span class="p">high</span> <span class="c"># reconcile infers from code</span>
+<span class="k">metadata</span>:
+  <span class="k">glyph</span>: <span class="p">ᛊ</span>
+  <span class="k">family</span>: <span class="v">roadmap</span>
+<span class="k">disable-model-invocation</span>: <span class="p">false</span> <span class="c"># gate:
+  the reconcile confirmation still applies</span>
+<span class="k">allowed-tools</span>: <span class="v">["Read", "Glob", "Grep",
+  "Edit", "Bash(python3:*)", "Bash(git:*)"]</span>
+<span class="k">arguments</span> / <span class="k">argument-hint</span>: <span class="v">…</span></pre>
+		<aside>
+			<div><b>name</b> is display only. The command comes from the directory; the display name follows <code>Family: Action</code> and agrees with <code>metadata.family</code>.</div>
+			<div><b>model + effort</b> are explicit on every command skill. The glyph mirrors the model; no model, no glyph.</div>
+			<div><b>the comment on the exception</b> is load-bearing. Any skill Claude may invoke carries its justification and names its gate, right there on the line.</div>
+			<div><b>every list is scoped.</b> Nothing here grants bare <code>Bash</code>; each rule names the commands the skill actually runs.</div>
+		</aside>
+	</div>
+	</div>
+</details>
+
+<details class="sec">
+	<summary><span class="stitle">02 · Invocation</span><span class="sgloss">three shapes, decided by two booleans, and the law that binds them</span></summary>
+	<div class="secbody">
+	<p class="prompt"><span class="cmd">man</span> <span class="arg">invocation</span></p>
+	<p>Everything else in the system hangs off this choice.</p>
+	<div class="tablewrap"><table>
+		<tr><th>Shape</th><th>Frontmatter</th><th>Meaning</th><th>Example</th></tr>
+		<tr><td>command</td><td><code>disable-model-invocation: true</code></td><td>Only the user fires it. Its description never reaches Claude's listing, so it costs no context.</td><td>pr-land, do-stud</td></tr>
+		<tr><td>dual</td><td><code>disable-model-invocation: false</code> + a comment naming the gate</td><td>Claude may fire it because it recognises the moment before the user does, and something irreversible is still gated.</td><td>pr-update, roadmap-maintain</td></tr>
+		<tr><td>knowledge</td><td><code>user-invocable: false</code></td><td>Only Claude loads it; it is reference, not an action. Hidden from the / menu.</td><td>clod-stack-svelte, the lens trio</td></tr>
+	</table></div>
+	<div class="law"><span class="tag">The orchestration law</span>
+	<p><code>disable-model-invocation: true</code> blocks the Skill tool <em>mechanically</em>, even when Claude is mid-way through executing a skill the user invoked. An orchestrator that says "invoke pr-create" dies at that line unless pr-create is dual-invocable. Every skill another skill calls must be invocable by the model; the sub-skill's own gate (or an <code>auto</code> token the orchestrator passes after running its own gate) does the protecting.</p></div>
+	<p>The <code>when_to_use</code> field is the agent's half of discovery: trigger phrases, orchestration edges, guardrails ("never invoke speculatively"). The <code>description</code> stays lean for humans scanning a menu. On command skills <code>when_to_use</code> reaches nobody at runtime and survives purely as maintainer documentation.</p>
+	</div>
+</details>
+
+<details class="sec">
+	<summary><span class="stitle">03 · Models</span><span class="sgloss">four runes, one glyph field, and why knowledge skills carry neither</span></summary>
+	<div class="secbody">
+	<p class="prompt"><span class="cmd">man</span> <span class="arg">models</span></p>
+	<div class="tablewrap"><table>
+		<tr><th>Glyph</th><th>Rune</th><th>Model</th><th>Typical work</th></tr>
+		<tr><td class="rune-cell">ᚺ</td><td>hagalaz</td><td>haiku</td><td>script wrappers, mechanical projections</td></tr>
+		<tr><td class="rune-cell">ᛊ</td><td>sowilo</td><td>sonnet</td><td>bounded judgement: prose, wiring, validator-gated edits</td></tr>
+		<tr><td class="rune-cell">ᛟ</td><td>othala</td><td>opus</td><td>review verdicts, graph rationality, greenfield decomposition</td></tr>
+		<tr><td class="rune-cell">ᚠ</td><td>fehu</td><td>fable</td><td>unattended long-horizon loops (next-task-ship, nothing else)</td></tr>
+	</table></div>
+	<div class="law"><span class="tag">The inline hijack rule</span>
+	<p>Knowledge skills set <em>neither</em> model nor effort. Both fields override the session absolutely while the skill is active, and a reference skill loads inline into someone else's turn: an <code>effort: low</code> lens firing mid-design would sandbag exactly the thinking that summoned it. Command skills pin both fields because invoking one is choosing its workload; knowledge skills inherit because they ride along inside yours.</p></div>
+	<p>Glyphs live in <code>metadata.glyph</code>, never in the description text. Two retired conventions embedded triple Greek letters and runic pairs in descriptions; on sight, migrate. The <code>metadata.family</code> key carries the taxonomy the flat directory names cannot (personal skills get no directory namespacing), and tooling reads it: the skills README regenerates from frontmatter.</p>
+	</div>
+</details>
+
+<details class="sec">
+	<summary><span class="stitle">04 · Tools</span><span class="sgloss">every grant scoped, every promise made mechanical</span></summary>
+	<div class="secbody">
+	<p class="prompt"><span class="cmd">man</span> <span class="arg">tools</span></p>
+	<ul>
+		<li><code>allowed-tools</code> is mandatory on every skill and every rule in it is scoped. A bare <code>Bash</code> pre-approves the entire shell for the invoking turn; the audit found two and tightened both. Reference skills get reads; command skills get exactly the commands their steps run, with bundled scripts addressed through the same path in the rule and the body so they run unprompted.</li>
+		<li><code>disallowed-tools</code> turns a prose promise into a mechanical one. "Reviews, never fixes" means banning Edit and Write; "pushes single tags only" means banning <code>git push --tags</code>. If the body promises restraint, the frontmatter enforces it.</li>
+		<li>Settings-level permission rules are the last resort, used only for a control frontmatter cannot express. The system currently needs none.</li>
+	</ul>
+	</div>
+</details>
+
+<details class="sec">
+	<summary><span class="stitle">05 · Execution context</span><span class="sgloss">forking, path triggers, dynamic injection, and why there are no hooks</span></summary>
+	<div class="secbody">
+	<p class="prompt"><span class="cmd">man</span> <span class="arg">execution</span></p>
+	<p><code>context: fork</code> runs a skill in an isolated subagent, its body becoming the prompt. Fork eligibility is rare here by construction: most command skills carry approval gates or interviews, and a forked subagent can conduct neither. What does fork is the self-contained read-only investigation (<code>agent: Explore</code> keeps it honest); a fork that must write pins <code>background: false</code>, because backgrounded forks run a narrower tool set.</p>
+	<p><code>paths</code> gates a knowledge skill's auto-loading behind file globs, and earns its place only when three conditions all hold: the skill is model-invocable, file identity is a reliable proxy for relevance, and no legitimate conversation-only trigger gets suppressed. Two skills pass (svelte, frontend-styler); four had globs quietly strangling their own advertised triggers, since "which database?" happens before any schema file exists.</p>
+	<div class="law gotcha"><span class="tag">Dynamic context, three preconditions</span>
+	<p>The <code>!`command`</code> injection runs before Claude sees anything, and a failed command aborts the whole invocation. So it demands: no dependence on arguments, no legitimate non-zero exit, output valid as a one-shot snapshot. The commit skills pass (git status cannot honestly fail); the roadmap skills fail on purpose, because their exit-code protocol <em>is</em> their graceful degradation and injection would turn it into a crash.</p></div>
+	<p>Hooks: none, anywhere. The tempting one (validate roadmaps.json after every edit) would fire during the deliberately inconsistent mid-flow state the workflow passes through. Validation belongs at the end of the flow, where the bodies already put it.</p>
+	</div>
+</details>
+
+<details class="sec">
+	<summary><span class="stitle">06 · The library layer</span><span class="sgloss">the namespace a flat directory can't give you, and the regeneration principle</span></summary>
+	<div class="secbody">
+	<p class="prompt"><span class="cmd">ls</span> <span class="arg">~/.claude/library/</span></p>
+	<p>Skills stay thin because the shared weight lives one level up. This is the namespace the flat skill directory cannot provide:</p>
+	<div class="tablewrap"><table>
+		<tr><th>Path</th><th>Holds</th><th>Consumers</th></tr>
+		<tr><td>references/</td><td>shared methodology and conventions: roadmap-conventions.md, stud/methodology.md</td><td>whole families point here instead of restating</td></tr>
+		<tr><td>scripts/</td><td>deterministic halves: roadmap.py, branch-facts.sh, find-scaffold.sh, the drift hook</td><td>skills judge; scripts compute</td></tr>
+		<tr><td>templates/</td><td>fill-in skeletons: pr-description, READMEs, the roadmap dashboard HTML</td><td>output shape lives once</td></tr>
+	</table></div>
+	<div class="law"><span class="tag">The regeneration principle</span>
+	<p>A generated file is never hand-edited: the skills README regenerates from frontmatter, the roadmap dashboard from roadmaps.json, the dependency diagram from the graph command. Hand-edits to projections get wiped by design, and a hardcoded file list in a script is rot waiting to happen; the audit found two already rotted.</p></div>
+	<p>One shared skill counts as shared infrastructure too: <code>pr-review-dry_run</code> holds the whole review methodology, and pr-review, branch-qa_review and the ship loop all call it rather than carrying thin copies that drift.</p>
+	</div>
+</details>
+
+<details class="sec">
+	<summary><span class="stitle">07 · Prose rules</span><span class="sgloss">no em-dashes, no Oxford commas, and a copy-ready skeleton</span></summary>
+	<div class="secbody">
+	<p class="prompt"><span class="cmd">man</span> <span class="arg">prose</span></p>
+	<ul>
+		<li>No em-dashes, anywhere: descriptions, bodies, comments, <em>and the output formats skills generate</em>. Colons, semicolons, commas or a restructure. The validator on posted PR reviews hard-fails on the whole dash family.</li>
+		<li>No Oxford commas. British spelling throughout, including generated projections.</li>
+		<li>Descriptions are third person, lead with the key use case, and carry no tags or tier markers; the combined description and when_to_use text truncates at 1,536 characters in Claude's listing.</li>
+		<li>Collapsible sections in any generated artefact default closed. The reader chooses what to expand; this page obliges.</li>
+	</ul>
+	<p class="prompt" style="margin-top:1.4rem"><span class="cmd">cp</span> <span class="arg">skeleton.yaml</span> <span class="arg">~/wherever/</span></p>
+	<pre><span class="k">name</span>: <span class="v">"Family: Action"</span>
+<span class="k">description</span>: <span class="v">"Third person, key use case first, no tags"</span>
+<span class="k">when_to_use</span>: <span class="v">"Trigger moments and guardrails, written for the agent"</span>
+<span class="k">model</span>: <span class="v">haiku|sonnet|opus|fable</span>   <span class="c"># command skills only</span>
+<span class="k">effort</span>: <span class="v">low|medium|high</span>          <span class="c"># command skills only</span>
+<span class="k">metadata</span>:
+  <span class="k">glyph</span>: <span class="v">ᚺ|ᛊ|ᛟ|ᚠ</span>                 <span class="c"># mirrors model; omit when model omitted</span>
+  <span class="k">family</span>: <span class="v">your-family</span>
+<span class="k">disable-model-invocation</span>: <span class="v">true</span>   <span class="c"># or false + a comment naming the gate</span>
+<span class="k">allowed-tools</span>: <span class="v">["Read", "Bash(git:*)"]</span>  <span class="c"># scoped, always</span>
+<span class="k">disallowed-tools</span>: <span class="v">[…]</span>            <span class="c"># where the body makes promises</span>
+<span class="k">arguments</span>: <span class="v">["thing"]</span>
+<span class="k">argument-hint</span>: <span class="v">"[thing (optional)]"</span></pre>
+	<p style="color:var(--faint); font-size:.88rem">Copy it, Jaz. Nick the lot.</p>
+	</div>
+</details>
+
+<footer>
+	<span>distilled from the skills frontmatter audit · august 2026 · 56 in, 47 out</span>
+	<span class="sig">••• sChEmInG •••</span>
+</footer>
+
+</div>
