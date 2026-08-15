@@ -7,7 +7,7 @@ effort: low
 metadata:
   glyph: ᚺ
   family: commit
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: ["Bash(git:*)"]
 arguments: ["hint"]
 argument-hint: "[message emphasis (optional), e.g. a type, scope or the why]"

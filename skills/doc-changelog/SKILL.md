@@ -31,7 +31,13 @@ No arguments: build `md`, then refresh any projection that already exists in the
 
 ## Step 1: Establish the range
 
-`git tag --sort=-v:refname` for existing tags; `svu current` for the latest version. The unit of work is tag-to-tag: each version section covers `previousTag..tag`, and `[Unreleased]` covers `latestTag..HEAD`. If `CHANGELOG.md` exists, its most recent version heading shows where it stopped: only generate forward from there; never rewrite sections already published.
+First, a **three-way state check** on `CHANGELOG.md`, same idea as `doc-readme`:
+
+- **(a) No `CHANGELOG.md`** → build fresh from the earliest tag (or full history if untagged).
+- **(b) Placeholder, or already Keep a Changelog-shaped** → a `<!-- doc-changelog: generated ... -->` marker (left as the first line by this skill from now on, mirroring `doc-readme`'s convention) or a file that's already unambiguously in Keep a Changelog structure (a prior unmarked run of this same skill) — proceed with the normal forward-generation logic below.
+- **(c) Hand-written `CHANGELOG.md` in some other format/voice** → stop and flag it explicitly before writing anything: offer to convert it to Keep a Changelog format, or to respect the existing format and append new entries in its own voice instead. Don't silently Frankenstein a Keep a Changelog section onto a differently-structured hand-written file.
+
+`git tag --sort=-v:refname` for existing tags; `svu current` for the latest version. The unit of work is tag-to-tag: each version section covers `previousTag..tag`, and `[Unreleased]` covers `latestTag..HEAD`. If `CHANGELOG.md` exists (state b), its most recent version heading shows where it stopped: only generate forward from there; never rewrite sections already published.
 
 `$version` names a tag: scope the run to that single release (`previousTag..$version`), leaving every other section untouched. This is pr-land's hand-off; it can invoke `/doc-changelog md {tag}` right after tagging.
 
@@ -53,7 +59,13 @@ Entries describe the change from the user's side ("Exports now include timestamp
 
 ## Step 3: Write `CHANGELOG.md`
 
-Keep a Changelog structure: `# Changelog` intro, `## [Unreleased]`, then `## [x.y.z] - YYYY-MM-DD` sections newest first, comparison links at the bottom when the repo is on GitHub. Show the draft (or the diff, when updating) and **await approval** before writing.
+Keep a Changelog structure: `# Changelog` intro, `## [Unreleased]`, then `## [x.y.z] - YYYY-MM-DD` sections newest first, comparison links at the bottom when the repo is on GitHub. On a fresh build (state a/b from Step 1), the very first line is the marker comment: `<!-- doc-changelog: generated {date}. Delete this line once you hand-edit this file. -->`.
+
+**Collapsibility for older entries.** Once the file holds more than a handful of version sections, wrap everything older than the most recent few in GFM's native `<details><summary>` — `[Unreleased]` and the newest 2-3 versions stay always-visible, older ones collapse behind a one-line summary (`<summary>0.4.0 and earlier</summary>`). No custom chevron needed. Adjusting which sections are wrapped as new versions land is presentational only — it doesn't touch a section's own entries, so it isn't the "rewrite already-published sections" the red flags below warn against.
+
+No badge row and no separate provenance line here — each entry is already dated by construction, which is its own honesty record; a "generated on X" line would just repeat what the file already states more precisely.
+
+Show the draft (or the diff, when updating) and **await approval** before writing.
 
 **npm packages** (a `package.json` with no `"private": true`): check `CHANGELOG.md` ships or is reachable: either listed in `files` or linked from the README, since the npm page shows only the README. Flag whichever is missing; registry users otherwise never see release history.
 
