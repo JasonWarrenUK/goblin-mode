@@ -165,6 +165,8 @@ Translate the inventory from Step 2 into real source files.
 
 Replace every hardcoded colour from Step 2 with semantic aliases backed by Reasonable Colors. **Read `~/.claude/library/references/reasonable-colors-reference.md` first** for the shade/contrast rules and the full palette; do not guess hex values.
 
+This step's job is preserving the *source artefact's own design* in the new codebase — not imposing a different aesthetic on top of one the user already approved. `~/.claude/library/references/artefact-conventions.md` is a useful cross-check for masthead structure, typography-pairing logic, and the honesty/status-marking rule if the ported app is *itself* a reference/status-style artefact (e.g. a dashboard), but it never overrides what Step 6 already preserved from the artefact's own markup and voice.
+
 1. **Install:** `bun add reasonable-colors` (or the CDN link `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css` for a no-build HTML case). Import it once at the app root.
 2. **Define semantic aliases** in `src/lib/styles/tokens.css`, mapping RC vars to roles:
    ```css

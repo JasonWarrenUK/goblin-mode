@@ -78,13 +78,35 @@ Read `references/css-patterns.md` (depth tiers, collapsible pattern, overflow pr
 
 ## Step 4: Aesthetic and palette
 
-**Blueprint / editorial, dark and light.** Define a `:root` with a `@media (prefers-color-scheme: dark)` counterpart. Semantic CSS custom properties only; never hard-code a hex in a component.
+Read `~/.claude/library/references/artefact-conventions.md` first — this
+skill's palette and theming route through the shared conventions now, not a
+standalone hex system. What stays specific to this skill (a deliberate
+per-artefact choice, not a divergence from the shared rules):
 
-- Fonts: **Space Grotesk** (head + body) + **IBM Plex Mono** (mono, code, labels), via Google Fonts.
-- Background: near-black blueprint grid (`linear-gradient` grid lines at low opacity) in dark; warm off-white in light.
-- Severity accents: `--high` red, `--medium` amber, `--low` green. Status accents: `--done` green, `--progress` blue, `--todo` amber. Category accents distinct from all of the above.
+- **Blueprint / editorial mood.** Near-black blueprint grid (`linear-gradient`
+  grid lines at low opacity) in dark; warm off-white in light. Route both
+  through the three-state theming contract (`:root` light, `@media
+  (prefers-color-scheme: dark)` guarded by `:root:not([data-theme="light"])`,
+  `:root[data-theme="dark"]` for an explicit toggle).
+- **Palette source: Reasonable Colors, as everywhere.** Map this skill's
+  severity/status accents to RC hues via semantic aliases (never a raw hex,
+  never `--color-{name}-{shade}` directly in a component) — `--high` to a red
+  RC set, `--medium` to amber, `--low` to green; `--done`/`--progress`/`--todo`
+  distinct again. Document the mapping the way the shared reference models,
+  the way `those-who-came-before/site/assets/site.css` does.
+- Fonts: **Space Grotesk** (head + body) + **IBM Plex Mono** (mono, code,
+  labels) — this skill's own choice within the shared pairing *structure*
+  (one display/body voice + one monospace workhorse); not mandatory elsewhere.
+- **Vocabulary**: severity (`high`/`medium`/`low`) and status
+  (`done`/`in_progress`/`to_do`) are this skill's own contextual status
+  vocabulary per the shared honesty rule — appropriate for an audit trail,
+  not meant to be forced onto other artefact types.
 - **British spelling throughout. No em dashes** (use semicolons, colons, parentheses). No contrastive "not X but Y" couplets.
-- Forbidden: Inter/Roboto body font; violet/indigo primary accents; gradient-text headings; animated glow/pulse on static content.
+- Forbidden for this skill specifically: Inter/Roboto body font (fights the
+  chosen pairing); gradient-text headings; animated glow/pulse on static
+  content. Violet/indigo stays off *this* skill's palette only to keep
+  severity-red unambiguous against everything else on the page — not a
+  house-wide ban (other artefacts use violet deliberately).
 
 ## Step 5: Generate the HTML
 
