@@ -1,9 +1,10 @@
 ---
-name: ethics-reviewer
+name: "Lens: Ethics"
 description: "Passive ethical review: manipulation, accessibility, privacy, sustainability in user-facing features."
-when_to_use: "When designing or reviewing a user-facing feature — dark patterns, accessibility gaps, privacy overreach, or sustainability trade-offs worth surfacing before it ships."
+when_to_use: "When designing or reviewing a user-facing feature: dark patterns, accessibility gaps, privacy overreach or sustainability trade-offs worth surfacing before it ships."
 user-invocable: false
-effort: low
+metadata:
+  family: clod-lens
 allowed-tools:
   - Read
 ---
@@ -26,7 +27,7 @@ Use this skill when:
 - Making performance decisions that affect device/network inclusivity
 - The conversation involves user-facing features of any kind
 
-**This skill is ambient** — it should fire as a background check when relevant keywords or patterns appear, not only when explicitly requested.
+**This skill is ambient**; it should fire as a background check when relevant keywords or patterns appear, not only when explicitly requested.
 
 ---
 
@@ -60,7 +61,7 @@ If someone can't use it, it doesn't work.
 - Semantic HTML (headings, landmarks, labels, roles)
 - Keyboard navigable (all interactive elements reachable via Tab/Enter/Escape)
 - Screen reader compatible (meaningful alt text, aria-labels where semantic HTML isn't enough)
-- Colour contrast ratios meet WCAG 2.1 AA minimum (4.5:1 for normal text, 3:1 for large text) — Reasonable Colors satisfies these by construction: any two shades with a difference of 3+ meet AA body text (4.5:1)
+- Colour contrast ratios meet WCAG 2.1 AA minimum (4.5:1 for normal text, 3:1 for large text); Reasonable Colors satisfies these by construction: any two shades with a difference of 3+ meet AA body text (4.5:1)
 - Focus indicators visible
 - Error messages associated with inputs (aria-describedby or aria-errormessage)
 - No information conveyed by colour alone
@@ -177,13 +178,13 @@ Not all ethical concerns are equal. Use these to calibrate:
 When the domain model includes personal data entities (User, Profile, Preferences), ethics-reviewer flags data minimisation and privacy concerns.
 
 ### With frontend-styler
-Accessibility checks integrate directly into styling work — contrast, focus indicators, semantic structure.
+Accessibility checks integrate directly into styling work: contrast, focus indicators, semantic structure.
 
 ### With api-designer
-Privacy-by-default patterns in API design — no excessive data in responses, secure defaults, proper auth scoping.
+Privacy-by-default patterns in API design: no excessive data in responses, secure defaults, proper auth scoping.
 
 ### With testing-obsessive
-Accessibility testing is part of the testing strategy — automated a11y checks, keyboard navigation tests, screen reader verification.
+Accessibility testing is part of the testing strategy: automated a11y checks, keyboard navigation tests, screen reader verification.
 
 ---
 

@@ -8,7 +8,7 @@ Three layers govern behaviour, in ascending order of specificity: [`CLAUDE.md`](
 
 There are two permission files, deliberately:
 
-- **`settings.json`** — the file Claude Code actually reads. Committed, shared, the one described below.
+- **`settings.json`** — the file Claude Code actually reads, described below. **Gitignored as of 15 August 2026** (`chore: untrack settings`) — no longer committed. Edits to it require explicit approval (`permissions.ask` gates `Edit`/`Write` on this file specifically) and every change is snapshotted to `~/.claude/backups/settings.json.backup.<epoch-ms>` by the `settings-backup.sh` hook, since there's no longer a git history to fall back on if it gets clobbered.
 - **`settings.local.jsonc`** — a JSONC (JSON-with-comments) *source of truth* for `settings.local.json`, which Claude Code also reads but which isn't valid JSON if hand-annotated. The [`settings-sync.sh`](hooks.md) hook strips comments and trailing commas from the `.jsonc` and writes `.json` at every session start. **Edit the `.jsonc`, never the `.json` directly** — it gets overwritten.
 
 ## Model

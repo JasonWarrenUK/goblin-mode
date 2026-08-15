@@ -1,12 +1,12 @@
 ---
-name: Cypher Linguist
+name: "Stack: Cypher"
 description: "Neo4j and Cypher: graph schema design, query patterns, performance optimisation, PostgreSQL integration."
-when_to_use: "When writing or reviewing Cypher queries, designing a graph schema, or bridging Neo4j with a relational store — auto-loads on .cypher files or files under neo4j/, or when Neo4j/Cypher/graph queries come up in conversation."
+when_to_use: "When writing or reviewing Cypher queries, designing a graph schema or bridging Neo4j with a relational store; the Cypher can live in .cypher files or embedded strings."
 user-invocable: false
-effort: medium
-paths:
-  - "**/*.cypher"
-  - "**/neo4j/**"
+metadata:
+  family: clod-stack
+# No paths gate: Cypher mostly lives inside .ts strings, not .cypher files, so
+# file identity is an unreliable proxy for relevance
 allowed-tools:
   - Read
   - Glob
@@ -271,9 +271,9 @@ RETURN DISTINCT friend.name;
 
 Worked query patterns and mechanical detail, loaded only when needed:
 
-- [query-patterns.md](query-patterns.md) — social graph (followers, blocking), hierarchy (org charts, categories), recommendation (collaborative/content-based filtering), path-finding (shortest path, Dijkstra), access control
-- [performance-and-schema.md](performance-and-schema.md) — indexes/constraints, PROFILE-driven optimisation tips, batch operations with UNWIND/APOC, schema modelling guidelines (relationships vs properties, multiple labels)
-- [postgres-integration.md](postgres-integration.md) — shared-key and event-driven sync patterns with Supabase, hybrid query examples
+- [query-patterns.md](query-patterns.md): social graph (followers, blocking), hierarchy (org charts, categories), recommendation (collaborative/content-based filtering), path-finding (shortest path, Dijkstra), access control
+- [performance-and-schema.md](performance-and-schema.md): indexes/constraints, PROFILE-driven optimisation tips, batch operations with UNWIND/APOC, schema modelling guidelines (relationships vs properties, multiple labels)
+- [postgres-integration.md](postgres-integration.md): shared-key and event-driven sync patterns with Supabase, hybrid query examples
 
 ## Success Criteria
 

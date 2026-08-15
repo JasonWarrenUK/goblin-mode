@@ -361,7 +361,7 @@ Detailed commit bodies when context needed. Good git history is documentation.
 
 ### 8.2. Versioning with `svu`
 
-See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `library/scripts/safe-version-next.sh`, never bare `svu next` — the script programmatically refuses to cross 0.x → 1.x (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Later major bumps pass through.
+See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `svu next --v0`, never bare `svu next` — the `--v0` flag refuses to cross 0.x → 1.x (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Once a project deliberately tags `1.0.0`, `--v0` becomes a no-op and later major bumps pass through normally.
 
 ---
 

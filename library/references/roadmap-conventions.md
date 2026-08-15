@@ -24,7 +24,7 @@ python3 "$HOME"/.claude/library/scripts/roadmap.py <subcommand> [PATH] [--phase 
 
 `PATH` is optional; the roadmap is located by walking up from the cwd. If `~`
 is not expanded in your shell context, use `"$HOME"` (as above). Multiple
-active phases are an error, never a silent guess — archive finished phases or
+active phases are an error, never a silent guess: archive finished phases or
 pass `--phase NAME`.
 
 **Detect guard (every skill runs this first):** exit 3 → tell the user to run
@@ -40,9 +40,9 @@ dependency → at least `blocked`, escalating under the precedence
 `deferred > paused > blocked > todo`. `done` and `out_of_scope` are terminal.
 A root-seeded `paused`/`deferred` (parked status with empty `dependsOn`) is
 held as authored and never recomputed. A `todo` task is by definition
-unblocked. Statuses are computed, not judged — run `recompute`, do not
+unblocked. Statuses are computed, not judged: run `recompute`, do not
 hand-assign (except the held seeds and the terminal pair). `softDependsOn`
-never feeds this rule — a soft dependency can never impose `blocked` (or any
+never feeds this rule; a soft dependency can never impose `blocked` (or any
 other status) on its dependant, regardless of the soft dependency's own
 status.
 
@@ -52,7 +52,7 @@ status.
 tasks and a SOURCE for anything depending on the whole milestone:
 
 - each sink task (nothing else in the milestone depends on it) gets
-  `{sink} --> M{N}` — the node reads "these tasks complete the milestone"
+  `{sink} --> M{N}`; the node reads "these tasks complete the milestone"
 - a task listing `M{N}` in `dependsOn` gets `M{N} --> {task}`
 - never emit an entry edge `M{N} --> {firstTask}`
 
@@ -63,8 +63,8 @@ tasks and a SOURCE for anything depending on the whole milestone:
 flag, never a real back-edge; the flag surfaces as a `↻` marker in diagrams,
 not an edge.
 
-**Soft edges (`softDependsOn`):** an optional, best-effort link — "renders
-in the diagram, imposes nothing" — for relationships worth showing but not
+**Soft edges (`softDependsOn`):** an optional, best-effort link ("renders
+in the diagram, imposes nothing") for relationships worth showing but not
 worth blocking on. A task's `softDependsOn` list holds ids (task, milestone,
 or gate) the same way `dependsOn` does, but resolved through a wholly
 separate code path so it stays invisible to every hard-dependency consumer
@@ -72,18 +72,18 @@ by construction:
 
 - renders as a dotted arrow `X -.-> Y` (never `-->`) in `graph --mermaid`
   and the artefact
-- never imposes status — a soft dependency cannot make its dependant
+- never imposes status: a soft dependency cannot make its dependant
   `blocked`, no matter the soft dependency's own status
-- exempt from the acyclicity rule above — a soft edge may close a loop that
+- exempt from the acyclicity rule above; a soft edge may close a loop that
   would be invalid as a hard `dependsOn` edge (that's often the point: an
   override or best-effort refresh that intentionally points "backwards")
-- never disqualifies a task from being a milestone sink — only `dependsOn`
+- never disqualifies a task from being a milestone sink; only `dependsOn`
   entries within a milestone count toward the sink computation
 - an unresolvable `softDependsOn` id is reported by `validate` (mirroring
   `dependsOn`'s unresolvable-id check), not silently dropped
 
 Author soft edges as data in `roadmaps.json`; never hand-draw a `-.->` line
-into a generated `PHASE.md` or artefact — the next regeneration wipes
+into a generated `PHASE.md` or artefact; the next regeneration wipes
 anything not in the source data.
 
 **Soft milestone members (`softMilestone: true`):** a task-level flag making
@@ -91,11 +91,11 @@ the derived milestone-complete edge (`{task} -.-> M{N}`) soft instead of
 hard. The task stays a member of its milestone (counted in `donePct`,
 listed under the milestone) but:
 
-- never gates milestone completion — anything depending on `M{N}` is
+- never gates milestone completion: anything depending on `M{N}` is
   satisfied without it
 - its milestone-complete edge renders dotted and is exempt from the
   through-milestone acyclicity check
-- it is never reported as `isMilestoneSink` by `ready` — closing it does
+- it is never reported as `isMilestoneSink` by `ready`; closing it does
   not close the milestone
 
 Use it for best-effort milestone work (eval coverage, polish) that should
@@ -106,7 +106,7 @@ stay visible in the milestone without holding up everything downstream.
 One palette for every projection. `STATUS_STYLE` in `roadmap.py` is the
 machine-readable copy; `graph --mermaid` emits literal hexes for PHASE.md
 (GitHub cannot resolve CSS vars) and `--palette vars` emits semantic custom
-properties for the artefact. Never restate colours in a skill — regenerate
+properties for the artefact. Never restate colours in a skill; regenerate
 diagrams from the CLI.
 
 | Status | Family | Light (bg / stroke) | Dark (bg / stroke) | Non-colour encoding | Semantics |
@@ -128,26 +128,26 @@ Mermaid class names match statuses (`todo`, `blocked`, `paused`, `deferred`,
 `done`, `outOfScope`) plus `mile` and `external`. Legacy diagrams used `open`
 for todo and Bootstrap-era hexes; regenerating via `graph --mermaid` replaces
 both. classDef lines always come straight after the `graph LR`/`graph TD`
-line — before it is a silent render failure.
+line; before it is a silent render failure.
 
 ## Codebase reconciliation (inference)
 
-Inference — deciding a task's status from the actual code rather than the
-dependency graph — lives in exactly one place: `roadmap-maintain`'s
+Inference (deciding a task's status from the actual code rather than the
+dependency graph) lives in exactly one place: `roadmap-maintain`'s
 reconciliation step. Every other status change is mechanical (see above).
 This is deliberately narrow so the rest of the family can keep treating
 status as computed, not judged.
 
 **What inference may propose**, never write directly:
 
-- **`done`** — the task's described feature is fully implemented in code.
-- **Dependency/gate edge removal** — a blocker's prerequisite is now
+- **`done`**: the task's described feature is fully implemented in code.
+- **Dependency/gate edge removal**: a blocker's prerequisite is now
   satisfied, so the edge is removed from `dependsOn` (and a gate's `blocks[]`
   in step); recompute then unblocks the task, same as any other edit to the
   graph.
 
 Nothing else. Inference never hand-sets `todo`, `blocked`, `paused` or
-`deferred` directly — those stay purely derived. It never re-opens `done`,
+`deferred` directly; those stay purely derived. It never re-opens `done`,
 flips `out_of_scope`, or disturbs a root-seeded held status.
 
 **Evidence rule:** positive, specific, whole-task evidence only. Absence of a
@@ -160,14 +160,14 @@ definition.
 `blocked`, `paused`; never `done`/`out_of_scope`/`deferred`) are candidates,
 ordered by leverage (`ready --json`). Search is bounded to files changed
 since the last reconciliation (or a recent window on first run), with 1–3
-targeted search terms drawn from each candidate's description/notes — never
+targeted search terms drawn from each candidate's description/notes, never
 a whole-tree scan.
 
 **Confirmation gate:** every proposed edit is shown with its evidence and
-applied only once approved — mirrors the proposal-then-write pattern in
+applied only once approved, mirroring the proposal-then-write pattern in
 `roadmap-update-tasks`. Discrepancies found in the other direction (a task
 marked `done` whose code can no longer be found) are reported as drift, never
-auto-reverted — absence still isn't evidence.
+auto-reverted; absence still isn't evidence.
 
 ## File formatting
 
@@ -180,14 +180,14 @@ auto-reverted — absence still isn't evidence.
   dashboard never fights the formatter.
 - Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
-  Never inferred — a skill setting it must ask, never guess from description,
+  Never inferred: a skill setting it must ask, never guess from description,
   git author, category, or who's running the skill.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
 - Phase field order: `name, path, archived?, externalGates, milestones`
 - British spelling in all descriptions, notes and prose projections
-- PHASE.md task lines: `- [ ] **{ID}** — {description}` with annotations: none
+- PHASE.md task lines: `- [ ] **{ID}**: {description}` with annotations: none
   when `dependsOn` empty; `_(depends on {IDs})_` when all deps done;
-  `_(blocked — depends on {IDs})_`; `_(paused — reconvene {gateId})_`;
+  `_(blocked: depends on {IDs})_`; `_(paused: reconvene {gateId})_`;
   `_(deferred to a later phase)_`
 
 ## The three artefacts
@@ -208,8 +208,7 @@ auto-reverted — absence still isn't evidence.
 | Half-formed ideas to explore into tasks | `roadmap-create-interview` |
 | One known task to add | `roadmap-update-tasks` |
 | Work landed / statuses drifted | `roadmap-maintain` (add `reconcile` to check against code) |
-| Dependency graph sanity check | `roadmap-audit-deps` |
-| Priorities / freshness / health review | `roadmap-review` |
+| Priorities / freshness / health / dependency-graph review | `roadmap-review` (lens: `health`, `deps` or default full) |
 | Render the HTML dashboard | `artefact-roadmap` |
 | Choose the next task (one pick) | `next-task-suggest` |
 | See the whole ready-set | `next-task-group` |

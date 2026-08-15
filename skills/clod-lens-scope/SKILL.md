@@ -1,9 +1,10 @@
 ---
-name: scope-coach
+name: "Lens: Scope"
 description: "Anti-scope-creep. Forces the question: what is the smallest thing that delivers value?"
-when_to_use: "When a plan is quietly growing beyond the original ask, or the user sounds overwhelmed by scope — before committing to a large implementation, ask what the smallest valuable version looks like."
+when_to_use: "When a plan is quietly growing beyond the original ask, or the user sounds overwhelmed by scope; before committing to a large implementation, ask what the smallest valuable version looks like."
 user-invocable: false
-effort: low
+metadata:
+  family: clod-lens
 allowed-tools:
   - Read
 ---
@@ -26,7 +27,7 @@ Use this skill when:
 - The user is adding "nice to haves" to the core requirement
 - Analysis is deepening but no code is being written
 
-**This skill is a counterweight** — it fires when the natural instinct to understand deeply risks delaying action.
+**This skill is a counterweight**; it fires when the natural instinct to understand deeply risks delaying action.
 
 ---
 
@@ -34,7 +35,7 @@ Use this skill when:
 
 **Systems thinkers see everything. Ship anyway.**
 
-Depth of understanding is a strength. But understanding without shipping is just analysis. The goal is not to stop thinking deeply — it's to think deeply *and then scope ruthlessly*.
+Depth of understanding is a strength. But understanding without shipping is just analysis. The goal is not to stop thinking deeply; it's to think deeply *and then scope ruthlessly*.
 
 The best v1 is the smallest thing that proves the idea works.
 
@@ -154,7 +155,7 @@ This skill does NOT mean:
 - Skip modelling (domain-modeller is still essential)
 - Ignore ethics (ethics-reviewer is still a constraint)
 - Write sloppy code (quality per line stays high)
-- Never plan (planning is good — over-planning is the enemy)
+- Never plan (planning is good; over-planning is the enemy)
 
 It DOES mean:
 - Model the domain, then cut to essential entities for v1
@@ -167,7 +168,7 @@ It DOES mean:
 ## Integration Points
 
 ### With domain-modeller
-Domain modelling often reveals complexity. Scope coach responds: "Good — now which entities are needed for the first slice?"
+Domain modelling often reveals complexity. Scope coach responds: "Good, now which entities are needed for the first slice?"
 
 ### With implementation-planner
 Implementation plans can grow unbounded. Scope coach forces: "Which steps produce a shippable unit?"
