@@ -1,0 +1,452 @@
+<title>Some Assembly Required</title>
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+/*
+	PALETTE
+	Config family. --k1 amber-4, the primary: links, section numbers, chevrons.
+	--k2 emerald-4, things that hold true by construction. --k3 cinnamon-4, the
+	traps and the retired conventions. Carried forward from the first page written
+	in this family so the three config pages agree.
+	Source: library/references/reasonable-colors-reference.md
+*/
+:root{
+	--k1:#926700; --k1-soft:#ffe0b2; --k1-deep:#523800;
+	--k2:#008147; --k2-soft:#dcffe6; --k2-deep:#004825;
+	--k3:#ac5c00; --k3-soft:#ffdfc6; --k3-deep:#633300;
+}
+@media (prefers-color-scheme:dark){
+	:root:not([data-theme="light"]){
+		--k1:#b98300; --k1-soft:rgba(185,131,0,.22); --k1-deep:#ffe0b2;
+		--k2:#00a05a; --k2-soft:rgba(0,160,90,.20); --k2-deep:#dcffe6;
+		--k3:#d57300; --k3-soft:rgba(213,115,0,.20); --k3-deep:#ffdfc6;
+	}
+}
+:root[data-theme="dark"]{
+	--k1:#b98300; --k1-soft:rgba(185,131,0,.22); --k1-deep:#ffe0b2;
+	--k2:#00a05a; --k2-soft:rgba(0,160,90,.20); --k2-deep:#dcffe6;
+	--k3:#d57300; --k3-soft:rgba(213,115,0,.20); --k3-deep:#ffdfc6;
+}
+</style>
+
+<div class="bar">
+	<a class="home" href="../index.html">← goblin mode</a>
+	<span class="sep">·</span>
+	<span class="cmd">docsuite-*</span>
+	<span class="sep">·</span>
+	<span class="desc">a hands-on build</span>
+	<span class="tools">
+		<button id="expandAll" type="button">expand all</button>
+		<button id="collapseAll" type="button">collapse all</button>
+		<button id="themeToggle" type="button">theme</button>
+	</span>
+</div>
+
+<div class="shell">
+
+<header>
+	<div class="eyebrow">~/.claude · config family · 16 August 2026</div>
+	<h1>Some Assembly Required <sup>by you</sup></h1>
+	<p class="lede">Three skills that share one script and one config, built from nothing. The docsuite family generates a doc set, edits one file inside it, then patches the rest back into line. Everything here is copy-ready; the point is to have it working on your own machine by the end.</p>
+	<div class="statline"><span><b>3</b> skills</span> <span><b>1</b> shared script</span> <span><b>1</b> shared config</span></div>
+</header>
+
+<details class="toc" id="toc">
+	<summary>Contents</summary>
+	<div>
+		<div class="strandlab">I · The Parts</div>
+		<ol>
+			<li><span class="n">01</span><a href="#shape">What You'll Have Built</a></li>
+			<li><span class="n">02</span><a href="#config">The Shared Config</a></li>
+			<li><span class="n">03</span><a href="#script">The Shared Script</a></li>
+			<li><span class="n">04</span><a href="#refs">The Reference Files</a></li>
+			<li><span class="n">05</span><a href="#draft">docsuite-draft</a></li>
+		</ol>
+		<div class="strandlab">II · The Family</div>
+		<ol>
+			<li><span class="n">06</span><a href="#edit">docsuite-edit</a></li>
+			<li><span class="n">07</span><a href="#sync">docsuite-sync</a></li>
+			<li><span class="n">08</span><a href="#wiring">Wiring It Together</a></li>
+			<li><span class="n">09</span><a href="#break">Break It on Purpose</a></li>
+		</ol>
+	</div>
+</details>
+
+<div class="main">
+
+<div class="strand s1">
+	<span class="roman">I</span><h2>The Parts</h2>
+	<span class="scope">config · script · references · the first skill</span>
+</div>
+
+<details class="sec s1" id="shape">
+	<summary><span class="secnum">01</span><span class="stitle">What You'll Have Built</span></summary>
+	<div class="sec-body">
+<p class="prompt"><span class="cmd">man</span> <span class="arg">tutorial</span></p>
+
+	<p>Everything above described the rules. This section is the exercise. If the SKILL.md files you've written so far are prose with a <code>name</code> and <code>description</code> at the top and nothing else, that's the starting point this assumes: no YAML beyond the two required keys, no scripts, no shared files, one skill that stands entirely alone. By the end you'll have three skills that genuinely depend on each other, a script that does the counting so the model doesn't have to, and a config file that all three read from and none of them hardcodes.</p>
+
+	<p>The worked topic is a documentation-maintenance suite, <code>docsuite-*</code>: a family that drafts, edits and syncs a project's own docs (README, architecture notes, whatever the project defines) against the actual codebase. Not this repo's own <code>doc-*</code> family, which does something adjacent; a fresh build so every file below is something you can create, read in full, and understand end to end. That completeness is the point. Nothing here is elided for space in a way that would leave a gap in your working copy.</p>
+
+	<div class="law"><span class="tag">The shape, before the detail</span>
+	<p>Three command skills, one shared script, one shared config, and a set of per-type reference files loaded on demand. <code>docsuite-draft [doc-type]</code> writes or rewrites a doc from scratch. <code>docsuite-edit [doc-type] [edit-kind]</code> makes a targeted change to a doc that already exists. <code>docsuite-sync [doc-type]</code> finds where a doc has drifted from the code and patches only the drifted spans. All three take <code>doc-type</code> as an argument rather than existing once per type, because the type selects which config entry and which reference file to load, not which skill to invoke. That argument-driven selection is the more useful pattern to learn than one skill per type would have been.</p></div>
+
+	<h3 style="font-family:var(--mono); font-size:.92rem; margin:1.6rem 0 .4rem; color:var(--ink)">Step 1 · the shared config</h3>
+		<h3>Before You Start</h3>
+		<p>You need <code>jq</code> on the path, a repo with at least one doc worth maintaining, and somewhere to put three skill directories. Nothing else. The whole build is four files you write by hand plus one reference file per doc type.</p>
+		<p>You are done when <code>docsuite-sync readme</code> runs against a repo, prints a drift report it computed rather than guessed, and patches only the spans that drifted. If it rewrites the whole file, something in the chain is wrong and section 09 is where to look.</p>
+	</div>
+</details>
+
+<details class="sec s1" id="config">
+	<summary><span class="secnum">02</span><span class="stitle">The Shared Config</span></summary>
+	<div class="sec-body">
+<p>Before any skill exists, decide what "correct" means for each doc type, once, in a file every skill will read. This is the source of truth: which sections a README must carry, who it's written for, and the same for every other doc type the project cares about. Nothing below hardcodes a section list inline; everything points here instead.</p>
+	<p class="prompt"><span class="cmd">write</span> <span class="arg">docs.config.json</span></p>
+	<pre><span class="v">{</span>
+  <span class="k">"readme"</span>: <span class="v">{</span>
+    <span class="k">"audience"</span>: <span class="v">"a developer cloning this repo for the first time"</span>,
+    <span class="k">"sections"</span>: <span class="v">["setup", "usage", "configuration", "license"]</span>,
+    <span class="k">"tracks"</span>: <span class="v">["package.json", "src/**/*.ts"]</span>
+  <span class="v">}</span>,
+  <span class="k">"architecture"</span>: <span class="v">{</span>
+    <span class="k">"audience"</span>: <span class="v">"a maintainer who hasn't touched this module in six months"</span>,
+    <span class="k">"sections"</span>: <span class="v">["modules", "data-flow", "external-dependencies"]</span>,
+    <span class="k">"tracks"</span>: <span class="v">["src/**/*.ts", "src/**/index.ts"]</span>
+  <span class="v">}</span>
+<span class="v">}</span></pre>
+	<p>Each entry's <code>tracks</code> array is what the sync script below actually diffs against; <code>sections</code> and <code>audience</code> are what the drafting and editing skills read. One file, three consumers, no duplication.</p>
+
+	<h3 style="font-family:var(--mono); font-size:.92rem; margin:1.6rem 0 .4rem; color:var(--ink)">Step 2 · the shared script, the deterministic half</h3>
+		<p>The reason this is a file rather than three copies of a section list is what happens when the answer changes. Decide that every README needs a <code>troubleshooting</code> section and you edit one array; all three skills pick it up on their next run because none of them ever knew the old list. Three skills with the list inline would need three edits, and the one you forgot would keep passing its own check.</p>
+		<p>Adding a doc type is the same trade. One new entry here, one new reference file, and every skill handles it without being touched, because the type is an argument rather than a branch in the prose. That is the property worth protecting as the suite grows.</p>
+		<p>Each <code>tracks</code> entry is a shell glob, matched by <code>compgen -G</code> in the script below. <code>src/**/*.ts</code> asks "do any TypeScript files still exist under src", not "does this exact path exist", which is what makes it survive ordinary refactors and still fire when a whole area is deleted.</p>
+	</div>
+</details>
+
+<details class="sec s1" id="script">
+	<summary><span class="secnum">03</span><span class="stitle">The Shared Script</span></summary>
+	<div class="sec-body">
+<p>The question "has this doc gone stale" has an objective answer: does the file list in <code>tracks</code> still match what's actually in the tree, do the section headings in the doc still match <code>sections</code>, has anything changed since the doc's own last-modified time. None of that needs a model's judgement to compute; it needs <code>find</code>, a bit of <code>jq</code>, and a stat call. So it lives in a script, not in a skill's prose, and every skill below calls the same one rather than re-deriving the facts itself.</p>
+	<p class="prompt"><span class="cmd">write</span> <span class="arg">~/.claude/library/scripts/doc-sync.sh</span></p>
+	<pre><code><span class="c">#!/usr/bin/env bash</span>
+<span class="c"># doc-sync.sh &lt;doc-type&gt;: diffs docs.config.json's claims for &lt;doc-type&gt;</span>
+<span class="c"># against actual repo state and emits one JSON drift report.</span>
+<span class="c"># Computes; does not judge. The calling skill's prose decides what to do</span>
+<span class="c"># with what this finds.</span>
+set -euo pipefail
+doc_type="$1"
+config=$(jq -r --arg t "$doc_type" '.[$t]' docs.config.json)
+
+<span class="c"># tracked-file existence: does every path in "tracks" still resolve?</span>
+missing_tracks=$(echo "$config" | jq -r '.tracks[]' | while read -r pattern; do
+  compgen -G "$pattern" &gt;/dev/null || echo "$pattern"
+done)
+
+<span class="c"># section coverage: which required sections are absent from the doc itself?</span>
+doc_path="$doc_type.md"   <span class="c"># simplified; a real script maps type -&gt; path</span>
+missing_sections=$(echo "$config" | jq -r '.sections[]' | while read -r s; do
+  grep -qi "^#.*$s" "$doc_path" 2&gt;/dev/null || echo "$s"
+done)
+
+<span class="c"># a newline-separated string becomes a JSON array; the select drops the</span>
+<span class="c"># empty line printf leaves behind when nothing drifted, so "clean" is [] not [""]</span>
+to_json() { printf '%s
+' "$1" | jq -R . | jq -s 'map(select(length &gt; 0))'; }
+
+jq -n \
+  --arg     doc_type         "$doc_type" \
+  --argjson missing_tracks   "$(to_json "$missing_tracks")" \
+  --argjson missing_sections "$(to_json "$missing_sections")" \
+  '{doc_type: $doc_type, missing_tracks: $missing_tracks, missing_sections: $missing_sections}'</code></pre>
+	<p>This is the same split as <code>branch-facts.sh</code> elsewhere on this page: the script emits exact numbers and exact lists, and the skill that calls it judges what to do with them. Nobody's making the model count files by reading a directory listing into context; it reads one JSON object instead.</p>
+
+	<h3 style="font-family:var(--mono); font-size:.92rem; margin:1.6rem 0 .4rem; color:var(--ink)">Step 3 · per-type reference files, loaded on demand</h3>
+		<h3>The Output Contract</h3>
+		<p>One JSON object, three keys, every time:</p>
+<pre><code>{ "doc_type": "readme", "missing_tracks": [], "missing_sections": ["configuration"] }</code></pre>
+		<p>Two empty arrays means clean. That contract is the entire interface between the deterministic half and the judging half, and it is why all three skills can call the same script and do completely different things with the answer. The script never says "you should add a configuration section"; it says the heading is absent, and the skill decides.</p>
+		<p><code>set -euo pipefail</code> matters more here than in most scripts. A malformed <code>docs.config.json</code> should stop the run with a non-zero exit rather than emit a report claiming nothing drifted, because a silent empty report is indistinguishable from a clean one to whatever reads it next.</p>
+		<div class="law gotcha">
+			<span class="tag">One correction since first publication</span>
+			<p>The emitter here previously carried two unterminated command substitutions and read <code>$ENV.doc_type</code>, which is unset unless exported. It failed with <code>invalid JSON text passed to --argjson</code>. The version above was run before this page was republished. The <code>select(length &gt; 0)</code> is a second fix: without it, a clean run returns <code>[""]</code> rather than <code>[]</code>, and every consumer has to special-case a list containing one empty string.</p>
+		</div>
+	</div>
+</details>
+
+<details class="sec s1" id="refs">
+	<summary><span class="secnum">04</span><span class="stitle">The Reference Files</span></summary>
+	<div class="sec-body">
+<p>A README and an architecture doc want different things from the model writing them: a README wants concision and a working quickstart; an architecture doc wants module boundaries and honesty about what's still coupled. Rather than folding both sets of guidance into every skill's body (paid for on every invocation, whichever type is being written), each type gets its own file, and the skill loads only the one the argument selected.</p>
+	<div class="tablewrap"><table>
+		<tr><th>File</th><th>Loaded when</th></tr>
+		<tr><td>library/references/doc-types/readme.md</td><td><code>doc-type</code> = readme</td></tr>
+		<tr><td>library/references/doc-types/architecture.md</td><td><code>doc-type</code> = architecture</td></tr>
+	</table></div>
+	<p>This is the same instinct behind this repo's own split-file skills, which break a large body into on-demand sibling files rather than one long inline block, but selected by an argument's value instead of by which section the reader happens to need next.</p>
+
+	<h3 style="font-family:var(--mono); font-size:.92rem; margin:1.6rem 0 .4rem; color:var(--ink)">Step 4 · docsuite-draft, the full write</h3>
+		<p>The filename is the argument. <code>docsuite-draft architecture</code> loads <code>doc-types/architecture.md</code> with no lookup table and no case statement anywhere, so adding a type means adding a file rather than editing a skill. A mapping that lives in a naming convention cannot drift out of sync with itself.</p>
+		<p>Loading on demand is the other half. A reference file per type, read only when that type is the argument, keeps the skill's own body short and keeps four types' worth of voice guidance out of a run that only needed one. The cost is that a missing reference file is a runtime surprise rather than a startup error, which is drill three in section 09.</p>
+	</div>
+</details>
+
+<details class="sec s1" id="draft">
+	<summary><span class="secnum">05</span><span class="stitle">docsuite-draft</span></summary>
+	<div class="sec-body">
+<p class="prompt"><span class="cmd">write</span> <span class="arg">~/.claude/skills/docsuite-draft/SKILL.md</span></p>
+	<div class="anno">
+<pre><span class="c">---</span>
+<span class="k">name</span>: <span class="v">"Docsuite: Draft"</span>
+<span class="k">description</span>: <span class="v">"Write or fully rewrite a project
+  doc from its config entry"</span>
+<span class="k">when_to_use</span>: <span class="v">"When a doc-type in docs.config.json
+  has no file yet, or the existing one is thin
+  enough that a rewrite beats an edit."</span>
+<span class="k">model</span>: <span class="p">sonnet</span>
+<span class="k">effort</span>: <span class="p">medium</span>
+<span class="k">metadata</span>:
+  <span class="k">glyph</span>: <span class="p">ᛊ</span>
+  <span class="k">family</span>: <span class="v">docsuite</span>
+<span class="k">disable-model-invocation</span>: <span class="p">true</span>
+<span class="k">allowed-tools</span>: <span class="v">["Read", "Write",
+  "Bash(~/.claude/library/scripts/doc-sync.sh:*)"]</span>
+<span class="k">arguments</span>: <span class="v">["doc-type"]</span>
+<span class="k">argument-hint</span>: <span class="v">"[readme|architecture]"</span>
+<span class="c">---</span>
+
+1. Read the <span class="v">$doc-type</span> entry from <span class="v">docs.config.json</span>
+   for its audience and required sections.
+2. Load the matching reference file at
+   <span class="v">~/.claude/library/references/doc-types/$doc-type.md</span>
+   for type-specific voice and shape.
+3. Run <span class="v">"$HOME"/.claude/library/scripts/doc-sync.sh $doc-type</span>
+   to get the objective drift report.
+4. Write the doc for the stated audience, in every
+   required section. Every path in the report's
+   <span class="v">missing_tracks</span> must be reflected somewhere in
+   the doc or the section it belongs to must be
+   explicitly marked TODO, never silently dropped.</pre>
+		<aside>
+			<div><b>disable-model-invocation: true</b> because a full rewrite is destructive to whatever's there; this one stays user-only, unlike the two below.</div>
+			<div><b>allowed-tools</b> scopes Bash to exactly one script, not the shell. Read and Write are ungated here because writing the doc is the whole job.</div>
+			<div><b>arguments</b> carries only <code>doc-type</code>; the body's step 1 is what turns that one argument into a config lookup, a file path and a script call.</div>
+			<div><b>step 4's rule</b> is the accountability clause: the script's findings can't be quietly ignored by the prose that follows it.</div>
+		</aside>
+	</div>
+		<p>The four steps run in that order for a reason. Config first, because it names the audience every later decision serves. Reference file second, because voice shapes how the sections get written rather than which ones exist. Script third, so the drift report is in hand before a single word is drafted. Writing first and checking afterwards produces a doc you then have to argue with.</p>
+		<p><code>Write</code> rather than <code>Edit</code> is the honest grant here: this skill replaces a file wholesale, and pretending otherwise with a narrower tool would mean the prose and the permissions disagree. Its sibling in section 06 grants the opposite, for the opposite reason.</p>
+	</div>
+</details>
+
+<div class="strand s2">
+	<span class="roman">II</span><h2>The Family</h2>
+	<span class="scope">edit · sync · the chain · breaking it</span>
+</div>
+
+<details class="sec s2" id="edit">
+	<summary><span class="secnum">06</span><span class="stitle">docsuite-edit</span></summary>
+	<div class="sec-body">
+<p>Drafting from scratch is the easy skill to picture; the other two earn their keep once a doc already exists and most of it is fine.</p>
+
+	<h3 style="font-family:var(--mono); font-size:.92rem; margin:1.6rem 0 .4rem; color:var(--ink)">docsuite-edit, the surgical change</h3>
+	<p>Rewriting a whole README to add one missing section, or to shift its tone for a new audience, throws away everything that was already right. <code>docsuite-edit</code> takes a second argument naming the kind of change, and only touches what that change implies.</p>
+	<div class="anno">
+<pre><span class="c">---</span>
+<span class="k">name</span>: <span class="v">"Docsuite: Edit"</span>
+<span class="k">description</span>: <span class="v">"Make a targeted change to an
+  existing project doc"</span>
+<span class="k">when_to_use</span>: <span class="v">"When the doc exists and is mostly
+  right: adding one section, retheming its tone,
+  or restructuring for a different audience."</span>
+<span class="k">model</span>: <span class="p">sonnet</span>
+<span class="k">effort</span>: <span class="p">medium</span>
+<span class="k">metadata</span>:
+  <span class="k">glyph</span>: <span class="p">ᛊ</span>
+  <span class="k">family</span>: <span class="v">docsuite</span>
+<span class="k">disable-model-invocation</span>: <span class="p">false</span> <span class="c"># invocable:
+  Claude may recognise "add a section on X to the
+  README" as this skill before the user names it</span>
+<span class="k">allowed-tools</span>: <span class="v">["Read", "Edit",
+  "Bash(~/.claude/library/scripts/doc-sync.sh:*)"]</span>
+<span class="k">arguments</span>: <span class="v">["doc-type", "edit-kind"]</span>
+<span class="k">argument-hint</span>: <span class="v">"[readme|architecture]
+  [add-section|retheme|restructure]"</span>
+<span class="c">---</span>
+
+1. Run <span class="v">"$HOME"/.claude/library/scripts/doc-sync.sh $doc-type</span>
+   first, even for a small edit: an edit that ignores
+   drift can make the doc more wrong, not less.
+2. Read the existing doc and the <span class="v">$doc-type</span> config
+   entry.
+3. Apply exactly the change <span class="v">$edit-kind</span> names.
+   <span class="v">add-section</span> only adds; <span class="v">retheme</span> only
+   changes voice, never structure; <span class="v">restructure</span> only
+   reorders, never rewrites sentences that don't move.</pre>
+		<aside>
+			<div><b>allowed-tools carries Edit, not Write.</b> This skill changes an existing file in place; it never creates or replaces one wholesale, and the tool grant says so mechanically rather than trusting the prose alone.</div>
+			<div><b>dmi: false, with a rationale comment.</b> Unlike docsuite-draft, an edit is bounded enough that Claude recognising the moment ("add a section on deployment") is safe: nothing here is as destructive as a full rewrite.</div>
+			<div><b>step 3's three-way split</b> is what keeps <code>$edit-kind</code> from becoming a vague "make it better": each value is a promise about what will and won't change.</div>
+		</aside>
+	</div>
+
+	<h3 style="font-family:var(--mono); font-size:.92rem; margin:1.8rem 0 .4rem; color:var(--ink)">docsuite-sync, the patch-only fix</h3>
+		<p>The second argument is an enum rather than free text because an unbounded <code>$edit-kind</code> collapses into "improve the doc", which is the same as a rewrite with extra steps. Three named values each carry a promise about what will not change, and a promise is checkable in a way that an instruction is not.</p>
+	</div>
+</details>
+
+<details class="sec s2" id="sync">
+	<summary><span class="secnum">07</span><span class="stitle">docsuite-sync</span></summary>
+	<div class="sec-body">
+<p>This is the one worth the closest look, because it's the clearest example on this page of token-efficient, script-driven correction rather than full regeneration. It doesn't rewrite the doc and it doesn't ask a human what changed; it runs the script, and for every drifted item the script names, it patches exactly that span and nothing else.</p>
+	<div class="anno">
+<pre><span class="c">---</span>
+<span class="k">name</span>: <span class="v">"Docsuite: Sync"</span>
+<span class="k">description</span>: <span class="v">"Patch a doc's stale, mechanically
+  checkable claims against current repo state"</span>
+<span class="k">when_to_use</span>: <span class="v">"Periodically, or after a change
+  that might have invalidated a doc's file lists or
+  section coverage, before reaching for a full edit."</span>
+<span class="k">model</span>: <span class="p">haiku</span>
+<span class="k">effort</span>: <span class="p">low</span>
+<span class="k">metadata</span>:
+  <span class="k">glyph</span>: <span class="p">ᚺ</span>
+  <span class="k">family</span>: <span class="v">docsuite</span>
+<span class="k">disable-model-invocation</span>: <span class="p">false</span> <span class="c"># invocable:
+  read-only diagnosis until step 2's patch, which is
+  narrow enough to need no separate gate</span>
+<span class="k">allowed-tools</span>: <span class="v">["Read", "Edit",
+  "Bash(~/.claude/library/scripts/doc-sync.sh:*)"]</span>
+<span class="k">disallowed-tools</span>: <span class="v">["Write"]</span> <span class="c"># patches
+  spans; never replaces the file</span>
+<span class="k">arguments</span>: <span class="v">["doc-type"]</span>
+<span class="k">argument-hint</span>: <span class="v">"[readme|architecture]"</span>
+<span class="c">---</span>
+
+1. Run <span class="v">"$HOME"/.claude/library/scripts/doc-sync.sh $doc-type</span>.
+   If both <span class="v">missing_tracks</span> and <span class="v">missing_sections</span>
+   are empty, stop and report the doc clean; read
+   nothing further.
+2. For each entry in <span class="v">missing_tracks</span>, find and patch
+   only the line or list that names it. For each
+   entry in <span class="v">missing_sections</span>, add only that
+   section's heading and a one-line stub, never
+   rewrite a section that wasn't named.
+3. Never touch a paragraph the report didn't flag.</pre>
+		<aside>
+			<div><b>haiku, low effort.</b> Named-span patching from a JSON list is mechanical work; nothing here needs sonnet's judgement, which is exactly the deterministic-half payoff, a script cheap enough to run often and a model tier cheap enough to match it.</div>
+			<div><b>disallowed-tools bans Write</b> mechanically, backing up step 3's prose promise the same way pr-review-dry_run's ban on Edit backs up "reviews, never fixes" elsewhere on this page.</div>
+			<div><b>step 1's early exit</b> is the token-efficiency payoff made concrete: a clean doc costs one script call and nothing else, never a full read of the file.</div>
+		</aside>
+	</div>
+		<p>The early exit is the part to copy into your own skills. A run that finds two empty arrays should cost almost nothing: no doc read, no model reasoning, no output beyond saying it was clean. Skills that always do the expensive thing regardless of what the cheap check found are where most of the waste in a skill library lives.</p>
+	</div>
+</details>
+
+<details class="sec s2" id="wiring">
+	<summary><span class="secnum">08</span><span class="stitle">Wiring It Together</span></summary>
+	<div class="sec-body">
+<p class="prompt"><span class="cmd">docsuite-draft</span> <span class="arg">readme</span></p>
+	<p>Trace one call all the way through, because this is where the three skills stop being three independent files and become a system. <code>docsuite-draft readme</code> reads <code>docs.config.json</code>'s <code>readme</code> entry for audience and sections; loads <code>library/references/doc-types/readme.md</code> for voice; runs <code>doc-sync.sh readme</code> for the objective drift report; writes the doc, accounting for every item that script found. Three months later, someone runs <code>docsuite-sync readme</code> after a refactor: the script notices a file in <code>tracks</code> no longer exists, and the skill patches the one sentence that named it, nothing else. Later still, someone runs <code>docsuite-edit readme add-section</code> to document a new deployment step: it re-checks drift first, then adds exactly that section.</p>
+	<p>One shared config, one shared script, three skills that each do a genuinely different job with them. That's the whole pattern: not three skills that happen to share a topic, three skills that would each be worse alone.</p>
+	<div class="tablewrap"><table>
+		<tr><th>File</th><th>Role</th></tr>
+		<tr><td>docs.config.json</td><td>shared config: audience + sections + tracked paths, per doc-type</td></tr>
+		<tr><td>library/scripts/doc-sync.sh</td><td>shared script: the deterministic half, called by all three skills</td></tr>
+		<tr><td>library/references/doc-types/*.md</td><td>per-type voice and shape, loaded on demand by the doc-type argument</td></tr>
+		<tr><td>skills/docsuite-draft/SKILL.md</td><td>full write, user-only, dmi: true</td></tr>
+		<tr><td>skills/docsuite-edit/SKILL.md</td><td>targeted change, dual-invocable</td></tr>
+		<tr><td>skills/docsuite-sync/SKILL.md</td><td>patch-only fix, dual-invocable, haiku</td></tr>
+	</table></div>
+	</div>
+</details>
+
+<details class="sec s2" id="break">
+	<summary><span class="secnum">09</span><span class="stitle">Break It on Purpose</span></summary>
+	<div class="sec-body">
+
+		<p>Nothing on this page is load-bearing until you have watched it fail. Four drills, each one aimed at a different link in the chain, and each with a specific right answer.</p>
+
+		<h3>Drill One: Delete Something Tracked</h3>
+		<p>Remove a file that <code>tracks</code> matches, or point a glob at a directory you have just renamed, then run the script alone. It should name that pattern in <code>missing_tracks</code> and say nothing else. If it reports a section problem too, your <code>doc_path</code> mapping is wrong rather than your config.</p>
+
+		<h3>Drill Two: Break the Config</h3>
+		<p>Put a trailing comma in <code>docs.config.json</code> and run <code>docsuite-sync readme</code>. The correct outcome is a non-zero exit and no report. If you get a report claiming nothing drifted, <code>set -euo pipefail</code> is missing or a pipeline is swallowing the failure, and every skill downstream is now being told the doc is fine.</p>
+
+		<h3>Drill Three: Ask for a Type That Has No Reference File</h3>
+		<p>Add a <code>changelog</code> entry to the config, write no <code>doc-types/changelog.md</code>, then draft it. Step 2 fails to load a file that does not exist. Decide deliberately whether that should stop the run or fall back to a default voice, then write the answer into the skill body. This is the cost of the naming-convention lookup, and it is worth paying with your eyes open.</p>
+
+		<h3>Drill Four: Give Edit a Kind It Does Not Know</h3>
+		<p>Run <code>docsuite-edit readme make-it-punchier</code>. The skill should refuse rather than improvise, because the enum is the whole guarantee. If it cheerfully rewrites your README, step 3's three-way split is prose the model read as a suggestion, and it needs to be written as a constraint.</p>
+
+		<div class="law">
+			<span class="tag">The habit this is teaching</span>
+			<p>When the output looks wrong, read the script's JSON before you touch the skill. The script is deterministic and the prose is not, so the JSON is either right or obviously broken, and it tells you which half of the system to fix. Debugging the skill first is how an afternoon disappears.</p>
+		</div>
+	</div>
+</details>
+
+</div>
+
+<footer>
+	<details class="sources">
+		<summary>Sources</summary>
+		<ul>
+			<li>Walkthrough moved from <a href="skills-frontmatter.html">A Skill Is One Goblin</a>, where it was strand II, then expanded and subdivided</li>
+			<li>Conventions it applies are on that page; the <code>metadata</code> block it writes is on <a href="skills-metadata.html">skills-metadata</a></li>
+			<li><code>doc-sync.sh</code>'s emitter corrected and run against <code>jq</code> on 16 August 2026 before republishing</li>
+		</ul>
+	</details>
+</footer>
+
+</div>
+
+<script>
+(function(){
+	var secs = Array.prototype.slice.call(document.querySelectorAll('details.sec'));
+	function openTarget(hash){
+		if(!hash) return;
+		var el = document.querySelector(hash);
+		if(el && el.tagName === 'DETAILS') el.open = true;
+	}
+	document.querySelectorAll('a[href^="#"]').forEach(function(a){
+		a.addEventListener('click', function(){ openTarget(a.getAttribute('href')); });
+	});
+	window.addEventListener('hashchange', function(){ openTarget(location.hash); });
+	openTarget(location.hash);
+
+	var ea = document.getElementById('expandAll'), ca = document.getElementById('collapseAll');
+	if(ea) ea.addEventListener('click', function(){ secs.forEach(function(d){ d.open = true; }); });
+	if(ca) ca.addEventListener('click', function(){ secs.forEach(function(d){ d.open = false; }); });
+
+	var root = document.documentElement;
+	document.getElementById('themeToggle').addEventListener('click', function(){
+		var now = root.getAttribute('data-theme');
+		var dark = now ? now === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+		root.setAttribute('data-theme', dark ? 'light' : 'dark');
+	});
+
+	var toc = document.getElementById('toc');
+	if(toc){
+		function syncToc(){ if(window.matchMedia('(min-width:1080px)').matches) toc.open = true; }
+		syncToc(); window.addEventListener('resize', syncToc);
+		var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+		var obs = new IntersectionObserver(function(entries){
+			entries.forEach(function(e){
+				var a = links.filter(function(l){ return l.getAttribute('href') === '#' + e.target.id; })[0];
+				if(a && e.isIntersecting){ links.forEach(function(l){ l.classList.remove('on'); }); a.classList.add('on'); }
+			});
+		}, {rootMargin:'-20% 0px -70% 0px'});
+		secs.forEach(function(d){ obs.observe(d); });
+	}
+
+	var before = null;
+	window.addEventListener('beforeprint', function(){
+		before = secs.map(function(d){ return d.open; });
+		secs.forEach(function(d){ d.open = true; });
+	});
+	window.addEventListener('afterprint', function(){
+		if(before) secs.forEach(function(d,i){ d.open = before[i]; });
+		before = null;
+	});
+})();
+</script>
