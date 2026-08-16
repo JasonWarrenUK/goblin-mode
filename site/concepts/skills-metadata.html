@@ -1,0 +1,326 @@
+<title>Metadata Is Whatever I Say It Is</title>
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+/*
+	PALETTE
+	Config family. --k1 amber-4, the primary: links, section numbers, chevrons.
+	--k2 emerald-4, a prop that actually drives something running. --k3 cinnamon-4,
+	proposed and unwritten. Carried forward from the first page written in this
+	family so the three config pages agree.
+	Source: library/references/reasonable-colors-reference.md
+*/
+:root{
+	--k1:#926700; --k1-soft:#ffe0b2; --k1-deep:#523800;
+	--k2:#008147; --k2-soft:#dcffe6; --k2-deep:#004825;
+	--k3:#ac5c00; --k3-soft:#ffdfc6; --k3-deep:#633300;
+}
+@media (prefers-color-scheme:dark){
+	:root:not([data-theme="light"]){
+		--k1:#b98300; --k1-soft:rgba(185,131,0,.22); --k1-deep:#ffe0b2;
+		--k2:#00a05a; --k2-soft:rgba(0,160,90,.20); --k2-deep:#dcffe6;
+		--k3:#d57300; --k3-soft:rgba(213,115,0,.20); --k3-deep:#ffdfc6;
+	}
+}
+:root[data-theme="dark"]{
+	--k1:#b98300; --k1-soft:rgba(185,131,0,.22); --k1-deep:#ffe0b2;
+	--k2:#00a05a; --k2-soft:rgba(0,160,90,.20); --k2-deep:#dcffe6;
+	--k3:#d57300; --k3-soft:rgba(213,115,0,.20); --k3-deep:#ffdfc6;
+}
+.sw-config{--sw:#926700} .sw-red{--sw:#e0002b} .sw-dossier{--sw:#0061fc} .sw-none{--sw:var(--rule-strong)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sw-config{--sw:#b98300}
+	:root:not([data-theme="light"]) .sw-red{--sw:#ff4647}
+	:root:not([data-theme="light"]) .sw-dossier{--sw:#657eff}}
+:root[data-theme="dark"] .sw-config{--sw:#b98300}
+:root[data-theme="dark"] .sw-red{--sw:#ff4647}
+:root[data-theme="dark"] .sw-dossier{--sw:#657eff}
+</style>
+
+<div class="bar">
+	<a class="home" href="../index.html">← goblin mode</a>
+	<span class="sep">·</span>
+	<span class="cmd">metadata:</span>
+	<span class="sep">·</span>
+	<span class="desc">the block nothing upstream reads</span>
+	<span class="tools">
+		<button id="expandAll" type="button">expand all</button>
+		<button id="collapseAll" type="button">collapse all</button>
+		<button id="themeToggle" type="button">theme</button>
+	</span>
+</div>
+
+<div class="shell">
+
+<header>
+	<div class="eyebrow">~/.claude · config family · 16 August 2026</div>
+	<h1>Metadata Is Whatever I Say It Is</h1>
+	<p class="lede">The harness parses a fixed set of frontmatter fields and ignores everything else. <code>metadata</code> is everything else. No schema defines it, no validator checks it and no error fires when a value is wrong, which makes it a free namespace and an unpoliced one at the same time.</p>
+	<div class="statline">
+		<span><b>52</b> skills carrying one</span>
+		<span><b>19</b> families</span>
+	</div>
+
+	<details class="legend">
+		<summary>Legend</summary>
+		<div class="lbody">
+			<p><span class="chip k1">in use</span> Written in the skill files today.</p>
+			<p><span class="chip k2">worked</span> Something running reads it: the generated index, this site, a script.</p>
+			<p><span class="chip k3">proposed</span> Nothing written. Section 06 is a draft, not a decision.</p>
+		</div>
+	</details>
+</header>
+
+<details class="toc" id="toc">
+	<summary>Contents</summary>
+	<div>
+		<div class="strandlab">I · What Exists</div>
+		<ol>
+			<li><span class="n">01</span><a href="#free">The Block Nothing Reads</a></li>
+			<li><span class="n">02</span><a href="#family">metadata.family</a></li>
+			<li><span class="n">03</span><a href="#glyph">metadata.glyph</a></li>
+			<li><span class="n">04</span><a href="#hue">One Hue per Family</a></li>
+		</ol>
+		<div class="strandlab">II · What Else It Could Hold</div>
+		<ol>
+			<li><span class="n">05</span><a href="#test">The Test for Adding One</a></li>
+			<li><span class="n">06</span><a href="#candidates">Candidates</a></li>
+		</ol>
+	</div>
+</details>
+
+<div class="main">
+
+<div class="strand s1">
+	<span class="roman">I</span><h2>What Exists</h2>
+	<span class="scope">two props, both mine</span>
+</div>
+
+<details class="sec s1" id="free">
+	<summary><span class="secnum">01</span><span class="stitle">The Block Nothing Reads</span><span class="chip k1">in use</span></summary>
+	<div class="sec-body">
+		<p>A <code>SKILL.md</code> frontmatter carries fields the harness knows: <code>name</code>, <code>description</code>, <code>when_to_use</code>, <code>model</code>, <code>effort</code>, <code>allowed-tools</code>, <code>disable-model-invocation</code>, <code>user-invocable</code>, <code>argument-hint</code>. Those have meanings that were decided elsewhere, and using them wrong changes how a skill behaves.</p>
+
+		<p><code>metadata</code> is not one of them. It parses as YAML, it sits in the file, and nothing upstream looks at it. The model never sees it. No schema constrains its shape. A typo in a key produces no error anywhere.</p>
+
+		<div class="law">
+			<span class="tag">What that buys, and what it costs</span>
+			<p>The block is a namespace nobody else has a claim on, so any convention invented there is free and immediately available across all 52 skills. It is also completely unchecked, so a value can be wrong for a year and the only symptom is a table quietly telling you something untrue.</p>
+		</div>
+
+		<p>Both halves are load-bearing. The freedom is why <code>family</code> could be invented in an afternoon and wired into three separate tools. The absence of checking is why the second prop, <code>glyph</code>, is the one that can lie.</p>
+	</div>
+</details>
+
+<details class="sec s1" id="family">
+	<summary><span class="secnum">02</span><span class="stitle">metadata.family</span><span class="chip k2">worked</span></summary>
+	<div class="sec-body">
+		<p>One line per skill, naming the group it belongs to. All 52 skills carry one, across 19 distinct values.</p>
+
+<pre><code>metadata:
+  <span class="k">family</span>: <span class="v">dossier</span></code></pre>
+
+		<p>The flat <code>skills/</code> directory cannot express this on its own. Personal skills get no directory namespacing, so the only grouping available in the filename is a prefix convention, and a prefix convention breaks the moment a skill belongs to a family whose name is not its first word.</p>
+
+		<h3>What Reads It</h3>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Reader</th><th>What it does with the value</th></tr></thead>
+				<tbody>
+					<tr><td><code>gen-skills-index.py</code></td><td>Regenerates the skills README, grouping rows by family rather than by filename</td></tr>
+					<tr><td>This site</td><td>Each explainer lives at <code>/families/{family}/</code>, so the URL carries the taxonomy</td></tr>
+					<tr><td>This site, again</td><td>Every page takes its palette from its family. See section 04</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3>The Distribution</h3>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Family</th><th class="num">Skills</th><th>Shape</th></tr></thead>
+				<tbody>
+					<tr><td><code>roadmap</code>, <code>pr</code>, <code>clod-role</code></td><td class="num">6</td><td>Mature families with a full verb set</td></tr>
+					<tr><td><code>artefact</code></td><td class="num">4</td><td>Growing</td></tr>
+					<tr><td><code>red</code>, <code>dossier</code>, <code>import</code>, <code>clod-config</code></td><td class="num">1</td><td>A family declared before its siblings exist</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<p>Declaring <code>family: red</code> on a single skill is the interesting case. It costs nothing now and it reserves the namespace, so <code>red-steelman</code> can arrive later without renaming anything. A taxonomy that only appears once a group is crowded is a taxonomy applied retroactively, which is when renames happen.</p>
+	</div>
+</details>
+
+<details class="sec s1" id="glyph">
+	<summary><span class="secnum">03</span><span class="stitle">metadata.glyph</span><span class="chip k1">in use</span></summary>
+	<div class="sec-body">
+		<p>A rune standing for the model tier the skill pins. The generated index renders it as a column.</p>
+
+		<div class="tablewrap"><table>
+			<tr><th>Glyph</th><th>Rune</th><th>Model</th><th>Typical work</th></tr>
+			<tr><td class="rune-cell">ᚺ</td><td>hagalaz</td><td>haiku</td><td>script wrappers, mechanical projections</td></tr>
+			<tr><td class="rune-cell">ᛊ</td><td>sowilo</td><td>sonnet</td><td>bounded judgement: prose, wiring, validator-gated edits</td></tr>
+			<tr><td class="rune-cell">ᛟ</td><td>othala</td><td>opus</td><td>review verdicts, graph rationality, greenfield decomposition</td></tr>
+			<tr><td class="rune-cell">ᚠ</td><td>fehu</td><td>fable</td><td>unattended long-horizon loops (next-task-ship, nothing else)</td></tr>
+		</table></div>
+
+		<p>Glyphs live here and never in the description text. Two retired conventions embedded triple Greek letters and runic pairs in descriptions; on sight, migrate.</p>
+
+		<div class="law gotcha">
+			<span class="tag">This one can lie</span>
+			<p>The glyph restates <code>model:</code>, which is two lines above it in the same file. Nothing reconciles the two. A skill can say <code>model: opus</code> and <code>glyph: ᚺ</code> and the index will happily print a haiku rune next to it forever, because the index reads the glyph and not the model.</p>
+		</div>
+
+		<p>A knowledge skill pins no model, so it carries no glyph, and the generated index shows an empty column for it. That part is consistent. The failure mode is narrower and worse: a duplicated value with no reconciliation, in a table nobody re-checks after the first read.</p>
+
+		<p>It survives because the runes are good and the index reads better with them. It is worth keeping the cost in view rather than pretending the field is free, and it is the reason section 05 has a rule at all.</p>
+	</div>
+</details>
+
+<details class="sec s1" id="hue">
+	<summary><span class="secnum">04</span><span class="stitle">One Hue per Family</span><span class="chip k2">worked</span></summary>
+	<div class="sec-body">
+		<p>The fullest thing <code>family</code> currently drives, and a worked example of a metadata prop earning its place.</p>
+
+		<p>Every page on this site keys its palette to the family of the skill it documents. Layout is shared and lives in one stylesheet; the hue is the only thing that varies, and it varies for a reason. Landing on a page mid-scroll, the colour says which family you are in before the title does, and the URL says it too.</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Family</th><th>Hues</th><th>Reading</th></tr></thead>
+				<tbody>
+					<tr><td><span class="swatch sw-config"></span><code>config</code></td><td>amber, emerald</td><td>Inherited from the first page written in this family</td></tr>
+					<tr><td><span class="swatch sw-red"></span><code>red</code></td><td>red, teal, cinnamon</td><td>A marking pen on a document somebody wants dead</td></tr>
+					<tr><td><span class="swatch sw-dossier"></span><code>dossier</code></td><td>indigo, violet, grey</td><td>Ink in a ledger; violet for inference, grey for what stays private</td></tr>
+					<tr><td><span class="swatch sw-none"></span>the index</td><td>grey only</td><td>No family, so no hue</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<p>All hues come from Reasonable Colors, which is fixed. Which hues a family gets, and what each one means inside a page, gets decided once when that family's first explainer is written, then documented as mapping notes at the top of that page's stylesheet. The second page in a family reads those notes instead of re-deciding.</p>
+
+		<div class="law">
+			<span class="tag">Why this is the good example</span>
+			<p>Nothing in a skill file implies a colour. The value could not be derived, something running consumes it, and a wrong value is visible immediately because the page comes out the wrong colour. Those three properties are what section 05 turns into a test.</p>
+		</div>
+	</div>
+</details>
+
+<div class="strand s2">
+	<span class="roman">II</span><h2>What Else It Could Hold</h2>
+	<span class="scope">a draft, not a decision</span>
+</div>
+
+<details class="sec s2" id="test">
+	<summary><span class="secnum">05</span><span class="stitle">The Test for Adding One</span><span class="chip k3">proposed</span></summary>
+	<div class="sec-body">
+		<p>Two props in and one of them already has a defect. Three questions, drawn from what separates <code>family</code> from <code>glyph</code>:</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Question</th><th><code>family</code></th><th><code>glyph</code></th></tr></thead>
+				<tbody>
+					<tr><td><strong>Could it be derived from the file?</strong> If yes, deriving it is free and storing it invites drift.</td><td>No. Nothing in a skill file implies its family.</td><td>Yes. It restates <code>model:</code>.</td></tr>
+					<tr><td><strong>Does anything running read it?</strong> A prop nothing consumes is a comment with extra steps.</td><td>Three readers.</td><td>One reader.</td></tr>
+					<tr><td><strong>Is a wrong value visible?</strong> With no validator, the only check is whether the mistake shows up somewhere.</td><td>Yes. The page comes out the wrong colour.</td><td>No. The index prints the wrong rune indefinitely.</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<p>A prop answering no, yes, yes is worth adding. <code>glyph</code> answers yes, yes, no, which is the exact profile of a field that will eventually be wrong.</p>
+
+		<p>There is a fourth consideration that is not a test so much as a warning. Every prop added here is a promise to maintain it by hand across 52 files, with nothing to remind you. A convention that is only half applied is worse than one that was never started, because a partial field reads as an absent value rather than an unfilled one.</p>
+	</div>
+</details>
+
+<details class="sec s2" id="candidates">
+	<summary><span class="secnum">06</span><span class="stitle">Candidates</span><span class="chip k3">proposed</span></summary>
+	<div class="sec-body">
+		<p>Six, ranked by friction they would remove today rather than by how clever they are. Nothing below is written into a skill file yet.</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Prop</th><th>What it fixes now</th></tr></thead>
+				<tbody>
+					<tr><td><code>exercised: false</code></td><td>Two explainer pages hand-write "never run end to end", in a statline and again in prose. The drift is already possible. One value would generate the card, the chip and the statline.</td></tr>
+					<tr><td><code>reads:</code> / <code>writes:</code></td><td>Declared file dependencies. <code>red-sabotage</code> reads the persona store and the dossier; <code>dossier-record</code> writes the dossier. At 52 skills, "what breaks if I move this library file" is currently a grep and a hope.</td></tr>
+					<tr><td><code>pairs_with:</code></td><td>The red and dossier seam is written out three times across this site. One edge would generate all three, and stop one surface going stale whilst the others stay right.</td></tr>
+					<tr><td><code>surface:</code></td><td>Where output lands: terminal, <code>docs/artefacts</code>, <code>site/</code>, GitHub. Answers "which skills can publish something publicly", which is exactly what <code>site/CLAUDE.md</code> exists to worry about.</td></tr>
+					<tr><td><code>status:</code></td><td><code>stable</code>, <code>provisional</code>, <code>retired</code>. Two retired conventions are already mentioned on the frontmatter page as things to migrate on sight, which currently means somebody has to remember them.</td></tr>
+					<tr><td><code>since:</code></td><td>The date a skill arrived. Gives the set a real changelog and lets this site badge recent additions.</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3>Against the Test</h3>
+
+		<p>All six answer <strong>no</strong> to derivability, which is the point: none of them can be worked out by reading the file. <code>exercised</code>, <code>surface</code> and <code>pairs_with</code> would be visible when wrong, because a page or a link would come out incorrect. <code>status</code> and <code>since</code> would not be, which puts them in the same category as <code>glyph</code> and is worth deciding deliberately rather than by accident.</p>
+
+		<div class="law gotcha">
+			<span class="tag">Draft status</span>
+			<p>This section is a first pass and has not been through a cull. The ranking is mine, the framing is mine, and none of it has survived contact with the fifty-two files it would have to be applied to.</p>
+		</div>
+	</div>
+</details>
+
+</div>
+
+<footer>
+	<details class="sources">
+		<summary>Sources</summary>
+		<ul>
+			<li>Counts from <code>~/.claude/skills/*/SKILL.md</code> frontmatter, 16 August 2026: 52 skills, 19 families, every skill carrying one</li>
+			<li>Glyph table and the <code>metadata.glyph</code> convention moved from <a href="skills-frontmatter.html">A Skill Is One Goblin</a></li>
+			<li>Hue mapping from <code>library/references/artefact-conventions.md</code>; values from <code>library/references/reasonable-colors-reference.md</code></li>
+			<li>Family readers verified against <code>library/scripts/gen-skills-index.py</code> and this site's own directory layout</li>
+		</ul>
+	</details>
+</footer>
+
+</div>
+
+<script>
+(function(){
+	var secs = Array.prototype.slice.call(document.querySelectorAll('details.sec'));
+	function openTarget(hash){
+		if(!hash) return;
+		var el = document.querySelector(hash);
+		if(el && el.tagName === 'DETAILS') el.open = true;
+	}
+	document.querySelectorAll('a[href^="#"]').forEach(function(a){
+		a.addEventListener('click', function(){ openTarget(a.getAttribute('href')); });
+	});
+	window.addEventListener('hashchange', function(){ openTarget(location.hash); });
+	openTarget(location.hash);
+
+	document.getElementById('expandAll').addEventListener('click', function(){ secs.forEach(function(d){ d.open = true; }); });
+	document.getElementById('collapseAll').addEventListener('click', function(){ secs.forEach(function(d){ d.open = false; }); });
+
+	var root = document.documentElement;
+	document.getElementById('themeToggle').addEventListener('click', function(){
+		var now = root.getAttribute('data-theme');
+		var dark = now ? now === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+		root.setAttribute('data-theme', dark ? 'light' : 'dark');
+	});
+
+	var toc = document.getElementById('toc');
+	function syncToc(){ if(window.matchMedia('(min-width:1080px)').matches) toc.open = true; }
+	syncToc(); window.addEventListener('resize', syncToc);
+	var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+	var obs = new IntersectionObserver(function(entries){
+		entries.forEach(function(e){
+			var a = links.filter(function(l){ return l.getAttribute('href') === '#' + e.target.id; })[0];
+			if(a && e.isIntersecting){ links.forEach(function(l){ l.classList.remove('on'); }); a.classList.add('on'); }
+		});
+	}, {rootMargin:'-20% 0px -70% 0px'});
+	secs.forEach(function(d){ obs.observe(d); });
+
+	var before = null;
+	window.addEventListener('beforeprint', function(){
+		before = secs.map(function(d){ return d.open; });
+		secs.forEach(function(d){ d.open = true; });
+	});
+	window.addEventListener('afterprint', function(){
+		if(before) secs.forEach(function(d,i){ d.open = before[i]; });
+		before = null;
+	});
+})();
+</script>
