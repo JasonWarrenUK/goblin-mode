@@ -1,0 +1,570 @@
+<title>Everyone Gets a File</title>
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+/*
+	PALETTE
+	Dossier family. --k1 indigo-4, a recorded fact: links, numbers, chevrons. --k2
+	violet-4, inference, one hue from --k1 because inference sits one step from fact.
+	--k3 grey, the private and the unexercised: a gitignored fact and an untested
+	branch both get no hue on a published page. --sib red, borrowed from the red family.
+	Source: library/references/reasonable-colors-reference.md
+*/
+:root{
+	--k1:#0061fc; --k1-soft:#deddff; --k1-deep:#00328a;
+	--k2:#794aff; --k2-soft:#e8daff; --k2-deep:#2d0fbf;
+	--k3:#6f6f6f; --k3-soft:#e2e2e2; --k3-deep:#222222;
+	--sib:#e0002b;
+}
+@media (prefers-color-scheme:dark){
+	:root:not([data-theme="light"]){
+		--k1:#657eff; --k1-soft:rgba(101,126,255,.22); --k1-deep:#deddff;
+		--k2:#9b70ff; --k2-soft:rgba(155,112,255,.20); --k2-deep:#e8daff;
+		--k3:#8b8b8b; --k3-soft:rgba(139,139,139,.20); --k3-deep:#e2e2e2;
+		--sib:#ff4647;
+	}
+}
+:root[data-theme="dark"]{
+	--k1:#657eff; --k1-soft:rgba(101,126,255,.22); --k1-deep:#deddff;
+	--k2:#9b70ff; --k2-soft:rgba(155,112,255,.20); --k2-deep:#e8daff;
+	--k3:#8b8b8b; --k3-soft:rgba(139,139,139,.20); --k3-deep:#e2e2e2;
+	--sib:#ff4647;
+}
+</style>
+
+<div class="bar">
+	<a class="home" href="../../index.html">← goblin mode</a>
+	<span class="sep">·</span>
+	<span class="cmd">/dossier-record</span>
+	<span class="sep">·</span>
+	<span class="desc">a file per person</span>
+	<span class="tools">
+		<button id="expandAll" type="button">expand all</button>
+		<button id="collapseAll" type="button">collapse all</button>
+		<button id="themeToggle" type="button">theme</button>
+	</span>
+</div>
+
+<div class="shell">
+
+<header>
+	<div class="eyebrow">~/.claude · dossier family · 16 August 2026</div>
+	<h1>Everyone Gets a File</h1>
+	<p class="lede">A skill that writes down what you learn about the people you work with, one durable fact at a time, into a private file per person. The point is compounding context: once the model knows who reads the handover, it stops writing for a generic reader. Most of the design is about the moments it should stay quiet.</p>
+	<div class="statline"><span><b>3</b> sections per person</span> <span><b>5</b> discipline rules</span> <span><b>1</b> gate</span></div>
+
+	<details class="legend">
+		<summary>Legend</summary>
+		<div class="lbody">
+			<p><span class="chip k1">recorded</span> Counted or quoted from the skill file and the dossier directory.</p>
+			<p><span class="chip k2">inferred</span> Reasoning from the design rather than from a measured result.</p>
+			<p><span class="chip k3">unexercised</span> Written down and never fired.</p>
+		</div>
+	</details>
+</header>
+
+<details class="toc" id="toc">
+	<summary>Contents</summary>
+	<div>
+		<div class="strandlab">I · Why It Exists</div>
+		<ol>
+			<li><span class="n">01</span><a href="#why">The Compounding Record</a></li>
+			<li><span class="n">02</span><a href="#silence">The Silence Rule</a></li>
+		</ol>
+		<div class="strandlab">II · The File</div>
+		<ol>
+			<li><span class="n">03</span><a href="#frontmatter">Frontmatter, Line by Line</a></li>
+			<li><span class="n">04</span><a href="#file">What a File Looks Like</a></li>
+			<li><span class="n">05</span><a href="#discipline">Discipline</a></li>
+			<li><span class="n">06</span><a href="#gate">The Contradiction Gate</a></li>
+		</ol>
+		<div class="strandlab">III · Reach</div>
+		<ol>
+			<li><span class="n">07</span><a href="#seam">Facts and Models</a></li>
+			<li><span class="n">08</span><a href="#privacy">Privacy Architecture</a></li>
+			<li><span class="n">09</span><a href="#surfaces">Where It Surfaces</a></li>
+			<li><span class="n">10</span><a href="#run">Run It</a></li>
+		</ol>
+	</div>
+</details>
+
+<div class="main">
+
+<div class="strand s1">
+	<span class="roman">I</span><h2>Why It Exists</h2>
+	<span class="scope">the payoff · the silence rule</span>
+</div>
+
+<details class="sec s1" id="why">
+	<summary><span class="secnum">01</span><span class="stitle">The Compounding Record</span><span class="chip k2">inferred</span></summary>
+<div class="sec-body">
+		<p>Every session starts knowing nothing about the people around the work. Ask for a handover document and you get one pitched at a reader with no name, no specialism and no habits, because that is all the model has. The output is fine and it is fine for nobody in particular.</p>
+
+		<p>The dossier is the correction. One gitignored file per colleague, holding what changes how work gets done: role and ownership, expertise and where it stops, standards they hold, what they reject, how they review. It accrues. The tenth fact costs the same to record as the first and is worth more, because <span class="mark">it lands in a file that already has nine</span>.</p>
+
+		<h3>What Changes Downstream</h3>
+
+		<div class="ev">
+			<span class="tag">The same request, twice</span>
+			<p><strong>With no file.</strong> "Write the handover for the ingest work." Out comes a document that explains the whole service from first principles, defines every term once and picks its own idea of what matters.</p>
+			<p><strong>With a file</strong> saying <code>ravi</code> owns ingest, is fluent in Go, is light on YAML anchors and reviews by running a branch before reading its diff. Out comes a document that skips the service tour, spells the anchor syntax out once and leads with the command that reproduces the failure.</p>
+			<p class="why"><b>Why it compounds</b> Neither version took longer to produce. The difference is entirely in what was known before the first sentence, and the file is the only place that knowledge survives the end of a session.</p>
+		</div>
+
+		<h3>Why a File Each</h3>
+
+		<p>A paragraph in <code>CLAUDE.md</code> could hold the same words. It cannot hold four things this needs:</p>
+
+		<ul>
+			<li><strong>Dates.</strong> Every bullet carries the day it was recorded, so staleness is visible. A two-year-old claim about someone's expertise reads differently to last week's.</li>
+			<li><strong>Correctability.</strong> One fact per bullet means a wrong one is deleted without disturbing its neighbours.</li>
+			<li><strong>Marked inference.</strong> A prose paragraph flattens what someone said and what was guessed about them into the same register.</li>
+			<li><strong>Absence.</strong> An <code>## Open questions</code> section says what is not known, which is the part a paragraph silently omits.</li>
+		</ul>
+
+		<div class="ev two">
+			<span class="tag">What This Rests On</span>
+			<p>This is the thinnest evidence on the page. Five files exist and no output has been measured against one. The argument that a populated dossier improves a handover is reasoning from the design, and it is chipped <span class="chip k2">inferred</span> for that reason; dressing it up as a result would be the exact failure this page is meant to avoid.</p>
+		</div>
+	</div>
+</details>
+
+<details class="sec s1" id="silence">
+	<summary><span class="secnum">02</span><span class="stitle">The Silence Rule</span><span class="chip k1">recorded</span></summary>
+<div class="sec-body">
+		<p>This skill is model-invocable, which means it fires by itself, in the middle of whatever the turn was about. That is the only way it can work. The moment worth catching is a claim about someone dropped in the middle of a sentence about something else, and by the time Jason thinks to write it down he has moved on. It also makes restraint the whole design problem. A skill that interrupts is worse than one that never runs, because the second is merely absent whilst the first is a tax on every sentence containing a name.</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Fires on a durable attribute</th><th>Stays silent on</th></tr></thead>
+				<tbody>
+					<tr><td>Role, seniority, ownership</td><td>Routing and tasking: "send it to Ravi"</td></tr>
+					<tr><td>Expertise and its limits</td><td>One-off state: "on leave next week"</td></tr>
+					<tr><td>Preferences and standards</td><td>Passing mentions with no claim attached</td></tr>
+					<tr><td>What they care about, what they reject, how they review</td><td>People Jason does not work with, unless he asks</td></tr>
+					<tr><td>How to work with them: pitch, handover, register</td><td>Third-party gossip about someone's character</td></tr>
+					<tr><td>Relationships between colleagues</td><td rowspan="2">Anything that will be false in a fortnight</td></tr>
+					<tr><td>Pronouns, when stated</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<p>The gossip exclusion is the one worth defending. A claim about someone's temperament, relayed second hand, is exactly the sort of thing that feels like useful context and is not a working fact. Recording it puts a stranger's judgement into a file that then shapes how everything gets written for that person.</p>
+
+		<div class="ev">
+			<span class="tag">The rule the skill states about itself</span>
+			<p class="quoted">When it does not fire, do nothing and say nothing. A skill that announces its own restraint is worse than one that never ran.</p>
+			<p class="why"><b>Why it needs saying</b> The obvious failure mode of an auto-firing skill is not wrongly recording things. It is narrating its own decision not to, once per name, forever.</p>
+		</div>
+
+		<p>When it does fire, the output is one line. No summary, no restating what was just said, then straight back to the actual task.</p>
+	</div>
+</details>
+
+<div class="strand s2">
+	<span class="roman">II</span><h2>The File</h2>
+	<span class="scope">frontmatter · shape · discipline · the gate</span>
+</div>
+
+<details class="sec s2" id="frontmatter">
+	<summary><span class="secnum">03</span><span class="stitle">Frontmatter, Line by Line</span><span class="chip k1">recorded</span></summary>
+<div class="sec-body">
+		<p>The real block, unedited, comments and all:</p>
+
+<pre><code>---
+name: "Dossier: Record"
+description: "Record a durable fact about a person Jason works with, in their own dossier file"
+when_to_use: "Whenever Jason says something durable about a named person he works with: their role,
+  expertise, preferences, what they care about, how they review or respond, how to work with them.
+  Also when he introduces someone new, or asks for something about a person to be noted."
+metadata:
+  family: dossier
+<span class="c"># No model or effort on purpose. This skill fires inline, mid-turn, inside
+# whatever the session was already doing; both fields override the session
+# absolutely while a skill is active, so setting either would downgrade the
+# turn that triggered it.</span>
+disable-model-invocation: false <span class="c"># the trigger is a fact landing in conversation, which Claude
+                                # sees before Jason thinks to record it; step 4 is the gate</span>
+user-invocable: true
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit"]
+argument-hint: "[name] [what to record]"
+---</code></pre>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Field</th><th>Why it says that</th></tr></thead>
+				<tbody>
+					<tr><td><code>description</code>, <code>when_to_use</code></td><td>These do reach the model here, unlike on a command skill. Model-invocable means the description is the trigger, so <code>when_to_use</code> is written as a list of the shapes a durable fact arrives in.</td></tr>
+					<tr><td><code>model</code>, <code>effort</code></td><td><strong>Absent, and the comment explains why.</strong> Both override the session absolutely whilst a skill is active. A skill that fires mid-turn inside an Opus session would silently downgrade that turn to whatever it named. The only safe value for an inline skill is no value.</td></tr>
+					<tr><td><code>metadata.glyph</code></td><td>Also absent, and it follows from the row above. The glyph mirrors the model tier, so a skill with no model has no glyph, and the generated index shows an empty Model column for <code>/dossier-record</code>.</td></tr>
+					<tr><td><code>metadata.family</code></td><td><code>dossier</code>. It is what gives this page its indigo, under the one-hue-per-family rule the hub sets out.</td></tr>
+					<tr><td><code>disable-model-invocation</code></td><td><code>false</code>, which is the exception rather than the default. The house rule allows it when the trigger moment is one Claude sees before the user does <strong>and</strong> the skill carries its own approval gate. Both hold: a fact lands in conversation before Jason thinks to record it, and step 4 stops anything contested being written.</td></tr>
+					<tr><td><code>user-invocable</code></td><td><code>true</code> as well, so <code>/dossier-record</code> works when Jason wants to record something deliberately. Both doors open, which is unusual and correct here.</td></tr>
+					<tr><td><code>allowed-tools</code></td><td>Read, Glob, Grep, Write, Edit. No <code>Bash</code> at all, which is worth noticing on a skill whose step 2 shows an <code>ls</code>: the directory listing goes through Glob instead.</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<p>Compare the shape against its sibling in the red family, which is a command skill: that one pins <code>model: opus</code> and <code>effort: high</code>, carries a glyph, and sets <code>disable-model-invocation: true</code> because no document is self-evidently ready to be attacked. Same house rules, opposite answers, because one is a thing you ask for and the other is a thing that notices.</p>
+	</div>
+</details>
+
+<details class="sec s2" id="file">
+	<summary><span class="secnum">04</span><span class="stitle">What a File Looks Like</span><span class="chip k1">recorded</span></summary>
+<div class="sec-body">
+		<p>One file per person at <code>library/dossier/{slug}.md</code>, slug lowercase and matching the name they are called by. The schema lives in <code>library/dossier/README.md</code>, which is the one file in that directory that is tracked.</p>
+
+<pre><code><span class="c">---</span>
+name: ravi
+description: One line, used to decide relevance during recall
+metadata:
+  type: person
+  relationship: owns the ingest service
+  pronouns: unstated
+  updated: 2026-08-15
+<span class="c">---</span>
+
+<span class="k"># Ravi</span>
+
+<span class="k">## Facts</span>
+
+- Owns the ingest service end to end. `2026-08-15`
+- Fluent in Go, light on YAML anchors. `2026-08-15`
+- Reviews by running the branch before reading its diff. `2026-08-15` <span class="g">*(inferred)*</span>
+
+<span class="k">## Working with them</span>
+
+- Lead a handover with the command that reproduces the failure.
+
+<span class="k">## Open questions</span>
+
+- Do they want the migration plan in the PR or as a separate document?</code></pre>
+
+		<p>Three sections, each doing a job the other two cannot.</p>
+
+		<ul>
+			<li><strong>Facts</strong> is what is true about them. Dated, one claim per bullet.</li>
+			<li><strong>Working with them</strong> is what to do about it. The split matters because "light on YAML anchors" and "spell the anchor syntax out once" are separate claims, and the second can be wrong whilst the first stays right.</li>
+			<li><strong>Open questions</strong> is what is not known. It is the section that makes the file work as a listening brief: a file with one fact and three open questions is doing its job, because it gives the next fact somewhere to land.</li>
+		</ul>
+
+		<h3>The Directory as It Stands</h3>
+
+		<p>Five files hold twelve facts and eleven open questions between them. More questions than facts is what a young directory looks like, and it is the shape the schema is built to encourage: a file earns its place by naming what is missing, then fills in as the answers turn up.</p>
+
+		<p>Not one of those bullets carries <code>*(inferred)*</code>, which section 05 returns to.</p>
+	</div>
+</details>
+
+<details class="sec s2" id="discipline">
+	<summary><span class="secnum">05</span><span class="stitle">Discipline</span><span class="chip k1">recorded</span></summary>
+<div class="sec-body">
+		<p>Five rules keep a file of this kind honest for longer than a month. Each one exists because of a specific way notes about people rot.</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Rule</th><th>The rot it prevents</th></tr></thead>
+				<tbody>
+					<tr><td><strong>One fact per bullet</strong></td><td>A sentence carrying three claims can only be deleted whole. Splitting it means the wrong third can go without taking the right two thirds with it.</td></tr>
+					<tr><td><strong>Dated, always</strong></td><td>The date marks when the claim was written down; it says nothing about when it became true. Without it there is no way to tell a current judgement from a first impression that has been sitting there for a year.</td></tr>
+					<tr><td><strong>Mark inference</strong></td><td>A stated fact stands bare; anything worked out from context takes <code>*(inferred)*</code>. This matters most when the file is later used to predict how someone behaves, which is exactly what section 07 does with it.</td></tr>
+					<tr><td><strong>Absolute dates in the text</strong></td><td>"Last week" is a fact with a shelf life of seven days. It becomes the date on the way in.</td></tr>
+					<tr><td><strong>Pronouns only when stated</strong></td><td><code>unstated</code> stays in the frontmatter until told otherwise, and everything written about that person uses they/them meanwhile. Guessing from a name is the failure mode, and it is one the file would then repeat in every document written for that person.</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="ev three">
+			<span class="tag">Provenance</span>
+			<p>Not one of the twelve bullets on disk carries <code>*(inferred)*</code>, and all five files still read <code>pronouns: unstated</code>. So two of the five rules have never done anything yet: nothing has been recorded that Jason did not say outright, and nobody has stated their pronouns for the frontmatter to change.</p>
+			<p class="why"><b>Why that is worth printing</b> Four of the five files are timestamped 22:34 on 15 August 2026 and the skill file is timestamped 22:38. The files came first and the skill was written from them, so the discipline described here has mostly been applied by hand rather than by the flow it specifies.</p>
+		</div>
+	</div>
+</details>
+
+<details class="sec s2" id="gate">
+	<summary><span class="secnum">06</span><span class="stitle">The Contradiction Gate</span><span class="chip k3">unexercised</span></summary>
+<div class="sec-body">
+		<p>Step 4, and the only place the skill stops to ask. If a new fact contradicts a line already in the file, it writes <strong>neither</strong> version. It raises the conflict in one line, quotes both versions and asks which holds.</p>
+
+		<div class="ev">
+			<span class="tag">What that looks like</span>
+			<p class="quoted">Conflict on <code>ravi</code>: file says "reviews by running the branch, not by reading the diff" <code>2026-08-15</code>; you just said they read every line of the diff. Which holds?</p>
+		</div>
+
+		<p>The obvious implementation is to overwrite the old line, since the new information is newer. That loses the thing worth keeping. Somebody changing how they review is a fact in itself, and it is usually a more useful one than either of the two statements it sits between. Silently replacing the line records the outcome and destroys the event.</p>
+
+		<p>The gate is narrow on purpose. Additive facts need no permission at all, or the skill becomes a confirmation prompt attached to every conversation, which is the interruption tax section 02 exists to avoid. Conflicts alone.</p>
+
+		<div class="ev three">
+			<span class="tag">Never Fired</span>
+			<p>Zero contradictions have been raised, because nothing recorded so far has contradicted anything else. The branch is written and untested, and it is the one most likely to need adjusting the first time it runs against something real.</p>
+		</div>
+	</div>
+</details>
+
+<div class="strand s3">
+	<span class="roman">III</span><h2>Reach</h2>
+	<span class="scope">the seam · privacy · surfaces · running it</span>
+</div>
+
+<details class="sec s3" id="seam">
+	<summary><span class="secnum">07</span><span class="stitle">Facts and Models</span><span class="chip k3">unexercised</span></summary>
+<div class="sec-body">
+		<p>This is where the two skills in this family meet, and the seam between them is the most carefully drawn line in either one.</p>
+
+		<p><code>/red-sabotage</code> reviews a document as the colleague trying to kill it, aimed at one or two named readers. To do that it needs a reader model: nine fields covering what someone needs from a document, what they are protecting, what they can do to it, what they read, what they skip, what makes them reject it outright. Those models live in <code>library/references/sabotage-personas.md</code>.</p>
+
+		<p>A dossier file holds facts about a real person. A persona holds predictions about how that person behaves under review. When a persona slug matches a dossier file, red-sabotage derives what it can and interviews for the rest.</p>
+
+		<div class="figwrap">
+			<figure style="margin:0">
+				<svg viewBox="0 0 700 300" role="img" aria-labelledby="seamTitle seamDesc">
+					<title id="seamTitle">Derivation runs one way, from dossier file to persona store</title>
+					<desc id="seamDesc">A dossier file of recorded facts feeds a derivation step, where four of the nine persona fields are worked out and five are asked. That step writes a review profile into the persona store, which red-sabotage reads. The return path from the persona store back to the dossier file is drawn barred and crossed out.</desc>
+
+					<rect class="sv-box" x="12" y="60" width="190" height="130" rx="6"/>
+					<text class="sv-lab" x="28" y="84">FACTS</text>
+					<text class="sv-ttl" x="28" y="106">dossier/{slug}.md</text>
+					<text class="sv-sub" x="28" y="128">what they said</text>
+					<text class="sv-sub" x="28" y="146">dated, gitignored</text>
+					<text class="sv-sub" x="28" y="164">via /dossier-record</text>
+
+					<path class="sv-flow" d="M202 125 H262" marker-end="url(#arrowL)"/>
+					<text class="sv-flow-l" x="208" y="115">derives</text>
+
+					<rect class="sv-box" x="268" y="38" width="168" height="174" rx="6"/>
+					<text class="sv-lab" x="282" y="62">INFERENCE</text>
+					<text class="sv-ttl" x="282" y="84">4 of 9 derived</text>
+					<text class="sv-sub" x="282" y="106">Fluency ← expertise</text>
+					<text class="sv-sub" x="282" y="124">Stake ← role</text>
+					<text class="sv-sub" x="282" y="142">Needs ← their work</text>
+					<text class="sv-sub" x="282" y="168">5 asked, never</text>
+					<text class="sv-sub" x="282" y="186">written down:</text>
+					<text class="sv-sub" x="282" y="204">Power, Reads, Skips…</text>
+
+					<path class="sv-flow" d="M436 125 H496" marker-end="url(#arrowL)"/>
+					<text class="sv-flow-l" x="444" y="115">writes</text>
+
+					<rect class="sv-box" x="502" y="60" width="186" height="130" rx="6"/>
+					<text class="sv-lab" x="516" y="84">MODEL</text>
+					<text class="sv-ttl" x="516" y="106">sabotage-personas</text>
+					<text class="sv-sub" x="516" y="128">how they would review</text>
+					<text class="sv-sub" x="516" y="146">labelled as prediction</text>
+					<text class="sv-sub" x="516" y="164">read by /red-sabotage</text>
+
+					<path class="sv-block" d="M610 190 V248 H92 V190"/>
+					<path class="sv-block" d="M340 236 L364 260 M364 236 L340 260"/>
+					<text class="sv-block-l" x="326" y="282" text-anchor="end">never written back</text>
+					<text class="sv-block-l" x="378" y="282">a prediction is not a fact</text>
+
+					<defs>
+						<marker id="arrowL" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+							<path d="M0 0 L10 5 L0 10 z" fill="var(--ledger)"/>
+						</marker>
+					</defs>
+				</svg>
+				<figcaption>Derivation is one way. The persona store may cite a dossier file; nothing flows back the other way.</figcaption>
+			</figure>
+		</div>
+
+		<h3>Which Fields Survive the Jump</h3>
+
+		<p>Four of the nine come out of a dossier file cleanly, because they are restatements of things already recorded. Fluency comes out of noted expertise. Stake comes out of role and ownership. Needs comes out of their relationship to the work. Each derived field is printed with the line it came from, so a wrong derivation is visible before it is used.</p>
+
+		<p>The rest do not transfer, and the reason is that <span class="mark">reading habits and how much slack someone cuts you only show up under pressure</span>. Power, Reads, Skips, Charity and Verdict style are almost never written down about a colleague, because they are not the sort of thing anyone says out loud. Those get one short round of questions.</p>
+
+		<div class="ev two">
+			<span class="tag">The line that split the two files</span>
+			<p>How someone reviews a document is inference about them. Their dossier holds facts. Keeping the review model in a separate file, labelled as a model and corrected there, is what stops a factual record about a colleague quietly filling with predictions about their temperament.</p>
+			<p class="why"><b>Why the direction matters</b> A guess that gets written back into the facts file is indistinguishable from a fact within a week. One-way derivation is the only version of this that stays trustworthy.</p>
+		</div>
+
+		<p>Neither half of this has run. Red-sabotage has never been executed end to end, so the derivation path is specified and untested from both sides.</p>
+
+		<a class="sibling" href="../red/sabotage.html">
+			<span class="fam">red family · the other half of this seam</span>
+			<span class="t">Bob Will Not Open the Deep Dive → /red-sabotage</span>
+			<span class="d">Adversarial document review aimed at one or two named readers. Nine persona fields, a stdlib slop scanner and a report ranked by which reader can do the most damage. Read it for what a persona is for.</span>
+		</a>
+	</div>
+</details>
+
+<details class="sec s3" id="privacy">
+	<summary><span class="secnum">08</span><span class="stitle">Privacy Architecture</span><span class="chip k1">recorded</span></summary>
+<div class="sec-body">
+		<p>These are notes about real people, held on one machine, and the whole directory is designed around that. The mechanism is two lines of <code>.gitignore</code>:</p>
+
+<pre><code><span class="c"># Person dossiers stay local; the schema that documents them does not</span>
+/library/dossier/*
+!/library/dossier/README.md</code></pre>
+
+		<p>The contents never leave the machine. The schema is tracked, so the convention survives a fresh clone whilst none of the facts do. That split is the entire design: a future reader of the repo learns precisely how these files are shaped and nothing whatsoever about who is in them.</p>
+
+		<h3>The Publishing Rule</h3>
+
+		<p>The skill forbids copying dossier content into a tracked file, a commit message, a PR description, an artefact or anything published. The consequence is stated in the skill itself, and it is the sharpest sentence in the file:</p>
+
+		<div class="ev">
+			<span class="tag">From the skill's own rules</span>
+			<p class="quoted">A guide written for a person is calibrated against their file; it never names them or quotes it.</p>
+			<p class="why"><b>What that buys</b> The file can hold a sharp judgement, of the kind that would be awkward in a shared document, because the judgement only ever shows up as a better-aimed piece of writing.</p>
+		</div>
+
+		<div class="ev three">
+			<span class="tag">This page is bound by that rule</span>
+			<p><code>ravi</code> is invented. So is every fact attributed to them. This artefact is tracked and publishable, so it cannot name a single real person in the directory it describes, and every count in section 04 is an aggregate for the same reason.</p>
+		</div>
+
+		<h3>The Test That Governs What Goes In</h3>
+
+		<p>Two filters, and both are stricter than "is this true".</p>
+
+		<ul>
+			<li><strong>Working notes only.</strong> Record what changes how work gets done. Personal detail volunteered in passing stays out, however durable it happens to be.</li>
+			<li><strong>Readable aloud.</strong> Anything in these files should be something Jason would be comfortable reading to the person it describes. A private file that could not survive being read back is a liability sitting on a laptop.</li>
+		</ul>
+	</div>
+</details>
+
+<details class="sec s3" id="surfaces">
+	<summary><span class="secnum">09</span><span class="stitle">Where It Surfaces</span><span class="chip k1">recorded</span></summary>
+<div class="sec-body">
+		<p>A file nobody opens is a diary. Three things read this directory, and the index is what makes the other two possible.</p>
+
+		<h3>The Index Line</h3>
+
+		<p>A new person gets one line in the People section of <code>MEMORY.md</code>, which is the file loaded into context at the start of every session:</p>
+
+<pre><code>- **Ravi**: owns the ingest service, reviews by running it, [dossier](../../../../library/dossier/ravi.md)</code></pre>
+
+		<p>The full facts stay in the file. The index carries a name and a hook, which is enough for recall to decide the file is worth opening. Existing people need no index change unless the hook itself has gone wrong, so the index stays short as the files get long.</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Reader</th><th>What it takes</th></tr></thead>
+				<tbody>
+					<tr><td><code>/dossier-record</code></td><td>Writes and updates. The only writer.</td></tr>
+					<tr><td><code>/red-sabotage</code></td><td>Derives a review profile when a persona slug matches a file. Writes to the persona store; never back here.</td></tr>
+					<tr><td><code>MEMORY.md</code></td><td>Holds one pointer line per person, so recall can find the file at all.</td></tr>
+					<tr><td>Anything writing for a person</td><td>A handover, a pitch, a PR description aimed at a named reviewer. This is the intended payoff and the one with no measurement behind it yet.</td></tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</details>
+
+<details class="sec s3" id="run">
+	<summary><span class="secnum">10</span><span class="stitle">Run It</span><span class="chip k3">unexercised</span></summary>
+<div class="sec-body">
+
+		<h3>Three Ways In</h3>
+
+<pre><code><span class="c"># the usual one: say it, and the skill fires by itself</span>
+<span class="g">"Ravi owns the ingest service now"</span>
+<span class="c">→ Recorded: ravi owns the ingest service → library/dossier/ravi.md</span>
+
+<span class="c"># deliberate, with the fact on the line</span>
+<span class="k">/dossier-record</span> ravi reviews by running the branch rather than reading the diff
+
+<span class="c"># deliberate, no argument: asks who and what</span>
+<span class="k">/dossier-record</span></code></pre>
+
+		<h3>What Comes Back</h3>
+
+		<p>One line, then the turn carries on with whatever it was about. No summary, no restatement, no offer to record anything else.</p>
+
+		<h3>A Blank File</h3>
+
+		<p>New person, created from the README's schema with what is known and an <code>## Open questions</code> section listing what is not:</p>
+
+<pre><code>---
+name: SLUG
+description: one line, used to decide relevance during recall
+metadata:
+  type: person
+  relationship: how they relate to the work
+  pronouns: unstated
+  updated: YYYY-MM-DD
+---
+
+<span class="k"># Name</span>
+
+<span class="k">## Facts</span>
+
+- The one thing that prompted the file. `YYYY-MM-DD`
+
+<span class="k">## Open questions</span>
+
+- What is genuinely unknown, so a future run knows what to listen for.</code></pre>
+
+		<div class="ev three">
+			<span class="tag">Near misses</span>
+			<p>A slug that nearly matches an existing file (<code>ravinder</code> against <code>ravi</code>, a nickname, a surname) stops and asks which person is meant. Two files for one person is the failure that makes the whole directory untrustworthy, and it is the one mistake here that cannot be fixed by deleting a bullet.</p>
+		</div>
+	</div>
+</details>
+
+</div>
+
+<footer>
+	<details class="sources">
+		<summary>Sources</summary>
+		<ul><li><code>~/.claude/skills/dossier-record/SKILL.md</code> and <code>library/dossier/README.md</code>, both written 15 August 2026</li>
+		<li>Counts measured against <code>~/.claude/library/dossier/</code> on 15 August 2026: 5 person files, 12 facts, 4 working notes, 11 open questions, 0 bullets marked inferred</li>
+		<li>File timestamps from <code>stat</code> on the same date; four of five person files predate <code>SKILL.md</code> by four minutes</li>
+		<li>Gitignore lines quoted verbatim from <code>~/.claude/.gitignore</code></li>
+		<li>Frontmatter rules from <code>CLAUDE.md</code> §4 and <code>skills/clod-config-skill_conventions/SKILL.md</code></li>
+		<li>Conventions applied from <code>library/references/artefact-conventions.md</code> and <code>skills/clod-approach-writing_style/SKILL.md</code></li></ul>
+	</details>
+</footer>
+
+</div>
+
+<script>
+(function(){
+	var secs = Array.prototype.slice.call(document.querySelectorAll('details.sec'));
+	function openTarget(hash){
+		if(!hash) return;
+		var el = document.querySelector(hash);
+		if(el && el.tagName === 'DETAILS') el.open = true;
+	}
+	document.querySelectorAll('a[href^="#"]').forEach(function(a){
+		a.addEventListener('click', function(){ openTarget(a.getAttribute('href')); });
+	});
+	window.addEventListener('hashchange', function(){ openTarget(location.hash); });
+	openTarget(location.hash);
+
+	document.getElementById('expandAll').addEventListener('click', function(){ secs.forEach(function(d){ d.open = true; }); });
+	document.getElementById('collapseAll').addEventListener('click', function(){ secs.forEach(function(d){ d.open = false; }); });
+
+	var root = document.documentElement;
+	document.getElementById('themeToggle').addEventListener('click', function(){
+		var now = root.getAttribute('data-theme');
+		var dark = now ? now === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+		root.setAttribute('data-theme', dark ? 'light' : 'dark');
+	});
+
+	// sidebar contents: open on wide screens, mark the section in view
+	var toc = document.getElementById('toc');
+	function syncToc(){ if(window.matchMedia('(min-width:1080px)').matches) toc.open = true; }
+	syncToc(); window.addEventListener('resize', syncToc);
+	var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+	var obs = new IntersectionObserver(function(entries){
+		entries.forEach(function(e){
+			var a = links.filter(function(l){ return l.getAttribute('href') === '#' + e.target.id; })[0];
+			if(a && e.isIntersecting){ links.forEach(function(l){ l.classList.remove('on'); }); a.classList.add('on'); }
+		});
+	}, {rootMargin:'-20% 0px -70% 0px'});
+	secs.forEach(function(d){ obs.observe(d); });
+
+	var before = null;
+	window.addEventListener('beforeprint', function(){
+		before = secs.map(function(d){ return d.open; });
+		secs.forEach(function(d){ d.open = true; });
+	});
+	window.addEventListener('afterprint', function(){
+		if(before) secs.forEach(function(d,i){ d.open = before[i]; });
+		before = null;
+	});
+})();
+</script>

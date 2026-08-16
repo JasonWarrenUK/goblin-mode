@@ -1,0 +1,584 @@
+<title>Bob Will Not Open the Deep Dive</title>
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+/*
+	PALETTE
+	Red family. --k1 red-4, the marking pen: links, section numbers, evidence tags.
+	--k2 teal-4, measured facts: scanner counts and verified chips. --k3 cinnamon-4,
+	written and unexercised. --sib indigo, borrowed from the dossier family for the
+	one link that leaves this family.
+	Source: library/references/reasonable-colors-reference.md
+*/
+:root{
+	--k1:#e0002b; --k1-soft:#ffddd8; --k1-deep:#830014;
+	--k2:#007c6e; --k2-soft:#d7fff7; --k2-deep:#00443c;
+	--k3:#ac5c00; --k3-soft:#ffdfc6; --k3-deep:#633300;
+	--sib:#0061fc;
+}
+@media (prefers-color-scheme:dark){
+	:root:not([data-theme="light"]){
+		--k1:#ff4647; --k1-soft:rgba(255,70,71,.22); --k1-deep:#ffddd8;
+		--k2:#009e8c; --k2-soft:rgba(0,158,140,.20); --k2-deep:#d7fff7;
+		--k3:#d57300; --k3-soft:rgba(213,115,0,.20); --k3-deep:#ffdfc6;
+		--sib:#657eff;
+	}
+}
+:root[data-theme="dark"]{
+	--k1:#ff4647; --k1-soft:rgba(255,70,71,.22); --k1-deep:#ffddd8;
+	--k2:#009e8c; --k2-soft:rgba(0,158,140,.20); --k2-deep:#d7fff7;
+	--k3:#d57300; --k3-soft:rgba(213,115,0,.20); --k3-deep:#ffdfc6;
+	--sib:#657eff;
+}
+</style>
+
+<div class="bar">
+	<a class="home" href="../../index.html">← goblin mode</a>
+	<span class="sep">·</span>
+	<span class="cmd">/red-sabotage</span>
+	<span class="sep">·</span>
+	<span class="desc">adversarial document review</span>
+	<span class="tools">
+		<button id="expandAll" type="button">expand all</button>
+		<button id="collapseAll" type="button">collapse all</button>
+		<button id="themeToggle" type="button">theme</button>
+	</span>
+</div>
+
+<div class="shell">
+
+<header>
+	<div class="eyebrow">~/.claude · red family · 16 August 2026</div>
+	<h1>Bob Will Not Open the Deep Dive</h1>
+	<p class="lede">A skill that reviews a document the way a colleague who wants it dead reviews it. Give it a target, up to two named readers and anything else you know would sink it; it returns a dossier of quoted evidence, ranked by which reader can do the most damage.</p>
+	<div class="statline"><span><b>3</b> files</span> <span><b>9</b> persona fields</span> <span><b>8</b> scanner groups</span> <span><b>4</b> passes</span></div>
+
+	<details class="legend">
+		<summary>Legend</summary>
+		<div class="lbody">
+			<p><span class="chip k2">verified</span> Run and measured. The counts came out of the tool, against a real document.</p>
+			<p><span class="chip k1">derived</span> Taken from the hand-run the skill was reverse-engineered from, before the skill existed.</p>
+			<p><span class="chip k3">specified</span> Written and never exercised.</p>
+		</div>
+	</details>
+</header>
+
+<details class="toc" id="toc">
+	<summary>Contents</summary>
+	<div>
+		<div class="strandlab">I · The Idea</div>
+		<ol>
+			<li><span class="n">01</span><a href="#premise">The Premise</a></li>
+			<li><span class="n">02</span><a href="#files">Three Files, One Skill</a></li>
+		</ol>
+		<div class="strandlab">II · The Machinery</div>
+		<ol>
+			<li><span class="n">03</span><a href="#frontmatter">Frontmatter, Line by Line</a></li>
+			<li><span class="n">04</span><a href="#arguments">The Argument Grammar</a></li>
+			<li><span class="n">05</span><a href="#personas">Nine Fields</a></li>
+			<li><span class="n">06</span><a href="#scanner">The Scanner</a></li>
+		</ol>
+		<div class="strandlab">III · The Output</div>
+		<ol>
+			<li><span class="n">07</span><a href="#passes">The Four Passes</a></li>
+			<li><span class="n">08</span><a href="#report">The Report</a></li>
+			<li><span class="n">09</span><a href="#rules">Rules It Holds Itself To</a></li>
+			<li><span class="n">10</span><a href="#run">Run It</a></li>
+		</ol>
+	</div>
+</details>
+
+<div class="main">
+
+<div class="strand s1">
+	<span class="roman">I</span><h2>The Idea</h2>
+	<span class="scope">premise · file split</span>
+</div>
+
+<details class="sec s1" id="premise">
+	<summary><span class="secnum">01</span><span class="stitle">The Premise</span><span class="chip k1">derived</span></summary>
+<div class="sec-body">
+		<p>The skill opens by telling the model a lie with a purpose. You are reviewing a colleague's proposal. You want it dead. Leadership hates any hint of AI slop so much that one confirmed instance kills the document.</p>
+
+		<p>That fiction does two things. It sets the bar at <span class="mark">one instance</span>, which makes the unit of work a piece of quotable evidence rather than an impression. And it changes what the model considers worth reporting: asked to help, a reviewer returns a flat list of improvements with nothing urgent in it; asked to kill, the same reviewer over the same document produces an ordered list where the first item is the one that ends the conversation.</p>
+
+		<p>Ranking is the part that survives translation back to real use. A review that says "these fourteen things could be better" leaves you to guess which one gets you sent back. A dossier that opens with the kill shot has already done that work.</p>
+
+		<div class="ev">
+			<span class="tag">Kill shot, from the run this was built from</span>
+			<p class="quoted">Nine em-dashes, one in every Deep Dive header. House rule bans them absolutely. Nine unedited instances in a document stamped "Complete, pending review" is the whole case in one grep.</p>
+		</div>
+
+		<p>The skill states the obvious caveat in its own body, because a model told to be hostile will otherwise drift: this is a critique of a document, aimed at improving it before real reviewers see it, and it is never an attack on the author.</p>
+	</div>
+</details>
+
+<details class="sec s1" id="files">
+	<summary><span class="secnum">02</span><span class="stitle">Three Files, One Skill</span><span class="chip k2">verified</span></summary>
+<div class="sec-body">
+		<p>Most skills are one <code>SKILL.md</code>. This one owns three files, and which file holds what is the whole design.</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>File</th><th>Holds</th><th>Read by</th><th>Written by</th></tr></thead>
+				<tbody>
+					<tr><td><code>skills/red-sabotage/SKILL.md</code></td><td>Procedure, judgement, the report spec</td><td>The model, at invocation</td><td>You, by hand</td></tr>
+					<tr><td><code>library/references/sabotage-personas.md</code></td><td>Reader models that outlive the run</td><td>The model, step 1</td><td>The skill, after an interview</td></tr>
+					<tr><td><code>library/scripts/slop-scan.py</code></td><td>Counting with an exact answer</td><td>The shell, step 3</td><td>You, by hand</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3>The Rule of Thumb</h3>
+
+		<p>If two runs over the same file should produce the same number, it belongs in the script. Counting em dashes is not a judgement call, and a model counting thirty-nine occurrences by eye is a model guessing. The script counts; the model reads the output and decides what it means.</p>
+
+		<p>If it should persist between runs, it belongs in the reference file. Defining a reviewer once and using them for a year is the point of having personas at all, and a persona described in the conversation dies with the conversation.</p>
+
+		<p>Everything else is the skill: sequencing, what counts as evidence, how the report is shaped, when to stop.</p>
+
+		<p>The split has a second payoff. A reference file and a script can both be tested on their own, and the scanner was: its counts were checked against a real document before a single line of the report spec was written.</p>
+	</div>
+</details>
+
+<div class="strand s2">
+	<span class="roman">II</span><h2>The Machinery</h2>
+	<span class="scope">frontmatter · arguments · personas · scanner</span>
+</div>
+
+<details class="sec s2" id="frontmatter">
+	<summary><span class="secnum">03</span><span class="stitle">Frontmatter, Line by Line</span><span class="chip k2">verified</span></summary>
+<div class="sec-body">
+		<p>The real block, unedited:</p>
+
+<pre><code>---
+name: "Red: Sabotage"
+description: "Adversarial review of a document written as the colleague trying to kill it, aimed at one or two named readers"
+when_to_use: "Before a document goes in front of people: find what gets it rejected, on the terms of the specific readers who will reject it. Also for a hostile pass over your own draft."
+model: opus
+effort: high
+metadata:
+  glyph: ᛟ
+  family: red
+disable-model-invocation: true
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(wc:*)"]
+argument-hint: "&lt;target&gt; [persona] [persona] [-- what else would kill it]"
+---</code></pre>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Field</th><th>Why it says that</th></tr></thead>
+				<tbody>
+					<tr><td><code>name</code></td><td>Display convention is <em>Family: Action</em>, so the roster reads as a set of families rather than a pile of commands.</td></tr>
+					<tr><td><code>description</code></td><td>Never reaches the model on a command skill, since nothing model-invocable can load it. It documents intent for the next person editing the file, and feeds the generated index.</td></tr>
+					<tr><td><code>when_to_use</code></td><td>Same. Free to carry maintainer notes because it costs no context.</td></tr>
+					<tr><td><code>model</code>, <code>effort</code></td><td>Explicit on every command skill. Both override the session absolutely while the skill is active, which is exactly why knowledge skills set neither: an ambient reference skill would otherwise hijack the turn that triggered it.</td></tr>
+					<tr><td><code>metadata.glyph</code></td><td>ᛟ othala, mirroring <code>model: opus</code>. The generated index renders it, so a wrong glyph is a lie in a table nobody re-checks.</td></tr>
+					<tr><td><code>metadata.family</code></td><td><code>red</code>, a new family. Room for <code>red-steelman</code> or <code>red-devils_advocate</code> later without renaming this one.</td></tr>
+					<tr><td><code>disable-model-invocation</code></td><td><code>true</code>. The exception that allows a model-invocable command skill needs a trigger moment the model sees before the user does, plus its own approval gate. Neither applies: no document is self-evidently ready to be attacked.</td></tr>
+					<tr><td><code>allowed-tools</code></td><td>Scoped to what the six steps actually do. <code>Bash(python3:*)</code> for the scanner, <code>Bash(git:*)</code> to read history when verifying a claim, <code>Write</code> for the saved report. No unscoped <code>Bash</code>.</td></tr>
+					<tr><td><code>argument-hint</code></td><td>The only syntax documentation that reaches you at the prompt, so it carries the shape and nothing else.</td></tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</details>
+
+<details class="sec s2" id="arguments">
+	<summary><span class="secnum">04</span><span class="stitle">The Argument Grammar</span><span class="chip k3">specified</span></summary>
+<div class="sec-body">
+		<p>Four positions, one of them required:</p>
+
+<pre><code><span class="k">/red-sabotage</span> &lt;target&gt; [persona] [persona] [-- what else would kill it]
+
+<span class="c"># the common case</span>
+<span class="k">/red-sabotage</span> docs/artefacts/design.html bob cedric
+
+<span class="c"># one saved reader, one defined on the spot</span>
+<span class="k">/red-sabotage</span> proposal.md cedric <span class="g">"Priya: only reads tables, wants the cost"</span>
+
+<span class="c"># everything after -- is what else would sink it</span>
+<span class="k">/red-sabotage</span> rfc.md bob -- the client is a regulator, an unsourced number is fatal</code></pre>
+
+		<p>Positional arguments, because the common invocation is three tokens and a flag makes you name what position already says. The cost is a disambiguation rule, and the skill writes that rule down instead of leaving it to inference:</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Token shape</th><th>Read as</th></tr></thead>
+				<tbody>
+					<tr><td>First token, path-like or an @-mention</td><td>The target. Absent, it falls back to the document last discussed in the conversation, then asks.</td></tr>
+					<tr><td>A bare slug: <code>bob</code></td><td>A persona, looked up in the store, then in the person dossier.</td></tr>
+					<tr><td>Short capitalised name, colon, brief: <code>"Priya: only reads tables"</code></td><td>An inline persona. Nine fields inferred from the brief, printed for correction.</td></tr>
+					<tr><td>Anything after <code>--</code>, or any other free text</td><td>Failure conditions, folded into every pass.</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3>The Four Persona Routes</h3>
+
+		<ul>
+			<li><strong>Known slug.</strong> Loaded from the store, no questions.</li>
+			<li><strong>A real person.</strong> A slug matching a file in the person dossier derives a review profile from what is already recorded about them, then asks only about the gaps.</li>
+			<li><strong>Unknown slug.</strong> Typo guard first, since <code>cedrick</code> against <code>cedric</code> should not spawn a duplicate reader. Then the interview, then the write, then the report.</li>
+			<li><strong>Inline brief.</strong> The guessy path, kept deliberately cheap. It infers the nine fields and shows its inferences, and it does not interrogate you for the rest.</li>
+		</ul>
+
+		<p>Naming no persona prints the roster and asks. The suggested pair is marked in the store and never picked silently, because a default reader produces a report calibrated to nobody.</p>
+
+		<p>The cap is two. A third reader dilutes the report into a general review, and the value on the page comes from the contrast between two people who reject a document for incompatible reasons.</p>
+	</div>
+</details>
+
+<details class="sec s2" id="personas">
+	<summary><span class="secnum">05</span><span class="stitle">Nine Fields</span><span class="chip k3">specified</span></summary>
+<div class="sec-body">
+		<p>A persona started as four fields: what they read, what they skip, what sets them off, what their rejection looks like. That models a reading pattern. It does not model a person, and a reading pattern cannot predict which paragraph gets read hostilely.</p>
+
+		<p>Five fields were added, and the order was changed to put motive first:</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Field</th><th>Question</th><th>What it generates</th></tr></thead>
+				<tbody>
+					<tr><td>Needs</td><td>What decision did they open this to make?</td><td>The "left without what they came for" class of finding</td></tr>
+					<tr><td>Stake</td><td>What are they protecting?</td><td>Content-targeted findings: the passage that touches their turf</td></tr>
+					<tr><td>Power</td><td>What can they do to it?</td><td>Ranking across readers, which sets the order of fire</td></tr>
+					<tr><td>Fluency</td><td>How much vocabulary do they carry?</td><td>Whether an undefined term is a nitpick or a wall</td></tr>
+					<tr><td>Reads</td><td>What do they consume, in order?</td><td>Where in the document a finding has to live to land</td></tr>
+					<tr><td>Skips</td><td>What will they not open?</td><td>Content stranded where they will never go</td></tr>
+					<tr><td>Trigger</td><td>What makes them reject it outright?</td><td>The section's spine</td></tr>
+					<tr><td>Charity</td><td>How much benefit of the doubt?</td><td>Whether a typo counts as an item at all</td></tr>
+					<tr><td>Verdict style</td><td>What does rejection look like?</td><td>How recoverable the rejection is</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3>Why the Two Seeded Readers Work</h3>
+
+		<p>Bob and Cedric are useful together because they disagree on the fields that decide what evidence is lethal, rather than only on which sections they open:</p>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th></th><th>bob</th><th>cedric</th></tr></thead>
+				<tbody>
+					<tr><td>Needs</td><td>A decision he can defend upward</td><td>A claim that fails</td></tr>
+					<tr><td>Power</td><td>Veto, costs a full cycle</td><td>No veto, blocks by attrition</td></tr>
+					<tr><td>Fluency</td><td>Business domain only, will not look a term up</td><td>Fully fluent</td></tr>
+					<tr><td>Charity</td><td>Generous on detail, unforgiving on structure</td><td>None, a typo counts</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<p>Bob forgives a wrong figure buried in a deep section. Cedric hangs the document on it. Two readers who share those four answers are one reader, and the skill says so during the interview: if the answers land close to an existing persona, it asks what separates them.</p>
+
+		<h3>The Interview</h3>
+
+		<p>Nine fields, three rounds of three, grouped motive then reading then judgement. Every field offers prompt options that hand over to your own answer, since a menu of four archetypes cannot contain a real colleague.</p>
+
+		<p>The interviewed persona is written to the store <span class="mark">before the report starts</span>. An abandoned run still leaves the definition behind, and the next run gets it as a bare slug.</p>
+
+		<h3>Real People as Readers</h3>
+
+		<p>Bob and Cedric were always stand-ins. The config keeps a person dossier, one gitignored file per colleague, holding what is actually known about them: role, expertise and its limits, what they care about. A persona slug matching one of those files derives a review profile from the entry instead of asking nine questions from cold.</p>
+
+		<p>Some fields survive that jump and some do not. Fluency comes out of recorded expertise; Stake comes out of role and ownership; Needs comes out of their relationship to the work. Power, Reads, Skips and Charity are almost never written down, because reading habits and how much slack someone cuts you only show up under pressure. So the derived fields are printed with the line they came from, the gaps get one short round of questions, and the result is written to the persona store rather than back into the person's file.</p>
+
+		<div class="ev">
+			<span class="tag">The line that split the two files</span>
+			<p>How someone reviews a document is inference about them. Their dossier holds facts. Keeping the review model in a separate file, labelled as a model and corrected there, is what stops a factual record about a colleague quietly filling with predictions about their temperament.</p>
+		</div>
+
+		<p>That split is why the dossier is a separate skill with a separate family rather than a section of this one. It fires on its own, mid-conversation, whenever a durable fact about a colleague lands; it knows nothing about documents or reviews. This skill is the only thing that reads a person file and turns it into a prediction, and the traffic runs one way.</p>
+
+		<a class="sibling" href="../dossier/record.html">
+			<span class="fam">dossier family · where the facts come from</span>
+			<span class="t">Everyone Gets a File → /dossier-record</span>
+			<span class="d">The skill that writes the person files this section derives from. Read it for the schema, the marked-inference rule and the reason nothing here is ever written back into a dossier.</span>
+		</a>
+
+		<div class="ev three">
+			<span class="tag">Provenance</span>
+			<p>The interview has never been run. Bob and Cedric were written by hand from the original prompt, so the nine-field schema has been filled twice, both times by me rather than through the flow the skill specifies.</p>
+		</div>
+	</div>
+</details>
+
+<details class="sec s2" id="scanner">
+	<summary><span class="secnum">06</span><span class="stitle">The Scanner</span><span class="chip k2">verified</span></summary>
+<div class="sec-body">
+		<p><code>slop-scan.py</code> is stdlib-only Python that finds candidates and locates them. It decides nothing.</p>
+
+		<h3>Extraction</h3>
+
+		<p>Line numbers have to survive, or a finding cannot be located in the source. So <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> bodies are blanked with the same number of newlines they contained, tags are stripped line by line, entities are unescaped and curly apostrophes are normalised to straight ones so patterns like <code>isn'?t</code> keep matching.</p>
+
+		<h3>What It Counts</h3>
+
+		<div class="tablewrap">
+			<table>
+				<thead><tr><th>Group</th><th>Looking for</th></tr></thead>
+				<tbody>
+					<tr><td>House-rule breaches</td><td>Em dashes, spaced en dashes, Oxford commas, <code>-ize</code>, American spellings and usage</td></tr>
+					<tr><td>Contrastive couplets</td><td><code>not just</code>, <code>rather than</code>, <code>instead of</code>, <code>it's not X, it's Y</code>, <code>X, not Y</code></td></tr>
+					<tr><td>First person</td><td>Bare <code>I</code>, contractions, <code>my</code>, <code>we</code></td></tr>
+					<tr><td>Hedge boilerplate</td><td><code>directionally</code>, <code>something resembling</code>, <code>arguably</code>, <code>worth noting</code></td></tr>
+					<tr><td>Intensifiers</td><td><code>precisely</code>, <code>exactly</code>, <code>genuinely</code>, <code>fundamentally</code></td></tr>
+					<tr><td>LLM lexicon</td><td><code>delve</code>, <code>tapestry</code>, <code>at its core</code>, <code>robust</code>, <code>underscores</code>, <code>unpack</code></td></tr>
+					<tr><td>Rule of three</td><td>Literal <code>three</code>, and comma triads</td></tr>
+					<tr><td>Numeral clashes</td><td>The same noun quantified as a digit and as a word</td></tr>
+					<tr><td>Verbatim repetition</td><td>Eight-word runs appearing on two different lines</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<p>The last two are the ones that earn their complexity. <strong>Numeral clashes</strong> catch a house-style inconsistency no reader spots by eye: <code>five entity types</code> in one section and <code>the 5 seeded types</code> in another. <strong>Verbatim repetition</strong> is a rehash detector, which is the exact trigger one of the seeded readers rejects documents for, and it reports both line numbers so the two passages can be quoted against each other.</p>
+
+		<h3>Verified Against a Real Document</h3>
+
+		<p>Run over the CHIRPdb design page the original dossier attacked, the scanner independently reproduced the counts that report arrived at by hand:</p>
+
+<pre><code><span class="c">$ python3 ~/.claude/library/scripts/slop-scan.py docs/artefacts/narrative-entity-design.html</span>
+
+## First person and self-narration  (54)
+  bare I: 39
+  I'm / I'll / I've / I'd: 12
+
+## Contrastive couplets and rhetorical defaults  (26)
+  rather than: 11
+  not just / not only: 5
+
+## House-rule breaches  (2)
+  American usage: 1
+    L979: …I weighted the sample <span class="k">toward</span> the hard cases on…</code></pre>
+
+		<p>Thirty-nine bare <code>I</code>, twelve contractions, the lone Americanism. Em dashes now read zero, because that document was corrected after the original report. The finding was real when it was made and the page has since moved on.</p>
+
+		<div class="ev two">
+			<span class="tag">Candidates, not findings</span>
+			<p>A count is only evidence when the repetition is the point. Twenty-three instances of one rhetorical move across three thousand words is a finding. Three uses of the word <code>actually</code> is noise, and reporting it weakens everything around it.</p>
+		</div>
+
+		<p>One implementation note worth stealing: naive regex lies. <code>\w+ize</code> matches <em>size</em>, <em>prize</em>, <em>capsize</em> and <em>seize</em>, so the matches are filtered against a stem stoplist after the match rather than fought with lookarounds. Same class of bug hid in the first-person group, where <code>we'?re</code> silently matched every instance of <em>were</em>.</p>
+	</div>
+</details>
+
+<div class="strand s3">
+	<span class="roman">III</span><h2>The Output</h2>
+	<span class="scope">passes · report · rules · running it</span>
+</div>
+
+<details class="sec s3" id="passes">
+	<summary><span class="secnum">07</span><span class="stitle">The Four Passes</span><span class="chip k1">derived</span></summary>
+<div class="sec-body">
+		<p>Each pass runs over the whole document and repeats until a full pass turns up nothing new. Examples below are verbatim from the dossier the skill was built from.</p>
+
+		<h3>Pass One: AI Slop</h3>
+
+		<p>Every entry carries evidence, location and <strong>why it is slop</strong>. The why is the load-bearing part: it names the tell, meaning what the passage reveals about how the text was produced. An entry without one is a complaint about taste.</p>
+
+		<div class="ev">
+			<span class="tag">A1 · layer gap</span>
+			<p class="quoted">"Deep dive — schema mechanics", "— adjudication and iteration", "— the rest of the naming policy" …</p>
+			<p class="why"><b>Why it's slop</b> The em dash is the single most reliable surface marker of unedited LLM prose, and this house bans it outright. One instance is a slip. Nine, in the same structural slot, is a template that nobody read back. The prose body has zero em dashes, which proves the ban was applied to the paragraphs and never to the furniture.</p>
+		</div>
+
+		<p>That gap between an edited layer and an unedited one is the strongest category, because it survives argument. The same run found <span class="mark">comma soup</span> where dashes had been stripped without the restructuring the rule requires, and a single <code>toward</code> in a document that spells <em>canonicalise</em>, <em>organisation</em> and <em>anonymises</em> the British way, because spellcheckers flag <code>-ize</code> and never flag <em>toward</em>.</p>
+
+		<p>Four more categories sit alongside it:</p>
+
+		<ul>
+			<li><strong>Rhetorical defaults.</strong> The contrastive couplet manufactures insight by rejecting a claim nobody made. Counted across the page: <code>rather than</code> ×10, <code>not just</code> ×5, <code>precisely</code> ×3, <code>exactly</code> ×3, <code>instead of</code> ×2. Twenty-three repetitions of define-by-contrast is generation optimising each sentence locally with no memory of the previous paragraph's cadence.</li>
+			<li><strong>Epistemic theatre.</strong> Hedges landing on the safe claims whilst the load-bearing figures go bare. On that page, <em>directionally right</em> and <em>indicative rather than exact</em> guard the modest numbers; "about 97%" and "tens of millions of row scans" carry no source and no derivation at all.</li>
+			<li><strong>False precision.</strong> 341,057 sentence rows and 196,289 characters, in a document whose evidence base is samples of 16, 24, 25 and 60. Six significant figures imply a measurement programme the page then admits it never ran.</li>
+			<li><strong>Generation artefacts.</strong> A metaphor introduced without definition then reused two sections later as though established. Register alternating block by block, casual fragments against formal specification prose, with no voice governing which appears where.</li>
+		</ul>
+
+		<div class="ev">
+			<span class="tag">A15 · slop that is also wrong</span>
+			<p class="quoted">"the one place <strong>he's</strong> actually named"</p>
+			<p class="why"><b>Why it's slop</b> The same page states that MAIB anonymises by policy, so the skipper's gender is not in evidence. A default-male pronoun is a training prior overriding the document's own stated facts. It is the one item that is simultaneously a style tell and a factual error, which makes it the hardest to argue with.</p>
+		</div>
+
+		<h3>Pass Two: Self-Indulgence</h3>
+
+		<p>Passages doing something for the author rather than the reader. A vanity masthead counting 341,057 sentence rows that no claim on the page rests on. A whole section, with its own deep dive and validation strategy, for a feature explicitly not being built. First person fifty-one times in a document about a database schema and a controlled vocabulary.</p>
+
+		<h3>Pass Three: One Section per Reader</h3>
+
+		<p>Built from all nine fields, worked in order, because each one narrows what the next looks for. Needs before reading pattern: find the point at which they cannot make the decision they came to make. Then Stake, which aims the search at content. Then Fluency and Charity, which decide whether whole classes of finding count at all.</p>
+
+		<div class="ev">
+			<span class="tag">B1 · a reader defined by what he skips</span>
+			<p>"The experiment" TLDR promises six distinct extraction approaches and the core text never names one of them. The entire proposal is the arms table, and the arms table is deep-dive only. He will not open it, and he will be angrier about what was hidden behind it.</p>
+		</div>
+
+		<div class="ev">
+			<span class="tag">C1 · a reader defined by forensics</span>
+			<p>The page says the busiest single description in a sixteen-document sample reaches 292 mentions, and withholds which one. The source doc names it: <em>vessel</em>. Two sections earlier the same page calls the generic phrase "the vessel" exactly the boilerplate that must not be admitted as an entity. The only measurement overturning committed code and an approved ADR is a count of a string the design promises to reject.</p>
+			<p class="why"><b>Why it lands</b> Withholding the identifier is what turns an error into a problem. This one was found by reading the cited source, not the document, which is why the skill reads sources before it reads the target twice.</p>
+		</div>
+
+		<h3>Pass Four: Named Failure Conditions</h3>
+
+		<p>Runs only when the fourth positional argument supplied criteria the standing passes do not cover. Same evidence discipline, its own section.</p>
+	</div>
+</details>
+
+<details class="sec s3" id="report">
+	<summary><span class="secnum">08</span><span class="stitle">The Report</span><span class="chip k1">derived</span></summary>
+<div class="sec-body">
+		<p>Printed in a fixed order, so two runs over different documents are comparable:</p>
+
+		<ol class="body">
+			<li>Title and provenance: which sources were read, and the note that ✅ marks repo-confirmed items</li>
+			<li>The kill shot, in two or three sentences, with why one instance is enough</li>
+			<li>Section 1, AI slop: <code>A1</code>, <code>A2</code> … evidence, where, why it is slop</li>
+			<li>Section 2, self-indulgence, numbered</li>
+			<li>A section per reader, opened by the lens that produced it, items prefixed by initial</li>
+			<li>Named failure conditions, when there are any</li>
+			<li>Recommended order of fire</li>
+			<li>Real defects: which items are genuine bugs</li>
+		</ol>
+
+		<h3>Order of Fire</h3>
+
+		<div class="ev">
+			<span class="tag">From the original run</span>
+			<p class="quoted">C1, then A1, then B1. The first shows the evidence base is unsound, the second shows it was not edited, the third shows it cannot be read. The other ninety are the dossier.</p>
+		</div>
+
+		<p>Three shots, each attacking a different axis, which is what stops a dossier of ninety items collapsing into noise. The skill changed one thing about that ordering: it now ranks by <strong>Power</strong> rather than by how good the finding is. The item that lands with the reader who can veto goes first, even when a sharper item exists against the reader who can only block by attrition, and the report says which reader each shot is for.</p>
+
+		<h3>The Closing Note</h3>
+
+		<p>The last section separates genuine defects from debating points. In the original run two items survived that filter: the 292-mention count, and a <code>CHECK</code> constraint that permitted exactly the silent-gap failure the escape hatch existed to close. The dossier is hostile all the way through and the closing note is honest, because the author has to know which items are bugs.</p>
+
+		<h3>Where It Goes</h3>
+
+		<p>Printed first, then refined in conversation, then saved on approval to <code>docs/reports/adversarial/{slug}-red-team.md</code>. Nothing is written before you approve it, since the first draft of a hostile report is the one most likely to have overreached.</p>
+	</div>
+</details>
+
+<details class="sec s3" id="rules">
+	<summary><span class="secnum">09</span><span class="stitle">Rules It Holds Itself To</span><span class="chip k3">specified</span></summary>
+<div class="sec-body">
+		<ul>
+			<li><strong>Information content only.</strong> Layout, typography and visual design are invalid targets, unless the failure-conditions argument makes them fair game. Without this the report fills with easy points about margins.</li>
+			<li><strong>Quote verbatim, locate precisely.</strong> Section name or heading, line numbers where the target is code or Markdown. An item you cannot quote does not exist.</li>
+			<li><strong>✅ means the source was read.</strong> Never on an inference. The mark is worthless the first time it appears on something that was guessed.</li>
+			<li><strong>No invention.</strong> A pass that yields little gets reported as little, with the axis named clean.</li>
+			<li><strong>The report obeys the house rules it enforces.</strong> British spelling, no em dashes, no couplets, no Oxford commas. A slop dossier written in slop hands its target the counter-argument for free.</li>
+		</ul>
+
+		<p>That last rule is testable, so it gets tested. The scanner runs over this page too.</p>
+	</div>
+</details>
+
+<details class="sec s3" id="run">
+	<summary><span class="secnum">10</span><span class="stitle">Run It</span><span class="chip k3">specified</span></summary>
+<div class="sec-body">
+
+		<h3>The Four Shapes</h3>
+
+<pre><code><span class="c"># saved readers</span>
+<span class="k">/red-sabotage</span> docs/artefacts/design.html bob cedric
+
+<span class="c"># no reader named: prints the roster and asks</span>
+<span class="k">/red-sabotage</span> docs/artefacts/design.html
+
+<span class="c"># unknown slug: typo guard, then nine questions, then written to the store</span>
+<span class="k">/red-sabotage</span> proposal.md priya
+
+<span class="c"># list the roster and stop</span>
+<span class="k">/red-sabotage</span> personas</code></pre>
+
+		<h3>A Blank Reader</h3>
+
+		<p>Nine fields, one line each, appended above the trailing comment in the store. Slug as the heading:</p>
+
+<pre><code><span class="c">## slug</span>
+
+**Needs:** the decision they opened it to make
+**Stake:** what they are protecting
+**Power:** what they can actually do to it
+**Fluency:** how much vocabulary they carry
+**Reads:** what they consume, in order
+**Skips:** what they will not open, and whether that is principle
+**Trigger:** what makes them reject it outright
+**Charity:** how much benefit of the doubt they extend
+**Verdict style:** what their rejection looks like</code></pre>
+
+		<h3>The Scanner on Its Own</h3>
+
+<pre><code><span class="c"># any .md, .html or .txt; --top sets examples per pattern</span>
+python3 ~/.claude/library/scripts/slop-scan.py TARGET --top 6
+
+<span class="c"># widen the repetition window from the default 8 words</span>
+python3 ~/.claude/library/scripts/slop-scan.py TARGET --shingle 12</code></pre>
+
+		<p>Useful on its own, before any of the rest of it. Pointing it at your own draft takes a second and tells you whether the style pass reached every layer of the document.</p>
+	</div>
+</details>
+
+</div>
+
+<footer>
+	<details class="sources">
+		<summary>Sources</summary>
+		<ul><li><code>~/.claude/skills/red-sabotage/SKILL.md</code>, <code>library/references/sabotage-personas.md</code>, <code>library/scripts/slop-scan.py</code>, all written 15 August 2026</li>
+		<li>Scanner output measured against <code>CHIRPdb/docs/artefacts/narrative-entity-design.html</code> on 15 August 2026</li>
+		<li>Quoted findings from <code>CHIRPdb/docs/reports/adversarial/narrative-entity-design-red-team.md</code>, dated 15 August 2026</li>
+		<li>Conventions applied from <code>library/references/artefact-conventions.md</code> and <code>skills/clod-approach-writing_style/SKILL.md</code></li>
+		<li>Companion page: <a href="../dossier/record.html">/dossier-record</a>, the dossier-family skill that writes the person files section 05 derives personas from</li></ul>
+	</details>
+</footer>
+
+</div>
+
+<script>
+(function(){
+	var secs = Array.prototype.slice.call(document.querySelectorAll('details.sec'));
+	function openTarget(hash){
+		if(!hash) return;
+		var el = document.querySelector(hash);
+		if(el && el.tagName === 'DETAILS') el.open = true;
+	}
+	document.querySelectorAll('a[href^="#"]').forEach(function(a){
+		a.addEventListener('click', function(){ openTarget(a.getAttribute('href')); });
+	});
+	window.addEventListener('hashchange', function(){ openTarget(location.hash); });
+	openTarget(location.hash);
+
+	document.getElementById('expandAll').addEventListener('click', function(){ secs.forEach(function(d){ d.open = true; }); });
+	document.getElementById('collapseAll').addEventListener('click', function(){ secs.forEach(function(d){ d.open = false; }); });
+
+	var root = document.documentElement;
+	document.getElementById('themeToggle').addEventListener('click', function(){
+		var now = root.getAttribute('data-theme');
+		var dark = now ? now === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+		root.setAttribute('data-theme', dark ? 'light' : 'dark');
+	});
+
+	// sidebar contents: open on wide screens, mark the section in view
+	var toc = document.getElementById('toc');
+	function syncToc(){ if(window.matchMedia('(min-width:1080px)').matches) toc.open = true; }
+	syncToc(); window.addEventListener('resize', syncToc);
+	var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+	var obs = new IntersectionObserver(function(entries){
+		entries.forEach(function(e){
+			var a = links.filter(function(l){ return l.getAttribute('href') === '#' + e.target.id; })[0];
+			if(a && e.isIntersecting){ links.forEach(function(l){ l.classList.remove('on'); }); a.classList.add('on'); }
+		});
+	}, {rootMargin:'-20% 0px -70% 0px'});
+	secs.forEach(function(d){ obs.observe(d); });
+
+	var before = null;
+	window.addEventListener('beforeprint', function(){
+		before = secs.map(function(d){ return d.open; });
+		secs.forEach(function(d){ d.open = true; });
+	});
+	window.addEventListener('afterprint', function(){
+		if(before) secs.forEach(function(d,i){ d.open = before[i]; });
+		before = null;
+	});
+})();
+</script>

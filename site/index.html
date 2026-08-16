@@ -1,0 +1,236 @@
+<title>Goblin Mode</title>
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+/*
+	PALETTE — the index has no metadata.family, so it takes no hue.
+	k1/k2/k3 stay at the neutral defaults in site.css; every colour on this page
+	belongs to a card and is that skill's family hue.
+
+	--fam-config   amber-4 (#926700) / amber-3 dark
+	--fam-red      red-4   (#e0002b) / red-3 dark
+	--fam-dossier  indigo-4(#0061fc) / indigo-3 dark
+	Source: library/references/reasonable-colors-reference.md
+*/
+:root{
+	--fam-config:#926700;  --fam-config-soft:#ffe0b2;  --fam-config-deep:#523800;
+	--fam-red:#e0002b;     --fam-red-soft:#ffddd8;     --fam-red-deep:#830014;
+	--fam-dossier:#0061fc; --fam-dossier-soft:#deddff; --fam-dossier-deep:#00328a;
+}
+@media (prefers-color-scheme:dark){
+	:root:not([data-theme="light"]){
+		--fam-config:#b98300;  --fam-config-soft:rgba(185,131,0,.22);  --fam-config-deep:#ffe0b2;
+		--fam-red:#ff4647;     --fam-red-soft:rgba(255,70,71,.22);     --fam-red-deep:#ffddd8;
+		--fam-dossier:#657eff; --fam-dossier-soft:rgba(101,126,255,.22); --fam-dossier-deep:#deddff;
+	}
+}
+:root[data-theme="dark"]{
+	--fam-config:#b98300;  --fam-config-soft:rgba(185,131,0,.22);  --fam-config-deep:#ffe0b2;
+	--fam-red:#ff4647;     --fam-red-soft:rgba(255,70,71,.22);     --fam-red-deep:#ffddd8;
+	--fam-dossier:#657eff; --fam-dossier-soft:rgba(101,126,255,.22); --fam-dossier-deep:#deddff;
+}
+.card.config{--accent:var(--fam-config); --accent-soft:var(--fam-config-soft); --accent-deep:var(--fam-config-deep)}
+.card.red{--accent:var(--fam-red); --accent-soft:var(--fam-red-soft); --accent-deep:var(--fam-red-deep)}
+.card.dossier{--accent:var(--fam-dossier); --accent-soft:var(--fam-dossier-soft); --accent-deep:var(--fam-dossier-deep)}
+.sw-config{--sw:var(--fam-config)} .sw-red{--sw:var(--fam-red)}
+.sw-dossier{--sw:var(--fam-dossier)} .sw-none{--sw:var(--rule-strong)}
+/* no override: the hub uses the same rail + main shell as every other page */
+</style>
+
+<div class="bar">
+	<span class="cmd">goblin mode</span>
+	<span class="sep">·</span>
+	<span class="desc">how the skills in ~/.claude are built</span>
+	<span class="tools">
+		<button id="themeToggle" type="button">theme</button>
+	</span>
+</div>
+
+<div class="shell">
+
+<header>
+	<div class="eyebrow">~/.claude · 16 August 2026</div>
+	<h1>Goblin Mode</h1>
+	<p class="lede">Long-form pages on how individual skills in this config are built and why they are built that way. One page per skill, each in its family's colour, each honest about which of its behaviour has actually run.</p>
+	<div class="statline"><span><b>52</b> skills in the config</span></div>
+
+	<details class="legend">
+		<summary>Legend</summary>
+		<div class="lbody">
+			<div class="tablewrap">
+				<table>
+					<thead><tr><th>Family</th><th>Hues</th><th>Reading</th></tr></thead>
+					<tbody>
+						<tr><td><span class="swatch sw-config"></span><code>config</code></td><td>amber, emerald</td><td>Inherited from the first page written in this family</td></tr>
+						<tr><td><span class="swatch sw-red"></span><code>red</code></td><td>red, teal, cinnamon</td><td>A marking pen on a document somebody wants dead</td></tr>
+						<tr><td><span class="swatch sw-dossier"></span><code>dossier</code></td><td>indigo, violet, grey</td><td>Ink in a ledger; violet for inference, grey for what stays private</td></tr>
+						<tr><td><span class="swatch sw-none"></span>this index</td><td>grey only</td><td>No family, so no hue</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</details>
+</header>
+
+<details class="toc" id="toc">
+	<summary>Pages</summary>
+	<div>
+		<div class="strandlab">I · Conventions</div>
+		<ol>
+			<li><span class="n">01</span><a href="concepts/skills-frontmatter.html">A Skill Is One Goblin</a></li>
+			<li><span class="n">02</span><a href="concepts/skills-metadata.html">Metadata Is Whatever I Say It Is</a></li>
+			<li><span class="n">03</span><a href="concepts/skills-tutorial.html">Some Assembly Required</a></li>
+		</ol>
+		<div class="strandlab">II · Skill Explainers</div>
+		<ol>
+			<li><span class="n">04</span><a href="families/dossier/record.html">Everyone Gets a File</a></li>
+			<li><span class="n">05</span><a href="families/red/sabotage.html">Bob Will Not Open the Deep Dive</a></li>
+		</ol>
+	</div>
+</details>
+
+<div class="main">
+
+<section class="group">
+	<h2><span class="roman">I</span>Conventions</h2>
+
+	<div class="cards">
+		<a class="card config" href="concepts/skills-frontmatter.html">
+			<div class="top">
+				<span class="fam">config</span>
+				<span class="slug">skills-frontmatter</span>
+			</div>
+			<div class="swap">
+				<h3>A Skill Is One Goblin</h3>
+				<div class="reveal">
+					<p class="hook">Every field in a <code>SKILL.md</code>, annotated.</p>
+					<div class="facts">
+						<span><b>52</b> skills</span>
+						<span><b>3</b> invocation modes</span>
+					</div>
+					<span class="go">read →</span>
+				</div>
+			</div>
+		</a>
+
+		<a class="card config" href="concepts/skills-metadata.html">
+			<div class="top">
+				<span class="fam">config</span>
+				<span class="slug">skills-metadata</span>
+			</div>
+			<div class="swap">
+				<h3>Metadata Is Whatever I Say It Is</h3>
+				<div class="reveal">
+					<p class="hook">Nothing upstream reads the <code>metadata</code> block.</p>
+					<div class="facts">
+						<span><b>19</b> families</span>
+						<span>no schema, no validator</span>
+					</div>
+					<span class="go">read →</span>
+				</div>
+			</div>
+		</a>
+
+		<a class="card config" href="concepts/skills-tutorial.html">
+			<div class="top">
+				<span class="fam">config</span>
+				<span class="slug">skills-tutorial</span>
+			</div>
+			<div class="swap">
+				<h3>Some Assembly Required</h3>
+				<div class="reveal">
+					<p class="hook">A hands-on build, from empty directory to working family.</p>
+					<div class="facts">
+						<span><b>3</b> skills</span>
+						<span><b>1</b> script</span>
+						<span><b>1</b> config</span>
+					</div>
+					<span class="go">read →</span>
+				</div>
+			</div>
+		</a>
+	</div>
+</section>
+
+<section class="group">
+	<h2><span class="roman">II</span>Skill Explainers</h2>
+
+	<p class="lede" style="font-size:.98rem; margin:-.3rem 0 1.2rem">Two skills, two families, one shared design problem: both hold a model of a person.</p>
+
+	<div class="cards">
+		<a class="card dossier" href="families/dossier/record.html">
+			<div class="top">
+				<span class="fam">dossier</span>
+				<span class="slug">/dossier-record</span>
+			</div>
+			<div class="swap">
+				<h3>Everyone Gets a File</h3>
+				<div class="reveal">
+					<p class="hook">A private file per colleague, one durable fact at a time.</p>
+					<div class="facts">
+						<span><b>3</b> sections per person</span>
+						<span><b>1</b> gate</span>
+					</div>
+					<span class="go">read →</span>
+				</div>
+			</div>
+		</a>
+
+		<a class="card red" href="families/red/sabotage.html">
+			<div class="top">
+				<span class="fam">red</span>
+				<span class="slug">/red-sabotage</span>
+			</div>
+			<div class="swap">
+				<h3>Bob Will Not Open the Deep Dive</h3>
+				<div class="reveal">
+					<p class="hook">Adversarial review of a document, written as the colleague who wants it dead.</p>
+					<div class="facts">
+						<span><b>9</b> persona fields</span>
+						<span><b>4</b> passes</span>
+					</div>
+					<span class="go">read →</span>
+				</div>
+			</div>
+		</a>
+	</div>
+
+	<details class="note">
+		<summary>How the Two Connect</summary>
+		<div class="nbody">
+			<p><code>/dossier-record</code> writes facts about a real person. <code>/red-sabotage</code> turns a person into a nine-field model of how they review a document.</p>
+			<p>When a persona slug matches a dossier file, red-sabotage derives what it can from the recorded facts and interviews for the rest, then writes the result to the persona store. Nothing flows back the other way, because a prediction about someone's temperament must never end up filed as a fact about them.</p>
+		</div>
+	</details>
+</section>
+
+</div>
+
+<footer>
+	<details class="sources">
+		<summary>Sources</summary>
+		<ul>
+			<li>Skill and family counts from <code>~/.claude/skills/*/SKILL.md</code> frontmatter, 16 August 2026: 52 skills across 19 declared families, every skill carrying one</li>
+			<li>Per-page counts restated from each page's own statline</li>
+			<li>Palette rules from <code>library/references/artefact-conventions.md</code>; hue values from <code>library/references/reasonable-colors-reference.md</code></li>
+			<li>Shared layout in <code>/assets/site.css</code>; each page supplies only its family palette</li>
+		</ul>
+	</details>
+</footer>
+
+</div>
+
+<script>
+(function(){
+	var toc = document.getElementById('toc');
+	function syncToc(){ if(window.matchMedia('(min-width:1080px)').matches) toc.open = true; }
+	syncToc(); window.addEventListener('resize', syncToc);
+
+	var root = document.documentElement;
+	document.getElementById('themeToggle').addEventListener('click', function(){
+		var now = root.getAttribute('data-theme');
+		var dark = now ? now === 'dark'
+			: window.matchMedia('(prefers-color-scheme: dark)').matches;
+		root.setAttribute('data-theme', dark ? 'light' : 'dark');
+	});
+})();
+</script>
