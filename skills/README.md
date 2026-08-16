@@ -24,8 +24,6 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/artefact-roadmap` | ᚺ haiku | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
 | `/branch-integrate` | ᛊ sonnet | Integrate a target branch into the current one by merge, rebase or squash |
 | `/branch-qa_review` | ᛟ opus | Assess branch readiness for PR submission: full review methodology plus the checks only a local chec… |
-| `/commit-batch` | ᚺ haiku | Split uncommitted changes into granular commits. |
-| `/commit-one` | ᚺ haiku | Generate a commit message. If nothing staged, stage all changes. |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
@@ -35,6 +33,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/pr-land` | ᛊ sonnet | Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up |
 | `/project-audit_deps` | ᛊ sonnet | Investigate this repo's dependencies in detail |
 | `/project-tag_version` | ᚺ haiku | Tag the release after a merge to main, computing the next semver tag with svu |
+| `/red-sabotage` | ᛟ opus | Adversarial review of a document written as the colleague trying to kill it, aimed at one or two nam… |
 | `/roadmap-create` | ᛟ opus | Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHA… |
 | `/roadmap-migrate` | ᛊ sonnet | Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json… |
 
@@ -46,10 +45,14 @@ Claude can load these automatically when relevant.
 
 | Skill | Model | Description |
 |-------|-------|-------------|
+| `/artefact-conventions` |  | Jason's structural and epistemic-honesty conventions for every artefact Claude creates |
 | `/branch-rename` | ᚺ haiku | Check the current branch name against convention (type/short-description) and rename it if it drifte… |
 | `/clod-config-skill_conventions` |  | Jason's placement, invocation and metadata conventions for creating or editing skills |
+| `/commit-batch` | ᚺ haiku | Split uncommitted changes into granular commits. |
+| `/commit-one` | ᚺ haiku | Generate a commit message. If nothing staged, stage all changes. |
 | `/doc-changelog` | ᚺ haiku | Build or update the changelog from conventional commits and project it to every surface the project… |
 | `/doc-readme` | ᛊ sonnet | Create or update a README for the project root or any directory |
+| `/dossier-record` |  | Record a durable fact about a person Jason works with, in their own dossier file |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language and shepherd safe create/remove actions |
 | `/next-task-suggest` | ᚺ haiku | Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signal… |
