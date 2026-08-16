@@ -33,7 +33,7 @@ git diff --stat HEAD
      2. Commit with the proposed message
      3. Confirm success before moving to the next group
    - If changes requested, revise the plan and repeat from step 3.
-5. After all commits, push to upstream.
+5. Report the commits made and stop. **Do not push.** Publishing is a separate decision from committing; the user pushes, or asks for it explicitly.
 
 ## Grouping Guidelines
 

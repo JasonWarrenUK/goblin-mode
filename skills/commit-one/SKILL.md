@@ -24,9 +24,10 @@ git diff --cached --stat
 
 1. Per the state above: if no changes staged, stage all. If files are already staged, *do not* stage more files.
 2. Generate commit message per conventional commits format, honouring `$hint` (a type, scope or emphasis nudge) when given.
-3. Show message and await approval:
-    - If approved, push to upstream
+3. Show the message and await approval:
+    - If approved, commit with it
     - If changes requested, revise and repeat
+4. Report the commit and stop. **Do not push.** Publishing is a separate decision from committing; the user pushes, or asks for it explicitly.
 
 <template format-reference="https://www.conventionalcommits.org/en/v1.0.0/">
   `type(scope?): description\n\nbody (optional)\n\nBREAKING CHANGE: footer (if applicable)`
