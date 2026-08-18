@@ -3,7 +3,7 @@
 | Prop | Value |
 |------|-------|
 | Started | 2026-08-13 |
-| Status | AUDIT COMPLETE (2026-08-14). Phase 10 artefact published: https://claude.ai/code/artifact/abf1c959-e14d-4d7b-94b4-4026819fa6f9 (repo copy: `docs/artefacts/skills-frontmatter.html`) |
+| Status | AUDIT COMPLETE (2026-08-14). Phase 10 artefact published: https://claude.ai/code/artifact/abf1c959-e14d-4d7b-94b4-4026819fa6f9 (repo copy: `site/concepts/skills-frontmatter.html`, moved there from `docs/artefacts/` in `acd38bb`) |
 | Skills | 47 (was 56: nine ditched, one merged) |
 
 Record of decisions for every skill across every audit step. Each cell starts as `TBD`; a completed step fills in the decision and (where non-obvious) the reasoning. Steps are completed for ALL skills before moving to the next step.
