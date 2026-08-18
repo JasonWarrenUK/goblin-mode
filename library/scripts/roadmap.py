@@ -35,6 +35,7 @@ import os
 import re
 import sys
 import tempfile
+import zlib
 from datetime import datetime
 from pathlib import Path
 
@@ -107,6 +108,77 @@ STATUS_TO_CLASS = {
 }
 _STATS_ORDER = ["done", "todo", "blocked", "paused", "deferred", "out_of_scope"]
 _LABEL_MAX = 48
+
+# ---------------------------------------------------------------------------
+# Milestone-level derived state (distinct from task status above). A
+# milestone is not itself a task, so it has no `status` field to read; its
+# state is derived from its member tasks' byStatus counts. Four states,
+# ordered as the artefact's Overview sort wants them: deferred first (a
+# top-level "shelved" partition, ahead of percentage), then inProgress, todo,
+# done. blocked/paused surface as their own milestone-card colour but are not
+# part of that four-way partition. Azure is the one status-adjacent colour
+# with no task-status claim on it (see roadmap-conventions.md); it reads as
+# "live and moving" without being confused with any task-status hue.
+#
+# The state->CSS-var mapping lives once, in the artefact template's own
+# STATE_VAR (JS), not duplicated here: this function only returns the state
+# name, so there is exactly one place that maps a state to a colour variable.
+# ---------------------------------------------------------------------------
+def milestone_state(by_status, done_pct, total=None):
+    """One of deferred/inProgress/todo/done/blocked/paused for a milestone,
+    given its {status: count} map, completion percentage, and (optionally)
+    its task total. `total` disambiguates two shapes that otherwise look
+    identical (all-zero counts, 0%): a genuinely empty milestone (total=0,
+    nothing to report on, so it stays `todo` rather than claiming to be
+    finished) versus an all-out_of_scope one (total>0, nothing actionable
+    left). Omit `total` to skip that distinction (treated as non-empty).
+
+    Deferred fires on ANY deferred member with no actionable (todo/blocked/
+    paused) member left, not "every member deferred/out_of_scope": a
+    milestone with one deferred task and nine done ones is still "shelved",
+    even though donePct is 90 (deferred is a deliberate call that outranks
+    percentage). With nothing actionable left and no deferred member, a
+    non-empty milestone reads as done even if done_pct isn't literally 100:
+    an all-out_of_scope milestone has done_pct 0 (_pct only counts `done`
+    status), but nothing remains to act on and nothing was explicitly
+    shelved, so "finished" reads truer than "deferred" or "todo".
+    """
+    if total == 0:
+        return "todo"
+    actionable = by_status.get("todo", 0) + by_status.get("blocked", 0) + \
+        by_status.get("paused", 0)
+    if actionable == 0:
+        if by_status.get("deferred", 0) > 0:
+            return "deferred"
+        return "done"
+    if done_pct == 100:
+        return "done"
+    if by_status.get("blocked", 0) > 0:
+        return "blocked"
+    if by_status.get("paused", 0) > 0:
+        return "paused"
+    if 0 < done_pct < 100:
+        return "inProgress"
+    return "todo"
+
+
+_DEV_COLOUR_PALETTE = ["teal", "lime", "magenta", "indigo", "amber", "rose"]
+
+
+def dev_colour(assignee):
+    """Stable colour-family name for an assignee chip, disjoint from every
+    status/milestone/gate colour claimed above (green, gray, red, purple,
+    cinnamon, yellow, sky, azure; pink is accent-only and never assigned).
+
+    Uses a stable digest rather than Python's builtin hash(): str hashing is
+    salted per-process via PYTHONHASHSEED, so builtin hash() would assign a
+    different colour to the same assignee across separate render runs and
+    break the artefact's byte-determinism guarantee.
+    """
+    if not assignee:
+        return None
+    digest = zlib.crc32(assignee.strip().lower().encode("utf-8"))
+    return _DEV_COLOUR_PALETTE[digest % len(_DEV_COLOUR_PALETTE)]
 
 
 def project_root(json_path):
@@ -333,7 +405,13 @@ def cmd_recompute(args) -> int:
 # stats
 # ---------------------------------------------------------------------------
 def _counts(tasks):
-    c = {s: 0 for s in VALID_STATUSES}
+    # Iterate _STATS_ORDER, not the VALID_STATUSES set directly: set
+    # iteration order is hash-order-dependent and salted per-process via
+    # PYTHONHASHSEED, so the resulting dict's key order (and therefore the
+    # rendered artefact's JSON byte layout) would vary run to run even with
+    # identical input, breaking the byte-determinism the render step relies
+    # on for clean diffs.
+    c = {s: 0 for s in _STATS_ORDER}
     invalid = []
     for t in tasks:
         s = t.get("status")
@@ -349,10 +427,11 @@ def _pct(done, total):
 
 
 def build_stats(phase):
-    all_counts = {s: 0 for s in VALID_STATUSES}
+    all_counts = {s: 0 for s in _STATS_ORDER}  # ordered: see _counts() above
     all_invalid = []
     total = 0
     milestones = []
+    milestones_done = 0
     for m in phase.get("milestones", []):
         tasks = m.get("tasks", [])
         c, invalid = _counts(tasks)
@@ -360,13 +439,18 @@ def build_stats(phase):
             all_counts[s] += c[s]
         all_invalid.extend(invalid)
         total += len(tasks)
+        done_pct = _pct(c["done"], len(tasks))
+        state = milestone_state(c, done_pct, total=len(tasks))
+        if state == "done":
+            milestones_done += 1
         milestones.append({
             "id": m["id"],
             "name": m.get("name", ""),
             "total": len(tasks),
             "done": c["done"],
             "byStatus": c,
-            "donePct": _pct(c["done"], len(tasks)),
+            "donePct": done_pct,
+            "state": state,
         })
     return {
         "phase": phase.get("name"),
@@ -374,6 +458,8 @@ def build_stats(phase):
         "byStatus": all_counts,
         "invalid": all_invalid,
         "donePct": _pct(all_counts["done"], total),
+        "milestonesTotal": len(milestones),
+        "milestonesDone": milestones_done,
         "milestones": milestones,
     }
 
@@ -753,13 +839,41 @@ def _assert_header_comment_clean(template_html, template):
             "no raw close sequence except its own terminator.")
 
 
+def _project_name(json_path, phase):
+    """Optional `project` field on the phase, falling back to the project
+    root directory name. See roadmap-conventions.md for the field."""
+    explicit = phase.get("project")
+    if explicit:
+        return explicit
+    return project_root(json_path).name
+
+
+def _dep_kinds(phase):
+    """{id: kind} for every task/milestone/gate id, so the artefact can
+    colour a dependency chip by what it points at (task status colour,
+    milestone sky, gate yellow) without re-deriving the graph in JS."""
+    tasks, milestones, gates = build_index(phase)
+    kinds = {}
+    for tid, t in tasks.items():
+        kinds[tid] = {"kind": "task", "status": t.get("status")}
+    for mid in milestones:
+        kinds[mid] = {"kind": "milestone"}
+    for gid in gates:
+        kinds[gid] = {"kind": "gate"}
+    return kinds
+
+
 def _render_to(json_path, data, phase, out):
     template = _template_path()
     if not template.exists():
         raise RoadmapError(f"render template missing at {template}")
     tasks = []
+    assignees = set()
     for m in phase.get("milestones", []):
         for t in m.get("tasks", []):
+            assignee = t.get("assignee", "")
+            if assignee:
+                assignees.add(assignee)
             tasks.append({
                 "id": t["id"],
                 "description": t.get("description", ""),
@@ -767,9 +881,10 @@ def _render_to(json_path, data, phase, out):
                 "dependsOn": t.get("dependsOn", []),
                 "milestone": m["id"],
                 "notes": t.get("notes", ""),
-                "assignee": t.get("assignee", ""),
+                "assignee": assignee,
             })
     blob = {
+        "project": _project_name(json_path, phase),
         "phase": phase.get("name"),
         "generated": datetime.now().isoformat(timespec="seconds"),
         "stats": build_stats(phase),
@@ -778,6 +893,8 @@ def _render_to(json_path, data, phase, out):
         "mermaid": mermaid_source(phase, direction="TD",
                                   omit_done=True, palette="vars"),
         "validation": _validate_phase(phase),
+        "devColours": {a: dev_colour(a) for a in sorted(assignees)},
+        "depKinds": _dep_kinds(phase),
     }
     # Escape every "<" and ">" as its \uXXXX form so the payload can never
     # break out of its host element: "<" defuses "</script>" and the "<!--"
