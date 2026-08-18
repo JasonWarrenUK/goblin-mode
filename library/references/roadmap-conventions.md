@@ -130,6 +130,42 @@ for todo and Bootstrap-era hexes; regenerating via `graph --mermaid` replaces
 both. classDef lines always come straight after the `graph LR`/`graph TD`
 line; before it is a silent render failure.
 
+## Milestone-level state (artefact only)
+
+A milestone has no `status` field; it is not itself a task. The HTML artefact
+derives a milestone-level state from its member tasks' status counts, purely
+for that artefact's own colour and sort (`roadmap.py`'s `milestone_state()`;
+never written back to `roadmaps.json`, never used by `recompute`/`validate`).
+Six states, four of which form a top-level sort partition (deferred first,
+ahead of percentage; then inProgress, todo, done); blocked/paused surface as
+their own card colour but sit outside that four-way partition:
+
+| State | Fires when | Colour |
+|---|---|---|
+| `deferred` | ≥1 member `deferred`, no `todo`/`blocked`/`paused` member left | cinnamon (shares the task-status hue) |
+| `done` | every member `done`/`out_of_scope` (nothing actionable, nothing deferred), or `donePct == 100` | green |
+| `blocked` | ≥1 member `blocked` (and not already deferred/done) | red |
+| `paused` | ≥1 member `paused` (and not already deferred/done/blocked) | purple |
+| `inProgress` | `0 < donePct < 100`, nothing blocked/paused | **azure** — unclaimed by task status, distinct from sky (milestone-structural) |
+| `todo` | nothing started, or a genuinely empty (zero-task) milestone | gray |
+
+An all-`out_of_scope` milestone (struck-from-play) reads as `done`, not
+`deferred` (shelved-for-later): different signal, and nothing remains
+actionable either way. A milestone with one `deferred` task and nine `done`
+ones still reads `deferred` even at 90% complete: the deliberate shelving
+call outranks percentage. An empty milestone (zero tasks) stays `todo`
+rather than claiming to be finished.
+
+## Dev-chip colour (artefact only)
+
+Assignee is free-text with no roster (see below) and never inferred, so the
+artefact never maps a name to a colour by hand. `roadmap.py`'s `dev_colour()`
+hashes the lowercased, trimmed assignee string with `zlib.crc32` (never
+Python's builtin `hash()`, which is salted per `PYTHONHASHSEED` and would
+assign a different colour to the same person across separate render runs)
+into a fixed palette, disjoint from every status/milestone/gate hue above:
+teal, lime, magenta, indigo, amber, rose.
+
 ## Codebase reconciliation (inference)
 
 Inference (deciding a task's status from the actual code rather than the
@@ -183,7 +219,12 @@ auto-reverted; absence still isn't evidence.
   Never inferred: a skill setting it must ask, never guess from description,
   git author, category, or who's running the skill.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
-- Phase field order: `name, path, archived?, externalGates, milestones`
+- Phase field order: `name, path, project?, archived?, externalGates, milestones`
+- `project` is optional free text naming the project the phase belongs to
+  (distinct from `name`, which names the phase/roadmap, e.g. "MVP"). The
+  artefact's `<h1>` reads `{project}: {phase}`; when `project` is absent the
+  artefact falls back to the project root directory name (`render`'s
+  `_project_name()`), so no migration is needed for existing roadmaps.
 - British spelling in all descriptions, notes and prose projections
 - PHASE.md task lines: `- [ ] **{ID}**: {description}` with annotations: none
   when `dependsOn` empty; `_(depends on {IDs})_` when all deps done;
