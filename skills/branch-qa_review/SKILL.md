@@ -88,4 +88,4 @@ Ordered list: blockers first, then improvements, then nice-to-haves.
 
 ---
 
-If the verdict is **Ready**, offer to run the `pr-create` skill immediately.
+If the verdict is **Ready**, offer to run the `pr-create` skill immediately, forwarding `base <branch>` when `$base` isn't main so the PR opens as a stacked layer on the same base this review judged, rather than silently targeting main.
