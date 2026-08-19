@@ -2,6 +2,7 @@
 	{
 		"name": "Example Phase",
 		"path": "docs/roadmaps/EXAMPLE.md",
+		"project": "Example Project",
 		"archived": false,
 		"externalGates": [
 			{

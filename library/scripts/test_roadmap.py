@@ -9,6 +9,10 @@ root with .claude/roadmaps.json.
 from __future__ import annotations
 
 import json
+import os
+import re
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -217,6 +221,98 @@ class Stats(unittest.TestCase):
         self.assertEqual(stats["invalid"], ["b"])
         self.assertEqual(sum(stats["byStatus"].values()) + len(stats["invalid"]),
                          stats["total"])
+
+    def test_milestone_state_and_completion_counts_added(self):
+        ph = phase([
+            {"id": "M1", "name": "done", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "live", "tasks": [
+                task("b", "done"), task("c", "todo")]}])
+        stats = roadmap.build_stats(ph)
+        by_id = {m["id"]: m for m in stats["milestones"]}
+        self.assertEqual(by_id["M1"]["state"], "done")
+        self.assertEqual(by_id["M2"]["state"], "inProgress")
+        self.assertEqual(stats["milestonesTotal"], 2)
+        self.assertEqual(stats["milestonesDone"], 1)
+
+
+class MilestoneState(unittest.TestCase):
+    """Milestone-level derived state (distinct from task status): drives the
+    artefact's Overview/Milestones colour and sort (see roadmap-conventions.md
+    and library/templates/roadmap-artefact.html)."""
+
+    def test_in_progress_when_partially_done(self):
+        self.assertEqual(
+            roadmap.milestone_state({"todo": 1, "done": 1}, 50), "inProgress")
+
+    def test_todo_when_nothing_started(self):
+        self.assertEqual(roadmap.milestone_state({"todo": 2}, 0), "todo")
+
+    def test_done_when_fully_done(self):
+        self.assertEqual(roadmap.milestone_state({"done": 2}, 100), "done")
+
+    def test_deferred_fires_even_at_high_done_pct(self):
+        # One deferred task, nine done: still reads as shelved, not 90% done,
+        # because deferred is a deliberate call that outranks percentage.
+        by_status = {"done": 9, "deferred": 1}
+        self.assertEqual(roadmap.milestone_state(by_status, 90), "deferred")
+
+    def test_deferred_requires_no_actionable_member(self):
+        # A deferred task alongside a live todo is NOT shelved overall: work
+        # is still actionable, so the milestone should not read as parked.
+        by_status = {"todo": 1, "deferred": 1}
+        self.assertNotEqual(roadmap.milestone_state(by_status, 0), "deferred")
+
+    def test_all_out_of_scope_is_done_not_deferred(self):
+        # Struck-from-play (out_of_scope) is a different signal from shelved
+        # (deferred); with no deferred member, nothing actionable remains, so
+        # this reads as done rather than shelved. total=3 distinguishes this
+        # from a genuinely empty milestone (see test_empty_milestone_is_todo),
+        # which shares the same all-zero by_status shape.
+        by_status = {"out_of_scope": 3}
+        self.assertEqual(roadmap.milestone_state(by_status, 0, total=3), "done")
+
+    def test_blocked_and_paused_surface_over_partial_progress(self):
+        self.assertEqual(
+            roadmap.milestone_state({"blocked": 1, "done": 1}, 50), "blocked")
+        self.assertEqual(
+            roadmap.milestone_state({"paused": 1, "done": 1}, 50), "paused")
+
+    def test_empty_milestone_is_todo(self):
+        # Zero tasks: nothing to report on, so it stays todo rather than
+        # claiming to be finished. total=0 is what distinguishes this from
+        # the all-out-of-scope case above, which shares the same by_status
+        # shape but genuinely has nothing actionable left to do.
+        self.assertEqual(roadmap.milestone_state({}, 0, total=0), "todo")
+
+
+class DevColour(unittest.TestCase):
+    def test_stable_across_calls(self):
+        self.assertEqual(roadmap.dev_colour("jason"), roadmap.dev_colour("jason"))
+
+    def test_case_and_whitespace_insensitive(self):
+        self.assertEqual(roadmap.dev_colour("Jason"), roadmap.dev_colour(" jason "))
+
+    def test_empty_or_none_yields_none(self):
+        self.assertIsNone(roadmap.dev_colour(""))
+        self.assertIsNone(roadmap.dev_colour(None))
+
+    def test_stable_across_process_hash_seed(self):
+        # dev_colour must use a stable digest, not builtin hash(), which is
+        # salted per-process via PYTHONHASHSEED; simulate that by asserting
+        # the result never depends on the current process's hash seed at all
+        # (crc32 doesn't read PYTHONHASHSEED, so this holds trivially once
+        # implemented correctly, and would flake under repeated runs with
+        # builtin hash()).
+        script = ("import sys; sys.path.insert(0, %r); import roadmap; "
+                  "print(roadmap.dev_colour('jason'))" % str(Path(__file__).parent))
+        results = set()
+        for seed in ("1", "99999"):
+            out = subprocess.run(
+                [sys.executable, "-c", script],
+                env={**os.environ, "PYTHONHASHSEED": seed},
+                capture_output=True, text=True, check=True)
+            results.add(out.stdout.strip())
+        self.assertEqual(len(results), 1, f"colour varied across hash seeds: {results}")
 
 
 class Ready(unittest.TestCase):
@@ -439,6 +535,60 @@ class FileBased(unittest.TestCase):
         out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
         html = out.read_text()
         self.assertIn("jason", html)  # assignee reaches the embedded data blob
+
+    def _blob(self, out):
+        html = out.read_text()
+        start = html.find('<script id="roadmap-data"')
+        start = html.find(">", start) + 1
+        end = html.find("</script>", start)
+        return json.loads(html[start:end])
+
+    def test_render_project_field_explicit_and_fallback(self):
+        # Explicit `project` field wins outright.
+        explicit = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}],
+                          name="My Phase", project="Iris")]
+        root, jp = self._project(explicit)
+        roadmap.main(["render", str(jp)])
+        out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
+        self.assertEqual(self._blob(out)["project"], "Iris")
+
+        # Absent: falls back to the project root directory name.
+        implicit = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}],
+                          name="My Phase")]
+        root2, jp2 = self._project(implicit)
+        roadmap.main(["render", str(jp2)])
+        out2 = root2 / "docs" / "artefacts" / "roadmap-my-phase.html"
+        self.assertEqual(self._blob(out2)["project"], root2.name)
+
+    def test_render_dev_colours_in_blob(self):
+        data = [phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", assignee="jason"), task("b", assignee="jaz"),
+            task("c")]}], name="My Phase")]
+        root, jp = self._project(data)
+        roadmap.main(["render", str(jp)])
+        out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
+        blob = self._blob(out)
+        self.assertEqual(set(blob["devColours"]), {"jason", "jaz"})
+        self.assertNotEqual(blob["devColours"]["jason"], blob["devColours"]["jaz"])
+
+    def test_render_is_byte_deterministic_across_hash_seeds(self):
+        data = [phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", "done", assignee="jason"),
+            task("b", "todo", ["a"], assignee="jaz")]}], name="My Phase")]
+        root, jp = self._project(data)
+        outs = []
+        for seed in ("1", "99999"):
+            out_path = root / f"out-{seed}.html"
+            env = {**os.environ, "PYTHONHASHSEED": seed}
+            subprocess.run(
+                [sys.executable, str(Path(roadmap.__file__)), "render",
+                 str(jp), "--out", str(out_path)],
+                env=env, capture_output=True, text=True, check=True)
+            outs.append(out_path.read_text())
+        # Strip the one field that legitimately varies (the timestamp).
+        stripped = [re.sub(r'"generated": "[^"]*"', '"generated": "X"', o)
+                    for o in outs]
+        self.assertEqual(stripped[0], stripped[1])
 
 
 if __name__ == "__main__":
