@@ -1,7 +1,7 @@
 ---
 name: "Next Task: Ship"
-description: "Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roadmap-sync, PR, self-review"
-when_to_use: "When you want to hand over a whole task cycle unattended: the user's veto over the task pick is the run's only gate, then it builds in an isolated worktree with tests green, keeps roadmaps.json and its projections coherent, opens the PR and self-reviews, fixes and re-reviews before handing back control."
+description: "Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roadmap-sync, PR, self-review. Pass 'loop [N]' to repeat for up to N ready tasks"
+when_to_use: "When you want to hand over a whole task cycle unattended: the user's veto over the task pick is the run's only gate, then it builds in an isolated worktree with tests green, keeps roadmaps.json and its projections coherent, opens the PR and self-reviews, fixes and re-reviews before handing back control. Add 'loop' to repeat this for successive ready tasks (default cap 3) until the ready-set is empty, a BLOCKED.md is written, or the cap is hit."
 model: fable
 effort: high
 metadata:
@@ -9,7 +9,7 @@ metadata:
   family: next-task
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(python3:*)", "Bash(node:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
-argument-hint: "[assignee] [focus area] (both optional, forwarded to next-task-suggest)"
+argument-hint: "[assignee] [focus area] [loop [N]] (all optional; assignee/focus area forwarded to next-task-suggest)"
 ---
 
 # Ship: Next, the full delivery loop, unattended
@@ -24,10 +24,13 @@ This skill does not reimplement any of those four skills' methodology; it invoke
 2. **Never run `git stash` blind.** Before any stash, run `git status` and `git stash list` first, and only stash what those show is genuinely in the way. Prefer not stashing at all when a worktree already isolates the work.
 3. **Unmet dependencies → stop and write `BLOCKED.md`, never guess.** If the suggested task turns out to have an unmet dependency, an ambiguous requirement no reasonable default resolves, or a blocker `roadmap-maintain`/`next-task-suggest` didn't already surface, stop the loop at that point and write a `BLOCKED.md` report (template in Step 8) instead of improvising a workaround.
 4. **The gate loop is capped at 6 rounds.** Step 3's implement/test/typecheck/lint cycle gets at most 6 fix-and-rerun rounds. If the gate still isn't green after the sixth, stop and write `BLOCKED.md` with the failing output: a gate that won't converge means the task is misunderstood or the ground is broken, and grinding on it unattended burns usage without progress. The same cap applies to Step 7's post-review fix gate.
+5. **A `loop` run is capped too, by cycle count and by any one cycle's own stop.** See Step 9. The same reasoning as hard rule 4 applies one level up: an unbounded outer loop outruns your ability to review its output.
 
 ## Step 0: Parse arguments
 
-`$ARGUMENTS` forwards verbatim to `next-task-suggest` (assignee and/or focus area, same parsing rules as that skill's Step 0). No arguments is the common case: just "give me the next thing".
+Strip a trailing `loop` (optionally followed by an integer `N`) from `$ARGUMENTS` before forwarding the rest. The remainder forwards verbatim to `next-task-suggest` (assignee and/or focus area, same parsing rules as that skill's Step 0). No arguments is the common case: just "give me the next thing".
+
+`loop` with no `N` defaults to **3** cycles. `loop N` sets an explicit cap. Without `loop`, this run is a single cycle exactly as before; go straight to Step 1 and skip Step 9 entirely.
 
 ## Step 1: Suggest the next task
 
@@ -92,6 +95,19 @@ Written to the repo root (main checkout, not the worktree, so it survives worktr
 ```
 
 Report the file's location and a one-line summary; do not attempt to guess past the blocker.
+
+## Step 9: Loop (only when `loop` was passed in Step 0)
+
+After Step 7 completes a cycle (PR opened, self-reviewed, fixed once), check whether to run another cycle. Stop when **any** of these holds, and report which one fired:
+
+1. The cycle count reaches the cap (`N`, default 3).
+2. `next-task-suggest` returns an empty ready-set on the next cycle's Step 1.
+3. Any cycle wrote a `BLOCKED.md` (Step 1's, Step 2's, or Step 3/7's gate-cap stop).
+4. A cycle's gate failed to converge within its 6-round cap (this is the same event as condition 3's gate-cap case, named separately because it's the one worth calling out in the final report as a "the ground was broken" stop rather than a clean exhaustion of ready work).
+
+If none fire, start the next cycle from Step 1: **the approval gate re-fires every cycle.** A `loop` run never skips the veto; it only removes the need to re-invoke the skill by hand between cycles. Each cycle picks its task, worktree, and branch independently, exactly as a standalone run would.
+
+Report at the end of the whole `loop` run: how many cycles completed, which stop condition ended it, and the PR for each cycle that shipped.
 
 ## Red flags
 

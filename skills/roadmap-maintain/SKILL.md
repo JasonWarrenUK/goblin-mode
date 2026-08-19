@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: roadmap
 disable-model-invocation: false # invocable by Claude so it can offer a status sync after merges; the reconcile confirmation gate still applies
-allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)", "Bash(git:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)", "Bash(git:*)", "Task"]
 argument-hint: '[milestone id | "reconcile" to also check against the codebase]'
 ---
 
@@ -29,7 +29,9 @@ Skip this step entirely on a plain status-sync run. Run it when asked to reconci
 1. **Detect + load.** Same guard as Step 1: `roadmap.py detect` (stop on exit 2/3). Read `roadmaps.json`.
 2. **Build the candidate set.** From `roadmaps.json` directly, take every task with status `todo`, `blocked`, or `paused`. Skip `done`, `out_of_scope`, and `deferred`; never reconsider those. Note that `roadmap.py ready --json` only returns effective-`todo` tasks, so it under-covers this set on its own; use it purely to *order* the `todo` portion by leverage (`transitiveUnblocks` / `isMilestoneSink`), so the highest-impact tasks get checked first and you can stop early on a large roadmap; `blocked`/`paused` candidates still come from the direct JSON read and are checked because their dependency might now be satisfied in code even though they aren't yet `todo`.
 3. **Bound the search by recency.** Get the changed-file set since the last reconciliation: if a prior run left a "last reconciled at `<sha>`" marker (see step 7), use `git diff --name-only <sha>..HEAD`; otherwise use a recent window (`git log --oneline -30` and `git diff --name-only HEAD~30..HEAD`, or the whole history for a small/new repo). Only search within this changed-file set, never the whole tree.
-4. **Search per candidate, not in bulk.** For each candidate, derive 1–3 concrete terms from its `description`/`notes` (a filename, symbol, route, component name) and `Grep`/`Glob` for them within the changed-file set. Read a file only when a search hits.
+4. **Search per candidate.** For each candidate, derive 1–3 concrete terms from its `description`/`notes` (a filename, symbol, route, component name) and `Grep`/`Glob` for them within the changed-file set. Read a file only when a search hits.
+
+   When the candidate set has **4 or more** entries, dispatch one read-only subagent per candidate in parallel instead of looping sequentially: each agent gets the candidate's ID, description, notes, and the changed-file set, and returns its classification (below) plus the evidence found. No subagent edits anything; this is search fan-out only, and the confirmation gate in step 7 is unchanged. Below 4 candidates, work the loop directly — dispatch overhead exceeds the saving.
 5. **Classify each candidate**, applying the evidence rule below:
    - **Proposed done**: the described feature is fully present (whole task, not partial), with concrete evidence (file:symbol, route, test, call-site).
    - **Proposed unblock**: only for a blocker that is *not* itself a roadmap task, or is an external gate: something satisfied in code (or lifted externally) with no task ID to flip to `done`. Propose removing that specific `dependsOn`/gate entry (and the gate's `blocks[]`). When the blocker *is* another task, don't propose a separate unblock; proposing that blocking task `done` (above) is sufficient, since `recompute` cascades the unblock automatically once its status changes.
@@ -88,6 +90,8 @@ The rule it applies is in the conventions reference; you never compute it by han
 
 ### 4. Synchronise the PHASE file task lines
 
+Once step 3's recompute has produced the authoritative `{ID}: old -> new` list, this step and step 6 read from the same fixed set of changes; if there are enough changed tasks that it's worth the parallelism (roughly 4+ status changes, or whenever step 6 also has work to do), dispatch both as parallel read-only agents: one diffs the PHASE file's task lines against the authoritative list, one diffs `ROADMAP_OVERVIEW.md`'s header counts against `roadmap.py stats`. Each returns a table of what needs to change; you (not a subagent) make every edit here in step 4 and in step 6 sequentially, so two agents proposing overlapping changes never race on the same file. Below that threshold, or when step 6 has nothing to check, just do this step directly.
+
 For each task whose status changed (from the script's output), update its line in the PHASE file. If the file uses status sub-sections, move the task under the matching sub-section (omit any that would be empty); otherwise leave it in place. Update the checkbox and trailing annotation:
 
 | Status                              | Checkbox | Trailing annotation                                        |
@@ -118,6 +122,8 @@ Wholesale replacement: never line-edit class lists or recolour by hand. The gene
 
 A pure status update does not change the task total, so the header count usually holds. If it changed (after an add/remove), update `**N tasks across M milestones.**`; get the number from `python3 "$HOME"/.claude/library/scripts/roadmap.py stats`. Do not rewrite the prose narrative.
 
+See step 4's note on running this check as a parallel read-only agent alongside the PHASE-file sync when there's enough changed to justify it; the write here still happens sequentially, after both proposals are in hand.
+
 ### 7. Validate and report
 
 Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean. Then report each `{ID}: old → new` status change grouped by milestone, whether the diagram block was regenerated, whether the HTML artefact was refreshed, and the overview count if it changed. On a reconcile run, also restate the Step 0 proposal outcome (what was approved and applied, what was left unconfirmed, any reverse drift) and the commit SHA to use as next time's "last reconciled at" marker.
@@ -131,3 +137,4 @@ Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must repor
 - Step 0 is the one sanctioned exception: codebase-inferred `done` calls and blocker-edge removals, always evidence-backed and always confirmed before Step 2 writes them. It is opt-in: only runs on a reconcile request, never silently.
 - `done` and `out_of_scope` are terminal; root-seeded parked tasks are held as authored (details in the conventions reference). Step 0 never re-opens or flips these; reverse drift is reported, not corrected automatically.
 - No in-progress state; if asked to mark something "in progress", clarify the six options.
+- Never parallelise steps 3, 5, or 7: those are direct `roadmap.py` invocations, and the script is the deterministic source of truth for their output. Parallel subagents belong only in step 0's per-candidate search and steps 4/6's read-only diff-and-propose passes, never around the script itself.
