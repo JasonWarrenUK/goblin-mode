@@ -306,6 +306,8 @@ const revM = calcMR(txs);
 - Files use **tabs for indentation** (not spaces)
 - When editing: preserve exact tab characters, never convert to spaces
 - Always use Edit tool for modifications, never sed/awk
+- `replace_all` only after enumerating call sites with Grep and confirming they share one argument shape
+- Exception: CHIRPdb (Python, PEP 8) uses spaces via `autopep8`/`flake8` — that project's tooling wins over this default
 
 ### 7.5. Colour Palette
 
