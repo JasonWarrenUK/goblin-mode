@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mechanical evidence pass for /red-sabotage.
+"""Mechanical evidence pass for /red-doc.
 
 Counts the tells that a human reviewer can verify by grep: house-rule
 breaches, rhetorical defaults, first-person density, hedge boilerplate,
