@@ -31,7 +31,7 @@ work at all.
 - **Any depth of nesting beneath `docs/artefacts/` is valid.** A set of
   related artefacts may live in a collection directory, at whatever depth
   the set justifies:
-  `docs/artefacts/skill-explainers/{index,red-sabotage,dossier-record}.html`.
+  `docs/artefacts/skill-explainers/{index,red-doc,dossier-record}.html`.
   A collection directory gets an `index.html` hub linking its members; a
   member with no hub is just a nested file with nothing pointing at it.
 - **`<project-root>/site/` is also valid, and only when the user asks for

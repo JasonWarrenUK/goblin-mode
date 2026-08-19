@@ -34,7 +34,8 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/pr-land` | ᛊ sonnet | Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up |
 | `/project-audit_deps` | ᛊ sonnet | Investigate this repo's dependencies in detail |
 | `/project-tag_version` | ᚺ haiku | Tag the release after a merge to main, computing the next semver tag with svu |
-| `/red-sabotage` | ᛟ opus | Adversarial review of a document written as the colleague trying to kill it, aimed at one or two nam… |
+| `/red-branch` | ᛟ opus | Adversarial review of a branch diff written as the colleague trying to get it rejected, aimed at one… |
+| `/red-doc` | ᛟ opus | Adversarial review of a document written as the colleague trying to kill it, aimed at one or two nam… |
 | `/roadmap-create` | ᛟ opus | Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHA… |
 | `/roadmap-migrate` | ᛊ sonnet | Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json… |
 | `/skill-creator` | ᛟ opus | Create new skills, modify and improve existing skills, and measure skill performance. Use when users… |
