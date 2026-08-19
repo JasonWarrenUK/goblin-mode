@@ -19,12 +19,30 @@ git checkout -b feat/add-user-dashboard
 git checkout -b feat/add-user-dashboard origin/main
 ```
 
-**Branch from another branch**:
+**Branch from another branch (stacked work)**:
 ```bash
-# When feature depends on another feature
+# When feature depends on another feature whose PR is still open
 git checkout feat/base-feature
 git checkout -b feat/add-dependent-feature
 ```
+
+The dependent branch then opens as a **stacked PR**: base set to
+`feat/base-feature`, not main, so each PR shows only its own layer's diff and
+GitHub retargets the child automatically when the parent merges. Full
+mechanics, the `gh stack` CLI and the caveats live in
+`~/.claude/library/references/stacked-prs.md`; the short version:
+
+```bash
+gh stack init feat/base-feature          # or start the stack before branching
+gh stack add feat/add-dependent-feature  # new branch as the next layer
+gh stack submit                          # one PR per layer, correct bases
+
+# after fixing something on the base layer
+gh stack rebase --upstack && gh stack push
+```
+
+Keep stacks to 3 layers or fewer, and never rename or delete a branch that is
+the base of an open PR outside `gh stack modify`.
 
 ### Keeping Branches Updated
 
@@ -148,12 +166,16 @@ Visual changes shown here.
 Instead of:
 - feat/implement-complete-dashboard (1500 lines)
 
-Split into:
-- feat/add-dashboard-layout (300 lines)
-- feat/add-dashboard-charts (250 lines)
-- feat/add-dashboard-filters (200 lines)
-- test/add-dashboard-integration (150 lines)
+Split into a stack (each layer builds on the one below):
+- feat/add-dashboard-layout (300 lines)        → base: main
+- feat/add-dashboard-charts (250 lines)        → base: feat/add-dashboard-layout
+- feat/add-dashboard-filters (200 lines)       → base: feat/add-dashboard-charts
+- test/add-dashboard-integration (150 lines)   → base: feat/add-dashboard-filters
 ```
+
+When the pieces are genuinely independent (no layer needs another's code),
+prefer parallel branches off main instead; a stack buys reviewable layering at
+the cost of ordered merging, so only pay that cost when the dependency is real.
 
 ### Code Review
 

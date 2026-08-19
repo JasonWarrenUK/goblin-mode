@@ -45,7 +45,7 @@ First, a **three-way state check** on `CHANGELOG.md`, same idea as `doc-readme`:
 
 ## Step 2: Build the canonical entries
 
-For each version in range, read `git log --first-parent previousTag..tag --format='%h %s%n%b'`: with merge-commit landings this yields one commit per merged PR (plus direct-to-main commits), so each entry derives from a PR-level change rather than branch-internal noise. Fall back to the full log only when the first-parent output is too thin to describe the release. Map conventional-commit types to Keep a Changelog sections:
+For each version in range, read `git log --first-parent previousTag..tag --format='%h %s%n%b'`: with merge-commit landings this yields one commit per merged PR (plus direct-to-main commits), so each entry derives from a PR-level change rather than branch-internal noise. Stacked-PR landings preserve this: a stack merge lands each layer bottom-up with its own merge commit, so first-parent still gives one entry per PR. Fall back to the full log only when the first-parent output is too thin to describe the release. Map conventional-commit types to Keep a Changelog sections:
 
 | Commit type | Section |
 |---|---|

@@ -46,4 +46,6 @@ Phrase it as a statement about the future merge:
 ⬆️ minor bump pending: this branch will tag v1.3.0 when it merges to main.
 ```
 
+On a **stacked child branch** (its PR's base is another branch, not main), `svu next` counts the unmerged parent layers' commits too: report the pending bump as belonging to the stack as a whole ("this stack will tag..."), never to this layer alone.
+
 Nothing mid-branch ever creates a tag. The tag happens once, on main, after the merge (`pr-land` runs this exact sequence as its Step 3).
