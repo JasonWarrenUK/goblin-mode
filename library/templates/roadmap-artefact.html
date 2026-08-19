@@ -2,16 +2,18 @@
 <!--
 	roadmap-artefact.html: template consumed by `roadmap.py render`.
 	Two placeholders, each substituted exactly once below: the phase-name
-	title (in the head and heading) and the JSON data blob
-	(phase, generated, stats, ready, mermaid, validation), which lands in the
-	roadmap-data script element near the foot of the document. Render does a
-	global string replace, so the data-blob token must appear verbatim exactly
-	once in this file (the render step asserts this); a second copy here would
-	inject the blob into this comment and the mermaid edge arrows would close
-	the comment early and spill the JSON onto the page. For the same reason
-	this comment must not contain a raw comment-close sequence.
+	title (in the head; the h1 is overwritten by JS from project/phase, since
+	the two placeholders cannot diverge) and the JSON data blob
+	(project, phase, generated, stats, ready, mermaid, validation, devColours,
+	depKinds), which lands in the roadmap-data script element near the foot of
+	the document. Render does a global string replace, so the data-blob token
+	must appear verbatim exactly once in this file (the render step asserts
+	this); a second copy here would inject the blob into this comment and the
+	mermaid edge arrows would close the comment early and spill the JSON onto
+	the page. For the same reason this comment must not contain a raw
+	comment-close sequence.
 	Everything else is static so regenerated artefacts diff cleanly.
-	Palette: the canonical status to colour table from
+	Palette: the canonical status/milestone-state/dev-chip colour table from
 	library/references/roadmap-conventions.md (STATUS_STYLE in roadmap.py).
 -->
 <html lang="en-GB">
@@ -48,6 +50,27 @@
 	--color-out-of-scope-bg: var(--color-gray-1);
 	--color-gate:            var(--color-yellow-4);
 	--color-gate-bg:         var(--color-yellow-1);
+	/* Milestone-level derived state (see roadmap-conventions.md): azure is
+	   unclaimed by task status and distinct from sky (structural), so a
+	   part-done milestone reads as "live" rather than the same gray as
+	   untouched work. */
+	--color-in-progress:     var(--color-azure-4);
+	--color-in-progress-bg:  var(--color-azure-1);
+	/* Dev-chip palette: assignee is free-text with no roster (never
+	   inferred), so chips are coloured by a stable hash, never a hardcoded
+	   name map. Disjoint from every status/milestone/gate hue above. */
+	--color-dev-teal:        var(--color-teal-4);
+	--color-dev-teal-bg:     var(--color-teal-1);
+	--color-dev-lime:        var(--color-lime-4);
+	--color-dev-lime-bg:     var(--color-lime-1);
+	--color-dev-magenta:     var(--color-magenta-4);
+	--color-dev-magenta-bg:  var(--color-magenta-1);
+	--color-dev-indigo:      var(--color-indigo-4);
+	--color-dev-indigo-bg:   var(--color-indigo-1);
+	--color-dev-amber:       var(--color-amber-4);
+	--color-dev-amber-bg:    var(--color-amber-1);
+	--color-dev-rose:        var(--color-rose-4);
+	--color-dev-rose-bg:     var(--color-rose-1);
 
 	--bg: var(--color-gray-1);
 	--surface: #ffffff;
@@ -78,6 +101,20 @@
 		--color-out-of-scope-bg: var(--color-gray-6);
 		--color-gate:            var(--color-yellow-2);
 		--color-gate-bg:         var(--color-yellow-6);
+		--color-in-progress:     var(--color-azure-2);
+		--color-in-progress-bg:  var(--color-azure-6);
+		--color-dev-teal:        var(--color-teal-2);
+		--color-dev-teal-bg:     var(--color-teal-6);
+		--color-dev-lime:        var(--color-lime-2);
+		--color-dev-lime-bg:     var(--color-lime-6);
+		--color-dev-magenta:     var(--color-magenta-2);
+		--color-dev-magenta-bg:  var(--color-magenta-6);
+		--color-dev-indigo:      var(--color-indigo-2);
+		--color-dev-indigo-bg:   var(--color-indigo-6);
+		--color-dev-amber:       var(--color-amber-2);
+		--color-dev-amber-bg:    var(--color-amber-6);
+		--color-dev-rose:        var(--color-rose-2);
+		--color-dev-rose-bg:     var(--color-rose-6);
 
 		--bg: #121216;
 		--surface: #1b1b21;
@@ -113,6 +150,20 @@
 	--color-out-of-scope-bg: var(--color-gray-6);
 	--color-gate:            var(--color-yellow-2);
 	--color-gate-bg:         var(--color-yellow-6);
+	--color-in-progress:     var(--color-azure-2);
+	--color-in-progress-bg:  var(--color-azure-6);
+	--color-dev-teal:        var(--color-teal-2);
+	--color-dev-teal-bg:     var(--color-teal-6);
+	--color-dev-lime:        var(--color-lime-2);
+	--color-dev-lime-bg:     var(--color-lime-6);
+	--color-dev-magenta:     var(--color-magenta-2);
+	--color-dev-magenta-bg:  var(--color-magenta-6);
+	--color-dev-indigo:      var(--color-indigo-2);
+	--color-dev-indigo-bg:   var(--color-indigo-6);
+	--color-dev-amber:       var(--color-amber-2);
+	--color-dev-amber-bg:    var(--color-amber-6);
+	--color-dev-rose:        var(--color-rose-2);
+	--color-dev-rose-bg:     var(--color-rose-6);
 
 	--bg: #121216;
 	--surface: #1b1b21;
@@ -162,12 +213,16 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--color-m
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.9rem; margin-top: 0.9rem; }
 .grid > * { min-width: 0; }
+.mini { border-color: var(--m-colour, var(--line)); }
 .mini h3 { margin: 0 0 0.3rem; font-size: 0.9rem; font-weight: 600; overflow-wrap: break-word; }
 .mini .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
 .progress-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 0.55rem; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 3px; }
 
-details.milestone { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 0.8rem; }
+details.milestone {
+	background: var(--surface); border: 1px solid var(--m-colour, var(--line));
+	border-radius: 8px; margin-bottom: 0.8rem;
+}
 details.milestone > summary {
 	cursor: pointer; padding: 0.85rem 1.2rem; font-weight: 600;
 	display: flex; align-items: center; gap: 0.7rem; list-style: none; min-width: 0;
@@ -182,13 +237,24 @@ details.milestone > summary .count { margin-left: auto; font-family: "IBM Plex M
 details.milestone .body { padding: 0 1.2rem 1rem; }
 .group h4 { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
 .group ul { list-style: none; margin: 0; padding: 0; }
-.group li { position: relative; padding: 0.28rem 0 0.28rem 1.15rem; overflow-wrap: break-word; min-width: 0; }
-.group li::before { content: ""; position: absolute; left: 0; top: 0.72rem; width: 8px; height: 8px; border-radius: 50%; background: var(--g-colour, var(--muted)); }
+.group li { padding: 0.28rem 0; overflow-wrap: break-word; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
 .tid {
 	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
 	background: var(--color-primary-bg); color: var(--color-primary-text);
-	border: 1px solid var(--color-primary); border-radius: 4px; padding: 0.05rem 0.35rem; margin-right: 0.45rem;
+	border: 1px solid var(--color-primary); border-radius: 4px; padding: 0.05rem 0.35rem;
 }
+/* Generic coloured chip: dev-assignee and dependency chips share this shape,
+   coloured per-instance via the --chip-fg/--chip-bg custom properties so one
+   rule serves every status/milestone/gate/dev colour without a class per
+   colour. */
+.chip {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+	background: var(--chip-bg, var(--line)); color: var(--chip-fg, var(--muted));
+	border: 1px solid var(--chip-fg, var(--line)); border-radius: 4px; padding: 0.05rem 0.4rem;
+	white-space: nowrap;
+}
+.deps { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+.tasktext { flex: 1 1 auto; }
 .depnote { color: var(--muted); font-size: 0.82rem; }
 li.oos { text-decoration: line-through; color: var(--muted); }
 
@@ -217,13 +283,11 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 .legend .key--gate { font-style: italic; }
 .legend .keynote { flex-basis: 100%; }
 
-.nextup li { display: block; }
-.pill {
-	font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
-	background: var(--color-milestone-bg); color: var(--color-milestone-text);
-	border: 1px solid var(--color-milestone); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.45rem; white-space: nowrap;
-}
-.signal { color: var(--muted); font-size: 0.78rem; font-family: "IBM Plex Mono", monospace; margin-left: 0.4rem; }
+.nextup li:not(.nextup-devgroup) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; padding: 0.3rem 0; }
+.nextup-devgroup { display: block; padding: 0; margin-top: 1rem; }
+.nextup-devgroup:first-child { margin-top: 0; }
+.nextup-devgroup h4 { margin: 0 0 0.4rem; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.signal { color: var(--muted); font-size: 0.78rem; font-family: "IBM Plex Mono", monospace; margin-left: auto; }
 
 .validation { border-left: 3px solid var(--color-blocked); background: var(--color-blocked-bg); color: var(--text); padding: 0.7rem 1rem; border-radius: 0 6px 6px 0; margin-top: 1rem; font-size: 0.85rem; }
 .validation ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
@@ -246,7 +310,7 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 	</nav>
 	<main>
 		<header class="page">
-			<h1>%%TITLE%%</h1>
+			<h1 id="pageTitle">%%TITLE%%</h1>
 			<div class="meta" id="meta"></div>
 		</header>
 		<div id="validation"></div>
@@ -300,6 +364,8 @@ const DATA = JSON.parse(document.getElementById("roadmap-data").textContent);
 const esc = s => String(s ?? "").replace(/[&<>"']/g,
 	c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+document.getElementById("pageTitle").textContent =
+	DATA.project ? `${DATA.project}: ${DATA.phase}` : DATA.phase;
 document.getElementById("meta").textContent =
 	`generated ${DATA.generated} · source .claude/roadmaps.json`;
 
@@ -307,33 +373,62 @@ document.getElementById("meta").textContent =
 if (DATA.validation && DATA.validation.length) {
 	document.getElementById("validation").innerHTML =
 		`<div class="validation"><strong>${DATA.validation.length} validation ` +
-		`discrepancy(ies)</strong> — the numbers below reflect the file as-is.` +
+		`discrepancy(ies):</strong> the numbers below reflect the file as-is.` +
 		`<ul>${DATA.validation.map(v => `<li>${esc(v)}</li>`).join("")}</ul></div>`;
 }
+
+/* Milestone-level state (distinct from task status): computed server-side by
+   roadmap.py's milestone_state() and carried as m.state, so the artefact
+   never re-derives it and cannot disagree with the CLI's own stats/render
+   paths. States: deferred, done, inProgress, todo, blocked, paused. */
+const STATE_VAR = {
+	deferred: "deferred", done: "done", inProgress: "in-progress",
+	todo: "todo", blocked: "blocked", paused: "paused",
+};
+const STATE_RANK = { inProgress: 0, todo: 1, done: 2, blocked: 3, paused: 4, deferred: 5 };
+/* Overview cards and Milestones details share this one ordering, computed
+   once here rather than in Python, since build_stats' milestones[] stays in
+   roadmap order for other consumers (_human_stats, next-task-*). */
+const sortedMilestones = [...DATA.stats.milestones].sort((a, b) =>
+	(STATE_RANK[a.state] - STATE_RANK[b.state])
+	|| (b.donePct - a.donePct)
+	|| a.name.localeCompare(b.name));
+
+/* A dev-chip helper: colour + label for an assignee, empty string when unset. */
+const devChip = assignee => {
+	const varName = DATA.devColours?.[assignee];
+	if (!assignee || !varName) return "";
+	return `<span class="chip" style="--chip-fg:var(--color-dev-${varName});--chip-bg:var(--color-dev-${varName}-bg)">${esc(assignee)}</span>`;
+};
+/* A dependency-id chip: colour by what the id resolves to (task status,
+   milestone sky, or gate yellow), using the server-computed depKinds map
+   so the artefact never re-derives the graph. */
+const depChip = id => {
+	const k = DATA.depKinds?.[id];
+	if (!k) return `<span class="chip">${esc(id)}</span>`;
+	const varName = k.kind === "task" ? STATE_VAR[k.status] ?? "todo"
+		: k.kind === "milestone" ? "milestone" : "gate";
+	return `<span class="chip" style="--chip-fg:var(--color-${varName});--chip-bg:var(--color-${varName}-bg)">${esc(id)}</span>`;
+};
 
 /* Section 1 — Overview */
 const st = DATA.stats;
 document.getElementById("hero").innerHTML =
-	`${st.byStatus.done}/${st.total} tasks<small>${st.donePct}% complete</small>`;
+	`${st.byStatus.done}/${st.total} tasks<small>${st.donePct}% complete</small>` +
+	`<small>${st.milestonesDone}/${st.milestonesTotal} milestones</small>`;
 
-const health = m => {
-	const s = m.byStatus;
-	if (m.donePct === 100) return "done";
-	if (s.todo > 0) return "todo";
-	if (s.blocked > 0) return "blocked";
-	if (s.paused > 0) return "paused";
-	if (s.deferred > 0) return "deferred";
-	return "done";
-};
-document.getElementById("milestone-cards").innerHTML = st.milestones.map(m => `
-	<div class="card mini">
+document.getElementById("milestone-cards").innerHTML = sortedMilestones.map(m => `
+	<div class="card mini" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
 		<h3>${esc(m.id)}: ${esc(m.name)}</h3>
 		<span class="count">${m.done}/${m.total} done · ${m.donePct}%</span>
 		<div class="progress-bar"><div class="progress-fill"
-			style="width:${m.donePct}%;background:var(--color-${health(m)})"></div></div>
+			style="width:${m.donePct}%;background:var(--color-${STATE_VAR[m.state]})"></div></div>
 	</div>`).join("");
 
-/* Section 2 — Milestones. Groups lead with actionable work. */
+/* Section 2 — Milestones. Groups lead with actionable work; milestones
+   themselves follow the same order as the Overview cards above (A3), so a
+   reader scanning top-to-bottom sees the same priority twice, not two
+   different orderings of the same data. */
 const GROUPS = [
 	["todo",        "○ To Do",        "todo"],
 	["blocked",     "✗ Blocked",      "blocked"],
@@ -346,24 +441,23 @@ const readyIds = new Set(DATA.ready.candidates.map(c => c.id));
 const tasksByMilestone = {};
 for (const t of DATA.tasks) (tasksByMilestone[t.milestone] ??= []).push(t);
 
-document.getElementById("milestone-details").innerHTML = st.milestones.map((m, i) => {
+document.getElementById("milestone-details").innerHTML = sortedMilestones.map(m => {
 	const tasks = tasksByMilestone[m.id] || [];
 	const groups = GROUPS.map(([status, label, varName]) => {
 		const members = tasks.filter(t => t.status === status);
 		if (!members.length) return "";
 		const items = members.map(t => {
-			const dep = (t.dependsOn && t.dependsOn.length)
-				? `<span class="depnote">depends on ${esc(t.dependsOn.join(", "))}</span>` : "";
-			const who = t.assignee ? `<span class="pill">${esc(t.assignee)}</span>` : "";
-			return `<li class="${status === "out_of_scope" ? "oos" : ""}"
-				style="--g-colour:var(--color-${varName})">
-				<span class="tid">${esc(t.id)}</span>${esc(t.description)} ${dep}${who}</li>`;
+			const deps = (t.dependsOn && t.dependsOn.length)
+				? `<span class="deps">${t.dependsOn.map(depChip).join("")}</span>` : "";
+			return `<li class="${status === "out_of_scope" ? "oos" : ""}">
+				<span class="tid">${esc(t.id)}</span>${devChip(t.assignee)}
+				<span class="tasktext">${esc(t.description)}</span>${deps}</li>`;
 		}).join("");
-		return `<div class="group" style="--g-colour:var(--color-${varName})">
+		return `<div class="group">
 			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
 	}).join("");
 	// All milestones render collapsed; the reader chooses what to expand
-	return `<details class="milestone">
+	return `<details class="milestone" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
 		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
 			<span class="count">${m.done}/${m.total}</span></summary>
 		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>
@@ -437,16 +531,32 @@ wrap.addEventListener("pointerdown", e => { drag = { x: e.clientX - tx, y: e.cli
 wrap.addEventListener("pointermove", e => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); } });
 wrap.addEventListener("pointerup", () => { drag = null; });
 
-/* Section 4 — Next Up (pre-vetted by roadmap.py ready) */
-document.getElementById("ready").innerHTML = DATA.ready.candidates.length
-	? DATA.ready.candidates.map(c => `
-		<li style="--g-colour:var(--color-todo)">
-			<span class="tid">${esc(c.id)}</span>${esc(c.description)}
-			<span class="pill">${esc(c.milestone)}: ${esc(c.milestoneName)}</span>
-			${c.assignee ? `<span class="pill">${esc(c.assignee)}</span>` : ""}
-			<span class="signal">unblocks ${c.transitiveUnblocks}${c.isMilestoneSink ? " · completes milestone" : ""}</span>
-		</li>`).join("")
-	: "<li>No unblocked tasks — clear a blocker or a gate.</li>";
+/* Section 4 — Next Up (pre-vetted by roadmap.py ready). Same chip structure
+   as the Milestones section (A5); grouped by dev only when the READY SET
+   (the candidates actually shown here, not the whole phase) has more than
+   one distinct assignee, so a solo project (or a phase where only one dev's
+   work happens to be unblocked right now) stays flat rather than gaining a
+   pointless single-group heading. */
+const candidateLi = c => `
+	<li>
+		<span class="tid">${esc(c.id)}</span>${devChip(c.assignee)}
+		<span class="tasktext">${esc(c.description)}</span>
+		<span class="deps"><span class="chip" style="--chip-fg:var(--color-milestone);--chip-bg:var(--color-milestone-bg)">${esc(c.milestone)}: ${esc(c.milestoneName)}</span></span>
+		<span class="signal">unblocks ${c.transitiveUnblocks}${c.isMilestoneSink ? " · completes milestone" : ""}</span>
+	</li>`;
+const readyAssignees = new Set(DATA.ready.candidates.map(c => c.assignee).filter(Boolean));
+document.getElementById("ready").innerHTML = !DATA.ready.candidates.length
+	? "<li>No unblocked tasks: clear a blocker or a gate.</li>"
+	: readyAssignees.size > 1
+	? [...readyAssignees].sort().map(dev => `
+		<li class="nextup-devgroup"><h4>${devChip(dev)}</h4>
+			<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => c.assignee === dev).map(candidateLi).join("")}</ul>
+		</li>`).join("") +
+		(DATA.ready.candidates.some(c => !c.assignee)
+			? `<li class="nextup-devgroup"><h4>Unassigned</h4>
+				<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => !c.assignee).map(candidateLi).join("")}</ul>
+			</li>` : "")
+	: DATA.ready.candidates.map(candidateLi).join("");
 
 /* Nav highlight */
 const links = [...document.querySelectorAll("nav a")];

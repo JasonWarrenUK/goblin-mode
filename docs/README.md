@@ -43,6 +43,14 @@ Provenance documents — proposals and the reasoning behind decisions, kept even
 |---|---|
 | [Agent & Workflow Design](design-history/agent-workflow-design.md) | The original case for all 10 agents; all six *new* ones proposed there have since shipped |
 
+## Audits
+
+Point-in-time review records, kept for provenance after the review completes.
+
+| Page | Covers |
+|---|---|
+| [Skills Frontmatter Audit — August 2026](audits/skills-frontmatter-audit-2026-08.md) | Full per-skill frontmatter review (2026-08-13 to 2026-08-14): model tiers, `when_to_use`, invocation flags, the metadata convention migration |
+
 ## Archive
 
 Stale content kept for reference, explicitly not current.
@@ -63,10 +71,10 @@ Other top-level artefacts this wiki links out to rather than duplicates:
 
 ## Keeping this wiki honest
 
-The last version of this documentation drifted from reality for months — README claimed 66 skills against an actual 45, pointed at directories that no longer existed, and listed a hook that had been deleted. Two things make that less likely this time:
+This documentation has drifted from reality twice now: first for months (README claimed 66 skills against an actual 45, pointed at directories that no longer existed, listed a hook that had been deleted), then again more subtly (the root README's counts stayed hand-maintained even after the fix, drifting to 26/15/15 against an actual 19/14/19). Two things make a third recurrence less likely:
 
-- **Generated content stays generated.** `skills/README.md` is rebuilt from frontmatter (`python3 ~/.claude/library/scripts/gen-skills-index.py`), not hand-maintained. Counts quoted elsewhere in this wiki should match its output — if they don't, the wiki is stale, not the generator.
-- **Reference pages describe current state only.** Anything speculative or historical lives under [Design history](design-history/agent-workflow-design.md) or [Archive](archive/), clearly labelled, rather than blended into the reference pages as if it were still true.
+- **Generated content stays generated.** `skills/README.md` and the root README's "What's In Here" counts table are both rebuilt by `python3 ~/.claude/library/scripts/gen-skills-index.py`, not hand-maintained; the root README block sits between HTML markers the script rewrites in place. Run `gen-skills-index.py --check` to verify both are current without writing; it exits 1 (independently) if either has drifted.
+- **Reference pages describe current state only.** Anything speculative or historical lives under [Design history](design-history/agent-workflow-design.md), [Audits](#audits) or [Archive](archive/), clearly labelled, rather than blended into the reference pages as if it were still true.
 
 ---
 [Glossary](glossary.md) · [Architecture](architecture.md)

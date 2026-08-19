@@ -8,7 +8,7 @@ metadata:
   glyph: ᛟ
   family: pr
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3:*)", "Task"]
 arguments: ["pr"]
 argument-hint: "[PR number | URL]"
 ---
@@ -44,6 +44,8 @@ If there is nothing to handle, say so and stop.
 ## Step 3: Verify each request independently
 
 For every item, read the actual code on the branch (not the diff snippet in the comment) and test the claim: does the bug exist, does the suggested change actually improve things, does it contradict an established project convention (`CLAUDE.md`, `.claude/**/*`, `docs/`)? Where a claim is checkable by running something (a test, a typecheck, a quick script), run it rather than reasoning about it.
+
+**When there are 4 or more items to verify, dispatch one read-only subagent per item** (or per tightly-related cluster, when several items point at the same code) instead of working the loop sequentially. Each subagent gets the item's thread/review-body text, the branch context needed to locate it, and returns: the classification below, the `file:line` evidence, a minimal proposed fix description, and any regression test needed. Subagents verify only; none of them edits a file — that stays in Step 4, after Gate 1, so two proposed fixes never collide in the same file before you've seen both. Below 4 items, verify directly; dispatch overhead outweighs the saving.
 
 Classify each item:
 
