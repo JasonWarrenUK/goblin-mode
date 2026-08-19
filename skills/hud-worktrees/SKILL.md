@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: hud
 disable-model-invocation: false # confusion about worktrees is exactly when it should appear; every mutation awaits approval
-allowed-tools: ["Bash(git:*)", "Read", "Glob"]
+allowed-tools: ["Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Read", "Glob"]
 arguments: ["action", "branch"]
 argument-hint: "[new <branch> | clean] (no args = show the map)"
 ---
@@ -22,7 +22,7 @@ Worktrees go wrong in predictable ways: removing the one you're standing in, cre
 Regardless of arguments, gather first:
 
 1. `git worktree list --porcelain`: every worktree, its path, branch, HEAD.
-2. For each worktree: `git -C <path> status --porcelain` (dirty?) and `git -C <path> rev-list --left-right --count origin/main...HEAD` (ahead/behind, skip if no upstream).
+2. For each worktree: `git -C <path> status --porcelain` (dirty?) and `git -C <path> rev-list --left-right --count origin/main...HEAD` (ahead/behind, skip if no upstream). When the branch has an open PR whose base isn't main (`gh pr view <branch> --json baseRefName,number`), it's a stacked layer: count against `origin/<baseRefName>` instead and say so in the sentence; counting a stacked child against main folds the parent's commits into its ahead-count and misreads the layer.
 3. `pwd`: establish **which worktree you are standing in right now**. This drives every safety check below.
 
 Render as a table plus one plain-English sentence per worktree: what it is, what state it's in, whether it's safe to touch:
@@ -36,7 +36,7 @@ Render as a table plus one plain-English sentence per worktree: what it is, what
 
 Group the table in two sections, both always shown: **deliberate worktrees** (the main checkout plus paths following the project's worktree convention, e.g. the sibling `../<repo>-worktrees/<branch>` layout) first, then **machine-made worktrees** (session- or tool-created: paths under temp directories or `.claude`, or generated names following no human convention). When provenance is unclear, treat it as deliberate.
 
-Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch is already merged to main (candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere. An abandoned machine-made worktree (clean, branch merged or never pushed) is a first-class cleanup candidate here.
+Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch's PR has merged (or, un-PR'd, is merged to main; candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere. An abandoned machine-made worktree (clean, branch merged or never pushed) is a first-class cleanup candidate here. When several worktrees form a stack (each branch the PR base of the next), say so plainly: "these three are one stack, bottom to top", since removing or rebasing them out of order is the trap.
 
 With no arguments, stop here; the map is the deliverable.
 
@@ -49,7 +49,7 @@ With no arguments, stop here; the map is the deliverable.
 
 ## Action: `clean`
 
-1. From the map, list removal candidates: worktrees whose branch is merged into main and whose tree is clean. A dirty worktree is **never** a silent candidate; show what's uncommitted and ask.
+1. From the map, list removal candidates: worktrees whose branch's PR has merged (or whose branch is merged into main, for branches that never had a PR) and whose tree is clean. A branch that is the PR base of an open child is **never** a candidate, whatever its own state. A dirty worktree is **never** a silent candidate; show what's uncommitted and ask.
 2. **Never remove the worktree you are standing in.** If the target is the current directory, first give the user the `cd` back to the main checkout, and only proceed after they've moved.
 3. For each approved removal, in order: `git worktree remove <path>`, then offer `git branch -d <branch>` (only `-d`, never `-D`; if git refuses, the branch isn't merged and that's worth knowing, not overriding).
 4. Finish with `git worktree prune` and a fresh map so the user sees the end state.

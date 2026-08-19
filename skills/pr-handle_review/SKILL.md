@@ -59,7 +59,7 @@ Present a triage table: thread reference, one-line summary of the ask, verdict, 
 
 ## Step 4: Implement the approved fixes
 
-1. Fix each approved item. **Follow-up commits only; never amend or rebase commits the reviewers have already seen.**
+1. Fix each approved item. **Follow-up commits only; never amend or rebase commits the reviewers have already seen.** One carve-out for stacked PRs (see `~/.claude/library/references/stacked-prs.md`): when this PR sits above a layer that just changed, the cascading rebase (`gh stack rebase --upstack`, then `gh stack push`) is stack maintenance, not history rewriting; the reviewed content survives and only parentage changes. The prohibition protects this PR's own commits from being reworded, squashed or dropped.
 2. Discover the project's test, typecheck and lint commands from `package.json` (or ecosystem equivalent) and run all three until green. A red gate never proceeds to commit.
 3. Once every approved item is fixed and the gate is green, invoke the `commit-batch` skill to split the fixes into granular commits and push. Its own plan-approval pause applies as normal: that pause belongs to `commit-batch`, not this skill; don't suppress it and don't treat it as a substitute for Gate 2.
 
@@ -85,6 +85,6 @@ Finish by reporting: items fixed / deferred / pushed back, commits pushed, repli
 
 ## Red flags
 
-**Never:** implement a request without verifying it first; dismiss a request without `file:line` evidence; amend or force-push over reviewed commits; post anything to GitHub before Gate 2 approval; resolve a reviewer's thread; push with a red test/typecheck/lint gate.
+**Never:** implement a request without verifying it first; dismiss a request without `file:line` evidence; amend or force-push over reviewed commits (a stack's cascading rebase via `gh stack rebase` + `gh stack push` is the one exemption; it re-parents layers above a changed one without touching their content); post anything to GitHub before Gate 2 approval; resolve a reviewer's thread; push with a red test/typecheck/lint gate.
 
 <raw-arguments value="$ARGUMENTS" />
