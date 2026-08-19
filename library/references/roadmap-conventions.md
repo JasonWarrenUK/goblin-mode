@@ -214,10 +214,17 @@ auto-reverted; absence still isn't evidence.
   another formatter) in a hook or CI should exclude the artefact glob from
   it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
   dashboard never fights the formatter.
-- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?`
+- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, pr?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred: a skill setting it must ask, never guess from description,
   git author, category, or who's running the skill.
+- `pr` is an optional integer: the GitHub PR number that ships the task,
+  recorded by `next-task-ship` at PR creation (worth setting by hand when
+  shipping outside that skill). It lets a later run detect that a `done`
+  dependency is still unmerged and stack a dependent branch on it instead of
+  branching from main (see `library/references/stacked-prs.md`). It is never
+  a status signal: `done` still means done, merged or not, and `recompute`
+  ignores the field entirely.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
 - Phase field order: `name, path, project?, archived?, externalGates, milestones`
 - `project` is optional free text naming the project the phase belongs to

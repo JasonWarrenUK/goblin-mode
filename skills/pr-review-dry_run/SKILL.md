@@ -23,7 +23,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
   <task>Review the pull request identified within `$ARGUMENTS` (an optional loose/strict mode keyword plus the PR number/URL, in either order) and produce structured findings. Do not post anything to GitHub.</task>
   <steps>
     <step num="1">Split `$ARGUMENTS` into the mode keyword (`loose` or `strict`, if present, case-insensitive, order-agnostic; absent means loose) and the PR identifier; see <verdict/> for the mode rule. Run `gh pr view <identifier>` to get PR title, description, and metadata</step>
-    <step num="2">Run `gh pr diff <identifier>` to get the full diff: always PR vs `origin/main`, regardless of the local branch checked out</step>
+    <step num="2">Run `gh pr diff <identifier>` to get the full diff: always the PR against its own base branch (`main` normally; the parent branch when the PR is a stacked layer), regardless of the local branch checked out. Never widen a stacked PR's diff to `origin/main`; the layers below it are their own PRs' reviews, not this one's</step>
     <step num="3">Research project conventions stored in `CLAUDE.md`, `.claude/**/*` and `docs/*`. Before critiquing implementation, check whether the dev is following established project practice</step>
     <step num="4">Classify every finding by <taxonomy/> type and by scope (line / file / cross-file)</step>
     <step num="5">Where a line-scoped 🔴/🟠/🟡 finding has a concrete fix, write it as a committable ```suggestion block per <suggestions/></step>

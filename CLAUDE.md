@@ -2,7 +2,7 @@
 
 | Prop    | Value |
 |---------|-------|
-| Updated | 2026-08-12 |
+| Updated | 2026-08-19 |
 
 <!-- toc:start -->
 ## Table of Contents
@@ -407,6 +407,8 @@ When working with git worktrees: (1) always check which branch already exists be
 ### 8.8. Pull Requests
 
 Handled by the `pr-create` and `pr-update` skills, both filling the shared template at `library/templates/pr-description.md`. Review feedback is worked through with `pr-handle_review` (verify independently, fix, reply); approved PRs land with `pr-land` (merge commit, tag, roadmap sync, cleanup).
+
+Dependent work stacks: when a branch builds on another branch whose PR is still open, it branches from that branch and opens a stacked PR (GitHub stacks, `gh stack`), never from main. Mechanics and caveats: `library/references/stacked-prs.md`.
 
 ---
 
