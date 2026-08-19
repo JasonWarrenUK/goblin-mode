@@ -22,7 +22,7 @@ This skill does not reimplement any of those four skills' methodology; it invoke
 
 1. **Roadmap files are never hand-edited.** `.claude/roadmaps.json` is the only source of truth. Never directly edit the PHASE file's task list, the Mermaid block, `ROADMAP_OVERVIEW.md`, or the HTML artefact; those are `roadmap-maintain`'s job, driven off `roadmaps.json`. If something about the roadmap looks wrong, fix `roadmaps.json` (or flag it) and let `roadmap-maintain` propagate it.
 2. **Never run `git stash` blind.** Before any stash, run `git status` and `git stash list` first, and only stash what those show is genuinely in the way. Prefer not stashing at all when a worktree already isolates the work.
-3. **Unmet dependencies → stop and write `BLOCKED.md`, never guess.** If the suggested task turns out to have an unmet dependency, an ambiguous requirement no reasonable default resolves, or a blocker `roadmap-maintain`/`next-task-suggest` didn't already surface, stop the loop at that point and write a `BLOCKED.md` report (template in Step 8) instead of improvising a workaround.
+3. **Unmet dependencies → stop and write `BLOCKED.md`, never guess.** If the suggested task turns out to have an unmet dependency, an ambiguous requirement no reasonable default resolves, or a blocker `roadmap-maintain`/`next-task-suggest` didn't already surface, stop the loop at that point and write a `BLOCKED.md` report (template in Step 8) instead of improvising a workaround. One case is *not* unmet: a dependency marked `done` whose PR is still open is a **stacking parent**; Step 2 branches from it and Step 6 opens a stacked PR (see `~/.claude/library/references/stacked-prs.md`). A dependency that is not `done` at all remains a hard stop.
 4. **The gate loop is capped at 6 rounds.** Step 3's implement/test/typecheck/lint cycle gets at most 6 fix-and-rerun rounds. If the gate still isn't green after the sixth, stop and write `BLOCKED.md` with the failing output: a gate that won't converge means the task is misunderstood or the ground is broken, and grinding on it unattended burns usage without progress. The same cap applies to Step 7's post-review fix gate.
 5. **A `loop` run is capped too, by cycle count and by any one cycle's own stop.** See Step 9. The same reasoning as hard rule 4 applies one level up: an unbounded outer loop outruns your ability to review its output.
 
@@ -40,11 +40,15 @@ Invoke the `next-task-suggest` skill with `$ARGUMENTS`. Take its chosen task (ro
 
 Cross-check the chosen task's `dependsOn` against `roadmaps.json` directly: every dependency must show `status: done`. `next-task-suggest`'s `ready` set should already guarantee this, but this is the hard-rule-3 checkpoint: if anything is unmet, stop and write `BLOCKED.md` now, before touching git.
 
+Then check whether any `done` dependency is **still unmerged**: read its `pr` field (recorded by Step 6 of the run that shipped it; see `roadmap-conventions.md`) and `gh pr view {pr} --json state,headRefName`, falling back to `gh pr list --state open` matched on the task-derived branch name when no `pr` field exists. An open PR makes that dependency the task's **stacking parent**: Step 2 branches from its head branch instead of `main`. More than one stacking parent is fine only when they lie on a single existing chain (each is an ancestor of the next; branch from the topmost); parents on separate chains cannot form a linear stack, so stop and write `BLOCKED.md`. Likewise stop if the parent already sits at stack depth 3: this run never stacks deeper (see the reference's depth rule).
+
+**Which `roadmaps.json` this step reads:** a standalone run reads the main checkout's. Within a `loop` run, cycle N reads the copy at the tip of the *previous cycle's branch* (that's where the loop's `done` marks and `pr` fields live; the main checkout won't see them until the PRs merge). The simplest mechanics: run Step 1 from the previous cycle's worktree, or `git show <prev-branch>:.claude/roadmaps.json` from anywhere.
+
 ## Step 2: Worktree and branch
 
 1. `git status` on the main checkout; confirm it's clean enough to branch from (uncommitted work here is the user's, not this task's; if present, stop and write `BLOCKED.md` (Step 8) rather than assuming it's abandoned; an unattended run never asks mid-flight).
 2. Derive a branch name from the task: `<prefix>/<short-description>` per the branch-naming convention (`feat/`, `fix/`, `enhance/`, `refactor/`, `test/`, `docs/`, `config/`; pick the prefix from the task's nature). Check it doesn't already exist (`git branch --list`, `git worktree list`) before creating; reuse rather than duplicate if it does.
-3. Create the worktree: `git worktree add <path> -b <branch-name>` (path convention: sibling directory, e.g. `../<repo>-worktrees/<branch-name>`, or the project's existing worktree convention if `git worktree list` shows one already).
+3. Create the worktree: `git worktree add <path> -b <branch-name> [<start-point>]` (path convention: sibling directory, e.g. `../<repo>-worktrees/<branch-name>`, or the project's existing worktree convention if `git worktree list` shows one already). The start-point defaults to the main checkout's HEAD; **when Step 1 found a stacking parent, pass the parent's branch as the start-point** so this branch carries the parent's code. Note which case applies; Step 6 needs it.
 4. Install dependencies inside the new worktree before doing anything else there: `git worktree add` never carries over `node_modules` (it's gitignored), so skipping this produces confusing false-positive failures (missing-module errors, generated-config-dependent path aliases like SvelteKit's `$lib` failing to resolve) that look like real bugs but are just a bare worktree. Use the project's package manager (`bun install` / `npm install` / etc, per the ecosystem preference order) and, if the project has a codegen step its own tooling depends on (e.g. `svelte-kit sync`), run that too before trusting any test/typecheck output from this worktree.
 5. All subsequent steps operate inside this worktree, not the main checkout.
 
@@ -68,7 +72,9 @@ Commit the implementation and the `roadmaps.json` change (plus its synced projec
 
 ## Step 6: Open the PR
 
-Invoke the `pr-create` skill from this branch with the `auto` token: the user's veto already happened at task selection, so the PR is created without a second pause. Capture the PR URL/number.
+Invoke the `pr-create` skill from this branch with the `auto` token: the user's veto already happened at task selection, so the PR is created without a second pause. When Step 2 branched from a stacking parent, also pass `base <parent-branch>` so the PR opens as a stacked layer, and after creation link it into the parent's stack: `gh stack link <parent-pr-number> <new-pr-number>` (extends the existing stack when the parent is already in one). Capture the PR URL/number.
+
+Then record the PR number on the task in `roadmaps.json` as its `pr` field (a direct edit of the source file is fine; hard rule 1 forbids hand-editing the *projections*, not the source), commit it (`chore(roadmap): record PR for <task-id>`) and push. This field is what lets a later run detect this task as a stacking parent while its PR is open.
 
 ## Step 7: Self-review and fix
 
@@ -105,12 +111,12 @@ After Step 7 completes a cycle (PR opened, self-reviewed, fixed once), check whe
 3. Any cycle wrote a `BLOCKED.md` (Step 1's, Step 2's, or Step 3/7's gate-cap stop).
 4. A cycle's gate failed to converge within its 6-round cap (this is the same event as condition 3's gate-cap case, named separately because it's the one worth calling out in the final report as a "the ground was broken" stop rather than a clean exhaustion of ready work).
 
-If none fire, start the next cycle from Step 1: **the approval gate re-fires every cycle.** A `loop` run never skips the veto; it only removes the need to re-invoke the skill by hand between cycles. Each cycle picks its task, worktree, and branch independently, exactly as a standalone run would.
+If none fire, start the next cycle from Step 1: **the approval gate re-fires every cycle.** A `loop` run never skips the veto; it only removes the need to re-invoke the skill by hand between cycles. Each cycle picks its task, worktree, and branch independently, exactly as a standalone run would, with two loop-specific twists from Step 1: the roadmap is read from the previous cycle's branch tip, and a task depending on an earlier cycle's still-open PR stacks on that cycle's branch. The stack the loop builds merges bottom-up later via `pr-land`, one layer at a time or all at once.
 
 Report at the end of the whole `loop` run: how many cycles completed, which stop condition ended it, and the PR for each cycle that shipped.
 
 ## Red flags
 
-**Never:** hand-edit the PHASE file, Mermaid block, `ROADMAP_OVERVIEW.md`, or HTML artefact directly: `roadmap-maintain` only. **Never:** `git stash` without checking `git status` and `git stash list` first. **Never:** invent a resolution to an unmet dependency or genuine ambiguity: write `BLOCKED.md` instead. **Never:** push with a red test/typecheck/lint gate. **Never:** amend a commit `pr-review` already reviewed; fix findings in a new commit. **Never:** skip `pr-create`'s own approval pause for the PR description.
+**Never:** hand-edit the PHASE file, Mermaid block, `ROADMAP_OVERVIEW.md`, or HTML artefact directly: `roadmap-maintain` only. **Never:** `git stash` without checking `git status` and `git stash list` first. **Never:** invent a resolution to an unmet dependency or genuine ambiguity: write `BLOCKED.md` instead. **Never:** push with a red test/typecheck/lint gate. **Never:** amend a commit `pr-review` already reviewed; fix findings in a new commit. **Never:** skip `pr-create`'s own approval pause for the PR description. **Never:** branch a dependent task from `main` while its parent's PR is unmerged; stack on the parent branch or stop.
 
 <raw-arguments value="$ARGUMENTS" />
