@@ -59,7 +59,25 @@ ls ~/.claude/library/dossier/
 - **No match**: new person, so create the file from the README's schema with
   what is known and an `## Open questions` section listing what is not. A file
   with one fact and three open questions is doing its job; it gives the next
-  fact somewhere to land.
+  fact somewhere to land. `metadata.personaId` starts `null`; it is allocated
+  later, only if something derives a persona from this entry (see Step 2a).
+
+## Step 2a: Allocate a `personaId` (only when asked to)
+
+Fires when a `red-*` skill's persona derivation (Step 1c in
+`library/references/red/methodology.md`) needs an ID for a person whose
+`metadata.personaId` is still `null`. Not part of the normal fact-recording
+flow; this skill is invoked for that purpose specifically.
+
+1. Read every dossier file's `metadata.personaId`, ignore `null`s, take the
+   highest integer found. `1` if none exist yet.
+2. Set this person's `metadata.personaId` to that number plus one. Update
+   `metadata.updated` too, since the file changed.
+3. Report the number back to whatever asked for it. Nothing else changes;
+   this step never touches `## Facts` or any other section.
+
+Allocated once, never reused even if a persona is later deleted, never
+assigned speculatively to a person nobody has derived a persona from.
 
 ## Step 3: Write the fact
 
