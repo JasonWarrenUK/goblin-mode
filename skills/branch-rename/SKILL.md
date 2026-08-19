@@ -24,7 +24,7 @@ argument-hint: "[desired name (optional; omit and a name is suggested from the b
 4. If the current name already satisfies convention **and** accurately describes the work, say so and stop; no rename for renaming's sake.
 5. Otherwise present the suggested (or user-supplied) name against the current one, with one line of reasoning, and **await approval**. On approval:
    - Rename locally: `git branch -m <new-name>`
-   - If the old branch was pushed: first run `gh pr list --head <old-name>`. An open PR means **stop and rename nothing**: deleting its head branch would close the PR permanently (GitHub does not follow renames). Report that; the rename can happen after the PR merges or closes. With no open PR: `git push origin HEAD:<new-name>`, then `git push origin --delete <old-name>`, then `git branch --set-upstream-to=origin/<new-name>`
+   - If the old branch was pushed: first run `gh pr list --head <old-name>` **and** `gh pr list --base <old-name>`. An open PR on either means **stop and rename nothing**: deleting a head branch closes its PR permanently (GitHub does not follow renames), and deleting a branch that is the *base* of an open PR orphans a stacked child. Report that; a branch inside a stack is renamed safely only via `gh stack modify` (its rename operation retargets the stack for you), otherwise the rename waits until the PRs merge or close. With no open PR either way: `git push origin HEAD:<new-name>`, then `git push origin --delete <old-name>`, then `git branch --set-upstream-to=origin/<new-name>`
    - Never touch the remote when the branch was never pushed; the facts output shows whether an upstream exists.
 
 <raw-arguments value="$ARGUMENTS" />
