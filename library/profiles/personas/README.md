@@ -134,9 +134,13 @@ to actually be two people, or close enough that it should have been merged like 
 one was — the schema and the resolution logic are shared regardless; whether a given
 persona is one entry or two is a judgement call the audit surfaces, not a rule.
 
-## Suggested pair
+## Default and suggested pair
 
-`bob`, `cedric` for `/red-doc`. A run that names no persona shows the scoped roster
-and asks; it never picks for you. A run that names a persona missing from this
-directory interviews for the nine fields and writes a new file here before the
-report starts.
+A run naming no persona defaults to `goblin` (Jason's own review stance,
+`scope: [doc, branch]`) rather than asking — see `methodology.md`'s Step 1.
+The explicit roster lookup (`/red-doc personas` or `/red-branch personas`,
+with no other arguments) still shows every scoped persona and picks nothing.
+`bob`, `cedric` remain the suggested pair when two contrasting readers are
+wanted deliberately. A run that names a persona missing from this directory
+interviews for the nine fields and writes a new file here before the report
+starts.

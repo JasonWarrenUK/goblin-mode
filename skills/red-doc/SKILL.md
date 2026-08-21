@@ -21,28 +21,20 @@ this file adds only what is unique to the document path.
 
 ## Step 1: Parse `$ARGUMENTS`
 
-**Both a target and at least one persona are required.** A target with no
-reviewer in mind is not enough to run this: the whole point is a specific
-reader's hostility, not a generic pass. Exception: the single literal
-invocation `/red-doc personas` (no other arguments) prints the roster and
-stops — that is a deliberate roster lookup, not an incomplete review request.
+**Target is required; persona is not.** A target with no target is nothing to
+run at all. Exception: the single literal invocation `/red-doc personas` (no
+other arguments) prints the roster and stops — that is a deliberate roster
+lookup, not an incomplete review request.
 
-If the target is missing, or a target is present but no persona-shaped
-argument follows it, do not guess and do not fall back to the document most
-recently discussed. Print tersely and stop:
+If the target is missing, do not guess and do not fall back to the document
+most recently discussed. Print tersely and stop:
 
 ```
-Usage: /red-doc <target> <persona> [persona] [-- failure conditions]
-Missing: {target and/or persona, whichever is absent}
+Usage: /red-doc <target> [persona] [persona] [-- failure conditions]
+Missing: target
 ```
 
-When a target is present but no persona was named, route into the
-methodology's Step 1b instead of a bare demand — show the scoped roster
-(`red-personas.py roster --scope doc`) alongside the usage line, so the
-request comes with the answer already in view rather than sending the user
-to look it up separately.
-
-Once both are present: positional, in this order.
+Once a target is present: positional, in this order.
 
 ```xml
 <arguments>
@@ -50,10 +42,11 @@ Once both are present: positional, in this order.
         Path to the document under review (.html, .md, .txt, anything readable).
         An @-mention resolves to its path.
     </positional>
-    <positional n="2,3" name="personas" required="true">
-        At least one required. Resolved per the methodology's Step 1/1a/1b/1c,
-        via `python3 "$HOME"/.claude/library/scripts/red-personas.py` called
-        with `--scope doc`.
+    <positional n="2,3" name="personas" required="false">
+        Resolved per the methodology's Step 1/1a/1b/1c, via
+        `python3 "$HOME"/.claude/library/scripts/red-personas.py` called with
+        `--scope doc`. **Default: `goblin`** when none is named — Jason's own
+        review stance, scoped to both doc and branch.
     </positional>
     <positional n="4+" name="failure-conditions" required="false">
         Free text: extra information about what would make this specific

@@ -66,7 +66,11 @@ the persona positionals that follow it).
         so they can be corrected; do not interrogate the user for the missing
         fields. This is the throwaway path, so it buys speed with guesses.
 
-        Zero personas: go to Step 1b and show the roster.
+        Zero personas: default to `goblin` (Jason's own review stance,
+        scoped to both doc and branch) rather than routing to Step 1b — both
+        calling skills document this default in their own argument grammar.
+        Step 1b survives as the explicit roster lookup: the literal
+        invocation `personas` (no other arguments) still shows it.
         Three or more: ask which two, then stop until answered. Two is the cap
         because the report's value is the contrast between readers.
     </positional>
