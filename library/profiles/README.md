@@ -22,11 +22,13 @@ skills. It is tracked, because the reports it produces are meant to be read
 and iterated on, sometimes by other people.
 
 A persona can be derived from a real dossier entry — Cedric is Max's persona.
-That link is written on both sides via `linkedProfileIds`, and it is safe
-specifically because the persona carries an **invented name**, never the real
-one: nobody reading the tracked `personas/` directory can identify Max from
-Cedric's file. See [personas/README.md](personas/README.md)'s privacy section
-for the full discipline, and [dossier/README.md](dossier/README.md) for the
+That link is written on both sides via `linkedProfileIds`, which references
+each side's stable `id` rather than a name or slug, and it is safe on two
+layers: the persona carries an **invented name**, never the real one, and the
+link itself points at an opaque id, not a name — nobody reading the tracked
+`personas/` directory can identify Max from Cedric's file, even by following
+the link. See [personas/README.md](personas/README.md)'s privacy section for
+the full discipline, and [dossier/README.md](dossier/README.md) for the
 dossier side of the same link.
 
 ## Shared schema
@@ -36,6 +38,7 @@ are populated and how specific `linkedProfileIds` is allowed to be:
 
 | Field | Dossier | Personas |
 |---|---|---|
+| `id` | `DOS001`, `DOS002`… assigned once, never renumbered | `PER001`, `PER002`… same scheme, own prefix |
 | `slug` | The person's name | Always invented — a name, never a number |
 | `description` | One line | One line |
 | `quickFacts` | Role, relationship | Reader stance in short form |
@@ -44,6 +47,9 @@ are populated and how specific `linkedProfileIds` is allowed to be:
 | `pronouns` | `unstated` until Jason says otherwise | The persona's own, as written |
 | `linkedProfileIds` | May be specific — this directory never leaves the machine | Generalised only — see personas/README.md |
 | `scope`, nine stance fields | `null` — a real person is not a reader model | Populated — this is what a persona is |
+
+`id` is assigned by `library/scripts/assign_profile_ids.py`, run once per new
+profile file (idempotent — re-running never renumbers an existing file).
 
 ## Who reads what
 

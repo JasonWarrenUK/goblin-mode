@@ -41,17 +41,19 @@ the persona positionals that follow it).
            surface, not silently substitute.
         2. **A real person's name**, checked against
            `~/.claude/library/profiles/dossier/{name}.md`. If that file exists
-           and its `linkedProfileIds` names a persona,
-           `red-personas.py get {invented name}` loads the derived persona
-           directly (an invented name, per the privacy convention in
+           and its `linkedProfileIds` names a persona (as an `id`, e.g.
+           `PER002`, never a name or slug), `red-personas.py get {id}` resolves
+           it directly — `red-personas.py`'s `get` accepts either a slug or an
+           id, per the privacy convention in
            [../../profiles/personas/README.md](../../profiles/personas/README.md);
            the real name is never a filename or slug in this tracked
-           directory). Before using it, compare the dossier's live `updated`
-           against the timestamp recorded in that `linkedProfileIds` entry: if
-           the dossier is newer, the derivation is stale — offer a refresh
-           (re-run Step 1c against the current entry, overwriting the existing
-           file) rather than silently reviewing on an out-of-date model. A
-           "no" keeps the existing persona for this run.
+           directory, and the id alone reveals nothing. Before using it,
+           compare the dossier's live `updated` against the timestamp recorded
+           in that `linkedProfileIds` entry: if the dossier is newer, the
+           derivation is stale — offer a refresh (re-run Step 1c against the
+           current entry, overwriting the existing file) rather than silently
+           reviewing on an out-of-date model. A "no" keeps the existing
+           persona for this run.
         3. **A real person's name, no persona linked yet**: go to Step 1c
            and derive a review profile from their entry for the first time.
         4. **A bare slug matching neither** an existing persona nor a dossier
@@ -126,14 +128,16 @@ not substitute a default, do not start the report.
 4. **Write it** to `~/.claude/library/profiles/personas/{slug}.md`
    (an invented persona's `slug` is its name, same as `bob`/`cedric` — Step 1c's
    personas derived from a real dossier entry also get an invented name, never
-   the person's own): a `---`-delimited frontmatter block (`slug`, `description`,
-   `quickFacts`, `isRealPerson: false`, `updated`, `pronouns`,
+   the person's own): a `---`-delimited frontmatter block (`id`, `slug`,
+   `description`, `quickFacts`, `isRealPerson: false`, `updated`, `pronouns`,
    `linkedProfileIds: []`, `scope` — default to the calling skill's own scope
    tag unless the drafted fields read as scope-agnostic, then the nine summary
    fields) followed by the full prose body, per the contract in
    [../../profiles/personas/README.md](../../profiles/personas/README.md). This
    happens before the report starts, so the persona exists in the store even if
-   the run is abandoned halfway.
+   the run is abandoned halfway. Run
+   `python3 "$HOME"/.claude/library/scripts/assign_profile_ids.py` immediately
+   after the write so the new file gets its `id` before anything can link to it.
 
 Then continue with the new persona alongside any others named.
 
@@ -195,29 +199,36 @@ Then:
    four. Nine questions for someone the config already knows is an insult to
    the dossier.
 3. **Invent a name**, or reuse the existing one on a refresh (check the
-   dossier entry's `linkedProfileIds` for an existing link to this slug — see
-   Step 1's staleness check). A short capitalised name, obviously fictional,
-   distinct from any existing persona or dossier slug.
+   dossier entry's `linkedProfileIds` for an existing link — see Step 1's
+   staleness check). A short capitalised name, obviously fictional, distinct
+   from any existing persona or dossier slug.
 4. **Write the review profile** to `personas/{invented-name}.md` — the
    invented name, never the person's own, as both filename and `slug` — with
    both levels (frontmatter summaries and full prose), generalised per the
    privacy boundary above: never the dossier's own wording verbatim, never a
-   project name, a file path, or a quote attributable to one person.
-   Frontmatter's `linkedProfileIds` carries
-   `["{dossier slug}", false, "{dossier entry's current updated}",
-   "{generalised linkDescription}"]` — `isSource: false` because the dossier
-   entry is the origin — so a later dossier edit is detectable as drift next
-   time this slug resolves. On a refresh, this overwrites the existing file at
-   the same invented name; the name never changes.
-5. **Write the same link back on the dossier side**, in that entry's
-   `linkedProfileIds`, with `isSource: true` and a `linkDescription` that can
-   be as specific as the dossier itself already is — that file never leaves
-   the machine. This is the one write this step makes into the person's own
-   file: the link exists, but no field of the persona (`needs`, `stake`, and
-   so on) is ever copied there. How someone reviews a target is inference
-   about them; their dossier holds facts they said or that Jason stated. The
-   review profile is labelled as a model, lives in the persona store, and
-   stays correctable there.
+   project name, a file path, or a quote attributable to one person. Leave
+   `id` unset for now; it is assigned in step 4a below. On a refresh, this
+   overwrites the existing file at the same invented name; the name never
+   changes, and neither does its `id`.
+4a. **Assign the id**, if this is a first derivation:
+    `python3 "$HOME"/.claude/library/scripts/assign_profile_ids.py`. On a
+    refresh, the file already has one; skip this.
+5. **Write the link on both sides**, now that both ids exist:
+   - **Persona side** (this new file): `linkedProfileIds` carries
+     `["{dossier entry's id}", false, "{dossier entry's current updated}",
+     "{generalised linkDescription}"]` — `isSource: false` because the
+     dossier entry is the origin. The id alone (`DOS005`) carries no name and
+     no slug, so a later dossier edit is detectable as drift next time this
+     persona resolves without this file ever having named the person.
+   - **Dossier side** (the person's own file): the same link, reversed —
+     `["{this persona's id}", true, "{today}", "{linkDescription}"]`,
+     `isSource: true`. This can be as specific as the dossier itself already
+     is — that file never leaves the machine. This is the one write this step
+     makes into the person's own file: the link exists, but no field of the
+     persona (`needs`, `stake`, and so on) is ever copied there. How someone
+     reviews a target is inference about them; their dossier holds facts they
+     said or that Jason stated. The review profile is labelled as a model,
+     lives in the persona store, and stays correctable there.
 
 Say once, in the report's provenance line, that this persona was derived from
 a real person's dossier entry. A report that reads as a prediction about a

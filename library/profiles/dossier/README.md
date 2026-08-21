@@ -16,6 +16,7 @@ convention survives; the contents are not.
 
 ```markdown
 ---
+id: DOS003
 slug: jaz
 description: One line, used to decide relevance during recall
 quickFacts: friend, close collaborator
@@ -59,6 +60,7 @@ the persona-side reading of the same schema):
 
 | Field | On a dossier entry |
 |---|---|
+| `id` | Stable identifier, assigned once by `library/scripts/assign_profile_ids.py` (`DOS001`, `DOS002`…), never renumbered. What `linkedProfileIds` references — a persona can link here without ever seeing a name |
 | `slug` | The filename, lowercase, matching the name they are called by |
 | `description` | One line, used to decide relevance during recall |
 | `quickFacts` | A short search surface: role, relationship. Not automatically identical to a linked persona's `quickFacts` — see below |
@@ -70,15 +72,16 @@ the persona-side reading of the same schema):
 
 ## Linking to a persona
 
-`linkedProfileIds` is a list of `["<slug>", <isSource>, "<updated at link time>",
-"<linkDescription>"]` quadruples, many-to-many. On the dossier side this can
-name the linked persona directly and describe the link in specific terms,
-because **this directory never leaves the machine**: `isSource: true` marks
-this entry as the origin of that persona.
+`linkedProfileIds` is a list of `["<id>", <isSource>, "<updated at link time>",
+"<linkDescription>"]` quadruples, many-to-many. The `<id>` is the linked
+profile's stable `id` (e.g. `"PER002"`), never its slug — an id survives a
+persona rename, a slug does not. On the dossier side this can describe the
+link in specific terms, because **this directory never leaves the machine**:
+`isSource: true` marks this entry as the origin of that persona.
 
 ```yaml
 linkedProfileIds:
-  - ["cedric", true, "2026-08-21-1212", "derived persona: fully fluent, no charity, blocks by attrition on unreconciled claims"]
+  - ["PER002", true, "2026-08-21-1212", "derived persona: fully fluent, no charity, blocks by attrition on unreconciled claims"]
 ```
 
 The persona side of the same link is deliberately less specific — see

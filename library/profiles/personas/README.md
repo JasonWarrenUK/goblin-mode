@@ -15,6 +15,7 @@ for how the two halves fit together.
 
 ```markdown
 ---
+id: PER002
 slug: bob
 description: <one line>
 quickFacts: <short search surface>
@@ -38,21 +39,27 @@ verdict_style: <one clause>
 ...all nine fields, full prose, exactly as the frontmatter summarises them...
 ```
 
+- `id` is a stable identifier assigned once by `library/scripts/assign_profile_ids.py`
+  — three-letter store prefix (`PER` here, `DOS` for a dossier entry) plus a
+  three-digit number, highest-existing-plus-one, never reused or renumbered. This is
+  what `linkedProfileIds` references, precisely so a persona can be renamed (its
+  `slug` changed) without orphaning every link pointing at it.
 - `slug` matches the filename (`{slug}.md`). **Always a name** — invented for a
   persona with no real-world source (`bob`), or the invented name given to a persona
   derived from a real dossier entry (`cedric`, derived from Max). See the privacy
   section below for why an invented name is itself the anonymisation.
 - `isRealPerson`: always `false` here. A persona is a reader model, never a person.
 - `linkedProfileIds`: `[]` for an invented persona with no real source. For a persona
-  derived from a dossier entry, a list of `["<dossier slug>", false, "<updated at
+  derived from a dossier entry, a list of `["<dossier id>", false, "<updated at
   link time>", "<linkDescription>"]` quadruples — `isSource: false` because the
-  dossier entry is the origin, this file the derivation. See the privacy section for
-  what `linkDescription` may and may not say here.
+  dossier entry is the origin, this file the derivation. The dossier `id` this
+  references (e.g. `"DOS005"`) carries no name and no slug on its own — see the
+  privacy section for what `linkDescription` may and may not add on top.
 - `scope` is a list: `[doc]`, `[branch]`, or `[doc, branch]` for a persona that reads
   both the same way. This is the field that lets one persona serve more than one
   `red-*` skill without being duplicated.
 
-## The privacy boundary: an invented name is the anonymisation
+## The privacy boundary: an invented name, and an opaque id, are the anonymisation
 
 `library/profiles/dossier/` is entirely gitignored except its README; this directory is
 **tracked**, and reports built from it can be read by other people. A persona
@@ -68,12 +75,17 @@ is Max's persona, and that substitution is what keeps this directory safe to tra
   the real relationship (`"regular collaborator"`). Copying the dossier's `quickFacts`
   onto the persona verbatim would reattach identifying content to a tracked file —
   write the persona's own, generalised past identifiability.
-- **`linkedProfileIds` here names the dossier slug but nothing else.** The dossier
-  side (gitignored, so safe to be specific) can say `"derived persona: fully fluent,
-  no charity, blocks by attrition"`. The persona side keeps `linkDescription`
-  generic — never a project name, a file path, or a quote attributable to one
-  person — the same generalisation discipline methodology.md's Step 1c always
-  required, now expressed as a field rather than an absence.
+- **`linkedProfileIds` here names an opaque `id`, never a slug or a name.** `["DOS005",
+  false, ...]` carries no more information than "some dossier entry, unspecified,
+  links here" — resolving it back to Max requires reading the gitignored dossier
+  directory and finding whichever file's `id` matches, which only works on the
+  machine that has that directory. The dossier side (gitignored, so safe to be
+  specific) can say `"derived persona: fully fluent, no charity, blocks by
+  attrition"` in its own `linkDescription`; the persona side keeps its
+  `linkDescription` generic — never a project name, a file path, or a quote
+  attributable to one person — the same generalisation discipline methodology.md's
+  Step 1c always required, now backed by an id that carries nothing identifying
+  even before the description discipline is applied.
 - The nine frontmatter summaries are a compressed index into the body, not a
   competing copy: written at the same time as the prose, by whichever step drafts the
   persona, so they start in sync. `red-personas.py audit` catches drift or

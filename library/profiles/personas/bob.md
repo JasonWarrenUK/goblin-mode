@@ -1,4 +1,5 @@
 ---
+id: PER001
 slug: bob
 description: Vetoes on a one-line verdict when the TLDR doesn't earn a deeper read
 quickFacts: Non-specialist, TLDR-first, generous on detail
