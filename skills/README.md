@@ -22,13 +22,11 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/artefact-audit` | ᛊ sonnet | Render verified findings as an actionable, status-grouped HTML artefact. |
 | `/artefact-intro` | ᛊ sonnet | Render a visual HTML introduction to this codebase for a newly-joined developer |
 | `/artefact-playground` | ᛊ sonnet | Creates interactive HTML playgrounds — self-contained single-file explorers that let users configure… |
-| `/artefact-roadmap` | ᚺ haiku | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
 | `/branch-integrate` | ᛊ sonnet | Integrate a target branch into the current one by merge, rebase or squash |
 | `/branch-qa_review` | ᛟ opus | Assess branch readiness for PR submission: full review methodology plus the checks only a local chec… |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
-| `/next-task-group` | ᚺ haiku | Show every currently unblocked roadmap task, grouped by milestone or topic |
 | `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
 | `/pr-handle_review` | ᛟ opus | Work through a PR's change requests: verify each independently, fix what holds up, reply to every th… |
 | `/pr-land` | ᛊ sonnet | Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up |
@@ -36,8 +34,10 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/project-tag_version` | ᚺ haiku | Tag the release after a merge to main, computing the next semver tag with svu |
 | `/red-branch` | ᛟ opus | Adversarial review of a branch diff written as the colleague trying to get it rejected, aimed at one… |
 | `/red-doc` | ᛟ opus | Adversarial review of a document written as the colleague trying to kill it, aimed at one or two nam… |
-| `/roadmap-create` | ᛟ opus | Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHA… |
-| `/roadmap-migrate` | ᛊ sonnet | Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json… |
+| `/scheme:artefact` | ᚺ haiku | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
+| `/scheme:create` | ᛟ opus | Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHA… |
+| `/scheme:group` | ᚺ haiku | Show every currently unblocked roadmap task, grouped by milestone or topic |
+| `/scheme:migrate` | ᛊ sonnet | Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json… |
 | `/skill-creator` | ᛟ opus | Create new skills, modify and improve existing skills, and measure skill performance. Use when users… |
 
 ---
@@ -59,15 +59,15 @@ Claude can load these automatically when relevant.
 | `/hud-profiles` | ᛊ sonnet | Show the profiles stored in the dossier and persona stores |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language and shepherd safe create/remove actions |
-| `/next-task-suggest` | ᚺ haiku | Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signal… |
 | `/pr-create` | ᛊ sonnet | Create a pull request to main, or a stacked PR onto a parent branch: wordy or shiny (with screenshot… |
 | `/pr-review` | ᛟ opus | Review a pull request and post it as a GitHub review |
 | `/pr-review-dry_run` | ᛟ opus | Review a pull request's diff and print structured findings to the terminal. Holds the canonical revi… |
 | `/pr-update` | ᛊ sonnet | Update a PR description to account for commits made since it was last written |
-| `/roadmap-create-interview` | ᛟ opus | Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks. Read-only… |
-| `/roadmap-maintain` | ᛊ sonnet | Sync roadmap statuses after work lands: recompute from the dependency graph and refresh every projec… |
-| `/roadmap-review` | ᛟ opus | Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) a… |
-| `/roadmap-update-tasks` | ᛊ sonnet | Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, depend… |
+| `/scheme:create-interview` | ᛟ opus | Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks. Read-only… |
+| `/scheme:maintain` | ᛊ sonnet | Sync roadmap statuses after work lands: recompute from the dependency graph and refresh every projec… |
+| `/scheme:review` | ᛟ opus | Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) a… |
+| `/scheme:suggest` | ᚺ haiku | Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signal… |
+| `/scheme:update-tasks` | ᛊ sonnet | Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, depend… |
 
 ---
 

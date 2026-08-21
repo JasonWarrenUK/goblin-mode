@@ -78,31 +78,50 @@ def classify(name: str, fm: dict) -> str:
 	if fm.get("disable-model-invocation") is True:
 		return "command"
 	# disable-model-invocation: false, or the flag is absent entirely
-	# (e.g. roadmap-create-interview) — both mean "the model can invoke it".
+	# (e.g. scheme:create-interview); both mean "the model can invoke it".
 	return "model-invocable"
+
+
+def _iter_skill_dirs():
+	"""Yield (skill_dir, label) for every skill under skills/.
+
+	A plain skill is `skills/<name>/SKILL.md`, labelled `<name>`. A folder
+	holding `.claude-plugin/plugin.json` is a plugin loaded as `<name>@skills-dir`;
+	its skills live one level down in `<name>/skills/<skill>/SKILL.md` and are
+	labelled `<name>:<skill>`, which is how Claude Code namespaces them.
+	"""
+	for entry in sorted(SKILLS_DIR.iterdir()):
+		if (entry / "SKILL.md").is_file():
+			yield entry, entry.name
+			continue
+		if not (entry / ".claude-plugin" / "plugin.json").is_file():
+			continue
+		plugin_skills = entry / "skills"
+		if not plugin_skills.is_dir():
+			continue
+		for sub in sorted(plugin_skills.iterdir()):
+			if (sub / "SKILL.md").is_file():
+				yield sub, f"{entry.name}:{sub.name}"
 
 
 def main() -> int:
 	check_only = "--check" in sys.argv
 
 	rows = []
-	for skill_dir in sorted(SKILLS_DIR.iterdir()):
-		skill_md = skill_dir / "SKILL.md"
-		if not skill_md.is_file():
-			continue
-		fm = read_frontmatter(skill_md)
+	for skill_dir, label in _iter_skill_dirs():
+		fm = read_frontmatter(skill_dir / "SKILL.md")
 		raw_desc = (fm.get("description") or "").strip()
 		desc, glyph_model = strip_runic(raw_desc)
 		model = fm.get("model") or glyph_model or ""
 		glyph = (fm.get("metadata") or {}).get("glyph", "")
 		rows.append(
 			{
-				"dir": skill_dir.name,
-				"name": fm.get("name", skill_dir.name),
+				"dir": label,
+				"name": fm.get("name", label),
 				"model": f"{glyph} {model}".strip(),
 				"description": desc,
 				"when_to_use": (fm.get("when_to_use") or "").strip(),
-				"kind": classify(skill_dir.name, fm),
+				"kind": classify(label, fm),
 			}
 		)
 
