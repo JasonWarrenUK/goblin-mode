@@ -21,21 +21,32 @@ this file adds only what is unique to the document path.
 
 ## Step 1: Parse `$ARGUMENTS`
 
-Positional, in this order. Nothing here is prompted for interactively unless
-the target itself is missing.
+**Target is required; persona is not.** A target with no target is nothing to
+run at all. Exception: the single literal invocation `/red-doc personas` (no
+other arguments) prints the roster and stops — that is a deliberate roster
+lookup, not an incomplete review request.
+
+If the target is missing, do not guess and do not fall back to the document
+most recently discussed. Print tersely and stop:
+
+```
+Usage: /red-doc <target> [persona] [persona] [-- failure conditions]
+Missing: target
+```
+
+Once a target is present: positional, in this order.
 
 ```xml
 <arguments>
     <positional n="1" name="target" required="true">
         Path to the document under review (.html, .md, .txt, anything readable).
-        An @-mention resolves to its path. If absent, use the document most
-        recently discussed in this conversation; if there is none, ask for it
-        and stop.
+        An @-mention resolves to its path.
     </positional>
     <positional n="2,3" name="personas" required="false">
         Resolved per the methodology's Step 1/1a/1b/1c, via
         `python3 "$HOME"/.claude/library/scripts/red-personas.py` called with
-        `--scope doc`.
+        `--scope doc`. **Default: `goblin`** when none is named — Jason's own
+        review stance, scoped to both doc and branch.
     </positional>
     <positional n="4+" name="failure-conditions" required="false">
         Free text: extra information about what would make this specific

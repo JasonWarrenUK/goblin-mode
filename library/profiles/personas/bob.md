@@ -1,8 +1,13 @@
 ---
+id: PER001
 slug: bob
+description: Vetoes on a one-line verdict when the TLDR doesn't earn a deeper read
+quickFacts: Non-specialist, TLDR-first, generous on detail
+isRealPerson: false
+updated: 2026-08-21-1212
+pronouns: he, him, his
+linkedProfileIds: []
 scope: [doc]
-dossier_id: null
-derived_from_updated: null
 needs: Approve or reject, and answer for the decision upward without having read the detail
 stake: His own time, the delivery schedule, and his standing with whoever he defends the approval to
 power: veto

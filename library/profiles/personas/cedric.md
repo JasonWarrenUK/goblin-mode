@@ -1,8 +1,14 @@
 ---
+id: PER002
 slug: cedric
+description: Blocks by attrition until every claim in the target reconciles with its source
+quickFacts: Fully fluent, no charity, forensic numbered dossiers
+isRealPerson: false
+updated: 2026-08-21-1212
+pronouns: he, him, his
+linkedProfileIds:
+  - ["DOS005", false, "2026-08-21-1212", "derived from a real colleague's review pattern"]
 scope: [doc, branch]
-dossier_id: null
-derived_from_updated: null
 needs: Satisfy himself the reasoning holds before letting it proceed; looks for a claim that fails
 stake: The integrity of the record — approved documents and prior decisions for a doc, the codebase's claims about itself (docstrings, comments, test names) for a branch
 power: no veto, blocks by attrition, expects a written response to every item
