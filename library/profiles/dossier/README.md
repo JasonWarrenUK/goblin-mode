@@ -17,11 +17,11 @@ convention survives; the contents are not.
 ```markdown
 ---
 id: DOS003
-slug: jaz
+slug: alex
 description: One line, used to decide relevance during recall
-quickFacts: friend, close collaborator
+quickFacts: colleague, code reviews together
 isRealPerson: true
-updated: 2026-08-21-1212
+updated: 2026-01-05-0930
 pronouns: unstated
 linkedProfileIds: []
 scope: []
@@ -36,13 +36,13 @@ charity: null
 verdict_style: null
 ---
 
-# Jaz
+# Alex
 
 ## Facts
 
-- Builds their own Claude Code skills. `2026-08-15`
-- Light on advanced skill builds (frontmatter YAML, bundled scripts), fast study. `2026-08-15`
-- Shares Jason's instincts on tooling and design. `2026-08-15` *(inferred)*
+- Reviews most backend PRs on the team. `2026-01-05`
+- Prefers small, frequently-merged PRs over large batched ones. `2026-01-05`
+- Cares a lot about test coverage on edge cases. `2026-01-05` *(inferred)*
 
 ## Working with them
 
