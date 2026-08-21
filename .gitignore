@@ -23,6 +23,10 @@ hooks/post-commit
 /library/profiles/dossier/*
 !/library/profiles/dossier/README.md
 
+# Personal usage data (pain points, etc.) stays local; the schema does not
+/library/state/*.json
+!/library/state/README.md
+
 # The published site is tracked; its editing guidance is local only
 !/site/**
 /site/CLAUDE.md
