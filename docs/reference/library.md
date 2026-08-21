@@ -6,13 +6,14 @@
 
 ## `references/` — agent-loaded background reading
 
-Skills point here instead of restating shared rules, so lineages of related skills (roadmap-\*, stud-\*) can't drift against each other.
+Skills point here instead of restating shared rules, so lineages of related skills (stud-\*) can't drift against each other.
+
+The roadmap suite no longer lives here: its reference, templates and scripts moved into the `scheme` plugin at `skills/scheme/` (self-contained so the plugin can be distributed), and its skills load as `scheme:<name>`.
 
 | File | Used by |
 |---|---|
 | `reasonable-colors-reference.md` | Any frontend/styling work — the default colour palette (see [CLAUDE.md §7.5](../../CLAUDE.md)) |
 | `react-to-svelte5.md` | `import-scaffold_artefact` — mapping React/JSX patterns to Svelte 5 idioms |
-| `roadmap-conventions.md` | The roadmap skill family (`roadmap-create`, `-create-interview`, `-maintain`, `-update-tasks`, `-migrate`, `artefact-roadmap`) — shared format rules; the executable half is `scripts/roadmap.py` |
 | `stud/conventions.md` | `do-stud`, `clod-approach-stud` — the mechanical *how* of scaffold banners (`&` new, `!` edited), shared so the two stud lineages can't drift |
 | `stud/worked-example.md` | A complete worked stud scaffold, for the same pair of skills |
 
@@ -25,7 +26,6 @@ Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 | `ADR.md` | `doc-adr` |
 | `api-reference.md`, `technical-overview.md`, `feature-spec.md` | `doc-readme` / `doc-update_misc`, ad hoc |
 | `readme-root.md`, `readme-sub.md` | `doc-readme` — root vs. directory-level READMEs get different section sets |
-| `roadmap.md`, `roadmap-artefact.html` | `roadmap-create` (prose) / `artefact-roadmap` (the HTML dashboard shell, rendered by `roadmap.py render`) |
 | `work-record.md` | Session/agent work-record entries (e.g. `session-closer`) |
 | `pr-description.md` | `pr-create` and `pr-update` share this template so the two can't drift on PR body structure |
 
@@ -35,7 +35,7 @@ Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 |---|---|
 | `skill-frontmatter.yaml` | The canonical frontmatter shape for a new skill — `name`, `description`, `when_to_use` (flagged with a `CLOD TRIGGER` comment), invocability flags, `model`, `effort`, `allowed-tools`/`disallowed-tools`. This sweep brought every existing skill up to what this template already prescribed. |
 | `roadmaps.jsonc` | Expected shape of a project's `.claude/roadmaps.json` registry |
-| `mvp.md` | A complete worked roadmap example, deep into development — the canonical reference for `roadmap-create`'s output |
+| `mvp.md` | A complete worked roadmap example, deep into development — the canonical reference for `scheme:create`'s output |
 
 ## `scripts/` — the deterministic halves
 
@@ -50,10 +50,8 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `pr-facts.sh` | `pr-update` | PR metadata, current body, watermark and every commit since it in one dump |
 | `pr-wall.sh` | `hud-pr_wall` | Buckets open PRs by relationship to the user (GraphQL search) and cross-references local clones |
 | `safe-version-next.sh` | `project-tag_version`, `pr-land` | `svu next` with a programmatic guard: never crosses 0.x → 1.x automatically |
-| `roadmap.py` + `_roadmap_core.py` | The whole roadmap-\* family | Single CLI for the rich phase-array roadmap system — ID assignment, status computation, dependency graph integrity, HTML rendering |
 | `config_permit.py` | `config-permit` | Deterministic half of permission-granting — the skill's `allowed-tools` is scoped to only this one script |
 | `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data — fails fast on a malformed finding instead of rendering it wrong |
-| `test_roadmap.py` | — | Fixture tests for `roadmap.py` + `_roadmap_core.py` |
 
 `gen-skills-index.py` also lives here — see [Skills](skills.md#regenerating-the-index).
 

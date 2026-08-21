@@ -16,7 +16,7 @@ For the full generated list with descriptions, see **[skills/README.md](../../sk
 | **Purpose** | Repeatable workflows you consciously reach for | Domain knowledge that should colour every relevant response, whether or not you thought to ask | A workflow another skill needs to call into |
 | **Description prefix** | Runic model glyph (see below) | None — no `model:` field to signal | Runic glyph |
 
-The three model-invocable exceptions are `help-whats_new` (useful as an automatic wrap-up), `pr-review` (`disable-model-invocation: false` specifically so `pr-review-comment` can call it internally), and `roadmap-create-interview` (no flag at all, so it defaults to model-invocable).
+The three model-invocable exceptions are `help-whats_new` (useful as an automatic wrap-up), `pr-review` (`disable-model-invocation: false` specifically so `pr-review-comment` can call it internally), and `scheme:create-interview` (no flag at all, so it defaults to model-invocable).
 
 ## The runic glyph convention
 
