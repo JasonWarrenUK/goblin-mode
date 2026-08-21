@@ -56,7 +56,7 @@ from _roadmap_core import (
 # Canonical status→colour table (Reasonable Colors). The single source of
 # truth for every projection: PHASE.md Mermaid (literal hexes — GitHub cannot
 # resolve CSS vars), the artefact template (semantic vars) and the conventions
-# reference at library/references/roadmap-conventions.md, which documents this
+# reference at references/roadmap-conventions.md (plugin root), which documents this
 # table in prose. Semantics: done=green (finished), todo=gray (blank slate),
 # blocked=red (stop), paused=purple (parked), deferred=cinnamon (shelved),
 # out_of_scope=faded gray (struck from play), gate=yellow (external),

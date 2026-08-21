@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Add Task"
 description: "Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, dependency wiring in both directions, graph integrity"
-when_to_use: "Whenever the user wants to add a task, feature or work item to a roadmap, even phrased as 'add this to the roadmap', 'put this in the plan' or 'track this as a task'. For a batch of half-formed ideas, run roadmap-create-interview first and feed its approved proposal here as one batch."
+when_to_use: "Whenever the user wants to add a task, feature or work item to a roadmap, even phrased as 'add this to the roadmap', 'put this in the plan' or 'track this as a task'. For a batch of half-formed ideas, run scheme:create-interview first and feed its approved proposal here as one batch."
 model: sonnet
 effort: medium
 metadata:
@@ -16,17 +16,17 @@ argument-hint: "[task description (optional)]"
 
 Adds a well-formed task to an existing rich-format roadmap. The job is not appending a line; it is placing the task correctly in the dependency graph, wiring its relationships in **both** artefacts (`.claude/roadmaps.json` and the PHASE file it names), and leaving the roadmap coherent.
 
-Shared conventions: `~/.claude/library/references/roadmap-conventions.md`. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
+Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. The CLI is `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py"`.
 
 ## Batch mode
 
-When the input is a multi-task proposal (typically `roadmap-create-interview`'s approved output), run Steps 1–6 for the batch as a whole rather than once per task: assign every ID up front, wire all edges including those between the new tasks themselves, and run the Step 5 integrity checks across the combined graph. Steps 7–9 stay singular: one consolidated proposal, one approval, one write pass, one validate. Never loop the full skill per task; fifteen approval gates for one already-reviewed proposal is ceremony, not safety.
+When the input is a multi-task proposal (typically `scheme:create-interview`'s approved output), run Steps 1–6 for the batch as a whole rather than once per task: assign every ID up front, wire all edges including those between the new tasks themselves, and run the Step 5 integrity checks across the combined graph. Steps 7–9 stay singular: one consolidated proposal, one approval, one write pass, one validate. Never loop the full skill per task; fifteen approval gates for one already-reviewed proposal is ceremony, not safety.
 
 ---
 
 ## Step 1: Locate the roadmap and check the format
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`. Exit **3** = old simple format: **stop and tell the user to run `roadmap-migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run `scheme:migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
 
 Read the full `roadmaps.json` and the active phase's PHASE file before adding: you need the existing task graph, milestone IDs, gates, and categories.
 
@@ -64,7 +64,7 @@ Extract: **description**; **milestone** (which milestone; ask if unclear); **cat
 
 ## Step 6: Compute the new task's status (mechanical)
 
-The mechanical status rule applies (see conventions reference): empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`; behind a gate that `imposes: paused`/`deferred` → `paused`/`deferred`. `softDependsOn` never feeds this rule. After wiring, confirm the new task's status and any downstream changes with `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute --check` (preview, no write).
+The mechanical status rule applies (see conventions reference): empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`; behind a gate that `imposes: paused`/`deferred` → `paused`/`deferred`. `softDependsOn` never feeds this rule. After wiring, confirm the new task's status and any downstream changes with `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" recompute --check` (preview, no write).
 
 ---
 
@@ -91,14 +91,14 @@ Then ask: *"Does this look right? I'll write to the roadmap on your say-so."*
 
 1. **`roadmaps.json`**: insert the task object in its milestone's `tasks[]` (field order `id, description, status, dependsOn, softDependsOn, iterative, notes, assignee`; tabs; British spelling). Include `assignee`/`softDependsOn` only when the user gave one; omit them entirely otherwise, exactly like `notes`. Update any existing tasks' `dependsOn`. Update any gate's `blocks[]` for parity. Add the placeholder task if any.
 2. **PHASE file**: add the task line under its milestone with the status annotation (`_(blocked: depends on {IDs})_` etc.); update any existing task lines whose dependency clause changed; add the placeholder line.
-3. **Mermaid diagram**: replace the entire fenced `mermaid` block with the output of `python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR`. Never hand-edit edges, sinks or class lines; the generator recomputes milestone sinks (including any former sink displaced by the new task) and the canonical colours.
+3. **Mermaid diagram**: replace the entire fenced `mermaid` block with the output of `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" graph --mermaid --direction LR`. Never hand-edit edges, sinks or class lines; the generator recomputes milestone sinks (including any former sink displaced by the new task) and the canonical colours.
 4. **`ROADMAP_OVERVIEW.md`**: the task total changed, so update `**N tasks across M milestones.**` (get N from `roadmap.py stats`).
 
 ---
 
 ## Step 9: Validate and confirm
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean (parity, acyclicity, status recompute). If an HTML dashboard exists (`docs/artefacts/roadmap-*.html`), refresh it with `roadmap.py render`. Then report: task added; status; edges added; existing tasks modified; placeholder created; any orphan warning.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" validate`; it must report clean (parity, acyclicity, status recompute). If an HTML dashboard exists (`docs/artefacts/roadmap-*.html`), refresh it with `roadmap.py render`. Then report: task added; status; edges added; existing tasks modified; placeholder created; any orphan warning.
 
 ---
 
@@ -106,4 +106,4 @@ Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must repor
 
 - Task line: `- [ ] **{ID}**: {description}` + annotation. Completed: `- [x] **{ID}**: {description}`.
 - roadmaps.json is the source of truth; the PHASE file and overview are projections.
-- Everything else (statuses, colours, graph/edge rules, formatting): `~/.claude/library/references/roadmap-conventions.md`.
+- Everything else (statuses, colours, graph/edge rules, formatting): `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`.

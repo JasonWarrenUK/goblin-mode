@@ -26,9 +26,9 @@ Suggest the next logical task I can complete. Selection is grounded in determini
 
 ## Step 1: The roadmap
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`.
 
-**Exit 0 (rich roadmap):** run `python3 "$HOME"/.claude/library/scripts/roadmap.py ready --json` and `... stats`. The `candidates` array is the complete set of actionable tasks: every one is unblocked by definition. Each candidate carries an `assignee` field (empty string when unassigned; never assume unassigned means "anyone" without saying so). Pick using the supplied signals, in this order of pull:
+**Exit 0 (rich roadmap):** run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" ready --json` and `... stats`. The `candidates` array is the complete set of actionable tasks: every one is unblocked by definition. Each candidate carries an `assignee` field (empty string when unassigned; never assume unassigned means "anyone" without saying so). Pick using the supplied signals, in this order of pull:
 
 1. **Assignee**, when given: filter to candidates whose `assignee` matches. If none match, say so explicitly (`"No ready task assigned to {name}."`), then fall back to the highest-leverage pick from the full candidate set below; never stay silent and never invent a match.
 2. Focus area, when given: filter to candidates matching it
@@ -37,7 +37,7 @@ Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`.
 
 Name the chosen task by its roadmap ID and say which signals drove the choice. If `candidates` is empty, say so and name the cheapest unblock instead (which blocker or gate, if cleared, frees the most tasks; read the `stats` breakdown).
 
-**Exit 3:** tell the user to run `roadmap-migrate` and stop. **Exit 2:** no roadmap; point at `roadmap-create` (or ask for the path if one exists somewhere unusual) and stop. This skill suggests from roadmap data only; it never derives tasks from the codebase.
+**Exit 3:** tell the user to run `scheme:migrate` and stop. **Exit 2:** no roadmap; point at `scheme:create` (or ask for the path if one exists somewhere unusual) and stop. This skill suggests from roadmap data only; it never derives tasks from the codebase.
 
 ## Always
 

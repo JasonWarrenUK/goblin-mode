@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Create"
 description: "Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHASE task list and prose overview"
-when_to_use: "When a project has no roadmap yet, or an existing simple-style one needs superseding with a new phase built from scratch (for converting an old roadmap, use roadmap-migrate instead)."
+when_to_use: "When a project has no roadmap yet, or an existing simple-style one needs superseding with a new phase built from scratch (for converting an old roadmap, use scheme:migrate instead)."
 model: opus
 effort: high
 metadata:
@@ -21,7 +21,7 @@ Create a roadmap as three synchronised artefacts:
 
 When creating a new phase alongside existing ones, append a new element and mark the superseded phase `"archived": true`.
 
-Shared conventions (status vocabulary, colour table, graph rules, formatting) live in `~/.claude/library/references/roadmap-conventions.md`; read it before writing anything. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
+Shared conventions (status vocabulary, colour table, graph rules, formatting) live in `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`; read it before writing anything. The CLI is `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py"`.
 
 ## Behaviour
 
@@ -37,7 +37,7 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 
 - Check if `docs/roadmaps/` exists and contains roadmaps; check if `.claude/roadmaps.json` exists.
 - If `$ARGUMENTS` is given, use it as the phase name (e.g. `PHASE_2`). If no arguments and no existing roadmap, propose a phase name drawn from the project's goal and confirm it; never default to a bare `PHASE_1`. If no arguments but roadmaps exist, ask the user to clarify intent.
-- **If a roadmap already exists, check its format first**: run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`. Exit **3** = old simple format: **stop and tell the user to run the `roadmap-migrate` skill first**, so the new phase is appended to a consistent phase array. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0 (or when no roadmap exists yet).
+- **If a roadmap already exists, check its format first**: run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run the `scheme:migrate` skill first**, so the new phase is appended to a consistent phase array. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0 (or when no roadmap exists yet).
 
 ### 2. Gather project context
 
@@ -52,7 +52,7 @@ Feature first, structure second: milestones reveal themselves as the conversatio
 - **Dependencies:** which groups are sequential vs parallel; any known external blockers or prerequisites.
 - **Assignees (optional):** if the user wants to attribute tasks to people up front, ask who owns what. Never infer an assignee from category, milestone, or anything else; leave it unset for any task the user doesn't name an owner for.
 
-For a big batch of half-formed ideas, `roadmap-create-interview` is the deeper feature interview; its approved proposal can seed this step's grouping.
+For a big batch of half-formed ideas, `scheme:create-interview` is the deeper feature interview; its approved proposal can seed this step's grouping.
 
 ### 4. Assign task IDs
 
@@ -127,7 +127,7 @@ Task line annotations follow the conventions reference (none / `_(depends on {ID
 **The diagram is generated, never hand-written.** Once the JSON is written, run:
 
 ```bash
-python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" graph --mermaid --direction LR
 ```
 
 and paste the output verbatim into the fenced `mermaid` block. It emits the classDefs (canonical status colours), nodes, edges (terminal milestone convention) and `class` statements in the right order. Do not add, remove or recolour lines by hand.
@@ -156,11 +156,11 @@ and paste the output verbatim into the fenced `mermaid` block. It emits the clas
 {Dependencies on external parties, unconfirmed decisions, etc.}
 ```
 
-The header task count must match `roadmaps.json`. Get it from `python3 "$HOME"/.claude/library/scripts/roadmap.py stats` rather than counting by hand.
+The header task count must match `roadmaps.json`. Get it from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" stats` rather than counting by hand.
 
 ### 9. Validate, confirm, and report
 
-1. Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean (dependsOn/blocks parity, acyclicity, status recompute). Fix any discrepancy before finishing.
+1. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" validate`; it must report clean (dependsOn/blocks parity, acyclicity, status recompute). Fix any discrepancy before finishing.
 2. Report the three paths created, the milestone and task counts (from `roadmap.py stats`), and the status breakdown.
 3. Note any assumptions or areas needing user refinement.
 
@@ -170,6 +170,6 @@ The header task count must match `roadmaps.json`. Get it from `python3 "$HOME"/.
 
 - ID format `{MilestoneNum}{Category}.{Seq}`; never reuse IDs.
 - roadmaps.json is the source of truth; the PHASE file and overview are projections.
-- Everything else (statuses, colours, graph rules, formatting): `~/.claude/library/references/roadmap-conventions.md`.
+- Everything else (statuses, colours, graph rules, formatting): `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`.
 
-These roadmaps are maintained by `roadmap-maintain` (status synchronisation) and `roadmap-update-tasks` (adding tasks). Old simple-format roadmaps are upgraded by `roadmap-migrate`; the HTML dashboard comes from `artefact-roadmap` (`roadmap.py render`).
+These roadmaps are maintained by `scheme:maintain` (status synchronisation) and `scheme:update-tasks` (adding tasks). Old simple-format roadmaps are upgraded by `scheme:migrate`; the HTML dashboard comes from `scheme:artefact` (`roadmap.py render`).

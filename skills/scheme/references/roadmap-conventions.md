@@ -1,16 +1,21 @@
 # Roadmap Conventions
 
-Shared reference for the roadmap skill family (`roadmap-create`,
-`roadmap-create-interview`, `roadmap-maintain`, `roadmap-update-tasks`,
-`roadmap-migrate`, `artefact-roadmap`). Skills point here instead of restating
-these rules; the deterministic halves live in
-`~/.claude/library/scripts/roadmap.py` (single CLI) and `_roadmap_core.py`.
+Shared reference for the `scheme` plugin's skills (`scheme:create`,
+`scheme:create-interview`, `scheme:maintain`, `scheme:update-tasks`,
+`scheme:migrate`, `scheme:review`, `scheme:artefact`, `scheme:suggest`,
+`scheme:group`). Skills point here instead of restating these rules; the
+deterministic halves live in the plugin's `scripts/roadmap.py` (single CLI)
+and `scripts/_roadmap_core.py`.
 
 ## The CLI
 
 ```bash
-python3 "$HOME"/.claude/library/scripts/roadmap.py <subcommand> [PATH] [--phase NAME]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" <subcommand> [PATH] [--phase NAME]
 ```
+
+`${CLAUDE_PLUGIN_ROOT}` is the plugin's install directory. Claude Code
+substitutes it into each skill as it loads, so the skill that sent you here
+already carries the resolved path; reuse that rather than guessing one.
 
 | Subcommand | Purpose | Key flags | Exit codes |
 |---|---|---|---|
@@ -20,15 +25,14 @@ python3 "$HOME"/.claude/library/scripts/roadmap.py <subcommand> [PATH] [--phase 
 | `stats` | status counts | `--json` | 0 · 2 |
 | `graph` | dependency graph | `--json` (default), `--mermaid --direction LR\|TD --omit-done --palette light\|dark\|vars` | 0 · 2 |
 | `ready` | actionable todo candidates with leverage signals | `--json` | 0 · 2 |
-| `render` | deterministic HTML artefact from `library/templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
+| `render` | deterministic HTML artefact from the plugin's `templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
 
-`PATH` is optional; the roadmap is located by walking up from the cwd. If `~`
-is not expanded in your shell context, use `"$HOME"` (as above). Multiple
-active phases are an error, never a silent guess: archive finished phases or
-pass `--phase NAME`.
+`PATH` is optional; the roadmap is located by walking up from the cwd.
+Multiple active phases are an error, never a silent guess: archive finished
+phases or pass `--phase NAME`.
 
 **Detect guard (every skill runs this first):** exit 3 → tell the user to run
-`roadmap-migrate`; exit 2 → ask for the roadmap path; exit 0 → proceed.
+`scheme:migrate`; exit 2 → ask for the roadmap path; exit 0 → proceed.
 
 ## Status vocabulary
 
@@ -169,7 +173,7 @@ teal, lime, magenta, indigo, amber, rose.
 ## Codebase reconciliation (inference)
 
 Inference (deciding a task's status from the actual code rather than the
-dependency graph) lives in exactly one place: `roadmap-maintain`'s
+dependency graph) lives in exactly one place: `scheme:maintain`'s
 reconciliation step. Every other status change is mechanical (see above).
 This is deliberately narrow so the rest of the family can keep treating
 status as computed, not judged.
@@ -201,7 +205,7 @@ a whole-tree scan.
 
 **Confirmation gate:** every proposed edit is shown with its evidence and
 applied only once approved, mirroring the proposal-then-write pattern in
-`roadmap-update-tasks`. Discrepancies found in the other direction (a task
+`scheme:update-tasks`. Discrepancies found in the other direction (a task
 marked `done` whose code can no longer be found) are reported as drift, never
 auto-reverted; absence still isn't evidence.
 
@@ -222,7 +226,8 @@ auto-reverted; absence still isn't evidence.
   recorded by `next-task-ship` at PR creation (worth setting by hand when
   shipping outside that skill). It lets a later run detect that a `done`
   dependency is still unmerged and stack a dependent branch on it instead of
-  branching from main (see `library/references/stacked-prs.md`). It is never
+  branching from main (see the `stacked-prs.md` reference that ships with
+  the delivery skills). It is never
   a status signal: `done` still means done, merged or not, and `recompute`
   ignores the field entirely.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
@@ -251,13 +256,13 @@ auto-reverted; absence still isn't evidence.
 
 | Situation | Skill |
 |---|---|
-| No roadmap yet | `roadmap-create` |
-| Old single-file format detected | `roadmap-migrate` |
-| Half-formed ideas to explore into tasks | `roadmap-create-interview` |
-| One known task to add | `roadmap-update-tasks` |
-| Work landed / statuses drifted | `roadmap-maintain` (add `reconcile` to check against code) |
-| Priorities / freshness / health / dependency-graph review | `roadmap-review` (lens: `health`, `deps` or default full) |
-| Render the HTML dashboard | `artefact-roadmap` |
-| Choose the next task (one pick) | `next-task-suggest` |
-| See the whole ready-set | `next-task-group` |
-| Ship the next task end-to-end | `next-task-ship` |
+| No roadmap yet | `scheme:create` |
+| Old single-file format detected | `scheme:migrate` |
+| Half-formed ideas to explore into tasks | `scheme:create-interview` |
+| One known task to add | `scheme:update-tasks` |
+| Work landed / statuses drifted | `scheme:maintain` (add `reconcile` to check against code) |
+| Priorities / freshness / health / dependency-graph review | `scheme:review` (lens: `health`, `deps` or default full) |
+| Render the HTML dashboard | `scheme:artefact` |
+| Choose the next task (one pick) | `scheme:suggest` |
+| See the whole ready-set | `scheme:group` |
+| Ship the next task end-to-end | `next-task-ship` (delivery skills; not part of this plugin) |

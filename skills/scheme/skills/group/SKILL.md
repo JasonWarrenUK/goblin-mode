@@ -1,7 +1,7 @@
 ---
 name: "Next Task: Group"
 description: "Show every currently unblocked roadmap task, grouped by milestone or topic"
-when_to_use: "When you want the whole actionable frontier laid out to choose from: next-task-suggest picks one; this shows them all."
+when_to_use: "When you want the whole actionable frontier laid out to choose from: scheme:suggest picks one; this shows them all."
 model: haiku
 effort: low
 metadata:
@@ -25,15 +25,15 @@ A **topic** is the category prefix embedded in the task ID: the letters between 
 
 ## Step 1: Locate the roadmap
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`. Exit **3** = old simple format: tell the user to run `roadmap-migrate` first and stop. Exit **2** = could not locate/parse; ask for the path. Proceed only on exit 0.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: tell the user to run `scheme:migrate` first and stop. Exit **2** = could not locate/parse; ask for the path. Proceed only on exit 0.
 
 ## Step 2: Get the data
 
 Run both:
 
 ```bash
-python3 "$HOME"/.claude/library/scripts/roadmap.py ready --json
-python3 "$HOME"/.claude/library/scripts/roadmap.py stats
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" ready --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" stats
 ```
 
 The `candidates` array is the complete ready-set: every entry is unblocked by definition; never re-derive or second-guess status here. Each candidate carries `id`, `description`, `milestone`, `milestoneName`, `milestoneDonePct`, `transitiveUnblocks`, `isMilestoneSink`, `assignee` and `notes`.

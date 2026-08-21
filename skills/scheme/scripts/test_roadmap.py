@@ -238,7 +238,7 @@ class Stats(unittest.TestCase):
 class MilestoneState(unittest.TestCase):
     """Milestone-level derived state (distinct from task status): drives the
     artefact's Overview/Milestones colour and sort (see roadmap-conventions.md
-    and library/templates/roadmap-artefact.html)."""
+    and templates/roadmap-artefact.html)."""
 
     def test_in_progress_when_partially_done(self):
         self.assertEqual(

@@ -14,7 +14,7 @@ argument-hint: '[milestone id | "reconcile" to also check against the codebase]'
 
 Keep the roadmap coherent across its artefacts by recomputing statuses from the dependency graph and synchronising every artefact. The artefacts: `.claude/roadmaps.json` (machine-readable source of truth; operate on the active non-`archived` phase), the PHASE file it names (task list + dependency diagram), `docs/reports/ROADMAP_OVERVIEW.md` (prose overview) and the HTML dashboard if one exists. Optionally, first reconcile the graph itself against the actual codebase.
 
-Shared conventions: `~/.claude/library/references/roadmap-conventions.md`. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
+Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. The CLI is `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py"`.
 
 > **Behaviour note.** The recompute (Steps 2–7) is **mechanical**, not inferred. It does *not* guess whether a blocker still applies, does *not* suggest promoting tasks to "in progress" (there is no in-progress state), and does *not* delete completed nodes from the diagram. A task's status is a deterministic function of its `dependsOn`, computed by `roadmap.py recompute`. The **only** sanctioned exception is Step 0: an opt-in, evidence-gated reconciliation against the codebase that proposes `done` calls and blocker-edge removals for you to confirm before anything is written. Outside Step 0, a gate or blocker clears only by a deliberate edit to the graph.
 
@@ -65,7 +65,7 @@ Skip this step entirely on a plain status-sync run. Run it when asked to reconci
 
 ### 1. Read the artefacts and check the format
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`. Exit **3** = old simple format: **stop and tell the user to run `roadmap-migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run `scheme:migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
 
 Read `.claude/roadmaps.json`, the active phase's PHASE file (its `path`), and `docs/reports/ROADMAP_OVERVIEW.md`.
 
@@ -79,7 +79,7 @@ If Step 0 ran, this is also where its **approved** edits land: set `status: done
 
 ### 3. Recompute every derived status (delegated to the script)
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute --render`. It applies the fixed-point recompute under the precedence rule `deferred > paused > blocked > todo`, **writes the corrected statuses back** atomically, and refreshes the HTML artefact when one exists. The refreshed artefact renders every collapsible section closed by default (template convention); never hand-add `open` attributes to it. It prints each `{ID}: old -> new` change; capture that list, since it drives the projection sync below.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" recompute --render`. It applies the fixed-point recompute under the precedence rule `deferred > paused > blocked > todo`, **writes the corrected statuses back** atomically, and refreshes the HTML artefact when one exists. The refreshed artefact renders every collapsible section closed by default (template convention); never hand-add `open` attributes to it. It prints each `{ID}: old -> new` change; capture that list, since it drives the projection sync below.
 
 Failure modes, all surfaced by exit 1 with a message; stop and report, never work around:
 
@@ -113,20 +113,20 @@ Soft edges have no annotation of their own: they're carried entirely by the Merm
 Replace the entire fenced `mermaid` block under `## Dependency Diagram` with the output of:
 
 ```bash
-python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" graph --mermaid --direction LR
 ```
 
 Wholesale replacement: never line-edit class lists or recolour by hand. The generated block carries the canonical classDefs, every edge under the terminal milestone convention, and correct `class` statements, so the diagram cannot drift from the JSON. (A legacy diagram that used the `open` class or old hexes is fixed by this same replacement.) `softDependsOn` entries render as dotted edges (`X -.-> Y`) in this same output: never hand-add a dotted edge afterwards; it authors as data or it gets wiped by the next reconcile.
 
 ### 6. Keep ROADMAP_OVERVIEW.md in sync
 
-A pure status update does not change the task total, so the header count usually holds. If it changed (after an add/remove), update `**N tasks across M milestones.**`; get the number from `python3 "$HOME"/.claude/library/scripts/roadmap.py stats`. Do not rewrite the prose narrative.
+A pure status update does not change the task total, so the header count usually holds. If it changed (after an add/remove), update `**N tasks across M milestones.**`; get the number from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" stats`. Do not rewrite the prose narrative.
 
 See step 4's note on running this check as a parallel read-only agent alongside the PHASE-file sync when there's enough changed to justify it; the write here still happens sequentially, after both proposals are in hand.
 
 ### 7. Validate and report
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean. Then report each `{ID}: old → new` status change grouped by milestone, whether the diagram block was regenerated, whether the HTML artefact was refreshed, and the overview count if it changed. On a reconcile run, also restate the Step 0 proposal outcome (what was approved and applied, what was left unconfirmed, any reverse drift) and the commit SHA to use as next time's "last reconciled at" marker.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" validate`; it must report clean. Then report each `{ID}: old → new` status change grouped by milestone, whether the diagram block was regenerated, whether the HTML artefact was refreshed, and the overview count if it changed. On a reconcile run, also restate the Step 0 proposal outcome (what was approved and applied, what was left unconfirmed, any reverse drift) and the commit SHA to use as next time's "last reconciled at" marker.
 
 ---
 

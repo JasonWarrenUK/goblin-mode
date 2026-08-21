@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Migrate"
 description: "Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json pointer registry) into the rich phase-array format (roadmaps.json source of truth + PHASE task list + prose overview)."
-when_to_use: "When a project still has the old single-Markdown-file roadmap format and needs upgrading to the rich phase-array format before roadmap-create or roadmap-update-tasks can be used on it."
+when_to_use: "When a project still has the old single-Markdown-file roadmap format and needs upgrading to the rich phase-array format before scheme:create or scheme:update-tasks can be used on it."
 model: sonnet
 effort: high
 metadata:
@@ -13,19 +13,19 @@ arguments: ["roadmap"]
 argument-hint: "[roadmap path or name (optional)]"
 ---
 
-Upgrade an old **simple-format** roadmap to the **rich phase-array format** the other `roadmap-*` skills expect. This is a one-way structural rewrite of the source of truth, so it is user-initiated only (never model-triggered); the other skills detect the old format and point the user here.
+Upgrade an old **simple-format** roadmap to the **rich phase-array format** the other `scheme` skills expect. This is a one-way structural rewrite of the source of truth, so it is user-initiated only (never model-triggered); the other skills detect the old format and point the user here.
 
 **Old (simple) format:** a single `docs/roadmaps/{name}.md` is the source of truth, with `<a name="m{N}">` anchors, four sections (In Progress / To Do / Blocked / Completed), `- [ ]`/`- [x]` checkboxes, prose `— **depends on {IDs}**`, a `graph TD` diagram; `.claude/roadmaps.json` is a `{"roadmaps":[{name,path}]}` pointer registry.
 
 **Rich format:** `.claude/roadmaps.json` is the source of truth: an **array of phase objects** `{name, path, archived?, externalGates, milestones}` with six statuses (`todo, blocked, paused, deferred, done, out_of_scope`), external gates, milestone/gate dependencies, and a mechanical status recompute. `docs/roadmaps/{PHASE}.md` and `docs/reports/ROADMAP_OVERVIEW.md` are projections.
 
-Shared conventions: `~/.claude/library/references/roadmap-conventions.md`. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
+Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. The CLI is `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py"`.
 
 ## Steps
 
 ### 1. Locate and confirm it is old format
 
-Resolve the roadmap: `$ARGUMENTS` path/name → `.claude/roadmaps.json` → `docs/roadmaps/` scan. Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`:
+Resolve the roadmap: `$ARGUMENTS` path/name → `.claude/roadmaps.json` → `docs/roadmaps/` scan. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`:
 
 - Exit **3**: old format, proceed.
 - Exit **0**: already rich; tell the user there is nothing to migrate and stop.
@@ -54,23 +54,23 @@ Seed each task's status from its old section, then let the recompute derive the 
 - **In Progress** → there is **no in-progress state** in the rich format. Seed as `todo` (the recompute promotes it to `blocked` if it has non-`done` deps). **Record every task remapped this way** for the report: the user may want to re-seed one deliberately (e.g. `paused`).
 - **To Do / Blocked** → leave unseeded; the recompute sets `todo` (empty/all-done deps) or `blocked` (any non-done dep).
 
-Write the seeded JSON, then run `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute` so every non-terminal status is *derived*, not carried over. This guarantees the migrated file passes validation immediately.
+Write the seeded JSON, then run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" recompute` so every non-terminal status is *derived*, not carried over. This guarantees the migrated file passes validation immediately.
 
 ### 5. Write the phase-array `roadmaps.json`
 
-Write a single phase object (or, if migrating one roadmap among several pointer-registry entries, an array; append this phase and mark others as needed). Structure, tabs, field order, British spelling exactly as `roadmap-create` Step 6. Set the phase `name` from the old roadmap name (or `$ARGUMENTS`), `path` to the `.md` it will regenerate (reuse the old path so existing links hold), `archived: false`, `externalGates: []`.
+Write a single phase object (or, if migrating one roadmap among several pointer-registry entries, an array; append this phase and mark others as needed). Structure, tabs, field order, British spelling exactly as `scheme:create` Step 6. Set the phase `name` from the old roadmap name (or `$ARGUMENTS`), `path` to the `.md` it will regenerate (reuse the old path so existing links hold), `archived: false`, `externalGates: []`.
 
 ### 6. Regenerate the `.md` as a rich projection
 
-Overwrite the old `.md` at the same path with the rich layout (see `roadmap-create` Step 7): milestone headings, `- [ ] **{ID}**: {description}` lines with status annotations, and a generated `graph LR` diagram; no `<a name>` anchors, no four-section structure, no `graph TD`. The diagram is the verbatim output of `python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR` (terminal milestone edges, canonical colours, correct classDef placement; nothing hand-computed).
+Overwrite the old `.md` at the same path with the rich layout (see `scheme:create` Step 7): milestone headings, `- [ ] **{ID}**: {description}` lines with status annotations, and a generated `graph LR` diagram; no `<a name>` anchors, no four-section structure, no `graph TD`. The diagram is the verbatim output of `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" graph --mermaid --direction LR` (terminal milestone edges, canonical colours, correct classDef placement; nothing hand-computed).
 
 ### 7. Generate `ROADMAP_OVERVIEW.md`
 
-The old format had no prose overview. Synthesise a minimal one (see `roadmap-create` Step 8) from the milestone goals, with the header count from `python3 "$HOME"/.claude/library/scripts/roadmap.py stats`. **Flag the narrative sections as stubs** for the user to flesh out; do not invent decisions or rationale that weren't in the source.
+The old format had no prose overview. Synthesise a minimal one (see `scheme:create` Step 8) from the milestone goals, with the header count from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" stats`. **Flag the narrative sections as stubs** for the user to flesh out; do not invent decisions or rationale that weren't in the source.
 
 ### 8. Validate and report
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`: it must report clean; fix any discrepancy. Then report:
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" validate`: it must report clean; fix any discrepancy. Then report:
 
 - Milestones and tasks migrated; the status distribution (`roadmap.py stats`).
 - **In-Progress remaps**: every task that lost its in-progress state, so the user can re-seed any deliberately.
@@ -83,4 +83,4 @@ Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`: it must repor
 
 - One-way: the old single-file model cannot be reconstructed from the rich format, hence the git-checkpoint advice. `disable-model-invocation` keeps it explicit.
 - Statuses end up **derived**, not copied: the recompute is the source of truth for everything except `done`/`out_of_scope` seeds.
-- Tabs not spaces; British spelling throughout. After migration, the roadmap is maintained by `roadmap-maintain`, extended by `roadmap-update-tasks`, and rendered by `artefact-roadmap`.
+- Tabs not spaces; British spelling throughout. After migration, the roadmap is maintained by `scheme:maintain`, extended by `scheme:update-tasks`, and rendered by `scheme:artefact`.
