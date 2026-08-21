@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Add Task"
 description: "Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, dependency wiring in both directions, graph integrity"
-when_to_use: "Whenever the user wants to add a task, feature or work item to a roadmap, even phrased as 'add this to the roadmap', 'put this in the plan' or 'track this as a task'. For a batch of half-formed ideas, run scheme:create-interview first and feed its approved proposal here as one batch."
+when_to_use: "Whenever the user wants to add a task, feature or work item to a roadmap, even phrased as 'add this to the roadmap', 'put this in the plan' or 'track this as a task'. For a batch of half-formed ideas, run goblin:roadmap-create-interview first and feed its approved proposal here as one batch."
 model: sonnet
 effort: medium
 metadata:
@@ -20,13 +20,13 @@ Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. T
 
 ## Batch mode
 
-When the input is a multi-task proposal (typically `scheme:create-interview`'s approved output), run Steps 1–6 for the batch as a whole rather than once per task: assign every ID up front, wire all edges including those between the new tasks themselves, and run the Step 5 integrity checks across the combined graph. Steps 7–9 stay singular: one consolidated proposal, one approval, one write pass, one validate. Never loop the full skill per task; fifteen approval gates for one already-reviewed proposal is ceremony, not safety.
+When the input is a multi-task proposal (typically `goblin:roadmap-create-interview`'s approved output), run Steps 1–6 for the batch as a whole rather than once per task: assign every ID up front, wire all edges including those between the new tasks themselves, and run the Step 5 integrity checks across the combined graph. Steps 7–9 stay singular: one consolidated proposal, one approval, one write pass, one validate. Never loop the full skill per task; fifteen approval gates for one already-reviewed proposal is ceremony, not safety.
 
 ---
 
 ## Step 1: Locate the roadmap and check the format
 
-Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run `scheme:migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run `goblin:roadmap-migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
 
 Read the full `roadmaps.json` and the active phase's PHASE file before adding: you need the existing task graph, milestone IDs, gates, and categories.
 

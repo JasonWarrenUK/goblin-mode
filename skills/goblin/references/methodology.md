@@ -1,6 +1,6 @@
 # Red Methodology
 
-The shared core both red skills execute: `red-doc` (adversarial review of a document, aimed at one or two named readers) and `red-branch` (adversarial review of a branch diff, same reader-first structure aimed at code). Each skill's own file carries only what differs; everything below applies to both. Personas live one-per-file in [../../profiles/personas/](../../profiles/personas/), read and filtered via `library/scripts/red-personas.py`; the file contract, field-purpose table and document/branch compatibility note live in [../../profiles/personas/README.md](../../profiles/personas/README.md).
+The shared core both red skills execute: `goblin:red-doc` (adversarial review of a document, aimed at one or two named readers) and `goblin:red-branch` (adversarial review of a branch diff, same reader-first structure aimed at code). Each skill's own file carries only what differs; everything below applies to both. Personas live one-per-file, searched across `${CLAUDE_PLUGIN_ROOT}/personas/` (shipped) and `~/.claude/library/profiles/personas/` (a user's own local additions) via `personas_dirs()`, read and filtered via `${CLAUDE_PLUGIN_ROOT}/scripts/red-personas.py`; the file contract, field-purpose table and document/branch compatibility note live in [personas-README.md](personas-README.md).
 
 ## Contents
 
@@ -45,7 +45,7 @@ the persona positionals that follow it).
            `PER002`, never a name or slug), `red-personas.py get {id}` resolves
            it directly — `red-personas.py`'s `get` accepts either a slug or an
            id, per the privacy convention in
-           [../../profiles/personas/README.md](../../profiles/personas/README.md);
+           [personas-README.md](personas-README.md);
            the real name is never a filename or slug in this tracked
            directory, and the id alone reveals nothing. Before using it,
            compare the dossier's live `updated` against the timestamp recorded
@@ -66,11 +66,11 @@ the persona positionals that follow it).
         so they can be corrected; do not interrogate the user for the missing
         fields. This is the throwaway path, so it buys speed with guesses.
 
-        Zero personas: default to `goblin` (Jason's own review stance,
-        scoped to both doc and branch) rather than routing to Step 1b — both
-        calling skills document this default in their own argument grammar.
-        Step 1b survives as the explicit roster lookup: the literal
-        invocation `personas` (no other arguments) still shows it.
+        Zero personas: default to `bob` (the lightweight persona scoped to
+        both doc and branch) rather than routing to Step 1b — both calling
+        skills document this default in their own argument grammar. Step 1b
+        survives as the explicit roster lookup: the literal invocation
+        `personas` (no other arguments) still shows it.
         Three or more: ask which two, then stop until answered. Two is the cap
         because the report's value is the contrast between readers.
     </positional>
@@ -129,7 +129,12 @@ not substitute a default, do not start the report.
    frontmatter — write both from the same draft, since the prose has to exist
    before it can be compressed. Get a yes on the whole thing, prose and
    summaries together.
-4. **Write it** to `~/.claude/library/profiles/personas/{slug}.md`
+4. **Write it** to `~/.claude/library/profiles/personas/{slug}.md` — the
+   user-local persona directory, never the plugin's own shipped
+   `${CLAUDE_PLUGIN_ROOT}/personas/` (a plugin's own directory is not a
+   write target: it's either loaded in place from a development checkout or
+   copied into a versioned cache, and writing into either defeats the point
+   of a stable, update-surviving user store)
    (an invented persona's `slug` is its name, same as `bob`/`cedric` — Step 1c's
    personas derived from a real dossier entry also get an invented name, never
    the person's own): a `---`-delimited frontmatter block (`id`, `slug`,
@@ -137,10 +142,10 @@ not substitute a default, do not start the report.
    `linkedProfileIds: []`, `scope` — default to the calling skill's own scope
    tag unless the drafted fields read as scope-agnostic, then the nine summary
    fields) followed by the full prose body, per the contract in
-   [../../profiles/personas/README.md](../../profiles/personas/README.md). This
+   [personas-README.md](personas-README.md). This
    happens before the report starts, so the persona exists in the store even if
    the run is abandoned halfway. Run
-   `python3 "$HOME"/.claude/library/scripts/assign_profile_ids.py` immediately
+   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/assign_profile_ids.py"` immediately
    after the write so the new file gets its `id` before anything can link to it.
 
 Then continue with the new persona alongside any others named.
@@ -167,7 +172,7 @@ for: rehearsing a target against the people who will actually see it, with
 Bob and Cedric as the stand-ins they always were.
 
 **The privacy boundary this step must not cross.** `library/profiles/dossier/`
-is gitignored on purpose, and `dossier-record`'s own rule is explicit: dossier
+is gitignored on purpose, and `goblin:dossier-record`'s own rule is explicit: dossier
 content never enters a tracked file, and a person named there is never named
 in anything published. The persona store (`library/profiles/personas/`)
 is **tracked**, and Step 5's refine-then-save writes reports out of it that
@@ -215,7 +220,7 @@ Then:
    overwrites the existing file at the same invented name; the name never
    changes, and neither does its `id`.
 4a. **Assign the id**, if this is a first derivation:
-    `python3 "$HOME"/.claude/library/scripts/assign_profile_ids.py`. On a
+    `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/assign_profile_ids.py`. On a
     refresh, the file already has one; skip this.
 5. **Write the link on both sides**, now that both ids exist:
    - **Persona side** (this new file): `linkedProfileIds` carries
@@ -245,7 +250,7 @@ never sit together outside the gitignored dossier file.
 ## The nine-field schema
 
 Needs, Stake, Power, Fluency, Reads, Skips, Trigger, Charity, Verdict style.
-Full definitions and the table form live in [../../profiles/personas/README.md](../../profiles/personas/README.md).
+Full definitions and the table form live in [personas-README.md](personas-README.md).
 
 ## The persona-pass field ordering
 
@@ -351,5 +356,5 @@ sources, the personas used and the date. Report the path.
 If an inline persona was defined this run and it is worth keeping, offer to
 write it as a new `~/.claude/library/profiles/personas/{slug}.md`, both
 frontmatter summaries and full prose per the contract in
-[../../profiles/personas/README.md](../../profiles/personas/README.md), scoped to the calling skill. Only on
+[personas-README.md](personas-README.md), scoped to the calling skill. Only on
 a yes.

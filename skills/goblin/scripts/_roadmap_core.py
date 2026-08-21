@@ -12,7 +12,7 @@ with `done` and `out_of_scope` terminal, and root-seeded `paused`/`deferred`
 (a parked status on a task with empty `dependsOn`) held as authored.
 
 This module is imported by roadmap.py (the single CLI entry point), which
-lives beside it in the scheme plugin's scripts/ directory. It has no dependencies outside
+lives beside it in the goblin plugin's scripts/ directory. It has no dependencies outside
 the standard library and requires Python 3.8+. British spelling throughout.
 """
 from __future__ import annotations
@@ -81,7 +81,7 @@ def active_phase(data, selector=None):
     if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
         raise RoadmapError(
             "roadmaps.json is an old-format pointer registry, not a phase array; "
-            "run scheme:migrate first")
+            "run goblin:roadmap-migrate first")
     phases = data if isinstance(data, list) else [data]
     live = [p for p in phases if not p.get("archived")]
     if not live:

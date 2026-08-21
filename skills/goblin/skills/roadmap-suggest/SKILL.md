@@ -37,7 +37,7 @@ Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`.
 
 Name the chosen task by its roadmap ID and say which signals drove the choice. If `candidates` is empty, say so and name the cheapest unblock instead (which blocker or gate, if cleared, frees the most tasks; read the `stats` breakdown).
 
-**Exit 3:** tell the user to run `scheme:migrate` and stop. **Exit 2:** no roadmap; point at `scheme:create` (or ask for the path if one exists somewhere unusual) and stop. This skill suggests from roadmap data only; it never derives tasks from the codebase.
+**Exit 3:** tell the user to run `goblin:roadmap-migrate` and stop. **Exit 2:** no roadmap; point at `goblin:roadmap-create` (or ask for the path if one exists somewhere unusual) and stop. This skill suggests from roadmap data only; it never derives tasks from the codebase.
 
 ## Always
 

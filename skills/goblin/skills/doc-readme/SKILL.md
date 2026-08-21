@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: doc
 disable-model-invocation: false # programmatic (derives from repo facts), so Claude can offer a refresh when structure drifts; approval gates the write
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(${CLAUDE_PLUGIN_ROOT}/scripts/git-doc-history.sh:*)"]
 arguments: ["mode", "target"]
 argument-hint: "[create|update] [directory, default ./]"
 ---
@@ -27,7 +27,7 @@ Say which state you detected and why (marker found, boilerplate pattern matched,
 
 1. Confirm the target directory exists; stop and report if not.
 2. Analyse it: purpose, contents, structure, key modules, build system, existing docs. For a sub-directory, read the surrounding context too (parent README, siblings, project docs) to place it in the codebase.
-3. Fill the matching skeleton: `~/.claude/library/templates/readme-root.md` for the project root, `readme-sub.md` for a sub-directory. Each {{ slot }} describes its content; drop sections that do not apply, never invent content to fill one.
+3. Fill the matching skeleton: `${CLAUDE_PLUGIN_ROOT}/templates/readme-root.md` for the project root, `readme-sub.md` for a sub-directory. Each {{ slot }} describes its content; drop sections that do not apply, never invent content to fill one.
 4. Include actual paths and commands, not placeholders. Match the style of existing project READMEs. Keep it proportional: a README is an overview, not full docs.
 5. **Badge row, only for what's real.** Detect what's actually present — a real `.github/workflows/*.yml` → CI badge; a real published version (package manifest, `svu current`) → version badge; a real `LICENSE`/`LICENSE.md` → license badge — and emit a shields.io row from those only. Never a badge for something that isn't in the repo; a badge for CI that doesn't run is a lie the honesty rule in `artefact-conventions.md` exists to prevent, and that value applies here too even though this is Markdown, not HTML.
 6. **Collapsibility for secondary sections.** Past roughly 4-5 major sections, wrap the less-critical ones (Contributing, full config reference, detailed dev setup) in GFM's native `<details><summary>` — no custom styling needed, GitHub renders the disclosure triangle itself. Keep What-it-is, Quickstart/Install, and core usage always visible.
@@ -43,7 +43,7 @@ Reached only for state (c) — a genuinely hand-authored README with no marker a
 2. Read it for structure and style, then gather what changed in one command:
 
    ```bash
-   "$HOME"/.claude/library/scripts/git-doc-history.sh $target/README.md $target
+   "${CLAUDE_PLUGIN_ROOT}/scripts/git-doc-history.sh $target/README.md $target
    ```
 
    It prints the commits, file changes and diff stat since the README was last touched; analyse that dump rather than running exploratory git calls.

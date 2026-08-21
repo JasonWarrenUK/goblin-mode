@@ -9,14 +9,14 @@ metadata:
   family: hud
 disable-model-invocation: false # read-only viewer, no gate needed
 disallowed-tools: ["Edit", "Write", "NotebookEdit"]
-allowed-tools: ["Bash(python3 \"$HOME\"/.claude/library/scripts/profiles.py:*)"]
+allowed-tools: ["Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/profiles.py:*)"]
 arguments: ["action", "store", "modifier"]
 argument-hint: "[list [dossier|personas] [full|short] | count [dossier|personas] | show <name>] (no args = usage)"
 ---
 
 # HUD: Profiles
 
-Two stores, one schema, one viewer: `library/profiles/dossier/` (real colleagues, gitignored) and `library/profiles/personas/` (invented or persona-derived adversarial readers, tracked). See `library/profiles/README.md` for how they relate. This skill never writes to either — it prints to the terminal and stops.
+Two stores, one schema, one viewer: `~/.claude/library/profiles/dossier/` (real colleagues, gitignored) and the persona store (`${CLAUDE_PLUGIN_ROOT}/personas/` shipped, plus `~/.claude/library/profiles/personas/` for a user's own local additions, invented or persona-derived adversarial readers, tracked). See `${CLAUDE_PLUGIN_ROOT}/references/profiles-README.md` for how they relate. This skill never writes to either — it prints to the terminal and stops.
 
 ## Parsing `$ARGUMENTS`
 
@@ -40,7 +40,7 @@ No script call, no counts, no listing. If Jason wants counts he'll ask for `coun
 ## Action: `count`
 
 ```bash
-python3 ~/.claude/library/scripts/profiles.py count --store <dossier|personas|both>
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/profiles.py count --store <dossier|personas|both>
 ```
 
 Bare `count` (no store token) requests both and is fine to run directly — it's cheap, two lines of output. Print the result as-is.
@@ -48,7 +48,7 @@ Bare `count` (no store token) requests both and is fine to run directly — it's
 ## Action: `list`
 
 ```bash
-python3 ~/.claude/library/scripts/profiles.py list --store <dossier|personas|both> --format <short|full>
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/profiles.py list --store <dossier|personas|both> --format <short|full>
 ```
 
 Default store is `both`, default format is `short` (slugs only, one per line, no description). `full` adds `id`, `description`, `quickFacts`, `isRealPerson`, `pronouns`, `linkedProfileIds`, `scope` per profile — never the nine stance fields (`needs` through `verdict_style`); those stay reserved for `show`. Print the output under headed sections per store when both are shown.
@@ -56,7 +56,7 @@ Default store is `both`, default format is `short` (slugs only, one per line, no
 ## Action: `show <name>`
 
 ```bash
-python3 ~/.claude/library/scripts/profiles.py get <name> --store both
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/profiles.py get <name> --store both
 ```
 
 `<name>` resolves as a slug or an `id` (`profiles.py get` tries both). This call checks both stores at once, so a name present in both prints both sections it returns.
@@ -71,6 +71,6 @@ Otherwise:
 
 **Never** print `linkedProfileIds` from a persona file and then separately fetch and print the dossier entry it names, unless that dossier entry was already the direct subject of this same `show` call. Chaining persona → dossier automatically is exactly the identity resolution the tracked/gitignored split exists to prevent. Chaining dossier → persona is fine and intended: the dossier already names the persona's id, nothing new is revealed by following the link forward.
 
-**Never** write anything. If Jason wants to record a fact, that's `/dossier-record`. If a persona needs deriving, that's `red-doc`/`red-branch`'s Step 1c in `library/references/red/methodology.md`.
+**Never** write anything. If Jason wants to record a fact, that's `/dossier-record`. If a persona needs deriving, that's `goblin:red-doc`/`goblin:red-branch`'s Step 1c in `${CLAUDE_PLUGIN_ROOT}/references/methodology.md`.
 
 <raw-arguments value="$ARGUMENTS" />

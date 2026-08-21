@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: pr
 disable-model-invocation: true
-allowed-tools: ["Read", "Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
+allowed-tools: ["Read", "Bash(git:*)", "Bash(gh:*)", "Bash(${CLAUDE_PLUGIN_ROOT}/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
 arguments: ["pr"]
 argument-hint: "[PR number | URL]"
 ---
@@ -25,9 +25,9 @@ The post-approval sequence as one skill: verify the PR is genuinely ready, merge
 
 Resolve the PR from `$ARGUMENTS`, then `gh pr view --json state,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,headRefName,baseRefName,title`.
 
-Proceed only when: state `OPEN`, no failing checks in `statusCheckRollup`, and `mergeable` isn't `CONFLICTING`. `reviewDecision` must additionally be `APPROVED` unless the repo lives under `github.com/jasonwarrenuk/` (personal repos have no reviewer, so that value never appears; check the resolved owner, not the local remote string). Anything short of that: report exactly what's unmet and stop. This skill lands ready PRs; it doesn't chase approvals (`pr-handle_review`) or fix branches.
+Proceed only when: state `OPEN`, no failing checks in `statusCheckRollup`, and `mergeable` isn't `CONFLICTING`. `reviewDecision` must additionally be `APPROVED` unless the repo lives under `github.com/jasonwarrenuk/` (personal repos have no reviewer, so that value never appears; check the resolved owner, not the local remote string). Anything short of that: report exactly what's unmet and stop. This skill lands ready PRs; it doesn't chase approvals (`goblin:pr-handle_review`) or fix branches.
 
-**Stack detection** (see `~/.claude/library/references/stacked-prs.md`): the PR is part of a stack when `baseRefName` isn't the default branch, or `gh pr list --base {headRefName} --state open` shows a child PR targeting it. A stacked merge is bottom-up and contiguous: merging this PR also merges **every unmerged PR below it**, so extend the readiness check to each of those layers too, and note any open children above (they survive the merge and retarget automatically).
+**Stack detection** (see `${CLAUDE_PLUGIN_ROOT}/references/stacked-prs.md`): the PR is part of a stack when `baseRefName` isn't the default branch, or `gh pr list --base {headRefName} --state open` shows a child PR targeting it. A stacked merge is bottom-up and contiguous: merging this PR also merges **every unmerged PR below it**, so extend the readiness check to each of those layers too, and note any open children above (they survive the merge and retarget automatically).
 
 ## Step 2: Confirm and merge
 
@@ -54,7 +54,7 @@ If child PRs remain open above the merge point, run `gh stack sync --prune` from
 From the main checkout: `git checkout main && git pull`, then:
 
 ```bash
-TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" && git tag "$TAG" && git push origin "$TAG"
+TAG="$("${CLAUDE_PLUGIN_ROOT}/scripts/safe-version-next.sh)" && git tag "$TAG" && git push origin "$TAG"
 ```
 
 A multi-layer stack merge is one landing event: tag once for the lot, never once per layer. Push the single tag, never `git push --tags` (that publishes every local tag, strays included). Script exit **3** means nothing to release: no version-bumping commits since the current tag (a docs-only or chore-only PR); say so and skip to Step 4. If the script printed its 0.x guard note to stderr, relay it: the user should know a major bump was requested and deliberately held at 0.x.
@@ -67,7 +67,7 @@ A multi-layer stack merge is one landing event: tag once for the lot, never once
 
 ## Step 5: Roadmap sync
 
-If the repo has a rich roadmap (`python3 "$HOME"/.claude/skills/scheme/scripts/roadmap.py detect` exits 0), offer to run the `scheme:maintain` skill so the merged work's task lands as `done` and the projections refresh. Offer, don't assume; the PR may not map to a roadmap task.
+If the repo has a rich roadmap (`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect` exits 0), offer to run the `goblin:roadmap-maintain` skill so the merged work's task lands as `done` and the projections refresh. Offer, don't assume; the PR may not map to a roadmap task.
 
 ## Step 6: Report
 

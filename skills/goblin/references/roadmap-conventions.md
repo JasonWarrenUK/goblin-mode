@@ -1,9 +1,9 @@
 # Roadmap Conventions
 
-Shared reference for the `scheme` plugin's skills (`scheme:create`,
-`scheme:create-interview`, `scheme:maintain`, `scheme:update-tasks`,
-`scheme:migrate`, `scheme:review`, `scheme:artefact`, `scheme:suggest`,
-`scheme:group`). Skills point here instead of restating these rules; the
+Shared reference for the `goblin` plugin's roadmap skills (`goblin:roadmap-create`,
+`goblin:roadmap-create-interview`, `goblin:roadmap-maintain`, `goblin:roadmap-update-tasks`,
+`goblin:roadmap-migrate`, `goblin:roadmap-review`, `goblin:roadmap-artefact`, `goblin:roadmap-suggest`,
+`goblin:roadmap-group`). Skills point here instead of restating these rules; the
 deterministic halves live in the plugin's `scripts/roadmap.py` (single CLI)
 and `scripts/_roadmap_core.py`.
 
@@ -32,7 +32,7 @@ Multiple active phases are an error, never a silent guess: archive finished
 phases or pass `--phase NAME`.
 
 **Detect guard (every skill runs this first):** exit 3 → tell the user to run
-`scheme:migrate`; exit 2 → ask for the roadmap path; exit 0 → proceed.
+`goblin:roadmap-migrate`; exit 2 → ask for the roadmap path; exit 0 → proceed.
 
 ## Status vocabulary
 
@@ -173,7 +173,7 @@ teal, lime, magenta, indigo, amber, rose.
 ## Codebase reconciliation (inference)
 
 Inference (deciding a task's status from the actual code rather than the
-dependency graph) lives in exactly one place: `scheme:maintain`'s
+dependency graph) lives in exactly one place: `goblin:roadmap-maintain`'s
 reconciliation step. Every other status change is mechanical (see above).
 This is deliberately narrow so the rest of the family can keep treating
 status as computed, not judged.
@@ -205,7 +205,7 @@ a whole-tree scan.
 
 **Confirmation gate:** every proposed edit is shown with its evidence and
 applied only once approved, mirroring the proposal-then-write pattern in
-`scheme:update-tasks`. Discrepancies found in the other direction (a task
+`goblin:roadmap-update-tasks`. Discrepancies found in the other direction (a task
 marked `done` whose code can no longer be found) are reported as drift, never
 auto-reverted; absence still isn't evidence.
 
@@ -223,7 +223,7 @@ auto-reverted; absence still isn't evidence.
   Never inferred: a skill setting it must ask, never guess from description,
   git author, category, or who's running the skill.
 - `pr` is an optional integer: the GitHub PR number that ships the task,
-  recorded by `next-task-ship` at PR creation (worth setting by hand when
+  recorded by `goblin:next-task-ship` at PR creation (worth setting by hand when
   shipping outside that skill). It lets a later run detect that a `done`
   dependency is still unmerged and stack a dependent branch on it instead of
   branching from main (see the `stacked-prs.md` reference that ships with
@@ -256,13 +256,13 @@ auto-reverted; absence still isn't evidence.
 
 | Situation | Skill |
 |---|---|
-| No roadmap yet | `scheme:create` |
-| Old single-file format detected | `scheme:migrate` |
-| Half-formed ideas to explore into tasks | `scheme:create-interview` |
-| One known task to add | `scheme:update-tasks` |
-| Work landed / statuses drifted | `scheme:maintain` (add `reconcile` to check against code) |
-| Priorities / freshness / health / dependency-graph review | `scheme:review` (lens: `health`, `deps` or default full) |
-| Render the HTML dashboard | `scheme:artefact` |
-| Choose the next task (one pick) | `scheme:suggest` |
-| See the whole ready-set | `scheme:group` |
-| Ship the next task end-to-end | `next-task-ship` (delivery skills; not part of this plugin) |
+| No roadmap yet | `goblin:roadmap-create` |
+| Old single-file format detected | `goblin:roadmap-migrate` |
+| Half-formed ideas to explore into tasks | `goblin:roadmap-create-interview` |
+| One known task to add | `goblin:roadmap-update-tasks` |
+| Work landed / statuses drifted | `goblin:roadmap-maintain` (add `reconcile` to check against code) |
+| Priorities / freshness / health / dependency-graph review | `goblin:roadmap-review` (lens: `health`, `deps` or default full) |
+| Render the HTML dashboard | `goblin:roadmap-artefact` |
+| Choose the next task (one pick) | `goblin:roadmap-suggest` |
+| See the whole ready-set | `goblin:roadmap-group` |
+| Ship the next task end-to-end | `goblin:next-task-ship` |

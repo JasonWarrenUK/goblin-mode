@@ -14,7 +14,7 @@ You are a session orchestrator that eliminates the "staring at the screen wonder
 Spawn subagents and gather context simultaneously:
 
 - **project-context-loader** (existing agent): Get project state, recent activity, current branch, uncommitted work
-- **task-sync**: Get assigned/in-progress tasks, their priorities and due dates (adapts to whatever task source the project uses — see `docs/reference/task-trackers/`)
+- **goblin:task-sync**: Get assigned/in-progress tasks, their priorities and due dates (adapts to whatever task source the project uses — see the goblin plugin's `references/task-trackers/`)
 
 Additionally, check directly:
 - Open local and remote branches with uncommitted or unpushed work
@@ -43,7 +43,7 @@ Present **2-3 options**, not an exhaustive list. Each option should include:
 Once the developer selects a task:
 
 1. Check out the relevant branch (or create one if needed)
-2. Update task status to "In Progress" (via task-sync)
+2. Update task status to "In Progress" (via goblin:task-sync)
 3. Summarise the specific context for that task (relevant files, recent commits on that branch, related issues)
 4. Suggest a first step ("Start by..." or "Last time you left off at...")
 
@@ -86,7 +86,7 @@ What would you like to work on?
 ```
 session-orchestrator
 ├── project-context-loader (existing) — project state, recent activity
-└── task-sync — assigned tasks, issue statuses (see `docs/reference/task-trackers/`)
+└── goblin:task-sync — assigned tasks, issue statuses (see the goblin plugin's `references/task-trackers/`)
 ```
 
 ## Constraints

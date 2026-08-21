@@ -61,7 +61,7 @@ const diffData = [
 | `deletion` | red-tinted, from the palette's semantic tokens | red, from the palette's semantic tokens | `-` |
 | `hunk-header` | blue-tinted, from the palette's semantic tokens | blue, from the palette's semantic tokens | `@@` |
 
-Colour roles only, not literal values: source the actual hex/RC values from `~/.claude/library/references/artefact-conventions.md`'s palette rules, per the Theme support section below.
+Colour roles only, not literal values: source the actual hex/RC values from `${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md`'s palette rules, per the Theme support section below.
 
 ## Comment system
 
@@ -149,7 +149,7 @@ To create a diff viewer for a specific commit:
 
 ## Theme support
 
-Follow the three-state contract from `~/.claude/library/references/artefact-conventions.md`, not a flat light/dark split. Define semantic tokens on bare `:root` (the light palette), redefine them under `@media (prefers-color-scheme: dark)` guarded as `:root:not([data-theme="light"])`, and redefine them again under `:root[data-theme="dark"]` so an explicit toggle wins in both directions. Every element below (`body`, `.file-card`, `.diff-line.addition`, `.diff-line.deletion`, `.diff-line.hunk-header`) takes its colour from a token, never a literal hex value:
+Follow the three-state contract from `${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md`, not a flat light/dark split. Define semantic tokens on bare `:root` (the light palette), redefine them under `@media (prefers-color-scheme: dark)` guarded as `:root:not([data-theme="light"])`, and redefine them again under `:root[data-theme="dark"]` so an explicit toggle wins in both directions. Every element below (`body`, `.file-card`, `.diff-line.addition`, `.diff-line.deletion`, `.diff-line.hunk-header`) takes its colour from a token, never a literal hex value:
 
 ```css
 :root {

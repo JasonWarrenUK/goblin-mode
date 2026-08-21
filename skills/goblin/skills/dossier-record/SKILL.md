@@ -17,7 +17,7 @@ argument-hint: "[name] [what to record]"
 # Record a person fact
 
 Files live in `~/.claude/library/profiles/dossier/{slug}.md`, one per person, gitignored.
-`library/profiles/dossier/README.md` holds the schema and is the authority on file shape.
+`~/.claude/library/profiles/dossier/README.md` holds the schema and is the authority on file shape.
 
 This skill fires in the middle of other work. It must be quiet: one line of
 output, no summary, no restating what Jason just said back to him.
@@ -98,14 +98,14 @@ ls ~/.claude/library/profiles/dossier/
   with one fact and three open questions is doing its job; it gives the next
   fact somewhere to land. Leave `id` unset; `linkedProfileIds` starts `[]`.
   Then run
-  `python3 "$HOME"/.claude/library/scripts/assign_profile_ids.py` so the new
+  `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/assign_profile_ids.py` so the new
   file gets its `id` immediately — waiting until a persona derivation needs it
   (see Step 2a) would leave a freshly created file id-less in the meantime.
 
 ## Step 2a: Record a persona link (only when asked to)
 
 Fires when a `red-*` skill's persona derivation (Step 1c in
-`library/references/red/methodology.md`) has invented a name for a persona
+`${CLAUDE_PLUGIN_ROOT}/references/methodology.md`) has invented a name for a persona
 derived from this entry and needs the link recorded on the dossier side. Not
 part of the normal fact-recording flow; this skill is invoked for that
 purpose specifically.
@@ -168,7 +168,7 @@ Existing people need no index change unless the one-line hook is now wrong.
 
 ## Step 6: Report
 
-One line. `Recorded: Jaz is light on advanced skill builds → library/profiles/dossier/jaz.md`.
+One line. `Recorded: <fact> → ~/.claude/library/profiles/dossier/<slug>.md`.
 Then carry on with whatever the turn was actually about.
 
 ## Rules

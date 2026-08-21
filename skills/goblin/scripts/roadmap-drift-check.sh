@@ -7,5 +7,5 @@
 here="${0:A:h}"
 python3 "$here"/roadmap.py detect >/dev/null 2>&1 || exit 0
 python3 "$here"/roadmap.py validate >/dev/null 2>&1 && exit 0
-print "⚠ Roadmap drift: roadmap.py validate reports discrepancies; consider running /scheme:maintain"
+print "⚠ Roadmap drift: roadmap.py validate reports discrepancies; consider running /goblin:roadmap-maintain"
 exit 0

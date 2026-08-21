@@ -8,24 +8,24 @@ metadata:
   glyph: ᛟ
   family: red
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3 \"$HOME\"/.claude/library/scripts/red-personas.py:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)", "Bash(${CLAUDE_PLUGIN_ROOT}/scripts/branch-facts.sh:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/red-personas.py:*)"]
 argument-hint: "<base branch> [persona] [persona] [-- what else would get this rejected]"
 ---
 
 # Sabotage a branch
 
-You want this branch rejected. This is the same stance as `branch-qa_review`
+You want this branch rejected. This is the same stance as `goblin:branch-qa_review`
 turned hostile and reader-aimed: not a thinner pass, a meaner one, run through
 specific reviewers rather than a checklist.
 
 The methodology itself (persona resolution, the nine-field schema, field
 ordering, the report skeleton, discipline rules, refine-then-save) lives in
-`~/.claude/library/references/red/methodology.md`. Read it now and execute it;
+`${CLAUDE_PLUGIN_ROOT}/references/methodology.md`. Read it now and execute it;
 this file adds only what is unique to the branch path.
 
-**On `Write`:** kept, gated to the same approval-only save path `red-doc` uses
+**On `Write`:** kept, gated to the same approval-only save path `goblin:red-doc` uses
 (Step 5 below). Everything before that save is print-only, same as
-`branch-qa_review`'s fully read-only stance; the difference is this skill
+`goblin:branch-qa_review`'s fully read-only stance; the difference is this skill
 writes its dossier to disk once, on explicit approval, rather than never. It
 never edits the branch it is reviewing.
 
@@ -34,10 +34,10 @@ never edits the branch it is reviewing.
 **Base is required; persona is not.** Requiring base is what removes the
 ambiguity a single token used to carry: with base mandatory, one token can
 only be the base branch, never a persona guess. `/red-branch cedric` means
-"diff against a branch called `cedric`, reviewed by Goblin" — if no such
-branch exists, `branch-facts.sh`/`git diff` fail loudly on the bad ref, which
-is an acceptable failure mode; if the failure looks like it might actually be
-a persona name instead, say so rather than only reporting a missing branch.
+"diff against a branch called `cedric`" — if no such branch exists,
+`branch-facts.sh`/`git diff` fail loudly on the bad ref, which is an
+acceptable failure mode; if the failure looks like it might actually be a
+persona name instead, say so rather than only reporting a missing branch.
 
 Zero tokens: base is missing. Print tersely and stop:
 
@@ -60,14 +60,15 @@ interactively.
     </positional>
     <positional n="2,3" name="personas" required="false">
         Resolved per the methodology's Step 1/1a/1b/1c, via
-        `python3 "$HOME"/.claude/library/scripts/red-personas.py` called with
-        `--scope branch`. **Default: `goblin`** when none is named — Jason's
-        own review stance, scoped to both doc and branch. `cedric` is also
-        scoped to both doc and branch (one forensic stance, domain-specific
-        Reads/Skips/Stake/Trigger for each); `bob` is doc-only and does not
-        transfer as-is. Further branch-specific personas (the maintainer who
-        owns the touched module, the reviewer who never opens a test file)
-        get defined the same way on first need.
+        `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/red-personas.py` called with
+        `--scope branch`. **Default: `bob`** when none is named — the
+        lightweight persona scoped to both doc and branch (fast structural
+        veto, skips implementation depth on principle, domain-specific
+        Reads/Skips/Stake/Trigger for each); `cedric` is the heavier,
+        fully-fluent alternative when a forensic pass is wanted instead.
+        Further branch-specific personas (the maintainer who owns the
+        touched module, the reviewer who never opens a test file) get
+        defined the same way on first need.
     </positional>
     <positional n="4+" name="failure-conditions" required="false">
         Free text: extra information about what would get this specific
@@ -83,7 +84,7 @@ interactively.
 
 ## Step 2: Facts and the diff
 
-`"$HOME"/.claude/library/scripts/branch-facts.sh $base` emits JSON: ahead/behind, conventional-commit and
+`"${CLAUDE_PLUGIN_ROOT}/scripts/branch-facts.sh $base` emits JSON: ahead/behind, conventional-commit and
 branch-name compliance, WIP commits, diff size, conflict markers, TODOs and
 console.logs added, test files touched, svu bump. These are facts to cite, not
 findings on their own; a fact becomes a finding once you show what it does to
@@ -93,14 +94,14 @@ sloppiness to Cedric).
 Read the full diff, `git diff $base...HEAD`. Then read what it touches beyond
 the diff itself: for every changed export, function signature or component
 prop, **Grep for its callers and confirm they still hold** — this is
-`branch-qa_review`'s Step 2 addition, adopted here because changed-contract
+`goblin:branch-qa_review`'s Step 2 addition, adopted here because changed-contract
 breakage lives outside the diff and a hostile reviewer who only reads the diff
 misses exactly the class of bug that ships. Where a claim is checkable by
 running something (a test, a typecheck, a quick script), run it rather than
-reasoning about it, per `pr-handle_review`'s Step 3.
+reasoning about it, per `goblin:pr-handle_review`'s Step 3.
 
 Research project conventions in `CLAUDE.md`, `.claude/**/*` and `docs/*` before
-critiquing implementation, per `pr-review-dry_run`'s Step 3: a convention
+critiquing implementation, per `goblin:pr-review-dry_run`'s Step 3: a convention
 violation is a real finding, a stylistic disagreement with an established
 project practice is not.
 
@@ -110,7 +111,7 @@ Run each of these over the whole diff, plus the persona-pass from the
 methodology. Keep going until a full pass turns up nothing new. Never pad: an
 item you cannot cite by `file:line` does not exist.
 
-Four named passes, carried in from `pr-review-dry_run`'s foci so the dossier
+Four named passes, carried in from `goblin:pr-review-dry_run`'s foci so the dossier
 format's reorganisation does not cost coverage:
 
 - **Correctness.** Will this break anything: logic errors, edge cases, race
@@ -123,7 +124,7 @@ format's reorganisation does not cost coverage:
   reasonable choice the project has no stated position on is not one.
 - **Reinforcement.** What is actually right: a genuinely good call, a test
   that catches something real, a refactor that removes a footgun. This
-  matters for the same reason `red-doc`'s real-defects section matters: a
+  matters for the same reason `goblin:red-doc`'s real-defects section matters: a
   purely hostile dossier that never says what holds up reads as noise, not
   signal, and the author cannot tell the bugs from the debating points.
 
@@ -142,14 +143,14 @@ this section is the one place the dossier is allowed to be generous), then the
 per-persona sections and named failure conditions per the shared skeleton.
 
 This dossier format organises and ranks findings differently from
-`pr-review-dry_run`'s 🔴/🟠/🟡/🟣 taxonomy, but must not find less: if a run of
+`goblin:pr-review-dry_run`'s 🔴/🟠/🟡/🟣 taxonomy, but must not find less: if a run of
 this skill on a branch misses something `/branch-qa_review` would have caught
 on the same branch, that is a coverage regression in this file or in
 `methodology.md`, not an acceptable trade for the dossier's reader-first
 structure.
 
 **Scope boundary:** this skill reports. It does not fix. Splitting review from
-repair is why `branch-qa_review` stays read-only; the same reasoning holds
+repair is why `goblin:branch-qa_review` stays read-only; the same reasoning holds
 here even though this file keeps `Write` for the save step.
 
 ## Step 5: Refine, then save

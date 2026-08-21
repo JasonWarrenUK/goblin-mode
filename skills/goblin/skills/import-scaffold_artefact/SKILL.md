@@ -59,7 +59,7 @@ Produce a short written inventory (components, state, deps, backend signals, Rea
 
 ## Step 3: Interview for the project-shaping decisions
 
-Some decisions are the user's to make, not yours to assume. Run a short structured interview, adapting the round discipline of the `scheme:create-interview` skill: ask **2–4 questions per round**, never dump a long list at once, acknowledge briefly (don't repeat answers verbatim), and end each round with *"Anything else, or shall I write up the config?"*. This is a conversation, not a form.
+Some decisions are the user's to make, not yours to assume. Run a short structured interview, adapting the round discipline of the `goblin:roadmap-create-interview` skill: ask **2–4 questions per round**, never dump a long list at once, acknowledge briefly (don't repeat answers verbatim), and end each round with *"Anything else, or shall I write up the config?"*. This is a conversation, not a form.
 
 Skip any question the arguments or the Step 2 inventory already answers (don't ask about a backend if the artefact is clearly static; don't ask the stack if `react` was passed).
 
@@ -99,7 +99,7 @@ State the artefact→stack mapping from the approved config:
 - **HTML artefact → a SvelteKit route.** Markup goes into `+page.svelte`; page-load data (if any) into `+page.ts` or `+page.server.ts` if a backend was chosen.
 - **React opt-in:** mirror the artefact's own framework: JSX stays React components, HTML becomes a Next.js/Vite React page. Skip the rune mapping below but keep the styling and tail steps.
 
-**React idiom → Svelte 5 rune mapping:** read `~/.claude/library/references/react-to-svelte5.md` and state the mappings actually used by this artefact (plus the gotchas it lists that apply: effect cleanup timing, synchronous context, portals, ref-as-box).
+**React idiom → Svelte 5 rune mapping:** read `${CLAUDE_PLUGIN_ROOT}/references/react-to-svelte5.md` and state the mappings actually used by this artefact (plus the gotchas it lists that apply: effect cleanup timing, synchronous context, portals, ref-as-box).
 
 - [ ] Every React idiom in the artefact has a named Svelte target (or a flagged manual port)
 
@@ -163,9 +163,9 @@ Translate the inventory from Step 2 into real source files.
 
 ## Step 7: Rewire styling onto Reasonable Colors
 
-Replace every hardcoded colour from Step 2 with semantic aliases backed by Reasonable Colors. **Read `~/.claude/library/references/reasonable-colors-reference.md` first** for the shade/contrast rules and the full palette; do not guess hex values.
+Replace every hardcoded colour from Step 2 with semantic aliases backed by Reasonable Colors. **Read `${CLAUDE_PLUGIN_ROOT}/references/reasonable-colors-reference.md` first** for the shade/contrast rules and the full palette; do not guess hex values.
 
-This step's job is preserving the *source artefact's own design* in the new codebase — not imposing a different aesthetic on top of one the user already approved. `~/.claude/library/references/artefact-conventions.md` is a useful cross-check for masthead structure, typography-pairing logic, and the honesty/status-marking rule if the ported app is *itself* a reference/status-style artefact (e.g. a dashboard), but it never overrides what Step 6 already preserved from the artefact's own markup and voice.
+This step's job is preserving the *source artefact's own design* in the new codebase — not imposing a different aesthetic on top of one the user already approved. `${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md` is a useful cross-check for masthead structure, typography-pairing logic, and the honesty/status-marking rule if the ported app is *itself* a reference/status-style artefact (e.g. a dashboard), but it never overrides what Step 6 already preserved from the artefact's own markup and voice.
 
 1. **Install:** `bun add reasonable-colors` (or the CDN link `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css` for a no-build HTML case). Import it once at the app root.
 2. **Define semantic aliases** in `src/lib/styles/tokens.css`, mapping RC vars to roles:
@@ -227,8 +227,8 @@ git add . && git commit -m "chore: scaffold project from Claude artefact"
 Confirm `.gitignore` covers `node_modules`, build output, and any `.env` before that first `git add`. No hook symlinks; there is no bootstrap template this skill depends on.
 
 **9c. ADR + README from Jason's templates**
-- Read `~/.claude/library/templates/ADR.md` and write `docs/adrs/001-initial-tech-stack.md` recording the stack choice and the artefact-to-Svelte translation rationale. Follow the template's exact section order; do not invent a format.
-- For the README, read `~/.claude/library/templates/readme-root.md` and emit a `README.md` from it.
+- Read `${CLAUDE_PLUGIN_ROOT}/templates/ADR.md` and write `docs/adrs/001-initial-tech-stack.md` recording the stack choice and the artefact-to-Svelte translation rationale. Follow the template's exact section order; do not invent a format.
+- For the README, read `${CLAUDE_PLUGIN_ROOT}/templates/readme-root.md` and emit a `README.md` from it.
 
 **9d. Deploy config**
 - Configure only the target chosen in Step 3: **Vercel** (`@sveltejs/adapter-vercel` or auto), **Deno Deploy** (`adapter-deno` / static), **GitHub Pages** (`@sveltejs/adapter-static` + base path). Install and set the one adapter; do not scaffold config for targets not chosen.

@@ -16,7 +16,7 @@ argument-hint: "[loose|strict] [PR number | URL]"
 
 # PR Review
 
-Canonical review methodology. Produces structured findings only; **never posts to GitHub**. `pr-review` loads this skill and handles posting; keep all methodology here to avoid divergence.
+Canonical review methodology. Produces structured findings only; **never posts to GitHub**. `goblin:pr-review` loads this skill and handles posting; keep all methodology here to avoid divergence.
 
 ```xml
 <pull-request-review>
@@ -27,7 +27,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
     <step num="3">Research project conventions stored in `CLAUDE.md`, `.claude/**/*` and `docs/*`. Before critiquing implementation, check whether the dev is following established project practice</step>
     <step num="4">Classify every finding by <taxonomy/> type and by scope (line / file / cross-file)</step>
     <step num="5">Where a line-scoped 🔴/🟠/🟡 finding has a concrete fix, write it as a committable ```suggestion block per <suggestions/></step>
-    <step num="6">Write every comment body **and the `summary`** (including the follow-up delta, when in that mode) per the writing-style skill's anti-slop rules (no em dashes, no contrastive couplets, no parade-of-examples, lead with specifics). This isn't just style guidance here: when this skill's output feeds `pr-review`, its `partition-findings.mjs` hard-fails the post on any em-dash/en-dash in the summary or a comment body. Get it right here, upstream, rather than relying on that gate to catch it</step>
+    <step num="6">Write every comment body **and the `summary`** (including the follow-up delta, when in that mode) per the writing-style skill's anti-slop rules (no em dashes, no contrastive couplets, no parade-of-examples, lead with specifics). This isn't just style guidance here: when this skill's output feeds `goblin:pr-review`, its `partition-findings.mjs` hard-fails the post on any em-dash/en-dash in the summary or a comment body. Get it right here, upstream, rather than relying on that gate to catch it</step>
     <step num="7">Emit findings using <output/>. This is the full deliverable; stop here, nothing gets posted</step>
   </steps>
   <foci>
@@ -82,7 +82,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
     - `suggestion`: optional ```suggestion block (line-scoped changes/nits only)
 
     Plus:
-    - `summary`: overall review body (top-level comment content). When run in follow-up mode (see `pr-review`'s `<follow-up-mode/>`), the leading "Since my last review" delta uses only ⚪ fixed / ⚫ still open / 🟢 new; never 🆕 (renders as a GitHub `:new:` badge) or ✅/⚠️ (superseded, off-palette)
+    - `summary`: overall review body (top-level comment content). When run in follow-up mode (see `goblin:pr-review`'s `<follow-up-mode/>`), the leading "Since my last review" delta uses only ⚪ fixed / ⚫ still open / 🟢 new; never 🆕 (renders as a GitHub `:new:` badge) or ✅/⚠️ (superseded, off-palette)
     - `verdict`: Request Changes | Comment | Approve, derived per <verdict/>
     - `mode`: loose | strict; which rule set produced the verdict, so the caller doesn't have to re-derive it
   </output>

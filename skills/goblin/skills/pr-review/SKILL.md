@@ -16,7 +16,7 @@ argument-hint: "[loose|strict] [PR number | URL]"
 
 # PR Review with Comment
 
-Thin wrapper around `pr-review-dry_run`: all methodology (foci, taxonomy, matrix, verdict logic, writing rules) lives there, including the loose/strict mode split. This skill only parses the mode keyword out of `$ARGUMENTS` and forwards it; it turns the resulting findings into a single GitHub review, using `partition-findings.mjs` (in this skill's folder) to do the deterministic diff-matching and payload assembly. Everything stays in context and in a single shell pipeline: no scratch files are read or written at any point.
+Thin wrapper around `goblin:pr-review-dry_run`: all methodology (foci, taxonomy, matrix, verdict logic, writing rules) lives there, including the loose/strict mode split. This skill only parses the mode keyword out of `$ARGUMENTS` and forwards it; it turns the resulting findings into a single GitHub review, using `partition-findings.mjs` (in this skill's folder) to do the deterministic diff-matching and payload assembly. Everything stays in context and in a single shell pipeline: no scratch files are read or written at any point.
 
 ```xml
 <pull-request-review-and-comment>

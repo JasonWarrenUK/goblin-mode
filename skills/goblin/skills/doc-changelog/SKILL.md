@@ -31,10 +31,10 @@ No arguments: build `md`, then refresh any projection that already exists in the
 
 ## Step 1: Establish the range
 
-First, a **three-way state check** on `CHANGELOG.md`, same idea as `doc-readme`:
+First, a **three-way state check** on `CHANGELOG.md`, same idea as `goblin:doc-readme`:
 
 - **(a) No `CHANGELOG.md`** → build fresh from the earliest tag (or full history if untagged).
-- **(b) Placeholder, or already Keep a Changelog-shaped** → a `<!-- doc-changelog: generated ... -->` marker (left as the first line by this skill from now on, mirroring `doc-readme`'s convention) or a file that's already unambiguously in Keep a Changelog structure (a prior unmarked run of this same skill) — proceed with the normal forward-generation logic below.
+- **(b) Placeholder, or already Keep a Changelog-shaped** → a `<!-- doc-changelog: generated ... -->` marker (left as the first line by this skill from now on, mirroring `goblin:doc-readme`'s convention) or a file that's already unambiguously in Keep a Changelog structure (a prior unmarked run of this same skill) — proceed with the normal forward-generation logic below.
 - **(c) Hand-written `CHANGELOG.md` in some other format/voice** → stop and flag it explicitly before writing anything: offer to convert it to Keep a Changelog format, or to respect the existing format and append new entries in its own voice instead. Don't silently Frankenstein a Keep a Changelog section onto a differently-structured hand-written file.
 
 `git tag --sort=-v:refname` for existing tags; `svu current` for the latest version. The unit of work is tag-to-tag: each version section covers `previousTag..tag`, and `[Unreleased]` covers `latestTag..HEAD`. If `CHANGELOG.md` exists (state b), its most recent version heading shows where it stopped: only generate forward from there; never rewrite sections already published.

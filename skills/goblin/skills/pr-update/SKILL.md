@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: pr
 disable-model-invocation: false # invocable by Claude so it can offer a refresh when new commits leave the description stale; its approval step still gates the write
-allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Read", "Glob", "Grep"]
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(${CLAUDE_PLUGIN_ROOT}/scripts/pr-facts.sh:*)", "Read", "Glob", "Grep"]
 arguments: ["pr"]
 argument-hint: "[PR number]"
 ---
@@ -22,7 +22,7 @@ Update the description of PR #$ARGUMENTS.
 ### 1. Gather the facts in one call
 
 ```bash
-"$HOME"/.claude/library/scripts/pr-facts.sh $ARGUMENTS
+"${CLAUDE_PLUGIN_ROOT}/scripts/pr-facts.sh $ARGUMENTS
 ```
 
 It prints the PR metadata, the current body, the watermark (`<!-- pr-update-watermark: <sha> -->`, or "none" when the whole branch is new), every commit since it with per-commit stats, and the SHA to use as the next watermark. Analyse that dump rather than running exploratory `gh`/`git` calls. Exit **3** means no new commits; tell me the description is already up to date and stop. Exit **2**: report the script's message.
@@ -36,7 +36,7 @@ From the dump, understand what changed and why. Group related commits into coher
 Take the existing body (in the dump) and update it:
 
 - **Do not rewrite from scratch.** Preserve existing content unless it is now inaccurate.
-- The body structure follows `~/.claude/library/templates/pr-description.md` (the same template `pr-create` fills); keep updates within that structure rather than adding new top-level sections.
+- The body structure follows `${CLAUDE_PLUGIN_ROOT}/templates/pr-description.md` (the same template `goblin:pr-create` fills); keep updates within that structure rather than adding new top-level sections.
 - **Integrate, never append.** Fold the new work into the existing sections: `## Changes` gains or amends entries, summaries absorb the new scope, stale statements get corrected in place. Bolting an "updates since" block onto the end of the description is the failure mode this step exists to prevent: the reader must see one coherent current description, not a base version plus a changelog of patches.
 - **Provenance lives in its own trail, not in the body content.** Maintain a single collapsible block immediately above the watermark:
 

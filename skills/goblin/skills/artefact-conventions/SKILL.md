@@ -14,7 +14,7 @@ Every artefact Claude writes for Jason — a claude.ai/Cowork Artifact, a
 Claude Code project artefact, a ported real app's styling pass — follows the
 same location rule and the same values, expressed in a bespoke way each
 time. The full ruleset lives in
-`~/.claude/library/references/artefact-conventions.md`; this skill is the
+`${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md`; this skill is the
 procedure that gets it applied.
 
 **Announce at start** (briefly, not a whole paragraph): which artefact
@@ -78,7 +78,7 @@ public.
 ## Step 2b: First artefact for this project — brief interview
 
 Run a short, round-based interview — same discipline as
-`import-scaffold_artefact` Step 3 and `scheme:create-interview`: **2-4
+`goblin:import-scaffold_artefact` Step 3 and `goblin:roadmap-create-interview`: **2-4
 questions per round**, never a long list at once, and end each round with
 *"Anything else, or shall I go ahead?"*. Skip any question the content
 itself already answers (a pipeline-metrics doc doesn't need to ask if this
@@ -136,7 +136,7 @@ page before letting it near a paragraph.
 
 ## Step 3: Apply the shared rules
 
-Read `~/.claude/library/references/artefact-conventions.md` in full and
+Read `${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md` in full and
 apply: masthead structure, RC-sourced semantic palette (this project's own
 mapping from Step 2/2b), the three-state theming contract, typography
 pairing, the collapsibility threshold, the epistemic-honesty rule (structural
@@ -161,7 +161,7 @@ Load both.
 ## Step 4: Write
 
 Show the draft (or its key structural decisions, for a long artefact) before
-writing, following the same approval convention `artefact-audit` and
-`scheme:artefact` already use. Write to the Step 1 path. Report the file
+writing, following the same approval convention `goblin:artefact-audit` and
+`goblin:roadmap-artefact` already use. Write to the Step 1 path. Report the file
 path, the aesthetic decision (reused or newly interviewed), and anything
 notable in how the honesty rule was expressed.

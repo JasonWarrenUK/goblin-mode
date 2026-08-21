@@ -1,7 +1,7 @@
 ---
 name: "Artefact: Render Audit"
 description: "Render verified findings as an actionable, status-grouped HTML artefact."
-when_to_use: "When findings need a shareable visual surface: scheme:review and project-audit_deps hand off here, any in-conversation findings can be mapped into its schema, and render-only mode rebuilds the page from a saved dataset JSON."
+when_to_use: "When findings need a shareable visual surface: goblin:roadmap-review and project-audit_deps hand off here, any in-conversation findings can be mapped into its schema, and render-only mode rebuilds the page from a saved dataset JSON."
 model: sonnet
 effort: high
 metadata:
@@ -19,7 +19,7 @@ The output is the audit artefact this skill was distilled from: a masthead + KPI
 ## Step 1: Interpret `$ARGUMENTS` (auto-detect)
 
 - **A path to a `.json` file** (matches something like `*.json` and the file exists): **render-only mode**. Load it as the findings dataset and skip to Step 3. Expected shape is documented in Step 2.
-- **Anything else, or empty**: the findings themselves come from a feeder skill's hand-off (`scheme:review`, `project-audit_deps`) or from findings already established in the conversation; `$ARGUMENTS` supplies the label/slug when given. This skill renders findings; it does not investigate topics. If someone hands it a bare topic with nothing behind it, say so and point at the feeder skills.
+- **Anything else, or empty**: the findings themselves come from a feeder skill's hand-off (`goblin:roadmap-review`, `goblin:project-audit_deps`) or from findings already established in the conversation; `$ARGUMENTS` supplies the label/slug when given. This skill renders findings; it does not investigate topics. If someone hands it a bare topic with nothing behind it, say so and point at the feeder skills.
 
 ## Step 2: Assemble the dataset
 
@@ -49,7 +49,7 @@ Each finding must carry:
 - `in_progress`: initiated but pending external action, or only partly applied (say which part in `outcome_note`)
 - `to_do`: left as a recommendation, or genuine future work
 
-Write the dataset to `{project_root}/docs/artefacts/audit-{slug}.json` so the render is reproducible and can be re-run in render-only mode. Then gate it before any HTML: `python3 "$HOME"/.claude/library/scripts/validate_audit_findings.py {dataset}.json` must exit 0 (it checks required fields, enum values, id uniqueness, count consistency and the dash ban). Fix the dataset on failure; never render an invalid one. Render-only mode (Step 1) runs the same gate on the supplied file. Structure:
+Write the dataset to `{project_root}/docs/artefacts/audit-{slug}.json` so the render is reproducible and can be re-run in render-only mode. Then gate it before any HTML: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_audit_findings.py {dataset}.json` must exit 0 (it checks required fields, enum values, id uniqueness, count consistency and the dash ban). Fix the dataset on failure; never render an invalid one. Render-only mode (Step 1) runs the same gate on the supplied file. Structure:
 
 ```json
 {
@@ -78,7 +78,7 @@ Read `references/css-patterns.md` (depth tiers, collapsible pattern, overflow pr
 
 ## Step 4: Aesthetic and palette
 
-Read `~/.claude/library/references/artefact-conventions.md` first — this
+Read `${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md` first — this
 skill's palette and theming route through the shared conventions now, not a
 standalone hex system. What stays specific to this skill (a deliberate
 per-artefact choice, not a divergence from the shared rules):

@@ -8,7 +8,7 @@ metadata:
   glyph: ᚺ
   family: project
 disable-model-invocation: true
-allowed-tools: ["Bash(svu:*)", "Bash(git:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)"]
+allowed-tools: ["Bash(svu:*)", "Bash(git:*)", "Bash(${CLAUDE_PLUGIN_ROOT}/scripts/safe-version-next.sh:*)"]
 disallowed-tools: ["Bash(git push --tags:*)"] # publishes every stray local tag; this skill pushes single tags only
 ---
 
@@ -25,7 +25,7 @@ A release is a commit on `main`; nothing else gets a tag. No tagging at PR creat
 From an **up-to-date main checkout** (`git checkout main && git pull` first if there's any doubt; tagging from a feature branch or stale main tags the wrong commit):
 
 ```bash
-TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" && git tag "$TAG" && git push origin "$TAG"
+TAG="$("${CLAUDE_PLUGIN_ROOT}/scripts/safe-version-next.sh)" && git tag "$TAG" && git push origin "$TAG"
 ```
 
 Push the single tag, never `git push --tags`; that publishes every local tag you've ever made, strays included.
@@ -48,4 +48,4 @@ Phrase it as a statement about the future merge:
 
 On a **stacked child branch** (its PR's base is another branch, not main), `svu next` counts the unmerged parent layers' commits too: report the pending bump as belonging to the stack as a whole ("this stack will tag..."), never to this layer alone.
 
-Nothing mid-branch ever creates a tag. The tag happens once, on main, after the merge (`pr-land` runs this exact sequence as its Step 3).
+Nothing mid-branch ever creates a tag. The tag happens once, on main, after the merge (`goblin:pr-land` runs this exact sequence as its Step 3).

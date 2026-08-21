@@ -8,7 +8,7 @@ metadata:
   glyph: ᛟ
   family: red
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(wc:*)", "Bash(python3 \"$HOME\"/.claude/library/scripts/red-personas.py:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(wc:*)", "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/red-personas.py:*)"]
 argument-hint: "<target> [persona] [persona] [-- what else would kill it]"
 ---
 
@@ -16,7 +16,7 @@ argument-hint: "<target> [persona] [persona] [-- what else would kill it]"
 
 The methodology itself (persona resolution, the nine-field schema, field
 ordering, the report skeleton, discipline rules, refine-then-save) lives in
-`~/.claude/library/references/red/methodology.md`. Read it now and execute it;
+`${CLAUDE_PLUGIN_ROOT}/references/methodology.md`. Read it now and execute it;
 this file adds only what is unique to the document path.
 
 ## Step 1: Parse `$ARGUMENTS`
@@ -44,9 +44,9 @@ Once a target is present: positional, in this order.
     </positional>
     <positional n="2,3" name="personas" required="false">
         Resolved per the methodology's Step 1/1a/1b/1c, via
-        `python3 "$HOME"/.claude/library/scripts/red-personas.py` called with
-        `--scope doc`. **Default: `goblin`** when none is named — Jason's own
-        review stance, scoped to both doc and branch.
+        `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/red-personas.py` called with
+        `--scope doc`. **Default: `bob`** when none is named — the
+        lightweight persona scoped to both doc and branch.
     </positional>
     <positional n="4+" name="failure-conditions" required="false">
         Free text: extra information about what would make this specific
@@ -78,7 +78,7 @@ Two things come out of this pass:
 ## Step 3: Mechanical pass
 
 ```bash
-python3 ~/.claude/library/scripts/slop-scan.py <target> --top 6
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/slop-scan.py <target> --top 6
 ```
 
 Counts house-rule breaches, contrastive couplets, first-person density, hedge

@@ -19,14 +19,14 @@ Shared conventions (statuses, colour table): `${CLAUDE_PLUGIN_ROOT}/references/r
 
 ## Steps
 
-1. **Check the format.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: stop and tell the user to run `scheme:migrate` first. Exit **2** = could not locate/parse; ask for the path. Proceed on exit 0.
+1. **Check the format.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: stop and tell the user to run `goblin:roadmap-migrate` first. Exit **2** = could not locate/parse; ask for the path. Proceed on exit 0.
 2. **Render.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" render`, adding `--phase "$ARGUMENTS"` when the user named a phase (required if several are active). Default output: `{project_root}/docs/artefacts/roadmap-{slug}.html`. On a validation-discrepancy note in the output, still render (the page shows a discrepancy banner) but include the discrepancies in your report.
 3. **Open and report.** `open` the written file. Report: the file path; milestone and task counts plus done percentage (`roadmap.py stats`); the unblocked `todo` tasks (`roadmap.py ready`; surfaced directly, no need to open the file); any validation discrepancies.
 
 ## Notes
 
-- The dashboard refreshes automatically when `scheme:maintain` runs (`recompute --render`); invoke this skill for the first render or an on-demand refresh.
+- The dashboard refreshes automatically when `goblin:roadmap-maintain` runs (`recompute --render`); invoke this skill for the first render or an on-demand refresh.
 - Collapsible sections (the milestone `<details>` blocks) default to **closed**; the template owns this. Never re-add `open` attributes, in the template or any generated file.
 - Sections, palette and behaviour live in the template. To change the dashboard's look, edit the plugin's `templates/roadmap-artefact.html`; to change status colours, change the canonical table (`STATUS_STYLE` in `roadmap.py` + the conventions reference); never patch a generated file.
 - The artefact is generated in the CLI's own canonical form (tabs, single-line JSON payload), not Prettier's. A repo that runs Prettier (or another formatter) in a pre-commit hook or CI should exclude it: add `docs/artefacts/roadmap-*.html` to `.prettierignore`, the same way `.claude/roadmaps.json` is already excluded, so regenerating the dashboard never fights the formatter.
-- The template already follows the shared artefact conventions (the `artefact-conventions` skill, where installed): RC-sourced palette, IBM Plex Mono/Sans pairing, the three-state light/dark/explicit-toggle contract, collapsible milestone `<details>` closed by default. Any future template edit should stay inside that contract rather than drift from it; the template is the one place to fix a divergence, never a generated file.
+- The template already follows the shared artefact conventions (the `goblin:artefact-conventions` skill, where installed): RC-sourced palette, IBM Plex Mono/Sans pairing, the three-state light/dark/explicit-toggle contract, collapsible milestone `<details>` closed by default. Any future template edit should stay inside that contract rather than drift from it; the template is the one place to fix a divergence, never a generated file.

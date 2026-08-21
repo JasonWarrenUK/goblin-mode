@@ -138,7 +138,7 @@ Organize nodes in horizontal bands by layer, with consistent spacing.
 
 ## Layer colour palette
 
-Six layer roles, one hue each: Client/UI, Server/API, SDK/Core, Agent/Logic, Data, External. Assign each an RC hue from `~/.claude/library/references/artefact-conventions.md` rather than the literal Tailwind-style values below, which illustrate roles only. Follow that reference's full three-state contract (light `:root`, `prefers-color-scheme: dark` guarded as `:not([data-theme="light"])`, `[data-theme="dark"]`) so node fills hold their contrast in both themes, not just light.
+Six layer roles, one hue each: Client/UI, Server/API, SDK/Core, Agent/Logic, Data, External. Assign each an RC hue from `${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md` rather than the literal Tailwind-style values below, which illustrate roles only. Follow that reference's full three-state contract (light `:root`, `prefers-color-scheme: dark` guarded as `:not([data-theme="light"])`, `[data-theme="dark"]`) so node fills hold their contrast in both themes, not just light.
 
 | Layer | Description |
 |---|---|

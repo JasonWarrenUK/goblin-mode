@@ -28,7 +28,7 @@ Check for:
 
 ### 3. Update Task State
 
-Invoke `task-sync` as a subagent to:
+Invoke `goblin:task-sync` as a subagent to:
 - Ensure in-progress tasks still reflect reality
 - Flag any tasks that should be paused (status → "Paused" or back to "Todo" if abandoned)
 - Note which tasks made progress but aren't done
@@ -82,7 +82,7 @@ Store at `.claude/session-state.json` in the project root.
 
 ```
 session-closer
-└── task-sync — ensure task tracker state is current (see `docs/reference/task-trackers/`)
+└── goblin:task-sync — ensure task tracker state is current (see the goblin plugin's `references/task-trackers/`)
 ```
 
 ## Output Format
@@ -99,7 +99,7 @@ session-closer
 
 ### Tasks
 - [Tasks progressed/completed/blocked]
-- [Source: see `docs/reference/task-trackers/` for the active one]
+- [Source: see the goblin plugin's `references/task-trackers/` for the active one]
 
 ### Next Time
 > [One sentence: what to do first next session]

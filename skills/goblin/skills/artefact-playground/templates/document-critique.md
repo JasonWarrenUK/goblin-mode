@@ -133,7 +133,7 @@ function updatePrompt() {
 
 ## Styling highlights
 
-Three states, one RC hue each (amber for pending, green for approved, red for rejected), sourced from `~/.claude/library/references/artefact-conventions.md` as semantic tokens under the full three-state theme contract, not the literal hex/rgba values below, which illustrate roles only:
+Three states, one RC hue each (amber for pending, green for approved, red for rejected), sourced from `${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md` as semantic tokens under the full three-state theme contract, not the literal hex/rgba values below, which illustrate roles only:
 
 ```css
 .doc-line.has-suggestion {

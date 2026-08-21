@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Propose"
-description: "Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks. Read-only; scheme:update-tasks writes the approved proposal."
-when_to_use: "When the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone' or 'interview me about what to build'. Not for adding a single already-specified task; that's scheme:update-tasks."
+description: "Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks. Read-only; goblin:roadmap-update-tasks writes the approved proposal."
+when_to_use: "When the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone' or 'interview me about what to build'. Not for adding a single already-specified task; that's goblin:roadmap-update-tasks."
 model: opus
 effort: high
 metadata:
@@ -9,7 +9,7 @@ metadata:
   family: roadmap
 disable-model-invocation: false # explicit: read-only interview, so "help me think through features" phrasing can load it
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)"]
-disallowed-tools: ["Edit", "Write", "NotebookEdit"] # read-only by contract; scheme:update-tasks writes the approved proposal
+disallowed-tools: ["Edit", "Write", "NotebookEdit"] # read-only by contract; goblin:roadmap-update-tasks writes the approved proposal
 arguments: ["focus"]
 argument-hint: "[milestone, theme or focus (optional)]"
 ---
@@ -30,9 +30,9 @@ The interview is a thinking tool as much as a discovery one. Sometimes the most 
 
 ## Step 1: Orient to the roadmap
 
-This is a read-only skill: it writes nothing; it produces a proposal that `scheme:update-tasks` later writes.
+This is a read-only skill: it writes nothing; it produces a proposal that `goblin:roadmap-update-tasks` later writes.
 
-Locate and read the rich-format roadmap: user-specified path → `.claude/roadmaps.json` (the source of truth, an array of phase objects; the active phase is the non-`archived` entry) → `docs/roadmaps/` scan. Check the format with `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`; exit **3** (old simple format): tell the user to run `scheme:migrate` first, since the proposal must speak the rich vocabulary; exit **2**: ask for the path.
+Locate and read the rich-format roadmap: user-specified path → `.claude/roadmaps.json` (the source of truth, an array of phase objects; the active phase is the non-`archived` entry) → `docs/roadmaps/` scan. Check the format with `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`; exit **3** (old simple format): tell the user to run `goblin:roadmap-migrate` first, since the proposal must speak the rich vocabulary; exit **2**: ask for the path.
 
 From the active phase, extract:
 
@@ -121,7 +121,7 @@ If proposed tasks depend on each other, make that explicit. Show the internal de
 
 ### Orphan and childless flags
 
-Apply the same checks as `scheme:update-tasks`:
+Apply the same checks as `goblin:roadmap-update-tasks`:
 
 - Flag any proposed task with no connections as a potential orphan
 - For childless tasks that clearly enable further work, propose a placeholder child
@@ -157,9 +157,9 @@ Then ask: *"Does this look right? Any tasks to cut, rename, or move? Once you're
 
 ## Step 6: Hand off
 
-Once the user approves (or approves with amendments), this skill's job is done. The output is a clean batch specification ready for `scheme:update-tasks` to process in its batch mode: all IDs assigned and edges wired in one pass, one consolidated proposal, one write.
+Once the user approves (or approves with amendments), this skill's job is done. The output is a clean batch specification ready for `goblin:roadmap-update-tasks` to process in its batch mode: all IDs assigned and edges wired in one pass, one consolidated proposal, one write.
 
-Tell the user: *"Approved. Use `scheme:update-tasks` to write these to the roadmap, passing the proposal above as context, adding them in dependency order."*
+Tell the user: *"Approved. Use `goblin:roadmap-update-tasks` to write these to the roadmap, passing the proposal above as context, adding them in dependency order."*
 
 ---
 

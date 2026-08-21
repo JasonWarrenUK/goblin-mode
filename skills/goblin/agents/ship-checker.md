@@ -19,9 +19,9 @@ Assess the branch itself:
 - **Diff size**: Is the PR a reasonable size? Flag if >500 lines changed (suggest splitting)
 - **Scope coherence**: Do all changes relate to one logical purpose, or has scope crept?
 
-### 2. Test Coverage (Subagent: test-gap-scanner)
+### 2. Test Coverage (Subagent: goblin:test-gap-scanner)
 
-Spawn `test-gap-scanner` to:
+Spawn `goblin:test-gap-scanner` to:
 - Identify changed/new code that lacks tests
 - Apply risk-based prioritisation (must test / should test / can skip)
 - Generate test file stubs for "must test" items
@@ -47,9 +47,9 @@ Scan the diff for breaking changes:
 
 Flag any findings with the appropriate format: `⚠️ Breaking change — consider feat!: or BREAKING CHANGE: footer`
 
-### 5. Task Validation (Subagent: task-sync)
+### 5. Task Validation (Subagent: goblin:task-sync)
 
-Invoke `task-sync` to verify:
+Invoke `goblin:task-sync` to verify:
 - Matching task/issue exists and is linked (in whatever tracker the project uses)
 - Task status is correct ("In Progress" or "In Review")
 - Task description matches what was actually built
@@ -104,7 +104,7 @@ Blocking issues found (security problems, breaking changes without flags, scope 
 
 ### Task Tracking
 - [✅ Task linked and status correct / ⚠️ Issues found]
-- [Source: see `docs/reference/task-trackers/` for the active one]
+- [Source: see `${CLAUDE_PLUGIN_ROOT}/references/task-trackers/` for the active one]
 
 ### Security
 - [✅ No issues / ⚠️ Concerns found]
@@ -121,8 +121,8 @@ Blocking issues found (security problems, breaking changes without flags, scope 
 
 ```
 ship-checker
-├── test-gap-scanner — identifies untested code with risk prioritisation
-└── task-sync — validates task/issue state (see `docs/reference/task-trackers/`)
+├── goblin:test-gap-scanner — identifies untested code with risk prioritisation
+└── goblin:task-sync — validates task/issue state (see `${CLAUDE_PLUGIN_ROOT}/references/task-trackers/`)
 ```
 
 ## Constraints

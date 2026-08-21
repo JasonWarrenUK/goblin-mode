@@ -8,14 +8,14 @@ metadata:
   glyph: ᚺ
   family: branch
 disable-model-invocation: false # invocable by Claude so it can flag a drifted branch name before PR creation; the rename still awaits approval
-allowed-tools: ["Bash(git:*)", "Bash(gh pr list:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)"]
+allowed-tools: ["Bash(git:*)", "Bash(gh pr list:*)", "Bash(${CLAUDE_PLUGIN_ROOT}/scripts/branch-facts.sh:*)"]
 arguments: ["desired-name"]
 argument-hint: "[desired name (optional; omit and a name is suggested from the branch's contents)]"
 ---
 
 ## Assess and Rename Current Branch
 
-1. Gather the facts in one call: `"$HOME"/.claude/library/scripts/branch-facts.sh`; it emits JSON including the current branch name, its convention compliance, and the commit/diff shape. Judge from that; only run `git log main..HEAD --oneline` / `git diff main..HEAD --name-only` when the facts alone can't tell you what the branch *is about*.
+1. Gather the facts in one call: `"${CLAUDE_PLUGIN_ROOT}/scripts/branch-facts.sh`; it emits JSON including the current branch name, its convention compliance, and the commit/diff shape. Judge from that; only run `git log main..HEAD --oneline` / `git diff main..HEAD --name-only` when the facts alone can't tell you what the branch *is about*.
 2. **`$desired-name` given**: treat it as the target: check it against convention (Step 3's format rules), flag any mismatch, then proceed to Step 5 with it.
 3. **No argument**: derive the right name yourself from what the branch actually contains:
    - Format: `<prefix>/<short-description>`, all lowercase, hyphens, imperative mood (`add-feature`, never `adds-feature` or `adding-feature`)

@@ -40,7 +40,7 @@ When the user asks for an interactive playground, explorer, or visual tool for a
 - **Prompt output.** Natural language, not a value dump. Only mentions non-default choices. Includes enough context to act on without seeing the playground. Updates live.
 - **Copy button.** Clipboard copy with brief "Copied!" feedback.
 - **Sensible defaults + presets.** Looks good on first load. Include 3-5 named presets that snap all controls to a cohesive combination.
-- **Palette and theming.** Source the palette and typography pairing from `~/.claude/library/references/artefact-conventions.md`, not from this skill or from any hardcoded example colours in `templates/`. Implement the full three-state contract from that reference: a bare `:root` light palette, `@media (prefers-color-scheme: dark)` guarded as `:root:not([data-theme="light"])`, and `:root[data-theme="dark"]` so an explicit toggle wins in both directions. Give `body` an explicit background from a token. System font for UI, monospace for code/values. Minimal chrome.
+- **Palette and theming.** Source the palette and typography pairing from `${CLAUDE_PLUGIN_ROOT}/references/artefact-conventions.md`, not from this skill or from any hardcoded example colours in `templates/`. Implement the full three-state contract from that reference: a bare `:root` light palette, `@media (prefers-color-scheme: dark)` guarded as `:root:not([data-theme="light"])`, and `:root[data-theme="dark"]` so an explicit toggle wins in both directions. Give `body` an explicit background from a token. System font for UI, monospace for code/values. Minimal chrome.
 
 ## State management pattern
 

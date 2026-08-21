@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: branch
 disable-model-invocation: true
-allowed-tools: ["Bash(git:*)", "Bash(~/.claude/library/scripts/git-integrate.sh:*)", "Read", "Glob", "Grep", "Edit"]
+allowed-tools: ["Bash(git:*)", "Bash(${CLAUDE_PLUGIN_ROOT}/scripts/git-integrate.sh:*)", "Read", "Glob", "Grep", "Edit"]
 arguments: ["strategy", "target"]
 argument-hint: "[merge|rebase|squash] [target branch, default main]"
 ---
@@ -23,7 +23,7 @@ Replaces the former git-branch-merge / git-branch-rebase / git-branch-squash tri
 
 1. Check the current branch name and **confirm with the user** before proceeding.
 2. Do NOT create a worktree; work in the current directory.
-3. Run `"$HOME"/.claude/library/scripts/git-integrate.sh $strategy $target` (bare `$strategy` when `$target` is empty). Its exit codes:
+3. Run `"${CLAUDE_PLUGIN_ROOT}/scripts/git-integrate.sh $strategy $target` (bare `$strategy` when `$target` is empty). Its exit codes:
    - **0**: integration done. For `squash` the branch's changes are staged as one unit: write a single descriptive commit message (conventional commits) and commit.
    - **2**: state error (dirty tree, detached HEAD, wrong branch, fetch failure). Report the script's message and stop; fix only what the user asks you to fix.
    - **3**: conflicts, left in place. List them, then resolve with judgement about whose change is *right*: our branch's intent wins for the work this branch is about; the incoming side (usually main) wins elsewhere, since its conflicting change typically carries a fix this branch predates. Never resolve by discarding our changes wholesale, and never by discarding main's either. Then `git commit` (merge) or `git rebase --continue` after each (rebase/squash).

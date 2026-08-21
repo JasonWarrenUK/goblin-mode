@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Migrate"
 description: "Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json pointer registry) into the rich phase-array format (roadmaps.json source of truth + PHASE task list + prose overview)."
-when_to_use: "When a project still has the old single-Markdown-file roadmap format and needs upgrading to the rich phase-array format before scheme:create or scheme:update-tasks can be used on it."
+when_to_use: "When a project still has the old single-Markdown-file roadmap format and needs upgrading to the rich phase-array format before goblin:roadmap-create or goblin:roadmap-update-tasks can be used on it."
 model: sonnet
 effort: high
 metadata:
@@ -13,7 +13,7 @@ arguments: ["roadmap"]
 argument-hint: "[roadmap path or name (optional)]"
 ---
 
-Upgrade an old **simple-format** roadmap to the **rich phase-array format** the other `scheme` skills expect. This is a one-way structural rewrite of the source of truth, so it is user-initiated only (never model-triggered); the other skills detect the old format and point the user here.
+Upgrade an old **simple-format** roadmap to the **rich phase-array format** the other `roadmap-*` skills expect. This is a one-way structural rewrite of the source of truth, so it is user-initiated only (never model-triggered); the other skills detect the old format and point the user here.
 
 **Old (simple) format:** a single `docs/roadmaps/{name}.md` is the source of truth, with `<a name="m{N}">` anchors, four sections (In Progress / To Do / Blocked / Completed), `- [ ]`/`- [x]` checkboxes, prose `— **depends on {IDs}**`, a `graph TD` diagram; `.claude/roadmaps.json` is a `{"roadmaps":[{name,path}]}` pointer registry.
 
@@ -58,15 +58,15 @@ Write the seeded JSON, then run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.
 
 ### 5. Write the phase-array `roadmaps.json`
 
-Write a single phase object (or, if migrating one roadmap among several pointer-registry entries, an array; append this phase and mark others as needed). Structure, tabs, field order, British spelling exactly as `scheme:create` Step 6. Set the phase `name` from the old roadmap name (or `$ARGUMENTS`), `path` to the `.md` it will regenerate (reuse the old path so existing links hold), `archived: false`, `externalGates: []`.
+Write a single phase object (or, if migrating one roadmap among several pointer-registry entries, an array; append this phase and mark others as needed). Structure, tabs, field order, British spelling exactly as `goblin:roadmap-create` Step 6. Set the phase `name` from the old roadmap name (or `$ARGUMENTS`), `path` to the `.md` it will regenerate (reuse the old path so existing links hold), `archived: false`, `externalGates: []`.
 
 ### 6. Regenerate the `.md` as a rich projection
 
-Overwrite the old `.md` at the same path with the rich layout (see `scheme:create` Step 7): milestone headings, `- [ ] **{ID}**: {description}` lines with status annotations, and a generated `graph LR` diagram; no `<a name>` anchors, no four-section structure, no `graph TD`. The diagram is the verbatim output of `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" graph --mermaid --direction LR` (terminal milestone edges, canonical colours, correct classDef placement; nothing hand-computed).
+Overwrite the old `.md` at the same path with the rich layout (see `goblin:roadmap-create` Step 7): milestone headings, `- [ ] **{ID}**: {description}` lines with status annotations, and a generated `graph LR` diagram; no `<a name>` anchors, no four-section structure, no `graph TD`. The diagram is the verbatim output of `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" graph --mermaid --direction LR` (terminal milestone edges, canonical colours, correct classDef placement; nothing hand-computed).
 
 ### 7. Generate `ROADMAP_OVERVIEW.md`
 
-The old format had no prose overview. Synthesise a minimal one (see `scheme:create` Step 8) from the milestone goals, with the header count from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" stats`. **Flag the narrative sections as stubs** for the user to flesh out; do not invent decisions or rationale that weren't in the source.
+The old format had no prose overview. Synthesise a minimal one (see `goblin:roadmap-create` Step 8) from the milestone goals, with the header count from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" stats`. **Flag the narrative sections as stubs** for the user to flesh out; do not invent decisions or rationale that weren't in the source.
 
 ### 8. Validate and report
 
@@ -83,4 +83,4 @@ Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" validate`: it must repor
 
 - One-way: the old single-file model cannot be reconstructed from the rich format, hence the git-checkpoint advice. `disable-model-invocation` keeps it explicit.
 - Statuses end up **derived**, not copied: the recompute is the source of truth for everything except `done`/`out_of_scope` seeds.
-- Tabs not spaces; British spelling throughout. After migration, the roadmap is maintained by `scheme:maintain`, extended by `scheme:update-tasks`, and rendered by `scheme:artefact`.
+- Tabs not spaces; British spelling throughout. After migration, the roadmap is maintained by `goblin:roadmap-maintain`, extended by `goblin:roadmap-update-tasks`, and rendered by `goblin:roadmap-artefact`.

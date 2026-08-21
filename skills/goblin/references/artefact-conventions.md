@@ -2,7 +2,7 @@
 
 Shared reference for every artefact Claude creates for Jason: a claude.ai/Cowork
 Artifact, a Claude Code project artefact (`docs/artefacts/*.html`), or the
-styling pass inside `import-scaffold_artefact`. Distilled in interview from
+styling pass inside `goblin:import-scaffold_artefact`. Distilled in interview from
 ten artefacts Jason holds up as exemplary (spanning claude.ai Artifacts,
 Claude Code project docs, and RPG-kit one-offs), then generalised with him
 past those specific examples so the rules would still make sense on an
@@ -14,7 +14,7 @@ below should make two artefacts about different things look like the same
 template with new words in it. The rules that *are* fixed are marked as such;
 everything else is a structural default with room to vary.
 
-The `artefact-conventions` skill is what actually walks these rules at
+The `goblin:artefact-conventions` skill is what actually walks these rules at
 write-time (location, existing-project-aesthetic check, interview when
 there's no established convention yet). This document is what it applies.
 
@@ -24,7 +24,7 @@ there's no established convention yet). This document is what it applies.
 
 Every artefact — from a named skill or created ad hoc mid-conversation —
 lives under `<project-root>/docs/artefacts/`. This is what lets the "check
-for an existing artefact first" rule in the `artefact-conventions` skill
+for an existing artefact first" rule in the `goblin:artefact-conventions` skill
 work at all.
 
 - **Default**: `docs/artefacts/{slug}.html`.
@@ -156,7 +156,7 @@ dependency.
 **Jason's shortlist, offered first:** Texturina, Fraunces (`SOFT` 100,
 `WONK` 1, `opsz` 144), Grenze, Eczar, Young Serif. Chosen from a fourteen-way
 bakeoff in August 2026; the full table with axis values and the rejected
-faces lives in the `artefact-conventions` skill, Step 2b. Where a face
+faces lives in the `goblin:artefact-conventions` skill, Step 2b. Where a face
 carries variable axes, **the axis values are part of the choice** and belong
 in the mapping-notes comment next to the palette: Fraunces without `WONK 1`
 was rated a different typeface from Fraunces with it.

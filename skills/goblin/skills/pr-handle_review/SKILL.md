@@ -15,7 +15,7 @@ argument-hint: "[PR number | URL]"
 
 # Handle a PR Review
 
-Takes the review feedback on a PR and closes the loop: independent verification of every change request, fixes for the ones that hold up, granular commits via `commit-batch`, and a reply on every thread. Two approval gates: one before any code changes, one before anything is posted to GitHub.
+Takes the review feedback on a PR and closes the loop: independent verification of every change request, fixes for the ones that hold up, granular commits via `goblin:commit-batch`, and a reply on every thread. Two approval gates: one before any code changes, one before anything is posted to GitHub.
 
 Reviewers are sometimes wrong. The core of this skill is that no change request is implemented on the reviewer's authority alone, and none is dismissed without evidence.
 
@@ -59,9 +59,9 @@ Present a triage table: thread reference, one-line summary of the ask, verdict, 
 
 ## Step 4: Implement the approved fixes
 
-1. Fix each approved item. **Follow-up commits only; never amend or rebase commits the reviewers have already seen.** One carve-out for stacked PRs (see `~/.claude/library/references/stacked-prs.md`): when this PR sits above a layer that just changed, the cascading rebase (`gh stack rebase --upstack`, then `gh stack push`) is stack maintenance, not history rewriting; the reviewed content survives and only parentage changes. The prohibition protects this PR's own commits from being reworded, squashed or dropped.
+1. Fix each approved item. **Follow-up commits only; never amend or rebase commits the reviewers have already seen.** One carve-out for stacked PRs (see `${CLAUDE_PLUGIN_ROOT}/references/stacked-prs.md`): when this PR sits above a layer that just changed, the cascading rebase (`gh stack rebase --upstack`, then `gh stack push`) is stack maintenance, not history rewriting; the reviewed content survives and only parentage changes. The prohibition protects this PR's own commits from being reworded, squashed or dropped.
 2. Discover the project's test, typecheck and lint commands from `package.json` (or ecosystem equivalent) and run all three until green. A red gate never proceeds to commit.
-3. Once every approved item is fixed and the gate is green, invoke the `commit-batch` skill to split the fixes into granular commits and push. Its own plan-approval pause applies as normal: that pause belongs to `commit-batch`, not this skill; don't suppress it and don't treat it as a substitute for Gate 2.
+3. Once every approved item is fixed and the gate is green, invoke the `goblin:commit-batch` skill to split the fixes into granular commits and push. Its own plan-approval pause applies as normal: that pause belongs to `goblin:commit-batch`, not this skill; don't suppress it and don't treat it as a substitute for Gate 2.
 
 ## Step 5: Draft the replies
 

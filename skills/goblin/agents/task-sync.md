@@ -1,6 +1,6 @@
 ---
 name: task-sync
-description: "Use this agent to keep task tracker state consistent with git/codebase state. Adapts to whatever task source the project uses (see docs/reference/task-trackers/). Detects branch checkouts, PR creation, and merges, then updates matching tasks accordingly. Invoke with \"sync tasks\" or use as a subagent from session-orchestrator, ship-checker, or session-closer."
+description: "Use this agent to keep task tracker state consistent with git/codebase state. Adapts to whatever task source the project uses (see ${CLAUDE_PLUGIN_ROOT}/references/task-trackers/). Detects branch checkouts, PR creation, and merges, then updates matching tasks accordingly. Invoke with \"sync tasks\" or use as a subagent from session-orchestrator, goblin:ship-checker, or session-closer."
 model: sonnet
 color: blue
 ---
@@ -16,7 +16,7 @@ Determine the task source in this order:
 
 If multiple sources are available, prefer the explicitly configured one. If none is configured, prefer the richest available source.
 
-Each source has its own status-transition mapping, issue-matching rules, and orphan-detection heuristics — see `docs/reference/task-trackers/` for the full detail per source (`linear.md`, `github-issues.md`, `git-native.md`). Apply the matching source's doc for the current project rather than assuming one.
+Each source has its own status-transition mapping, issue-matching rules, and orphan-detection heuristics — see `${CLAUDE_PLUGIN_ROOT}/references/task-trackers/` for the full detail per source (`linear.md`, `github-issues.md`, `git-native.md`). Apply the matching source's doc for the current project rather than assuming one.
 
 Report which task source is active at the start of every output.
 
@@ -37,7 +37,7 @@ When invoked directly ("sync tasks", "check task state"):
 
 ### As Subagent
 
-When invoked by another agent (session-orchestrator, ship-checker, session-closer):
+When invoked by another agent (session-orchestrator, goblin:ship-checker, session-closer):
 
 1. Detect task source
 2. Perform the requested check (current task status, readiness validation, or state snapshot)
@@ -48,7 +48,7 @@ When invoked by another agent (session-orchestrator, ship-checker, session-close
 
 ```markdown
 ## Task Sync Report
-**Source**: [detected task source — see docs/reference/task-trackers/]
+**Source**: [detected task source — see ${CLAUDE_PLUGIN_ROOT}/references/task-trackers/]
 
 ### Status Updates
 - [ID/branch] "Task title" — `Previous` → `Current` (reason)

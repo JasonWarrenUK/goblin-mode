@@ -1,8 +1,8 @@
 # Stacked Pull Requests
 
-Shared reference for every skill that touches branch topology (`next-task-ship`,
-`pr-create`, `pr-land`, `pr-handle_review`, `hud-worktrees`,
-`clod-role-git_manager`). Skills point here instead of restating the mechanics.
+Shared reference for every skill that touches branch topology (`goblin:next-task-ship`,
+`goblin:pr-create`, `goblin:pr-land`, `goblin:pr-handle_review`, `goblin:hud-worktrees`,
+`goblin:clod-role-git_manager`). Skills point here instead of restating the mechanics.
 
 GitHub's native stacked PRs entered public preview on 2026-07-30 and are
 subject to change; when a command here misbehaves, verify against
@@ -58,7 +58,7 @@ Installed with `gh extension install github/gh-stack` (needs gh ≥ 2.0).
 | `gh stack unstack [--local]` | dissolve the stack (open/draft/closed PRs leave it; merged ones stay) |
 | `gh stack up / down / top / bottom / trunk` | navigate layers |
 
-For PRs created by other means (e.g. `pr-create`), `gh stack link` is the
+For PRs created by other means (e.g. `goblin:pr-create`), `gh stack link` is the
 lightest path: create the child PR with `--base <parent-branch>`, then link it
 to the parent's PR or stack.
 
@@ -98,13 +98,13 @@ pre-rebase state.
 ## Interaction with this config's conventions
 
 - **Merge commits survive**: `gh stack merge --merge` gives each layer its own
-  merge commit on `main`, bottom-up, so `doc-changelog`'s `--first-parent`
-  one-entry-per-PR view and `pr-land`'s merge-commit rule both hold.
+  merge commit on `main`, bottom-up, so `goblin:doc-changelog`'s `--first-parent`
+  one-entry-per-PR view and `goblin:pr-land`'s merge-commit rule both hold.
 - **One landing, one tag**: a multi-layer merge is a single landing event;
-  `pr-land` tags once afterwards, not once per layer.
+  `goblin:pr-land` tags once afterwards, not once per layer.
 - **Roadmap linkage**: a task's optional `pr` field in `roadmaps.json`
-  (see the `scheme` plugin's `references/roadmap-conventions.md`) records the PR that ships
-  it. `next-task-ship` uses it to detect that a `done` dependency is still
+  (see the `goblin` plugin's `references/roadmap-conventions.md`) records the PR that ships
+  it. `goblin:next-task-ship` uses it to detect that a `done` dependency is still
   unmerged and stack on its branch rather than branching from `main`.
 - **`svu` on a child layer** counts the parent's unmerged commits too; a
   pending-bump report on a stacked branch describes the stack, not the layer.

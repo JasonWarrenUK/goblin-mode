@@ -65,7 +65,7 @@ Skip this step entirely on a plain status-sync run. Run it when asked to reconci
 
 ### 1. Read the artefacts and check the format
 
-Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run `scheme:migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run `goblin:roadmap-migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
 
 Read `.claude/roadmaps.json`, the active phase's PHASE file (its `path`), and `docs/reports/ROADMAP_OVERVIEW.md`.
 

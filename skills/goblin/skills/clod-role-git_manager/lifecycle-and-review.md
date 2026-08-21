@@ -30,7 +30,7 @@ The dependent branch then opens as a **stacked PR**: base set to
 `feat/base-feature`, not main, so each PR shows only its own layer's diff and
 GitHub retargets the child automatically when the parent merges. Full
 mechanics, the `gh stack` CLI and the caveats live in
-`~/.claude/library/references/stacked-prs.md`; the short version:
+`${CLAUDE_PLUGIN_ROOT}/references/stacked-prs.md`; the short version:
 
 ```bash
 gh stack init feat/base-feature          # or start the stack before branching

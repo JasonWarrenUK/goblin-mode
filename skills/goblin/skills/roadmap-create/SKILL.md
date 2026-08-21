@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Create"
 description: "Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHASE task list and prose overview"
-when_to_use: "When a project has no roadmap yet, or an existing simple-style one needs superseding with a new phase built from scratch (for converting an old roadmap, use scheme:migrate instead)."
+when_to_use: "When a project has no roadmap yet, or an existing simple-style one needs superseding with a new phase built from scratch (for converting an old roadmap, use goblin:roadmap-migrate instead)."
 model: opus
 effort: high
 metadata:
@@ -37,7 +37,7 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 
 - Check if `docs/roadmaps/` exists and contains roadmaps; check if `.claude/roadmaps.json` exists.
 - If `$ARGUMENTS` is given, use it as the phase name (e.g. `PHASE_2`). If no arguments and no existing roadmap, propose a phase name drawn from the project's goal and confirm it; never default to a bare `PHASE_1`. If no arguments but roadmaps exist, ask the user to clarify intent.
-- **If a roadmap already exists, check its format first**: run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run the `scheme:migrate` skill first**, so the new phase is appended to a consistent phase array. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0 (or when no roadmap exists yet).
+- **If a roadmap already exists, check its format first**: run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py" detect`. Exit **3** = old simple format: **stop and tell the user to run the `goblin:roadmap-migrate` skill first**, so the new phase is appended to a consistent phase array. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0 (or when no roadmap exists yet).
 
 ### 2. Gather project context
 
@@ -52,7 +52,7 @@ Feature first, structure second: milestones reveal themselves as the conversatio
 - **Dependencies:** which groups are sequential vs parallel; any known external blockers or prerequisites.
 - **Assignees (optional):** if the user wants to attribute tasks to people up front, ask who owns what. Never infer an assignee from category, milestone, or anything else; leave it unset for any task the user doesn't name an owner for.
 
-For a big batch of half-formed ideas, `scheme:create-interview` is the deeper feature interview; its approved proposal can seed this step's grouping.
+For a big batch of half-formed ideas, `goblin:roadmap-create-interview` is the deeper feature interview; its approved proposal can seed this step's grouping.
 
 ### 4. Assign task IDs
 
@@ -172,4 +172,4 @@ The header task count must match `roadmaps.json`. Get it from `python3 "${CLAUDE
 - roadmaps.json is the source of truth; the PHASE file and overview are projections.
 - Everything else (statuses, colours, graph rules, formatting): `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`.
 
-These roadmaps are maintained by `scheme:maintain` (status synchronisation) and `scheme:update-tasks` (adding tasks). Old simple-format roadmaps are upgraded by `scheme:migrate`; the HTML dashboard comes from `scheme:artefact` (`roadmap.py render`).
+These roadmaps are maintained by `goblin:roadmap-maintain` (status synchronisation) and `goblin:roadmap-update-tasks` (adding tasks). Old simple-format roadmaps are upgraded by `goblin:roadmap-migrate`; the HTML dashboard comes from `goblin:roadmap-artefact` (`roadmap.py render`).
