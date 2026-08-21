@@ -1,11 +1,19 @@
 """_profiles_core.py: shared frontmatter parsing for the profiles stores
 (library/profiles/dossier/*.md and library/profiles/personas/*.md).
 
-Both stores share one schema: slug, description, quickFacts, isRealPerson,
-updated, pronouns, linkedProfileIds, scope, and the nine reader-behaviour
-fields (needs, stake, power, fluency, reads, skips, trigger, charity,
-verdict_style). A dossier entry leaves the nine fields `null`; a persona
-populates them and leaves `isRealPerson: false`.
+Both stores share one schema: id, slug, description, quickFacts,
+isRealPerson, updated, pronouns, linkedProfileIds, scope, and the nine
+reader-behaviour fields (needs, stake, power, fluency, reads, skips,
+trigger, charity, verdict_style). A dossier entry leaves the nine fields
+`null`; a persona populates them and leaves `isRealPerson: false`.
+
+`id` is a three-letter store prefix (DOS, PER) plus a three-digit number,
+assigned once by assign_profile_ids.py and never reused or renumbered — it
+is the stable target linkedProfileIds references, so a persona or dossier
+entry can be renamed (its slug changed) without orphaning every link that
+points at it. `slug` stays the human-readable, filename-matching handle used
+for direct lookups (`get cedric`); `id` is what one profile's
+linkedProfileIds names when pointing at another.
 
 This module never distinguishes which store a file came from beyond the
 directory it was read from — that decision belongs to the caller. It never
@@ -23,7 +31,7 @@ DOSSIER_DIR = REPO_ROOT / "library" / "profiles" / "dossier"
 PERSONAS_DIR = REPO_ROOT / "library" / "profiles" / "personas"
 
 SHARED_META_KEYS = (
-	"slug", "description", "quickFacts", "isRealPerson", "updated",
+	"id", "slug", "description", "quickFacts", "isRealPerson", "updated",
 	"pronouns", "linkedProfileIds", "scope",
 )
 STANCE_KEYS = [
@@ -55,3 +63,11 @@ def load_store(directory: Path) -> list[dict]:
 
 def in_scope(profile: dict, scope: str) -> bool:
 	return scope in (profile.get("scope") or [])
+
+
+def find_by_id(profile_id: str, *directories: Path) -> dict | None:
+	for directory in directories:
+		for p in load_store(directory):
+			if p.get("id") == profile_id:
+				return p
+	return None

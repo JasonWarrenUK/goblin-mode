@@ -34,7 +34,7 @@ import argparse
 
 from _profiles_core import (
 	PERSONAS_DIR, REQUIRED_KEYS, SHARED_META_KEYS, STANCE_KEYS,
-	read_profile, load_store, in_scope,
+	read_profile, load_store, in_scope, find_by_id,
 )
 
 SUMMARY_KEYS = STANCE_KEYS
@@ -62,10 +62,10 @@ def cmd_roster(args: argparse.Namespace) -> int:
 
 def cmd_get(args: argparse.Namespace) -> int:
 	path = PERSONAS_DIR / f"{args.slug}.md"
-	if not path.is_file():
+	persona = read_profile(path) if path.is_file() else find_by_id(args.slug, PERSONAS_DIR)
+	if persona is None:
 		print(f"persona not found: {args.slug}", file=sys.stderr)
 		return 1
-	persona = read_profile(path)
 	for key in list(SHARED_META_KEYS) + SUMMARY_KEYS:
 		print(f"{key}: {persona.get(key)}")
 	print()
