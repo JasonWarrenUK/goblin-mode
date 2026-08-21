@@ -56,6 +56,7 @@ Claude can load these automatically when relevant.
 | `/doc-changelog` | ᚺ haiku | Build or update the changelog from conventional commits and project it to every surface the project… |
 | `/doc-readme` | ᛊ sonnet | Create or update a README for the project root or any directory |
 | `/dossier-record` |  | Record a durable fact about a person Jason works with, in their own dossier file |
+| `/hud-cc_releases` | ᛊ sonnet | Summarise Claude Code's own CHANGELOG.md, filtered and grouped for what actually matters to Jason |
 | `/hud-profiles` | ᛊ sonnet | Show the profiles stored in the dossier and persona stores |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language and shepherd safe create/remove actions |
@@ -68,6 +69,7 @@ Claude can load these automatically when relevant.
 | `/roadmap-maintain` | ᛊ sonnet | Sync roadmap statuses after work lands: recompute from the dependency graph and refresh every projec… |
 | `/roadmap-review` | ᛟ opus | Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) a… |
 | `/roadmap-update-tasks` | ᛊ sonnet | Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, depend… |
+| `/track-cc_pain` |  | Silently log friction with Claude Code itself (bugs, missing features, annoying limitations) for hud… |
 
 ---
 
