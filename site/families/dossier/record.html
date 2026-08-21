@@ -211,16 +211,26 @@ argument-hint: "[name] [what to record]"
 <details class="sec s2" id="file">
 	<summary><span class="secnum">04</span><span class="stitle">What a File Looks Like</span><span class="chip k1">recorded</span></summary>
 <div class="sec-body">
-		<p>One file per person at <code>library/dossier/{slug}.md</code>, slug lowercase and matching the name they are called by. The schema lives in <code>library/dossier/README.md</code>, which is the one file in that directory that is tracked.</p>
+		<p>One file per person at <code>library/profiles/dossier/{slug}.md</code>, slug lowercase and matching the name they are called by. The schema lives in <code>library/profiles/dossier/README.md</code>, which is the one file in that directory that is tracked.</p>
 
 <pre><code><span class="c">---</span>
-name: ravi
+slug: ravi
 description: One line, used to decide relevance during recall
-metadata:
-  type: person
-  relationship: owns the ingest service
-  pronouns: unstated
-  updated: 2026-08-15
+quickFacts: owns the ingest service
+isRealPerson: true
+updated: 2026-08-21-1212
+pronouns: unstated
+linkedProfileIds: []
+scope: []
+needs: null
+stake: null
+power: null
+fluency: null
+reads: null
+skips: null
+trigger: null
+charity: null
+verdict_style: null
 <span class="c">---</span>
 
 <span class="k"># Ravi</span>
@@ -395,8 +405,8 @@ metadata:
 		<p>These are notes about real people, held on one machine, and the whole directory is designed around that. The mechanism is two lines of <code>.gitignore</code>:</p>
 
 <pre><code><span class="c"># Person dossiers stay local; the schema that documents them does not</span>
-/library/dossier/*
-!/library/dossier/README.md</code></pre>
+/library/profiles/dossier/*
+!/library/profiles/dossier/README.md</code></pre>
 
 		<p>The contents never leave the machine. The schema is tracked, so the convention survives a fresh clone whilst none of the facts do. That split is the entire design: a future reader of the repo learns precisely how these files are shaped and nothing whatsoever about who is in them.</p>
 
@@ -435,7 +445,7 @@ metadata:
 
 		<p>A new person gets one line in the People section of <code>MEMORY.md</code>, which is the file loaded into context at the start of every session:</p>
 
-<pre><code>- **Ravi**: owns the ingest service, reviews by running it, [dossier](../../../../library/dossier/ravi.md)</code></pre>
+<pre><code>- **Ravi**: owns the ingest service, reviews by running it, [dossier](../../../../library/profiles/dossier/ravi.md)</code></pre>
 
 		<p>The full facts stay in the file. The index carries a name and a hook, which is enough for recall to decide the file is worth opening. Existing people need no index change unless the hook itself has gone wrong, so the index stays short as the files get long.</p>
 
@@ -461,7 +471,7 @@ metadata:
 
 <pre><code><span class="c"># the usual one: say it, and the skill fires by itself</span>
 <span class="g">"Ravi owns the ingest service now"</span>
-<span class="c">→ Recorded: ravi owns the ingest service → library/dossier/ravi.md</span>
+<span class="c">→ Recorded: ravi owns the ingest service → library/profiles/dossier/ravi.md</span>
 
 <span class="c"># deliberate, with the fact on the line</span>
 <span class="k">/dossier-record</span> ravi reviews by running the branch rather than reading the diff
@@ -478,13 +488,23 @@ metadata:
 		<p>New person, created from the README's schema with what is known and an <code>## Open questions</code> section listing what is not:</p>
 
 <pre><code>---
-name: SLUG
+slug: SLUG
 description: one line, used to decide relevance during recall
-metadata:
-  type: person
-  relationship: how they relate to the work
-  pronouns: unstated
-  updated: YYYY-MM-DD
+quickFacts: how they relate to the work
+isRealPerson: true
+updated: YYYY-MM-DD-hhmm
+pronouns: unstated
+linkedProfileIds: []
+scope: []
+needs: null
+stake: null
+power: null
+fluency: null
+reads: null
+skips: null
+trigger: null
+charity: null
+verdict_style: null
 ---
 
 <span class="k"># Name</span>
@@ -509,8 +529,8 @@ metadata:
 <footer>
 	<details class="sources">
 		<summary>Sources</summary>
-		<ul><li><code>~/.claude/skills/dossier-record/SKILL.md</code> and <code>library/dossier/README.md</code>, both written 15 August 2026</li>
-		<li>Counts measured against <code>~/.claude/library/dossier/</code> on 15 August 2026: 5 person files, 12 facts, 4 working notes, 11 open questions, 0 bullets marked inferred</li>
+		<ul><li><code>~/.claude/skills/dossier-record/SKILL.md</code> and <code>library/profiles/dossier/README.md</code>, both written 15 August 2026</li>
+		<li>Counts measured against <code>~/.claude/library/profiles/dossier/</code> on 15 August 2026: 5 person files, 12 facts, 4 working notes, 11 open questions, 0 bullets marked inferred</li>
 		<li>File timestamps from <code>stat</code> on the same date; four of five person files predate <code>SKILL.md</code> by four minutes</li>
 		<li>Gitignore lines quoted verbatim from <code>~/.claude/.gitignore</code></li>
 		<li>Frontmatter rules from <code>CLAUDE.md</code> §4 and <code>skills/clod-config-skill_conventions/SKILL.md</code></li>

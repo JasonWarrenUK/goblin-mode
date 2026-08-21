@@ -20,8 +20,8 @@ hooks/post-commit
 !/library/**
 
 # Person dossiers stay local; the schema that documents them does not
-/library/dossier/*
-!/library/dossier/README.md
+/library/profiles/dossier/*
+!/library/profiles/dossier/README.md
 
 # The published site is tracked; its editing guidance is local only
 !/site/**
