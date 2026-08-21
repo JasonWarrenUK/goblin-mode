@@ -9,7 +9,7 @@ metadata:
   family: red
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3 \"$HOME\"/.claude/library/scripts/red-personas.py:*)"]
-argument-hint: "[base branch (default main)] [persona] [persona] [-- what else would get this rejected]"
+argument-hint: "<base branch> [persona] [persona] [-- what else would get this rejected]"
 ---
 
 # Sabotage a branch
@@ -31,39 +31,43 @@ never edits the branch it is reviewing.
 
 ## Step 1: Parse `$ARGUMENTS`
 
-**Fewer than two tokens is ambiguous, not a default.** With zero tokens, base
-and personas are both unstated — fine, defaults apply, proceed. With exactly
-one token, there is no way to tell whether it names the base branch or a
-persona (`/red-branch cedric` could mean "diff against a branch called
-cedric" or "diff against main, reviewed by Cedric") — do not guess either
-way. Print tersely and stop:
+**Base is required; persona is not.** Requiring base is what removes the
+ambiguity a single token used to carry: with base mandatory, one token can
+only be the base branch, never a persona guess. `/red-branch cedric` means
+"diff against a branch called `cedric`, reviewed by Goblin" — if no such
+branch exists, `branch-facts.sh`/`git diff` fail loudly on the bad ref, which
+is an acceptable failure mode; if the failure looks like it might actually be
+a persona name instead, say so rather than only reporting a missing branch.
+
+Zero tokens: base is missing. Print tersely and stop:
 
 ```
-Usage: /red-branch [base branch] [persona] [persona] [-- failure conditions]
-Ambiguous with one argument: is "{token}" the base branch or a persona?
+Usage: /red-branch <base branch> [persona] [persona] [-- failure conditions]
 ```
 
 The one exception: the single literal token `personas` still prints the
-roster and stops, per its own line below — that is not ambiguous, it names
-neither a branch nor a persona.
+roster and stops, per its own line below — that is a deliberate roster
+lookup, not a missing base branch.
 
-Two or more tokens: positional, in this order. Nothing here is prompted for
+One or more tokens: positional, in this order. Nothing here is prompted for
 interactively.
 
 ```xml
 <arguments>
-    <positional n="1" name="base" required="false">
-        Base branch to diff against. Default `main`, same default as
-        `branch-facts.sh` and `branch-qa_review`.
+    <positional n="1" name="base" required="true">
+        Base branch to diff against. No default: an unstated base used to
+        collide with an unstated persona, so base is now always required.
     </positional>
     <positional n="2,3" name="personas" required="false">
         Resolved per the methodology's Step 1/1a/1b/1c, via
         `python3 "$HOME"/.claude/library/scripts/red-personas.py` called with
-        `--scope branch`. `cedric` is scoped to both doc and branch (one
-        forensic stance, domain-specific Reads/Skips/Stake/Trigger for each);
-        `bob` is doc-only and does not transfer as-is. Further branch-specific
-        personas (the maintainer who owns the touched module, the reviewer
-        who never opens a test file) get defined the same way on first need.
+        `--scope branch`. **Default: `goblin`** when none is named — Jason's
+        own review stance, scoped to both doc and branch. `cedric` is also
+        scoped to both doc and branch (one forensic stance, domain-specific
+        Reads/Skips/Stake/Trigger for each); `bob` is doc-only and does not
+        transfer as-is. Further branch-specific personas (the maintainer who
+        owns the touched module, the reviewer who never opens a test file)
+        get defined the same way on first need.
     </positional>
     <positional n="4+" name="failure-conditions" required="false">
         Free text: extra information about what would get this specific
@@ -79,8 +83,7 @@ interactively.
 
 ## Step 2: Facts and the diff
 
-`"$HOME"/.claude/library/scripts/branch-facts.sh $base` (blank `$base` = the
-script's default, `main`) emits JSON: ahead/behind, conventional-commit and
+`"$HOME"/.claude/library/scripts/branch-facts.sh $base` emits JSON: ahead/behind, conventional-commit and
 branch-name compliance, WIP commits, diff size, conflict markers, TODOs and
 console.logs added, test files touched, svu bump. These are facts to cite, not
 findings on their own; a fact becomes a finding once you show what it does to
