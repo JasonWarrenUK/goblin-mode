@@ -1,6 +1,6 @@
 # Red Methodology
 
-The shared core both red skills execute: `red-doc` (adversarial review of a document, aimed at one or two named readers) and `red-branch` (adversarial review of a branch diff, same reader-first structure aimed at code). Each skill's own file carries only what differs; everything below applies to both. Personas live one-per-file in [personas/](personas/), read and filtered via `library/scripts/red-personas.py`; the file contract, field-purpose table and document/branch compatibility note live in [personas/README.md](personas/README.md).
+The shared core both red skills execute: `red-doc` (adversarial review of a document, aimed at one or two named readers) and `red-branch` (adversarial review of a branch diff, same reader-first structure aimed at code). Each skill's own file carries only what differs; everything below applies to both. Personas live one-per-file in [../../profiles/personas/](../../profiles/personas/), read and filtered via `library/scripts/red-personas.py`; the file contract, field-purpose table and document/branch compatibility note live in [../../profiles/personas/README.md](../../profiles/personas/README.md).
 
 ## Contents
 
@@ -40,19 +40,19 @@ the persona positionals that follow it).
            doc-only persona named in a branch run is a real situation to
            surface, not silently substitute.
         2. **A real person's name**, checked against
-           `~/.claude/library/dossier/{name}.md`. If that file exists and its
-           `metadata.personaId` is a number, `red-personas.py get {personaId}`
-           loads the derived persona directly (the number is the file's
-           `slug`, per the privacy convention in
-           [personas/README.md](personas/README.md); the name is never a
-           filename or slug in this tracked directory). Before using it,
-           compare the dossier's live `metadata.updated` against the
-           persona's `derived_from_updated`: if the dossier is newer, the
-           derivation is stale — offer a refresh (re-run Step 1c against the
-           current entry, overwriting the existing file) rather than silently
-           reviewing on an out-of-date model. A "no" keeps the existing
-           persona for this run.
-        3. **A real person's name, `personaId` still `null`**: go to Step 1c
+           `~/.claude/library/profiles/dossier/{name}.md`. If that file exists
+           and its `linkedProfileIds` names a persona,
+           `red-personas.py get {invented name}` loads the derived persona
+           directly (an invented name, per the privacy convention in
+           [../../profiles/personas/README.md](../../profiles/personas/README.md);
+           the real name is never a filename or slug in this tracked
+           directory). Before using it, compare the dossier's live `updated`
+           against the timestamp recorded in that `linkedProfileIds` entry: if
+           the dossier is newer, the derivation is stale — offer a refresh
+           (re-run Step 1c against the current entry, overwriting the existing
+           file) rather than silently reviewing on an out-of-date model. A
+           "no" keeps the existing persona for this run.
+        3. **A real person's name, no persona linked yet**: go to Step 1c
            and derive a review profile from their entry for the first time.
         4. **A bare slug matching neither** an existing persona nor a dossier
            file: go to Step 1a and define it.
@@ -123,16 +123,17 @@ not substitute a default, do not start the report.
    frontmatter — write both from the same draft, since the prose has to exist
    before it can be compressed. Get a yes on the whole thing, prose and
    summaries together.
-4. **Write it** to `~/.claude/library/references/red/personas/{slug}.md`
-   (an invented persona's `slug` is its name, same as `bob`/`cedric` — the
-   numeric-slug convention in Step 1c is only for personas derived from a
-   real dossier entry): a `---`-delimited frontmatter block (`slug`, `scope`
-   — default to the calling skill's own scope tag unless the drafted fields
-   read as scope-agnostic, `dossier_id: null`, `derived_from_updated: null`,
-   then the nine summary fields) followed by the full prose body, per the
-   contract in [personas/README.md](personas/README.md). This happens before
-   the report starts, so the persona exists in the store even if the run is
-   abandoned halfway.
+4. **Write it** to `~/.claude/library/profiles/personas/{slug}.md`
+   (an invented persona's `slug` is its name, same as `bob`/`cedric` — Step 1c's
+   personas derived from a real dossier entry also get an invented name, never
+   the person's own): a `---`-delimited frontmatter block (`slug`, `description`,
+   `quickFacts`, `isRealPerson: false`, `updated`, `pronouns`,
+   `linkedProfileIds: []`, `scope` — default to the calling skill's own scope
+   tag unless the drafted fields read as scope-agnostic, then the nine summary
+   fields) followed by the full prose body, per the contract in
+   [../../profiles/personas/README.md](../../profiles/personas/README.md). This
+   happens before the report starts, so the persona exists in the store even if
+   the run is abandoned halfway.
 
 Then continue with the new persona alongside any others named.
 
@@ -141,7 +142,7 @@ Then continue with the new persona alongside any others named.
 Do not fall back to the suggested pair silently. Run `red-personas.py roster
 --scope {this skill's scope}` and print its output: each slug with its Needs,
 Power and Trigger summaries, with the suggested pair marked. Anyone in
-`~/.claude/library/dossier/` who has no persona yet is listed after them,
+`~/.claude/library/profiles/dossier/` who has no persona yet is listed after them,
 under "real people", since rehearsing against an actual reviewer beats
 rehearsing against a stand-in — the script only knows about persona files, so
 this part stays your own read of the dossier directory. Then ask which one or
@@ -151,26 +152,28 @@ Step 1a. Multi-select, capped at two. Stop until answered.
 ### Step 1c: A real person from the dossier
 
 Fires per Step 1's resolution order (form 3): the slug names a file in
-`~/.claude/library/dossier/` whose `metadata.personaId` is still `null` — a
-first derivation — or Step 1's staleness check offered a refresh and the user
-took it. This is the case the personas system exists for: rehearsing a target
-against the people who will actually see it, with Bob and Cedric as the
-stand-ins they always were.
+`~/.claude/library/profiles/dossier/` whose `linkedProfileIds` names no
+persona yet — a first derivation — or Step 1's staleness check offered a
+refresh and the user took it. This is the case the personas system exists
+for: rehearsing a target against the people who will actually see it, with
+Bob and Cedric as the stand-ins they always were.
 
-**The privacy boundary this step must not cross.** `library/dossier/` is
-gitignored on purpose, and `dossier-record`'s own rule is explicit: dossier
+**The privacy boundary this step must not cross.** `library/profiles/dossier/`
+is gitignored on purpose, and `dossier-record`'s own rule is explicit: dossier
 content never enters a tracked file, and a person named there is never named
-in anything published. The persona store (`library/references/red/personas/`)
+in anything published. The persona store (`library/profiles/personas/`)
 is **tracked**, and Step 5's refine-then-save writes reports out of it that
 can end up read by other people. A persona derived from a real dossier entry
-must therefore be a **generalisation**, not a paraphrase: strip the specific
-facts (a repo path, a named project, a direct quote of what someone said they
-reject) down to the *behavioural pattern* those facts imply, the same
-distance a scope-generalised field already keeps (compare how `cedric`'s
-`stake` field names "the codebase's own claims about itself" rather than
-`fac-cra` by name). If a field can't be generalised without losing everything
-that made it worth deriving, leave it for the interview instead of writing the
-specific version.
+must therefore carry an **invented name**, never the real one — the
+substitution is the anonymisation — and its fields must be a
+**generalisation**, not a paraphrase: strip the specific facts (a repo path, a
+named project, a direct quote of what someone said they reject) down to the
+*behavioural pattern* those facts imply, the same distance a
+scope-generalised field already keeps (compare how `cedric`'s `stake` field
+names "the codebase's own claims about itself" rather than `fac-cra` by
+name). If a field can't be generalised without losing everything that made it
+worth deriving, leave it for the interview instead of writing the specific
+version.
 
 Read the person's file, then split the nine fields by what it can honestly
 support.
@@ -191,23 +194,27 @@ Then:
 2. **Interview the gaps only**, in a single `AskUserQuestion` round of up to
    four. Nine questions for someone the config already knows is an insult to
    the dossier.
-3. **Get a `personaId`.** If the dossier entry's `metadata.personaId` is
-   already a number (this is a refresh, not a first derivation — see Step 1's
-   staleness check), reuse it. If it's `null`, invoke `dossier-record` Step 2a
-   to allocate one; it reads and writes only inside `library/dossier/`, so
-   this call never puts the person's name anywhere tracked.
-4. **Write the review profile** to `personas/{personaId}.md` — the number,
-   not the person's name, as both filename and `slug` — with both levels
-   (frontmatter summaries and full prose), generalised per the privacy
-   boundary above: never the dossier's own wording verbatim, never a project
-   name, a file path, or a quote attributable to one person. Frontmatter
-   carries `dossier_id: {personaId}` (redundant with `slug` on purpose, see
-   personas/README.md) and `derived_from_updated:` set to the dossier entry's
-   current `metadata.updated`, so a later dossier edit is detectable as drift
-   next time this slug resolves. On a refresh, this overwrites the existing
-   file at the same number; the number never changes.
-5. **Never write any of it back into the person's file**, beyond the
-   `personaId` allocation itself. How someone reviews a target is inference
+3. **Invent a name**, or reuse the existing one on a refresh (check the
+   dossier entry's `linkedProfileIds` for an existing link to this slug — see
+   Step 1's staleness check). A short capitalised name, obviously fictional,
+   distinct from any existing persona or dossier slug.
+4. **Write the review profile** to `personas/{invented-name}.md` — the
+   invented name, never the person's own, as both filename and `slug` — with
+   both levels (frontmatter summaries and full prose), generalised per the
+   privacy boundary above: never the dossier's own wording verbatim, never a
+   project name, a file path, or a quote attributable to one person.
+   Frontmatter's `linkedProfileIds` carries
+   `["{dossier slug}", false, "{dossier entry's current updated}",
+   "{generalised linkDescription}"]` — `isSource: false` because the dossier
+   entry is the origin — so a later dossier edit is detectable as drift next
+   time this slug resolves. On a refresh, this overwrites the existing file at
+   the same invented name; the name never changes.
+5. **Write the same link back on the dossier side**, in that entry's
+   `linkedProfileIds`, with `isSource: true` and a `linkDescription` that can
+   be as specific as the dossier itself already is — that file never leaves
+   the machine. This is the one write this step makes into the person's own
+   file: the link exists, but no field of the persona (`needs`, `stake`, and
+   so on) is ever copied there. How someone reviews a target is inference
    about them; their dossier holds facts they said or that Jason stated. The
    review profile is labelled as a model, lives in the persona store, and
    stays correctable there.
@@ -215,15 +222,15 @@ Then:
 Say once, in the report's provenance line, that this persona was derived from
 a real person's dossier entry. A report that reads as a prediction about a
 colleague should announce itself as one — but the announcement names the
-pattern, never the person, in anything the report itself might reach. The
-provenance line never prints the `personaId` next to the person's name in the
-same breath; the whole point of the number is that the two never sit together
-outside the gitignored dossier file.
+persona, never the person, in anything the report itself might reach. The
+provenance line never prints the dossier slug next to the persona's invented
+name in the same breath; the whole point of the invented name is that the two
+never sit together outside the gitignored dossier file.
 
 ## The nine-field schema
 
 Needs, Stake, Power, Fluency, Reads, Skips, Trigger, Charity, Verdict style.
-Full definitions and the table form live in [personas/README.md](personas/README.md).
+Full definitions and the table form live in [../../profiles/personas/README.md](../../profiles/personas/README.md).
 
 ## The persona-pass field ordering
 
@@ -327,7 +334,7 @@ keeping the printed structure, with a header table naming the target, the
 sources, the personas used and the date. Report the path.
 
 If an inline persona was defined this run and it is worth keeping, offer to
-write it as a new `~/.claude/library/references/red/personas/{slug}.md`, both
+write it as a new `~/.claude/library/profiles/personas/{slug}.md`, both
 frontmatter summaries and full prose per the contract in
-[personas/README.md](personas/README.md), scoped to the calling skill. Only on
+[../../profiles/personas/README.md](../../profiles/personas/README.md), scoped to the calling skill. Only on
 a yes.
