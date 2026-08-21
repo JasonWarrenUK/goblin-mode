@@ -16,8 +16,8 @@ argument-hint: "[name] [what to record]"
 
 # Record a person fact
 
-Files live in `~/.claude/library/dossier/{slug}.md`, one per person, gitignored.
-`library/dossier/README.md` holds the schema and is the authority on file shape.
+Files live in `~/.claude/library/profiles/dossier/{slug}.md`, one per person, gitignored.
+`library/profiles/dossier/README.md` holds the schema and is the authority on file shape.
 
 This skill fires in the middle of other work. It must be quiet: one line of
 output, no summary, no restating what Jason just said back to him.
@@ -49,7 +49,7 @@ own restraint is worse than one that never ran.
 ## Step 2: Resolve the person
 
 ```bash
-ls ~/.claude/library/dossier/
+ls ~/.claude/library/profiles/dossier/
 ```
 
 - **Exact slug match**: open that file.
@@ -59,25 +59,28 @@ ls ~/.claude/library/dossier/
 - **No match**: new person, so create the file from the README's schema with
   what is known and an `## Open questions` section listing what is not. A file
   with one fact and three open questions is doing its job; it gives the next
-  fact somewhere to land. `metadata.personaId` starts `null`; it is allocated
+  fact somewhere to land. `linkedProfileIds` starts `[]`; it is written to
   later, only if something derives a persona from this entry (see Step 2a).
 
-## Step 2a: Allocate a `personaId` (only when asked to)
+## Step 2a: Record a persona link (only when asked to)
 
 Fires when a `red-*` skill's persona derivation (Step 1c in
-`library/references/red/methodology.md`) needs an ID for a person whose
-`metadata.personaId` is still `null`. Not part of the normal fact-recording
-flow; this skill is invoked for that purpose specifically.
+`library/references/red/methodology.md`) has invented a name for a persona
+derived from this entry and needs the link recorded on the dossier side. Not
+part of the normal fact-recording flow; this skill is invoked for that
+purpose specifically.
 
-1. Read every dossier file's `metadata.personaId`, ignore `null`s, take the
-   highest integer found. `1` if none exist yet.
-2. Set this person's `metadata.personaId` to that number plus one. Update
-   `metadata.updated` too, since the file changed.
-3. Report the number back to whatever asked for it. Nothing else changes;
-   this step never touches `## Facts` or any other section.
+1. Append `["{invented name}", true, "{today}", "{linkDescription}"]` to this
+   person's `linkedProfileIds` — `isSource: true`, since this entry is the
+   origin. `linkDescription` can be as specific as this file already is; it
+   never leaves the machine.
+2. Update `updated` too, since the file changed.
+3. Report the invented name back to whatever asked for it. Nothing else
+   changes; this step never touches `## Facts` or any other section, and never
+   writes the persona's own fields (`needs`, `stake`, and so on) here.
 
-Allocated once, never reused even if a persona is later deleted, never
-assigned speculatively to a person nobody has derived a persona from.
+Written once per persona derivation, updated again only on a refresh (the
+existing invented name is reused, never replaced).
 
 ## Step 3: Write the fact
 
@@ -93,7 +96,7 @@ today's date in backticks at the end of the line.
 - **Pronouns are only ever recorded when stated.** `unstated` stays in the
   frontmatter until Jason says otherwise, and everything written about that
   person uses they/them in the meantime.
-- Update `metadata.updated`.
+- Update `updated`.
 
 Facts about how to work with someone go under `## Working with them` instead.
 An answered open question is deleted from `## Open questions` when its answer
@@ -114,14 +117,14 @@ A new person gets a one-line pointer in the People section of
 `~/.claude/projects/-Users-jasonwarren--claude/memory/MEMORY.md`:
 
 ```markdown
-- **Name**: one-line hook, [dossier](../../../../library/dossier/{slug}.md)
+- **Name**: one-line hook, [dossier](../../../../library/profiles/dossier/{slug}.md)
 ```
 
 Existing people need no index change unless the one-line hook is now wrong.
 
 ## Step 6: Report
 
-One line. `Recorded: Jaz is light on advanced skill builds → library/dossier/jaz.md`.
+One line. `Recorded: Jaz is light on advanced skill builds → library/profiles/dossier/jaz.md`.
 Then carry on with whatever the turn was actually about.
 
 ## Rules
