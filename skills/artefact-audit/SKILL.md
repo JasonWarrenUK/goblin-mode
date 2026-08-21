@@ -1,7 +1,7 @@
 ---
 name: "Artefact: Render Audit"
 description: "Render verified findings as an actionable, status-grouped HTML artefact."
-when_to_use: "When findings need a shareable visual surface: roadmap-review and project-audit_deps hand off here, any in-conversation findings can be mapped into its schema, and render-only mode rebuilds the page from a saved dataset JSON."
+when_to_use: "When findings need a shareable visual surface: scheme:review and project-audit_deps hand off here, any in-conversation findings can be mapped into its schema, and render-only mode rebuilds the page from a saved dataset JSON."
 model: sonnet
 effort: high
 metadata:
@@ -19,7 +19,7 @@ The output is the audit artefact this skill was distilled from: a masthead + KPI
 ## Step 1: Interpret `$ARGUMENTS` (auto-detect)
 
 - **A path to a `.json` file** (matches something like `*.json` and the file exists): **render-only mode**. Load it as the findings dataset and skip to Step 3. Expected shape is documented in Step 2.
-- **Anything else, or empty**: the findings themselves come from a feeder skill's hand-off (`roadmap-review`, `project-audit_deps`) or from findings already established in the conversation; `$ARGUMENTS` supplies the label/slug when given. This skill renders findings; it does not investigate topics. If someone hands it a bare topic with nothing behind it, say so and point at the feeder skills.
+- **Anything else, or empty**: the findings themselves come from a feeder skill's hand-off (`scheme:review`, `project-audit_deps`) or from findings already established in the conversation; `$ARGUMENTS` supplies the label/slug when given. This skill renders findings; it does not investigate topics. If someone hands it a bare topic with nothing behind it, say so and point at the feeder skills.
 
 ## Step 2: Assemble the dataset
 

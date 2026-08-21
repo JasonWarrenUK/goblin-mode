@@ -103,7 +103,7 @@ pre-rebase state.
 - **One landing, one tag**: a multi-layer merge is a single landing event;
   `pr-land` tags once afterwards, not once per layer.
 - **Roadmap linkage**: a task's optional `pr` field in `roadmaps.json`
-  (see `library/references/roadmap-conventions.md`) records the PR that ships
+  (see the `scheme` plugin's `references/roadmap-conventions.md`) records the PR that ships
   it. `next-task-ship` uses it to detect that a `done` dependency is still
   unmerged and stack on its branch rather than branching from `main`.
 - **`svu` on a child layer** counts the parent's unmerged commits too; a

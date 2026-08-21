@@ -9,36 +9,36 @@ metadata:
   family: next-task
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(python3:*)", "Bash(node:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
-argument-hint: "[assignee] [focus area] [loop [N]] (all optional; assignee/focus area forwarded to next-task-suggest)"
+argument-hint: "[assignee] [focus area] [loop [N]] (all optional; assignee/focus area forwarded to scheme:suggest)"
 ---
 
 # Ship: Next, the full delivery loop, unattended
 
-Orchestrates four existing skills (`next-task-suggest`, `roadmap-maintain`, `pr-create`, `pr-review`) plus the mechanical git/test/lint work between them into one autonomous cycle: pick a task, build it in isolation, keep the roadmap coherent, open a PR, self-review it, fix what's actionable.
+Orchestrates four existing skills (`scheme:suggest`, `scheme:maintain`, `pr-create`, `pr-review`) plus the mechanical git/test/lint work between them into one autonomous cycle: pick a task, build it in isolation, keep the roadmap coherent, open a PR, self-review it, fix what's actionable.
 
 This skill does not reimplement any of those four skills' methodology; it invokes them and carries their outputs forward. Where this file's instructions and a called skill's own instructions conflict on *how* to do that skill's job, the called skill wins; this file only owns sequencing, the git/test/lint mechanics between them, and the hard rules below.
 
 ## Hard rules (never break these)
 
-1. **Roadmap files are never hand-edited.** `.claude/roadmaps.json` is the only source of truth. Never directly edit the PHASE file's task list, the Mermaid block, `ROADMAP_OVERVIEW.md`, or the HTML artefact; those are `roadmap-maintain`'s job, driven off `roadmaps.json`. If something about the roadmap looks wrong, fix `roadmaps.json` (or flag it) and let `roadmap-maintain` propagate it.
+1. **Roadmap files are never hand-edited.** `.claude/roadmaps.json` is the only source of truth. Never directly edit the PHASE file's task list, the Mermaid block, `ROADMAP_OVERVIEW.md`, or the HTML artefact; those are `scheme:maintain`'s job, driven off `roadmaps.json`. If something about the roadmap looks wrong, fix `roadmaps.json` (or flag it) and let `scheme:maintain` propagate it.
 2. **Never run `git stash` blind.** Before any stash, run `git status` and `git stash list` first, and only stash what those show is genuinely in the way. Prefer not stashing at all when a worktree already isolates the work.
-3. **Unmet dependencies → stop and write `BLOCKED.md`, never guess.** If the suggested task turns out to have an unmet dependency, an ambiguous requirement no reasonable default resolves, or a blocker `roadmap-maintain`/`next-task-suggest` didn't already surface, stop the loop at that point and write a `BLOCKED.md` report (template in Step 8) instead of improvising a workaround. One case is *not* unmet: a dependency marked `done` whose PR is still open is a **stacking parent**; Step 2 branches from it and Step 6 opens a stacked PR (see `~/.claude/library/references/stacked-prs.md`). A dependency that is not `done` at all remains a hard stop.
+3. **Unmet dependencies → stop and write `BLOCKED.md`, never guess.** If the suggested task turns out to have an unmet dependency, an ambiguous requirement no reasonable default resolves, or a blocker `scheme:maintain`/`scheme:suggest` didn't already surface, stop the loop at that point and write a `BLOCKED.md` report (template in Step 8) instead of improvising a workaround. One case is *not* unmet: a dependency marked `done` whose PR is still open is a **stacking parent**; Step 2 branches from it and Step 6 opens a stacked PR (see `~/.claude/library/references/stacked-prs.md`). A dependency that is not `done` at all remains a hard stop.
 4. **The gate loop is capped at 6 rounds.** Step 3's implement/test/typecheck/lint cycle gets at most 6 fix-and-rerun rounds. If the gate still isn't green after the sixth, stop and write `BLOCKED.md` with the failing output: a gate that won't converge means the task is misunderstood or the ground is broken, and grinding on it unattended burns usage without progress. The same cap applies to Step 7's post-review fix gate.
 5. **A `loop` run is capped too, by cycle count and by any one cycle's own stop.** See Step 9. The same reasoning as hard rule 4 applies one level up: an unbounded outer loop outruns your ability to review its output.
 
 ## Step 0: Parse arguments
 
-Strip a trailing `loop` (optionally followed by an integer `N`) from `$ARGUMENTS` before forwarding the rest. The remainder forwards verbatim to `next-task-suggest` (assignee and/or focus area, same parsing rules as that skill's Step 0). No arguments is the common case: just "give me the next thing".
+Strip a trailing `loop` (optionally followed by an integer `N`) from `$ARGUMENTS` before forwarding the rest. The remainder forwards verbatim to `scheme:suggest` (assignee and/or focus area, same parsing rules as that skill's Step 0). No arguments is the common case: just "give me the next thing".
 
 `loop` with no `N` defaults to **3** cycles. `loop N` sets an explicit cap. Without `loop`, this run is a single cycle exactly as before; go straight to Step 1 and skip Step 9 entirely.
 
 ## Step 1: Suggest the next task
 
-Invoke the `next-task-suggest` skill with `$ARGUMENTS`. Take its chosen task (roadmap ID, description, dependencies) as this run's target. If `next-task-suggest` reports no ready candidate (empty candidate set, or an assignee filter matched nothing), stop here; write `BLOCKED.md` (Step 8) rather than picking arbitrarily.
+Invoke the `scheme:suggest` skill with `$ARGUMENTS`. Take its chosen task (roadmap ID, description, dependencies) as this run's target. If `scheme:suggest` reports no ready candidate (empty candidate set, or an assignee filter matched nothing), stop here; write `BLOCKED.md` (Step 8) rather than picking arbitrarily.
 
-**The run's only gate:** present the chosen task (ID, description, dependencies, the signals that drove the pick) and **await the user's approval before touching anything**. A veto ends the run cleanly; offer `next-task-group` so they can choose manually. Everything after this gate runs unattended to completion.
+**The run's only gate:** present the chosen task (ID, description, dependencies, the signals that drove the pick) and **await the user's approval before touching anything**. A veto ends the run cleanly; offer `scheme:group` so they can choose manually. Everything after this gate runs unattended to completion.
 
-Cross-check the chosen task's `dependsOn` against `roadmaps.json` directly: every dependency must show `status: done`. `next-task-suggest`'s `ready` set should already guarantee this, but this is the hard-rule-3 checkpoint: if anything is unmet, stop and write `BLOCKED.md` now, before touching git.
+Cross-check the chosen task's `dependsOn` against `roadmaps.json` directly: every dependency must show `status: done`. `scheme:suggest`'s `ready` set should already guarantee this, but this is the hard-rule-3 checkpoint: if anything is unmet, stop and write `BLOCKED.md` now, before touching git.
 
 Then check whether any `done` dependency is **still unmerged**: read its `pr` field (recorded by Step 6 of the run that shipped it; see `roadmap-conventions.md`) and `gh pr view {pr} --json state,headRefName`, falling back to `gh pr list --state open` matched on the task-derived branch name when no `pr` field exists. An open PR makes that dependency the task's **stacking parent**: Step 2 branches from its head branch instead of `main`. More than one stacking parent is fine only when they lie on a single existing chain (each is an ancestor of the next; branch from the topmost); parents on separate chains cannot form a linear stack, so stop and write `BLOCKED.md`. Likewise stop if the parent already sits at stack depth 3: this run never stacks deeper (see the reference's depth rule).
 
@@ -62,7 +62,7 @@ Then check whether any `done` dependency is **still unmerged**: read its `pr` fi
 
 ## Step 4: Roadmap sync
 
-Invoke the `roadmap-maintain` skill (plain status-sync run, not `reconcile`; this task's completion is already known and explicit, not something to infer from a codebase scan) to mark the shipped task `done` in `roadmaps.json` and propagate to the PHASE file, the Mermaid diagram, `ROADMAP_OVERVIEW.md`, and the HTML artefact. This is the only sanctioned way any of those projected files change; never hand-edit them in this step or any other.
+Invoke the `scheme:maintain` skill (plain status-sync run, not `reconcile`; this task's completion is already known and explicit, not something to infer from a codebase scan) to mark the shipped task `done` in `roadmaps.json` and propagate to the PHASE file, the Mermaid diagram, `ROADMAP_OVERVIEW.md`, and the HTML artefact. This is the only sanctioned way any of those projected files change; never hand-edit them in this step or any other.
 
 Confirm its Step 7 validation report comes back clean before continuing.
 
@@ -107,7 +107,7 @@ Report the file's location and a one-line summary; do not attempt to guess past 
 After Step 7 completes a cycle (PR opened, self-reviewed, fixed once), check whether to run another cycle. Stop when **any** of these holds, and report which one fired:
 
 1. The cycle count reaches the cap (`N`, default 3).
-2. `next-task-suggest` returns an empty ready-set on the next cycle's Step 1.
+2. `scheme:suggest` returns an empty ready-set on the next cycle's Step 1.
 3. Any cycle wrote a `BLOCKED.md` (Step 1's, Step 2's, or Step 3/7's gate-cap stop).
 4. A cycle's gate failed to converge within its 6-round cap (this is the same event as condition 3's gate-cap case, named separately because it's the one worth calling out in the final report as a "the ground was broken" stop rather than a clean exhaustion of ready work).
 
@@ -117,6 +117,6 @@ Report at the end of the whole `loop` run: how many cycles completed, which stop
 
 ## Red flags
 
-**Never:** hand-edit the PHASE file, Mermaid block, `ROADMAP_OVERVIEW.md`, or HTML artefact directly: `roadmap-maintain` only. **Never:** `git stash` without checking `git status` and `git stash list` first. **Never:** invent a resolution to an unmet dependency or genuine ambiguity: write `BLOCKED.md` instead. **Never:** push with a red test/typecheck/lint gate. **Never:** amend a commit `pr-review` already reviewed; fix findings in a new commit. **Never:** skip `pr-create`'s own approval pause for the PR description. **Never:** branch a dependent task from `main` while its parent's PR is unmerged; stack on the parent branch or stop.
+**Never:** hand-edit the PHASE file, Mermaid block, `ROADMAP_OVERVIEW.md`, or HTML artefact directly: `scheme:maintain` only. **Never:** `git stash` without checking `git status` and `git stash list` first. **Never:** invent a resolution to an unmet dependency or genuine ambiguity: write `BLOCKED.md` instead. **Never:** push with a red test/typecheck/lint gate. **Never:** amend a commit `pr-review` already reviewed; fix findings in a new commit. **Never:** skip `pr-create`'s own approval pause for the PR description. **Never:** branch a dependent task from `main` while its parent's PR is unmerged; stack on the parent branch or stop.
 
 <raw-arguments value="$ARGUMENTS" />

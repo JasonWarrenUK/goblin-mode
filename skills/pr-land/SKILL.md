@@ -67,7 +67,7 @@ A multi-layer stack merge is one landing event: tag once for the lot, never once
 
 ## Step 5: Roadmap sync
 
-If the repo has a rich roadmap (`python3 "$HOME"/.claude/library/scripts/roadmap.py detect` exits 0), offer to run the `roadmap-maintain` skill so the merged work's task lands as `done` and the projections refresh. Offer, don't assume; the PR may not map to a roadmap task.
+If the repo has a rich roadmap (`python3 "$HOME"/.claude/skills/scheme/scripts/roadmap.py detect` exits 0), offer to run the `scheme:maintain` skill so the merged work's task lands as `done` and the projections refresh. Offer, don't assume; the PR may not map to a roadmap task.
 
 ## Step 6: Report
 

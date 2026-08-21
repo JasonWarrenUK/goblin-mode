@@ -59,7 +59,7 @@ Produce a short written inventory (components, state, deps, backend signals, Rea
 
 ## Step 3: Interview for the project-shaping decisions
 
-Some decisions are the user's to make, not yours to assume. Run a short structured interview, adapting the round discipline of the `roadmap-create-interview` skill: ask **2–4 questions per round**, never dump a long list at once, acknowledge briefly (don't repeat answers verbatim), and end each round with *"Anything else, or shall I write up the config?"*. This is a conversation, not a form.
+Some decisions are the user's to make, not yours to assume. Run a short structured interview, adapting the round discipline of the `scheme:create-interview` skill: ask **2–4 questions per round**, never dump a long list at once, acknowledge briefly (don't repeat answers verbatim), and end each round with *"Anything else, or shall I write up the config?"*. This is a conversation, not a form.
 
 Skip any question the arguments or the Step 2 inventory already answers (don't ask about a backend if the artefact is clearly static; don't ask the stack if `react` was passed).
 
