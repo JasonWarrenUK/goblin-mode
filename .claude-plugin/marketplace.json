@@ -1,0 +1,18 @@
+{
+	"name": "goblin-mode",
+	"owner": {
+		"name": "Jason Warren"
+	},
+	"metadata": {
+		"description": "Skill suites from Jason Warren's Claude Code config. Each plugin is the live copy of the corresponding folder under skills/, so a commit here is a release."
+	},
+	"plugins": [
+		{
+			"name": "scheme",
+			"source": "./skills/scheme",
+			"description": "Roadmaps as a dependency graph: JSON source of truth, mechanical status recompute, projected task lists, Mermaid diagrams, HTML dashboard, and the interview, review and next-task skills that drive it.",
+			"category": "productivity",
+			"tags": ["roadmap", "planning", "dependency-graph"]
+		}
+	]
+}

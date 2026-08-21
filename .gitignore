@@ -19,6 +19,9 @@ hooks/post-commit
 !/skills/**
 !/library/**
 
+# Plugin marketplace manifest (this repo is its own marketplace)
+!/.claude-plugin/**
+
 # Person dossiers stay local; the schema that documents them does not
 /library/profiles/dossier/*
 !/library/profiles/dossier/README.md
