@@ -90,6 +90,16 @@ The persona side of the same link is deliberately less specific — see
 here) means the persona was drafted from an older version of this entry and a
 refresh is worth offering.
 
+## The one exception: `jason.md`
+
+Jason's own entry breaks the "one fact per bullet" shape deliberately. He is
+the user, not a colleague being modelled from scattered observations, and the
+config already maintains a far richer record of him elsewhere (`CLAUDE.md`,
+`memory/`). `jason.md` is frontmatter-rich, markdown-thin, and its body points
+at those sources rather than duplicating them. It is also excluded from
+`site/CLAUDE.md`'s pre-deploy name-leak scan — his name is already a
+deliberate public choice on the published site, not a private colleague's.
+
 ## Rules
 
 - **One fact per bullet, dated.** The date is when it was recorded, not when it

@@ -91,6 +91,19 @@ is Max's persona, and that substitution is what keeps this directory safe to tra
   persona, so they start in sync. `red-personas.py audit` catches drift or
   near-duplication after the fact; it does not enforce sync at write time.
 
+**The one exception: `goblin.md`.** The generalisation discipline above exists
+to protect other people from having their identity reattached to a tracked
+file. Goblin is derived from Jason's own dossier entry (`jason.md`), and
+Jason's conventions are already published in this same tracked config
+(`CLAUDE.md`, this output style) — there is no third party to protect by
+generalising his stated preferences into vaguer language. `goblin.md`
+distils rather than generalises: it states his actual conventions directly
+(no em dashes, cite sources, no sycophancy) rather than the behavioural
+pattern those conventions imply. The distinction that still holds: it still
+does not point back at his file the way `jason.md` points outward at
+`CLAUDE.md` — a persona's job is to carry its own stance, not defer to
+another file's, even when that file is safe to name.
+
 ## Field purposes
 
 | Field | What it does |
