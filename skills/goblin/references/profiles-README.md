@@ -2,34 +2,44 @@
 
 Two stores of the same kind of thing: a profile of a reader. Split by what is
 safe to track, sharing one frontmatter schema so neither is a second-class
-citizen of the other.
+citizen of the other. Both are resolved by `_profiles_core.py`
+(`DOSSIER_DIR`, `SHIPPED_PERSONAS_DIR`, `USER_PERSONAS_DIR`), not by this
+file's own location, so this README can live inside the plugin while
+describing directories that mostly don't:
 
 ```
-library/profiles/
-├── dossier/    ← gitignored except this README's sibling; real colleagues
-└── personas/   ← tracked; invented or persona-derived adversarial readers
+${CLAUDE_PLUGIN_ROOT}/personas/          ← tracked; shipped with the plugin (bob, cedric)
+~/.claude/library/profiles/dossier/      ← gitignored except its own README; real colleagues
+~/.claude/library/profiles/personas/     ← tracked locally; a user's own personas (never shipped)
 ```
 
-## Why one parent, two directories
+## Why two directories per store
 
-[dossier/](dossier/) holds real facts about real people Jason works with:
-role, expertise, preferences, how they review. It stays off git entirely
-because a real colleague's working notes are not something to publish.
+`dossier/` holds real facts about real people Jason works with: role,
+expertise, preferences, how they review. It stays off git entirely because a
+real colleague's working notes are not something to publish, and it never
+travels with the plugin — a fresh install has none of it, correctly.
 
-[personas/](personas/) holds nine-field models of how a specific reader
-attacks a target (a document or a branch), used by the `red-doc`/`red-branch`
-skills. It is tracked, because the reports it produces are meant to be read
-and iterated on, sometimes by other people.
+`personas/` (searched across both locations above, shipped-then-user or
+user-then-shipped depending on lookup order — see `personas_dirs()`) holds
+nine-field models of how a specific reader attacks a target (a document or a
+branch), used by the `goblin:red-doc`/`goblin:red-branch` skills. The shipped pair
+(`bob`, `cedric`) is tracked, because the reports they produce are meant to
+be read and iterated on, sometimes by other people; a user's own local
+additions (a machine-specific persona, kept out of the distributed plugin)
+live in the second, user-local location instead.
 
-A persona can be derived from a real dossier entry — Cedric is Max's persona.
-That link is written on both sides via `linkedProfileIds`, which references
-each side's stable `id` rather than a name or slug, and it is safe on two
-layers: the persona carries an **invented name**, never the real one, and the
-link itself points at an opaque id, not a name — nobody reading the tracked
-`personas/` directory can identify Max from Cedric's file, even by following
-the link. See [personas/README.md](personas/README.md)'s privacy section for
-the full discipline, and [dossier/README.md](dossier/README.md) for the
-dossier side of the same link.
+A persona can be derived from a real dossier entry — for example, `cedric.md`
+is derived from a real colleague's dossier file. That link is written on both
+sides via `linkedProfileIds`, which references each side's stable `id` rather
+than a name or slug, and it is safe on two layers: the persona carries an
+**invented name**, never the real one, and the link itself points at an
+opaque id, not a name — nobody reading the tracked `personas/` directory can
+identify the real person from the persona's file, even by following the
+link. See [personas-README.md](personas-README.md)'s privacy section for
+the full discipline, and `~/.claude/library/profiles/dossier/README.md` for
+the dossier side of the same link (that file stays local; it never ships
+with the plugin).
 
 ## Shared schema
 
@@ -48,13 +58,13 @@ are populated and how specific `linkedProfileIds` is allowed to be:
 | `linkedProfileIds` | May be specific — this directory never leaves the machine | Generalised only — see personas/README.md |
 | `scope`, nine stance fields | `null` — a real person is not a reader model | Populated — this is what a persona is |
 
-`id` is assigned by `library/scripts/assign_profile_ids.py`, run once per new
+`id` is assigned by `${CLAUDE_PLUGIN_ROOT}/scripts/assign_profile_ids.py`, run once per new
 profile file (idempotent — re-running never renumbers an existing file).
 
 ## Who reads what
 
-- `dossier-record` writes and updates dossier entries.
-- `red-doc` and `red-branch` read persona files via
-  `library/scripts/red-personas.py`, and derive new personas from dossier
-  entries when asked, per `library/references/red/methodology.md` Step 1c.
-- `hud-profiles` reads both, read-only, for a human to browse.
+- `goblin:dossier-record` writes and updates dossier entries.
+- `goblin:red-doc` and `goblin:red-branch` read persona files via
+  `${CLAUDE_PLUGIN_ROOT}/scripts/red-personas.py`, and derive new personas
+  from dossier entries when asked, per `${CLAUDE_PLUGIN_ROOT}/references/methodology.md` Step 1c.
+- `goblin:hud-profiles` reads both, read-only, for a human to browse.

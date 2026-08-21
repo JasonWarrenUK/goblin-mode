@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """profiles.py: store-agnostic lookup, listing and counting across both
-profile stores (library/profiles/dossier/*.md and
-library/profiles/personas/*.md).
+profile stores (the dossier and the persona store).
 
 Neither store is privileged over the other here: both are read through the
 same _profiles_core.py parser, on the same shared schema. This is the CLI
-`hud-profiles` calls. red-doc/red-branch keep calling red-personas.py
+`goblin:hud-profiles` calls. red-doc/red-branch keep calling red-personas.py
 directly for the personas-only, narrower surface their allowed-tools
 permission strings already name.
 
+The "personas" store here searches two directories via personas_dirs()
+(a user's local ~/.claude/library/profiles/personas/, then the plugin's
+shipped personas/), merged and de-duplicated by slug so this CLI's counts
+and listings match red-personas.py's view of what personas actually exist.
+
 This script's dossier-reading commands only work on a machine that has
-library/profiles/dossier/ populated — that directory is gitignored, so a
-fresh checkout of this repo has none of it. `list --store dossier` on such a
-checkout returns nothing, correctly.
+the dossier populated — that directory is gitignored, so a fresh checkout
+of this repo has none of it. `list --store dossier` on such a checkout
+returns nothing, correctly.
 
 usage:
 	profiles.py list [--store {dossier|personas|both}] [--format {short|full}]
@@ -22,22 +26,37 @@ usage:
 import sys
 import argparse
 
-from _profiles_core import DOSSIER_DIR, PERSONAS_DIR, SHARED_META_KEYS, load_store, find_by_id
+from _profiles_core import DOSSIER_DIR, SHARED_META_KEYS, load_store, personas_dirs
+
 
 FULL_FIELDS = [k for k in SHARED_META_KEYS if k != "updated"]
 
 
-def _stores(name: str) -> list[tuple[str, "Path"]]:
+def _load_personas() -> list[dict]:
+	seen_slugs = set()
+	merged = []
+	for directory in personas_dirs():
+		for p in load_store(directory):
+			slug = p.get("slug")
+			if slug in seen_slugs:
+				continue
+			seen_slugs.add(slug)
+			merged.append(p)
+	return merged
+
+
+def _stores(name: str) -> list[tuple[str, list[dict]]]:
+	dossier = load_store(DOSSIER_DIR)
+	personas = _load_personas()
 	if name == "dossier":
-		return [("dossier", DOSSIER_DIR)]
+		return [("dossier", dossier)]
 	if name == "personas":
-		return [("personas", PERSONAS_DIR)]
-	return [("dossier", DOSSIER_DIR), ("personas", PERSONAS_DIR)]
+		return [("personas", personas)]
+	return [("dossier", dossier), ("personas", personas)]
 
 
 def cmd_list(args: argparse.Namespace) -> int:
-	for label, directory in _stores(args.store):
-		profiles = load_store(directory)
+	for label, profiles in _stores(args.store):
 		print(f"## {label} ({len(profiles)})")
 		if not profiles:
 			print("  (none)")
@@ -55,23 +74,25 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_count(args: argparse.Namespace) -> int:
-	for label, directory in _stores(args.store):
-		profiles = load_store(directory)
+	for label, profiles in _stores(args.store):
 		print(f"{label}: {len(profiles)}")
 	return 0
 
 
-def _resolve(name: str, directory) -> dict | None:
-	profiles = {p.get("slug"): p for p in load_store(directory)}
-	if name in profiles:
-		return profiles[name]
-	return find_by_id(name, directory)
+def _resolve(name: str, profiles: list[dict]) -> dict | None:
+	by_slug = {p.get("slug"): p for p in profiles}
+	if name in by_slug:
+		return by_slug[name]
+	for p in profiles:
+		if p.get("id") == name:
+			return p
+	return None
 
 
 def cmd_get(args: argparse.Namespace) -> int:
 	found = False
-	for label, directory in _stores(args.store):
-		p = _resolve(args.slug, directory)
+	for label, profiles in _stores(args.store):
+		p = _resolve(args.slug, profiles)
 		if p is None:
 			continue
 		found = True

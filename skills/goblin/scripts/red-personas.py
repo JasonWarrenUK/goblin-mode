@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """red-personas.py: exact lookup, filtering and summary-level auditing for the
-`red` skill family's persona store (library/profiles/personas/*.md).
+`red` skill family's persona store. Reads across both persona locations (see
+personas_dirs() in _profiles_core.py): the plugin's own shipped personas and
+a user's local ~/.claude/library/profiles/personas/, so a locally-defined or
+locally-restored persona (e.g. a machine's own goblin.md, kept out of the
+distributed plugin) resolves the same way as a shipped one.
 
 Each persona file is a `---`-delimited YAML frontmatter block (slug,
 description, quickFacts, isRealPerson, updated, pronouns, linkedProfileIds,
@@ -9,18 +13,18 @@ followed by the full nine-field prose body a human reads during the
 interview/roster/dossier-derivation steps. This script only ever reads
 frontmatter; it never parses the prose body, and it never writes a persona
 file itself — that stays the calling skill's job, after the user approves a
-drafted persona (see ../../library/references/red/methodology.md Step 1a/1c).
+drafted persona (see ../references/methodology.md Step 1a/1c).
 
-This script never reads library/profiles/dossier/ — that directory is
+This script never reads the dossier directory — that directory is
 gitignored on purpose, and a persona's link back to it (in linkedProfileIds)
 names the dossier slug but never carries dossier content. Staleness comparison
 against the live dossier entry happens in the calling skill at resolution
 time, not here, so this file stays blind to the one directory in this repo
 that must never be read by a tracked script and printed to a tracked or shared
 surface. It shares its frontmatter parser with the dossier side via
-_profiles_core.py (see library/scripts/profiles.py for the hoisted, store-
-agnostic CLI); this file keeps its own narrower CLI so red-doc/red-branch's
-allowed-tools permission strings do not need to change.
+_profiles_core.py (see profiles.py for the hoisted, store-agnostic CLI); this
+file keeps its own narrower CLI so red-doc/red-branch's allowed-tools
+permission strings do not need to change.
 
 usage:
 	red-personas.py roster --scope {doc|branch}
@@ -33,8 +37,8 @@ import re
 import argparse
 
 from _profiles_core import (
-	PERSONAS_DIR, REQUIRED_KEYS, SHARED_META_KEYS, STANCE_KEYS,
-	read_profile, load_store, in_scope, find_by_id,
+	REQUIRED_KEYS, SHARED_META_KEYS, STANCE_KEYS,
+	read_profile, load_store, in_scope, find_by_id, personas_dirs,
 )
 
 SUMMARY_KEYS = STANCE_KEYS
@@ -42,7 +46,16 @@ STRONG_SIGNAL_KEYS = ["power", "fluency", "trigger"]
 
 
 def load_all() -> list[dict]:
-	return load_store(PERSONAS_DIR)
+	seen_slugs = set()
+	personas = []
+	for directory in personas_dirs():
+		for p in load_store(directory):
+			slug = p.get("slug")
+			if slug in seen_slugs:
+				continue  # earlier (higher-priority) directory's file wins
+			seen_slugs.add(slug)
+			personas.append(p)
+	return personas
 
 
 def cmd_roster(args: argparse.Namespace) -> int:
@@ -61,8 +74,14 @@ def cmd_roster(args: argparse.Namespace) -> int:
 
 
 def cmd_get(args: argparse.Namespace) -> int:
-	path = PERSONAS_DIR / f"{args.slug}.md"
-	persona = read_profile(path) if path.is_file() else find_by_id(args.slug, PERSONAS_DIR)
+	persona = None
+	for directory in personas_dirs():
+		path = directory / f"{args.slug}.md"
+		if path.is_file():
+			persona = read_profile(path)
+			break
+	if persona is None:
+		persona = find_by_id(args.slug, *personas_dirs())
 	if persona is None:
 		print(f"persona not found: {args.slug}", file=sys.stderr)
 		return 1
