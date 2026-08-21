@@ -56,10 +56,11 @@ Claude can load these automatically when relevant.
 | `/doc-changelog` | ᚺ haiku | Build or update the changelog from conventional commits and project it to every surface the project… |
 | `/doc-readme` | ᛊ sonnet | Create or update a README for the project root or any directory |
 | `/dossier-record` |  | Record a durable fact about a person Jason works with, in their own dossier file |
+| `/hud-profiles` | ᛊ sonnet | Show the profiles stored in the dossier and persona stores |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language and shepherd safe create/remove actions |
 | `/next-task-suggest` | ᚺ haiku | Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signal… |
-| `/pr-create` | ᛊ sonnet | Create a pull request to main: wordy or shiny (with screenshots), ready-for-review or draft |
+| `/pr-create` | ᛊ sonnet | Create a pull request to main, or a stacked PR onto a parent branch: wordy or shiny (with screenshot… |
 | `/pr-review` | ᛟ opus | Review a pull request and post it as a GitHub review |
 | `/pr-review-dry_run` | ᛟ opus | Review a pull request's diff and print structured findings to the terminal. Holds the canonical revi… |
 | `/pr-update` | ᛊ sonnet | Update a PR description to account for commits made since it was last written |
