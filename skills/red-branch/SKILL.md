@@ -31,7 +31,24 @@ never edits the branch it is reviewing.
 
 ## Step 1: Parse `$ARGUMENTS`
 
-Positional, in this order. Nothing here is prompted for interactively.
+**Fewer than two tokens is ambiguous, not a default.** With zero tokens, base
+and personas are both unstated — fine, defaults apply, proceed. With exactly
+one token, there is no way to tell whether it names the base branch or a
+persona (`/red-branch cedric` could mean "diff against a branch called
+cedric" or "diff against main, reviewed by Cedric") — do not guess either
+way. Print tersely and stop:
+
+```
+Usage: /red-branch [base branch] [persona] [persona] [-- failure conditions]
+Ambiguous with one argument: is "{token}" the base branch or a persona?
+```
+
+The one exception: the single literal token `personas` still prints the
+roster and stops, per its own line below — that is not ambiguous, it names
+neither a branch nor a persona.
+
+Two or more tokens: positional, in this order. Nothing here is prompted for
+interactively.
 
 ```xml
 <arguments>
