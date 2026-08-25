@@ -7,7 +7,7 @@ effort: low
 metadata:
   glyph: ᚺ
   family: artefact
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: ["Read", "Glob", "Bash(python3:*)", "Bash(open:*)"]
 arguments: ["phase"]
 argument-hint: "[phase name (optional, when several are active)]"
