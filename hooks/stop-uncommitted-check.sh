@@ -25,6 +25,6 @@ PARTS=()
 [[ $MODIFIED -gt 0 ]] && PARTS+=("$MODIFIED unstaged")
 [[ $UNTRACKED -gt 0 ]] && PARTS+=("$UNTRACKED untracked")
 
-SUMMARY=$(IFS=', '; echo "${PARTS[*]}")
+SUMMARY=$(IFS=', '; echo "${PARTS[*]:-}")
 
 echo "⚠️  Uncommitted changes in $PWD: $SUMMARY file(s). Consider committing before finishing."
