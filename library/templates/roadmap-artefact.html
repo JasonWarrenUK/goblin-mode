@@ -78,6 +78,12 @@
 	--muted: var(--color-gray-4);
 	--line: var(--color-gray-2);
 	--grid-line: rgba(0, 117, 144, 0.06);
+	/* Mermaid chrome (edge stroke, arrowhead, edge-label backing) that the
+	   diagram's own classDefs don't cover — see the render script below for
+	   why this can't just be mermaid's base-theme default. */
+	--diagram-line: var(--color-gray-4);
+	--diagram-edge-label-bg: #ffffff;
+	--diagram-text: var(--text);
 }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
@@ -122,6 +128,9 @@
 		--muted: var(--color-gray-3);
 		--line: var(--color-gray-5);
 		--grid-line: rgba(174, 233, 255, 0.05);
+		--diagram-line: var(--color-gray-3);
+		--diagram-edge-label-bg: var(--surface);
+		--diagram-text: var(--text);
 	}
 }
 /* Third theming state: an explicit toggle wins in both directions, even
@@ -171,6 +180,9 @@
 	--muted: var(--color-gray-3);
 	--line: var(--color-gray-5);
 	--grid-line: rgba(174, 233, 255, 0.05);
+	--diagram-line: var(--color-gray-3);
+	--diagram-edge-label-bg: var(--surface);
+	--diagram-text: var(--text);
 }
 
 * { box-sizing: border-box; }
@@ -473,20 +485,23 @@ try {
 	mermaid.registerLayoutLoaders(elkLayouts);
 	layout = "elk";
 } catch { /* CDN unreachable — fall back */ }
-mermaid.initialize({
-	startOnLoad: false,
-	theme: "base",
-	layout,
-	themeVariables: {
-		fontSize: "16px",
-		fontFamily: '"IBM Plex Mono", monospace',
-	},
-});
 /* Mermaid 11's classDef parser rejects var(--x), so the semantic variables
    are resolved to concrete colours before rendering, and the graph re-renders
    when the colour scheme flips so it keeps tracking the page theme. A render
    failure is contained to the diagram shell — the sections after it must
-   still populate. */
+   still populate.
+
+   Node fills/strokes come entirely from the classDefs above (resolved via
+   the var() replace below), but mermaid's "base" theme still supplies its
+   own defaults for everything a classDef doesn't touch — edge stroke,
+   arrowhead fill, edge-label background. Those defaults assume a white
+   canvas, so left alone they render near-black on the dark surface. Fixing
+   that means passing --diagram-line/--diagram-edge-label-bg/--diagram-text
+   through as themeVariables — and critically, mermaid.initialize() must be
+   called again on every render (not once at module load) reading the
+   *currently resolved* values, or a colour-scheme flip silently keeps the
+   load-time edge colours and the explicit data-theme toggle below never
+   takes effect at all (matchMedia doesn't fire for it). */
 const wrap = document.getElementById("wrap");
 const shell = document.getElementById("shell");
 const diagram = document.getElementById("diagram");
@@ -495,8 +510,21 @@ let scale = 1, tx = 0, ty = 0;
 const apply = () => { if (svgEl) svgEl.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
 const renderGraph = async () => {
 	const rootStyle = getComputedStyle(document.documentElement);
-	const src = DATA.mermaid.replace(/var\((--[\w-]+)\)/g,
-		(_, name) => rootStyle.getPropertyValue(name).trim() || "#888888");
+	const cssVar = name => rootStyle.getPropertyValue(name).trim() || "#888888";
+	mermaid.initialize({
+		startOnLoad: false,
+		theme: "base",
+		layout,
+		themeVariables: {
+			fontSize: "16px",
+			fontFamily: '"IBM Plex Mono", monospace',
+			background: cssVar("--surface"),
+			lineColor: cssVar("--diagram-line"),
+			edgeLabelBackground: cssVar("--diagram-edge-label-bg"),
+			textColor: cssVar("--diagram-text"),
+		},
+	});
+	const src = DATA.mermaid.replace(/var\((--[\w-]+)\)/g, (_, name) => cssVar(name));
 	try {
 		const { svg } = await mermaid.render("roadmap-graph", src);
 		diagram.innerHTML = svg;
@@ -511,6 +539,12 @@ const renderGraph = async () => {
 };
 await renderGraph();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderGraph);
+/* Covers the explicit data-theme toggle (no UI ships today, but the
+   three-state contract says a future one must just work — see the CSS
+   comment above :root[data-theme="dark"]). matchMedia only fires for the OS
+   preference, so the attribute needs its own watcher. */
+new MutationObserver(renderGraph).observe(document.documentElement,
+	{ attributes: true, attributeFilter: ["data-theme"] });
 
 /* Zoom/pan: buttons, ctrl+wheel, drag; expand toggles a fixed overlay */
 const zoom = f => { scale = Math.min(4, Math.max(0.25, scale * f)); apply(); };
