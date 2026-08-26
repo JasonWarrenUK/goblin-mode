@@ -109,9 +109,16 @@ function text(style: TextStyle, content: string, extra: Record<string, unknown> 
 	};
 }
 
+// All of card.ts's flags take a value (there are no bare booleans here),
+// but the old "any preceding --flag consumes the next arg" rule was the
+// same shape as the bug in frame.ts/record.ts (see PR #16 review, Findings
+// 2-3) — naming the set explicitly keeps this file correct if a boolean
+// flag is ever added.
+const VALUE_FLAGS = new Set(['--size', '--project', '--family']);
+
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
-	const positional = args.filter((arg, index) => !arg.startsWith('--') && !args[index - 1]?.startsWith('--'));
+	const positional = args.filter((arg, index) => !arg.startsWith('--') && !VALUE_FLAGS.has(args[index - 1] ?? ''));
 	const [specPath, output] = positional;
 	if (!specPath || !output) {
 		console.error('usage: card.ts <card.json> <out.png> [--size og|github] [--project <dir>] [--family <name>]');
