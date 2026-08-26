@@ -60,34 +60,34 @@ mono row of key facts — model used, dataset size, compiled date, runtime —
 default opening; a short narrative piece can compress or drop the meta-strip
 if there's nothing worth putting in it.
 
-## Palette (fixed source, bespoke mapping)
+## Palette (theme file as source, bespoke mapping)
 
-**Reasonable Colors is always the token source** — this is fixed, not a
-per-artefact choice, for the accessibility guarantee (see
-`reasonable-colors-reference.md` for the contrast table). What *is* bespoke
-per artefact is which RC hues get chosen and what they mean: a blueprint-teal
-instrument palette for pipeline docs, parchment/oxblood for an RPG kit,
-violet for a linguistics piece. RC's palette (24 colour sets + grays, 6
-shades each) is wide enough that "always RC" and "a distinct mood per
-artefact" are not in tension.
+**The project's `html` theme is always the token source** (see
+`theme-conventions.md`: `.claude/themes/<family>-html.json`, falling back to
+the global `clod` family). The theme carries its own verified contrast table,
+which is where the accessibility guarantee now lives. What *is* bespoke per
+artefact is the mood: a blueprint-teal instrument palette for pipeline docs,
+parchment/oxblood for an RPG kit, violet for a linguistics piece. When an
+artefact wants a mood the project's theme doesn't have, that is a second
+family (`/theme-factory "html" new`), not an inline palette.
 
 **Semantic CSS custom properties only.** Markup and components never
-reference `--color-{name}-{shade}` directly — always through a semantic alias
-(`--ink`, `--surface`, `--accent`, `--verd`, whatever names fit this
-artefact's own vocabulary). Document *why* each alias maps to which RC hue,
-the way `those-who-came-before/site/assets/site.css` does:
+reference a raw hex — always a semantic alias (`--ink`, `--surface`,
+`--accent`, `--verd`, whatever names fit this artefact's own vocabulary).
+The theme's emitted `:root` block provides the base twelve; an artefact may
+alias them further. Document *why* each alias maps to which theme token, the
+way `those-who-came-before/site/assets/site.css` does:
 
 ```css
 /*
-  Mapping notes: --terra (accent, links) maps to amber; --verd (structural
-  boxes, callouts) maps to emerald; --bronze (kickers, headings) maps to
-  cinnamon. Shade gaps of 3 hold body-text contrast (4.5:1) and gaps of 4
-  hold AAA (7:1) per the RC contrast table.
+  Mapping notes: --terra (accent, links) is the theme accent; --verd
+  (structural boxes, callouts) is accent-2; --bronze (kickers, headings) is
+  warn. Contrast per the theme's own table (ember-html.json).
 */
 :root {
-  --terra: var(--color-amber-4);
-  --verd:  var(--color-emerald-4);
-  --bronze: var(--color-cinnamon-4);
+  --terra:  var(--accent);
+  --verd:   var(--accent-2);
+  --bronze: var(--warn);
 }
 ```
 

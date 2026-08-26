@@ -117,19 +117,17 @@ When fixing multiple issues:
 - Define colors as CSS variables in root/theme
 - Never hard-code hex/rgb values in components
 - Use semantic naming (`--color-primary`, not `--blue-500`)
-- Use [Reasonable Colors](https://www.reasonable.work/colors/) as the base palette (`npm install reasonable-colors` or CDN `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css`)
-- Map RC variables to semantic aliases in `:root`; components only reference semantic vars:
+- The project's theme (`.claude/themes/<family>-html.json`, see `~/.claude/library/references/theme-conventions.md`) is the palette; emit its tokens with `bun ~/.claude/library/scripts/theme/emit.ts <file> -o src/lib/styles/tokens.css` rather than typing hex values. No theme yet: run `/theme-factory "html"` first.
+- The emitted block defines `--ink`, `--ink-muted`, `--surface`, `--surface-raised`, `--line`, `--accent`, `--accent-ink`, `--accent-2`, `--ok`, `--warn`, `--danger`, `--info` plus type and shape tokens, light and dark. Components alias those to roles; nothing references a hex:
 
 ```css
 :root {
-  /* Map Reasonable Colors → semantic roles */
-  --color-primary:      var(--color-azure-3);
-  --color-primary-bg:   var(--color-azure-1);
-  --color-on-primary:   var(--color-azure-6);
-  --color-danger:       var(--color-red-3);
-  --color-danger-bg:    var(--color-red-1);
-  --color-surface:      var(--color-gray-1);
-  --color-on-surface:   var(--color-gray-6);
+  /* Roles on top of the theme tokens */
+  --color-primary:      var(--accent);
+  --color-on-primary:   var(--accent-ink);
+  --color-danger:       var(--danger);
+  --color-surface:      var(--surface);
+  --color-on-surface:   var(--ink);
 }
 ```
 
