@@ -75,7 +75,7 @@ Compare component styling against project patterns:
 ✓ Consistent:   padding: 0.5rem;
 
 ✗ Inconsistent: background: #3B82F6;
-✓ Consistent:   background: var(--color-primary); /* → --color-azure-3 */
+✓ Consistent:   background: var(--color-primary); /* → --accent (theme token) */
 ```
 
 ### Step 3: Propose Changes

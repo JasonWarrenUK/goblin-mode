@@ -22,7 +22,7 @@ Load `asset-conventions` first; freeze flags are in `~/.claude/library/reference
 		A file path with an optional line range ("src/auth.ts 40-72", "lines 40 to 72"), or `run:` followed by a command whose output to capture. "svg" switches output format. A theme family name selects the freeze block.
 	</arguments>
 	<steps>
-		<step num="1">Resolve the `freeze` theme (`theme.ts freeze --project .`) and emit its config to `docs/assets/stills/.freeze.json` (`bun ~/.claude/library/scripts/theme/emit.ts &lt;file&gt; -o docs/assets/stills/.freeze.json`).</step>
+		<step num="1">Resolve the `freeze` theme (`theme.ts freeze --project .` prints the theme file path) and emit its config to `docs/assets/stills/.freeze.json` (`bun ~/.claude/library/scripts/theme/emit.ts &lt;resolved theme file&gt; -o docs/assets/stills/.freeze.json`).</step>
 		<step num="2">
 			Render:
 			- file: `freeze &lt;file&gt; --config docs/assets/stills/.freeze.json [--lines a,b] -o docs/assets/stills/&lt;file-slug&gt;[-a-b].png`. Language is auto-detected; pass `--language svelte` for `.svelte` when detection misses.
