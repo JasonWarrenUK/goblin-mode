@@ -167,7 +167,7 @@ Replace every hardcoded colour from Step 2 with semantic aliases backed by the p
 
 This step's job is preserving the *source artefact's own design* in the new codebase — not imposing a different aesthetic on top of one the user already approved. `~/.claude/library/references/artefact-conventions.md` is a useful cross-check for masthead structure, typography-pairing logic, and the honesty/status-marking rule if the ported app is *itself* a reference/status-style artefact (e.g. a dashboard), but it never overrides what Step 6 already preserved from the artefact's own markup and voice.
 
-1. **Emit the tokens:** `bun ~/.claude/library/scripts/theme/emit.ts .claude/themes/<family>-html.json -o src/lib/styles/tokens.css`. Import it once at the app root. The emitted block already carries light and dark variants and the theme-switch contract.
+1. **Emit the tokens:** `bun ~/.claude/library/scripts/theme/emit.ts .claude/themes/<family>-html.json -o src/lib/styles/tokens.css`. Import it once at the app root. The emitted block already carries light and dark variants and the theme-switch contract, but not a control — add the masthead light/system/dark toggle from `artefact-conventions.md`'s theming section (verbatim HTML/CSS/JS) if the ported app didn't already have an equivalent. This is a behavioural requirement, not an aesthetic one, so it applies even though this step otherwise preserves the source app's own design rather than artefact-conventions' full look.
 2. **Define role aliases** in the same `tokens.css`, on top of the theme tokens:
    ```css
    :root {
@@ -187,6 +187,7 @@ This step's job is preserving the *source artefact's own design* in the new code
 - [ ] Zero hardcoded colours left in components
 - [ ] Zero raw theme-token references in components (role aliases only)
 - [ ] Every fg/bg pair used appears in the theme's verified `contrast` table
+- [ ] Light/system/dark toggle present and reachable (the ported app's own if it had one, otherwise the masthead control from `artefact-conventions.md`)
 
 ## Step 8: Verify it runs (core deliverable)
 
