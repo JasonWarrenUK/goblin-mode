@@ -44,6 +44,29 @@ export function resolveTheme(target: string, projectDir: string, family: string 
 				`No ${family}-${target}.json in ${projectThemes}. Create it with: /theme-factory "${target}" from ${family}`,
 			);
 		}
+
+		// Step 3 of the resolution order: a core file with no matching
+		// target should offer /theme-factory from that core's family,
+		// rather than silently falling through to the global palette (see
+		// PR #16 review, Finding 7).
+		if (existsSync(projectThemes)) {
+			const bareCores = readdirSync(projectThemes).filter((file) => {
+				if (!file.endsWith('.json') || file.includes('-')) return false;
+				const core = JSON.parse(readFileSync(join(projectThemes, file), 'utf8')) as { $schema?: string; family?: string };
+				return core.$schema === 'clod-theme/core@1';
+			});
+			if (bareCores.length === 1) {
+				const core = JSON.parse(readFileSync(join(projectThemes, bareCores[0]), 'utf8')) as { family: string };
+				throw new Error(
+					`No ${target} theme for ${core.family} in ${projectThemes} (core exists, no ${target} file). Create it with: /theme-factory "${target}" from ${core.family}`,
+				);
+			}
+			if (bareCores.length > 1) {
+				const names = bareCores.join(', ');
+				throw new Error(`Several theme cores in ${projectThemes} (${names}); name the family`);
+			}
+		}
+
 		const globalPath = join(GLOBAL_THEMES_DIR, `clod-${target}.json`);
 		if (!existsSync(globalPath)) {
 			throw new Error(`No ${target} theme anywhere. Create one with: /theme-factory "${target}"`);
@@ -69,7 +92,11 @@ export function argValue(args: string[], flag: string): string | null {
 
 if (import.meta.main) {
 	const args = process.argv.slice(2);
-	const target = args.find((arg) => !arg.startsWith('--'));
+	// --project/--family take a value; the target must never be mistaken
+	// for one of those values when a flag comes first (see PR #16 review,
+	// Finding 6). argValue above already guards its own index correctly —
+	// this bare scan needs the same guard.
+	const target = args.find((arg, index) => !arg.startsWith('--') && !['--project', '--family'].includes(args[index - 1] ?? ''));
 	if (!target) {
 		console.error('usage: theme.ts <target> [--project <dir>] [--family <name>]');
 		process.exit(1);
