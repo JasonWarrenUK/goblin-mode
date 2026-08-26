@@ -53,16 +53,18 @@ from _roadmap_core import (
 )
 
 # ---------------------------------------------------------------------------
-# Canonical status→colour table (Reasonable Colors). The single source of
-# truth for every projection: PHASE.md Mermaid (literal hexes — GitHub cannot
-# resolve CSS vars), the artefact template (semantic vars) and the conventions
-# reference at library/references/roadmap-conventions.md, which documents this
-# table in prose. Semantics: done=green (finished), todo=gray (blank slate),
+# Canonical status→colour table: the roadmap system's own fixed palette
+# (literal hexes, originally derived from Reasonable Colors shades 1/4 and
+# 6/2; the values are now owned here and no external palette is loaded).
+# The single source of truth for every projection: PHASE.md Mermaid (literal
+# hexes — GitHub cannot resolve CSS vars), the artefact template (semantic
+# vars, inlined at render from this table) and the conventions reference at
+# library/references/roadmap-conventions.md, which documents this table in
+# prose. Semantics: done=green (finished), todo=gray (blank slate),
 # blocked=red (stop), paused=purple (parked), deferred=cinnamon (shelved),
 # out_of_scope=faded gray (struck from play), gate=yellow (external),
 # milestone=sky (structural). Pink is accent-only, never a status.
-# Shade pattern: light bg=shade 1, stroke/text=shade 4; dark bg=shade 6,
-# stroke=shade 2 (gray uses 3/5 so the fade stays legible). Diff >=3 keeps AA.
+# Every light bg/stroke and dark bg/stroke pair here clears AA (4.5:1).
 # ---------------------------------------------------------------------------
 STATUS_STYLE = {
     "todo": {
