@@ -138,10 +138,11 @@ page before letting it near a paragraph.
 
 Read `~/.claude/library/references/artefact-conventions.md` in full and
 apply: masthead structure, RC-sourced semantic palette (this project's own
-mapping from Step 2/2b), the three-state theming contract, typography
-pairing, the collapsibility threshold, the epistemic-honesty rule (structural
-marking, never hedging prose), and the technical-hygiene list
-(self-contained, `overflow-x` scrollers, `tabular-nums`, British spelling).
+mapping from Step 2/2b), the three-state theming contract and its toggle
+control, typography pairing, the collapsibility threshold, the
+epistemic-honesty rule (structural marking, never hedging prose), and the
+technical-hygiene list (self-contained, `overflow-x` scrollers,
+`tabular-nums`, British spelling).
 
 For a claude.ai/Cowork `Artifact` publish specifically: this skill's rules
 are additive to Anthropic's built-in `artifact-design` /
@@ -153,6 +154,8 @@ Load both.
 - [ ] Palette routes through RC tokens via semantic aliases only
 - [ ] If the artefact documents a skill, its hue is keyed to that skill's `metadata.family`, reusing an established family mapping where one exists; a cross-family index takes no hue of its own
 - [ ] Three-state theming contract present, or single-look justified explicitly
+- [ ] Toggle control present (light/system/dark, masthead-anchored, persisted) on every pathway except an `Artifact` publish, which relies on the host's own control
+- [ ] Any JS-rendered diagram follows the theme (CSS-variable-driven, or re-rendered on both `matchMedia` change and `data-theme` mutation)
 - [ ] Collapsibility applied if past the threshold
 - [ ] Table of contents added if past the threshold, in a closed `<details>` or its own sticky sidebar
 - [ ] Honesty rule expressed structurally, not as hedging prose

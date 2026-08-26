@@ -178,6 +178,10 @@ body { background: var(--diff-ground); color: var(--diff-ink); }
 .diff-line.deletion { background: var(--diff-del-bg); }
 ```
 
+Ship the reference doc's masthead toggle control verbatim so a reader can
+reach all three states; this is a standalone HTML file, not an `Artifact`
+publish, so the toggle is required rather than the host-provided exception.
+
 ## Interactive features
 
 - **Hover hint:** Show "Click to comment" tooltip on line hover
