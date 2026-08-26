@@ -86,7 +86,7 @@ is a data-heavy artefact).
 
 Cover:
 - **Palette mood** — what hue(s) should this artefact's semantic aliases map
-  to, and why (the reference doc's RC-mapping rule expects a stated reason,
+  to, and why (the reference doc's mapping rule expects a stated reason,
   not just a colour pick).
 - **Font pairing** — display/body voice + monospace workhorse; free choice,
   but ask rather than default silently. **Offer from Jason's shortlist
@@ -98,7 +98,7 @@ Cover:
 
 Once agreed, **write the outcome into the CSS as explicit mapping-notes
 comments**, the way `those-who-came-before/site/assets/site.css` does —
-document *why* each alias maps to which RC hue. This first artefact becomes
+document *why* each alias maps to which theme token. This first artefact becomes
 the self-documenting spec Step 2 reads back on every artefact after it in
 this project; nobody should have to re-ask these questions for the second
 artefact.
@@ -137,7 +137,7 @@ page before letting it near a paragraph.
 ## Step 3: Apply the shared rules
 
 Read `~/.claude/library/references/artefact-conventions.md` in full and
-apply: masthead structure, RC-sourced semantic palette (this project's own
+apply: masthead structure, theme-sourced semantic palette (this project's own
 mapping from Step 2/2b), the three-state theming contract and its toggle
 control, typography pairing, the collapsibility threshold, the
 epistemic-honesty rule (structural marking, never hedging prose), and the
@@ -151,7 +151,7 @@ favicon, CSP self-containment, and runtime capabilities stay owned by those.
 Load both.
 
 - [ ] Masthead present (or deliberately compressed for a short narrative piece)
-- [ ] Palette routes through RC tokens via semantic aliases only
+- [ ] Palette routes through theme tokens via semantic aliases only
 - [ ] If the artefact documents a skill, its hue is keyed to that skill's `metadata.family`, reusing an established family mapping where one exists; a cross-family index takes no hue of its own
 - [ ] Three-state theming contract present, or single-look justified explicitly
 - [ ] Toggle control present (light/system/dark, masthead-anchored, persisted) on every pathway except an `Artifact` publish, which relies on the host's own control
