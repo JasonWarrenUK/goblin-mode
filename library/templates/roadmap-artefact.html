@@ -346,6 +346,7 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 	}
 	apply(read());
 	document.addEventListener('DOMContentLoaded', function () {
+		apply(read());
 		document.querySelectorAll('[data-set-theme]').forEach(function (b) {
 			b.addEventListener('click', function () {
 				write(b.dataset.setTheme);

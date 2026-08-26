@@ -228,8 +228,12 @@ control from its siblings.
   apply(read());
 
   // The buttons themselves are further down the page (see Placement below),
-  // so binding their clicks has to wait until the DOM has them.
+  // so binding their clicks has to wait until the DOM has them. Re-applying
+  // here is what syncs aria-pressed: the call above ran before the buttons
+  // existed, so its querySelectorAll matched nothing and every button kept
+  // whatever aria-pressed the markup shipped with.
   document.addEventListener('DOMContentLoaded', function () {
+    apply(read());
     document.querySelectorAll('[data-set-theme]').forEach(function (b) {
       b.addEventListener('click', function () {
         var mode = b.dataset.setTheme;
