@@ -1,0 +1,31 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": "clod",
+	"target": "vhs",
+	"extends": "clod.json",
+	"rationale": { "mapping_notes": "Dark variant only (terminals). background=surface, foreground=ink, selection=surface-raised, cursor=accent. ANSI: red=danger, green=ok, yellow=accent (brass), blue=info, magenta=hue-rotated accent-2 (+150deg), cyan=accent-2, black=line, white=ink-muted; bright row lifts lightness ~0.08 in OKLCH. MarginFill=accent-2 so the GIF frame carries the second voice." },
+	"vhs": {
+		"Theme": {
+			"name": "clod",
+			"background": "#14181F", "foreground": "#EDE7DA", "cursor": "#D9A441", "selection": "#2E3640",
+			"black": "#2E3640", "red": "#E06C5B", "green": "#6FBF73", "yellow": "#D9A441",
+			"blue": "#6FA8DC", "magenta": "#C58AD6", "cyan": "#4FB3A8", "white": "#A39C8E",
+			"brightBlack": "#4A5462", "brightRed": "#F08A7B", "brightGreen": "#8FD892", "brightYellow": "#EBBD63",
+			"brightBlue": "#8FC0EC", "brightMagenta": "#DBA6EA", "brightCyan": "#72CFC4", "brightWhite": "#EDE7DA"
+		},
+		"FontFamily": "JetBrains Mono",
+		"FontSize": 16,
+		"LineHeight": 1.2,
+		"WindowBar": "Colorful",
+		"WindowBarSize": 40,
+		"BorderRadius": 8,
+		"Margin": 24,
+		"MarginFill": "#1C6E65",
+		"Padding": 24,
+		"Width": 1200,
+		"Height": 640,
+		"Framerate": 30,
+		"PlaybackSpeed": 1.0,
+		"TypingSpeed": "50ms"
+	}
+}

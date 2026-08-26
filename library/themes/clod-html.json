@@ -1,0 +1,37 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": "clod",
+	"target": "html",
+	"extends": "clod.json",
+	"rationale": { "mapping_notes": "Direct token copy; --gradient is the three-stop core gradient at 135deg. Fonts loaded from Google Fonts (the one external host artefacts may use)." },
+	"html": {
+		"tokens": {
+			"light": {
+				"--ink": "#1E232B", "--ink-muted": "#555D69",
+				"--surface": "#F7F3EA", "--surface-raised": "#FFFFFF", "--line": "#D8D1C3",
+				"--accent": "#7A540C", "--accent-ink": "#FFF8E6", "--accent-2": "#1C6E65",
+				"--ok": "#2E7D32", "--warn": "#8A5A00", "--danger": "#B3412F", "--info": "#2F6FA8",
+				"--gradient": "linear-gradient(135deg, #9A6A12, #4F7A4A, #1C6E65)"
+			},
+			"dark": {
+				"--ink": "#EDE7DA", "--ink-muted": "#A39C8E",
+				"--surface": "#14181F", "--surface-raised": "#1D232C", "--line": "#2E3640",
+				"--accent": "#D9A441", "--accent-ink": "#1A1408", "--accent-2": "#4FB3A8",
+				"--ok": "#6FBF73", "--warn": "#E0A83A", "--danger": "#E06C5B", "--info": "#6FA8DC",
+				"--gradient": "linear-gradient(135deg, #D9A441, #9BB170, #4FB3A8)"
+			}
+		},
+		"type": {
+			"--font-display": "'Inter Tight', system-ui, sans-serif",
+			"--font-body": "'Inter', system-ui, sans-serif",
+			"--font-mono": "'JetBrains Mono', ui-monospace, monospace",
+			"--text-base": "16px", "--text-ratio": "1.25", "--leading": "1.5"
+		},
+		"shape": {
+			"--radius-sm": "4px", "--radius-md": "8px", "--radius-lg": "14px",
+			"--shadow": "0 10px 24px rgba(0, 0, 0, 0.3)", "--space": "8px"
+		},
+		"google_fonts": ["Inter+Tight:wght@700", "Inter:wght@400;600", "JetBrains+Mono:wght@400"],
+		"theme_switch": "data-theme attribute on :root plus prefers-color-scheme fallback (see artefact-conventions)"
+	}
+}
