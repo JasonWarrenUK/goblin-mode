@@ -22,7 +22,11 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/artefact-audit` | ᛊ sonnet | Render verified findings as an actionable, status-grouped HTML artefact. |
 | `/artefact-intro` | ᛊ sonnet | Render a visual HTML introduction to this codebase for a newly-joined developer |
 | `/artefact-playground` | ᛊ sonnet | Creates interactive HTML playgrounds — self-contained single-file explorers that let users configure… |
-| `/artefact-roadmap` | ᚺ haiku | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
+| `/asset-card` | ᛟ opus | Generate the project's social card (OG 1200×630 and GitHub 1280×640) from a committed card.json and… |
+| `/asset-demo` | ᛟ opus | Produce a demo GIF/MP4: VHS tape for CLI tools, shot-scraper storyboard for web flows, Playwright re… |
+| `/asset-pdf` | ᛊ sonnet | Rasterise pages of a PDF (tabletop game documents, print pieces) with pdftoppm and frame chosen page… |
+| `/asset-shot` | ᛊ sonnet | Capture website screenshots from a generated, committed shots.yml (routes → shot-scraper) and frame… |
+| `/asset-still` | ᛊ sonnet | Render a styled image of a code snippet or a command's output with freeze, using the project's freez… |
 | `/branch-integrate` | ᛊ sonnet | Integrate a target branch into the current one by merge, rebase or squash |
 | `/branch-qa_review` | ᛟ opus | Assess branch readiness for PR submission: full review methodology plus the checks only a local chec… |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
@@ -39,6 +43,8 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/roadmap-create` | ᛟ opus | Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHA… |
 | `/roadmap-migrate` | ᛊ sonnet | Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json… |
 | `/skill-creator` | ᛟ opus | Create new skills, modify and improve existing skills, and measure skill performance. Use when users… |
+| `/theme-factory` | ᛟ opus | Create, update, extend, print or display a project theme family: a core palette plus per-target file… |
+| `/theme-target` | ᛊ sonnet | Define a new theme target type (a consumer of colour/type tokens the theme system doesn't cover yet)… |
 
 ---
 
@@ -49,6 +55,7 @@ Claude can load these automatically when relevant.
 | Skill | Model | Description |
 |-------|-------|-------------|
 | `/artefact-conventions` |  | Jason's structural and epistemic-honesty conventions for every artefact Claude creates |
+| `/artefact-roadmap` | ᚺ haiku | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
 | `/branch-rename` | ᚺ haiku | Check the current branch name against convention (type/short-description) and rename it if it drifte… |
 | `/clod-config-skill_conventions` |  | Jason's placement, invocation and metadata conventions for creating or editing skills |
 | `/commit-batch` | ᚺ haiku | Split uncommitted changes into granular commits. |
@@ -79,6 +86,7 @@ Ambient knowledge roles (`user-invocable: false`), loaded by Claude when relevan
 
 | Skill | Description | When to use |
 |-------|-------------|-------------|
+| `asset-conventions` | Where generated visual assets live, how project type and theme are resolved, and the quality gate ev… | Loaded by every asset-* skill before it captures, renders or frames anything; also when a README needs a screenshot, GIF… |
 | `clod-approach-stud` | Studs every function of a planned feature in its real file as a runnable walking-skeleton (fake data… | >=1 of the following are true: (a) spans several functions/files; (b) touches existing code in more than one place; (c)… |
 | `clod-approach-writing_style` | Writing style guide for Jason Warren. Applies whenever writing or editing substantive prose for Jaso… | Any request involving writing, drafting, editing or composing text that isn't purely code (including GitHub PR descripti… |
 | `clod-lens-empathy` | Empathy-driven design: think through how real people experience the software; surface and challenge… | When designing a user-facing flow and it's worth pausing to ask how it actually feels to a real person using it; especia… |
