@@ -142,8 +142,145 @@ Three states — light, dark, and "follow system" — every time, matching the
 Give `body` an explicit background from a token — a transparent body borrows
 whatever ground the viewer is painting behind it. Single-look-only (no dark
 block) is allowed when the mood itself calls for commitment — a parchment RPG
-kit, a forced-dark terminal aesthetic — but say so explicitly rather than
-quietly omitting dark support.
+kit, a forced-dark terminal aesthetic — but the artefact must say so plainly
+in its own text, not merely omit the dark block and leave a reader guessing.
+A single-look artefact ships no toggle: there is nothing to switch between.
+
+Token emission for this contract is increasingly handled by `/theme-factory`
+(`library/scripts/theme/emit.ts`, `html` target) rather than hand-written per
+artefact — see `theme-conventions.md`. That changes *where the tokens come
+from*, never this contract's shape; `emit.ts` cites this section as its own
+source. What it cannot supply is the control below, since it emits CSS, not
+markup.
+
+### Both themes are required; the control is not universal
+
+Both token states (light and dark, reachable via the contract above) are
+required on every artefact except a stated single-look. Whether the artefact
+also ships an **in-page toggle control** depends on the pathway:
+
+| Pathway | Both token states | In-page control |
+|---|---|---|
+| Standalone `docs/artefacts/*.html`, a `site/` page, the roadmap template | required | **required** |
+| claude.ai / Cowork `Artifact` publish | required | **omitted** — the host provides one |
+
+The `Artifact` tool's own contract stamps `data-theme="dark"` /
+`data-theme="light"` on the root element from the viewer's own setting. An
+in-page control fighting that would write the same attribute the host writes,
+with no route back to "system" the host would respect. This row exists
+*because* the host owns theme selection there — if a future `Artifact`
+runtime stops providing a host control, this row is what to revisit, not an
+oversight to "fix" by adding a redundant one.
+
+**Joining a collection whose toggle predates this rule** (`site/` today): the
+"match the collection's aesthetic" rule in `artefact-conventions` Step 2 and
+this rule can conflict for a single new page. Resolve it one of two ways,
+recorded rather than left implicit: upgrade the whole collection in one pass
+(shared stylesheet plus every member), or have the new page follow the
+collection's existing control and record the collection as knowingly out of
+step. A single new page must never be the only member with a different
+control from its siblings.
+
+### State semantics (fixed, so five implementations don't diverge)
+
+- **"System" is the absence of `data-theme`**, never `data-theme="system"`.
+  Omitting the attribute happens to work against the CSS above, which is
+  exactly why an unpinned rule produces both forms in the wild.
+- **Persist the choice to `localStorage`**, reads and writes both wrapped in
+  `try/catch`. The accessor throws outright in some contexts — a private
+  window, blocked site data, thumbnail/preview capture — and an unguarded
+  throw in an early script kills everything after it on the page.
+- **An absent or unreadable stored value renders as "system"**, not as an
+  error and not as a silent fallback to light.
+
+### The control (verbatim, standalone pathway)
+
+```html
+<div class="theme-toggle" role="group" aria-label="Colour theme">
+  <button type="button" data-set-theme="light"  aria-pressed="false">☀</button>
+  <button type="button" data-set-theme="system" aria-pressed="true">◐</button>
+  <button type="button" data-set-theme="dark"   aria-pressed="false">☾</button>
+</div>
+<script>
+(function () {
+  var KEY = 'theme';
+  var root = document.documentElement;
+  var buttons = document.querySelectorAll('[data-set-theme]');
+
+  function read() {
+    try { return localStorage.getItem(KEY) || 'system'; }
+    catch (e) { return 'system'; }
+  }
+  function write(mode) {
+    try { localStorage.setItem(KEY, mode); }
+    catch (e) { /* private window, blocked storage, preview capture: ignore */ }
+  }
+  function apply(mode) {
+    if (mode === 'system') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', mode);
+    buttons.forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.setTheme === mode));
+    });
+  }
+
+  apply(read());
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var mode = b.dataset.setTheme;
+      write(mode);
+      apply(mode);
+    });
+  });
+})();
+</script>
+```
+
+Place this script as the **first element in `<body>`**, not in `<head>` — an
+`Artifact` publish supplies its own `<head>` and wraps the file's content as
+body, so a `<head>` script is unavailable there even on the standalone
+pathway where the control itself still ships. Running first minimises the
+flash of the wrong theme before the script executes.
+
+**Placement**: anchored in the masthead eyebrow/kicker row, right-aligned via
+`margin-left: auto` inside that row's flex layout — not `position: fixed`.
+Wrap below the eyebrow text rather than overlap it once the viewport narrows
+past the same breakpoint the masthead itself uses for its own collapse.
+Hide it under `@media print`, as the rest of the masthead chrome already does.
+
+**Colour**: the control's CSS uses existing semantic aliases only
+(`--surface-raised` or `--line` for chrome, `--ink-muted` for inactive,
+`--accent` for the pressed state) and introduces no alias of its own. A
+missing alias is a `/theme-factory` change to make, per §7.5 of
+`CLAUDE.md` — never an inline hex value on the button.
+
+### Diagrams under a runtime toggle
+
+A diagram rendered once at load — Mermaid, a canvas, hand-drawn inline SVG —
+does not follow a later attribute flip, and lands as dark strokes on a dark
+ground or the reverse: the bug class fixed in commit `d483b94`. Two answers,
+and which is available depends on pathway:
+
+- **Drive diagram colours from the same CSS custom properties as everything
+  else.** Works everywhere, and is the *only* option inside an `Artifact`
+  publish — artifacts render Mermaid natively from fenced `mermaid` code
+  blocks and `<pre class="mermaid">`, so page JS has no handle to
+  re-initialise it.
+  Prior art already in this repo: `roadmap.py graph --palette vars` emits a
+  CSS-variable-driven Mermaid palette; reuse that approach rather than
+  inventing a new one.
+- **Re-render on change.** Standalone pathway only. The watcher must cover
+  *both* signals — `matchMedia` fires only for the OS preference, never for
+  an explicit `data-theme` write:
+
+  ```js
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderGraph);
+  new MutationObserver(renderGraph).observe(document.documentElement,
+  	{ attributes: true, attributeFilter: ["data-theme"] });
+  ```
+
+  This is the pattern already in `library/templates/roadmap-artefact.html`
+  (around the graph's render call) — treat it as the reference
+  implementation rather than re-deriving it per artefact.
 
 ## Typography (structural rule, free choice)
 
