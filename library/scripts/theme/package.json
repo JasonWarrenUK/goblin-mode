@@ -1,0 +1,14 @@
+{
+	"name": "clod-theme-scripts",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"validate": "bun validate.ts",
+		"emit": "bun emit.ts",
+		"swatch": "bun swatch.ts"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5"
+	}
+}

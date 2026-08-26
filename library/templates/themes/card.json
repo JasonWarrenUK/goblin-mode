@@ -1,0 +1,18 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": null,
+	"target": "card",
+	"extends": null,
+	"rationale": { "mapping_notes": null },
+	"card": {
+		"variant": "dark",
+		"background": { "kind": "gradient", "stops": [null, null, null], "angle_deg": 135 },
+		"title":   { "color": null, "font": null, "weight": 700, "size_px": 72, "max_lines": 2 },
+		"tagline": { "color": null, "font": null, "weight": 400, "size_px": 32, "max_lines": 2 },
+		"meta":    { "color": null, "font": null, "weight": 400, "size_px": 22 },
+		"hero":    { "frame_color": null, "radius_px": 12, "shadow": true, "max_width_ratio": 0.45 },
+		"logo":    { "path": null, "size_px": 64, "position": "top-left" },
+		"padding_px": 72,
+		"sizes": { "og": [1200, 630], "github": [1280, 640] }
+	}
+}

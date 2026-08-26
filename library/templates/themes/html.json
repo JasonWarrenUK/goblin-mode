@@ -1,0 +1,35 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": null,
+	"target": "html",
+	"extends": null,
+	"rationale": { "mapping_notes": null },
+	"html": {
+		"tokens": {
+			"light": {
+				"--ink": null, "--ink-muted": null,
+				"--surface": null, "--surface-raised": null, "--line": null,
+				"--accent": null, "--accent-ink": null, "--accent-2": null,
+				"--ok": null, "--warn": null, "--danger": null, "--info": null,
+				"--gradient": null
+			},
+			"dark": {
+				"--ink": null, "--ink-muted": null,
+				"--surface": null, "--surface-raised": null, "--line": null,
+				"--accent": null, "--accent-ink": null, "--accent-2": null,
+				"--ok": null, "--warn": null, "--danger": null, "--info": null,
+				"--gradient": null
+			}
+		},
+		"type": {
+			"--font-display": null, "--font-body": null, "--font-mono": null,
+			"--text-base": null, "--text-ratio": null, "--leading": null
+		},
+		"shape": {
+			"--radius-sm": null, "--radius-md": null, "--radius-lg": null,
+			"--shadow": null, "--space": null
+		},
+		"google_fonts": [],
+		"theme_switch": "data-theme attribute on :root plus prefers-color-scheme fallback (see artefact-conventions)"
+	}
+}

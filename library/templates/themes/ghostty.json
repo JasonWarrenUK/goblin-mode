@@ -1,0 +1,19 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": null,
+	"target": "ghostty",
+	"extends": null,
+	"rationale": { "mapping_notes": null },
+	"ghostty": {
+		"name": null,
+		"palette": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+		"background": null,
+		"foreground": null,
+		"cursor-color": null,
+		"selection-background": null,
+		"selection-foreground": null,
+		"gradient-start": null,
+		"gradient-mid": null,
+		"gradient-end": null
+	}
+}
