@@ -205,7 +205,6 @@ control from its siblings.
 (function () {
   var KEY = 'theme';
   var root = document.documentElement;
-  var buttons = document.querySelectorAll('[data-set-theme]');
 
   function read() {
     try { return localStorage.getItem(KEY) || 'system'; }
@@ -218,17 +217,25 @@ control from its siblings.
   function apply(mode) {
     if (mode === 'system') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', mode);
-    buttons.forEach(function (b) {
+    document.querySelectorAll('[data-set-theme]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.setTheme === mode));
     });
   }
 
+  // Runs immediately, before the button markup below has parsed, so the
+  // theme is set before first paint (no flash of the wrong theme). It must
+  // not depend on `buttons` existing yet.
   apply(read());
-  buttons.forEach(function (b) {
-    b.addEventListener('click', function () {
-      var mode = b.dataset.setTheme;
-      write(mode);
-      apply(mode);
+
+  // The buttons themselves are further down the page (see Placement below),
+  // so binding their clicks has to wait until the DOM has them.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var mode = b.dataset.setTheme;
+        write(mode);
+        apply(mode);
+      });
     });
   });
 })();
