@@ -91,7 +91,9 @@ function emitGhostty(block: Json): string {
 
 function main(): void {
 	const args = process.argv.slice(2);
-	const path = args.find((arg) => !arg.startsWith('-'));
+	// -o takes a value; its value must never be picked up as the path when
+	// the flag comes first (see PR #16 review, Finding 4).
+	const path = args.find((arg, index) => !arg.startsWith('-') && args[index - 1] !== '-o');
 	if (!path) {
 		console.error('usage: emit.ts <family>-<target>.json [-o out]');
 		process.exit(1);
