@@ -1,0 +1,43 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": "clod",
+	"target": "freeze",
+	"extends": "clod.json",
+	"rationale": {
+		"mapping_notes": "Dark variant. freeze paints the window with its chroma style's own background and ignores the config background for the window (verified: monokai renders #272822 regardless), so 'monokai' is chosen as the nearest warm-accent style to surface #14181F rather than surface being set. border.color=line; shadow from core shape."
+	},
+	"freeze": {
+		"theme": "monokai",
+		"background": "#14181F",
+		"window": true,
+		"border": {
+			"radius": 8,
+			"width": 1,
+			"color": "#2E3640"
+		},
+		"shadow": {
+			"blur": 24,
+			"x": 0,
+			"y": 10
+		},
+		"padding": [
+			20,
+			40,
+			20,
+			20
+		],
+		"margin": [
+			40,
+			60,
+			40,
+			60
+		],
+		"font": {
+			"family": "JetBrains Mono",
+			"size": 14,
+			"ligatures": true
+		},
+		"line_height": 1.2,
+		"show_line_numbers": false
+	}
+}

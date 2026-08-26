@@ -1,0 +1,19 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": "clod",
+	"target": "ghostty",
+	"extends": "clod.json",
+	"rationale": { "mapping_notes": "Same ANSI mapping as clod-vhs. gradient-* keys carry the core dark gradient for terminal-config's _gradient_line." },
+	"ghostty": {
+		"name": "Clod",
+		"palette": ["#2E3640", "#E06C5B", "#6FBF73", "#D9A441", "#6FA8DC", "#C58AD6", "#4FB3A8", "#A39C8E", "#4A5462", "#F08A7B", "#8FD892", "#EBBD63", "#8FC0EC", "#DBA6EA", "#72CFC4", "#EDE7DA"],
+		"background": "#14181F",
+		"foreground": "#EDE7DA",
+		"cursor-color": "#D9A441",
+		"selection-background": "#2E3640",
+		"selection-foreground": "#EDE7DA",
+		"gradient-start": "#D9A441",
+		"gradient-mid": "#9BB170",
+		"gradient-end": "#4FB3A8"
+	}
+}
