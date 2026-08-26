@@ -23,6 +23,8 @@ const SCRIPT_DIR = new URL('.', import.meta.url).pathname;
 const GLOBAL_THEMES_DIR = resolve(SCRIPT_DIR, '../../themes');
 const SEEN_PATH = join(GLOBAL_THEMES_DIR, 'seen.json');
 const BLOCKLIST_PATH = join(SCRIPT_DIR, 'blocklist.json');
+const CORE_TEMPLATE_PATH = resolve(SCRIPT_DIR, '../../templates/themes/core.json');
+const CORE_SCHEMA = 'clod-theme/core@1';
 
 const ORIGINALITY_THRESHOLD = 0.06; // mean deltaOk across signature swatches
 const BLOCKLIST_THRESHOLD = 0.05;
@@ -61,7 +63,7 @@ interface Finding {
 interface Signature {
 	family: string;
 	source: string;
-	swatches: Oklch[];
+	swatches: Record<string, Oklch>;
 }
 
 function loadJson<T>(path: string): T {
@@ -69,43 +71,85 @@ function loadJson<T>(path: string): T {
 }
 
 function signatureOf(theme: ThemeCore, source: string): Signature {
-	const swatches: Oklch[] = [];
+	const swatches: Record<string, Oklch> = {};
 	for (const key of SIGNATURE_KEYS) {
 		const swatch = theme.palette[key];
 		if (!swatch) continue;
-		swatches.push(hexToOklch(swatch.light), hexToOklch(swatch.dark));
+		swatches[`${key}.light`] = hexToOklch(swatch.light);
+		swatches[`${key}.dark`] = hexToOklch(swatch.dark);
 	}
 	return { family: theme.family, source, swatches };
 }
 
+// Compares only the swatch names present on both sides, so a theme missing
+// one signature swatch is never diffed against a shifted, misnamed entry
+// on the other side (see PR #16 review: positional comparison silently
+// paired unrelated swatches once one side was short).
 function signatureDistance(a: Signature, b: Signature): number {
-	const count = Math.min(a.swatches.length, b.swatches.length);
-	if (count === 0) return Infinity;
+	const sharedKeys = Object.keys(a.swatches).filter((key) => key in b.swatches);
+	if (sharedKeys.length === 0) return Infinity;
 	let total = 0;
-	for (let index = 0; index < count; index += 1) {
-		total += deltaOk(a.swatches[index], b.swatches[index]);
+	for (const key of sharedKeys) {
+		total += deltaOk(a.swatches[key], b.swatches[key]);
 	}
-	return total / count;
+	return total / sharedKeys.length;
 }
 
+// Diffs the candidate against core.json's own key shape, so a theme missing
+// an entire block (no "gradient", no "contrast") is caught here rather than
+// producing a clean report and then crashing checkContrast/checkGradient
+// with an uncaught TypeError (see PR #16 review, Finding 1).
 function checkCompleteness(theme: ThemeCore, findings: Finding[]): void {
-	const walk = (node: unknown, path: string): void => {
+	const template = loadJson<Record<string, unknown>>(CORE_TEMPLATE_PATH);
+
+	const walkAgainstTemplate = (templateNode: unknown, candidateNode: unknown, path: string): void => {
+		if (templateNode === null) return; // a template leaf: any concrete value on the candidate satisfies it
+		if (Array.isArray(templateNode)) {
+			if (!Array.isArray(candidateNode) || candidateNode.length < templateNode.length) {
+				findings.push({ severity: 'fail', check: 'completeness', detail: `${path} is missing entries` });
+				return;
+			}
+			templateNode.forEach((item, index) => walkAgainstTemplate(item, candidateNode[index], `${path}[${index}]`));
+			return;
+		}
+		if (typeof templateNode === 'object') {
+			if (typeof candidateNode !== 'object' || candidateNode === null) {
+				findings.push({ severity: 'fail', check: 'completeness', detail: `${path || '(root)'} is missing` });
+				return;
+			}
+			for (const [key, value] of Object.entries(templateNode as Record<string, unknown>)) {
+				if (key === '$schema' || key === 'version') continue;
+				const childPath = path ? `${path}.${key}` : key;
+				if (!(key in (candidateNode as Record<string, unknown>))) {
+					findings.push({ severity: 'fail', check: 'completeness', detail: `${childPath} is missing` });
+					continue;
+				}
+				walkAgainstTemplate(value, (candidateNode as Record<string, unknown>)[key], childPath);
+			}
+		}
+	};
+	walkAgainstTemplate(template, theme, '');
+
+	// The template diff confirms every key exists; this catches values that
+	// exist but were never filled in (still null, copied straight from the
+	// template).
+	const walkNulls = (node: unknown, path: string): void => {
 		if (node === null) {
 			findings.push({ severity: 'fail', check: 'completeness', detail: `${path} is null` });
 			return;
 		}
 		if (Array.isArray(node)) {
-			node.forEach((item, index) => walk(item, `${path}[${index}]`));
+			node.forEach((item, index) => walkNulls(item, `${path}[${index}]`));
 			return;
 		}
 		if (typeof node === 'object') {
 			for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
 				if (key === 'ratio' || key === 'derived_from' || key === 'updated') continue;
-				walk(value, path ? `${path}.${key}` : key);
+				walkNulls(value, path ? `${path}.${key}` : key);
 			}
 		}
 	};
-	walk(theme, '');
+	walkNulls(theme, '');
 }
 
 function checkRationale(theme: ThemeCore, findings: Finding[]): void {
@@ -213,10 +257,15 @@ function loadExistingSignatures(themesDirs: string[], skipFamily: string): Signa
 	for (const dir of themesDirs) {
 		if (!existsSync(dir)) continue;
 		for (const file of readdirSync(dir)) {
-			if (!file.endsWith('.json') || file.includes('-') || file === 'seen.json') continue;
-			const theme = loadJson<ThemeCore>(join(dir, file));
-			if (theme.family === skipFamily || !theme.palette) continue;
-			signatures.push(signatureOf(theme, join(dir, file)));
+			if (!file.endsWith('.json') || file === 'seen.json') continue;
+			const candidate = loadJson<ThemeCore & { $schema?: string }>(join(dir, file));
+			// Identify cores by their declared schema, not by "no hyphen in the
+			// filename" — a hand-named core with a hyphen was silently skipped
+			// under the old filter, and worse, dropped out of the originality
+			// comparison set with no warning (see PR #16 review, Finding 11).
+			if (candidate.$schema !== CORE_SCHEMA) continue;
+			if (candidate.family === skipFamily || !candidate.palette) continue;
+			signatures.push(signatureOf(candidate, join(dir, file)));
 		}
 	}
 	if (existsSync(SEEN_PATH)) {
@@ -246,10 +295,17 @@ function checkOriginality(theme: ThemeCore, themesDirs: string[], findings: Find
 
 	if (!existsSync(BLOCKLIST_PATH)) return;
 	const blocklist = loadJson<{ name: string; why: string; swatches: string[] }[]>(BLOCKLIST_PATH);
+	// blocklist.json stores swatches as a flat hex array in SIGNATURE_KEYS
+	// order (light, dark per key); key them the same way signatureOf does
+	// so the comparison below can never pair a shifted, misnamed swatch.
+	const blockedKeyOrder = SIGNATURE_KEYS.flatMap((key) => [`${key}.light`, `${key}.dark`]);
 	for (const entry of blocklist) {
-		const blocked: Signature = { family: entry.name, source: 'blocklist', swatches: entry.swatches.map(hexToOklch) };
-		const mineSubset: Signature = { ...mine, swatches: mine.swatches.slice(0, blocked.swatches.length) };
-		const distance = signatureDistance(mineSubset, blocked);
+		const swatches: Record<string, Oklch> = {};
+		blockedKeyOrder.slice(0, entry.swatches.length).forEach((key, index) => {
+			swatches[key] = hexToOklch(entry.swatches[index]);
+		});
+		const blocked: Signature = { family: entry.name, source: 'blocklist', swatches };
+		const distance = signatureDistance(mine, blocked);
 		if (distance < BLOCKLIST_THRESHOLD) {
 			findings.push({
 				severity: 'warn',
@@ -262,7 +318,9 @@ function checkOriginality(theme: ThemeCore, themesDirs: string[], findings: Find
 
 function main(): void {
 	const args = process.argv.slice(2);
-	const path = args.find((arg) => !arg.startsWith('--'));
+	// --themes-dir takes a value, so its value must never be picked up as
+	// the path when the flag comes first (see PR #16 review, Finding 5).
+	const path = args.find((arg, index) => !arg.startsWith('--') && args[index - 1] !== '--themes-dir');
 	if (!path) {
 		console.error('usage: validate.ts <family>.json [--themes-dir <dir>] [--register] [--json]');
 		process.exit(1);
@@ -275,13 +333,25 @@ function main(): void {
 	const theme = loadJson<ThemeCore>(path);
 	const findings: Finding[] = [];
 
-	checkCompleteness(theme, findings);
-	if (findings.length === 0) {
-		checkRationale(theme, findings);
-		checkContrast(theme, findings);
-		checkGradient(theme, findings);
-		checkHueFamilies(theme, findings);
-		checkOriginality(theme, [projectThemesDir, GLOBAL_THEMES_DIR], findings);
+	try {
+		checkCompleteness(theme, findings);
+		if (findings.length === 0) {
+			checkRationale(theme, findings);
+			checkContrast(theme, findings);
+			checkGradient(theme, findings);
+			checkHueFamilies(theme, findings);
+			checkOriginality(theme, [projectThemesDir, GLOBAL_THEMES_DIR], findings);
+		}
+	} catch (error) {
+		// A gate crashing (rather than reporting a finding) is itself a
+		// completeness bug; degrade to a FAIL finding instead of a raw
+		// stack trace so the documented "exit 1 with findings" contract
+		// holds even when a check hits something it didn't expect.
+		findings.push({
+			severity: 'fail',
+			check: 'internal',
+			detail: `a check crashed instead of reporting a finding: ${error instanceof Error ? error.message : String(error)}`,
+		});
 	}
 
 	const failed = findings.some((finding) => finding.severity === 'fail');
