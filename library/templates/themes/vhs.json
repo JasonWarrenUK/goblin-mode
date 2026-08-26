@@ -1,0 +1,31 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": null,
+	"target": "vhs",
+	"extends": null,
+	"rationale": { "mapping_notes": null },
+	"vhs": {
+		"Theme": {
+			"name": null,
+			"background": null, "foreground": null, "cursor": null, "selection": null,
+			"black": null, "red": null, "green": null, "yellow": null,
+			"blue": null, "magenta": null, "cyan": null, "white": null,
+			"brightBlack": null, "brightRed": null, "brightGreen": null, "brightYellow": null,
+			"brightBlue": null, "brightMagenta": null, "brightCyan": null, "brightWhite": null
+		},
+		"FontFamily": null,
+		"FontSize": 16,
+		"LineHeight": 1.2,
+		"WindowBar": "Colorful",
+		"WindowBarSize": 40,
+		"BorderRadius": 8,
+		"Margin": 24,
+		"MarginFill": null,
+		"Padding": 24,
+		"Width": 1200,
+		"Height": 640,
+		"Framerate": 30,
+		"PlaybackSpeed": 1.0,
+		"TypingSpeed": "50ms"
+	}
+}
