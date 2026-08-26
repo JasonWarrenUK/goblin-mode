@@ -19,9 +19,14 @@ function argValue(args: string[], flag: string): string | null {
 	return index >= 0 ? args[index + 1] : null;
 }
 
+// --width/--height take a value; --mp4 is a bare boolean. Treating every
+// preceding "--flag" as value-consuming (the old rule) swallowed a
+// positional whenever --mp4 came first (see PR #16 review, Finding 3).
+const VALUE_FLAGS = new Set(['--width', '--height']);
+
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
-	const positional = args.filter((arg, index) => !arg.startsWith('--') && !args[index - 1]?.startsWith('--'));
+	const positional = args.filter((arg, index) => !arg.startsWith('--') && !VALUE_FLAGS.has(args[index - 1] ?? ''));
 	const [flowPath, output] = positional;
 	if (!flowPath || !output) {
 		console.error('usage: record.ts <flow.ts> <out.webm> [--width N] [--height N] [--mp4]');

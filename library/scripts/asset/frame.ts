@@ -48,9 +48,15 @@ function chromeBar(width: number, height: number, bar: string, dots: string[], r
 	);
 }
 
+// Only these three flags take a value; --chrome/--no-chrome are bare
+// booleans. Treating every preceding "--flag" as value-consuming (the old
+// rule) swallowed a positional whenever a boolean flag came first (see
+// PR #16 review, Finding 2).
+const VALUE_FLAGS = new Set(['--project', '--family', '--max-width']);
+
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
-	const positional = args.filter((arg, index) => !arg.startsWith('--') && !args[index - 1]?.startsWith('--'));
+	const positional = args.filter((arg, index) => !arg.startsWith('--') && !VALUE_FLAGS.has(args[index - 1] ?? ''));
 	const [input, output] = positional;
 	if (!input || !output) {
 		console.error('usage: frame.ts <in.png> <out.png> [--project <dir>] [--family <name>] [--chrome|--no-chrome] [--max-width N]');
