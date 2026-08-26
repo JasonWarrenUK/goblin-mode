@@ -19,6 +19,7 @@ interface Swatch {
 }
 
 interface ThemeCore {
+	$schema?: string;
 	family: string;
 	rationale: { mood: string; inspiration: string; anchor_reason: string; rule_bent: string };
 	anchor: { name: string; hex: string };
@@ -29,6 +30,8 @@ interface ThemeCore {
 	provenance: { created: string | null; seed: string | null };
 }
 
+const CORE_SCHEMA = 'clod-theme/core@1';
+
 function escapeHtml(text: string): string {
 	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -36,7 +39,14 @@ function escapeHtml(text: string): string {
 function loadFamilies(dir: string, only: string | null): { core: ThemeCore; targets: string[] }[] {
 	if (!existsSync(dir)) return [];
 	const files = readdirSync(dir).filter((file) => file.endsWith('.json') && file !== 'seen.json');
-	const cores = files.filter((file) => !file.includes('-'));
+	// Identify cores by their declared schema, not "no hyphen in the
+	// filename" — a hand-named core with a hyphen was silently dropped
+	// under the old filter, surfacing only as an unhelpful "No theme
+	// families found" (see PR #16 review, Finding 11).
+	const cores = files.filter((file) => {
+		const parsed = JSON.parse(readFileSync(join(dir, file), 'utf8')) as { $schema?: string };
+		return parsed.$schema === CORE_SCHEMA;
+	});
 	return cores
 		.map((file) => {
 			const core = JSON.parse(readFileSync(join(dir, file), 'utf8')) as ThemeCore;
