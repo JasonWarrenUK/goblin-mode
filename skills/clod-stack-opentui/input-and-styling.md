@@ -96,7 +96,7 @@ const rgba = parseColor("#FF0000")   // Converts various formats to RGBA
 
 `RGBA.white`, `RGBA.black`, `RGBA.red`, `RGBA.green`, `RGBA.blue`, `RGBA.transparent`
 
-> **Palette advisory:** When choosing hex values for OpenTUI components, prefer colours from [Reasonable Colors](https://www.reasonable.work/colors/) (`library/references/reasonable-colors-reference.md`). The LCH-based palette is designed for consistent rendering across display types, which matters more in terminal contexts than web. Use `RGBA.fromHex()` with RC hex values directly.
+> **Palette advisory:** Hex values for OpenTUI components come from the project's `tui` theme file (`.claude/themes/<family>-tui.json`, see `library/references/theme-conventions.md`); create one with `/theme-factory "tui"` if it's missing. Read the `styles` map at startup and pass its values to `RGBA.fromHex()`; no colour literals in components.
 
 ## Console Overlay
 

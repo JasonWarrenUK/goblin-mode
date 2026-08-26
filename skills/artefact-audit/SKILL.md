@@ -88,12 +88,13 @@ per-artefact choice, not a divergence from the shared rules):
   through the three-state theming contract (`:root` light, `@media
   (prefers-color-scheme: dark)` guarded by `:root:not([data-theme="light"])`,
   `:root[data-theme="dark"]` for an explicit toggle).
-- **Palette source: Reasonable Colors, as everywhere.** Map this skill's
-  severity/status accents to RC hues via semantic aliases (never a raw hex,
-  never `--color-{name}-{shade}` directly in a component) — `--high` to a red
-  RC set, `--medium` to amber, `--low` to green; `--done`/`--progress`/`--todo`
-  distinct again. Document the mapping the way the shared reference models,
-  the way `those-who-came-before/site/assets/site.css` does.
+- **Palette source: the project's `html` theme, as everywhere** (see
+  `theme-conventions.md`; global `clod` when the project has none). Map this
+  skill's severity/status accents onto theme tokens via semantic aliases
+  (never a raw hex in a component) — `--high` to `--danger`, `--medium` to
+  `--warn`, `--low` to `--ok`; `--done`/`--progress`/`--todo` to `--ok`/
+  `--info`/`--ink-muted`. Document the mapping the way the shared reference
+  models, the way `those-who-came-before/site/assets/site.css` does.
 - Fonts: **Space Grotesk** (head + body) + **IBM Plex Mono** (mono, code,
   labels) — this skill's own choice within the shared pairing *structure*
   (one display/body voice + one monospace workhorse); not mandatory elsewhere.

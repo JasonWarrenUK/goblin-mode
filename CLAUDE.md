@@ -309,36 +309,18 @@ const revM = calcMR(txs);
 - `replace_all` only after enumerating call sites with Grep and confirming they share one argument shape
 - Exception: CHIRPdb (Python, PEP 8) uses spaces via `autopep8`/`flake8` — that project's tooling wins over this default
 
-### 7.5. Colour Palette
+### 7.5. Colour and Theme
 
-Use [Reasonable Colors](https://www.reasonable.work/colors/) as the default palette for all frontend/styling work.
-
-**Install:**
-
-- npm: `reasonable-colors`
-- CDN: `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css`
-
-**Variable convention:** `--color-COLORNAME-SHADE` (e.g. `--color-azure-3`)
-
-- 24 colour sets + grays, 6 shades each (1 = lightest, 6 = darkest)
-- Shade difference → contrast ratio: diff 2 = 3:1 (AA large), diff 3 = 4.5:1 (AA body), diff 4 = 7:1 (AAA)
+Colour, type and shape for anything rendered (HTML artefacts, app styling, terminal GIFs, code stills, social cards, framed screenshots) come from a **project theme** in `.claude/themes/`, created and maintained by `/theme-factory`. Format, resolution order and quality gates: `library/references/theme-conventions.md`.
 
 **Usage rules:**
 
-- The `color` spelling in var names is acceptable — it's a third-party convention
-- Always define semantic aliases; never use RC vars directly in components:
+- Components and artefacts reference semantic aliases only (`--ink`, `--surface`, `--accent`, `--danger`); the theme's `html` target file emits them, light and dark, via `scripts/theme/emit.ts`
+- No inline hex values in components or skills; a missing colour is a theme change, not a local constant
+- Every theme ships its own verified contrast table (AA 4.5:1 body, 3:1 large) and passes an originality gate; only the user can lift an originality warning
+- No theme in the project yet: run `/theme-factory "html"` (or the target you need) before styling; the global `clod` family is the fallback until then
 
-  ```css
-  :root {
-    --color-primary: var(--color-azure-3);
-    --color-primary-bg: var(--color-azure-1);
-    --color-primary-text: var(--color-azure-6);
-  }
-  ```
-
-- Projects may override this default in project-level CLAUDE.md
-
-**Local reference:** `library/references/reasonable-colors-reference.md`
+**Seed palettes** (optional starting points for a new theme, none mandatory): the project's own CSS, an image, mood words, or a reference palette such as `library/references/reasonable-colors-reference.md`.
 
 ### 7.6. Testing
 
