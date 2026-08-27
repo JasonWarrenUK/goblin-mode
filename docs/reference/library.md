@@ -10,7 +10,9 @@ Skills point here instead of restating shared rules, so lineages of related skil
 
 | File | Used by |
 |---|---|
-| `reasonable-colors-reference.md` | Any frontend/styling work — the default colour palette (see [CLAUDE.md §7.5](../../CLAUDE.md)) |
+| `theme-conventions.md` | `theme-factory`, `theme-target`, every `asset-*` skill and any styling work — theme file format, resolution order, core→target mapping, quality gates (see [CLAUDE.md §7.5](../../CLAUDE.md)) |
+| `asset-tools.md` | The `asset-*` family — verified flags and config shapes for shot-scraper, VHS, freeze, pdftoppm, Playwright and the toolkit scripts |
+| `reasonable-colors-reference.md` | `theme-factory` — one optional seed palette for a new theme (24 hues × 6 shades with a known contrast table); no longer enforced anywhere |
 | `react-to-svelte5.md` | `import-scaffold_artefact` — mapping React/JSX patterns to Svelte 5 idioms |
 | `roadmap-conventions.md` | The roadmap skill family (`roadmap-create`, `-create-interview`, `-maintain`, `-update-tasks`, `-migrate`, `artefact-roadmap`) — shared format rules; the executable half is `scripts/roadmap.py` |
 | `stud/conventions.md` | `do-stud`, `clod-approach-stud` — the mechanical *how* of scaffold banners (`&` new, `!` edited), shared so the two stud lineages can't drift |

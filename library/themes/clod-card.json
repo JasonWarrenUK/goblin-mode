@@ -1,0 +1,19 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": "clod",
+	"target": "card",
+	"extends": "clod.json",
+	"rationale": { "mapping_notes": "Dark variant so the card holds up on both GitHub's light and dark UI. Background is the dark gradient; title=ink, tagline=ink-muted, meta=accent-2. Hero frame border=line." },
+	"card": {
+		"variant": "dark",
+		"background": { "kind": "gradient", "stops": ["#14181F", "#1D232C", "#1C2A2E"], "angle_deg": 135 },
+		"title":   { "color": "#EDE7DA", "font": "Inter Tight", "weight": 700, "size_px": 72, "max_lines": 2 },
+		"tagline": { "color": "#A39C8E", "font": "Inter", "weight": 400, "size_px": 32, "max_lines": 2 },
+		"meta":    { "color": "#4FB3A8", "font": "JetBrains Mono", "weight": 400, "size_px": 22 },
+		"hero":    { "frame_color": "#2E3640", "radius_px": 12, "shadow": true, "max_width_ratio": 0.45 },
+		"logo":    { "path": null, "size_px": 64, "position": "top-left" },
+		"accent_bar": { "color": "#D9A441", "height_px": 8 },
+		"padding_px": 72,
+		"sizes": { "og": [1200, 630], "github": [1280, 640] }
+	}
+}

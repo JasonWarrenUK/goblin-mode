@@ -1,0 +1,79 @@
+{
+	"$schema": "clod-theme/core@1",
+	"family": null,
+	"version": 1,
+	"rationale": {
+		"mood": null,
+		"inspiration": null,
+		"anchor_reason": null,
+		"rule_bent": null,
+		"rejected": [
+			{ "palette": null, "why": null }
+		]
+	},
+	"anchor": {
+		"name": null,
+		"hex": null,
+		"oklch": [null, null, null]
+	},
+	"palette": {
+		"ink":            { "light": null, "dark": null, "role": "primary text" },
+		"ink-muted":      { "light": null, "dark": null, "role": "secondary text, captions, meta" },
+		"surface":        { "light": null, "dark": null, "role": "page background" },
+		"surface-raised": { "light": null, "dark": null, "role": "cards, panels, code blocks" },
+		"line":           { "light": null, "dark": null, "role": "borders, rules, dividers" },
+		"accent":         { "light": null, "dark": null, "role": "links, primary actions, highlights" },
+		"accent-ink":     { "light": null, "dark": null, "role": "text placed on accent" },
+		"accent-2":       { "light": null, "dark": null, "role": "secondary emphasis, gradient partner" },
+		"ok":             { "light": null, "dark": null, "role": "success, done, passing" },
+		"warn":           { "light": null, "dark": null, "role": "caution, pending, stale" },
+		"danger":         { "light": null, "dark": null, "role": "error, blocked, destructive" },
+		"info":           { "light": null, "dark": null, "role": "neutral notice, in progress" }
+	},
+	"gradient": {
+		"light": [null, null, null],
+		"dark":  [null, null, null]
+	},
+	"typography": {
+		"display": { "family": null, "fallback": "system-ui, sans-serif", "weight": null },
+		"body":    { "family": null, "fallback": "system-ui, sans-serif", "weight": null },
+		"mono":    { "family": null, "fallback": "ui-monospace, monospace", "weight": null },
+		"scale":   { "base_px": 16, "ratio": 1.25, "line_height": 1.5 }
+	},
+	"shape": {
+		"radius_px": { "sm": null, "md": null, "lg": null },
+		"shadow":    { "blur_px": null, "offset_y_px": null, "opacity": null },
+		"space_px":  { "unit": 8 }
+	},
+	"contrast": {
+		"light": [
+			{ "fg": "ink",        "bg": "surface",        "level": "AA",       "ratio": null },
+			{ "fg": "ink",        "bg": "surface-raised", "level": "AA",       "ratio": null },
+			{ "fg": "ink-muted",  "bg": "surface",        "level": "AA",       "ratio": null },
+			{ "fg": "accent",     "bg": "surface",        "level": "AA",       "ratio": null },
+			{ "fg": "accent-ink", "bg": "accent",         "level": "AA",       "ratio": null },
+			{ "fg": "ok",         "bg": "surface",        "level": "AA-large", "ratio": null },
+			{ "fg": "warn",       "bg": "surface",        "level": "AA-large", "ratio": null },
+			{ "fg": "danger",     "bg": "surface",        "level": "AA-large", "ratio": null },
+			{ "fg": "info",       "bg": "surface",        "level": "AA-large", "ratio": null }
+		],
+		"dark": [
+			{ "fg": "ink",        "bg": "surface",        "level": "AA",       "ratio": null },
+			{ "fg": "ink",        "bg": "surface-raised", "level": "AA",       "ratio": null },
+			{ "fg": "ink-muted",  "bg": "surface",        "level": "AA",       "ratio": null },
+			{ "fg": "accent",     "bg": "surface",        "level": "AA",       "ratio": null },
+			{ "fg": "accent-ink", "bg": "accent",         "level": "AA",       "ratio": null },
+			{ "fg": "ok",         "bg": "surface",        "level": "AA-large", "ratio": null },
+			{ "fg": "warn",       "bg": "surface",        "level": "AA-large", "ratio": null },
+			{ "fg": "danger",     "bg": "surface",        "level": "AA-large", "ratio": null },
+			{ "fg": "info",       "bg": "surface",        "level": "AA-large", "ratio": null }
+		]
+	},
+	"provenance": {
+		"seed": null,
+		"derived_from": null,
+		"created": null,
+		"updated": null,
+		"tool": "theme-factory@1"
+	}
+}

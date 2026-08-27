@@ -21,166 +21,166 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Roadmap — %%TITLE%%</title>
-<link rel="stylesheet" href="https://unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-	/* Milestone — sky (structural, steel-blue half of the terminal gradient) */
-	--color-milestone:       var(--color-sky-4);
-	--color-milestone-bg:    var(--color-sky-1);
-	--color-milestone-text:  var(--color-sky-6);
+	/* Palette: the roadmap system's own fixed status table (see roadmap.py
+	   STATUS_STYLE); literal hexes so the artefact is self-contained.
+	   Milestone — sky (structural, steel-blue half of the terminal gradient) */
+	--color-milestone:       #007590;
+	--color-milestone-bg:    #e3f7ff;
+	--color-milestone-text:  #001f28;
 	/* Primary accent — pink (warm half of the gradient; never a status) */
-	--color-primary:         var(--color-pink-4);
-	--color-primary-bg:      var(--color-pink-1);
-	--color-primary-text:    var(--color-pink-6);
+	--color-primary:         #d2008f;
+	--color-primary-bg:      #fff7fb;
+	--color-primary-text:    #4b0030;
 	/* Status semantics: green finished, gray blank, red stop, purple parked,
 	   cinnamon shelved, faded gray struck, yellow external */
-	--color-done:            var(--color-green-4);
-	--color-done-bg:         var(--color-green-1);
-	--color-todo:            var(--color-gray-4);
-	--color-todo-bg:         var(--color-gray-1);
-	--color-blocked:         var(--color-red-4);
-	--color-blocked-bg:      var(--color-red-1);
-	--color-paused:          var(--color-purple-4);
-	--color-paused-bg:       var(--color-purple-1);
-	--color-deferred:        var(--color-cinnamon-4);
-	--color-deferred-bg:     var(--color-cinnamon-1);
-	--color-out-of-scope:    var(--color-gray-3);
-	--color-out-of-scope-bg: var(--color-gray-1);
-	--color-gate:            var(--color-yellow-4);
-	--color-gate-bg:         var(--color-yellow-1);
+	--color-done:            #008217;
+	--color-done-bg:         #e0ffd9;
+	--color-todo:            #6f6f6f;
+	--color-todo-bg:         #f6f6f6;
+	--color-blocked:         #e0002b;
+	--color-blocked-bg:      #fff8f6;
+	--color-paused:          #b01fe3;
+	--color-paused-bg:       #fdf4ff;
+	--color-deferred:        #ac5c00;
+	--color-deferred-bg:     #fff8f3;
+	--color-out-of-scope:    #8b8b8b;
+	--color-out-of-scope-bg: #f6f6f6;
+	--color-gate:            #7d6f00;
+	--color-gate-bg:         #fff9e5;
 	/* Milestone-level derived state (see roadmap-conventions.md): azure is
 	   unclaimed by task status and distinct from sky (structural), so a
 	   part-done milestone reads as "live" rather than the same gray as
 	   untouched work. */
-	--color-in-progress:     var(--color-azure-4);
-	--color-in-progress-bg:  var(--color-azure-1);
+	--color-in-progress:     #0071af;
+	--color-in-progress-bg:  #e8f2ff;
 	/* Dev-chip palette: assignee is free-text with no roster (never
 	   inferred), so chips are coloured by a stable hash, never a hardcoded
 	   name map. Disjoint from every status/milestone/gate hue above. */
-	--color-dev-teal:        var(--color-teal-4);
-	--color-dev-teal-bg:     var(--color-teal-1);
-	--color-dev-lime:        var(--color-lime-4);
-	--color-dev-lime-bg:     var(--color-lime-1);
-	--color-dev-magenta:     var(--color-magenta-4);
-	--color-dev-magenta-bg:  var(--color-magenta-1);
-	--color-dev-indigo:      var(--color-indigo-4);
-	--color-dev-indigo-bg:   var(--color-indigo-1);
-	--color-dev-amber:       var(--color-amber-4);
-	--color-dev-amber-bg:    var(--color-amber-1);
-	--color-dev-rose:        var(--color-rose-4);
-	--color-dev-rose-bg:     var(--color-rose-1);
+	--color-dev-teal:        #007c6e;
+	--color-dev-teal-bg:     #d7fff7;
+	--color-dev-lime:        #677600;
+	--color-dev-lime-bg:     #f7ffac;
+	--color-dev-magenta:     #ca00b6;
+	--color-dev-magenta-bg:  #fff3fc;
+	--color-dev-indigo:      #0061fc;
+	--color-dev-indigo-bg:   #f3f3ff;
+	--color-dev-amber:       #926700;
+	--color-dev-amber-bg:    #fff8ef;
+	--color-dev-rose:        #db0072;
+	--color-dev-rose-bg:     #fff7f9;
 
-	--bg: var(--color-gray-1);
+	--bg: #f6f6f6;
 	--surface: #ffffff;
-	--text: var(--color-gray-6);
-	--muted: var(--color-gray-4);
-	--line: var(--color-gray-2);
+	--text: #222222;
+	--muted: #6f6f6f;
+	--line: #e2e2e2;
 	--grid-line: rgba(0, 117, 144, 0.06);
 	/* Mermaid chrome (edge stroke, arrowhead, edge-label backing) that the
 	   diagram's own classDefs don't cover — see the render script below for
 	   why this can't just be mermaid's base-theme default. */
-	--diagram-line: var(--color-gray-4);
+	--diagram-line: #6f6f6f;
 	--diagram-edge-label-bg: #ffffff;
 	--diagram-text: var(--text);
 }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
-		--color-milestone:       var(--color-sky-2);
-		--color-milestone-bg:    var(--color-sky-6);
-		--color-milestone-text:  var(--color-sky-1);
-		--color-primary:         var(--color-pink-2);
-		--color-primary-bg:      var(--color-pink-6);
-		--color-primary-text:    var(--color-pink-1);
-		--color-done:            var(--color-green-2);
-		--color-done-bg:         var(--color-green-6);
-		--color-todo:            var(--color-gray-3);
-		--color-todo-bg:         var(--color-gray-6);
-		--color-blocked:         var(--color-red-2);
-		--color-blocked-bg:      var(--color-red-6);
-		--color-paused:          var(--color-purple-2);
-		--color-paused-bg:       var(--color-purple-6);
-		--color-deferred:        var(--color-cinnamon-2);
-		--color-deferred-bg:     var(--color-cinnamon-6);
-		--color-out-of-scope:    var(--color-gray-5);
-		--color-out-of-scope-bg: var(--color-gray-6);
-		--color-gate:            var(--color-yellow-2);
-		--color-gate-bg:         var(--color-yellow-6);
-		--color-in-progress:     var(--color-azure-2);
-		--color-in-progress-bg:  var(--color-azure-6);
-		--color-dev-teal:        var(--color-teal-2);
-		--color-dev-teal-bg:     var(--color-teal-6);
-		--color-dev-lime:        var(--color-lime-2);
-		--color-dev-lime-bg:     var(--color-lime-6);
-		--color-dev-magenta:     var(--color-magenta-2);
-		--color-dev-magenta-bg:  var(--color-magenta-6);
-		--color-dev-indigo:      var(--color-indigo-2);
-		--color-dev-indigo-bg:   var(--color-indigo-6);
-		--color-dev-amber:       var(--color-amber-2);
-		--color-dev-amber-bg:    var(--color-amber-6);
-		--color-dev-rose:        var(--color-rose-2);
-		--color-dev-rose-bg:     var(--color-rose-6);
+		--color-milestone:       #aee9ff;
+		--color-milestone-bg:    #001f28;
+		--color-milestone-text:  #e3f7ff;
+		--color-primary:         #ffdcec;
+		--color-primary-bg:      #4b0030;
+		--color-primary-text:    #fff7fb;
+		--color-done:            #72ff6c;
+		--color-done-bg:         #062800;
+		--color-todo:            #8b8b8b;
+		--color-todo-bg:         #222222;
+		--color-blocked:         #ffddd8;
+		--color-blocked-bg:      #530003;
+		--color-paused:          #f7d9ff;
+		--color-paused-bg:       #3a004f;
+		--color-deferred:        #ffdfc6;
+		--color-deferred-bg:     #371d00;
+		--color-out-of-scope:    #3e3e3e;
+		--color-out-of-scope-bg: #222222;
+		--color-gate:            #ffe53e;
+		--color-gate-bg:         #292300;
+		--color-in-progress:     #c6e0ff;
+		--color-in-progress-bg:  #001c30;
+		--color-dev-teal:        #00ffe4;
+		--color-dev-teal-bg:     #002722;
+		--color-dev-lime:        #d5f200;
+		--color-dev-lime-bg:     #222600;
+		--color-dev-magenta:     #ffd7f6;
+		--color-dev-magenta-bg:  #44003c;
+		--color-dev-indigo:      #deddff;
+		--color-dev-indigo-bg:   #001649;
+		--color-dev-amber:       #ffe0b2;
+		--color-dev-amber-bg:    #302100;
+		--color-dev-rose:        #ffdce5;
+		--color-dev-rose-bg:     #4c0023;
 
 		--bg: #121216;
 		--surface: #1b1b21;
-		--text: var(--color-gray-1);
-		--muted: var(--color-gray-3);
-		--line: var(--color-gray-5);
+		--text: #f6f6f6;
+		--muted: #8b8b8b;
+		--line: #3e3e3e;
 		--grid-line: rgba(174, 233, 255, 0.05);
-		--diagram-line: var(--color-gray-3);
+		--diagram-line: #8b8b8b;
 		--diagram-edge-label-bg: var(--surface);
 		--diagram-text: var(--text);
 	}
 }
 /* Third theming state: an explicit toggle wins in both directions, even
-   against a light OS preference. No toggle UI ships today, but the contract
-   is the same three-state shape every other artefact uses (see
-   library/references/artefact-conventions.md), so a future toggle just
-   works. */
+   against a light OS preference. The masthead ships the light/system/dark
+   control from library/references/artefact-conventions.md; this block is
+   what it writes to when a reader picks light or dark explicitly. */
 :root[data-theme="dark"] {
-	--color-milestone:       var(--color-sky-2);
-	--color-milestone-bg:    var(--color-sky-6);
-	--color-milestone-text:  var(--color-sky-1);
-	--color-primary:         var(--color-pink-2);
-	--color-primary-bg:      var(--color-pink-6);
-	--color-primary-text:    var(--color-pink-1);
-	--color-done:            var(--color-green-2);
-	--color-done-bg:         var(--color-green-6);
-	--color-todo:            var(--color-gray-3);
-	--color-todo-bg:         var(--color-gray-6);
-	--color-blocked:         var(--color-red-2);
-	--color-blocked-bg:      var(--color-red-6);
-	--color-paused:          var(--color-purple-2);
-	--color-paused-bg:       var(--color-purple-6);
-	--color-deferred:        var(--color-cinnamon-2);
-	--color-deferred-bg:     var(--color-cinnamon-6);
-	--color-out-of-scope:    var(--color-gray-5);
-	--color-out-of-scope-bg: var(--color-gray-6);
-	--color-gate:            var(--color-yellow-2);
-	--color-gate-bg:         var(--color-yellow-6);
-	--color-in-progress:     var(--color-azure-2);
-	--color-in-progress-bg:  var(--color-azure-6);
-	--color-dev-teal:        var(--color-teal-2);
-	--color-dev-teal-bg:     var(--color-teal-6);
-	--color-dev-lime:        var(--color-lime-2);
-	--color-dev-lime-bg:     var(--color-lime-6);
-	--color-dev-magenta:     var(--color-magenta-2);
-	--color-dev-magenta-bg:  var(--color-magenta-6);
-	--color-dev-indigo:      var(--color-indigo-2);
-	--color-dev-indigo-bg:   var(--color-indigo-6);
-	--color-dev-amber:       var(--color-amber-2);
-	--color-dev-amber-bg:    var(--color-amber-6);
-	--color-dev-rose:        var(--color-rose-2);
-	--color-dev-rose-bg:     var(--color-rose-6);
+	--color-milestone:       #aee9ff;
+	--color-milestone-bg:    #001f28;
+	--color-milestone-text:  #e3f7ff;
+	--color-primary:         #ffdcec;
+	--color-primary-bg:      #4b0030;
+	--color-primary-text:    #fff7fb;
+	--color-done:            #72ff6c;
+	--color-done-bg:         #062800;
+	--color-todo:            #8b8b8b;
+	--color-todo-bg:         #222222;
+	--color-blocked:         #ffddd8;
+	--color-blocked-bg:      #530003;
+	--color-paused:          #f7d9ff;
+	--color-paused-bg:       #3a004f;
+	--color-deferred:        #ffdfc6;
+	--color-deferred-bg:     #371d00;
+	--color-out-of-scope:    #3e3e3e;
+	--color-out-of-scope-bg: #222222;
+	--color-gate:            #ffe53e;
+	--color-gate-bg:         #292300;
+	--color-in-progress:     #c6e0ff;
+	--color-in-progress-bg:  #001c30;
+	--color-dev-teal:        #00ffe4;
+	--color-dev-teal-bg:     #002722;
+	--color-dev-lime:        #d5f200;
+	--color-dev-lime-bg:     #222600;
+	--color-dev-magenta:     #ffd7f6;
+	--color-dev-magenta-bg:  #44003c;
+	--color-dev-indigo:      #deddff;
+	--color-dev-indigo-bg:   #001649;
+	--color-dev-amber:       #ffe0b2;
+	--color-dev-amber-bg:    #302100;
+	--color-dev-rose:        #ffdce5;
+	--color-dev-rose-bg:     #4c0023;
 
 	--bg: #121216;
 	--surface: #1b1b21;
-	--text: var(--color-gray-1);
-	--muted: var(--color-gray-3);
-	--line: var(--color-gray-5);
+	--text: #f6f6f6;
+	--muted: #8b8b8b;
+	--line: #3e3e3e;
 	--grid-line: rgba(174, 233, 255, 0.05);
-	--diagram-line: var(--color-gray-3);
+	--diagram-line: #8b8b8b;
 	--diagram-edge-label-bg: var(--surface);
 	--diagram-text: var(--text);
 }
@@ -207,8 +207,20 @@ nav a { display: block; padding: 0.35rem 0.6rem; color: var(--muted); text-decor
 nav a:hover, nav a.active { color: var(--color-milestone); border-left-color: var(--color-milestone); }
 main { flex: 1; min-width: 0; padding: 2rem 0 4rem; }
 
+header.page { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 header.page h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.2rem; }
 header.page .meta { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
+
+.theme-toggle { display: flex; gap: 0.15rem; margin-left: auto; flex: none; }
+.theme-toggle button {
+	font: 600 0.8rem "IBM Plex Mono", monospace; line-height: 1;
+	color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+	border-radius: 3px; padding: 0.3rem 0.55rem; cursor: pointer;
+}
+.theme-toggle button:hover { color: var(--text); border-color: var(--color-milestone); }
+.theme-toggle button:focus-visible { outline: 2px solid var(--color-milestone); outline-offset: 2px; }
+.theme-toggle button[aria-pressed="true"] { color: var(--color-milestone-text); background: var(--color-milestone-bg); border-color: var(--color-milestone); }
+@media print { .theme-toggle { display: none; } }
 
 section { margin-top: 2.5rem; }
 h2 {
@@ -313,6 +325,37 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 </style>
 </head>
 <body>
+<script>
+(function () {
+	var KEY = 'theme';
+	var root = document.documentElement;
+	function read() {
+		try { return localStorage.getItem(KEY) || 'system'; }
+		catch (e) { return 'system'; }
+	}
+	function write(mode) {
+		try { localStorage.setItem(KEY, mode); }
+		catch (e) { /* private window, blocked storage, preview capture: ignore */ }
+	}
+	function apply(mode) {
+		if (mode === 'system') root.removeAttribute('data-theme');
+		else root.setAttribute('data-theme', mode);
+		document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+			b.setAttribute('aria-pressed', String(b.dataset.setTheme === mode));
+		});
+	}
+	apply(read());
+	document.addEventListener('DOMContentLoaded', function () {
+		apply(read());
+		document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+			b.addEventListener('click', function () {
+				write(b.dataset.setTheme);
+				apply(b.dataset.setTheme);
+			});
+		});
+	});
+})();
+</script>
 <div class="layout">
 	<nav>
 		<a href="#overview">Overview</a>
@@ -322,8 +365,15 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 	</nav>
 	<main>
 		<header class="page">
-			<h1 id="pageTitle">%%TITLE%%</h1>
-			<div class="meta" id="meta"></div>
+			<div>
+				<h1 id="pageTitle">%%TITLE%%</h1>
+				<div class="meta" id="meta"></div>
+			</div>
+			<div class="theme-toggle" role="group" aria-label="Colour theme">
+				<button type="button" data-set-theme="light"  aria-pressed="false">☀</button>
+				<button type="button" data-set-theme="system" aria-pressed="true">◐</button>
+				<button type="button" data-set-theme="dark"   aria-pressed="false">☾</button>
+			</div>
 		</header>
 		<div id="validation"></div>
 

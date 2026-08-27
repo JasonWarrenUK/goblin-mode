@@ -20,7 +20,7 @@ argument-hint: "[focus of analysis (optional)]"
   module relationships, and project context.
 </overview>
 <steps>
-  1. Load the visual-explainer skill AND the artefact-conventions skill — visual-explainer supplies the diagramming/rendering patterns, artefact-conventions supplies Jason's structural/aesthetic layer (masthead, palette-via-RC-tokens, theming contract, honesty footer). They compose; neither replaces the other.
+  1. Load the visual-explainer skill AND the artefact-conventions skill — visual-explainer supplies the diagramming/rendering patterns, artefact-conventions supplies Jason's structural/aesthetic layer (masthead, palette-via-theme-tokens, theming contract with its masthead toggle control, honesty footer). They compose; neither replaces the other. This skill generates Mermaid architecture diagrams rendered once at load, so the theming contract's diagram rule applies directly: drive node/edge colours from the same CSS custom properties as the rest of the page, or re-render on both `matchMedia` change and `data-theme` mutation — a static render taken at load time strands its colours on the next toggle click.
   2. Per artefact-conventions Step 2: check {project_root}/docs/artefacts/ for existing artefacts. If this project already has one, read it and reuse its established palette/font-pairing/tone rather than defaulting to whatever visual-explainer would generate on its own — an intro page should look like it belongs with the project's other artefacts, not like a different tool made it.
   3. Analyse the codebase:
      - Read README.md, package.json/go.mod/Cargo.toml/pyproject.toml for identity and dependencies

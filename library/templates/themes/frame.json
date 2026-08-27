@@ -1,0 +1,16 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": null,
+	"target": "frame",
+	"extends": null,
+	"rationale": { "mapping_notes": null },
+	"frame": {
+		"variant": "dark",
+		"background": { "kind": "gradient", "stops": [null, null, null], "angle_deg": 135 },
+		"chrome": "dark",
+		"margin_ratio": 0.12,
+		"radius_px": 12,
+		"shadow": { "blur_px": 40, "offset_y_px": 20, "opacity": 0.35 },
+		"border": { "width_px": 1, "color": null }
+	}
+}

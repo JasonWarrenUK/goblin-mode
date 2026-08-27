@@ -60,34 +60,34 @@ mono row of key facts — model used, dataset size, compiled date, runtime —
 default opening; a short narrative piece can compress or drop the meta-strip
 if there's nothing worth putting in it.
 
-## Palette (fixed source, bespoke mapping)
+## Palette (theme file as source, bespoke mapping)
 
-**Reasonable Colors is always the token source** — this is fixed, not a
-per-artefact choice, for the accessibility guarantee (see
-`reasonable-colors-reference.md` for the contrast table). What *is* bespoke
-per artefact is which RC hues get chosen and what they mean: a blueprint-teal
-instrument palette for pipeline docs, parchment/oxblood for an RPG kit,
-violet for a linguistics piece. RC's palette (24 colour sets + grays, 6
-shades each) is wide enough that "always RC" and "a distinct mood per
-artefact" are not in tension.
+**The project's `html` theme is always the token source** (see
+`theme-conventions.md`: `.claude/themes/<family>-html.json`, falling back to
+the global `clod` family). The theme carries its own verified contrast table,
+which is where the accessibility guarantee now lives. What *is* bespoke per
+artefact is the mood: a blueprint-teal instrument palette for pipeline docs,
+parchment/oxblood for an RPG kit, violet for a linguistics piece. When an
+artefact wants a mood the project's theme doesn't have, that is a second
+family (`/theme-factory "html" new`), not an inline palette.
 
 **Semantic CSS custom properties only.** Markup and components never
-reference `--color-{name}-{shade}` directly — always through a semantic alias
-(`--ink`, `--surface`, `--accent`, `--verd`, whatever names fit this
-artefact's own vocabulary). Document *why* each alias maps to which RC hue,
-the way `those-who-came-before/site/assets/site.css` does:
+reference a raw hex — always a semantic alias (`--ink`, `--surface`,
+`--accent`, `--verd`, whatever names fit this artefact's own vocabulary).
+The theme's emitted `:root` block provides the base twelve; an artefact may
+alias them further. Document *why* each alias maps to which theme token, the
+way `those-who-came-before/site/assets/site.css` does:
 
 ```css
 /*
-  Mapping notes: --terra (accent, links) maps to amber; --verd (structural
-  boxes, callouts) maps to emerald; --bronze (kickers, headings) maps to
-  cinnamon. Shade gaps of 3 hold body-text contrast (4.5:1) and gaps of 4
-  hold AAA (7:1) per the RC contrast table.
+  Mapping notes: --terra (accent, links) is the theme accent; --verd
+  (structural boxes, callouts) is accent-2; --bronze (kickers, headings) is
+  warn. Contrast per the theme's own table (ember-html.json).
 */
 :root {
-  --terra: var(--color-amber-4);
-  --verd:  var(--color-emerald-4);
-  --bronze: var(--color-cinnamon-4);
+  --terra:  var(--accent);
+  --verd:   var(--accent-2);
+  --bronze: var(--warn);
 }
 ```
 
@@ -142,8 +142,156 @@ Three states — light, dark, and "follow system" — every time, matching the
 Give `body` an explicit background from a token — a transparent body borrows
 whatever ground the viewer is painting behind it. Single-look-only (no dark
 block) is allowed when the mood itself calls for commitment — a parchment RPG
-kit, a forced-dark terminal aesthetic — but say so explicitly rather than
-quietly omitting dark support.
+kit, a forced-dark terminal aesthetic — but the artefact must say so plainly
+in its own text, not merely omit the dark block and leave a reader guessing.
+A single-look artefact ships no toggle: there is nothing to switch between.
+
+Token emission for this contract is increasingly handled by `/theme-factory`
+(`library/scripts/theme/emit.ts`, `html` target) rather than hand-written per
+artefact — see `theme-conventions.md`. That changes *where the tokens come
+from*, never this contract's shape; `emit.ts` cites this section as its own
+source. What it cannot supply is the control below, since it emits CSS, not
+markup.
+
+### Both themes are required; the control is not universal
+
+Both token states (light and dark, reachable via the contract above) are
+required on every artefact except a stated single-look. Whether the artefact
+also ships an **in-page toggle control** depends on the pathway:
+
+| Pathway | Both token states | In-page control |
+|---|---|---|
+| Standalone `docs/artefacts/*.html`, a `site/` page, the roadmap template | required | **required** |
+| claude.ai / Cowork `Artifact` publish | required | **omitted** — the host provides one |
+
+The `Artifact` tool's own contract stamps `data-theme="dark"` /
+`data-theme="light"` on the root element from the viewer's own setting. An
+in-page control fighting that would write the same attribute the host writes,
+with no route back to "system" the host would respect. This row exists
+*because* the host owns theme selection there — if a future `Artifact`
+runtime stops providing a host control, this row is what to revisit, not an
+oversight to "fix" by adding a redundant one.
+
+**Joining a collection whose toggle predates this rule** (`site/` today): the
+"match the collection's aesthetic" rule in `artefact-conventions` Step 2 and
+this rule can conflict for a single new page. Resolve it one of two ways,
+recorded rather than left implicit: upgrade the whole collection in one pass
+(shared stylesheet plus every member), or have the new page follow the
+collection's existing control and record the collection as knowingly out of
+step. A single new page must never be the only member with a different
+control from its siblings.
+
+### State semantics (fixed, so five implementations don't diverge)
+
+- **"System" is the absence of `data-theme`**, never `data-theme="system"`.
+  Omitting the attribute happens to work against the CSS above, which is
+  exactly why an unpinned rule produces both forms in the wild.
+- **Persist the choice to `localStorage`**, reads and writes both wrapped in
+  `try/catch`. The accessor throws outright in some contexts — a private
+  window, blocked site data, thumbnail/preview capture — and an unguarded
+  throw in an early script kills everything after it on the page.
+- **An absent or unreadable stored value renders as "system"**, not as an
+  error and not as a silent fallback to light.
+
+### The control (verbatim, standalone pathway)
+
+```html
+<div class="theme-toggle" role="group" aria-label="Colour theme">
+  <button type="button" data-set-theme="light"  aria-pressed="false">☀</button>
+  <button type="button" data-set-theme="system" aria-pressed="true">◐</button>
+  <button type="button" data-set-theme="dark"   aria-pressed="false">☾</button>
+</div>
+<script>
+(function () {
+  var KEY = 'theme';
+  var root = document.documentElement;
+
+  function read() {
+    try { return localStorage.getItem(KEY) || 'system'; }
+    catch (e) { return 'system'; }
+  }
+  function write(mode) {
+    try { localStorage.setItem(KEY, mode); }
+    catch (e) { /* private window, blocked storage, preview capture: ignore */ }
+  }
+  function apply(mode) {
+    if (mode === 'system') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', mode);
+    document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.setTheme === mode));
+    });
+  }
+
+  // Runs immediately, before the button markup below has parsed, so the
+  // theme is set before first paint (no flash of the wrong theme). It must
+  // not depend on `buttons` existing yet.
+  apply(read());
+
+  // The buttons themselves are further down the page (see Placement below),
+  // so binding their clicks has to wait until the DOM has them. Re-applying
+  // here is what syncs aria-pressed: the call above ran before the buttons
+  // existed, so its querySelectorAll matched nothing and every button kept
+  // whatever aria-pressed the markup shipped with.
+  document.addEventListener('DOMContentLoaded', function () {
+    apply(read());
+    document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var mode = b.dataset.setTheme;
+        write(mode);
+        apply(mode);
+      });
+    });
+  });
+})();
+</script>
+```
+
+Place this script as the **first element in `<body>`**, not in `<head>` — an
+`Artifact` publish supplies its own `<head>` and wraps the file's content as
+body, so a `<head>` script is unavailable there even on the standalone
+pathway where the control itself still ships. Running first minimises the
+flash of the wrong theme before the script executes.
+
+**Placement**: anchored in the masthead eyebrow/kicker row, right-aligned via
+`margin-left: auto` inside that row's flex layout — not `position: fixed`.
+Wrap below the eyebrow text rather than overlap it once the viewport narrows
+past the same breakpoint the masthead itself uses for its own collapse.
+Hide it under `@media print`, as the rest of the masthead chrome already does.
+
+**Colour**: the control's CSS uses existing semantic aliases only
+(`--surface-raised` or `--line` for chrome, `--ink-muted` for inactive,
+`--accent` for the pressed state) and introduces no alias of its own. A
+missing alias is a `/theme-factory` change to make, per §7.5 of
+`CLAUDE.md` — never an inline hex value on the button.
+
+### Diagrams under a runtime toggle
+
+A diagram rendered once at load — Mermaid, a canvas, hand-drawn inline SVG —
+does not follow a later attribute flip, and lands as dark strokes on a dark
+ground or the reverse: the bug class fixed in commit `d483b94`. Two answers,
+and which is available depends on pathway:
+
+- **Drive diagram colours from the same CSS custom properties as everything
+  else.** Works everywhere, and is the *only* option inside an `Artifact`
+  publish — artifacts render Mermaid natively from fenced `mermaid` code
+  blocks and `<pre class="mermaid">`, so page JS has no handle to
+  re-initialise it.
+  Prior art already in this repo: `roadmap.py graph --palette vars` emits a
+  CSS-variable-driven Mermaid palette; reuse that approach rather than
+  inventing a new one.
+- **Re-render on change.** Standalone pathway only. The watcher must cover
+  *both* signals — `matchMedia` fires only for the OS preference, never for
+  an explicit `data-theme` write:
+
+  ```js
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderGraph);
+  new MutationObserver(renderGraph).observe(document.documentElement,
+  	{ attributes: true, attributeFilter: ["data-theme"] });
+  ```
+
+  This is the pattern already in `library/templates/roadmap-artefact.html`
+  (around the graph's render call) — treat it as the reference
+  implementation rather than re-deriving it per artefact.
 
 ## Typography (structural rule, free choice)
 
