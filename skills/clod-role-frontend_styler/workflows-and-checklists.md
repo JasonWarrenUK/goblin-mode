@@ -75,7 +75,7 @@ Compare component styling against project patterns:
 ✓ Consistent:   padding: 0.5rem;
 
 ✗ Inconsistent: background: #3B82F6;
-✓ Consistent:   background: var(--color-primary); /* → --color-azure-3 */
+✓ Consistent:   background: var(--color-primary); /* → --accent (theme token) */
 ```
 
 ### Step 3: Propose Changes
@@ -96,7 +96,7 @@ Apply changes in logical order:
 When building or reviewing UI components:
 
 - [ ] Does every interactive element have a visible focus indicator?
-- [ ] Does the colour contrast pass WCAG 2.1 AA? (Use browser DevTools audit, or use Reasonable Colors where shade diff ≥ 3 guarantees AA body text)
+- [ ] Does the colour contrast pass WCAG 2.1 AA? (Use browser DevTools audit; pairs taken from the theme's `contrast` table are already verified by `validate.ts`)
 - [ ] Is information conveyed by more than just colour?
 - [ ] Are all images/icons either decorative (`aria-hidden`) or labelled (`alt`/`aria-label`)?
 - [ ] Do form inputs have associated `<label>` elements?

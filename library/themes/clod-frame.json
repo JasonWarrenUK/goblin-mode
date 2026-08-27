@@ -1,0 +1,17 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": "clod",
+	"target": "frame",
+	"extends": "clod.json",
+	"rationale": { "mapping_notes": "Dark variant. Background is the core dark gradient; chrome bar drawn dark with the three window dots in danger/warn/ok. Border=line." },
+	"frame": {
+		"variant": "dark",
+		"background": { "kind": "gradient", "stops": ["#D9A441", "#9BB170", "#4FB3A8"], "angle_deg": 135 },
+		"chrome": "dark",
+		"chrome_colors": { "bar": "#1D232C", "dots": ["#E06C5B", "#E0A83A", "#6FBF73"] },
+		"margin_ratio": 0.12,
+		"radius_px": 12,
+		"shadow": { "blur_px": 40, "offset_y_px": 20, "opacity": 0.35 },
+		"border": { "width_px": 1, "color": "#2E3640" }
+	}
+}

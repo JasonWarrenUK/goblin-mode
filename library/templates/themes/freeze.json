@@ -1,0 +1,19 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": null,
+	"target": "freeze",
+	"extends": null,
+	"rationale": { "mapping_notes": null },
+	"freeze": {
+		"theme": null,
+		"background": null,
+		"window": true,
+		"border": { "radius": 8, "width": 1, "color": null },
+		"shadow": { "blur": 20, "x": 0, "y": 10 },
+		"padding": [20, 40, 20, 20],
+		"margin": [40, 60, 40, 60],
+		"font": { "family": null, "size": 14, "ligatures": true },
+		"line_height": 1.2,
+		"show_line_numbers": false
+	}
+}

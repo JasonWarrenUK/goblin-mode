@@ -27,6 +27,10 @@ hooks/post-commit
 /library/state/*.json
 !/library/state/README.md
 
+# Dependency trees under library/scripts/* stay local; never track node_modules or lockfiles
+library/scripts/**/node_modules/
+library/scripts/**/bun.lock
+
 # The published site is tracked; its editing guidance is local only
 !/site/**
 /site/CLAUDE.md

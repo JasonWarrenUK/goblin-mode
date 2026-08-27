@@ -1,0 +1,23 @@
+{
+	"$schema": "clod-theme/target@1",
+	"family": null,
+	"target": "tui",
+	"extends": null,
+	"rationale": { "mapping_notes": null },
+	"tui": {
+		"variant": "dark",
+		"styles": {
+			"title":    { "fg": null, "bg": null, "bold": true },
+			"body":     { "fg": null, "bg": null },
+			"muted":    { "fg": null },
+			"accent":   { "fg": null, "bold": true },
+			"selected": { "fg": null, "bg": null },
+			"border":   { "fg": null },
+			"ok":       { "fg": null },
+			"warn":     { "fg": null },
+			"danger":   { "fg": null },
+			"info":     { "fg": null }
+		},
+		"border_style": "rounded"
+	}
+}

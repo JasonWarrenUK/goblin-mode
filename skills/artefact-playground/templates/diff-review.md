@@ -61,7 +61,7 @@ const diffData = [
 | `deletion` | red-tinted, from the palette's semantic tokens | red, from the palette's semantic tokens | `-` |
 | `hunk-header` | blue-tinted, from the palette's semantic tokens | blue, from the palette's semantic tokens | `@@` |
 
-Colour roles only, not literal values: source the actual hex/RC values from `~/.claude/library/references/artefact-conventions.md`'s palette rules, per the Theme support section below.
+Colour roles only, not literal values: source the actual theme tokens from `~/.claude/library/references/artefact-conventions.md`'s palette rules, per the Theme support section below.
 
 ## Comment system
 
@@ -153,16 +153,16 @@ Follow the three-state contract from `~/.claude/library/references/artefact-conv
 
 ```css
 :root {
-  --diff-ground: /* RC-sourced, light */;
-  --diff-surface: /* RC-sourced, light */;
-  --diff-ink: /* RC-sourced, light */;
-  --diff-add-bg: /* RC-sourced green tint, light */;
-  --diff-del-bg: /* RC-sourced red tint, light */;
+  --diff-ground: /* theme token, light */;
+  --diff-surface: /* theme token, light */;
+  --diff-ink: /* theme token, light */;
+  --diff-add-bg: /* theme token, green tint, light */;
+  --diff-del-bg: /* theme token, red tint, light */;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --diff-ground: /* RC-sourced, dark */;
+    --diff-ground: /* theme token, dark */;
     /* ...and so on for every token above */
   }
 }
@@ -177,6 +177,10 @@ body { background: var(--diff-ground); color: var(--diff-ink); }
 .diff-line.addition { background: var(--diff-add-bg); }
 .diff-line.deletion { background: var(--diff-del-bg); }
 ```
+
+Ship the reference doc's masthead toggle control verbatim so a reader can
+reach all three states; this is a standalone HTML file, not an `Artifact`
+publish, so the toggle is required rather than the host-provided exception.
 
 ## Interactive features
 

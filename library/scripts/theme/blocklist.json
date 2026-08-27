@@ -1,0 +1,27 @@
+[
+	{
+		"name": "tailwind-indigo-slate",
+		"why": "the default SaaS landing page: indigo-500 on slate-900/white",
+		"swatches": ["#FFFFFF", "#0F172A", "#F8FAFC", "#1E293B", "#0F172A", "#F8FAFC", "#6366F1", "#818CF8", "#8B5CF6", "#A78BFA"]
+	},
+	{
+		"name": "purple-pink-hero",
+		"why": "the AI-generated hero gradient: violet to hot pink on near-black",
+		"swatches": ["#FAF5FF", "#0B0416", "#F3E8FF", "#1A0B2E", "#1A0B2E", "#F3E8FF", "#8B5CF6", "#A78BFA", "#EC4899", "#F472B6"]
+	},
+	{
+		"name": "clod-terminal-default",
+		"why": "Jason's own terminal gradient (pink C9498F, violet 8A5FD6, teal 45A3C7); fine when asked for, not as a default landing spot",
+		"swatches": ["#F7F4FC", "#1B1233", "#EFE9F8", "#271A45", "#1B1233", "#F3EEFF", "#8A5FD6", "#A98BE8", "#45A3C7", "#6CBFDD"]
+	},
+	{
+		"name": "dracula",
+		"why": "the most copied dark editor theme; a project theme that lands here has no idea of its own",
+		"swatches": ["#F8F8F2", "#282A36", "#FFFFFF", "#44475A", "#282A36", "#F8F8F2", "#BD93F9", "#BD93F9", "#FF79C6", "#FF79C6"]
+	},
+	{
+		"name": "nord",
+		"why": "second most copied dark theme; same reasoning as dracula",
+		"swatches": ["#ECEFF4", "#2E3440", "#E5E9F0", "#3B4252", "#2E3440", "#ECEFF4", "#88C0D0", "#88C0D0", "#81A1C1", "#81A1C1"]
+	}
+]

@@ -1,0 +1,262 @@
+{
+	"$schema": "clod-theme/core@1",
+	"family": "clod",
+	"version": 1,
+	"rationale": {
+		"mood": "Ink and brass: a slate-blue study with one warm metal accent and a cool teal second voice. Quiet, legible, unhurried.",
+		"inspiration": "Fountain-pen ink on warm paper; brass instrument fittings against navy felt in a case.",
+		"anchor_reason": "Brass (D9A441) reads as deliberate on both a warm paper light surface and a slate dark surface, so one accent survives both variants without a hue swap.",
+		"rule_bent": "The light surface is warm paper rather than white, so 'surface-raised' is the whiter of the two; most systems do the opposite.",
+		"rejected": [
+			{
+				"palette": "clod-terminal-default (pink → violet → teal)",
+				"why": "that gradient belongs to the terminal prompt; reusing it on every artefact would make the portfolio one long screenshot of the shell"
+			},
+			{
+				"palette": "tailwind indigo on slate",
+				"why": "the default of every generated landing page; a fallback theme should still look chosen"
+			}
+		]
+	},
+	"anchor": {
+		"name": "brass",
+		"hex": "#D9A441",
+		"oklch": [
+			0.76,
+			0.14,
+			80
+		]
+	},
+	"palette": {
+		"ink": {
+			"light": "#1E232B",
+			"dark": "#EDE7DA",
+			"role": "primary text"
+		},
+		"ink-muted": {
+			"light": "#555D69",
+			"dark": "#A39C8E",
+			"role": "secondary text, captions, meta"
+		},
+		"surface": {
+			"light": "#F7F3EA",
+			"dark": "#14181F",
+			"role": "page background"
+		},
+		"surface-raised": {
+			"light": "#FFFFFF",
+			"dark": "#1D232C",
+			"role": "cards, panels, code blocks"
+		},
+		"line": {
+			"light": "#D8D1C3",
+			"dark": "#2E3640",
+			"role": "borders, rules, dividers"
+		},
+		"accent": {
+			"light": "#7A540C",
+			"dark": "#D9A441",
+			"role": "links, primary actions, highlights"
+		},
+		"accent-ink": {
+			"light": "#FFF8E6",
+			"dark": "#1A1408",
+			"role": "text placed on accent"
+		},
+		"accent-2": {
+			"light": "#1C6E65",
+			"dark": "#4FB3A8",
+			"role": "secondary emphasis, gradient partner"
+		},
+		"ok": {
+			"light": "#2E7D32",
+			"dark": "#6FBF73",
+			"role": "success, done, passing"
+		},
+		"warn": {
+			"light": "#8A5A00",
+			"dark": "#E0A83A",
+			"role": "caution, pending, stale"
+		},
+		"danger": {
+			"light": "#B3412F",
+			"dark": "#E06C5B",
+			"role": "error, blocked, destructive"
+		},
+		"info": {
+			"light": "#2F6FA8",
+			"dark": "#6FA8DC",
+			"role": "neutral notice, in progress"
+		}
+	},
+	"gradient": {
+		"light": [
+			"#9A6A12",
+			"#4F7A4A",
+			"#1C6E65"
+		],
+		"dark": [
+			"#D9A441",
+			"#9BB170",
+			"#4FB3A8"
+		]
+	},
+	"typography": {
+		"display": {
+			"family": "Inter Tight",
+			"fallback": "system-ui, sans-serif",
+			"weight": 700
+		},
+		"body": {
+			"family": "Inter",
+			"fallback": "system-ui, sans-serif",
+			"weight": 400
+		},
+		"mono": {
+			"family": "JetBrains Mono",
+			"fallback": "ui-monospace, monospace",
+			"weight": 400
+		},
+		"scale": {
+			"base_px": 16,
+			"ratio": 1.25,
+			"line_height": 1.5
+		}
+	},
+	"shape": {
+		"radius_px": {
+			"sm": 4,
+			"md": 8,
+			"lg": 14
+		},
+		"shadow": {
+			"blur_px": 24,
+			"offset_y_px": 10,
+			"opacity": 0.3
+		},
+		"space_px": {
+			"unit": 8
+		}
+	},
+	"contrast": {
+		"light": [
+			{
+				"fg": "ink",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 14.25
+			},
+			{
+				"fg": "ink",
+				"bg": "surface-raised",
+				"level": "AA",
+				"ratio": 15.78
+			},
+			{
+				"fg": "ink-muted",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 6.01
+			},
+			{
+				"fg": "accent",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 6.12
+			},
+			{
+				"fg": "accent-ink",
+				"bg": "accent",
+				"level": "AA",
+				"ratio": 6.39
+			},
+			{
+				"fg": "ok",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 4.63
+			},
+			{
+				"fg": "warn",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 5.35
+			},
+			{
+				"fg": "danger",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 5.11
+			},
+			{
+				"fg": "info",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 4.79
+			}
+		],
+		"dark": [
+			{
+				"fg": "ink",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 14.44
+			},
+			{
+				"fg": "ink",
+				"bg": "surface-raised",
+				"level": "AA",
+				"ratio": 12.82
+			},
+			{
+				"fg": "ink-muted",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 6.53
+			},
+			{
+				"fg": "accent",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 7.91
+			},
+			{
+				"fg": "accent-ink",
+				"bg": "accent",
+				"level": "AA",
+				"ratio": 8.14
+			},
+			{
+				"fg": "ok",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 7.94
+			},
+			{
+				"fg": "warn",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 8.33
+			},
+			{
+				"fg": "danger",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 5.48
+			},
+			{
+				"fg": "info",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 7.04
+			}
+		]
+	},
+	"provenance": {
+		"seed": "hand-authored global fallback",
+		"derived_from": null,
+		"created": "2026-08-26",
+		"updated": null,
+		"tool": "theme-factory@1"
+	}
+}

@@ -1,0 +1,23 @@
+{
+	"name": "clod-asset-toolkit",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"frame": "bun frame.ts",
+		"card": "bun card.ts",
+		"record": "node --experimental-strip-types record.ts",
+		"fonts": "bun fonts.ts",
+		"browsers": "npx playwright install chromium"
+	},
+	"dependencies": {
+		"@resvg/resvg-js": "^2.6.2",
+		"playwright": "^1.62.1",
+		"satori": "^0.33.4",
+		"sharp": "^0.35.4"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@types/node": "^22",
+		"typescript": "^5"
+	}
+}

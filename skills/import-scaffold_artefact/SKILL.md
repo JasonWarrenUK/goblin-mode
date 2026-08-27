@@ -12,7 +12,7 @@ allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(bun:*)", "Bash(bu
 argument-hint: '[artefact path (.html/.jsx, optional)] ["react" to opt into React/Next]'
 ---
 
-Take a single-file artefact exported from Claude Chat or Cowork (an interactive HTML page or a JSX component) and grow it into a real, runnable project in Jason's default stack. Understand the artefact, interview for the decisions only a human can make, then port it: scaffold a project, translate the artefact into components or routes, and rewire its styling onto Reasonable Colors. A **full-project tail** (tests, git, docs, deploy) follows and is skippable.
+Take a single-file artefact exported from Claude Chat or Cowork (an interactive HTML page or a JSX component) and grow it into a real, runnable project in Jason's default stack. Understand the artefact, interview for the decisions only a human can make, then port it: scaffold a project, translate the artefact into components or routes, and rewire its styling onto the project theme. A **full-project tail** (tests, git, docs, deploy) follows and is skippable.
 
 Default target is **Svelte 5 (runes) / SvelteKit 2**. A JSX artefact becomes Svelte 5 components; an HTML artefact becomes a SvelteKit route. React/Next.js is an explicit opt-in. Nothing is scaffolded until the project config is approved.
 
@@ -131,7 +131,7 @@ src/
     components/         # PascalCase .svelte components
     types.ts             # data-shape interfaces
     styles/
-      tokens.css          # Reasonable Colors semantic aliases (Step 7)
+      tokens.css          # emitted theme tokens + semantic aliases (Step 7)
 tests/
   fixtures/             # named-export fixtures (tail)
 docs/
@@ -161,34 +161,33 @@ Translate the inventory from Step 2 into real source files.
 - [ ] External deps resolved (added, kept, or removed)
 - [ ] No `any`; exported functions have explicit return types
 
-## Step 7: Rewire styling onto Reasonable Colors
+## Step 7: Rewire styling onto the project theme
 
-Replace every hardcoded colour from Step 2 with semantic aliases backed by Reasonable Colors. **Read `~/.claude/library/references/reasonable-colors-reference.md` first** for the shade/contrast rules and the full palette; do not guess hex values.
+Replace every hardcoded colour from Step 2 with semantic aliases backed by the project's `html` theme. **Read `~/.claude/library/references/theme-conventions.md` first.** If `.claude/themes/` has no `html` target, run `/theme-factory "html"` before this step, seeding it from the artefact's own colours (Step 2's inventory is the seed): the artefact's approved look becomes the theme rather than being replaced by one.
 
 This step's job is preserving the *source artefact's own design* in the new codebase — not imposing a different aesthetic on top of one the user already approved. `~/.claude/library/references/artefact-conventions.md` is a useful cross-check for masthead structure, typography-pairing logic, and the honesty/status-marking rule if the ported app is *itself* a reference/status-style artefact (e.g. a dashboard), but it never overrides what Step 6 already preserved from the artefact's own markup and voice.
 
-1. **Install:** `bun add reasonable-colors` (or the CDN link `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css` for a no-build HTML case). Import it once at the app root.
-2. **Define semantic aliases** in `src/lib/styles/tokens.css`, mapping RC vars to roles:
+1. **Emit the tokens:** `bun ~/.claude/library/scripts/theme/emit.ts .claude/themes/<family>-html.json -o src/lib/styles/tokens.css`. Import it once at the app root. The emitted block already carries light and dark variants and the theme-switch contract, but not a control — add the masthead light/system/dark toggle from `artefact-conventions.md`'s theming section (verbatim HTML/CSS/JS) if the ported app didn't already have an equivalent. This is a behavioural requirement, not an aesthetic one, so it applies even though this step otherwise preserves the source app's own design rather than artefact-conventions' full look.
+2. **Define role aliases** in the same `tokens.css`, on top of the theme tokens:
    ```css
    :root {
-     --color-primary:      var(--color-azure-3);
-     --color-primary-bg:   var(--color-azure-1);
-     --color-on-primary:   var(--color-azure-6);
-     --color-surface:      var(--color-gray-1);
-     --color-text:         var(--color-gray-6);
-     --color-danger:       var(--color-red-3);
+     --color-primary:      var(--accent);
+     --color-on-primary:   var(--accent-ink);
+     --color-surface:      var(--surface);
+     --color-text:         var(--ink);
+     --color-danger:       var(--danger);
    }
    ```
-   Provide a `@media (prefers-color-scheme: dark)` counterpart if the artefact had any dark styling.
-3. **Replace hardcoded colours in components with the semantic aliases only.** Components must NEVER reference `--color-{name}-{shade}` (RC vars) directly; they reference `--color-primary` etc. This is the non-negotiable rule.
-4. **Respect contrast:** choose shade pairs by the table (diff 2 = 3:1 AA large/UI, diff 3 = 4.5:1 AA body, diff 4 = 7:1 AAA). Body text against its background should be at least a 3-shade difference.
-5. The `color` (US spelling) in RC var names is the library's convention and is acceptable; use British spelling everywhere else.
+3. **Replace hardcoded colours in components with the role aliases only.** Components never reference a hex or a theme token by another name; they reference `--color-primary` etc. This is the non-negotiable rule.
+4. **Contrast is the theme's job:** every pair in the theme's `contrast` table is verified by `validate.ts`. If a component needs a pair the table lacks, add the pair to the theme and re-validate rather than eyeballing it.
+5. Token names are ours (`--ink`, `--surface`); the `color` spelling in role aliases follows the CSS convention and is acceptable; British spelling everywhere else.
 
-- [ ] `reasonable-colors` installed/linked and imported once
-- [ ] Semantic alias layer defined in `tokens.css`
+- [ ] `tokens.css` emitted from the project theme and imported once
+- [ ] Role alias layer defined in `tokens.css`
 - [ ] Zero hardcoded colours left in components
-- [ ] Zero direct RC-var references in components (aliases only)
-- [ ] Body text meets at least AA (shade diff ≥ 3)
+- [ ] Zero raw theme-token references in components (role aliases only)
+- [ ] Every fg/bg pair used appears in the theme's verified `contrast` table
+- [ ] Light/system/dark toggle present and reachable (the ported app's own if it had one, otherwise the masthead control from `artefact-conventions.md`)
 
 ## Step 8: Verify it runs (core deliverable)
 
@@ -256,8 +255,8 @@ Summarise: artefact source path; approved config (stack, backend, auth, deploy);
 | Package mgr | bun (tiebreak: bun > deno > npm/pnpm) |
 | Types | `interface` per shape, `unknown` over `any`, explicit return types |
 | Naming | `.ts/.json` kebab-case; `.svelte/.tsx` PascalCase; tabs, Edit tool only |
-| Colour | Reasonable Colors; semantic aliases only in components; read the reference doc |
-| Contrast | shade diff 2 = 3:1, 3 = 4.5:1 (AA body), 4 = 7:1 (AAA) |
+| Colour | project theme (`.claude/themes/<family>-html.json`); role aliases only in components; read `theme-conventions.md` |
+| Contrast | pairs from the theme's verified `contrast` table; new pairs go into the theme |
 | Verify | `bun run dev` + drive every interaction; core, not tail |
 | Tail | Only the parts chosen in the interview: tests / git / docs / deploy |
 
@@ -268,8 +267,8 @@ Summarise: artefact source path; approved config (stack, backend, auth, deploy);
 - **Porting markup but dropping interactivity.** The state and handlers are the point; catalogue them in Step 2 and verify each live in Step 8.
 - **`useEffect` → `$effect` without checking cleanup.** Teardown timing differs; verify the cleanup fires on the right change.
 - **Turning a `useRef` mutable box into `$state`.** A ref-as-box is intentionally non-reactive; keep it a plain `let`.
-- **Referencing RC vars directly in components.** Always go through the semantic alias layer.
-- **Guessing colour hexes.** Read `reasonable-colors-reference.md`.
+- **Referencing theme tokens or hexes directly in components.** Always go through the role alias layer.
+- **Guessing colour hexes.** Colours come from the theme file; a missing one is a `/theme-factory` update.
 - **Spaces instead of tabs, or sed/awk edits.** Tabs only; Edit tool only.
 - **Running tail parts the user didn't choose.** The interview decides the tail; don't add scope back in.
 - **Inventing a README format.** Use `readme-root.md`; use `ADR.md` for the ADR.
