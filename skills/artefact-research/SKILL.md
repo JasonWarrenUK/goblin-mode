@@ -8,7 +8,7 @@ metadata:
   glyph: ᚠ
   family: artefact
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "WebFetch", "WebSearch", "Artifact", "Bash(open:*)", "Bash(mkdir:*)", "Bash(find:*)", "Bash(git:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Agent", "WebFetch", "WebSearch", "Artifact", "Bash(open:*)", "Bash(mkdir:*)", "Bash(find:*)", "Bash(git:*)", "Bash(grep:*)", "Bash(ls:*)"]
 argument-hint: '"<focus>" <target> <format> [source | "src1,src2"]'
 ---
 
@@ -66,6 +66,11 @@ Vendor-only evidence is a finding, not a footnote: when no independent source tu
 
 ## Step 3: Research
 
+Split the work by where the evidence lives, and run the two halves in parallel:
+
+- **External evidence** (docs, repo, registries, independent coverage): delegate to one `general-purpose` agent. The prompt names the format's schema sections as required headings, demands the exact URL and a verbatim quote for every load-bearing fact, and ends with a mandatory **source ledger** (every URL read, one per line, with what it gave) plus a **could-not-find list**. Return raw findings, not prose. Keeping the fetches out of the main context is what leaves room to write the page.
+- **Local evidence** (the `~/code` inventory, per-repo second passes): do it inline with Bash. One survey loop over every git repo (last commit, 90-day commits and authors, the dependency in question, files importing it, rival libraries present), then targeted greps on the candidates that surfaced.
+
 Read until the format's schema is filled or the sources run out, whichever comes first. Two rules that separate research from summarising:
 
 1. **Quote the load-bearing sentence.** Pricing gates, licence carve-outs, rate limits, "only when the server is running": copy the words, in a `blockquote.ev`, with the page cited beside it. Paraphrase is where errors creep in.
@@ -73,6 +78,8 @@ Read until the format's schema is filled or the sources run out, whichever comes
 
 For `assess` and `compare`, fit against real projects is required when the sources allow it: inventory the candidate repos (`git log` recency, stack, who commits), and for each say fits / stretch / no fit with the reason. The reference artefact's Strand III is the model: the verdict names one project to spike first, a time estimate for the spike, and the condition under which the spike should be abandoned.
 
+- [ ] External research delegated with ledger and could-not-find list required
+- [ ] Local survey run inline before the agent returns, so neither waits on the other
 - [ ] Every load-bearing claim quoted, not paraphrased
 - [ ] Every gap marked, none smoothed over
 
