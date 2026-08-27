@@ -17,7 +17,7 @@ argument-hint: "[grouping hints (optional), e.g. 'docs together, config separate
 
 ```!
 git status --short
-git diff --stat HEAD
+git rev-parse --verify HEAD >/dev/null 2>&1 && git diff --stat HEAD || echo "(no commits yet, nothing to diff against)"
 ```
 
 ## Steps
