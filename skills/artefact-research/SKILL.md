@@ -8,13 +8,13 @@ metadata:
   glyph: ᚠ
   family: artefact
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Agent", "WebFetch", "WebSearch", "Artifact", "Bash(open:*)", "Bash(mkdir:*)", "Bash(find:*)", "Bash(git:*)", "Bash(grep:*)", "Bash(ls:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Agent", "AskUserQuestion", "WebFetch", "WebSearch", "Artifact", "Bash(open:*)", "Bash(mkdir:*)", "Bash(find:*)", "Bash(git:*)", "Bash(grep:*)", "Bash(ls:*)"]
 argument-hint: '"<focus>" <target> <format> [source | "src1,src2"]'
 ---
 
 Research a focus and render what was found as an HTML artefact. The research is the expensive part; the artefact is the honest record of it, so every claim on the page carries a source or a visible `unverified` mark.
 
-Reference artefact for the format bar: `~/.claude/docs/artefacts/swamp-club.html` (`"swamp club free tier" resource assess`). Read it before writing any HTML; it is what "good format" means here.
+Worked example of the format bar, when working in `~/.claude`: `~/.claude/docs/artefacts/swamp-club.html` (`"swamp club free tier" resource assess`). Worth a look before writing HTML there, but not a prerequisite: Step 4 below and `references/formats.md` already state the full contract, and `artefact-conventions` Step 2 finds and reads whatever existing artefacts a project has on disk regardless.
 
 ## Step 1: Parse `$ARGUMENTS`
 
