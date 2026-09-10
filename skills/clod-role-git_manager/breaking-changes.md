@@ -2,7 +2,7 @@
 
 Detail for `git-manager`: the full lookup tables backing CLAUDE.md §8.5's breaking-change flagging rule.
 
-**Proactively flag breaking changes** whenever reviewing code, discussing commits, or observing changes, even when the user is handling commits themselves.
+**Proactively flag breaking changes** whenever reviewing code, discussing commits or observing changes, even when the user is handling commits themselves.
 
 ## What Constitutes a Breaking Change
 

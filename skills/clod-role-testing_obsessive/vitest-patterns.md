@@ -279,7 +279,7 @@ it('should show loading then data', async () => {
 });
 ```
 
-## Test Organization
+## Test Organisation
 
 ### File Structure
 ```

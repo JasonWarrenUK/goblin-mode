@@ -15,7 +15,7 @@ allowed-tools:
 
 # Neo4j/Cypher Mastery
 
-Comprehensive guide to Neo4j graph database and Cypher query language. Covers fundamental concepts, common patterns, performance optimization, schema design, and integration with PostgreSQL/Supabase.
+Comprehensive guide to Neo4j graph database and Cypher query language. Covers fundamental concepts, common patterns, performance optimisation, schema design and integration with PostgreSQL/Supabase.
 
 ## When This Skill Applies
 
@@ -23,9 +23,9 @@ Use this skill when:
 
 - Writing Cypher queries
 - Designing graph schemas
-- Optimizing graph traversals
+- Optimising graph traversals
 - Building recommendation systems
-- Modeling hierarchies or networks
+- Modelling hierarchies or networks
 - Integrating Neo4j with relational databases
 - Questions about graph database patterns
 
