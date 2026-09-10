@@ -1,6 +1,6 @@
 ---
 name: "Artefact: Playground"
-description: Creates interactive HTML playgrounds: self-contained single-file explorers that let users configure something visually through controls, see a live preview and copy out a prompt. Use when the user asks to make a playground, explorer or interactive tool for a topic.
+description: "Creates interactive HTML playgrounds: self-contained single-file explorers that let users configure something visually through controls, see a live preview and copy out a prompt. Use when the user asks to make a playground, explorer or interactive tool for a topic."
 when_to_use: "When the user asks for an interactive playground, explorer or visual tool for a topic, especially when the input space is large, visual or structural and hard to express as plain text."
 model: sonnet
 effort: high
