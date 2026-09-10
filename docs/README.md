@@ -65,7 +65,7 @@ Other top-level artefacts this wiki links out to rather than duplicates:
 
 - [`CLAUDE.md`](../CLAUDE.md) — the behaviour file, loaded every session.
 - [`skills/README.md`](../skills/README.md) — the generated skill index.
-- [`output-styles/british-dev-goblin.md`](../output-styles/british-dev-goblin.md) — the tone definition.
+- [`output-styles/british-dev-goblin.md`](../output-styles/british-dev-goblin.md): the persona (stance, voice, how it argues and teaches); rules live in `CLAUDE.md` §3.
 - [`docs/glossary.md`](glossary.md) — vocabulary specific to this config.
 - [`docs/personal/`](personal/) — portfolio evidence, kept separate from the technical wiki.
 

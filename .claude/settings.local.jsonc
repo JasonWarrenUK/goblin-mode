@@ -31,7 +31,6 @@
       }
     ]
   },
-  "outputStyle": "british-dev-goblin",
   "permissions": {
     "allow": [
       // MCP tools

@@ -43,7 +43,7 @@ These counts are written by `gen-skills-index.py`, not hand-maintained: the skil
 | [`agents/`](agents/) | Autonomous multi-step workflows Claude delegates to. See [Agents reference](docs/reference/agents.md). |
 | [`hooks/`](hooks/) | Scripts on git/session events. See [Hooks reference](docs/reference/hooks.md). |
 | [`library/`](library/) | Shared references, templates, scripts, and config examples used by skills. See [Library reference](docs/reference/library.md). |
-| [`output-styles/`](output-styles/) | Tone and personality definitions; `british-dev-goblin.md` is the active one. |
+| [`output-styles/`](output-styles/) | Persona layer; `british-dev-goblin.md` is set at user level in `settings.json` with `keep-coding-instructions: true`, so it sits on top of Claude Code's built-in engineering instructions rather than replacing them. Voice only: the rules live in `CLAUDE.md` §3. |
 | [`docs/`](docs/) | This wiki: architecture, per-subsystem reference, guides and design history. |
 
 For the full picture (how the layers fit together, what each costs to load and the deterministic-half pattern behind several skills) see **[Architecture](docs/architecture.md)**.
