@@ -54,7 +54,7 @@ From the Step 0 facts, briefly:
 | Verdict | Criteria |
 |---|---|
 | **Blocked** | Unresolved conflict markers, or a red gate that predates the branch (needs a human call before any PR makes sense) |
-| **Needs Work** | Any 🔴 finding, a red gate this branch caused, or WIP/fixup commits |
+| **Needs Work** | Any 🔴 finding, a red gate this branch caused or WIP/fixup commits |
 | **Ready** | Green gate and nothing above 🟠/🟡; remaining findings are listed as improvements, not blockers |
 
 ## Output Format

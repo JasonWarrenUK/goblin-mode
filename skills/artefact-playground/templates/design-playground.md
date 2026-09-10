@@ -1,6 +1,6 @@
 # Design Playground Template
 
-Use this template when the playground is about visual design decisions: components, layouts, spacing, color, typography, animation, responsive behavior.
+Use this template when the playground is about visual design decisions: components, layouts, spacing, colour, typography, animation, responsive behaviour.
 
 ## Layout
 
@@ -27,9 +27,9 @@ Use this template when the playground is about visual design decisions: componen
 | Sizes, spacing, radius | Slider | border-radius 0–24px |
 | On/off features | Toggle | show border, hover effect |
 | Choosing from a set | Dropdown | font-family, easing curve |
-| Colors | Hue + saturation + lightness sliders | shadow color, accent |
+| Colours | Hue + saturation + lightness sliders | shadow colour, accent |
 | Layout structure | Clickable cards | sidebar-left / top-nav / no-nav |
-| Responsive behavior | Viewport-width slider | watch grid reflow at breakpoints |
+| Responsive behaviour | Viewport-width slider | watch grid reflow at breakpoints |
 
 ## Preview rendering
 
@@ -62,6 +62,6 @@ If the user is working in Tailwind, suggest Tailwind classes. If raw CSS, use CS
 - Card component (shadow depth, radius, content layout, image)
 - Layout builder (sidebar width, content max-width, header height, grid)
 - Typography scale (base size, ratio, line heights across h1-body-caption)
-- Color palette generator (primary hue, derive secondary/accent/surface)
+- Colour palette generator (primary hue, derive secondary/accent/surface)
 - Dashboard density (airy → compact slider that scales everything proportionally)
 - Modal/dialog (width, overlay opacity, entry animation, corner radius)
