@@ -70,6 +70,8 @@ Confirm its Step 7 validation report comes back clean before continuing.
 
 Commit the implementation and the `roadmaps.json` change (plus its synced projections) using Conventional Commits (`type(scope): description`), split into granular thematic commits rather than one giant commit; typically one or more commits for the implementation/tests, one for the roadmap sync. Flag any breaking-change signal (removed/renamed exports, changed signatures, schema/API/env changes) with a `BREAKING CHANGE:` footer or `!` per the breaking-change convention; do not silently omit it.
 
+Every commit passes through the global `commit-msg` hook (British spelling, no em dashes, no Oxford commas). If `git commit` exits non-zero and stderr contains `commit-msg:` lines, read each `L<n> <rule>: <excerpt>` line, rewrite the message to clear every hit (keeping the meaning) and retry the commit once. If the retry fails too, stop and write `BLOCKED.md` (Step 8) with the hook's stderr verbatim: nobody is watching this run, and a message that fails twice needs a human. Never pass `--no-verify` and never change git config to get past the hook.
+
 ## Step 6: Open the PR
 
 Invoke the `pr-create` skill from this branch with the `auto` token: the user's veto already happened at task selection, so the PR is created without a second pause. When Step 2 branched from a stacking parent, also pass `base <parent-branch>` so the PR opens as a stacked layer, and after creation link it into the parent's stack: `gh stack link <parent-pr-number> <new-pr-number>` (extends the existing stack when the parent is already in one). Capture the PR URL/number.
@@ -117,6 +119,6 @@ Report at the end of the whole `loop` run: how many cycles completed, which stop
 
 ## Red flags
 
-**Never:** hand-edit the PHASE file, Mermaid block, `ROADMAP_OVERVIEW.md`, or HTML artefact directly: `roadmap-maintain` only. **Never:** `git stash` without checking `git status` and `git stash list` first. **Never:** invent a resolution to an unmet dependency or genuine ambiguity: write `BLOCKED.md` instead. **Never:** push with a red test/typecheck/lint gate. **Never:** amend a commit `pr-review` already reviewed; fix findings in a new commit. **Never:** skip `pr-create`'s own approval pause for the PR description. **Never:** branch a dependent task from `main` while its parent's PR is unmerged; stack on the parent branch or stop.
+**Never:** hand-edit the PHASE file, Mermaid block, `ROADMAP_OVERVIEW.md`, or HTML artefact directly: `roadmap-maintain` only. **Never:** `git stash` without checking `git status` and `git stash list` first. **Never:** invent a resolution to an unmet dependency or genuine ambiguity: write `BLOCKED.md` instead. **Never:** push with a red test/typecheck/lint gate. **Never:** amend a commit `pr-review` already reviewed; fix findings in a new commit. **Never:** skip `pr-create`'s own approval pause for the PR description. **Never:** branch a dependent task from `main` while its parent's PR is unmerged; stack on the parent branch or stop. **Never:** `git commit --no-verify` or `-c slop.commitMsg=off`; a rejected message gets rewritten once, then the run stops.
 
 <raw-arguments value="$ARGUMENTS" />
