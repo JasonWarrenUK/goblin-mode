@@ -1,6 +1,6 @@
 # Document Critique Template
 
-Use this template when the playground helps review and critique documents: SKILL.md files, READMEs, specs, proposals, or any text that needs structured feedback with approve/reject/comment workflow.
+Use this template when the playground helps review and critique documents: SKILL.md files, READMEs, specs, proposals or any text that needs structured feedback with approve/reject/comment workflow.
 
 ## Layout
 
@@ -23,8 +23,8 @@ Use this template when the playground helps review and critique documents: SKILL
 
 ### Document panel (left)
 - Display full document with line numbers
-- Highlight lines with suggestions using a colored left border
-- Color-code by status: pending (amber), approved (green), rejected (red with opacity)
+- Highlight lines with suggestions using a coloured left border
+- Colour-code by status: pending (amber), approved (green), rejected (red with opacity)
 - Click a suggestion card to scroll to the relevant line
 
 ### Suggestions panel (right)
@@ -158,7 +158,7 @@ Three states, one theme token each (amber for pending, green for approved, red f
 When building a critique playground for a specific document:
 
 1. Read the document content
-2. Analyze and generate suggestions with:
+2. Analyse and generate suggestions with:
    - Specific line references
    - Clear, actionable suggestion text
    - Category tags (clarity, completeness, performance, accessibility, ux)

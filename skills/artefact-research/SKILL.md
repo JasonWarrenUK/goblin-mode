@@ -76,7 +76,7 @@ Read until the format's schema is filled or the sources run out, whichever comes
 1. **Quote the load-bearing sentence.** Pricing gates, licence carve-outs, rate limits, "only when the server is running": copy the words, in a `blockquote.ev`, with the page cited beside it. Paraphrase is where errors creep in.
 2. **Name what you could not find.** A limit that no page states, a claim with a single vendor source, a question two readings of the docs leave open: each becomes an explicit `unverified` chip on the page (artefact-conventions, epistemic honesty). Absence of a documented limit is not absence of a limit.
 
-For `assess` and `compare`, fit against real projects is required when the sources allow it: inventory the candidate repos (`git log` recency, stack, who commits), and for each say fits / stretch / no fit with the reason. The reference artefact's Strand III is the model: the verdict names one project to spike first, a time estimate for the spike, and the condition under which the spike should be abandoned.
+For `assess` and `compare`, fit against real projects is required when the sources allow it: inventory the candidate repos (`git log` recency, stack, who commits), and for each say fits / stretch / no fit with the reason. The reference artefact's Strand III is the model: the verdict names one project to spike first, a time estimate for the spike and the condition under which the spike should be abandoned.
 
 - [ ] External research delegated with ledger and could-not-find list required
 - [ ] Local survey run inline before the agent returns, so neither waits on the other
@@ -102,4 +102,4 @@ Location: `<project-root>/docs/artefacts/research-{slug}.html`, then publish wit
 
 ## Step 5: Report
 
-File path, artefact URL, the verdict in one line, and the count of `unverified` marks with what each one is waiting on. If the verdict recommends a spike, end with its first action.
+File path, artefact URL, the verdict in one line and the count of `unverified` marks with what each one is waiting on. If the verdict recommends a spike, end with its first action.

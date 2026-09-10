@@ -1,7 +1,7 @@
 ---
 name: "Asset: Shot"
 description: "Capture website screenshots from a generated, committed shots.yml (routes → shot-scraper) and frame them with the project's theme into README-ready mockups"
-when_to_use: "When a project needs screenshots for its README, portfolio page or social card; when the user mentions screenshots, mockups, captures, or points at a URL or site directory."
+when_to_use: "When a project needs screenshots for its README, portfolio page or social card; when the user mentions screenshots, mockups, captures or points at a URL or site directory."
 model: sonnet
 effort: medium
 metadata:

@@ -14,7 +14,7 @@ argument-hint: "[label for in-hand findings | path to a findings JSON]"
 
 Render verified findings as a self-contained, actionable HTML page: grouped by delivery status, ranked by severity, each verified before it ships. Uses the visual-explainer plugin's rendering patterns.
 
-The output is the audit artefact this skill was distilled from: a masthead + KPI row, findings grouped into collapsible **To do / In progress / Done** sections, severity shown on both a chip and the colour of each finding number, a severity/type filter bar, and a refuted section that keeps the audit falsifiable.
+The output is the audit artefact this skill was distilled from: a masthead + KPI row, findings grouped into collapsible **To do / In progress / Done** sections, severity shown on both a chip and the colour of each finding number, a severity/type filter bar and a refuted section that keeps the audit falsifiable.
 
 ## Step 1: Interpret `$ARGUMENTS` (auto-detect)
 
@@ -31,7 +31,7 @@ Each finding must carry:
 - `title`: one sentence stating the defect
 - `category`: one of `correction` (the source says something false/stale), `issue` (a real problem), `improvement` (reduces risk/effort), `enhancement` (valuable addition currently missing)
 - `severity`: `high` | `medium` | `low`
-- `evidence`: file:line references, quoted text, or command output; no speculation as fact
+- `evidence`: file:line references, quoted text or command output; no speculation as fact
 - `file_refs`: array of repo-relative paths (with optional `:line`)
 - `recommendation`: a single concrete action, not a theme
 - `anchor`: 2-4 word imperative label for the action (e.g. "Split the gate")
@@ -78,7 +78,7 @@ Read `references/css-patterns.md` (depth tiers, collapsible pattern, overflow pr
 
 ## Step 4: Aesthetic and palette
 
-Read `~/.claude/library/references/artefact-conventions.md` first — this
+Read `~/.claude/library/references/artefact-conventions.md` first: this
 skill's palette and theming route through the shared conventions now, not a
 standalone hex system. What stays specific to this skill (a deliberate
 per-artefact choice, not a divergence from the shared rules):
@@ -88,28 +88,28 @@ per-artefact choice, not a divergence from the shared rules):
   through the three-state theming contract (`:root` light, `@media
   (prefers-color-scheme: dark)` guarded by `:root:not([data-theme="light"])`,
   `:root[data-theme="dark"]` for an explicit toggle) **and** the masthead
-  toggle control from that reference doc — present, reachable in all three
-  states, persisted to `localStorage` — on every pathway except an `Artifact`
+  toggle control from that reference doc (present, reachable in all three
+  states, persisted to `localStorage`) on every pathway except an `Artifact`
   publish, where the host supplies its own.
 - **Palette source: the project's `html` theme, as everywhere** (see
   `theme-conventions.md`; global `clod` when the project has none). Map this
   skill's severity/status accents onto theme tokens via semantic aliases
-  (never a raw hex in a component) — `--high` to `--danger`, `--medium` to
+  (never a raw hex in a component): `--high` to `--danger`, `--medium` to
   `--warn`, `--low` to `--ok`; `--done`/`--progress`/`--todo` to `--ok`/
   `--info`/`--ink-muted`. Document the mapping the way the shared reference
   models, the way `those-who-came-before/site/assets/site.css` does.
 - Fonts: **Space Grotesk** (head + body) + **IBM Plex Mono** (mono, code,
-  labels) — this skill's own choice within the shared pairing *structure*
+  labels), this skill's own choice within the shared pairing *structure*
   (one display/body voice + one monospace workhorse); not mandatory elsewhere.
 - **Vocabulary**: severity (`high`/`medium`/`low`) and status
   (`done`/`in_progress`/`to_do`) are this skill's own contextual status
-  vocabulary per the shared honesty rule — appropriate for an audit trail,
+  vocabulary per the shared honesty rule; appropriate for an audit trail,
   not meant to be forced onto other artefact types.
 - **British spelling throughout. No em dashes** (use semicolons, colons, parentheses). No contrastive "not X but Y" couplets.
 - Forbidden for this skill specifically: Inter/Roboto body font (fights the
   chosen pairing); gradient-text headings; animated glow/pulse on static
   content. Violet/indigo stays off *this* skill's palette only to keep
-  severity-red unambiguous against everything else on the page — not a
+  severity-red unambiguous against everything else on the page; not a
   house-wide ban (other artefacts use violet deliberately).
 
 ## Step 5: Generate the HTML
@@ -125,18 +125,18 @@ Write to `{project_root}/docs/artefacts/audit-{slug}.html`, self-contained (embe
 ### Page structure
 
 1. **Masthead**: eyebrow, title, a lede that names the source document and explains the status grouping and the severity colour key inline, and a mono `method` line (`N confirmed · N refuted`).
-2. **KPI row**: four cards: Done, In progress, To do, and total Confirmed (with a severity breakdown sub-line). Colour each card's accent bar by what it counts.
+2. **KPI row**: four cards: Done, In progress, To do and total Confirmed (with a severity breakdown sub-line). Colour each card's accent bar by what it counts.
 3. **Filter bar**: sticky, `backdrop-filter` blur. Severity buttons (All / High / Medium / Low) and type buttons (Corrections / Issues / Improvements / Enhancements). Active button tints to the severity colour.
-4. **Status sections**: three `<details>` blocks in order **To do**, **In progress**, **Done**, all rendered **collapsed** (no `open` attribute); the reader chooses what to expand. Each summary shows the label, a count, and a right-aligned severity tally. Inside, a responsive card grid (`minmax(340px, 1fr)`), findings sorted by severity then id. An empty To-do section shows a short "nothing outstanding" note rather than vanishing.
+4. **Status sections**: three `<details>` blocks in order **To do**, **In progress**, **Done**, all rendered **collapsed** (no `open` attribute); the reader chooses what to expand. Each summary shows the label, a count and a right-aligned severity tally. Inside, a responsive card grid (`minmax(340px, 1fr)`), findings sorted by severity then id. An empty To-do section shows a short "nothing outstanding" note rather than vanishing.
 5. **Refuted section**: the dropped candidates, so the page is falsifiable not selective.
 6. **Footer**: source, method, applied date.
 
 ### Finding card
 
-- Header: the **finding number** (mono, bold) whose **colour is set by `data-sev`** via a rule like `.finding[data-sev="high"] .finding__num{color:var(--high)}`; this is the second severity signal alongside the chip. Right-aligned badges: a severity chip, a category badge, and a theme chip.
+- Header: the **finding number** (mono, bold) whose **colour is set by `data-sev`** via a rule like `.finding[data-sev="high"] .finding__num{color:var(--high)}`; this is the second severity signal alongside the chip. Right-aligned badges: a severity chip, a category badge and a theme chip.
 - Title (may contain `<code>` spans; convert `` `backticks` `` and strip any orphan).
 - An outcome line: a mono status label + the `outcome_note`.
-- A collapsible `<details>` holding the recommendation (led by a `▶ {anchor}` label), the file-ref chips, the evidence, and the verification note.
+- A collapsible `<details>` holding the recommendation (led by a `▶ {anchor}` label), the file-ref chips, the evidence and the verification note.
 - Every card carries `data-sev`, `data-cat`, `data-status` for the filter JS.
 
 ### Filter JS
@@ -145,7 +145,7 @@ Vanilla, inline. Buttons toggle a `.hidden` class on findings by `data-sev` or `
 
 ### Reliability
 
-Prefer writing the HTML directly. If the finding set is large, it is acceptable to drive a short Python generator (loop the dataset into card markup, escaping with `html.escape` and converting backticks to `<code>`) to avoid hand-escaping errors, then write the single output file. Do not leave a generator script behind as an artefact; the deliverable is the HTML (and the dataset JSON from Step 2).
+Prefer writing the HTML directly. If the finding set is large, it is acceptable to drive a short Python generator (loop the dataset into card markup, escaping with `html.escape` and converting backticks to `<code>`) to avoid hand-escaping errors, then write the single output file. Do not leave a generator script behind as an artefact; the output is the HTML (and the dataset JSON from Step 2).
 
 ## Step 6: Quality checks
 
