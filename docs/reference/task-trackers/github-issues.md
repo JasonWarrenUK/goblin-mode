@@ -17,15 +17,15 @@ Detection: explicit `taskSource: github` in the project's `CLAUDE.md`, or a GitH
 
 Match git branches to GitHub issues, in priority order:
 
-1. **Explicit issue number in branch name** — `feat/42-add-auth` → `#42`
-2. **PR references** — check open PRs for `closes #N` / `fixes #N` links
-3. **Commit message references** — `fix(auth): resolve login bug #42` → `#42`
+1. **Explicit issue number in branch name**: `feat/42-add-auth` → `#42`
+2. **PR references**: check open PRs for `closes #N` / `fixes #N` links
+3. **Commit message references**: `fix(auth): resolve login bug #42` → `#42`
 
 ## Orphan detection
 
-- **Orphaned issues** — issues labelled "in progress" with no corresponding branch or PR
-- **Untracked branches** — branches with no linked issue
-- **Stale issues** — issues with "in progress" label where the linked branch hasn't had a commit in >7 days
+- **Orphaned issues**: issues labelled "in progress" with no corresponding branch or PR
+- **Untracked branches**: branches with no linked issue
+- **Stale issues**: issues with "in progress" label where the linked branch hasn't had a commit in >7 days
 
 ---
 ← [Task trackers](README.md) · [Linear](linear.md) · [git-native](git-native.md)

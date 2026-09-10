@@ -2,7 +2,7 @@
 
 # Hooks
 
-Hooks are scripts Claude Code runs automatically on lifecycle and tool events. This repo uses them for two different jobs: **global hooks** (`hooks/`) run in every session regardless of project, and **project-level hooks** (`.claude/hooks/`) run only when this repo itself is the active project — mostly relevant when working on this config from a remote (web) session.
+Hooks are scripts Claude Code runs automatically on lifecycle and tool events. This repo uses them for two different jobs: **global hooks** (`hooks/`) run in every session regardless of project, and **project-level hooks** (`.claude/hooks/`) run only when this repo itself is the active project, mostly relevant when working on this config from a remote (web) session.
 
 > [!NOTE]
 > There are also `hooks/pre-commit` and `hooks/commit-msg`: plain **git hooks**, not Claude Code hooks. Both are installed machine-wide via a global `core.hooksPath` override and delegate to a project's own `scripts/<event>` if one exists; `commit-msg` also gates every commit message on the house rules. Unrelated machinery, same directory, easy to confuse; see [below](#git-hooks-pre-commit-and-commit-msg).
@@ -13,12 +13,12 @@ Wired in [`settings.json`](configuration.md):
 
 | Hook | Event | What it does |
 |---|---|---|
-| `session-start-worktree.sh` | `SessionStart` | Detects if the session is running inside a git worktree (not the main working tree) and injects a warning that `node_modules` won't exist there — npm/bun/test commands need to run from the main repo root instead. |
-| `settings-sync.sh` | `SessionStart` | Strips `//` comments and trailing commas from `settings.local.jsonc`, writes the result to `settings.local.json`. This is what makes the JSONC-source-of-truth pattern work: edit the `.jsonc`, never the `.json` directly — it's regenerated every session start. Warns (to stderr) if `.json` has keys the `.jsonc` doesn't, so a stale key never gets silently dropped without notice. |
+| `session-start-worktree.sh` | `SessionStart` | Detects if the session is running inside a git worktree (not the main working tree) and injects a warning that `node_modules` won't exist there: npm/bun/test commands need to run from the main repo root instead. |
+| `settings-sync.sh` | `SessionStart` | Strips `//` comments and trailing commas from `settings.local.jsonc`, writes the result to `settings.local.json`. This is what makes the JSONC-source-of-truth pattern work: edit the `.jsonc`, never the `.json` directly, since it's regenerated every session start. Warns (to stderr) if `.json` has keys the `.jsonc` doesn't, so a stale key never gets silently dropped without notice. |
 | `stop-uncommitted-check.sh` | `Stop` | When Claude finishes responding, checks `git status --porcelain` in the current directory. If the tree isn't clean, prints a one-line summary (staged/unstaged/untracked counts) nudging a commit. Silent when clean. |
-| `settings-backup.sh` | `SessionStart` (with `--if-changed`) and `PreToolUse` (matcher: `Edit\|Write`) | Snapshots `settings.json` to `~/.claude/backups/settings.json.backup.<epoch-ms>` before it can be lost. The `SessionStart` call only backs up if the file's content actually drifted since the last snapshot (catches changes that didn't come through Claude's own `Edit`/`Write`); the `PreToolUse` call reads the tool-call JSON off stdin and no-ops for any file that isn't `settings.json`. Rotates to the most recent 20 snapshots. Added after `settings.json` was found silently truncated on 15 August 2026 — see `configuration.md`. |
+| `settings-backup.sh` | `SessionStart` (with `--if-changed`) and `PreToolUse` (matcher: `Edit\|Write`) | Snapshots `settings.json` to `~/.claude/backups/settings.json.backup.<epoch-ms>` before it can be lost. The `SessionStart` call only backs up if the file's content actually drifted since the last snapshot (catches changes that didn't come through Claude's own `Edit`/`Write`); the `PreToolUse` call reads the tool-call JSON off stdin and no-ops for any file that isn't `settings.json`. Rotates to the most recent 20 snapshots. Added after `settings.json` was found silently truncated on 15 August 2026 (see `configuration.md`). |
 
-`settings.json` also wires two hooks that aren't files in `hooks/` — they shell out directly to `ccstatusline`:
+`settings.json` also wires two hooks that aren't files in `hooks/`: they shell out directly to `ccstatusline`.
 
 | Hook | Event | What it does |
 |---|---|---|
@@ -31,7 +31,7 @@ Only active when this `~/.claude` directory is itself opened as a project (e.g. 
 
 | Hook | Runs when | What it does |
 |---|---|---|
-| `session-start.sh` | `CLAUDE_CODE_REMOTE=true` (web sessions) | Detects project identity, package manager, framework, test runner, linter, database, ORM, API style, and monorepo tooling by probing for config files and lockfiles. Captures git branch/type/ahead-count/recent-commits. Installs dependencies if `node_modules` is missing. Exports everything as env vars for the session. |
+| `session-start.sh` | `CLAUDE_CODE_REMOTE=true` (web sessions) | Detects project identity, package manager, framework, test runner, linter, database, ORM, API style and monorepo tooling by probing for config files and lockfiles. Captures git branch/type/ahead-count/recent-commits. Installs dependencies if `node_modules` is missing. Exports everything as env vars for the session. |
 | `session-start-local.sh` | local terminal sessions | Detects git worktree state, stale branches (>20 commits behind default), and in-progress rebase/merge/cherry-pick. Checks for `zed`, `bun`, `gh` on PATH and reports which are missing. |
 
 ## Git hooks: `pre-commit` and `commit-msg`
