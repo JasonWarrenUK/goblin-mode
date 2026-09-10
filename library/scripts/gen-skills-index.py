@@ -123,7 +123,7 @@ def main() -> int:
 	)
 	lines.append("")
 	lines.append("Run `python3 ~/.claude/library/scripts/gen-skills-index.py` after adding, "
-		"renaming, or re-describing a skill.")
+		"renaming or re-describing a skill.")
 	lines.append("")
 	lines.append("| Tier glyph | Model |")
 	lines.append("|------|-------|")
