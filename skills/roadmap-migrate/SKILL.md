@@ -17,7 +17,7 @@ Upgrade an old **simple-format** roadmap to the **rich phase-array format** the 
 
 **Old (simple) format:** a single `docs/roadmaps/{name}.md` is the source of truth, with `<a name="m{N}">` anchors, four sections (In Progress / To Do / Blocked / Completed), `- [ ]`/`- [x]` checkboxes, prose `— **depends on {IDs}**`, a `graph TD` diagram; `.claude/roadmaps.json` is a `{"roadmaps":[{name,path}]}` pointer registry.
 
-**Rich format:** `.claude/roadmaps.json` is the source of truth: an **array of phase objects** `{name, path, archived?, externalGates, milestones}` with six statuses (`todo, blocked, paused, deferred, done, out_of_scope`), external gates, milestone/gate dependencies, and a mechanical status recompute. `docs/roadmaps/{PHASE}.md` and `docs/reports/ROADMAP_OVERVIEW.md` are projections.
+**Rich format:** `.claude/roadmaps.json` is the source of truth: an **array of phase objects** `{name, path, archived?, externalGates, milestones}` with six statuses (`todo, blocked, paused, deferred, done, out_of_scope`), external gates, milestone/gate dependencies and a mechanical status recompute. `docs/roadmaps/{PHASE}.md` and `docs/reports/ROADMAP_OVERVIEW.md` are projections.
 
 Shared conventions: `~/.claude/library/references/roadmap-conventions.md`. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
 
@@ -38,11 +38,11 @@ Show `git status` and advise the user to commit or stash first: this overwrites 
 Read the `.md`. For each `<a name="m{N}">` milestone block, capture:
 
 - Milestone number and name; the goal (`> **Goal:**` / `> [!IMPORTANT]` block).
-- Tasks in each section (`m{N}-doing`, `m{N}-todo`, `m{N}-blocked`, `m{N}-done`): the ID, the description, and any `— **depends on {IDs}**` clause. Note which section each came from (`doing`/`todo`/`blocked`/`done`).
+- Tasks in each section (`m{N}-doing`, `m{N}-todo`, `m{N}-blocked`, `m{N}-done`): the ID, the description and any `— **depends on {IDs}**` clause. Note which section each came from (`doing`/`todo`/`blocked`/`done`).
 
 Also parse the aggregated `graph TD` diagram for `{A} --> {B}` edges; merge these into each task's dependency set, so a dependency drawn only in the diagram (not written in prose) is not lost.
 
-### 3. Derive milestones, tasks, and dependencies
+### 3. Derive milestones, tasks and dependencies
 
 Build milestone objects `{id: "M{N}", name, goal, tasks:[…]}`. Each task: `{id, description, dependsOn:[…]}` with `dependsOn` the union of its prose depends-clause and its incoming Mermaid edges. The old format has no external gates → `externalGates: []`. Preserve any `- Note:` sub-bullets as a task `notes` field.
 

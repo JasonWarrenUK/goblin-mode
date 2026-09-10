@@ -15,7 +15,7 @@ argument-hint: "[PR number | URL]"
 
 # Handle a PR Review
 
-Takes the review feedback on a PR and closes the loop: independent verification of every change request, fixes for the ones that hold up, granular commits via `commit-batch`, and a reply on every thread. Two approval gates: one before any code changes, one before anything is posted to GitHub.
+Takes the review feedback on a PR and closes the loop: independent verification of every change request, fixes for the ones that hold up, granular commits via `commit-batch` and a reply on every thread. Two approval gates: one before any code changes, one before anything is posted to GitHub.
 
 Reviewers are sometimes wrong. The core of this skill is that no change request is implemented on the reviewer's authority alone, and none is dismissed without evidence.
 
@@ -45,7 +45,7 @@ If there is nothing to handle, say so and stop.
 
 For every item, read the actual code on the branch (not the diff snippet in the comment) and test the claim: does the bug exist, does the suggested change actually improve things, does it contradict an established project convention (`CLAUDE.md`, `.claude/**/*`, `docs/`)? Where a claim is checkable by running something (a test, a typecheck, a quick script), run it rather than reasoning about it.
 
-**When there are 4 or more items to verify, dispatch one read-only subagent per item** (or per tightly-related cluster, when several items point at the same code) instead of working the loop sequentially. Each subagent gets the item's thread/review-body text, the branch context needed to locate it, and returns: the classification below, the `file:line` evidence, a minimal proposed fix description, and any regression test needed. Subagents verify only; none of them edits a file — that stays in Step 4, after Gate 1, so two proposed fixes never collide in the same file before you've seen both. Below 4 items, verify directly; dispatch overhead outweighs the saving.
+**When there are 4 or more items to verify, dispatch one read-only subagent per item** (or per tightly-related cluster, when several items point at the same code) instead of working the loop sequentially. Each subagent gets the item's thread/review-body text, the branch context needed to locate it, and returns: the classification below, the `file:line` evidence, a minimal proposed fix description and any regression test needed. Subagents verify only; none of them edits a file: that stays in Step 4, after Gate 1, so two proposed fixes never collide in the same file before you've seen both. Below 4 items, verify directly; dispatch overhead outweighs the saving.
 
 Classify each item:
 
@@ -55,7 +55,7 @@ Classify each item:
 
 ## Gate 1: Triage approval
 
-Present a triage table: thread reference, one-line summary of the ask, verdict, evidence, and the planned action (fix description / deferral / pushback). **Stop and await approval.** Adjust verdicts the user overrules; they may know context the code doesn't show.
+Present a triage table: thread reference, one-line summary of the ask, verdict, evidence and the planned action (fix description / deferral / pushback). **Stop and await approval.** Adjust verdicts the user overrules; they may know context the code doesn't show.
 
 ## Step 4: Implement the approved fixes
 
@@ -68,7 +68,7 @@ Present a triage table: thread reference, one-line summary of the ask, verdict, 
 One reply per item, written per the writing-style skill's rules (no em-dashes, no contrastive couplets, lead with specifics):
 
 - **Fixed**: what changed and the commit SHA that carries it. One or two sentences; the diff speaks.
-- **Deferred**: acknowledge the point, say where it's now tracked, and why it's out of this PR's scope.
+- **Deferred**: acknowledge the point, say where it's now tracked and why it's out of this PR's scope.
 - **Pushback**: the evidence, politely: what the code actually does, with `file:line` citations or test output. State the disagreement plainly and leave the door open in your own words, matched to the thread's tone; never a stock closing phrase. The reviewer decides whether to press.
 
 ## Gate 2: Reply approval

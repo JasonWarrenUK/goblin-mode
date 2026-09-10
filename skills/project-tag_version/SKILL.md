@@ -14,7 +14,7 @@ disallowed-tools: ["Bash(git push --tags:*)"] # publishes every stray local tag;
 
 # Tag the release with `svu`
 
-[`svu`](https://github.com/caarlos0/svu) derives the next semver tag from conventional-commit history. It only computes the version; it never commits, pushes, or merges.
+[`svu`](https://github.com/caarlos0/svu) derives the next semver tag from conventional-commit history. It only computes the version; it never commits, pushes or merges.
 
 **Hard rule:** the tag always comes from `safe-version-next.sh`, never bare `svu next`. The script is identical to `svu next` except it refuses to cross 0.x → 1.x automatically; declaring the API stable is a human decision, so it emits a 0.x minor bump instead (and says so on stderr; relay the note when it fires). Later major bumps pass through.
 

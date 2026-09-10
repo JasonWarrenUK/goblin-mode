@@ -1,7 +1,7 @@
 ---
 name: "HUD: Worktrees"
 description: "Map every worktree in this repo in plain language and shepherd safe create/remove actions"
-when_to_use: "When the user asks what worktrees exist, seems confused about which checkout they're in, wants to create or remove a worktree, or a worktree-related git error appears; worktrees are easy to get wrong, which is why this skill exists."
+when_to_use: "When the user asks what worktrees exist, seems confused about which checkout they're in, wants to create or remove a worktree or a worktree-related git error appears; worktrees are easy to get wrong, which is why this skill exists."
 model: sonnet
 effort: medium
 metadata:
@@ -38,7 +38,7 @@ Group the table in two sections, both always shown: **deliberate worktrees** (th
 
 Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch's PR has merged (or, un-PR'd, is merged to main; candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere. An abandoned machine-made worktree (clean, branch merged or never pushed) is a first-class cleanup candidate here. When several worktrees form a stack (each branch the PR base of the next), say so plainly: "these three are one stack, bottom to top", since removing or rebasing them out of order is the trap.
 
-With no arguments, stop here; the map is the deliverable.
+With no arguments, stop here; the map is the output.
 
 ## Action: `new <branch>`
 
