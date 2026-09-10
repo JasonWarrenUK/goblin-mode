@@ -71,6 +71,10 @@ class StrictMasking(unittest.TestCase):
 		self.assertEqual(status, 1)
 		self.assertIn("'colorize'", out)
 
+	def test_british_towards_is_not_american_usage(self):
+		self.assertEqual(run_strict("lean towards the simpler fix\n")[0], 0)
+		self.assertEqual(run_strict("lean toward the simpler fix\n")[0], 1)
+
 	def test_inline_code_is_masked(self):
 		self.assertEqual(run_strict("rename `optimize` to `optimise`\n")[0], 0)
 
