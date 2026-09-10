@@ -22,6 +22,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/artefact-audit` | ᛊ sonnet | Render verified findings as an actionable, status-grouped HTML artefact. |
 | `/artefact-intro` | ᛊ sonnet | Render a visual HTML introduction to this codebase for a newly-joined developer |
 | `/artefact-playground` | ᛊ sonnet | Creates interactive HTML playgrounds — self-contained single-file explorers that let users configure… |
+| `/artefact-research` | ᚠ fable | Research a focus (a tool, a practice, a field of candidates) and render the findings as a verified,… |
 | `/asset-card` | ᛟ opus | Generate the project's social card (OG 1200×630 and GitHub 1280×640) from a committed card.json and… |
 | `/asset-demo` | ᛟ opus | Produce a demo GIF/MP4: VHS tape for CLI tools, shot-scraper storyboard for web flows, Playwright re… |
 | `/asset-pdf` | ᛊ sonnet | Rasterise pages of a PDF (tabletop game documents, print pieces) with pdftoppm and frame chosen page… |

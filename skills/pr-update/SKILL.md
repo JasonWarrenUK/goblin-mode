@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: pr
 disable-model-invocation: false # invocable by Claude so it can offer a refresh when new commits leave the description stale; its approval step still gates the write
-allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Read", "Glob", "Grep"]
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Read", "Glob", "Grep"]
 arguments: ["pr"]
 argument-hint: "[PR number]"
 ---
@@ -55,10 +55,22 @@ Take the existing body (in the dump) and update it:
 <!-- pr-update-watermark: <latest-sha> -->
 ```
 
-### 4. Show me the diff
+### 4. Scan the updated body
+
+Before showing it:
+
+```bash
+~/.claude/library/scripts/slop-scan.py --strict - <<'SLOP_EOF'
+<updated body>
+SLOP_EOF
+```
+
+Non-zero exit: rewrite to clear every `L<n> <rule>: <excerpt>` line and rescan, at most twice. Hits in text you did not write (the existing body) count too; this is the moment they get fixed. If hits remain, carry them to step 5 listed under the body so I decide.
+
+### 5. Show me the diff
 
 Display the updated body in full and a brief summary of what changed vs the previous description. **Wait for my approval.**
 
-### 5. Apply the update
+### 6. Apply the update
 
 Once approved: `gh pr edit $ARGUMENTS --body "<updated body>"`. Confirm success.
