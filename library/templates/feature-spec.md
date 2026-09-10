@@ -114,9 +114,9 @@
 
 ### Key UI Components
 
-- **[Component 1]**: [Purpose and behavior]
-- **[Component 2]**: [Purpose and behavior]
-- **[Component 3]**: [Purpose and behavior]
+- **[Component 1]**: [Purpose and behaviour]
+- **[Component 2]**: [Purpose and behaviour]
+- **[Component 3]**: [Purpose and behaviour]
 
 ---
 

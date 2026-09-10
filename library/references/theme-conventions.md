@@ -46,7 +46,7 @@ Never derive colours ad hoc from a project's CSS inside an asset skill. That is 
 
 ### Derivation rule
 
-1. Pick the anchor from the seed: the dominant chromatic colour of a project's CSS, an image's most saturated cluster, or the hue the mood words imply.
+1. Pick the anchor from the seed: the dominant chromatic colour of a project's CSS, an image's most saturated cluster or the hue the mood words imply.
 2. Surfaces: `surface` is a near-neutral carrying a trace of the anchor's hue (chroma 0.01 to 0.03 in OKLCH), lightness ≈ 0.97 light / 0.20 dark. `surface-raised` sits one step towards the ink.
 3. Ink: near-neutral opposite the surface, same faint hue.
 4. `accent` is the anchor itself (dark variant) and a darkened version that clears 4.5:1 on the light surface (light variant). `accent-2` is a harmony partner: complementary, split-complementary or triadic, chosen by which survives both surfaces.
@@ -105,4 +105,4 @@ When a target needs colours the core lacks (16 ANSI slots), synthesise by rotati
 
 ## Palette references
 
-Seed libraries the interview may offer, none mandatory: the project's own CSS, an image, mood words, or a reference palette such as `reasonable-colors-reference.md` (24 hues × 6 shades with a known contrast table). Reference palettes are starting points; the theme that ships must pass the originality gate on its own.
+Seed libraries the interview may offer, none mandatory: the project's own CSS, an image, mood words or a reference palette such as `reasonable-colors-reference.md` (24 hues × 6 shades with a known contrast table). Reference palettes are starting points; the theme that ships must pass the originality gate on its own.

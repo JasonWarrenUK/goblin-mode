@@ -1,5 +1,5 @@
 <!--
-	readme-sub.md — skeleton for a directory-level README (doc-readme skill).
+	readme-sub.md: skeleton for a directory-level README (doc-readme skill).
 	Pick the section set matching what the directory contains; keep it
 	proportional to the directory's complexity.
 -->
@@ -8,7 +8,7 @@
 {{ one-line statement of the directory's purpose }}
 
 ## Overview
-{{ what lives here and how it fits the broader codebase — reference the parent README where useful }}
+{{ what lives here and how it fits the broader codebase, reference the parent README where useful }}
 
 <!-- Library/module: -->
 ## API / Exports

@@ -21,7 +21,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 |---------|-------|-------------|
 | `/artefact-audit` | ᛊ sonnet | Render verified findings as an actionable, status-grouped HTML artefact. |
 | `/artefact-intro` | ᛊ sonnet | Render a visual HTML introduction to this codebase for a newly-joined developer |
-| `/artefact-playground` | ᛊ sonnet | Creates interactive HTML playgrounds — self-contained single-file explorers that let users configure… |
+| `/artefact-playground` | ᛊ sonnet | Creates interactive HTML playgrounds: self-contained single-file explorers that let users configure… |
 | `/artefact-research` | ᚠ fable | Research a focus (a tool, a practice, a field of candidates) and render the findings as a verified,… |
 | `/asset-card` | ᛟ opus | Generate the project's social card (OG 1200×630 and GitHub 1280×640) from a committed card.json and… |
 | `/asset-demo` | ᛟ opus | Produce a demo GIF/MP4: VHS tape for CLI tools, shot-scraper storyboard for web flows, Playwright re… |
@@ -87,7 +87,7 @@ Ambient knowledge roles (`user-invocable: false`), loaded by Claude when relevan
 
 | Skill | Description | When to use |
 |-------|-------------|-------------|
-| `asset-conventions` | Where generated visual assets live, how project type and theme are resolved, and the quality gate ev… | Loaded by every asset-* skill before it captures, renders or frames anything; also when a README needs a screenshot, GIF… |
+| `asset-conventions` | Where generated visual assets live, how project type and theme are resolved and the quality gate eve… | Loaded by every asset-* skill before it captures, renders or frames anything; also when a README needs a screenshot, GIF… |
 | `clod-approach-stud` | Studs every function of a planned feature in its real file as a runnable walking-skeleton (fake data… | >=1 of the following are true: (a) spans several functions/files; (b) touches existing code in more than one place; (c)… |
 | `clod-approach-writing_style` | Writing style guide for Jason Warren. Applies whenever writing or editing substantive prose for Jaso… | Any request involving writing, drafting, editing or composing text that isn't purely code (including GitHub PR descripti… |
 | `clod-lens-empathy` | Empathy-driven design: think through how real people experience the software; surface and challenge… | When designing a user-facing flow and it's worth pausing to ask how it actually feels to a real person using it; especia… |

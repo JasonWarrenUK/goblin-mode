@@ -126,15 +126,15 @@ not substitute a default, do not start the report.
    on Reads.
 3. **Show the drafted persona back**, both levels: the full nine-field prose
    (as always) and, once that's confirmed, a one-line summary per field for
-   frontmatter — write both from the same draft, since the prose has to exist
+   frontmatter: write both from the same draft, since the prose has to exist
    before it can be compressed. Get a yes on the whole thing, prose and
    summaries together.
 4. **Write it** to `~/.claude/library/profiles/personas/{slug}.md`
-   (an invented persona's `slug` is its name, same as `bob`/`cedric` — Step 1c's
+   (an invented persona's `slug` is its name, same as `bob`/`cedric`; Step 1c's
    personas derived from a real dossier entry also get an invented name, never
    the person's own): a `---`-delimited frontmatter block (`id`, `slug`,
    `description`, `quickFacts`, `isRealPerson: false`, `updated`, `pronouns`,
-   `linkedProfileIds: []`, `scope` — default to the calling skill's own scope
+   `linkedProfileIds: []`, `scope`, default to the calling skill's own scope
    tag unless the drafted fields read as scope-agnostic, then the nine summary
    fields) followed by the full prose body, per the contract in
    [../../profiles/personas/README.md](../../profiles/personas/README.md). This
@@ -152,7 +152,7 @@ Do not fall back to the suggested pair silently. Run `red-personas.py roster
 Power and Trigger summaries, with the suggested pair marked. Anyone in
 `~/.claude/library/profiles/dossier/` who has no persona yet is listed after them,
 under "real people", since rehearsing against an actual reviewer beats
-rehearsing against a stand-in — the script only knows about persona files, so
+rehearsing against a stand-in; the script only knows about persona files, so
 this part stays your own read of the dossier directory. Then ask which one or
 two to use, offering those entries plus "define a new one", which routes to
 Step 1a. Multi-select, capped at two. Stop until answered.
@@ -161,7 +161,7 @@ Step 1a. Multi-select, capped at two. Stop until answered.
 
 Fires per Step 1's resolution order (form 3): the slug names a file in
 `~/.claude/library/profiles/dossier/` whose `linkedProfileIds` names no
-persona yet — a first derivation — or Step 1's staleness check offered a
+persona yet (a first derivation) or Step 1's staleness check offered a
 refresh and the user took it. This is the case the personas system exists
 for: rehearsing a target against the people who will actually see it, with
 Bob and Cedric as the stand-ins they always were.
@@ -172,8 +172,8 @@ content never enters a tracked file, and a person named there is never named
 in anything published. The persona store (`library/profiles/personas/`)
 is **tracked**, and Step 5's refine-then-save writes reports out of it that
 can end up read by other people. A persona derived from a real dossier entry
-must therefore carry an **invented name**, never the real one — the
-substitution is the anonymisation — and its fields must be a
+must therefore carry an **invented name**, never the real one (the
+substitution is the anonymisation), and its fields must be a
 **generalisation**, not a paraphrase: strip the specific facts (a repo path, a
 named project, a direct quote of what someone said they reject) down to the
 *behavioural pattern* those facts imply, the same distance a
@@ -203,14 +203,14 @@ Then:
    four. Nine questions for someone the config already knows is an insult to
    the dossier.
 3. **Invent a name**, or reuse the existing one on a refresh (check the
-   dossier entry's `linkedProfileIds` for an existing link — see Step 1's
+   dossier entry's `linkedProfileIds` for an existing link; see Step 1's
    staleness check). A short capitalised name, obviously fictional, distinct
    from any existing persona or dossier slug.
-4. **Write the review profile** to `personas/{invented-name}.md` — the
-   invented name, never the person's own, as both filename and `slug` — with
+4. **Write the review profile** to `personas/{invented-name}.md` (the
+   invented name, never the person's own, as both filename and `slug`) with
    both levels (frontmatter summaries and full prose), generalised per the
    privacy boundary above: never the dossier's own wording verbatim, never a
-   project name, a file path, or a quote attributable to one person. Leave
+   project name, a file path or a quote attributable to one person. Leave
    `id` unset for now; it is assigned in step 4a below. On a refresh, this
    overwrites the existing file at the same invented name; the name never
    changes, and neither does its `id`.
@@ -220,23 +220,23 @@ Then:
 5. **Write the link on both sides**, now that both ids exist:
    - **Persona side** (this new file): `linkedProfileIds` carries
      `["{dossier entry's id}", false, "{dossier entry's current updated}",
-     "{generalised linkDescription}"]` — `isSource: false` because the
+     "{generalised linkDescription}"]`; `isSource: false` because the
      dossier entry is the origin. The id alone (`DOS005`) carries no name and
      no slug, so a later dossier edit is detectable as drift next time this
      persona resolves without this file ever having named the person.
-   - **Dossier side** (the person's own file): the same link, reversed —
+   - **Dossier side** (the person's own file): the same link, reversed:
      `["{this persona's id}", true, "{today}", "{linkDescription}"]`,
      `isSource: true`. This can be as specific as the dossier itself already
-     is — that file never leaves the machine. This is the one write this step
+     is: that file never leaves the machine. This is the one write this step
      makes into the person's own file: the link exists, but no field of the
      persona (`needs`, `stake`, and so on) is ever copied there. How someone
      reviews a target is inference about them; their dossier holds facts they
      said or that Jason stated. The review profile is labelled as a model,
-     lives in the persona store, and stays correctable there.
+     lives in the persona store and stays correctable there.
 
 Say once, in the report's provenance line, that this persona was derived from
 a real person's dossier entry. A report that reads as a prediction about a
-colleague should announce itself as one — but the announcement names the
+colleague should announce itself as one, but the announcement names the
 persona, never the person, in anything the report itself might reach. The
 provenance line never prints the dossier slug next to the persona's invented
 name in the same breath; the whole point of the invented name is that the two
@@ -276,7 +276,7 @@ looking for:
 - A persona defined by **forensics** dies on arithmetic that does not
   reconcile, quotations that do not match their source, sample sizes that go
   unreconciled, numbering with a gap in it, tables contradicting the sentence
-  that introduces them, and constraints that do not do what their caption says.
+  that introduces them and constraints that do not do what their caption says.
   Then the begged questions: what the target assumes rather than establishes.
   Then rehash, if that is a stated trigger: sections that restate earlier ones,
   quoted against each other.
