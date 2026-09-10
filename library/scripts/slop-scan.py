@@ -111,7 +111,7 @@ HOUSE_RULES = [
 	("-ize / -ization", r"\b\w*iz(?:e|es|ed|ing|ation|ations)\b"),
 	("American -or", r"\b(?:color|behavior|favor|honor|labor|neighbor|humor|flavor|rumor)s?\b"),
 	("American -er", r"\b(?:center|centers|meter|meters|liter|liters|theater)\b"),
-	("American usage", r"\b(?:toward|towards\b(?!\s*the\s*end)|gotten|oftentimes|upcoming|deliverable)\b"),
+	("American usage", r"\b(?:toward|gotten|oftentimes|upcoming|deliverable)\b"),
 ]
 
 # Labels whose matched token adds nothing to a strict-mode line.
