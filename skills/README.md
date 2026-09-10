@@ -2,7 +2,7 @@
 
 Slash commands and knowledge skills for Claude Code. Regenerate this index from frontmatter when skills change; do not hand-edit rows.
 
-Run `python3 ~/.claude/library/scripts/gen-skills-index.py` after adding, renaming, or re-describing a skill.
+Run `python3 ~/.claude/library/scripts/gen-skills-index.py` after adding, renaming or re-describing a skill.
 
 | Tier glyph | Model |
 |------|-------|
