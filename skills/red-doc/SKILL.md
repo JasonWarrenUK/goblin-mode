@@ -82,8 +82,10 @@ python3 ~/.claude/library/scripts/slop-scan.py <target> --top 6
 ```
 
 Counts house-rule breaches, contrastive couplets, first-person density, hedge
-boilerplate, intensifiers, LLM lexicon, triads, numeral-style clashes and
-verbatim repetition, with line numbers.
+boilerplate, intensifiers, LLM lexicon, borrowed weight, triads, numeral-style
+clashes and verbatim repetition, with line numbers. (`--strict` is the gate
+mode the commit-msg hook and the prose skills use: house rules only, exit 1 on
+a hit. This pass wants the full report, not the gate.)
 
 The scan produces candidates, never findings. Read each hit in context before
 it enters the report, and drop the ones where the construction is doing real

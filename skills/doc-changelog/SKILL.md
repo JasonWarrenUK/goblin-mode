@@ -8,7 +8,7 @@ metadata:
   glyph: ᚺ
   family: doc
 disable-model-invocation: false # programmatic (built from commits), and its trigger moment follows pr-land; approval gates the write
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)"]
 arguments: ["targets", "version"]
 argument-hint: "[md|release|app|docs|all] [tag (optional, scopes to one release)] (default targets: md + whatever already exists)"
 ---
@@ -64,6 +64,16 @@ Keep a Changelog structure: `# Changelog` intro, `## [Unreleased]`, then `## [x.
 **Collapsibility for older entries.** Once the file holds more than a handful of version sections, wrap everything older than the most recent few in GFM's native `<details><summary>` — `[Unreleased]` and the newest 2-3 versions stay always-visible, older ones collapse behind a one-line summary (`<summary>0.4.0 and earlier</summary>`). No custom chevron needed. Adjusting which sections are wrapped as new versions land is presentational only — it doesn't touch a section's own entries, so it isn't the "rewrite already-published sections" the red flags below warn against.
 
 No badge row and no separate provenance line here — each entry is already dated by construction, which is its own honesty record; a "generated on X" line would just repeat what the file already states more precisely.
+
+Scan the new or changed sections before showing them:
+
+```bash
+~/.claude/library/scripts/slop-scan.py --strict - <<'SLOP_EOF'
+<draft sections>
+SLOP_EOF
+```
+
+Non-zero exit: rewrite to clear every `L<n> <rule>: <excerpt>` line and rescan, at most twice. If hits remain, list them under the draft so the reviewer decides.
 
 Show the draft (or the diff, when updating) and **await approval** before writing.
 
