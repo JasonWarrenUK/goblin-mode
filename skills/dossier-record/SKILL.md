@@ -49,7 +49,7 @@ own restraint is worse than one that never ran.
 ## Step 1a: Parse an explicit `/dossier-record` invocation
 
 This step only applies when the skill was invoked explicitly as
-`/dossier-record ...` — it does not apply to the inline auto-fire path above,
+`/dossier-record ...`; it does not apply to the inline auto-fire path above,
 where the fact already sitting in conversation *is* the argument and Step 1's
 gate is the only gate that runs. An arg-count check on the inline path would
 make the skill demand arguments instead of quietly recording what was just
@@ -59,11 +59,11 @@ For an explicit invocation, split `$ARGUMENTS` on whitespace and read the
 first token:
 
 - **First token is `"new"`**: the new-person variant.
-  `/dossier-record "new" <name> <fact 1> [fact 2] [fact 3] ...` — token 2 is
+  `/dossier-record "new" <name> <fact 1> [fact 2] [fact 3] ...`: token 2 is
   the person's name, every token after it is a separate fact to record for a
   person who should not already exist. If `<name>` resolves to an existing
   file (exact match or near miss per Step 2), stop and say so rather than
-  silently treating this as a normal record — `"new"` is a claim that nobody
+  silently treating this as a normal record: `"new"` is a claim that nobody
   has recorded this person yet, and that claim is worth surfacing when it is
   wrong. Fewer than two tokens after `"new"` (no name, or a name with no
   fact): request the name and at least one fact, tersely, and stop.
@@ -76,7 +76,7 @@ first token:
 - **Two or more tokens, first token well-formed as a name and second
   well-formed as a fact**: token 1 is the person (resolved per Step 2), token
   2 is the first fact. Any further tokens (3+) are **additional, separate
-  facts** about the same person, not more of the second fact — each becomes
+  facts** about the same person, not more of the second fact: each becomes
   its own bullet under Step 3, not one bullet with everything folded in.
   "Well-formed" here just means non-empty and not itself another recognised
   keyword; this skill does not reject a name or fact for looking unusual, it
@@ -99,7 +99,7 @@ ls ~/.claude/library/profiles/dossier/
   fact somewhere to land. Leave `id` unset; `linkedProfileIds` starts `[]`.
   Then run
   `python3 "$HOME"/.claude/library/scripts/assign_profile_ids.py` so the new
-  file gets its `id` immediately — waiting until a persona derivation needs it
+  file gets its `id` immediately: waiting until a persona derivation needs it
   (see Step 2a) would leave a freshly created file id-less in the meantime.
 
 ## Step 2a: Record a persona link (only when asked to)
@@ -111,8 +111,8 @@ part of the normal fact-recording flow; this skill is invoked for that
 purpose specifically.
 
 1. Append `["{persona's id}", true, "{today}", "{linkDescription}"]` to this
-   person's `linkedProfileIds` — `isSource: true`, since this entry is the
-   origin, and the id (not the persona's invented name) is what makes the
+   person's `linkedProfileIds` (`isSource: true`, since this entry is the
+   origin), and the id (not the persona's invented name) is what makes the
    link. `linkDescription` can be as specific as this file already is; it
    never leaves the machine.
 2. Update `updated` too, since the file changed.
@@ -127,7 +127,7 @@ existing link is reused, never duplicated).
 
 Append one bullet to `## Facts`, in Jason's words where he gave them, with
 today's date in backticks at the end of the line. When Step 1a handed over
-more than one fact, repeat this step once per fact, in order — each is its
+more than one fact, repeat this step once per fact, in order: each is its
 own bullet, checked against Step 4's contradiction gate independently, so one
 contradicting fact among several does not block the rest from being written.
 

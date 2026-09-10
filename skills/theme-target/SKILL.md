@@ -1,7 +1,7 @@
 ---
 name: "Theme: Target"
 description: "Define a new theme target type (a consumer of colour/type tokens the theme system doesn't cover yet): template, core→target mapping rule, emitter case, so theme-factory can extend any family to it"
-when_to_use: "When a skill or script needs a themed output for a consumer with no entry in theme-conventions.md's target table (a new renderer, a TUI framework, a slide tool), or when the user says a theme should also drive some new kind of output."
+when_to_use: "When a skill or script needs a themed output for a consumer with no entry in theme-conventions.md's target table (a new renderer, a TUI framework, a slide tool) or when the user says a theme should also drive some new kind of output."
 model: sonnet
 effort: medium
 metadata:

@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Review"
 description: "Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) and dependency-graph rationality, in one pass or by lens"
-when_to_use: "Periodically, or when the roadmap feels stale, priorities feel off, tasks feel blocked for no reason, or a milestone dragged past its intent. Lenses: 'health' for the strategic pass, 'deps' for the edge audit, default both; the judgement complement to roadmap-maintain's mechanical sync."
+when_to_use: "Periodically, or when the roadmap feels stale, priorities feel off, tasks feel blocked for no reason or a milestone dragged past its intent. Lenses: 'health' for the strategic pass, 'deps' for the edge audit, default both; the judgement complement to roadmap-maintain's mechanical sync."
 model: opus
 effort: high
 metadata:
@@ -44,7 +44,7 @@ Read-only: findings route to the skills that write. Shared conventions: `~/.clau
    - **Suspicious absences**: task pairs that plainly touch the same artefact (matching terms in descriptions/notes) with no edge either way.
    - **Over-serialised chains**: A→B→C→D where the middle links look like authoring order, not real dependency; each unnecessary link delays the tail.
    - **Bottlenecks**: a task whose `transitiveUnblocks` dwarfs the rest; is the fan-in real, or are several dependants only loosely related to it?
-   - **Gate rationality**: for every external gate, is it still genuinely external, still imposing the right status, and is its `blocks[]` list still the honest set?
+   - **Gate rationality**: for every external gate, is it still genuinely external, still imposing the right status and is its `blocks[]` list still the honest set?
    - **Milestone boundaries**: tasks whose edges mostly cross into a *different* milestone probably live in the wrong one; milestone-ID dependencies (`M1`) worth checking against intent (all of M1, or really just two tasks in it?).
    - **Soft/hard misfiles**: `softDependsOn` entries that in truth gate the work, and hard edges that are really "nice to sequence".
 

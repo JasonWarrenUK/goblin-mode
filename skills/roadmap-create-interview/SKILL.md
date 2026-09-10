@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Propose"
 description: "Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks. Read-only; roadmap-update-tasks writes the approved proposal."
-when_to_use: "When the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase, or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone' or 'interview me about what to build'. Not for adding a single already-specified task; that's roadmap-update-tasks."
+when_to_use: "When the user wants to explore what to build next, brainstorm features, expand the roadmap, plan a new phase or says things like 'what should we add', 'help me think through features', 'let's plan the next milestone' or 'interview me about what to build'. Not for adding a single already-specified task; that's roadmap-update-tasks."
 model: opus
 effort: high
 metadata:
@@ -22,7 +22,7 @@ A structured interview that turns half-formed ideas into a coherent batch of roa
 
 ## Philosophy
 
-Good features don't usually arrive fully formed. They start as vague intentions ("we need better search", "users keep asking for X") and need interrogation to become tasks. This skill does that interrogation: it asks focused questions in small batches, listens for dependencies and scope, and organises the output into something the roadmap can absorb cleanly.
+Good features don't usually arrive fully formed. They start as vague intentions ("we need better search", "users keep asking for X") and need interrogation to become tasks. This skill does that interrogation: it asks focused questions in small batches, listens for dependencies and scope and organises the output into something the roadmap can absorb cleanly.
 
 The interview is a thinking tool as much as a discovery one. Sometimes the most valuable outcome is realising a "feature" is actually three separate concerns, or that what feels new is actually an extension of something already tracked.
 
@@ -111,7 +111,7 @@ Assign:
 - **Description**: clear, imperative, task-like (not "we need to...", just "Build X" or "Add Y")
 - **Proposed milestone**: which milestone this belongs to, and why
 - **Proposed status**, computed mechanically: `todo` if it has no incomplete dependencies, `blocked` if it depends on anything not yet `done`, `paused`/`deferred` if it sits behind a gate that imposes those
-- **Incoming dependencies**: existing task IDs, a milestone ID, or a gate ID that must resolve first
+- **Incoming dependencies**: existing task IDs, a milestone ID or a gate ID that must resolve first
 - **Outgoing dependencies**: existing tasks this would unblock, or new tasks in this batch that depend on it
 - **Assignee**: only if the user names one during the interview. Ask, don't infer; unlike status, this is never computed. Leave unset if nobody said who owns it.
 
@@ -151,7 +151,7 @@ Existing task A → New task B → New task C
 New task E (standalone, orphan warning)
 ```
 
-Then ask: *"Does this look right? Any tasks to cut, rename, or move? Once you're happy I'll hand this to the task adder."*
+Then ask: *"Does this look right? Any tasks to cut, rename or move? Once you're happy I'll hand this to the task adder."*
 
 ---
 

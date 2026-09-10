@@ -23,7 +23,7 @@ this file adds only what is unique to the document path.
 
 **Target is required; persona is not.** A target with no target is nothing to
 run at all. Exception: the single literal invocation `/red-doc personas` (no
-other arguments) prints the roster and stops — that is a deliberate roster
+other arguments) prints the roster and stops: that is a deliberate roster
 lookup, not an incomplete review request.
 
 If the target is missing, do not guess and do not fall back to the document
