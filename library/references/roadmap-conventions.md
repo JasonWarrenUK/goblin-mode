@@ -78,7 +78,7 @@ by construction:
   would be invalid as a hard `dependsOn` edge (that's often the point: an
   override or best-effort refresh that intentionally points "backwards")
 - never disqualifies a task from being a milestone sink; only `dependsOn`
-  entries within a milestone count toward the sink computation
+  entries within a milestone count towards the sink computation
 - an unresolvable `softDependsOn` id is reported by `validate` (mirroring
   `dependsOn`'s unresolvable-id check), not silently dropped
 
@@ -146,7 +146,7 @@ their own card colour but sit outside that four-way partition:
 | `done` | every member `done`/`out_of_scope` (nothing actionable, nothing deferred), or `donePct == 100` | green |
 | `blocked` | ≥1 member `blocked` (and not already deferred/done) | red |
 | `paused` | ≥1 member `paused` (and not already deferred/done/blocked) | purple |
-| `inProgress` | `0 < donePct < 100`, nothing blocked/paused | **azure** — unclaimed by task status, distinct from sky (milestone-structural) |
+| `inProgress` | `0 < donePct < 100`, nothing blocked/paused | **azure**: unclaimed by task status, distinct from sky (milestone-structural) |
 | `todo` | nothing started, or a genuinely empty (zero-task) milestone | gray |
 
 An all-`out_of_scope` milestone (struck-from-play) reads as `done`, not
@@ -184,7 +184,7 @@ status as computed, not judged.
 
 Nothing else. Inference never hand-sets `todo`, `blocked`, `paused` or
 `deferred` directly; those stay purely derived. It never re-opens `done`,
-flips `out_of_scope`, or disturbs a root-seeded held status.
+flips `out_of_scope` or disturbs a root-seeded held status.
 
 **Evidence rule:** positive, specific, whole-task evidence only. Absence of a
 match is never evidence of completion. A task whose feature is only partly
@@ -217,7 +217,7 @@ auto-reverted; absence still isn't evidence.
 - Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, pr?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred: a skill setting it must ask, never guess from description,
-  git author, category, or who's running the skill.
+  git author, category or who's running the skill.
 - `pr` is an optional integer: the GitHub PR number that ships the task,
   recorded by `next-task-ship` at PR creation (worth setting by hand when
   shipping outside that skill). It lets a later run detect that a `done`

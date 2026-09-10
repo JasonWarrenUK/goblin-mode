@@ -418,7 +418,7 @@ GET /api/resource1?sort=field1:asc,field2:desc
 
 ### v1.1.0 (YYYY-MM-DD)
 - Added [new endpoint]
-- Changed [field behavior]
+- Changed [field behaviour]
 - Deprecated [old endpoint]
 
 ### v1.0.0 (YYYY-MM-DD)

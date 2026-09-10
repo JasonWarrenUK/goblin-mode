@@ -226,7 +226,7 @@ npm test:integration    # Integration tests only
 - [Consideration 1]
 - [Consideration 2]
 
-**Optimization Strategies**:
+**Optimisation Strategies**:
 - [Strategy 1]
 - [Strategy 2]
 

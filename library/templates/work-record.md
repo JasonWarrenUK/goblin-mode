@@ -182,7 +182,7 @@ function newFeature() {
 
 ## Notes for Future Self
 
-[Any important context, reminders, or insights that will be valuable later]
+[Any important context, reminders or insights that will be valuable later]
 
 [Things to remember when returning to this area of code]
 
