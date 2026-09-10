@@ -2,23 +2,23 @@
 
 # Library
 
-`library/` is the shared-code layer for skills: reference material, fill-in templates, executable scripts, and example configs. If a skill needs the same fragment twice, it lives here once. See the [deterministic-half pattern](../architecture.md#the-deterministic-half-pattern) for why so much of it is executable rather than prose.
+`library/` is the shared-code layer for skills: reference material, fill-in templates, executable scripts and example configs. If a skill needs the same fragment twice, it lives here once. See the [deterministic-half pattern](../architecture.md#the-deterministic-half-pattern) for why so much of it is executable rather than prose.
 
-## `references/` — agent-loaded background reading
+## `references/`: agent-loaded background reading
 
 Skills point here instead of restating shared rules, so lineages of related skills (roadmap-\*, stud-\*) can't drift against each other.
 
 | File | Used by |
 |---|---|
-| `theme-conventions.md` | `theme-factory`, `theme-target`, every `asset-*` skill and any styling work — theme file format, resolution order, core→target mapping, quality gates (see [CLAUDE.md §7.5](../../CLAUDE.md)) |
-| `asset-tools.md` | The `asset-*` family — verified flags and config shapes for shot-scraper, VHS, freeze, pdftoppm, Playwright and the toolkit scripts |
-| `reasonable-colors-reference.md` | `theme-factory` — one optional seed palette for a new theme (24 hues × 6 shades with a known contrast table); no longer enforced anywhere |
-| `react-to-svelte5.md` | `import-scaffold_artefact` — mapping React/JSX patterns to Svelte 5 idioms |
-| `roadmap-conventions.md` | The roadmap skill family (`roadmap-create`, `-create-interview`, `-maintain`, `-update-tasks`, `-migrate`, `artefact-roadmap`) — shared format rules; the executable half is `scripts/roadmap.py` |
-| `stud/conventions.md` | `do-stud`, `clod-approach-stud` — the mechanical *how* of scaffold banners (`&` new, `!` edited), shared so the two stud lineages can't drift |
+| `theme-conventions.md` | `theme-factory`, `theme-target`, every `asset-*` skill and any styling work: theme file format, resolution order, core→target mapping, quality gates (see [CLAUDE.md §7.5](../../CLAUDE.md)) |
+| `asset-tools.md` | The `asset-*` family: verified flags and config shapes for shot-scraper, VHS, freeze, pdftoppm, Playwright and the toolkit scripts |
+| `reasonable-colors-reference.md` | `theme-factory`: one optional seed palette for a new theme (24 hues × 6 shades with a known contrast table); no longer enforced anywhere |
+| `react-to-svelte5.md` | `import-scaffold_artefact`: mapping React/JSX patterns to Svelte 5 idioms |
+| `roadmap-conventions.md` | The roadmap skill family (`roadmap-create`, `-create-interview`, `-maintain`, `-update-tasks`, `-migrate`, `artefact-roadmap`): shared format rules; the executable half is `scripts/roadmap.py` |
+| `stud/conventions.md` | `do-stud`, `clod-approach-stud`: the mechanical *how* of scaffold banners (`&` new, `!` edited), shared so the two stud lineages can't drift |
 | `stud/worked-example.md` | A complete worked stud scaffold, for the same pair of skills |
 
-## `templates/` — fill-in-the-blanks documents
+## `templates/`: fill-in-the-blanks documents
 
 Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 
@@ -26,38 +26,38 @@ Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 |---|---|
 | `ADR.md` | `doc-adr` |
 | `api-reference.md`, `technical-overview.md`, `feature-spec.md` | `doc-readme` / `doc-update_misc`, ad hoc |
-| `readme-root.md`, `readme-sub.md` | `doc-readme` — root vs. directory-level READMEs get different section sets |
+| `readme-root.md`, `readme-sub.md` | `doc-readme`: root vs. directory-level READMEs get different section sets |
 | `roadmap.md`, `roadmap-artefact.html` | `roadmap-create` (prose) / `artefact-roadmap` (the HTML dashboard shell, rendered by `roadmap.py render`) |
 | `work-record.md` | Session/agent work-record entries (e.g. `session-closer`) |
 | `pr-description.md` | `pr-create` and `pr-update` share this template so the two can't drift on PR body structure |
 
-## `configs/examples/` — canonical shape references
+## `configs/examples/`: canonical shape references
 
 | File | Purpose |
 |---|---|
-| `skill-frontmatter.yaml` | The canonical frontmatter shape for a new skill — `name`, `description`, `when_to_use` (flagged with a `CLOD TRIGGER` comment), invocability flags, `model`, `effort`, `allowed-tools`/`disallowed-tools`. This sweep brought every existing skill up to what this template already prescribed. |
+| `skill-frontmatter.yaml` | The canonical frontmatter shape for a new skill: `name`, `description`, `when_to_use` (flagged with a `CLOD TRIGGER` comment), invocability flags, `model`, `effort`, `allowed-tools`/`disallowed-tools`. This sweep brought every existing skill up to what this template already prescribed. |
 | `roadmaps.jsonc` | Expected shape of a project's `.claude/roadmaps.json` registry |
-| `mvp.md` | A complete worked roadmap example, deep into development — the canonical reference for `roadmap-create`'s output |
+| `mvp.md` | A complete worked roadmap example, deep into development: the canonical reference for `roadmap-create`'s output |
 
-## `scripts/` — the deterministic halves
+## `scripts/`: the deterministic halves
 
 Each script is the fact-gathering half of a skill: it does the part that has one correct answer (parsing git output, reading a lockfile, validating a schema) so the model's job is judgement on structured data, not orchestrating shell calls itself.
 
 | Script | Feeds | Does |
 |---|---|---|
-| `branch-facts.sh` | `branch-qa_review`, `branch-rename` | Emits branch-readiness facts as JSON — commit quality, diff size, naming — so the model judges from exact numbers |
+| `branch-facts.sh` | `branch-qa_review`, `branch-rename` | Emits branch-readiness facts as JSON (commit quality, diff size, naming) so the model judges from exact numbers |
 | `deps-dump.sh` | `project-investigate-deps` | Detects the package manager from lockfiles, dumps declared vs. installed vs. latest versions plus audit output in one pass |
-| `git-doc-history.sh` | `doc-update_misc`, `doc-readme` | "What changed since this doc was last touched" — one structured dump instead of several exploratory git calls |
+| `git-doc-history.sh` | `doc-update_misc`, `doc-readme` | "What changed since this doc was last touched": one structured dump instead of several exploratory git calls |
 | `git-integrate.sh` | `git-integrate` | Mechanical merge/rebase/squash execution; the model only steps in on exit code 3 (conflicts) or to write the squash message |
 | `pr-facts.sh` | `pr-update` | PR metadata, current body, watermark and every commit since it in one dump |
 | `pr-wall.sh` | `hud-pr_wall` | Buckets open PRs by relationship to the user (GraphQL search) and cross-references local clones |
 | `safe-version-next.sh` | `project-tag_version`, `pr-land` | `svu next` with a programmatic guard: never crosses 0.x → 1.x automatically |
-| `roadmap.py` + `_roadmap_core.py` | The whole roadmap-\* family | Single CLI for the rich phase-array roadmap system — ID assignment, status computation, dependency graph integrity, HTML rendering |
-| `config_permit.py` | `config-permit` | Deterministic half of permission-granting — the skill's `allowed-tools` is scoped to only this one script |
-| `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data — fails fast on a malformed finding instead of rendering it wrong |
-| `test_roadmap.py` | — | Fixture tests for `roadmap.py` + `_roadmap_core.py` |
+| `roadmap.py` + `_roadmap_core.py` | The whole roadmap-\* family | Single CLI for the rich phase-array roadmap system: ID assignment, status computation, dependency graph integrity, HTML rendering |
+| `config_permit.py` | `config-permit` | Deterministic half of permission-granting: the skill's `allowed-tools` is scoped to only this one script |
+| `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data: fails fast on a malformed finding instead of rendering it wrong |
+| `test_roadmap.py` | none | Fixture tests for `roadmap.py` + `_roadmap_core.py` |
 
-`gen-skills-index.py` also lives here — see [Skills](skills.md#regenerating-the-index).
+`gen-skills-index.py` also lives here (see [Skills](skills.md#regenerating-the-index)).
 
 ---
 ← [Wiki home](../README.md) · [Skills](skills.md) · [Configuration](configuration.md)

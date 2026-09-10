@@ -8,8 +8,8 @@ Three layers govern behaviour, in ascending order of specificity: [`CLAUDE.md`](
 
 There are two permission files, deliberately:
 
-- **`settings.json`** — the file Claude Code actually reads, described below. **Gitignored as of 15 August 2026** (`chore: untrack settings`) — no longer committed. Edits to it require explicit approval (`permissions.ask` gates `Edit`/`Write` on this file specifically) and every change is snapshotted to `~/.claude/backups/settings.json.backup.<epoch-ms>` by the `settings-backup.sh` hook, since there's no longer a git history to fall back on if it gets clobbered.
-- **`settings.local.jsonc`** — a JSONC (JSON-with-comments) *source of truth* for `settings.local.json`, which Claude Code also reads but which isn't valid JSON if hand-annotated. The [`settings-sync.sh`](hooks.md) hook strips comments and trailing commas from the `.jsonc` and writes `.json` at every session start. **Edit the `.jsonc`, never the `.json` directly** — it gets overwritten.
+- **`settings.json`**: the file Claude Code actually reads, described below. **Gitignored as of 15 August 2026** (`chore: untrack settings`), no longer committed. Edits to it require explicit approval (`permissions.ask` gates `Edit`/`Write` on this file specifically) and every change is snapshotted to `~/.claude/backups/settings.json.backup.<epoch-ms>` by the `settings-backup.sh` hook, since there's no longer a git history to fall back on if it gets clobbered.
+- **`settings.local.jsonc`**: a JSONC (JSON-with-comments) *source of truth* for `settings.local.json`, which Claude Code also reads but which isn't valid JSON if hand-annotated. The [`settings-sync.sh`](hooks.md) hook strips comments and trailing commas from the `.jsonc` and writes `.json` at every session start. **Edit the `.jsonc`, never the `.json` directly**: it gets overwritten.
 
 ## Model
 
@@ -17,7 +17,7 @@ There are two permission files, deliberately:
 "model": "fable"
 ```
 
-The default session model is **Fable 5**, not Sonnet or Opus. Skills and agents override this per-invocation via their own `model:` frontmatter field (see [Skills](skills.md#the-runic-glyph-convention)) — the session default only applies to the main conversation loop.
+The default session model is **Fable 5**, not Sonnet or Opus. Skills and agents override this per-invocation via their own `model:` frontmatter field (see [Skills](skills.md#the-runic-glyph-convention)); the session default only applies to the main conversation loop.
 
 ## Permissions
 
@@ -25,7 +25,7 @@ The default session model is **Fable 5**, not Sonnet or Opus. Skills and agents 
 "permissions": { "allow": [...60 rules...], "deny": [], "ask": [], "defaultMode": "auto" }
 ```
 
-`defaultMode: auto` means tool calls not covered by an explicit rule prompt for confirmation rather than blocking outright. The 60 `allow` rules pre-approve routine read operations (`cat`, `grep`, `find`, `git log/status/diff/show`, `gh pr/issue view`), common git write operations (`add`, `commit`, `push`, `fetch`), and a handful of project-specific one-offs. Use the `config-permit` skill to add a rule rather than hand-editing this array — see [Skills](skills.md).
+`defaultMode: auto` means tool calls not covered by an explicit rule prompt for confirmation rather than blocking outright. The 60 `allow` rules pre-approve routine read operations (`cat`, `grep`, `find`, `git log/status/diff/show`, `gh pr/issue view`), common git write operations (`add`, `commit`, `push`, `fetch`), and a handful of project-specific one-offs. Use the `config-permit` skill to add a rule rather than hand-editing this array (see [Skills](skills.md)).
 
 ## Worktree
 
@@ -33,7 +33,7 @@ The default session model is **Fable 5**, not Sonnet or Opus. Skills and agents 
 "worktree": { "baseRef": "fresh" }
 ```
 
-Controls what a new worktree branches from — `fresh` rather than the currently checked-out branch, so worktrees don't inadvertently carry uncommitted context from wherever the main tree happened to be. See [CLAUDE.md §8.7](../../CLAUDE.md) for worktree workflow rules.
+Controls what a new worktree branches from: `fresh` rather than the currently checked-out branch, so worktrees don't inadvertently carry uncommitted context from wherever the main tree happened to be. See [CLAUDE.md §8.7](../../CLAUDE.md) for worktree workflow rules.
 
 ## Status line
 
@@ -53,12 +53,12 @@ Delegates to the [ccstatusline](https://www.npmjs.com/package/ccstatusline) pack
 
 A few settings exist purely for tone, matching the [goblin-mode](../../README.md) identity:
 
-- `spinnerVerbs` — replaces the default "thinking…" spinner text with a 20-item rotation (`sKiTtErInG`, `hOaRdInG`, `pIlFeRiNg`, …) in alternating-caps.
-- `skillListingBudgetFraction: 0.03` — caps how much of the context window skill descriptions can occupy at session start (3%), keeping the [context-window discipline](../architecture.md#context-window-cost) actually enforced rather than aspirational.
+- `spinnerVerbs`: replaces the default "thinking…" spinner text with a 20-item rotation (`sKiTtErInG`, `hOaRdInG`, `pIlFeRiNg`, …) in alternating-caps.
+- `skillListingBudgetFraction: 0.03`: caps how much of the context window skill descriptions can occupy at session start (3%), keeping the [context-window discipline](../architecture.md#context-window-cost) actually enforced rather than aspirational.
 
 ## Everything else
 
-`syntaxHighlightingDisabled`, `alwaysThinkingEnabled`, `autoUpdatesChannel`, `tui`, `showThinkingSummaries`, `theme`, `verbose`, `preferredNotifChannel`, `autoCompactEnabled`, `inputNeededNotifEnabled`, `agentPushNotifEnabled`, and the `skip*PermissionPrompt`/`skipWorkflowUsageWarning` flags are standard Claude Code harness options — see the [Claude Code docs](https://docs.anthropic.com/en/docs/claude-code) for current semantics rather than trusting this page to stay in sync with them.
+`syntaxHighlightingDisabled`, `alwaysThinkingEnabled`, `autoUpdatesChannel`, `tui`, `showThinkingSummaries`, `theme`, `verbose`, `preferredNotifChannel`, `autoCompactEnabled`, `inputNeededNotifEnabled`, `agentPushNotifEnabled`, and the `skip*PermissionPrompt`/`skipWorkflowUsageWarning` flags are standard Claude Code harness options; see the [Claude Code docs](https://docs.anthropic.com/en/docs/claude-code) for current semantics rather than trusting this page to stay in sync with them.
 
 ---
 ← [Wiki home](../README.md) · [Hooks](hooks.md) · [Skills](skills.md) · [Architecture](../architecture.md)
