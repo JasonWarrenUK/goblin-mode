@@ -5,7 +5,7 @@
 Hooks are scripts Claude Code runs automatically on lifecycle and tool events. This repo uses them for two different jobs: **global hooks** (`hooks/`) run in every session regardless of project, and **project-level hooks** (`.claude/hooks/`) run only when this repo itself is the active project — mostly relevant when working on this config from a remote (web) session.
 
 > [!NOTE]
-> There's also `hooks/pre-commit` — a plain **git hook**, not a Claude Code hook. It's a repo-scoped dispatcher installed via a global `core.hooksPath` override, shared across every repo on this machine. It delegates to a project's own `scripts/pre-commit` if one exists. Unrelated machinery, same directory, easy to confuse — see [below](#the-pre-commit-git-hook).
+> There are also `hooks/pre-commit` and `hooks/commit-msg`: plain **git hooks**, not Claude Code hooks. Both are installed machine-wide via a global `core.hooksPath` override and delegate to a project's own `scripts/<event>` if one exists; `commit-msg` also gates every commit message on the house rules. Unrelated machinery, same directory, easy to confuse; see [below](#git-hooks-pre-commit-and-commit-msg).
 
 ## Global hooks (`hooks/`)
 
@@ -34,16 +34,19 @@ Only active when this `~/.claude` directory is itself opened as a project (e.g. 
 | `session-start.sh` | `CLAUDE_CODE_REMOTE=true` (web sessions) | Detects project identity, package manager, framework, test runner, linter, database, ORM, API style, and monorepo tooling by probing for config files and lockfiles. Captures git branch/type/ahead-count/recent-commits. Installs dependencies if `node_modules` is missing. Exports everything as env vars for the session. |
 | `session-start-local.sh` | local terminal sessions | Detects git worktree state, stale branches (>20 commits behind default), and in-progress rebase/merge/cherry-pick. Checks for `zed`, `bun`, `gh` on PATH and reports which are missing. |
 
-## The `pre-commit` git hook
+## Git hooks: `pre-commit` and `commit-msg`
 
-`hooks/pre-commit` is a POSIX shell dispatcher, not a Claude Code hook — it's what `git commit` itself runs, installed machine-wide via a global `core.hooksPath`. It looks for a `scripts/pre-commit` in whichever repo you're committing to and delegates to it; repos without that convention are unaffected. Reinstalled by each repo's own `bun run prepare`.
+`hooks/pre-commit` is a POSIX shell dispatcher, not a Claude Code hook: it's what `git commit` itself runs, installed machine-wide via a global `core.hooksPath`. It looks for a `scripts/pre-commit` in whichever repo you're committing to and delegates to it; repos without that convention are unaffected. Reinstalled by each repo's own `bun run prepare`.
+
+`hooks/commit-msg` runs the house-rule subset of `library/scripts/slop-scan.py --strict` over every commit message on this machine, Claude's own included: em dash, spaced en dash, Oxford comma, `-ize`, American spellings. A hit rejects the commit with one `L<n> <rule>: <excerpt>` line per breach and the line "fix the message and commit again; do not use --no-verify". Not scanned: comment lines, the trailer block (`Co-Authored-By:` and friends), indented quoted text, the scissors diff from `commit -v`, fenced or inline code, identifier-shaped tokens such as `background-color`, and git-generated subjects (`Merge`, `Revert`, `fixup!`). Opt a repo out with `git config slop.commitMsg off`. For a one-off skip (say `--amend --no-edit` on a message that predates the hook) use `git -c slop.commitMsg=off commit ...` rather than `--no-verify`, which also skips pre-commit. Like pre-commit it then delegates to the repo's own `scripts/commit-msg` if one exists. Fails open: no `python3` or no scanner means no check, never a blocked commit. The retry contract the commit skills follow (rewrite once, then stop) is in `skills/commit-one/SKILL.md`.
 
 ## Adding a hook
 
 1. Decide global (`hooks/`) or project-level (`.claude/hooks/`).
-2. Write the script; keep it fast and silent on the happy path — hooks that chatter on every session get ignored.
+2. Write the script; keep it fast and silent on the happy path: hooks that chatter on every session get ignored.
 3. Wire it in the relevant `settings.json` under `hooks.<Event>`, following the existing array-of-arrays shape.
 4. If it's meant to run only in one session type, branch on `CLAUDE_CODE_REMOTE` like the two project-level hooks do.
+5. A git hook (not a Claude Code hook) also lives in `hooks/`, named after the git event, with no `settings.json` wiring: git runs it itself. Keep it POSIX sh and delegate to `$repo_root/scripts/<event>` so repos can extend it. Document it in the git-hooks section above, not the tables.
 
 ---
 ← [Wiki home](../README.md) · [Skills](skills.md) · [Agents](agents.md) · [Configuration](configuration.md)
