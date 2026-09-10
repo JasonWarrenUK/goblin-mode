@@ -4,7 +4,7 @@ Detail for `role-expert-api_designer`.
 
 ## Principle
 
-APIs should collect, expose, and store the minimum data needed. Privacy is a design constraint, not an afterthought.
+APIs should collect, expose and store the minimum data needed. Privacy is a design constraint, not an afterthought.
 
 ## Response Filtering
 ```typescript

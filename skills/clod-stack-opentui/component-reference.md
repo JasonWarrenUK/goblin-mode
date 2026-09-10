@@ -4,7 +4,7 @@ Detail for `opentui-operative`: the full renderable catalogue (BoxRenderable thr
 
 ## BoxRenderable
 
-Container with borders, backgrounds, and layout.
+Container with borders, backgrounds and layout.
 
 ```typescript
 new BoxRenderable(renderer, {
@@ -216,7 +216,7 @@ const scrollbox = new ScrollBoxRenderable(renderer, {
 **Keyboard (when focused):** Arrow keys, Page Up/Down, Home, End.
 
 **Methods:**
-- `scrollBy()`: relative scrolling by lines, pixels, or viewport
+- `scrollBy()`: relative scrolling by lines, pixels or viewport
 - `scrollTo()`: absolute positioning
 
 **Internal structure:** `wrapper`, `viewport`, `content`, `horizontalScrollBar`, `verticalScrollBar`

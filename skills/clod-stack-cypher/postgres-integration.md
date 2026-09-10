@@ -24,7 +24,7 @@ await neo4j.run(`
 `, { userId, name: user.name });
 ```
 
-## Data Synchronization
+## Data Synchronisation
 
 **Event-driven sync**:
 ```typescript

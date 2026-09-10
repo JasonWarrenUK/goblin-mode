@@ -17,7 +17,7 @@ allowed-tools:
 
 # Svelte/SvelteKit Patterns
 
-Comprehensive guide to Svelte 5 and SvelteKit development patterns. Emphasizes runes-based reactivity ($state, $derived, $effect, $props), component composition, SvelteKit routing, data loading, form handling, and performance optimization.
+Comprehensive guide to Svelte 5 and SvelteKit development patterns. Emphasises runes-based reactivity ($state, $derived, $effect, $props), component composition, SvelteKit routing, data loading, form handling and performance optimisation.
 
 ## When This Skill Applies
 
@@ -27,7 +27,7 @@ Use this skill when:
 - Implementing SvelteKit routes and pages
 - Creating load functions or form actions
 - Handling component composition
-- Optimizing Svelte/SvelteKit performance
+- Optimising Svelte/SvelteKit performance
 - Questions about Svelte 5 patterns or SvelteKit conventions
 
 ## Svelte 5 Fundamentals
@@ -136,7 +136,7 @@ export function createCounter(initial = 0) {
 
 **Key points**:
 - Automatically recalculates when dependencies change
-- Memoized (only recalculates when needed)
+- Memoised (only recalculates when needed)
 - Must be free of side-effects
 
 ### Complex Derivations with $derived.by
@@ -417,6 +417,6 @@ Svelte/SvelteKit code is well-structured when:
 - Components are composable and reusable
 - Load functions fetch data efficiently
 - Forms use progressive enhancement
-- Performance optimized (lazy loading, memoization)
+- Performance optimised (lazy loading, memoisation)
 - TypeScript types are accurate
 - Code is maintainable and follows Svelte 5 conventions

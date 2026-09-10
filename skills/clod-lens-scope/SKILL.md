@@ -55,7 +55,7 @@ Not the three things. Not the five things. The ONE thing that, if it worked, wou
 ✓ "Users can create accounts"
 ```
 
-### 2. What can be hardcoded, defaulted, or deferred?
+### 2. What can be hardcoded, defaulted or deferred?
 
 Everything that isn't the core behaviour can wait.
 

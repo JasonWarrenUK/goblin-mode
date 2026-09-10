@@ -1,4 +1,4 @@
-# Performance Optimization and Schema Design
+# Performance Optimisation and Schema Design
 
 Detail for `Cypher Linguist`.
 
@@ -38,16 +38,16 @@ YIELD node, score
 RETURN node, score;
 ```
 
-## Query Optimization
+## Query Optimisation
 
-**Use PROFILE to analyze**:
+**Use PROFILE to analyse**:
 ```cypher
 PROFILE
 MATCH (u:User {id: $userId})-[:FOLLOWS*1..3]->(friend)
 RETURN friend;
 ```
 
-**Optimization tips**:
+**Optimisation tips**:
 
 **1. Start with most specific nodes**:
 ```cypher
@@ -178,7 +178,7 @@ LIKED {rating, timestamp}
 **Use multiple labels for**:
 - Shared behaviour
 - Polymorphism
-- Categorization
+- Categorisation
 
 ```cypher
 // User can be both Person and Developer

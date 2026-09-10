@@ -1,4 +1,4 @@
-# Versioning, Type-Safe Clients, OpenAPI, and Testing
+# Versioning, Type-Safe Clients, OpenAPI and Testing
 
 Detail for `role-expert-api_designer`: API lifecycle patterns beyond initial design.
 
@@ -99,7 +99,7 @@ export const GET: RequestHandler = async ({ params }) => {
 - Breaking changes to existing endpoints
 - Removing fields
 - Changing field types
-- Changing behavior significantly
+- Changing behaviour significantly
 
 **Don't version for**:
 - Adding optional fields (backward compatible)

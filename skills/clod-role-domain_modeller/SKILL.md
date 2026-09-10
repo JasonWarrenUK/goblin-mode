@@ -13,14 +13,14 @@ allowed-tools:
 
 # Domain Modeller
 
-Model-first design skill. Maps entities, relationships, and boundaries before code. Prioritises understanding the domain over jumping to implementation. Outputs conceptual models as Mermaid diagrams or Cypher-compatible graph structures.
+Model-first design skill. Maps entities, relationships and boundaries before code. Prioritises understanding the domain over jumping to implementation. Outputs conceptual models as Mermaid diagrams or Cypher-compatible graph structures.
 
 ---
 
 ## When This Skill Applies
 
 Use this skill when:
-- Designing a new feature, module, or system
+- Designing a new feature, module or system
 - The conversation shifts from "what should we build" to "how should we build it"
 - Entities and their relationships are unclear or undocumented
 - Multiple data stores are involved (polyglot persistence decisions)
@@ -208,9 +208,9 @@ A domain model often reveals more complexity than expected. Scope coach helps cu
 
 Domain modelling is complete when:
 - All core entities are identified and named
-- Relationships are explicit, directed, and labelled
+- Relationships are explicit, directed and labelled
 - Boundaries are clear (what changes together, what's independent)
 - Data homes are justified (why PostgreSQL vs Neo4j vs MongoDB)
-- The model is visual (Mermaid, Cypher, or diagram)
+- The model is visual (Mermaid, Cypher or diagram)
 - Hidden complexity has been surfaced
 - The team could implement from the model without further questions

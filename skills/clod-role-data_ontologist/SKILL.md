@@ -22,10 +22,10 @@ Architectural guidance for using multiple database technologies together, with e
 Use this skill when:
 
 - Designing data architecture for new projects
-- Choosing between relational, graph, and document databases
+- Choosing between relational, graph and document databases
 - Integrating multiple database types
 - Schema design decisions
-- Query optimization across databases
+- Query optimisation across databases
 - Migration strategies
 - Questions about when to use which database paradigm
 
@@ -118,7 +118,7 @@ CREATE TABLE orders (
 **Rapidly Evolving Schemas**:
 - Frequently adding new fields
 - Different record types need different fields
-- Exploratory data modeling
+- Exploratory data modelling
 
 **Reason**: Migrations expensive, rigid structure.
 
@@ -249,7 +249,7 @@ CREATE TABLE orders (
 
 **Reason**: Graph databases handle this natively.
 
-**Highly Normalized Data**:
+**Highly Normalised Data**:
 - No duplication tolerance
 - Frequent joins needed
 - Strong referential integrity
@@ -270,7 +270,7 @@ CREATE TABLE orders (
 
 **VERY STABLE** → PostgreSQL: well-defined entities, clear field types, rare schema changes, strong typing needed
 
-**EVOLVING** → MongoDB: prototyping phase, frequently adding fields, different record structures, flexible modeling
+**EVOLVING** → MongoDB: prototyping phase, frequently adding fields, different record structures, flexible modelling
 
 **SCHEMA-OPTIONAL** → Neo4j: relationships more important than structure, dynamic properties, graph structure evolves
 
@@ -292,7 +292,7 @@ CREATE TABLE orders (
 
 **YES** → MongoDB: posts with comments, orders with line items, documents with metadata
 
-**NO** → PostgreSQL: flat entities, many-to-many relationships, normalized structure
+**NO** → PostgreSQL: flat entities, many-to-many relationships, normalised structure
 
 ## Additional resources
 

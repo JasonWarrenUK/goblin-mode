@@ -20,7 +20,7 @@ allowed-tools:
 
 # Testing Foundations
 
-Comprehensive testing guidance for JavaScript/TypeScript applications, with emphasis on Vitest, Svelte component testing, and pragmatic test-after development. Addresses testing as a professional skill for code quality.
+Comprehensive testing guidance for JavaScript/TypeScript applications, with emphasis on Vitest, Svelte component testing and pragmatic test-after development. Addresses testing as a professional skill for code quality.
 
 ## When This Skill Applies
 
@@ -79,7 +79,7 @@ This approach:
 
 ## Risk-Based Testing
 
-**Prioritize testing based on risk assessment**
+**Prioritise testing based on risk assessment**
 
 ### Risk Dimensions
 
@@ -227,7 +227,7 @@ it('should return user name when available', () => {
 ### Step 5: Refactor with Confidence
 
 Now that tests exist:
-- Optimize performance
+- Optimise performance
 - Improve code structure
 - Rename variables
 - Extract functions
