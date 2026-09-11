@@ -50,7 +50,7 @@ One line per non-PASS check, naming the file to open or the command to run:
 | `skills` | Open the named skill; the gate text or the `allowed-tools` entry was removed. Restore it from git history |
 | `frontmatter` | Open the named file; usually an unquoted colon in a `description:` value |
 | `tree` | Run `~/.claude/library/scripts/slop-scan.py --strict` on the listed files and fix them, or bump `KNOWN_RESIDUALS` in `prose-health.py` if the new hits are clause-joining commas |
-| `tests` | Run `python3 -m pytest library/scripts/test_slop_scan.py library/scripts/test_prose_metrics.py` and read the failure |
+| `tests` | Run `python3 -m pytest library/scripts/test_slop_scan.py library/scripts/test_prose_metrics.py library/scripts/test_commit_msg_hook.py` and read the failure |
 | `index` | `python3 ~/.claude/library/scripts/gen-skills-index.py` |
 | `output` | The system-prompt layer is not holding. Check `settings` and `style` first; if both pass and the rate stays above 3 per 1k words for a week, the next structural step is a `MessageDisplay` hook, which nothing here builds |
 
