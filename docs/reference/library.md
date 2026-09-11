@@ -59,7 +59,7 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `prose-metrics.py` | `hud-prose_health` | House-rule breaches per day in Claude's own terminal output, from the session transcripts; `--record` keeps the trend in `state/prose-metrics.json` |
 | `prose-health.py` | `hud-prose_health` | PASS/WARN/FAIL per layer of the prose-gating suite (settings, style, hook, skills, frontmatter, tree scan, tests, index, output trend) |
 | `test_roadmap.py` | none | Fixture tests for `roadmap.py` + `_roadmap_core.py` |
-| `test_slop_scan.py`, `test_prose_metrics.py` | none | Tests for the two scanners above; `prose-health.py` runs both |
+| `test_slop_scan.py`, `test_prose_metrics.py`, `test_commit_msg_hook.py` | none | Tests for the two scanners above and for `hooks/commit-msg`; `prose-health.py` runs all three |
 
 `gen-skills-index.py` also lives here (see [Skills](skills.md#regenerating-the-index)).
 

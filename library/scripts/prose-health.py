@@ -13,7 +13,7 @@ Checks:
   skills       the prose and commit skills still carry their gate text
   frontmatter  every skill, agent and style frontmatter parses as YAML
   tree         strict scan over the context-loaded files
-  tests        test_slop_scan.py and test_prose_metrics.py
+  tests        test_slop_scan.py, test_prose_metrics.py and test_commit_msg_hook.py
   index        gen-skills-index.py --check
   output       house-rule rate in Claude's own terminal output, last 7 days
 
@@ -205,7 +205,7 @@ def check_tree() -> tuple[Result, list[str]]:
 
 
 def check_tests() -> Result:
-	tests = [SCRIPTS / "test_slop_scan.py", SCRIPTS / "test_prose_metrics.py"]
+	tests = [SCRIPTS / "test_slop_scan.py", SCRIPTS / "test_prose_metrics.py", SCRIPTS / "test_commit_msg_hook.py"]
 	result = run([sys.executable, "-m", "pytest", "-q", *map(str, tests)], cwd=SCRIPTS)
 	summary = (result.stdout.strip().splitlines() or ["no output"])[-1]
 	return ("PASS" if result.returncode == 0 else "FAIL", "tests", summary)
