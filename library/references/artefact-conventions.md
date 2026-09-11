@@ -1,15 +1,15 @@
 # Artefact Design Conventions
 
 Shared reference for every artefact Claude creates for Jason: a claude.ai/Cowork
-Artifact, a Claude Code project artefact (`docs/artefacts/*.html`), or the
+Artifact, a Claude Code project artefact (`docs/artefacts/*.html`) or the
 styling pass inside `import-scaffold_artefact`. Distilled in interview from
 ten artefacts Jason holds up as exemplary (spanning claude.ai Artifacts,
-Claude Code project docs, and RPG-kit one-offs), then generalised with him
+Claude Code project docs and RPG-kit one-offs), then generalised with him
 past those specific examples so the rules would still make sense on an
 artefact that looks nothing like any of the ten.
 
 **This document encodes values and structural patterns, not a fixed skin.**
-Hues, exact fonts, and voice vary artefact to artefact on purpose. Nothing
+Hues, exact fonts and voice vary artefact to artefact on purpose. Nothing
 below should make two artefacts about different things look like the same
 template with new words in it. The rules that *are* fixed are marked as such;
 everything else is a structural default with room to vary.
@@ -22,7 +22,7 @@ there's no established convention yet). This document is what it applies.
 
 ## Location (fixed)
 
-Every artefact — from a named skill or created ad hoc mid-conversation —
+Every artefact (from a named skill or created ad hoc mid-conversation)
 lives under `<project-root>/docs/artefacts/`. This is what lets the "check
 for an existing artefact first" rule in the `artefact-conventions` skill
 work at all.
@@ -52,10 +52,10 @@ what may and may not be written there. Read it before adding a page.
 
 Nearly every example opens with the same four-part structure, regardless of
 mood: an **eyebrow/kicker** (small, uppercase, letter-spaced, tinted with the
-accent colour — project name, date, or "before the deltas" framing), the
+accent colour: project name, date or "before the deltas" framing), the
 **h1**, a **standfirst/lede** (one or two sentences, wider measure, muted
-tone, states what the reader is about to get), and a **meta-strip** (small
-mono row of key facts — model used, dataset size, compiled date, runtime —
+tone, states what the reader is about to get) and a **meta-strip** (small
+mono row of key facts: model used, dataset size, compiled date, runtime;
 `font-variant-numeric: tabular-nums` where it's numeric). Use it as the
 default opening; a short narrative piece can compress or drop the meta-strip
 if there's nothing worth putting in it.
@@ -72,7 +72,7 @@ artefact wants a mood the project's theme doesn't have, that is a second
 family (`/theme-factory "html" new`), not an inline palette.
 
 **Semantic CSS custom properties only.** Markup and components never
-reference a raw hex — always a semantic alias (`--ink`, `--surface`,
+reference a raw hex; always a semantic alias (`--ink`, `--surface`,
 `--accent`, `--verd`, whatever names fit this artefact's own vocabulary).
 The theme's emitted `:root` block provides the base twelve; an artefact may
 alias them further. Document *why* each alias maps to which theme token, the
@@ -106,15 +106,15 @@ family they are in before the title does.
   artefact for the same family reads those notes and reuses them.
 - Two families never share a primary hue. Check the existing pages in the
   collection before picking.
-- A surface that belongs to no family — a collection index, a cross-family
-  overview — takes no hue of its own. Grey ground, with colour appearing
+- A surface that belongs to no family (a collection index, a cross-family
+  overview) takes no hue of its own. Grey ground, with colour appearing
   only where it belongs to a family: a card, a chip, a link out.
 - Established mappings: `red` → red/teal/cinnamon, `dossier` →
   indigo/violet/grey, `clod-config` → amber/emerald.
 
 ## Theming (fixed contract)
 
-Three states — light, dark, and "follow system" — every time, matching the
+Three states (light, dark and "follow system") every time, matching the
 `Artifact` tool's own documented contract:
 
 ```css
@@ -139,16 +139,16 @@ Three states — light, dark, and "follow system" — every time, matching the
 }
 ```
 
-Give `body` an explicit background from a token — a transparent body borrows
+Give `body` an explicit background from a token: a transparent body borrows
 whatever ground the viewer is painting behind it. Single-look-only (no dark
-block) is allowed when the mood itself calls for commitment — a parchment RPG
-kit, a forced-dark terminal aesthetic — but the artefact must say so plainly
+block) is allowed when the mood itself calls for commitment (a parchment RPG
+kit, a forced-dark terminal aesthetic), but the artefact must say so plainly
 in its own text, not merely omit the dark block and leave a reader guessing.
 A single-look artefact ships no toggle: there is nothing to switch between.
 
 Token emission for this contract is increasingly handled by `/theme-factory`
 (`library/scripts/theme/emit.ts`, `html` target) rather than hand-written per
-artefact — see `theme-conventions.md`. That changes *where the tokens come
+artefact; see `theme-conventions.md`. That changes *where the tokens come
 from*, never this contract's shape; `emit.ts` cites this section as its own
 source. What it cannot supply is the control below, since it emits CSS, not
 markup.
@@ -162,13 +162,13 @@ also ships an **in-page toggle control** depends on the pathway:
 | Pathway | Both token states | In-page control |
 |---|---|---|
 | Standalone `docs/artefacts/*.html`, a `site/` page, the roadmap template | required | **required** |
-| claude.ai / Cowork `Artifact` publish | required | **omitted** — the host provides one |
+| claude.ai / Cowork `Artifact` publish | required | **omitted**: the host provides one |
 
 The `Artifact` tool's own contract stamps `data-theme="dark"` /
 `data-theme="light"` on the root element from the viewer's own setting. An
 in-page control fighting that would write the same attribute the host writes,
 with no route back to "system" the host would respect. This row exists
-*because* the host owns theme selection there — if a future `Artifact`
+*because* the host owns theme selection there; if a future `Artifact`
 runtime stops providing a host control, this row is what to revisit, not an
 oversight to "fix" by adding a redundant one.
 
@@ -187,8 +187,8 @@ control from its siblings.
   Omitting the attribute happens to work against the CSS above, which is
   exactly why an unpinned rule produces both forms in the wild.
 - **Persist the choice to `localStorage`**, reads and writes both wrapped in
-  `try/catch`. The accessor throws outright in some contexts — a private
-  window, blocked site data, thumbnail/preview capture — and an unguarded
+  `try/catch`. The accessor throws outright in some contexts (a private
+  window, blocked site data, thumbnail/preview capture) and an unguarded
   throw in an early script kills everything after it on the page.
 - **An absent or unreadable stored value renders as "system"**, not as an
   error and not as a silent fallback to light.
@@ -246,14 +246,14 @@ control from its siblings.
 </script>
 ```
 
-Place this script as the **first element in `<body>`**, not in `<head>` — an
+Place this script as the **first element in `<body>`**, not in `<head>`: an
 `Artifact` publish supplies its own `<head>` and wraps the file's content as
 body, so a `<head>` script is unavailable there even on the standalone
 pathway where the control itself still ships. Running first minimises the
 flash of the wrong theme before the script executes.
 
 **Placement**: anchored in the masthead eyebrow/kicker row, right-aligned via
-`margin-left: auto` inside that row's flex layout — not `position: fixed`.
+`margin-left: auto` inside that row's flex layout, not `position: fixed`.
 Wrap below the eyebrow text rather than overlap it once the viewport narrows
 past the same breakpoint the masthead itself uses for its own collapse.
 Hide it under `@media print`, as the rest of the masthead chrome already does.
@@ -262,25 +262,25 @@ Hide it under `@media print`, as the rest of the masthead chrome already does.
 (`--surface-raised` or `--line` for chrome, `--ink-muted` for inactive,
 `--accent` for the pressed state) and introduces no alias of its own. A
 missing alias is a `/theme-factory` change to make, per §7.5 of
-`CLAUDE.md` — never an inline hex value on the button.
+`CLAUDE.md`, never an inline hex value on the button.
 
 ### Diagrams under a runtime toggle
 
-A diagram rendered once at load — Mermaid, a canvas, hand-drawn inline SVG —
+A diagram rendered once at load (Mermaid, a canvas, hand-drawn inline SVG)
 does not follow a later attribute flip, and lands as dark strokes on a dark
 ground or the reverse: the bug class fixed in commit `d483b94`. Two answers,
 and which is available depends on pathway:
 
 - **Drive diagram colours from the same CSS custom properties as everything
   else.** Works everywhere, and is the *only* option inside an `Artifact`
-  publish — artifacts render Mermaid natively from fenced `mermaid` code
+  publish: artifacts render Mermaid natively from fenced `mermaid` code
   blocks and `<pre class="mermaid">`, so page JS has no handle to
   re-initialise it.
   Prior art already in this repo: `roadmap.py graph --palette vars` emits a
   CSS-variable-driven Mermaid palette; reuse that approach rather than
   inventing a new one.
 - **Re-render on change.** Standalone pathway only. The watcher must cover
-  *both* signals — `matchMedia` fires only for the OS preference, never for
+  *both* signals: `matchMedia` fires only for the OS preference, never for
   an explicit `data-theme` write:
 
   ```js
@@ -290,13 +290,13 @@ and which is available depends on pathway:
   ```
 
   This is the pattern already in `library/templates/roadmap-artefact.html`
-  (around the graph's render call) — treat it as the reference
+  (around the graph's render call); treat it as the reference
   implementation rather than re-deriving it per artefact.
 
 ## Typography (structural rule, free choice)
 
 Pair one distinctive display/body voice with one monospace workhorse for
-labels, data, eyebrows, and mono detail. The pairing structure is fixed; the
+labels, data, eyebrows and mono detail. The pairing structure is fixed; the
 actual face is not. Pick deliberately per artefact tone; don't reach for
 Inter/Roboto reflexively. Google Fonts is fine as the one external
 dependency.
@@ -342,7 +342,7 @@ collapsible sections:
 ```
 
 Custom rotating chevron via `summary::before`, never the native
-`::-webkit-details-marker`. Closed by default — the reader chooses what to
+`::-webkit-details-marker`. Closed by default: the reader chooses what to
 expand, not the page. Short or narrative pieces (a few sections, meant to be
 read straight through) stay linear; don't collapse for the sake of it.
 
@@ -350,7 +350,7 @@ read straight through) stay linear; don't collapse for the sake of it.
 
 Once content is dense enough to justify one, add a table of contents. Default
 to linking only `h2`s; add `h3`s under their parent `h2` when a section's
-subsections are themselves substantial enough to jump to directly — don't
+subsections are themselves substantial enough to jump to directly; don't
 link every heading level reflexively.
 
 The TOC must always satisfy **one** of these two containment rules:
@@ -362,7 +362,7 @@ The TOC must always satisfy **one** of these two containment rules:
   the TOC never scrolls the page and vice versa.
 
 A bare inline list of links with no container is never sufficient once the
-threshold is met — it competes with the masthead for attention and gives the
+threshold is met: it competes with the masthead for attention and gives the
 reader nothing to collapse away.
 
 ## Statlines (fixed)
@@ -382,7 +382,7 @@ style choice.
 
 Any page carrying **more than five collapsed `h2` sections must subgroup
 them** and give the groups visible contrast: a banner with a roman numeral
-and a group title, a per-group accent on the section borders, or both. A
+and a group title, a per-group accent on the section borders or both. A
 flat run of ten identical collapsed rows is a wall, and the reader cannot
 tell where one theme ends.
 
@@ -417,27 +417,27 @@ sidebar with independent scroll. Two further rules:
 Never repeat the collection in the leaf. `families/dossier/record.html`,
 never `families/dossier/dossier-record.html`. The path already said it.
 
-## Epistemic honesty (required, structural — never hedging prose)
+## Epistemic honesty (required, structural, never hedging prose)
 
 Every artefact must be honest about what it actually knows, and that honesty
 belongs in the **structure**, not in the prose. Prose states things directly;
 uncertainty gets a visual home instead of a verbal hedge. "Might possibly
-potentially" in running text is not this rule being followed — it's the rule
+potentially" in running text is not this rule being followed; it's the rule
 being dodged.
 
 - **Sourced footer, always.** What files/queries/commits/dates the artefact
   was built from. A reader should be able to tell where every claim on the
   page came from without asking.
 - **Status/confidence marking, for reference-genre content.** A chip, a
-  coloured dot, a legend — vocabulary is contextual per artefact domain, pick
+  coloured dot, a legend: vocabulary is contextual per artefact domain, pick
   what fits: `built / partial / absent` for build status, `firm / provisional
   / open` for measurement confidence, `verified / corrected / unaudited /
   known-defect / unusable` for an audit trail. Define an explicit legend and
-  hold one consistent colour-role mapping *within* a single artefact — don't
+  hold one consistent colour-role mapping *within* a single artefact; don't
   invent a fourth vocabulary just for variety.
 - **An absent or unmeasured value is always marked, never left blank.** A
   blank cell reads as zero or "nothing to report"; say `not measured` and why.
-- **Narrative pieces get an honesty footnote instead of chips** — what's
+- **Narrative pieces get an honesty footnote instead of chips**: what's
   real versus composed/estimated/a period pastiche, stated plainly at the
   point a reader would otherwise assume more rigor than exists.
 - **The sources list is collapsed by default.** It is provenance, not
@@ -455,17 +455,17 @@ being dodged.
 
 - Self-contained: inline CSS, vanilla JS, Google Fonts as the only external
   dependency. No frameworks for a static HTML artefact.
-- `overflow-x: auto` wrapper around every wide table, diagram, or inline SVG
-  — the page body itself never scrolls horizontally.
+- `overflow-x: auto` wrapper around every wide table, diagram or inline SVG:
+  the page body itself never scrolls horizontally.
 - `font-variant-numeric: tabular-nums` on any element carrying numeric data.
-- British spelling, no em dashes, no contrastive "not X but Y" couplets —
+- British spelling, no em dashes, no contrastive "not X but Y" couplets:
   standing rules, restated because artefact prose is still prose.
 
 ## Relationship to the `Artifact` tool's own skills
 
 For a claude.ai/Cowork `Artifact` publish specifically, this document adds a
-layer on top of — never replaces — Anthropic's built-in `artifact-design` /
+layer on top of (never replaces) Anthropic's built-in `artifact-design` /
 `artifact-diagramming` / `artifact-capabilities` skills. Favicon, CSP
-self-containment, and runtime capabilities stay owned by those. This
+self-containment and runtime capabilities stay owned by those. This
 document is the *only* gate for the Claude Code `docs/artefacts/*.html`
 pathway, which has no automatic equivalent today.

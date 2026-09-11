@@ -31,7 +31,8 @@ git rev-parse --verify HEAD >/dev/null 2>&1 && git diff --stat HEAD || echo "(no
    - If approved, execute commits sequentially. For each group:
      1. Stage **only** the files listed for that group (`git add <files>`)
      2. Commit with the proposed message
-     3. Confirm success before moving to the next group
+     3. If `git commit` exits non-zero and stderr contains `commit-msg:` lines, read each `L<n> <rule>: <excerpt>` line, rewrite the message to clear every hit (keeping the meaning) and retry the commit once. If the retry fails too, stop the batch and report the stderr verbatim along with which groups landed and which did not. Never pass `--no-verify` and never change git config to get past the hook.
+     4. Confirm success before moving to the next group
    - If changes requested, revise the plan and repeat from step 3.
 5. Report the commits made and stop. **Do not push.** Publishing is a separate decision from committing; the user pushes, or asks for it explicitly.
 
@@ -50,4 +51,5 @@ git rev-parse --verify HEAD >/dev/null 2>&1 && git diff --stat HEAD || echo "(no
 <conventions>
   - Subject line: imperative mood, lowercase, no period, max 50 chars (`add feature` not `added feature` or `adds feature`)
   - Body: explain *what* and *why*, not *how*; wrap at 72 chars
+  - British spelling, no em dashes, no Oxford commas: the global commit-msg hook rejects all three
 </conventions>

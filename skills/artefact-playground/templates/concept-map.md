@@ -1,6 +1,6 @@
 # Concept Map Template
 
-Use this template when the playground is about learning, exploration, or mapping relationships: concept maps, knowledge gap identification, scope mapping, task decomposition with dependencies.
+Use this template when the playground is about learning, exploration or mapping relationships: concept maps, knowledge gap identification, scope mapping, task decomposition with dependencies.
 
 ## Layout
 
@@ -18,7 +18,7 @@ Use this template when the playground is about learning, exploration, or mapping
 +-------------------------+------------+
 ```
 
-Canvas-based playgrounds differ from the two-panel split. The interactive visual IS the control — users drag nodes and draw connections rather than adjusting sliders. The sidebar supplements with toggles and list controls.
+Canvas-based playgrounds differ from the two-panel split. The interactive visual IS the control: users drag nodes and draw connections rather than adjusting sliders. The sidebar supplements with toggles and list controls.
 
 ## Control types for concept maps
 
@@ -38,7 +38,7 @@ Use a `<canvas>` element with manual draw calls. Key patterns:
 - **Drag:** On mousedown on a node, track offset and update position on mousemove
 - **Edge drawing:** Click node A, then click node B. Draw arrow between them with the selected relationship type
 - **Tooltips:** On hover, position a div absolutely over the canvas with description text
-- **Force-directed auto-layout:** Simple spring simulation — repulsion between all pairs, attraction along edges, iterate 100-200 times with damping
+- **Force-directed auto-layout:** Simple spring simulation; repulsion between all pairs, attraction along edges, iterate 100-200 times with damping
 
 ```javascript
 function draw() {

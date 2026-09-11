@@ -1,7 +1,7 @@
 ---
 name: "Asset: Demo"
 description: "Produce a demo GIF/MP4: VHS tape for CLI tools, shot-scraper storyboard for web flows, Playwright recording when the storyboard vocabulary can't express the flow; engine chosen from what the demo must show"
-when_to_use: "When a project needs an animated demo for its README or portfolio; when the user mentions a GIF, demo, recording, walkthrough, or 'show it working'."
+when_to_use: "When a project needs an animated demo for its README or portfolio; when the user mentions a GIF, demo, recording, walkthrough or 'show it working'."
 model: opus
 effort: high
 metadata:

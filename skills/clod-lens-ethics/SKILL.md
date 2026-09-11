@@ -11,7 +11,7 @@ allowed-tools:
 
 # Ethics Reviewer
 
-Passive ethical review skill. Activates when user-facing features touch the four ethical concerns: manipulation, accessibility, privacy, and sustainability. Checks designs and implementations against principled constraints without requiring explicit invocation.
+Passive ethical review skill. Activates when user-facing features touch the four ethical concerns: manipulation, accessibility, privacy and sustainability. Checks designs and implementations against principled constraints without requiring explicit invocation.
 
 ---
 
@@ -19,9 +19,9 @@ Passive ethical review skill. Activates when user-facing features touch the four
 
 Use this skill when:
 - Building forms that collect personal data
-- Implementing notifications, emails, or alerts
-- Designing pricing pages, upgrade flows, or paywalls
-- Adding analytics, tracking, or telemetry
+- Implementing notifications, emails or alerts
+- Designing pricing pages, upgrade flows or paywalls
+- Adding analytics, tracking or telemetry
 - Creating urgency mechanisms (countdowns, scarcity indicators)
 - Implementing accessibility-sensitive UI (navigation, forms, modals)
 - Making performance decisions that affect device/network inclusivity
@@ -194,7 +194,7 @@ Before shipping any user-facing feature:
 
 - [ ] **Manipulation**: Would the user feel tricked? Is the easiest path the honest one?
 - [ ] **Accessibility**: Can a keyboard/screen-reader user complete this flow?
-- [ ] **Privacy**: Is data collection minimal, disclosed, and deletable?
+- [ ] **Privacy**: Is data collection minimal, disclosed and deletable?
 - [ ] **Sustainability**: Does this work on slow connections and modest hardware?
 
 ---
@@ -204,6 +204,6 @@ Before shipping any user-facing feature:
 Ethics review is effective when:
 - Concerns are caught during design, not after launch
 - The team treats accessibility as a requirement, not a nice-to-have
-- Users can understand, control, and delete their data
+- Users can understand, control and delete their data
 - No dark patterns exist in the product
-- The software works for people with different abilities, devices, and connections
+- The software works for people with different abilities, devices and connections

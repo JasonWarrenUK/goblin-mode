@@ -17,7 +17,7 @@
 <!-- gen-skills-index: counts start (do not hand-edit; run gen-skills-index.py) -->
 | Component     | Count | What it does |
 |----------------|-------|--------------|
-| **Skills (command)** | 26 | Slash commands you invoke (e.g. `/commit-one`) |
+| **Skills (command)** | 28 | Slash commands you invoke (e.g. `/commit-one`) |
 | **Skills (role)**    | 15 | Ambient knowledge that loads automatically when relevant |
 | **Skills (model-invocable command)** | 23 | Command skills the model can also self-invoke |
 | **Agents**     | 10 | Autonomous sub-processes for multi-step work |
@@ -43,7 +43,7 @@ These counts are written by `gen-skills-index.py`, not hand-maintained: the skil
 | [`agents/`](agents/) | Autonomous multi-step workflows Claude delegates to. See [Agents reference](docs/reference/agents.md). |
 | [`hooks/`](hooks/) | Scripts on git/session events. See [Hooks reference](docs/reference/hooks.md). |
 | [`library/`](library/) | Shared references, templates, scripts, and config examples used by skills. See [Library reference](docs/reference/library.md). |
-| [`output-styles/`](output-styles/) | Tone and personality definitions; `british-dev-goblin.md` is the active one. |
+| [`output-styles/`](output-styles/) | Persona layer; `british-dev-goblin.md` is set at user level in `settings.json` with `keep-coding-instructions: true`, so it sits on top of Claude Code's built-in engineering instructions rather than replacing them. Voice only: the rules live in `CLAUDE.md` §3. |
 | [`docs/`](docs/) | This wiki: architecture, per-subsystem reference, guides and design history. |
 
 For the full picture (how the layers fit together, what each costs to load and the deterministic-half pattern behind several skills) see **[Architecture](docs/architecture.md)**.

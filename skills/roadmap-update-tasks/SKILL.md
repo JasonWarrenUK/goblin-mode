@@ -28,13 +28,13 @@ When the input is a multi-task proposal (typically `roadmap-create-interview`'s 
 
 Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`. Exit **3** = old simple format: **stop and tell the user to run `roadmap-migrate` first**. Exit **2** = could not locate/parse: ask the user for the path. Only proceed on exit 0.
 
-Read the full `roadmaps.json` and the active phase's PHASE file before adding: you need the existing task graph, milestone IDs, gates, and categories.
+Read the full `roadmaps.json` and the active phase's PHASE file before adding: you need the existing task graph, milestone IDs, gates and categories.
 
 ---
 
 ## Step 2: Understand what to add
 
-Extract: **description**; **milestone** (which milestone; ask if unclear); **category** (2–3 letter prefix, reuse an existing one in that milestone where it fits); **dependencies** (what must be done first; what it unblocks); **assignee** (ask the user directly; never infer it from the description, the git author, the category owner, or who is running this skill; leave it unset if the user doesn't say). Ask before proceeding if any is ambiguous: a badly placed task is worse than a delayed one.
+Extract: **description**; **milestone** (which milestone; ask if unclear); **category** (2–3 letter prefix, reuse an existing one in that milestone where it fits); **dependencies** (what must be done first; what it unblocks); **assignee** (ask the user directly; never infer it from the description, the git author, the category owner or who is running this skill; leave it unset if the user doesn't say). Ask before proceeding if any is ambiguous: a badly placed task is worse than a delayed one.
 
 ---
 

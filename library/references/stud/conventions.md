@@ -37,9 +37,9 @@ Keep the box symbols consistent so a plain-text search (`&&&&`, `!!!!`) finds ev
 
 Mark the points where a stud touches things outside itself:
 
-- `SEAM:` — touches external/existing logic (I/O, subprocess, another subsystem).
-- `HOOKS INTO:` — wires into a specific existing call site.
-- `SCHEMA CHANGE:` — a DB/interface change.
+- `SEAM:` touches external/existing logic (I/O, subprocess, another subsystem).
+- `HOOKS INTO:` wires into a specific existing call site.
+- `SCHEMA CHANGE:` a DB/interface change.
 
 `find-scaffold.sh --seams` inventories these for the handoff/checkpoint summary.
 

@@ -9,7 +9,7 @@ One subject. Strands are numbered (I, II, III) and each takes one hue, the way t
 1. **Verdict box**: adopt / spike / skip, one paragraph of reason, then a numbered plan (first action, time estimate, abandon condition).
 2. **Strand I · The thing**: what it is in its own terms; integration surface as a table (surface / status / detail, status ∈ verified · none · unverified); constraints (licence, platform, scheduling, rate limits, maturity signals such as release cadence).
 3. **Strand II · The terms**: what the relevant tier or licence actually grants, quoted; the gate (who or what is counted); the clocks (trials, expiry, caps); open readings of the terms marked `unverified`.
-4. **Strand III · Fit**: one collapsed section per candidate project or group, each headed with a chip (`fits` / `stretch` / `no fit`) and a gloss; body gives the reason, what would make it fail, and a spike plan for every `fits`.
+4. **Strand III · Fit**: one collapsed section per candidate project or group, each headed with a chip (`fits` / `stretch` / `no fit`) and a gloss; body gives the reason, what would make it fail and a spike plan for every `fits`.
 5. Footer ledger.
 
 Chips: `fits` (green), `stretch` (amber), `no fit` (grey), `unverified` (dashed), `verified` (strand hue).

@@ -26,6 +26,7 @@ git diff --cached --stat
 2. Generate commit message per conventional commits format, honouring `$hint` (a type, scope or emphasis nudge) when given.
 3. Show the message and await approval:
     - If approved, commit with it
+    - If `git commit` exits non-zero and stderr contains `commit-msg:` lines, read each `L<n> <rule>: <excerpt>` line, rewrite the message to clear every hit (keeping the meaning) and retry the commit once. If the retry fails too, stop and report the stderr verbatim. Never pass `--no-verify` and never change git config to get past the hook.
     - If changes requested, revise and repeat
 4. Report the commit and stop. **Do not push.** Publishing is a separate decision from committing; the user pushes, or asks for it explicitly.
 
@@ -36,4 +37,5 @@ git diff --cached --stat
 <conventions>
   - Subject line: imperative mood, lowercase, no period, max 50 chars (`add feature` not `added feature` or `adds feature`)
   - Body: explain *what* and *why*, not *how*; wrap at 72 chars
+  - British spelling, no em dashes, no Oxford commas: the global commit-msg hook rejects all three
 </conventions>

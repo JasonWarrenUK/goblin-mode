@@ -2,7 +2,7 @@
 
 Slash commands and knowledge skills for Claude Code. Regenerate this index from frontmatter when skills change; do not hand-edit rows.
 
-Run `python3 ~/.claude/library/scripts/gen-skills-index.py` after adding, renaming, or re-describing a skill.
+Run `python3 ~/.claude/library/scripts/gen-skills-index.py` after adding, renaming or re-describing a skill.
 
 | Tier glyph | Model |
 |------|-------|
@@ -21,7 +21,8 @@ User-invocable slash commands (`disable-model-invocation: true`).
 |---------|-------|-------------|
 | `/artefact-audit` | ᛊ sonnet | Render verified findings as an actionable, status-grouped HTML artefact. |
 | `/artefact-intro` | ᛊ sonnet | Render a visual HTML introduction to this codebase for a newly-joined developer |
-| `/artefact-playground` | ᛊ sonnet | Creates interactive HTML playgrounds — self-contained single-file explorers that let users configure… |
+| `/artefact-playground` | ᛊ sonnet | Creates interactive HTML playgrounds: self-contained single-file explorers that let users configure… |
+| `/artefact-research` | ᚠ fable | Research a focus (a tool, a practice, a field of candidates) and render the findings as a verified,… |
 | `/asset-card` | ᛟ opus | Generate the project's social card (OG 1200×630 and GitHub 1280×640) from a committed card.json and… |
 | `/asset-demo` | ᛟ opus | Produce a demo GIF/MP4: VHS tape for CLI tools, shot-scraper storyboard for web flows, Playwright re… |
 | `/asset-pdf` | ᛊ sonnet | Rasterise pages of a PDF (tabletop game documents, print pieces) with pdftoppm and frame chosen page… |
@@ -31,6 +32,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/branch-qa_review` | ᛟ opus | Assess branch readiness for PR submission: full review methodology plus the checks only a local chec… |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
+| `/hud-prose_health` | ᚺ haiku | Check every layer of the prose-gating suite is still wired and report how Claude's own output is tre… |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
 | `/next-task-group` | ᚺ haiku | Show every currently unblocked roadmap task, grouped by milestone or topic |
 | `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
@@ -86,7 +88,7 @@ Ambient knowledge roles (`user-invocable: false`), loaded by Claude when relevan
 
 | Skill | Description | When to use |
 |-------|-------------|-------------|
-| `asset-conventions` | Where generated visual assets live, how project type and theme are resolved, and the quality gate ev… | Loaded by every asset-* skill before it captures, renders or frames anything; also when a README needs a screenshot, GIF… |
+| `asset-conventions` | Where generated visual assets live, how project type and theme are resolved and the quality gate eve… | Loaded by every asset-* skill before it captures, renders or frames anything; also when a README needs a screenshot, GIF… |
 | `clod-approach-stud` | Studs every function of a planned feature in its real file as a runnable walking-skeleton (fake data… | >=1 of the following are true: (a) spans several functions/files; (b) touches existing code in more than one place; (c)… |
 | `clod-approach-writing_style` | Writing style guide for Jason Warren. Applies whenever writing or editing substantive prose for Jaso… | Any request involving writing, drafting, editing or composing text that isn't purely code (including GitHub PR descripti… |
 | `clod-lens-empathy` | Empathy-driven design: think through how real people experience the software; surface and challenge… | When designing a user-facing flow and it's worth pausing to ask how it actually feels to a real person using it; especia… |

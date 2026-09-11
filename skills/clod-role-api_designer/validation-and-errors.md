@@ -175,7 +175,7 @@ export class ConflictError extends ApiError {
 - Invalid application state
 - Unexpected system errors
 
-### Centralized Error Handler
+### Centralised Error Handler
 ```typescript
 // lib/server/errors.ts
 import { json } from '@sveltejs/kit';

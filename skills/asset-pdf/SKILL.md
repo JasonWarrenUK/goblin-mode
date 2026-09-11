@@ -1,7 +1,7 @@
 ---
 name: "Asset: PDF"
 description: "Rasterise pages of a PDF (tabletop game documents, print pieces) with pdftoppm and frame chosen pages with the project's theme into preview cards"
-when_to_use: "When a project ships a PDF and its README, itch page or social card needs page previews; when the user mentions a PDF, rulebook, character sheet, print-and-play, or page preview."
+when_to_use: "When a project ships a PDF and its README, itch page or social card needs page previews; when the user mentions a PDF, rulebook, character sheet, print-and-play or page preview."
 model: sonnet
 effort: medium
 metadata:

@@ -16,7 +16,7 @@ Suggest the next logical task I can complete. Selection is grounded in determini
 
 ## Step 0: Parse arguments
 
-`$ARGUMENTS` may carry an assignee, a focus area, both, or neither; positionally, assignee first. Parse by intent, not blind position-splitting:
+`$ARGUMENTS` may carry an assignee, a focus area, both or neither; positionally, assignee first. Parse by intent, not blind position-splitting:
 
 - No arguments → no assignee, no focus.
 - One token/phrase that plainly reads as a person's name → treat as **assignee** only.

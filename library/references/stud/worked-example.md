@@ -1,6 +1,6 @@
 # Stud worked example (end to end)
 
-Agent-reference material shared by the stud skills. A full three-function feature studded across real files: shapes declared once, studs returning fake data, `should` bullets, seams, scaffold banners, and the run that proves the plumbing. Language is Python for the example; use the target language's own comment syntax (see `conventions.md`).
+Agent-reference material shared by the stud skills. A full three-function feature studded across real files: shapes declared once, studs returning fake data, `should` bullets, seams, scaffold banners and the run that proves the plumbing. Language is Python for the example; use the target language's own comment syntax (see `conventions.md`).
 
 Feature: **ingest a webhook event and persist it**, wired into an existing `handlers.py` dispatch.
 
@@ -81,7 +81,7 @@ $ python -c "import handlers; handlers.dispatch(fake_request)"
 [stud] handled /webhook/event
 ```
 
-Two log lines in the right order: the skeleton walks. Nothing real happened (the store is a `print`, the transform returns a canned dict), but the calls, wiring, and return path are proven before a line of real logic exists.
+Two log lines in the right order: the skeleton walks. Nothing real happened (the store is a `print`, the transform returns a canned dict), but the calls, wiring and return path are proven before a line of real logic exists.
 
 ## What the reviewer sees
 

@@ -33,7 +33,7 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 
 ## Steps
 
-### 1. Determine scope, context, and format
+### 1. Determine scope, context and format
 
 - Check if `docs/roadmaps/` exists and contains roadmaps; check if `.claude/roadmaps.json` exists.
 - If `$ARGUMENTS` is given, use it as the phase name (e.g. `PHASE_2`). If no arguments and no existing roadmap, propose a phase name drawn from the project's goal and confirm it; never default to a bare `PHASE_1`. If no arguments but roadmaps exist, ask the user to clarify intent.
@@ -41,7 +41,7 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 
 ### 2. Gather project context
 
-Read what is available to understand the project: `README.md`, `CLAUDE.md`, `docs/` (architecture, proposals, ADRs), and any existing roadmaps in `docs/roadmaps/`.
+Read what is available to understand the project: `README.md`, `CLAUDE.md`, `docs/` (architecture, proposals, ADRs) and any existing roadmaps in `docs/roadmaps/`.
 
 ### 3. Elicit the work; let the structure emerge
 
@@ -50,7 +50,7 @@ Feature first, structure second: milestones reveal themselves as the conversatio
 - **The work:** what must exist by the end of this phase? What's frustrating enough to fix, and what does each piece unlock?
 - **Grouping (proposed, not demanded):** once the features are on the table, propose a milestone grouping (typically 3–5, each with a goal and completion criterion) and 2–3 letter category prefixes (e.g. `EV` = evaluation, `IN` = ingestion). The user corrects a concrete proposal rather than designing structure cold.
 - **Dependencies:** which groups are sequential vs parallel; any known external blockers or prerequisites.
-- **Assignees (optional):** if the user wants to attribute tasks to people up front, ask who owns what. Never infer an assignee from category, milestone, or anything else; leave it unset for any task the user doesn't name an owner for.
+- **Assignees (optional):** if the user wants to attribute tasks to people up front, ask who owns what. Never infer an assignee from category, milestone or anything else; leave it unset for any task the user doesn't name an owner for.
 
 For a big batch of half-formed ideas, `roadmap-create-interview` is the deeper feature interview; its approved proposal can seed this step's grouping.
 
@@ -91,7 +91,7 @@ The top level is an **array of phase objects**. Append + archive the superseded 
 - **External gates** (`externalGates`, per phase, beside `milestones`) model things outside the team's control that block work: `{id, name, status:"external", imposes?, blocks[], notes?}`. `imposes` (default `blocked`; may be `paused` or `deferred`) is the status the gate forces on its blocked children; `blocks[]` is the reverse edge: every task ID that lists this gate in its `dependsOn`. A gate ID can appear in a task's `dependsOn`.
 - A `dependsOn` entry may be a **milestone ID** (`M1`, `MP`…): it resolves `done` only when every task in that milestone is `done`.
 - The `iterative: true` flag marks a task that loops to convergence: descriptive only, never a cyclic `dependsOn`.
-- A `softDependsOn` entry authors an optional, best-effort link that renders dotted in the diagram (`X -.-> Y`) but imposes no status, no cycle constraint, and no sink effect (full semantics in the conventions reference). Use it for relationships worth showing but not worth blocking on; never hand-draw a dotted line into the generated diagram instead.
+- A `softDependsOn` entry authors an optional, best-effort link that renders dotted in the diagram (`X -.-> Y`) but imposes no status, no cycle constraint and no sink effect (full semantics in the conventions reference). Use it for relationships worth showing but not worth blocking on; never hand-draw a dotted line into the generated diagram instead.
 
 ### 7. Generate `docs/roadmaps/{PHASE}.md`
 
@@ -158,7 +158,7 @@ and paste the output verbatim into the fenced `mermaid` block. It emits the clas
 
 The header task count must match `roadmaps.json`. Get it from `python3 "$HOME"/.claude/library/scripts/roadmap.py stats` rather than counting by hand.
 
-### 9. Validate, confirm, and report
+### 9. Validate, confirm and report
 
 1. Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean (dependsOn/blocks parity, acyclicity, status recompute). Fix any discrepancy before finishing.
 2. Report the three paths created, the milestone and task counts (from `roadmap.py stats`), and the status breakdown.

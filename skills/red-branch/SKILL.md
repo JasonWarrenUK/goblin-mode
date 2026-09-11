@@ -34,7 +34,7 @@ never edits the branch it is reviewing.
 **Base is required; persona is not.** Requiring base is what removes the
 ambiguity a single token used to carry: with base mandatory, one token can
 only be the base branch, never a persona guess. `/red-branch cedric` means
-"diff against a branch called `cedric`, reviewed by Goblin" — if no such
+"diff against a branch called `cedric`, reviewed by Goblin": if no such
 branch exists, `branch-facts.sh`/`git diff` fail loudly on the bad ref, which
 is an acceptable failure mode; if the failure looks like it might actually be
 a persona name instead, say so rather than only reporting a missing branch.
@@ -46,7 +46,7 @@ Usage: /red-branch <base branch> [persona] [persona] [-- failure conditions]
 ```
 
 The one exception: the single literal token `personas` still prints the
-roster and stops, per its own line below — that is a deliberate roster
+roster and stops, per its own line below: that is a deliberate roster
 lookup, not a missing base branch.
 
 One or more tokens: positional, in this order. Nothing here is prompted for
@@ -92,7 +92,7 @@ sloppiness to Cedric).
 
 Read the full diff, `git diff $base...HEAD`. Then read what it touches beyond
 the diff itself: for every changed export, function signature or component
-prop, **Grep for its callers and confirm they still hold** — this is
+prop, **Grep for its callers and confirm they still hold**: this is
 `branch-qa_review`'s Step 2 addition, adopted here because changed-contract
 breakage lives outside the diff and a hostile reviewer who only reads the diff
 misses exactly the class of bug that ships. Where a claim is checkable by
@@ -137,7 +137,7 @@ cover. Same evidence discipline.
 Follow the methodology's report skeleton. Title is `Sabotage dossier:
 {branch name}`. Evidence sections are, in order: Section 1 correctness
 (`C1`, `C2` …), Section 2 security (`S1`, `S2` …), Section 3 convention
-violations (`V1`, `V2` …), Section 4 reinforcement (numbered, not hostile —
+violations (`V1`, `V2` …), Section 4 reinforcement (numbered, not hostile;
 this section is the one place the dossier is allowed to be generous), then the
 per-persona sections and named failure conditions per the shared skeleton.
 

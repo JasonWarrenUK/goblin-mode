@@ -1,6 +1,6 @@
 ---
 name: "Asset: Conventions"
-description: "Where generated visual assets live, how project type and theme are resolved, and the quality gate every asset-* skill runs before reporting"
+description: "Where generated visual assets live, how project type and theme are resolved and the quality gate every asset-* skill runs before reporting"
 when_to_use: "Loaded by every asset-* skill before it captures, renders or frames anything; also when a README needs a screenshot, GIF or social card and the user hasn't named a skill."
 user-invocable: false
 metadata:

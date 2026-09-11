@@ -31,7 +31,7 @@ Skip this step entirely on a plain status-sync run. Run it when asked to reconci
 3. **Bound the search by recency.** Get the changed-file set since the last reconciliation: if a prior run left a "last reconciled at `<sha>`" marker (see step 7), use `git diff --name-only <sha>..HEAD`; otherwise use a recent window (`git log --oneline -30` and `git diff --name-only HEAD~30..HEAD`, or the whole history for a small/new repo). Only search within this changed-file set, never the whole tree.
 4. **Search per candidate.** For each candidate, derive 1–3 concrete terms from its `description`/`notes` (a filename, symbol, route, component name) and `Grep`/`Glob` for them within the changed-file set. Read a file only when a search hits.
 
-   When the candidate set has **4 or more** entries, dispatch one read-only subagent per candidate in parallel instead of looping sequentially: each agent gets the candidate's ID, description, notes, and the changed-file set, and returns its classification (below) plus the evidence found. No subagent edits anything; this is search fan-out only, and the confirmation gate in step 7 is unchanged. Below 4 candidates, work the loop directly — dispatch overhead exceeds the saving.
+   When the candidate set has **4 or more** entries, dispatch one read-only subagent per candidate in parallel instead of looping sequentially: each agent gets the candidate's ID, description, notes and the changed-file set, and returns its classification (below) plus the evidence found. No subagent edits anything; this is search fan-out only, and the confirmation gate in step 7 is unchanged. Below 4 candidates, work the loop directly: dispatch overhead exceeds the saving.
 5. **Classify each candidate**, applying the evidence rule below:
    - **Proposed done**: the described feature is fully present (whole task, not partial), with concrete evidence (file:symbol, route, test, call-site).
    - **Proposed unblock**: only for a blocker that is *not* itself a roadmap task, or is an external gate: something satisfied in code (or lifted externally) with no task ID to flip to `done`. Propose removing that specific `dependsOn`/gate entry (and the gate's `blocks[]`). When the blocker *is* another task, don't propose a separate unblock; proposing that blocking task `done` (above) is sufficient, since `recompute` cascades the unblock automatically once its status changes.
@@ -41,7 +41,7 @@ Skip this step entirely on a plain status-sync run. Run it when asked to reconci
    - Positive, specific, whole-task evidence only; absence of a match is never evidence of anything.
    - A partially-implemented task stays exactly where it is (there's no in-progress state to move it to).
    - Never touch `done`, `out_of_scope`, or a root-seeded held `paused`/`deferred`.
-   - Never infer a gate as cleared casually: gates are external by design; propose removing a gate dependency only on genuine, specific evidence, and only through the gate below.
+   - Never infer a gate as cleared casually: gates are external by design; propose removing a gate dependency only on genuine, specific evidence and only through the gate below.
 7. **Confirmation gate.** Present the proposal before writing anything:
 
    ```
@@ -126,15 +126,15 @@ See step 4's note on running this check as a parallel read-only agent alongside 
 
 ### 7. Validate and report
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean. Then report each `{ID}: old → new` status change grouped by milestone, whether the diagram block was regenerated, whether the HTML artefact was refreshed, and the overview count if it changed. On a reconcile run, also restate the Step 0 proposal outcome (what was approved and applied, what was left unconfirmed, any reverse drift) and the commit SHA to use as next time's "last reconciled at" marker.
+Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean. Then report each `{ID}: old → new` status change grouped by milestone, whether the diagram block was regenerated, whether the HTML artefact was refreshed and the overview count if it changed. On a reconcile run, also restate the Step 0 proposal outcome (what was approved and applied, what was left unconfirmed, any reverse drift) and the commit SHA to use as next time's "last reconciled at" marker.
 
 ---
 
 ## Notes
 
 - roadmaps.json is the source of truth; when it and the PHASE file disagree, recompute from roadmaps.json.
-- The recompute (Steps 2–7) is mechanical: never infer status from descriptions, external context, or likelihood of completion outside Step 0. A gate clears by a deliberate edit (removing the gate ID from `dependsOn` and its `blocks[]`), never by casual judgement.
+- The recompute (Steps 2–7) is mechanical: never infer status from descriptions, external context or likelihood of completion outside Step 0. A gate clears by a deliberate edit (removing the gate ID from `dependsOn` and its `blocks[]`), never by casual judgement.
 - Step 0 is the one sanctioned exception: codebase-inferred `done` calls and blocker-edge removals, always evidence-backed and always confirmed before Step 2 writes them. It is opt-in: only runs on a reconcile request, never silently.
 - `done` and `out_of_scope` are terminal; root-seeded parked tasks are held as authored (details in the conventions reference). Step 0 never re-opens or flips these; reverse drift is reported, not corrected automatically.
 - No in-progress state; if asked to mark something "in progress", clarify the six options.
-- Never parallelise steps 3, 5, or 7: those are direct `roadmap.py` invocations, and the script is the deterministic source of truth for their output. Parallel subagents belong only in step 0's per-candidate search and steps 4/6's read-only diff-and-propose passes, never around the script itself.
+- Never parallelise steps 3, 5 or 7: those are direct `roadmap.py` invocations, and the script is the deterministic source of truth for their output. Parallel subagents belong only in step 0's per-candidate search and steps 4/6's read-only diff-and-propose passes, never around the script itself.
