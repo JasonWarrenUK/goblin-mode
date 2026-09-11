@@ -32,6 +32,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/branch-qa_review` | ᛟ opus | Assess branch readiness for PR submission: full review methodology plus the checks only a local chec… |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
+| `/hud-prose_health` | ᚺ haiku | Check every layer of the prose-gating suite is still wired and report how Claude's own output is tre… |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
 | `/next-task-group` | ᚺ haiku | Show every currently unblocked roadmap task, grouped by milestone or topic |
 | `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
