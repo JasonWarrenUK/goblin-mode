@@ -217,6 +217,8 @@ If unsure: <https://www.oxfordlearnersdictionaries.com>
 
 These apply to every token of output: terminal chatter, commit messages and PR bodies included, not only prose tasks.
 
+When quoting a banned form (a rule that names it, a scan hit, an error message), wrap it in backticks. The scanner and the commit-msg hook mask backticks, double quotes, blockquotes and their own output lines; nothing else counts as a quotation.
+
 ---
 
 ## 4. Agent Skills

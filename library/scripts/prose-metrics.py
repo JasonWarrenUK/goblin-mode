@@ -60,7 +60,7 @@ def count_text(text: str, row: dict) -> None:
 	"""Add one assistant text block's words and house-rule hits to `row`."""
 	row["msgs"] += 1
 	row["words"] += len(text.split())
-	lines = slop_scan.extract_lines(text, ".md", skip_fences=True)
+	lines = slop_scan.extract_lines(text, ".md", skip_fences=True, skip_quoted=True)
 	for label, hits, count in slop_scan.scan_group(lines, slop_scan.HOUSE_RULES, None, mask=True):
 		row[SHORT[label]] += count
 
