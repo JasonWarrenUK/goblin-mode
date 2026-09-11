@@ -56,7 +56,8 @@ if [ "$(git config --type=bool --get slop.commitMsg 2>/dev/null)" != "false" ]; 
 		# report how often the gate fires. SLOP_NO_LOG=1 skips it (self-tests).
 		if [ -z "${SLOP_NO_LOG:-}" ]; then
 			log="$HOME/.claude/library/state/commit-msg-log.jsonl"
-			repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+			# Strip the two characters that would break the JSON string.
+			repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr -d '"\\')
 			if [ -n "$hits" ]; then
 				result=reject
 				rules=$(printf '%s\n' "$hits" | sed -E 's/^L[0-9]+ ([^:]*):.*/\1/' | sort -u | paste -sd '|' -)
