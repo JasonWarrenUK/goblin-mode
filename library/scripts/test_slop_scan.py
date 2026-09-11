@@ -92,6 +92,36 @@ class StrictMasking(unittest.TestCase):
 		self.assertTrue(out.startswith("L6 "))
 
 
+class StrictQuoting(unittest.TestCase):
+	def test_blockquote_line_is_skipped(self):
+		self.assertEqual(run_strict("docs: note\n\n> quoted — with a dash\n")[0], 0)
+
+	def test_scanner_output_line_is_skipped(self):
+		self.assertEqual(run_strict("the hook said:\nL1 em dash: fix: tidy — again\n")[0], 0)
+
+	def test_scanner_output_with_path_prefix_is_skipped(self):
+		self.assertEqual(run_strict("skills/x/SKILL.md:L4 American -or 'color': the color of it\n")[0], 0)
+
+	def test_double_quoted_span_is_masked(self):
+		self.assertEqual(run_strict('rename the "Color — Picker" dialog\n')[0], 0)
+
+	def test_curly_quoted_span_is_masked(self):
+		self.assertEqual(run_strict("rename the “Color — Picker” dialog\n")[0], 0)
+
+	def test_text_outside_quotes_still_caught(self):
+		status, out = run_strict('the "quoted — bit" and a real — dash\n')
+		self.assertEqual(status, 1)
+		self.assertEqual(len(out.splitlines()), 1)
+
+	def test_unbalanced_quote_masks_only_its_own_line(self):
+		status, out = run_strict('he said "no — way\nnext line has a real — dash\n')
+		self.assertEqual(status, 1)
+		self.assertTrue(out.startswith("L2 "))
+
+	def test_apostrophes_do_not_mask(self):
+		self.assertEqual(run_strict("it's the color of Jason's badge\n")[0], 1)
+
+
 class OxfordComma(unittest.TestCase):
 	def hits(self, text: str) -> list[str]:
 		found = slop_scan.scan_group([(1, text)], slop_scan.HOUSE_RULES, None)

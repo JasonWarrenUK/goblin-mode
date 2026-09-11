@@ -21,13 +21,16 @@ TARGET is a file, or `-` for stdin. Accepts .md, .html, .txt. HTML is
 stripped of script/style blocks and tags line by line, so reported line
 numbers match the source file.
 
-Strict mode skips fenced code blocks and, per line, masks inline code,
-URLs, email addresses and identifier-shaped tokens (two or more segments
-joined by - _ . / : or backslash) before matching. That is what keeps
-`background-color`, `feat/colorize` and `src/lib/Color.svelte` out of the
-American-spelling rule. The cost: hyphenated English such as
-"behavior-driven" is masked too. Strict is a gate, so a missed hit is the
-cheaper error.
+Strict mode skips fenced code blocks, Markdown blockquotes and lines shaped
+like this scanner's own output (`L<n> <rule>: …`), and, per line, masks
+inline code, URLs, email addresses, identifier-shaped tokens (two or more
+segments joined by - _ . / : or backslash) and double-quoted spans (straight
+or curly; an unbalanced quote masks to the end of its own line and no
+further) before matching. That is what keeps `background-color`,
+`feat/colorize`, a quoted title and a pasted scan hit out of the rules.
+The cost: hyphenated English such as "behavior-driven" and dialogue in
+double quotes are masked too. Strict is a gate, so a missed hit is the
+cheaper error. Backticks remain the one container the writer controls.
 """
 
 from __future__ import annotations
@@ -44,6 +47,8 @@ from pathlib import Path
 SCRIPT_STYLE = re.compile(r"<(script|style)\b.*?</\1>", re.S | re.I)
 TAG = re.compile(r"<[^>]+>")
 FENCE = re.compile(r"^\s*(?:`{3,}|~{3,})")
+BLOCKQUOTE = re.compile(r"^\s*>")
+SCAN_LINE = re.compile(r"^\s*(?:[^\s:]+:)?L\d+ [^:]{1,40}: ")
 MARKUP_SUFFIXES = {".html", ".htm", ".xhtml", ".svelte", ".jsx", ".tsx"}
 
 
@@ -55,8 +60,13 @@ def read_target(target: str) -> tuple[str, str, str]:
 	return str(path), path.read_text(encoding="utf-8", errors="replace"), path.suffix.lower()
 
 
-def extract_lines(raw: str, suffix: str, skip_fences: bool = False) -> list[tuple[int, str]]:
-	"""Return [(line_number, visible_text)] with blank lines dropped."""
+def extract_lines(raw: str, suffix: str, skip_fences: bool = False, skip_quoted: bool = False) -> list[tuple[int, str]]:
+	"""Return [(line_number, visible_text)] with blank lines dropped.
+
+	`skip_fences` drops fenced code blocks; `skip_quoted` drops blockquote
+	lines and lines shaped like this scanner's own output. Both are gate-mode
+	behaviour; report mode reads everything.
+	"""
 	if suffix in MARKUP_SUFFIXES:
 		# Blank out script/style bodies without losing line count.
 		def blank(match: re.Match[str]) -> str:
@@ -75,6 +85,8 @@ def extract_lines(raw: str, suffix: str, skip_fences: bool = False) -> list[tupl
 			continue
 		if fenced:
 			continue
+		if skip_quoted and (BLOCKQUOTE.match(line) or SCAN_LINE.match(line)):
+			continue
 		text = re.sub(r"\s+", " ", line).strip().replace("’", "'")
 		if text:
 			out.append((index, text))
@@ -86,12 +98,21 @@ def extract_lines(raw: str, suffix: str, skip_fences: bool = False) -> list[tupl
 CODE_SPAN = re.compile(r"(`+)(.+?)\1")
 URL = re.compile(r"\bhttps?://\S+|\S+@\S+\.\w+")
 IDENT = re.compile(r"\b\w+(?:[-_./:\\]\w+)+\b")
+QUOTED = re.compile(r'"[^"]*"|“[^”]*”')
+OPEN_QUOTE = re.compile(r'["“]')
 
 
 def mask_code(text: str) -> str:
-	"""Blank code-ish spans with same-length spaces so match offsets stay valid."""
-	for pattern in (CODE_SPAN, URL, IDENT):
+	"""Blank code-ish and quoted spans with same-length spaces so match offsets stay valid.
+
+	Quoted spans are masked last and only within the line; a quote left
+	unbalanced masks from itself to the end of the line, never further.
+	"""
+	for pattern in (CODE_SPAN, URL, IDENT, QUOTED):
 		text = pattern.sub(lambda match: " " * len(match.group(0)), text)
+	stray = OPEN_QUOTE.search(text)
+	if stray:
+		text = text[: stray.start()] + " " * (len(text) - stray.start())
 	return text
 
 
@@ -322,7 +343,7 @@ def report(name: str, raw: str, suffix: str, top: int, shingle: int, house_only:
 
 def strict(name: str, raw: str, suffix: str, prefix: bool) -> int:
 	"""House rules only, code masked, every hit on its own line. 1 if any hit."""
-	lines = extract_lines(raw, suffix, skip_fences=True)
+	lines = extract_lines(raw, suffix, skip_fences=True, skip_quoted=True)
 	found = scan_group(lines, HOUSE_RULES, None, mask=True)
 	hits = sorted(
 		(number, label, token, context)
