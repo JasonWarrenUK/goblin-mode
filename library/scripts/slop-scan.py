@@ -128,6 +128,12 @@ IZE_STOPS = {
 HOUSE_RULES = [
 	("em dash", r"—"),
 	("spaced en dash", r"\s–\s"),
+	# Known imprecision: this also matches a comma joining two independent
+	# clauses ("we tag the release, and the changelog regenerates"), which is
+	# not a list. Telling the two apart needs clause detection, out of reach
+	# for a regex, so the false positive is accepted and pinned by
+	# test_compound_clause_is_a_known_false_positive; prose-health.py budgets
+	# for it via RESIDUAL_TOLERANCE.
 	("Oxford comma", r"\b\w+, (?:[^,.;:!?]|\.(?=\S)){1,40}, (?:and|or)\b"),
 	("-ize / -ization", r"\b\w*iz(?:e|es|ed|ing|ation|ations)\b"),
 	("American -or", r"\b(?:color|behavior|favor|honor|labor|neighbor|humor|flavor|rumor)s?\b"),
