@@ -139,6 +139,11 @@ class OxfordComma(unittest.TestCase):
 	def test_does_not_cross_a_colon(self):
 		self.assertNotIn("Oxford comma", self.hits("x, y: z, and w"))
 
+	def test_compound_clause_is_a_known_false_positive(self):
+		# Not a list: the comma joins two independent clauses. The pattern
+		# cannot tell the difference; pinned so a regex change is deliberate.
+		self.assertIn("Oxford comma", self.hits("After the merge, we tag the release, and the changelog regenerates."))
+
 
 class BorrowedWeight(unittest.TestCase):
 	def labels(self, text: str) -> list[str]:
