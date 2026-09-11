@@ -25,6 +25,7 @@ hooks/post-commit
 
 # Personal usage data (pain points, etc.) stays local; the schema does not
 /library/state/*.json
+/library/state/*.jsonl
 !/library/state/README.md
 
 # Dependency trees under library/scripts/* stay local; never track node_modules or lockfiles

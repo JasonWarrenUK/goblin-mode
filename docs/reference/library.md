@@ -55,7 +55,11 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `roadmap.py` + `_roadmap_core.py` | The whole roadmap-\* family | Single CLI for the rich phase-array roadmap system: ID assignment, status computation, dependency graph integrity, HTML rendering |
 | `config_permit.py` | `config-permit` | Deterministic half of permission-granting: the skill's `allowed-tools` is scoped to only this one script |
 | `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data: fails fast on a malformed finding instead of rendering it wrong |
+| `slop-scan.py` | `red-doc` (report mode); `hooks/commit-msg`, `pr-create`, `pr-update`, `doc-readme`, `doc-changelog` (`--strict`) | Mechanical prose scan: house-rule breaches plus rhetorical-tell candidates; `--strict` is the gate mode (house rules only, code masked, exit 1 on a hit) |
+| `prose-metrics.py` | `hud-prose_health` | House-rule breaches per day in Claude's own terminal output, from the session transcripts; `--record` keeps the trend in `state/prose-metrics.json` |
+| `prose-health.py` | `hud-prose_health` | PASS/WARN/FAIL per layer of the prose-gating suite (settings, style, hook, skills, frontmatter, tree scan, tests, index, output trend) |
 | `test_roadmap.py` | none | Fixture tests for `roadmap.py` + `_roadmap_core.py` |
+| `test_slop_scan.py`, `test_prose_metrics.py` | none | Tests for the two scanners above; `prose-health.py` runs both |
 
 `gen-skills-index.py` also lives here (see [Skills](skills.md#regenerating-the-index)).
 
