@@ -8,6 +8,7 @@
 #
 # Per-repo opt-out:   git config slop.commitMsg off
 # Fail-open: a missing scanner or python3 never blocks a commit.
+# Every run appends one line to library/state/commit-msg-log.jsonl.
 msg="$1"
 
 if [ "$(git config --type=bool --get slop.commitMsg 2>/dev/null)" != "false" ]; then
@@ -43,6 +44,21 @@ if [ "$(git config --type=bool --get slop.commitMsg 2>/dev/null)" != "false" ]; 
 				}
 				for (i = 1; i <= n; i++) print line[i]
 			}' "$msg" | python3 "$scan" --strict -)
+		# One JSON line per commit (pass or reject) so prose-health.py can
+		# report how often the gate fires. SLOP_NO_LOG=1 skips it (self-tests).
+		if [ -z "${SLOP_NO_LOG:-}" ]; then
+			log="$HOME/.claude/library/state/commit-msg-log.jsonl"
+			repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+			if [ -n "$hits" ]; then
+				result=reject
+				rules=$(printf '%s\n' "$hits" | sed -E 's/^L[0-9]+ ([^:]*):.*/\1/' | sort -u | paste -sd '|' -)
+			else
+				result=pass
+				rules=""
+			fi
+			printf '{"ts":"%s","repo":"%s","result":"%s","rules":"%s"}\n' \
+				"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo" "$result" "$rules" >> "$log" 2>/dev/null || true
+		fi
 		if [ -n "$hits" ]; then
 			{
 				echo "commit-msg: house-rule breaches in the commit message:"
