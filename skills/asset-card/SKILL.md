@@ -1,7 +1,7 @@
 ---
 name: "Asset: Card"
 description: "Generate the project's social card (OG 1200×630 and GitHub 1280×640) from a committed card.json and the card theme block; optionally upload it as the GitHub repo's social preview through the user's own browser"
-when_to_use: "When a project needs an Open Graph image, a GitHub social preview, or a portfolio thumbnail; when the user mentions OG image, social card, link preview, or repo preview."
+when_to_use: "When a project needs an Open Graph image, a GitHub social preview or a portfolio thumbnail; when the user mentions OG image, social card, link preview or repo preview."
 model: opus
 effort: high
 metadata:

@@ -1,8 +1,8 @@
-# Performance Optimization and Common Patterns
+# Performance Optimisation and Common Patterns
 
 Detail for `svelte-ninja`.
 
-## Performance Optimization
+## Performance Optimisation
 
 ### Lazy Loading Components
 ```svelte
@@ -22,7 +22,7 @@ Detail for `svelte-ninja`.
 {/if}
 ```
 
-### Virtualizing Long Lists
+### Virtualising Long Lists
 ```svelte
 <script>
 	let items = $state(Array.from({ length: 10000 }, (_, i) => i));
@@ -48,7 +48,7 @@ Detail for `svelte-ninja`.
 </div>
 ```
 
-### Memoizing Expensive Calculations
+### Memoising Expensive Calculations
 ```svelte
 <script>
 	let data = $state([/* large dataset */]);

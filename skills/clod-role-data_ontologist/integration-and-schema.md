@@ -1,4 +1,4 @@
-# Integration Patterns, Schema Design, and Query Optimisation
+# Integration Patterns, Schema Design and Query Optimisation
 
 Detail for `Data Ontologist`.
 
@@ -149,7 +149,7 @@ async function getUserDashboard(userId) {
 
 ### Relational Schema (Supabase)
 
-**Normalized Structure**:
+**Normalised Structure**:
 
 ```sql
 -- Users table
@@ -223,9 +223,9 @@ CREATE TABLE orders (
 }
 ```
 
-## Query Optimization
+## Query Optimisation
 
-### PostgreSQL Optimization
+### PostgreSQL Optimisation
 
 **Indexes**:
 
@@ -234,7 +234,7 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_orders_user_date ON orders(user_id, created_at DESC);
 ```
 
-### Neo4j Optimization
+### Neo4j Optimisation
 
 **Constraints and Indexes**:
 
@@ -246,7 +246,7 @@ CREATE INDEX user_email
 FOR (u:User) ON (u.email);
 ```
 
-### MongoDB Optimization
+### MongoDB Optimisation
 
 **Indexes**:
 

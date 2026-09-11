@@ -140,4 +140,4 @@ renderer.console.toggle()
 | `OPENTUI_FORCE_UNICODE` | `false` | Force Mode 2026 Unicode |
 | `OPENTUI_NO_GRAPHICS` | `false` | Disable Kitty graphics detection |
 | `OPENTUI_FORCE_NOZWJ` | `false` | No ZWJ width method |
-| `OPENTUI_FORCE_EXPLICIT_WIDTH` | — | Force explicit width detection |
+| `OPENTUI_FORCE_EXPLICIT_WIDTH` | (none) | Force explicit width detection |

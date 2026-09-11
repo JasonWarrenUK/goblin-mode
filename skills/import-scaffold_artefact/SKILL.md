@@ -42,11 +42,11 @@ Confirm the resolved absolute path and the detected artefact type back to the us
 Read the whole file. Build an inventory before translating anything or asking any questions; a rushed port loses interactivity, and an uninformed interview asks questions the artefact already answers. Capture:
 
 - **Structure:** the visible sections/components and how they nest. For a monolith, note the seams where it could decompose into components.
-- **State and interactivity:** every piece of mutable state, what mutates it, and every event handler. This is the part that must survive the port; static markup is easy, state is where ports break.
+- **State and interactivity:** every piece of mutable state, what mutates it and every event handler. This is the part that must survive the port; static markup is easy, state is where ports break.
 - **Data shapes:** the objects the artefact renders (arrays of items, config objects, form state). These become TypeScript interfaces in Step 6.
-- **External dependencies:** CDN `<script>`/`<link>` tags (React UMD, Tailwind CDN, Babel standalone, charting libs, icon fonts), Google Fonts, inline `import` from `esm.sh`/`unpkg`. Each is a decision: replace with a bun dependency, keep as a CDN link, or drop.
-- **Styling:** inline `style=`, a `<style>` block, Tailwind utility classes, or a CSS-in-JS object. Note every hardcoded colour (hex, `rgb()`, named) for Step 7.
-- **Signs of a backend need:** does the artefact simulate fetching data, persist anything to `localStorage`, or fake an API call? This informs the backend/database question in Step 3.
+- **External dependencies:** CDN `<script>`/`<link>` tags (React UMD, Tailwind CDN, Babel standalone, charting libs, icon fonts), Google Fonts, inline `import` from `esm.sh`/`unpkg`. Each is a decision: replace with a bun dependency, keep as a CDN link or drop.
+- **Styling:** inline `style=`, a `<style>` block, Tailwind utility classes or a CSS-in-JS object. Note every hardcoded colour (hex, `rgb()`, named) for Step 7.
+- **Signs of a backend need:** does the artefact simulate fetching data, persist anything to `localStorage` or fake an API call? This informs the backend/database question in Step 3.
 - **React-specific idioms** (JSX only): hooks in use (`useState`, `useEffect`, `useMemo`, `useRef`, `useContext`), portals, `dangerouslySetInnerHTML`, `children` composition, refs to DOM nodes, effect cleanup functions. Flag each one that will need care in Step 4.
 
 Produce a short written inventory (components, state, deps, backend signals, React idioms found) and show it before the interview.
@@ -70,7 +70,7 @@ Skip any question the arguments or the Step 2 inventory already answers (don't a
 - **Backend/database needed?** Informs SvelteKit server routes (`+page.server.ts`) vs a static site. If yes, which paradigm per Jason's stack: PostgreSQL/Supabase (relational), Neo4j (graph), MongoDB (object), or none.
 - **Auth needed?**
 - **Deployment target:** Vercel / Deno Deploy / GitHub Pages. Recommend one based on whether a server is needed (GitHub Pages only suits a fully static build).
-- **Which tail parts** (Step 9) the user wants: tests, git, docs, deploy, any combination, or none.
+- **Which tail parts** (Step 9) the user wants: tests, git, docs, deploy, any combination or none.
 
 For closed choices (deployment target, stack, backend paradigm), use the `AskUserQuestion` tool with your recommendation listed first. Keep open-ended threads (project name, auth specifics) conversational.
 
@@ -158,16 +158,16 @@ Translate the inventory from Step 2 into real source files.
 - [ ] Monolith decomposed into named components in their real files
 - [ ] Data shapes declared once as interfaces and imported
 - [ ] Every stateful behaviour from Step 2 reproduced
-- [ ] External deps resolved (added, kept, or removed)
+- [ ] External deps resolved (added, kept or removed)
 - [ ] No `any`; exported functions have explicit return types
 
 ## Step 7: Rewire styling onto the project theme
 
 Replace every hardcoded colour from Step 2 with semantic aliases backed by the project's `html` theme. **Read `~/.claude/library/references/theme-conventions.md` first.** If `.claude/themes/` has no `html` target, run `/theme-factory "html"` before this step, seeding it from the artefact's own colours (Step 2's inventory is the seed): the artefact's approved look becomes the theme rather than being replaced by one.
 
-This step's job is preserving the *source artefact's own design* in the new codebase — not imposing a different aesthetic on top of one the user already approved. `~/.claude/library/references/artefact-conventions.md` is a useful cross-check for masthead structure, typography-pairing logic, and the honesty/status-marking rule if the ported app is *itself* a reference/status-style artefact (e.g. a dashboard), but it never overrides what Step 6 already preserved from the artefact's own markup and voice.
+This step's job is preserving the *source artefact's own design* in the new codebase, not imposing a different aesthetic on top of one the user already approved. `~/.claude/library/references/artefact-conventions.md` is a useful cross-check for masthead structure, typography-pairing logic and the honesty/status-marking rule if the ported app is *itself* a reference/status-style artefact (e.g. a dashboard), but it never overrides what Step 6 already preserved from the artefact's own markup and voice.
 
-1. **Emit the tokens:** `bun ~/.claude/library/scripts/theme/emit.ts .claude/themes/<family>-html.json -o src/lib/styles/tokens.css`. Import it once at the app root. The emitted block already carries light and dark variants and the theme-switch contract, but not a control — add the masthead light/system/dark toggle from `artefact-conventions.md`'s theming section (verbatim HTML/CSS/JS) if the ported app didn't already have an equivalent. This is a behavioural requirement, not an aesthetic one, so it applies even though this step otherwise preserves the source app's own design rather than artefact-conventions' full look.
+1. **Emit the tokens:** `bun ~/.claude/library/scripts/theme/emit.ts .claude/themes/<family>-html.json -o src/lib/styles/tokens.css`. Import it once at the app root. The emitted block already carries light and dark variants and the theme-switch contract, but not a control: add the masthead light/system/dark toggle from `artefact-conventions.md`'s theming section (verbatim HTML/CSS/JS) if the ported app didn't already have an equivalent. This is a behavioural requirement, not an aesthetic one, so it applies even though this step otherwise preserves the source app's own design rather than artefact-conventions' full look.
 2. **Define role aliases** in the same `tokens.css`, on top of the theme tokens:
    ```css
    :root {
@@ -189,7 +189,7 @@ This step's job is preserving the *source artefact's own design* in the new code
 - [ ] Every fg/bg pair used appears in the theme's verified `contrast` table
 - [ ] Light/system/dark toggle present and reachable (the ported app's own if it had one, otherwise the masthead control from `artefact-conventions.md`)
 
-## Step 8: Verify it runs (core deliverable)
+## Step 8: Verify it runs (core output)
 
 The port is not done until the page runs and the interactivity works end-to-end. This step is part of the **core**, not the skippable tail.
 
@@ -278,14 +278,14 @@ Summarise: artefact source path; approved config (stack, backend, auth, deploy);
 
 **Never:**
 
-- Commit secrets, `.env`, or `node_modules` (set `.gitignore` before the first `git add`).
+- Commit secrets, `.env` or `node_modules` (set `.gitignore` before the first `git add`).
 - Leave a hardcoded colour or a direct RC-var reference in a component.
 - Use `any`, spaces for indentation, or sed/awk to edit files.
 - Ship the port without running it and driving every interaction.
 - Silently drop an interaction because it was awkward to translate; flag it.
 - Scaffold before the project config is proposed and approved.
 - Run tail parts beyond what the interview selected.
-- Use em dashes in body prose, US spelling, or "not X but Y" couplets.
+- Use em dashes in body prose, US spelling or "not X but Y" couplets.
 
 **Always:**
 

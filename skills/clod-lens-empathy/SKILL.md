@@ -11,7 +11,7 @@ allowed-tools:
 
 # User Empathy Lens
 
-Empathy-driven design skill. Helps think through how real people will experience the software. Uses inference and scenario-building rather than formal user research: surface assumptions, challenge them, and design for actual human behaviour.
+Empathy-driven design skill. Helps think through how real people will experience the software. Uses inference and scenario-building rather than formal user research: surface assumptions, challenge them and design for actual human behaviour.
 
 ---
 
@@ -22,7 +22,7 @@ Use this skill when:
 - Deciding between UX approaches
 - Reviewing a feature from the user's perspective
 - The conversation is focused on implementation but hasn't considered the user
-- Building onboarding, error states, or edge-case handling
+- Building onboarding, error states or edge-case handling
 - Evaluating whether a feature is "intuitive"
 - The user asks "how would someone use this?"
 
@@ -32,7 +32,7 @@ Use this skill when:
 
 **Good software empowers real people, not idealised users.**
 
-Real people are distracted, impatient, confused, using a phone on a bus, and doing three things at once. They don't read instructions. They don't follow happy paths. They close tabs when annoyed.
+Real people are distracted, impatient, confused, using a phone on a bus and doing three things at once. They don't read instructions. They don't follow happy paths. They close tabs when annoyed.
 
 Design for them, not for the demo.
 

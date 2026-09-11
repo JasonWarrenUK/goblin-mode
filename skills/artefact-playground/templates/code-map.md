@@ -1,6 +1,6 @@
 # Code Map Template
 
-Use this template when the playground is about visualizing codebase architecture: component relationships, data flow, layer diagrams, system architecture with interactive commenting for feedback.
+Use this template when the playground is about visualising codebase architecture: component relationships, data flow, layer diagrams, system architecture with interactive commenting for feedback.
 
 ## Layout
 
@@ -28,7 +28,7 @@ Code map playgrounds use an SVG canvas for the architecture diagram. Users click
 |---|---|---|
 | System view | Preset buttons | Full System, Chat Flow, Data Flow, Agent System |
 | Visible layers | Checkboxes | Client, Server, SDK, Data, External |
-| Connection types | Checkboxes with color indicators | Data Flow (blue), Tool Calls (green), Events (red) |
+| Connection types | Checkboxes with colour indicators | Data Flow (blue), Tool Calls (green), Events (red) |
 | Component feedback | Click-to-comment modal | Opens modal with textarea for feedback |
 | Zoom level | +/−/reset buttons | Scale SVG for detail |
 
@@ -38,7 +38,7 @@ Use an `<svg>` element with dynamically generated nodes and paths. Key patterns:
 
 - **Nodes:** Rounded rectangles with title and subtitle (file path)
 - **Connections:** Curved paths (bezier) with arrow markers, styled by type
-- **Layer organization:** Group nodes by Y-position bands (e.g., y: 30-80 = Client, y: 130-180 = Server)
+- **Layer organisation:** Group nodes by Y-position bands (e.g., y: 30-80 = Client, y: 130-180 = Server)
 - **Click-to-comment:** Click node → open modal → save comment → node gets visual indicator
 - **Filtering:** Toggle visibility of nodes by layer, connections by type
 
@@ -67,7 +67,7 @@ function renderDiagram() {
 
 Define 3-5 connection types with distinct visual styles:
 
-| Type | Color | Style | Use for |
+| Type | Colour | Style | Use for |
 |---|---|---|---|
 | `data-flow` | Blue (#3b82f6) | Solid line | Request/response, data passing |
 | `tool-call` | Green (#10b981) | Dashed (6,3) | Function calls, API invocations |
@@ -88,7 +88,7 @@ Use SVG markers for arrowheads:
 The key differentiator for code maps is click-to-comment functionality:
 
 1. **Click node** → Open modal with component name, file path, textarea
-2. **Save comment** → Add to comments list, mark node with visual indicator (colored border)
+2. **Save comment** → Add to comments list, mark node with visual indicator (coloured border)
 3. **View comments** → Sidebar list with component name, comment preview, delete button
 4. **Delete comment** → Remove from list, update node visual, regenerate prompt
 
@@ -134,11 +134,11 @@ For a specific codebase, pre-populate with:
 - **Layers:** Logical groupings (UI, API, Business Logic, Data, External)
 - **Presets:** "Full System", "Frontend Only", "Backend Only", "Data Flow"
 
-Organize nodes in horizontal bands by layer, with consistent spacing.
+Organise nodes in horizontal bands by layer, with consistent spacing.
 
 ## Layer colour palette
 
-Six layer roles, one hue each: Client/UI, Server/API, SDK/Core, Agent/Logic, Data, External. Assign each a theme token from `~/.claude/library/references/artefact-conventions.md` rather than the literal Tailwind-style values below, which illustrate roles only. Follow that reference's full three-state contract (light `:root`, `prefers-color-scheme: dark` guarded as `:not([data-theme="light"])`, `[data-theme="dark"]`) so node fills hold their contrast in both themes, not just light. Ship the reference doc's masthead toggle control so a reader can actually reach all three states, and because the diagram is a live-rendered graph (not a fenced Mermaid block an `Artifact` publish would render natively), drive its node fills from the same CSS custom properties as the rest of the page per the reference doc's diagram rule — a static render taken at load time will strand its colours on the next toggle click.
+Six layer roles, one hue each: Client/UI, Server/API, SDK/Core, Agent/Logic, Data, External. Assign each a theme token from `~/.claude/library/references/artefact-conventions.md` rather than the literal Tailwind-style values below, which illustrate roles only. Follow that reference's full three-state contract (light `:root`, `prefers-color-scheme: dark` guarded as `:not([data-theme="light"])`, `[data-theme="dark"]`) so node fills hold their contrast in both themes, not just light. Ship the reference doc's masthead toggle control so a reader can actually reach all three states, and because the diagram is a live-rendered graph (not a fenced Mermaid block an `Artifact` publish would render natively), drive its node fills from the same CSS custom properties as the rest of the page per the reference doc's diagram rule; a static render taken at load time will strand its colours on the next toggle click.
 
 | Layer | Description |
 |---|---|

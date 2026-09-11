@@ -1,0 +1,85 @@
+#!/bin/sh
+# Global commit-msg git hook, shared across every repo on this machine via
+# the core.hooksPath override (same mechanism as ./pre-commit). Runs the
+# house-rule subset of library/scripts/slop-scan.py over the message (em
+# dash, spaced en dash, Oxford comma, `-ize`, American spellings), rejects the
+# commit on any hit, then delegates to the current repo's own
+# scripts/commit-msg when one exists.
+#
+# Per-repo opt-out:   git config slop.commitMsg off
+# Fail-open: a missing scanner or python3 never blocks a commit.
+# Every run appends one line to library/state/commit-msg-log.jsonl.
+msg="$1"
+
+if [ "$(git config --type=bool --get slop.commitMsg 2>/dev/null)" != "false" ]; then
+	scan="${0%/*}/../library/scripts/slop-scan.py"
+	[ -f "$scan" ] || scan="$HOME/.claude/library/scripts/slop-scan.py"
+	if [ -f "$scan" ] && command -v python3 >/dev/null 2>&1; then
+		cc=$(git config --get core.commentString 2>/dev/null || git config --get core.commentChar 2>/dev/null)
+		{ [ -z "$cc" ] || [ "$cc" = auto ]; } && cc='#'
+		# Blank (never delete) the lines the author did not write, so the
+		# reported L<n> matches COMMIT_EDITMSG: the scissors diff from
+		# `commit -v`, git-generated subjects, comments, revert boilerplate,
+		# indented quoted material and the trailer block. A final paragraph
+		# counts as the trailer block only when every line carries one of the
+		# keys below (case-insensitive) or continues the line above it; a
+		# closing "Note: ..." paragraph is prose and gets scanned.
+		trailer_keys='co-authored-by signed-off-by reviewed-by acked-by tested-by reported-by suggested-by helped-by cc refs fixes closes resolves see-also link change-id'
+		hits=$(awk -v cc="$cc" -v keys="$trailer_keys" '
+			BEGIN { split(keys, list, " "); for (k in list) trailer[list[k]] = 1 }
+			{ line[NR] = $0 }
+			END {
+				n = NR
+				for (i = 1; i <= n; i++)
+					if (substr(line[i], 1, length(cc)) == cc && index(line[i], " >8 ")) { n = i - 1; break }
+				if (line[1] ~ /^(Merge |Revert "|fixup! |squash! |amend! )/) line[1] = ""
+				for (i = 1; i <= n; i++) {
+					if (substr(line[i], 1, length(cc)) == cc) line[i] = ""
+					else if (line[i] ~ /^This reverts commit [0-9a-f]+/) line[i] = ""
+					else if (line[i] ~ /^(    |\t)/) line[i] = ""
+				}
+				while (n >= 1 && line[n] ~ /^[[:space:]]*$/) n--
+				start = 1
+				for (i = n; i >= 1; i--) if (line[i] ~ /^[[:space:]]*$/) { start = i + 1; break }
+				if (start > 1) {
+					trailers = 1
+					for (i = start; i <= n; i++) {
+						if (line[i] ~ /^[[:space:]]/) continue
+						if (!match(line[i], /^[A-Za-z][A-Za-z0-9-]*: /)) { trailers = 0; break }
+						if (!(tolower(substr(line[i], 1, RLENGTH - 2)) in trailer)) { trailers = 0; break }
+					}
+					if (trailers) for (i = start; i <= n; i++) line[i] = ""
+				}
+				for (i = 1; i <= n; i++) print line[i]
+			}' "$msg" | python3 "$scan" --strict -)
+		# One JSON line per commit (pass or reject) so prose-health.py can
+		# report how often the gate fires. SLOP_NO_LOG=1 skips it (self-tests).
+		if [ -z "${SLOP_NO_LOG:-}" ]; then
+			log="$HOME/.claude/library/state/commit-msg-log.jsonl"
+			# Strip the two characters that would break the JSON string.
+			repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr -d '"\\')
+			if [ -n "$hits" ]; then
+				result=reject
+				rules=$(printf '%s\n' "$hits" | sed -E 's/^L[0-9]+ ([^:]*):.*/\1/' | sort -u | paste -sd '|' -)
+			else
+				result=pass
+				rules=""
+			fi
+			printf '{"ts":"%s","repo":"%s","result":"%s","rules":"%s"}\n' \
+				"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo" "$result" "$rules" >> "$log" 2>/dev/null || true
+		fi
+		if [ -n "$hits" ]; then
+			{
+				echo "commit-msg: house-rule breaches in the commit message:"
+				printf '%s\n' "$hits" | sed 's/^/  /'
+				echo "commit-msg: fix the message and commit again; do not use --no-verify"
+			} >&2
+			exit 1
+		fi
+	fi
+fi
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+hook="$repo_root/scripts/commit-msg"
+[ -x "$hook" ] && exec "$hook" "$msg"
+exit 0

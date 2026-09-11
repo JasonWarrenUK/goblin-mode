@@ -15,7 +15,7 @@ allowed-tools:
 
 # TypeScript API Design
 
-Comprehensive guide to designing type-safe APIs with TypeScript. Covers type-safe contracts, validation with Zod, Result types for error handling, SvelteKit endpoints, middleware patterns, and API versioning.
+Comprehensive guide to designing type-safe APIs with TypeScript. Covers type-safe contracts, validation with Zod, Result types for error handling, SvelteKit endpoints, middleware patterns and API versioning.
 
 ## When This Skill Applies
 

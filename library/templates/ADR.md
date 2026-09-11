@@ -3,7 +3,7 @@
 > **Status**: [Proposed | Accepted | Deprecated | Superseded]  
 > **Date**: YYYY-MM-DD  
 > **Author**: Jason Warren  
-> **Context**: [Link to related ADRs, issues, or discussions]
+> **Context**: [Link to related ADRs, issues or discussions]
 
 ---
 
@@ -11,7 +11,7 @@
 
 [What is the issue or problem that we're facing? What factors are driving this decision?]
 
-[Include relevant background information, constraints, and requirements.]
+[Include relevant background information, constraints and requirements.]
 
 ---
 
@@ -83,7 +83,7 @@
 
 [Technical details about how this decision should be implemented]
 
-[Any specific steps, configurations, or patterns to follow]
+[Any specific steps, configurations or patterns to follow]
 
 ---
 
@@ -98,7 +98,7 @@
 ## Related Decisions
 
 - [ADR-XXX: Related decision title]
-- [Link to relevant issues, PRs, or discussions]
+- [Link to relevant issues, PRs or discussions]
 
 ---
 

@@ -21,9 +21,9 @@
 
 <a name="milestones"><h2>Milestones</h2></a>
 
-Task ID format: `{Milestone}{Category}.{Seq}` — e.g. `1C.1`, `2TI.7`, `3DC.2`
+Task ID format: `{Milestone}{Category}.{Seq}`, e.g. `1C.1`, `2TI.7`, `3DC.2`
 
-- Sub-tasks: append alpha suffix — `2TI.3a`, `2TI.3b`
+- Sub-tasks: append alpha suffix: `2TI.3a`, `2TI.3b`
 - Additions: append next number in category. Never renumber existing IDs.
 
 <a name="m1"><h3>Milestone 1: [Name]</h3></a>
@@ -58,7 +58,7 @@ classDef mile fill:#9ff;
 
 <a name="m1-blocked"><h4>Blocked (Milestone 1)</h4></a>
 
-- [ ] 1C.2. [Task description] — **depends on 1C.1**
+- [ ] 1C.2. [Task description], **depends on 1C.1**
 
 <a name="m1-done"><h4>Completed (Milestone 1)</h4></a>
 

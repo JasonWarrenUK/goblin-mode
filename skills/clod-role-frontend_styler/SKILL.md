@@ -16,11 +16,11 @@ allowed-tools:
 
 # Frontend Styling
 
-Guidance for debugging layout issues, ensuring style consistency, and applying best practices in frontend development, with emphasis on Svelte/SvelteKit projects.
+Guidance for debugging layout issues, ensuring style consistency and applying best practices in frontend development, with emphasis on Svelte/SvelteKit projects.
 
 **Detailed material loads on demand:**
-- Step-by-step layout debugging, the style-consistency workflow, and the accessibility/debugging checklists: [workflows-and-checklists.md](workflows-and-checklists.md)
-- Svelte-specific styling, common flexbox/grid patterns, and anti-patterns: [svelte-and-patterns.md](svelte-and-patterns.md)
+- Step-by-step layout debugging, the style-consistency workflow and the accessibility/debugging checklists: [workflows-and-checklists.md](workflows-and-checklists.md)
+- Svelte-specific styling, common flexbox/grid patterns and anti-patterns: [svelte-and-patterns.md](svelte-and-patterns.md)
 
 ---
 
@@ -32,7 +32,7 @@ Use this skill when:
 - Debugging visual inconsistencies or CSS bugs
 - Implementing new UI components
 - Refactoring styling approaches
-- Questions about CSS organization or best practices
+- Questions about CSS organisation or best practices
 
 ---
 
@@ -113,8 +113,8 @@ When fixing multiple issues:
 - Use `em` for typography-relative spacing
 - Avoid magic numbers - prefer CSS variables
 
-### Color Management
-- Define colors as CSS variables in root/theme
+### Colour Management
+- Define colours as CSS variables in root/theme
 - Never hard-code hex/rgb values in components
 - Use semantic naming (`--color-primary`, not `--blue-500`)
 - The project's theme (`.claude/themes/<family>-html.json`, see `~/.claude/library/references/theme-conventions.md`) is the palette; emit its tokens with `bun ~/.claude/library/scripts/theme/emit.ts <file> -o src/lib/styles/tokens.css` rather than typing hex values. No theme yet: run `/theme-factory "html"` first.

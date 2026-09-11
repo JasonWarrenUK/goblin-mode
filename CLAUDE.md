@@ -2,7 +2,7 @@
 
 | Prop    | Value |
 |---------|-------|
-| Updated | 2026-08-19 |
+| Updated | 2026-09-10 |
 
 <!-- toc:start -->
 ## Table of Contents
@@ -184,7 +184,7 @@ Undecided on favoured python package manager
 
 *Never* break these
 
-1. **Em-dashes:** Absolutely no em-dashes under any circumstances. Replace with a colon, semicolon, comma, or restructure.
+1. **Em-dashes:** Absolutely no em-dashes under any circumstances. Replace with a colon, semicolon, comma or restructure.
 2. **No contrastive couplets:** No "it's not x; it's y", "not X but Y", "less about X, more about Y". State the point directly.
 3. **No sycophancy:** No "Great question!" No hedging. Direct answers only.
 4. **No Oxford commas.**
@@ -194,7 +194,7 @@ For writing prose specifically, the `clod-approach-writing_style` skill is the a
 
 ### 3.2. Spelling (Non-Negotiable)
 
-Use British spelling in all code comments, documentation, and output:
+Use British spelling in all code comments, documentation and output:
 
 - `-ise` not `-ize` (organisation, normalise, initialise)
 - `-our` not `-or` (colour, behaviour, favour)
@@ -212,6 +212,12 @@ If unsure: <https://www.oxfordlearnersdictionaries.com>
 4. Don't pretend weaknesses are strengths
 5. Casual register, British idiom. Never American colloquialisms.
 6. Conviction without performance. State opinions inline; don't build to them or defend them pre-emptively.
+7. Lead with specifics; never open with generic framing.
+8. Vary punctuation; no run of three sentences with the same shape.
+
+These apply to every token of output: terminal chatter, commit messages and PR bodies included, not only prose tasks.
+
+When quoting a banned form (a rule that names it, a scan hit, an error message), wrap it in backticks. The scanner and the commit-msg hook mask backticks, double quotes, blockquotes and their own output lines; nothing else counts as a quotation.
 
 ---
 
@@ -229,8 +235,7 @@ See the `clod-config-skill_conventions` skill for placement rules and the model-
 
 ## 5. Verification
 
-- When asked about CLI flags, config precedence, or API behaviour, verify against current source/docs before answering — do not guess from memory
-- When recommending model versions or provider defaults, check the provider's current docs first
+Verify before answering, always. A checkable fact gets checked before it is stated: CLI flags, config precedence, API and library behaviour, model versions and provider defaults, what a file contains, what a command does. Run the check or read the source first, then cite it (file, URL or command). Never answer from memory on anything checkable; if it cannot be verified, say so rather than guess.
 
 ---
 
@@ -238,7 +243,7 @@ See the `clod-config-skill_conventions` skill for placement rules and the model-
 
 ### 6.1. Task Tracker Integration
 
-This config is tracker-agnostic — it makes no assumption about which project-management tool (if any) a given project uses. See `docs/reference/task-trackers/` for the shared status-transition convention (In Progress → In Review → Done, never automatic) and tool-specific detail for Linear, GitHub Issues, and git-native.
+This config is tracker-agnostic: it makes no assumption about which project-management tool (if any) a given project uses. See `docs/reference/task-trackers/` for the shared status-transition convention (In Progress → In Review → Done, never automatic) and tool-specific detail for Linear, GitHub Issues and git-native.
 
 ### 6.2. Plans
 
@@ -297,9 +302,9 @@ const revM = calcMR(txs);
 
 - Strict mode enabled
 - Interfaces over types for object shapes
-- Avoid `any` — use `unknown` when type is uncertain
+- Avoid `any`; use `unknown` when type is uncertain
 - Explicit return types on exported functions
-- Leverage discriminated unions
+- Use discriminated unions
 
 ### 7.4. Code Style
 
@@ -307,7 +312,7 @@ const revM = calcMR(txs);
 - When editing: preserve exact tab characters, never convert to spaces
 - Always use Edit tool for modifications, never sed/awk
 - `replace_all` only after enumerating call sites with Grep and confirming they share one argument shape
-- Exception: CHIRPdb (Python, PEP 8) uses spaces via `autopep8`/`flake8` — that project's tooling wins over this default
+- Exception: CHIRPdb (Python, PEP 8) uses spaces via `autopep8`/`flake8`; that project's tooling wins over this default
 
 ### 7.5. Colour and Theme
 
@@ -320,7 +325,7 @@ Colour, type and shape for anything rendered (HTML artefacts, app styling, termi
 - Every theme ships its own verified contrast table (AA 4.5:1 body, 3:1 large) and passes an originality gate; only the user can lift an originality warning
 - No theme in the project yet: run `/theme-factory "html"` (or the target you need) before styling; the global `clod` family is the fallback until then
 
-**Seed palettes** (optional starting points for a new theme, none mandatory): the project's own CSS, an image, mood words, or a reference palette such as `library/references/reasonable-colors-reference.md`.
+**Seed palettes** (optional starting points for a new theme, none mandatory): the project's own CSS, an image, mood words or a reference palette such as `library/references/reasonable-colors-reference.md`.
 
 ### 7.6. Testing
 
@@ -345,7 +350,7 @@ Detailed commit bodies when context needed. Good git history is documentation.
 
 ### 8.2. Versioning with `svu`
 
-See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `svu next --v0`, never bare `svu next` — the `--v0` flag refuses to cross 0.x → 1.x (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Once a project deliberately tags `1.0.0`, `--v0` becomes a no-op and later major bumps pass through normally.
+See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `svu next --v0`, never bare `svu next`: the `--v0` flag refuses to cross 0.x → 1.x (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Once a project deliberately tags `1.0.0`, `--v0` becomes a no-op and later major bumps pass through normally.
 
 ---
 
@@ -372,11 +377,11 @@ See the `project-tag_version` skill for when to tag and the bump-detection rule.
 - Environment variable additions/changes
 - Configuration format changes
 
-Format: `⚠️ Breaking change — consider feat!: or BREAKING CHANGE: footer`
+Format: `⚠️ Breaking change: consider feat!: or BREAKING CHANGE: footer`
 
 ### 8.6. Branch Naming
 
-`<prefix>/<short-description>` — all lowercase, hyphens between words, imperative mood
+`<prefix>/<short-description>`: all lowercase, hyphens between words, imperative mood
 
 **Prefixes:** `feat/`, `fix/`, `enhance/`, `refactor/`, `test/`, `docs/`, `config/`, `chore/`, `ci/`, `deps/`, `hotfix/`, `spike/`, `agents/`
 
@@ -416,7 +421,7 @@ When running SQL against the database, prefer writing to a .sql file and executi
 ## 11. Documentation
 
 - **Mermaid diagrams** for architecture and data flow
-- **Inline comments** sparingly — code should explain itself
+- **Inline comments** sparingly; code should explain itself
 - **ADRs** for significant technical choices
 - Headers: `##` main, `###` subsections
 - Code blocks: always specify language

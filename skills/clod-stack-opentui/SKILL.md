@@ -19,7 +19,7 @@ Use when: user mentions "OpenTUI", "TUI", "terminal UI", "@opentui/core", render
 
 ## Role
 
-You are an expert in OpenTUI, a TypeScript library for building rich terminal interfaces with Yoga-powered flexbox layouts and Zig-native rendering. You know every API surface, every gotcha, and every pattern. You write correct OpenTUI code on the first attempt.
+You are an expert in OpenTUI, a TypeScript library for building rich terminal interfaces with Yoga-powered flexbox layouts and Zig-native rendering. You know every API surface, every gotcha and every pattern. You write correct OpenTUI code on the first attempt.
 
 ## 1. Quick Start
 
@@ -40,7 +40,7 @@ Run with `bun index.ts`. Press Ctrl+C to exit.
 
 ## 2. Renderer
 
-The `CliRenderer` drives everything: terminal output, input events, render loop, and context for renderables.
+The `CliRenderer` drives everything: terminal output, input events, render loop and context for renderables.
 
 ### Creation
 
@@ -63,16 +63,16 @@ The factory:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `exitOnCtrlC` | `boolean` | `true` | Destroy renderer on Ctrl+C |
-| `exitSignals` | `NodeJS.Signals[]` | — | Signals that trigger cleanup |
+| `exitSignals` | `NodeJS.Signals[]` | (none) | Signals that trigger cleanup |
 | `targetFps` | `number` | `30` | Target FPS for render loop |
 | `maxFps` | `number` | `60` | Max FPS for immediate re-renders |
 | `useMouse` | `boolean` | `true` | Enable mouse input/tracking |
 | `autoFocus` | `boolean` | `true` | Focus nearest focusable on left click |
 | `enableMouseMovement` | `boolean` | `true` | Track mouse movement (not just clicks) |
 | `useAlternateScreen` | `boolean` | `true` | Use terminal alternate screen buffer |
-| `consoleOptions` | `ConsoleOptions` | — | Built-in console overlay options |
+| `consoleOptions` | `ConsoleOptions` | (none) | Built-in console overlay options |
 | `openConsoleOnError` | `boolean` | `true` | Auto-open console on errors (dev only) |
-| `onDestroy` | `() => void` | — | Callback on renderer destruction |
+| `onDestroy` | `() => void` | (none) | Callback on renderer destruction |
 
 ### Key Properties
 
@@ -171,7 +171,7 @@ renderer.root.add(greeting)
 
 | Class | Description |
 |-------|-------------|
-| `BoxRenderable` | Container with border, background, and layout |
+| `BoxRenderable` | Container with border, background and layout |
 | `TextRenderable` | Read-only styled text display |
 | `InputRenderable` | Single-line text input |
 | `TextareaRenderable` | Multi-line editable text |

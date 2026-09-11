@@ -58,7 +58,7 @@ Ask: "Should this be fixed in the component or its parent?"
 
 ### Step 1: Analyse Current Implementation
 Check for:
-- **Naming conventions** - BEM, utility classes, or other patterns
+- **Naming conventions** - BEM, utility classes or other patterns
 - **Styling location** - Component `<style>` vs external CSS
 - **Value patterns** - Hard-coded vs CSS variables
 - **Units** - rem, px, em usage patterns
@@ -80,7 +80,7 @@ Compare component styling against project patterns:
 
 ### Step 3: Propose Changes
 List specific changes needed to match project patterns:
-- "Replace hard-coded colors with CSS variables"
+- "Replace hard-coded colours with CSS variables"
 - "Convert class names from camelCase to kebab-case"
 - "Move inline styles to component `<style>` block"
 - "Use rem units instead of px for spacing"

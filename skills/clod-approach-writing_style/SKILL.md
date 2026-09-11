@@ -16,7 +16,7 @@ This skill exists because AI-generated prose has recognisable tells, and Jason h
 
 Jason's writing has a particular character. Before applying any rule, internalise what it's doing:
 
-**Conviction without performance.** He holds views and states them directly. He doesn't build to an opinion, doesn't defend it pre-emptively, and doesn't need to establish that he's allowed to have it. The authority is assumed, not asserted.
+**Conviction without performance.** He holds views and states them directly. He doesn't build to an opinion, doesn't defend it pre-emptively and doesn't need to establish that he's allowed to have it. The authority is assumed, not asserted.
 
 **Complexity is interesting, not a problem.** He doesn't simplify difficult things; he makes them navigable. The reader is assumed capable. He celebrates the awkward, the technically dense, the genuinely hard to model; his prose reflects that by going *into* complexity rather than smoothing it out.
 
@@ -32,11 +32,11 @@ Jason's writing has a particular character. Before applying any rule, internalis
 
 1. **Short declarative sentences that make one specific, testable claim.** Stop there. Don't add a clause explaining why the claim matters.
 
-2. **Let examples carry the weight.** A concrete specific does the work a summarising sentence pretends to do. Name the thing; trust the reader. Fold examples into flowing prose rather than a punctuation-flat run of "X does one thing, Y does another": see rule 12.
+2. **Let examples carry the weight.** A concrete specific does the work a summarising sentence pretends to do. Name the thing; trust the reader. Fold examples into flowing prose rather than a punctuation-flat run of "X does one thing, Y does another": see rule 11.
 
 3. **The dry close earns itself when the restraint is the point.** "And kept going from there." "Know when to stop." One per passage, never a pattern.
 
-4. **Origin and motivation: factual and sequential.** Name what happened. The reader draws conclusions. Don't editorialize about what it meant.
+4. **Origin and motivation: factual and sequential.** Name what happened. The reader draws conclusions. Don't editorialise about what it meant.
 
 5. **Personal claims stay first-person and direct.** "I can't build a good tool without understanding the problem it models" rather than "a tool that doesn't understand its problem is X."
 
@@ -50,33 +50,31 @@ Jason's writing has a particular character. Before applying any rule, internalis
 
 ### Negative (what to cut)
 
-10. **No Oxford commas.**
+10. **The golden rules and spelling in CLAUDE.md §3.1 and §3.2 apply in full.** No em dashes (every occurrence is a failure; replace with a colon, semicolon, comma or restructure), no Oxford commas, no contrastive couplets ("Not X, but Y" / "less about X, more about Y" / "not just X" define a thing against what it isn't; state what it is), no sycophancy or hedging, no American spelling or idiom.
 
-11. **No em-dashes.** Every occurrence is a failure. Replace with a colon, semicolon, comma, or restructure. This is non-negotiable.
+11. **No parade-of-examples.** Consecutive sentences that each illustrate one facet before building to a conclusion read as a bulleted list reformatted into prose: "X does one thing. Y does another. Z does a third. Together, they achieve the goal." Group related ideas and vary sentence length instead; two short sentences followed by one that synthesises them beats four medium sentences in a row.
 
-12. **No parade-of-examples.** Consecutive sentences that each illustrate one facet before building to a conclusion read as a bulleted list reformatted into prose: "X does one thing. Y does another. Z does a third. Together, they achieve the goal." Group related ideas and vary sentence length instead; two short sentences followed by one that synthesises them beats four medium sentences in a row.
+12. **No capstone sentences** that summarise what the preceding examples already showed. If you find yourself writing "In both cases, X" or "The difference is Y": delete it.
 
-13. **No capstone sentences** that summarise what the preceding examples already showed. If you find yourself writing "In both cases, X" or "The difference is Y": delete it.
+13. **No AI generic framing.** Named tells: "is a short walk", "turned out to be shorter than expected", "could be reasoned about", "what the projects share is", "the result is a system that", "it's worth noting that", "this is significant because". These are structural habits, not vocabulary; any sentence with the same shape is suspect.
 
-14. **No AI generic framing.** Named tells: "is a short walk", "turned out to be shorter than expected", "could be reasoned about", "what the projects share is", "the result is a system that", "it's worth noting that", "this is significant because". These are structural habits, not vocabulary; any sentence with the same shape is suspect.
+14. **No vague competence claims.** "I build things that run" describes the minimum bar. State what's *distinctive*, not what's assumed.
 
-15. **No vague competence claims.** "I build things that run" describes the minimum bar. State what's *distinctive*, not what's assumed.
+15. **Only include what you can defend specifically.** Hedged preferences ("a strong preference"), generic descriptors ("full-stack developer"), tools you can't justify: cut them. If it can't be said with conviction, it shouldn't be said at all.
 
-16. **Only include what you can defend specifically.** Hedged preferences ("a strong preference"), generic descriptors ("full-stack developer"), tools you can't justify: cut them. If it can't be said with conviction, it shouldn't be said at all.
+16. **Fabricated specifics are worse than vague ones.** If you don't know the detail, omit it or ask. Don't invent.
 
-17. **Fabricated specifics are worse than vague ones.** If you don't know the detail, omit it or ask. Don't invent.
+17. **The reason for something must be true and specific to that thing.** Not the nearest plausible analogue. Jason built Drift because ADHD makes ongoing manual maintenance harder than building the infrastructure to automate it. That's the real reason, and it's more interesting than any generic justification.
 
-18. **The reason for something must be true and specific to that thing.** Not the nearest plausible analogue. Jason built Drift because ADHD makes ongoing manual maintenance harder than building the infrastructure to automate it. That's the real reason, and it's more interesting than any generic justification.
+18. **No asserting authority or mimicking professional language.** Don't establish credentials; the work does that. Don't write like a CV, a press release or a cover letter.
 
-19. **No asserting authority or mimicking professional language.** Don't establish credentials; the work does that. Don't write like a CV, a press release, or a cover letter.
+19. **No portent pairings.** A concrete noun yoked to an abstraction to borrow weight: "a module about a hundred lines long, and a discipline the rest of the engine has to keep"; "one config file and a philosophy". The concrete half is a claim; the abstract half is a trailer for the passage. State the concrete claim, then state the discipline as its own testable fact ("every generation function takes the PRNG as a parameter"). Diagnostic: if the second beat can't be checked where it stands, it's a trailer.
 
-20. **No American colloquialisms.**
+20. **No borrowed authority.** "Experts say", "studies show", "widely regarded as": an unnamed source props up a claim the writer won't own. Name the source or make the claim in your own voice.
 
-21. **No contrastive couplets.** "Not X, but Y" / "less about X, more about Y" / "not just X": these define a thing against what it isn't. State what it is.
+21. **No participial tails.** A fact with an "-ing" phrase bolted on for depth: "..., highlighting the importance of testing"; "..., reflecting a broader shift". The fact stands alone; if the implication matters, state it as its own claim.
 
-22. **No sycophancy, no hedging.** Direct answers only.
-
-23. **No portent pairings.** A concrete noun yoked to an abstraction to borrow weight: "a module about a hundred lines long, and a discipline the rest of the engine has to keep"; "one config file and a philosophy". The concrete half is a claim; the abstract half is a trailer for the passage. State the concrete claim, then state the discipline as its own testable fact ("every generation function takes the PRNG as a parameter"). Diagnostic: if the second beat can't be checked where it stands, it's a trailer.
+22. **No significance inflation.** "Pivotal", "landmark", "a turning point", "paved the way": ordinary work dressed as a moment. Say what changed.
 
 ## Collaborative Workflow
 
@@ -90,7 +88,7 @@ This means:
 
 ## Titles and Headlines
 
-Derived from thirteen rated passes over a 25-idea article list (July 2026). These rules govern article titles, headlines, and named pieces of work; they sit on top of the prose rules above.
+Derived from thirteen rated passes over a 25-idea article list (July 2026). These rules govern article titles, headlines and named pieces of work; they sit on top of the prose rules above.
 
 ### What a title is
 
@@ -138,7 +136,7 @@ When Jason says a title is close, change the minimum: one word, one beat. "Ortho
 5. Any contrastive couplets ("not X, but Y")? Restate directly.
 6. Any Oxford commas? Remove.
 7. Does each paragraph have one or more short declarative sentences that make a specific, testable claim? If not, restructure.
-8. Does the specific and the general move together? If there's a concrete example, does it connect to a larger claim, and vice versa?
+8. Does the specific and the general move together? If there's a concrete example, does it connect to a larger claim and vice versa?
 9. Is the register casual and British, or does it drift formal / professional / American?
 10. Are all reasons true and specific, or have I substituted a plausible analogue?
 11. Any run of three or more sentences with identical structure (parade-of-examples)? Vary them.
@@ -146,6 +144,7 @@ When Jason says a title is close, change the minimum: one word, one beat. "Ortho
 13. Any paragraph opening with a generic framing sentence ("Several approaches were considered...")? Lead with the specific instead.
 14. If this is a title: does it pass the stranger test, and does it avoid every item on the hard-ban list?
 15. Any portent pairings (a concrete noun yoked to an abstraction that can't be checked where it stands)? Split them: concrete claim first, the discipline as its own testable fact.
+16. Any borrowed authority, participial tails or significance inflation? Name the source, cut the tail, say what changed.
 
 Only after passing this check should the draft reach Jason.
 
@@ -178,3 +177,7 @@ Key rulings from the About page pass. These carry forward to all subsequent batc
 - No PR counts, commit counts or line deltas. Cut them entirely. They are not indicative of quality and waste words.
 - Version numbers must be verified before committing (caught: "SvelteKit 5" should have been "SvelteKit 2").
 - Role accuracy matters: "Led" when you were equal partners is a factual error. Use "Co-led" or "Collaborated" as appropriate.
+
+### Humanizer pattern import, September 2026
+
+Rules 20 to 22 and gate item 16 were added on 2026-09-10 from blader/humanizer's pattern list (built on Wikipedia's "Signs of AI writing"): borrowed authority (its pattern 17), participial tails (15), significance inflation (13). Its remaining patterns were already covered here or in CLAUDE.md §3. Mechanical detection for the three lives in the "Borrowed weight" group of `~/.claude/library/scripts/slop-scan.py`.

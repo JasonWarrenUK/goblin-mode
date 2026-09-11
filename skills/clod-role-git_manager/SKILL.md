@@ -12,7 +12,7 @@ allowed-tools:
 
 # Git Workflow Patterns
 
-Comprehensive git workflow guidance covering branch management, commit conventions, pull request best practices, conflict resolution, and LazyGit integration. Emphasizes clean history, collaboration patterns, and the user's established branch naming conventions.
+Git workflow guidance: branch management, commit conventions, pull request practice, conflict resolution and LazyGit. Covers clean history, collaboration patterns and the user's established branch naming conventions.
 
 ## When This Skill Applies
 
@@ -48,7 +48,7 @@ Use this skill when:
 - `content/` - Content updates (copy, text, data files)
 
 **Styling & UI**:
-- `styles/` - Visual styling (colors, fonts, spacing)
+- `styles/` - Visual styling (colours, fonts, spacing)
 - `layout/` - Structural positioning (grid, flexbox, responsive)
 - `a11y/` - Accessibility improvements
 
@@ -93,9 +93,9 @@ refactor/extract-auth-logic
 refactor/simplify-validation
 types/add-api-response-types
 types/define-user-interfaces
-perf/optimize-graph-rendering
+perf/optimise-graph-rendering
 perf/lazy-load-images
-styles/update-button-colors
+styles/update-button-colours
 layout/make-nav-responsive
 docs/add-api-examples
 test/add-e2e-tests
@@ -132,7 +132,7 @@ enhance/breaking-change-auth-flow
 - Easy to grep: `git branch | grep breaking`
 - Breaking nature still prominent (first word after `/`)
 
-See [breaking-changes.md](breaking-changes.md) for the full detection reference: what counts as breaking across APIs, types, schema, HTTP endpoints, config, and component props.
+See [breaking-changes.md](breaking-changes.md) for the full detection reference: what counts as breaking across APIs, types, schema, HTTP endpoints, config and component props.
 
 ### Decision Tree
 
@@ -144,7 +144,7 @@ When creating a new branch, ask these questions in order:
 4. **Does it restructure code WITHOUT changing behaviour?** → `refactor/`
 5. **Is it ONLY type definitions (interfaces, types)?** → `types/`
 6. **Does it improve PERFORMANCE?** → `perf/`
-7. **Is it STYLING changes (colors, fonts, spacing)?** → `styles/`
+7. **Is it STYLING changes (colours, fonts, spacing)?** → `styles/`
 8. **Is it LAYOUT changes (positioning, grid, responsive)?** → `layout/`
 9. **Is it DOCUMENTATION?** → `docs/`
 10. **Is it TESTING?** → `test/`
@@ -159,7 +159,7 @@ When creating a new branch, ask these questions in order:
 **Styles vs Layout**:
 
 Use `styles/` for:
-- Colors, fonts, typography
+- Colours, fonts, typography
 - Spacing, padding, margins
 - Borders, shadows, visual effects
 - Theme variables
@@ -250,6 +250,8 @@ WIP - still working on this
 - Explain *what* and *why*, not *how*
 - Wrap at 72 characters
 - Separate from subject with blank line
+
+**House rules**: British spelling, no em dashes, no Oxford commas. The global `commit-msg` git hook (`~/.claude/hooks/commit-msg`) rejects a message that breaks them and prints one `L<n> <rule>: <excerpt>` line per hit; the retry contract (rewrite once, then stop, never `--no-verify`) is in the `commit-one` skill.
 
 **Good body**:
 ```

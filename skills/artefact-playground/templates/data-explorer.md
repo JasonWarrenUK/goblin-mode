@@ -1,6 +1,6 @@
 # Data Explorer Template
 
-Use this template when the playground is about data queries, APIs, pipelines, or structured configuration: SQL builders, API designers, regex builders, pipeline visuals, cron schedules.
+Use this template when the playground is about data queries, APIs, pipelines or structured configuration: SQL builders, API designers, regex builders, pipeline visuals, cron schedules.
 
 ## Layout
 
@@ -34,7 +34,7 @@ Use this template when the playground is about data queries, APIs, pipelines, or
 
 ## Preview rendering
 
-Render syntax-highlighted output using `<span>` tags with color classes:
+Render syntax-highlighted output using `<span>` tags with colour classes:
 
 ```javascript
 function renderPreview() {
@@ -53,7 +53,7 @@ For pipeline-style playgrounds, render a horizontal or vertical flow diagram usi
 
 Frame it as a specification of what to build, not the raw query itself:
 
-> "Write a SQL query that joins orders to users on user_id, filters for orders after 2024-01-01 with total > $50, groups by user, and returns the top 10 users by order count."
+> "Write a SQL query that joins orders to users on user_id, filters for orders after 2024-01-01 with total > $50, groups by user and returns the top 10 users by order count."
 
 Include the schema context (table names, column types) so the prompt is self-contained.
 

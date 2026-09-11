@@ -58,7 +58,7 @@ RETURN u;
 { _id: "comment-789", postId: "post-456", text: "..." }
 ```
 
-**Why**: If normalizing this much, use PostgreSQL instead.
+**Why**: If normalising this much, use PostgreSQL instead.
 
 ## Migration Strategies
 

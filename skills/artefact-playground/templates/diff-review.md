@@ -23,7 +23,7 @@ Diff review playgrounds display git diffs with syntax highlighting. Users click 
 
 ## Control types for diff review
 
-| Feature | Control | Behavior |
+| Feature | Control | Behaviour |
 |---|---|---|
 | Line commenting | Click any diff line | Opens textarea below the line |
 | Comment indicator | Badge on commented lines | Shows which lines have feedback |
@@ -54,7 +54,7 @@ const diffData = [
 
 ## Line type styling
 
-| Type | Background | Text Color | Prefix |
+| Type | Background | Text Colour | Prefix |
 |---|---|---|---|
 | `context` | transparent | default | ` ` (space) |
 | `addition` | green-tinted, from the palette's semantic tokens | green, from the palette's semantic tokens | `+` |

@@ -1,7 +1,7 @@
 ---
 name: "Asset: Still"
 description: "Render a styled image of a code snippet or a command's output with freeze, using the project's freeze theme block"
-when_to_use: "When a README, article or card needs a code image or a picture of terminal output; when the user says code screenshot, snippet image, carbon-style, or 'show this function'."
+when_to_use: "When a README, article or card needs a code image or a picture of terminal output; when the user says code screenshot, snippet image, carbon-style or 'show this function'."
 model: sonnet
 effort: low
 metadata:
