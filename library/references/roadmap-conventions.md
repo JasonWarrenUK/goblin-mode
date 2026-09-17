@@ -19,7 +19,7 @@ python3 "$HOME"/.claude/library/scripts/roadmap.py <subcommand> [PATH] [--phase 
 | `recompute` | fixed-point status recompute, writes back | `--check` `--json` `--reformat` `--render` | 0 · 1 cycle/format refusal · 2 |
 | `stats` | status counts | `--json` | 0 · 2 |
 | `graph` | dependency graph | `--json` (default), `--mermaid --direction LR\|TD --omit-done --palette light\|dark\|vars` | 0 · 2 |
-| `ready` | actionable todo candidates with leverage signals | `--json` | 0 · 2 |
+| `ready` | actionable todo candidates with leverage signals; `--json` adds `groups` (candidate ids per milestone and per topic, in display order) | `--json` | 0 · 2 |
 | `render` | deterministic HTML artefact from `library/templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
 
 `PATH` is optional; the roadmap is located by walking up from the cwd. If `~`
