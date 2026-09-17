@@ -137,8 +137,8 @@ dd { margin: 0; }
 .swatch { height: 6.5rem; border-radius: 8px; display: flex; align-items: flex-end; padding: .4rem; }
 .chip { font-size: .7rem; line-height: 1.3; padding: .3rem .4rem; border-radius: 4px; }
 .gradient { height: 2.5rem; border-radius: 8px; margin-top: .75rem; }
-table { border-collapse: collapse; font-size: .8rem; margin-top: .75rem; }
-th, td { text-align: left; padding: .2rem .6rem .2rem 0; border-bottom: 1px solid currentColor; opacity: .85; }
+table { border-collapse: collapse; font-size: .8rem; margin-top: .75rem; color: inherit; }
+th, td { text-align: left; padding: .2rem .6rem .2rem 0; border-bottom: 1px solid currentColor; opacity: .85; color: inherit; }
 </style>
 ${families.map(renderFamily).join('\n')}
 `;
