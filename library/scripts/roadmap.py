@@ -773,6 +773,30 @@ def _truncate_notes(candidates, limit=200):
     return out
 
 
+def ready_groups(candidates):
+    """Candidate ids keyed by milestone and by topic, for the --json path.
+
+    next-task-group prints one table per group. Left to count for itself, a
+    model drops rows and still reports a full total, so the membership of
+    every table is fixed here instead. The topic is the letters between the
+    milestone number and the sequence in a task id (`2TI.3` -> `TI`); an id
+    that does not fit that shape lands under `other`. Groups come out in
+    display order (milestones by number, topics alphabetically); ids inside a
+    group keep the order of `candidates`.
+    """
+    by_milestone, by_topic = {}, {}
+    for c in candidates:
+        by_milestone.setdefault(c.get("milestone") or "none", []).append(c["id"])
+        match = re.match(r"\d+([A-Za-z]+)\.", c["id"])
+        by_topic.setdefault(match.group(1) if match else "other", []).append(c["id"])
+    def natural(key):
+        return [int(part) if part.isdigit() else part
+                for part in re.split(r"(\d+)", key)]
+
+    return {"milestone": {k: by_milestone[k] for k in sorted(by_milestone, key=natural)},
+            "topic": {k: by_topic[k] for k in sorted(by_topic)}}
+
+
 def cmd_ready(args) -> int:
     try:
         _path, data = load(args.path)
@@ -781,7 +805,8 @@ def cmd_ready(args) -> int:
         print(f"✗ {exc}")
         return 2
     if args.json:
-        ready = {**ready, "candidates": _truncate_notes(ready["candidates"])}
+        ready = {**ready, "candidates": _truncate_notes(ready["candidates"]),
+                 "groups": ready_groups(ready["candidates"])}
         print(json.dumps(ready, indent="\t"))
         return 0
     if not ready["candidates"]:
