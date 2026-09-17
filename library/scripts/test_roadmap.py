@@ -342,6 +342,21 @@ class Ready(unittest.TestCase):
         self.assertEqual(by_id["a"]["assignee"], "jason")
         self.assertEqual(by_id["b"]["assignee"], "")
 
+    def test_groups_cover_every_candidate_once_per_pivot(self):
+        ph = phase([
+            {"id": "M1", "name": "m1", "tasks": [task("1IN.1"), task("1UI.2")]},
+            {"id": "M2", "name": "m2", "tasks": [task("2IN.1"), task("odd")]}])
+        candidates = roadmap.build_ready(ph)["candidates"]
+        groups = roadmap.ready_groups(candidates)
+        self.assertEqual(groups["milestone"],
+                         {"M1": ["1IN.1", "1UI.2"], "M2": ["2IN.1", "odd"]})
+        self.assertEqual(groups["topic"],
+                         {"IN": ["1IN.1", "2IN.1"], "UI": ["1UI.2"], "other": ["odd"]})
+        self.assertEqual(list(groups["topic"]), ["IN", "UI", "other"])
+        for pivot in groups.values():
+            flat = [tid for ids in pivot.values() for tid in ids]
+            self.assertEqual(sorted(flat), sorted(c["id"] for c in candidates))
+
 
 class Mermaid(unittest.TestCase):
     def setUp(self):

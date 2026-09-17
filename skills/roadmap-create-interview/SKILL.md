@@ -159,7 +159,7 @@ Then ask: *"Does this look right? Any tasks to cut, rename or move? Once you're 
 
 Once the user approves (or approves with amendments), this skill's job is done. The output is a clean batch specification ready for `roadmap-update-tasks` to process in its batch mode: all IDs assigned and edges wired in one pass, one consolidated proposal, one write.
 
-Tell the user: *"Approved. Use `roadmap-update-tasks` to write these to the roadmap, passing the proposal above as context, adding them in dependency order."*
+Tell the user which mode to reach for: *"Approved. Use `/roadmap-update-tasks c \"...\"` to write these to the roadmap in dependency order"* when the batch has an asserted internal chain, or *`t`* when the tasks are independent of each other. Pass the proposal above as context either way.
 
 ---
 

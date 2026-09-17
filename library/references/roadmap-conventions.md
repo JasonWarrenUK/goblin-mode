@@ -2,7 +2,7 @@
 
 Shared reference for the roadmap skill family (`roadmap-create`,
 `roadmap-create-interview`, `roadmap-maintain`, `roadmap-update-tasks`,
-`roadmap-migrate`, `artefact-roadmap`). Skills point here instead of restating
+`roadmap-update-devs`, `roadmap-migrate`, `artefact-roadmap`). Skills point here instead of restating
 these rules; the deterministic halves live in
 `~/.claude/library/scripts/roadmap.py` (single CLI) and `_roadmap_core.py`.
 
@@ -19,7 +19,7 @@ python3 "$HOME"/.claude/library/scripts/roadmap.py <subcommand> [PATH] [--phase 
 | `recompute` | fixed-point status recompute, writes back | `--check` `--json` `--reformat` `--render` | 0 · 1 cycle/format refusal · 2 |
 | `stats` | status counts | `--json` | 0 · 2 |
 | `graph` | dependency graph | `--json` (default), `--mermaid --direction LR\|TD --omit-done --palette light\|dark\|vars` | 0 · 2 |
-| `ready` | actionable todo candidates with leverage signals | `--json` | 0 · 2 |
+| `ready` | actionable todo candidates with leverage signals; `--json` adds `groups` (candidate ids per milestone and per topic, in display order) | `--json` | 0 · 2 |
 | `render` | deterministic HTML artefact from `library/templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
 
 `PATH` is optional; the roadmap is located by walking up from the cwd. If `~`
@@ -143,7 +143,7 @@ their own card colour but sit outside that four-way partition:
 | State | Fires when | Colour |
 |---|---|---|
 | `deferred` | ≥1 member `deferred`, no `todo`/`blocked`/`paused` member left | cinnamon (shares the task-status hue) |
-| `done` | every member `done`/`out_of_scope` (nothing actionable, nothing deferred), or `donePct == 100` | green |
+| `done` | every member `done`/`out_of_scope` (nothing actionable, nothing deferred) or `donePct == 100` | green |
 | `blocked` | ≥1 member `blocked` (and not already deferred/done) | red |
 | `paused` | ≥1 member `paused` (and not already deferred/done/blocked) | purple |
 | `inProgress` | `0 < donePct < 100`, nothing blocked/paused | **azure**: unclaimed by task status, distinct from sky (milestone-structural) |
@@ -223,8 +223,20 @@ auto-reverted; absence still isn't evidence.
   shipping outside that skill). It lets a later run detect that a `done`
   dependency is still unmerged and stack a dependent branch on it instead of
   branching from main (see `library/references/stacked-prs.md`). It is never
-  a status signal: `done` still means done, merged or not, and `recompute`
-  ignores the field entirely.
+  a status signal: `done` still means done whether merged or not, and
+  `recompute` ignores the field entirely.
+- Milestone field order: `id, name, goal, tasks`. Only `id` is enforced by
+  `roadmap.py` (`_require_id`); `name` and `goal` default to empty strings
+  everywhere else. Don't add fields beyond these four.
+- Milestone ID assignment: `M{max existing milestone number in the phase + 1}`,
+  same never-reuse rule as task IDs. Milestones have no `dependsOn` field of
+  their own; a milestone-level gate is expressed on the task(s) inside it
+  (`dependsOn: ["M{a}"]` on the task, not on the milestone object). Appending
+  a milestone at the end of the sequence is unambiguous; nothing yet defines
+  what happens on a mid-sequence insertion, since `M{N}` numbering is loosely
+  coupled to task-ID category prefixes elsewhere in the roadmap (a category
+  can span several milestones): treat that as an open question, not a rule
+  to invent on the spot, until a real need forces the decision.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
 - Phase field order: `name, path, project?, archived?, externalGates, milestones`
 - `project` is optional free text naming the project the phase belongs to
@@ -240,7 +252,7 @@ auto-reverted; absence still isn't evidence.
   entirely. A task deferred *within* the current phase by a tier-release gate
   (see Tiers below) instead uses `_(deferred: {gateId}, and every {tier}
   milestone)_` on the tier's entry task and `_(deferred: follows {ID})_` on
-  each task chained behind it — "a later phase" would be false when the work
+  each task chained behind it: "a later phase" would be false when the work
   is still this phase's, just gated on the envelope rather than the calendar.
 
 ### Tiers
@@ -272,7 +284,10 @@ forms above for how this renders in PHASE.md.
 | No roadmap yet | `roadmap-create` |
 | Old single-file format detected | `roadmap-migrate` |
 | Half-formed ideas to explore into tasks | `roadmap-create-interview` |
-| One known task to add | `roadmap-update-tasks` |
+| One known task to add | `roadmap-update-tasks` (`t` mode) |
+| Several tasks with an asserted dependency order | `roadmap-update-tasks` (`c` mode) |
+| New milestone needed | `roadmap-update-tasks` (`m` mode) |
+| Tasks need owners, or a dev's load needs handing over | `roadmap-update-devs` (`ready\|all` horizon, `devless\|<dev>\|all` scope) |
 | Work landed / statuses drifted | `roadmap-maintain` (add `reconcile` to check against code) |
 | Priorities / freshness / health / dependency-graph review | `roadmap-review` (lens: `health`, `deps` or default full) |
 | Render the HTML dashboard | `artefact-roadmap` |
