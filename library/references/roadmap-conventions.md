@@ -143,7 +143,7 @@ their own card colour but sit outside that four-way partition:
 | State | Fires when | Colour |
 |---|---|---|
 | `deferred` | ≥1 member `deferred`, no `todo`/`blocked`/`paused` member left | cinnamon (shares the task-status hue) |
-| `done` | every member `done`/`out_of_scope` (nothing actionable, nothing deferred), or `donePct == 100` | green |
+| `done` | every member `done`/`out_of_scope` (nothing actionable, nothing deferred) or `donePct == 100` | green |
 | `blocked` | ≥1 member `blocked` (and not already deferred/done) | red |
 | `paused` | ≥1 member `paused` (and not already deferred/done/blocked) | purple |
 | `inProgress` | `0 < donePct < 100`, nothing blocked/paused | **azure**: unclaimed by task status, distinct from sky (milestone-structural) |
@@ -223,8 +223,8 @@ auto-reverted; absence still isn't evidence.
   shipping outside that skill). It lets a later run detect that a `done`
   dependency is still unmerged and stack a dependent branch on it instead of
   branching from main (see `library/references/stacked-prs.md`). It is never
-  a status signal: `done` still means done, merged or not, and `recompute`
-  ignores the field entirely.
+  a status signal: `done` still means done whether merged or not, and
+  `recompute` ignores the field entirely.
 - Milestone field order: `id, name, goal, tasks`. Only `id` is enforced by
   `roadmap.py` (`_require_id`); `name` and `goal` default to empty strings
   everywhere else. Don't add fields beyond these four.
@@ -252,7 +252,7 @@ auto-reverted; absence still isn't evidence.
   entirely. A task deferred *within* the current phase by a tier-release gate
   (see Tiers below) instead uses `_(deferred: {gateId}, and every {tier}
   milestone)_` on the tier's entry task and `_(deferred: follows {ID})_` on
-  each task chained behind it — "a later phase" would be false when the work
+  each task chained behind it: "a later phase" would be false when the work
   is still this phase's, just gated on the envelope rather than the calendar.
 
 ### Tiers
