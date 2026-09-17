@@ -17,6 +17,7 @@ Skills point here instead of restating shared rules, so lineages of related skil
 | `roadmap-conventions.md` | The roadmap skill family (`roadmap-create`, `-create-interview`, `-maintain`, `-update-tasks`, `-migrate`, `artefact-roadmap`): shared format rules; the executable half is `scripts/roadmap.py` |
 | `stud/conventions.md` | `do-stud`, `clod-approach-stud`: the mechanical *how* of scaffold banners (`&` new, `!` edited), shared so the two stud lineages can't drift |
 | `stud/worked-example.md` | A complete worked stud scaffold, for the same pair of skills |
+| `review-reaction-signals.md` | `pr-handle_review`: the GitHub reaction vocabulary Jason uses to signal verdicts on review threads, and how it interacts with the skill's independent-verification promise |
 
 ## `templates/`: fill-in-the-blanks documents
 
