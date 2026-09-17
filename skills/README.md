@@ -43,6 +43,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/red-doc` | ᛟ opus | Adversarial review of a document written as the colleague trying to kill it, aimed at one or two nam… |
 | `/roadmap-create` | ᛟ opus | Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHA… |
 | `/roadmap-migrate` | ᛊ sonnet | Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json… |
+| `/roadmap-update-devs` | ᛊ sonnet | Interview-led assignment of roadmap tasks to devs: collect the team roster, walk the chosen tasks in… |
 | `/skill-creator` | ᛟ opus | Create new skills, modify and improve existing skills, and measure skill performance. Use when users… |
 | `/theme-factory` | ᛟ opus | Create, update, extend, print or display a project theme family: a core palette plus per-target file… |
 | `/theme-target` | ᛊ sonnet | Define a new theme target type (a consumer of colour/type tokens the theme system doesn't cover yet)… |
