@@ -1,6 +1,6 @@
 ---
 name: "Next Task: Group"
-description: "Show every currently unblocked roadmap task, grouped by milestone or topic"
+description: "Show every currently unblocked roadmap task as one table per milestone or topic, with similar tasks adjacent"
 when_to_use: "When you want the whole actionable frontier laid out to choose from: next-task-suggest picks one; this shows them all."
 model: haiku
 effort: low
@@ -19,7 +19,11 @@ Display the roadmap's complete ready-set (every task whose effective status is `
 
 ## Step 0: Parse the pivot
 
-`$ARGUMENTS` is empty or `milestone` → group by milestone with topic sub-groups. `$ARGUMENTS` is `topic` → pivot: group by topic with the milestone on each task line. Anything else: say the two valid pivots and default to milestone.
+The pivot argument as typed: `$pivot` (blank when none was given).
+
+- blank or `milestone` → one table per milestone
+- `topic` → one table per topic, with the milestone as a column
+- anything else → name the two valid pivots, then default to milestone
 
 A **topic** is the category prefix embedded in the task ID: the letters between the milestone number and the sequence (`2TI.3` → `TI`).
 
@@ -38,36 +42,66 @@ python3 "$HOME"/.claude/library/scripts/roadmap.py stats
 
 The `candidates` array is the complete ready-set: every entry is unblocked by definition; never re-derive or second-guess status here. Each candidate carries `id`, `description`, `milestone`, `milestoneName`, `milestoneDonePct`, `transitiveUnblocks`, `isMilestoneSink`, `assignee` and `notes`.
 
+The `groups` object fixes the membership of every table: `groups.milestone` maps each milestone ID to its candidate IDs, `groups.topic` does the same per topic. Take table membership from it; never work out the groups or their sizes yourself.
+
 If `candidates` is empty: say so, and use the `stats` breakdown to name the cheapest unblock: which blocker or gate, if cleared, frees the most tasks.
 
-## Step 3: Render
+## Step 3: Order the rows
 
-Header: phase name, ready count against the total from `stats`.
+The `ready` command sorts by leverage. Discard that order: here `transitiveUnblocks` is a column, never the sort key. Inside each table, tasks about the same idea sit next to each other.
+
+1. Give every candidate a **theme**: a label of one to three words for the feature or concept it works on (`search`, `login`, `CSV export`), judged from its description and notes. Two tasks touching the same feature share one label, whatever their topic prefix: `Show login errors inline on the form` (a `UI` task) and `Rate-limit failed login attempts` (an `AU` task) are both `login`.
+2. Check the grain. Too coarse: the label repeats a topic or milestone name (`UI`, `Authentication`), which the ID and heading already say. Too fine: every row has its own label. Most themes should hold two to five tasks; a theme of one is fine when nothing else touches that idea.
+3. Rows sharing a theme are contiguous. Place related themes next to each other (`search index` beside `search UI`, both away from `billing`).
+4. Ties inside a theme: milestone number, then task ID in natural order (`2TI.3` before `2TI.10`).
+
+The theme is a reading aid for this display only. It is never written to the roadmap.
+
+Work out every candidate's group, theme and position silently. The reply holds the header line, the tables and the footer, nothing else: no plan, no theme list, no draft, no correction, no second copy of a table.
+
+## Step 4: Render
+
+Open with one header line: phase name, ready count against the total from `stats`.
+
+Then one table per group. Order the groups by milestone number (milestone pivot) or alphabetically by topic (topic pivot).
 
 **Milestone pivot** (default):
 
 ```markdown
 ## M2: {milestoneName} ({milestoneDonePct}% done)
 
-### {topic}
-
-- **{id}**: {full description}
-  ↳ unblocks {transitiveUnblocks} · completes milestone · {assignee} · {notes}
+| Theme | ID | Task | Unblocks | Dev | Notes |
+|---|---|---|---|---|---|
+| {theme} | {id} | {full description} | {transitiveUnblocks} | {assignee} | {notes} |
 ```
-
-Omit the `### {topic}` line when a milestone's ready tasks all share one topic. On the annotation line, include only what applies: drop `completes milestone` unless `isMilestoneSink`, drop the assignee when empty, drop notes when empty. `unblocks 0` still prints; a task that frees nothing is worth knowing about.
 
 **Topic pivot:**
 
 ```markdown
 ## {topic}
 
-- **{id}**: {full description} _({milestone} · {milestoneDonePct}% done)_
-  ↳ unblocks {transitiveUnblocks} · completes milestone · {assignee} · {notes}
+| Theme | ID | Task | Milestone | Unblocks | Dev | Notes |
+|---|---|---|---|---|---|---|
+| {theme} | {id} | {full description} | {milestone} ({milestoneDonePct}%) | {transitiveUnblocks} | {assignee} | {notes} |
 ```
 
-Both pivots preserve the `ready` command's ordering within each group (it sorts by leverage: `transitiveUnblocks` desc, then `milestoneDonePct` desc). Order the groups themselves by milestone number (milestone pivot) or alphabetically (topic pivot).
+Cell rules:
 
-Full descriptions always; never truncate them to tidy the layout.
+- **Theme**: printed on every row, including repeats, so a row still reads on its own.
+- **Task**: the full description, always. Never shorten it to tidy the table; escape any `|` in the text as `\|`.
+- **Unblocks**: the number, and `0` still prints; a task that frees nothing is worth knowing about. Append ` · closes {milestone}` when `isMilestoneSink` is true, in both pivots.
+- **Dev** and **Notes**: empty cell when the field is empty. Drop either column from a table where it is empty on every row.
+
+**Every candidate gets exactly one row.** A large ready-set produces long tables; that is the point of this skill. Never sample, summarise or close a table with "and N more". Each table holds exactly the IDs `groups` lists for it. That list fixes membership only: row order comes from Step 3, so rows sharing a theme stay contiguous even when their IDs are far apart in the list. Before moving to the next table, check the one you just wrote against that list ID by ID; add any row you missed.
+
+No commentary between tables. After the last table, end with one line giving each table's row count beside the size of its `groups` list:
+
+```text
+Shown {total rows in all tables} of {length of candidates} ready tasks ({group} {rows in its table}/{size of its groups list} · … one entry per table)
+```
+
+The groups named there are this run's tables: milestone IDs in the milestone pivot, topics in the topic pivot.
+
+Any pair that differs means a dropped or duplicated row: fix that table before finishing.
 
 <raw-arguments value="$ARGUMENTS" />
