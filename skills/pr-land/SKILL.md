@@ -54,10 +54,13 @@ If child PRs remain open above the merge point, run `gh stack sync --prune` from
 From the main checkout: `git checkout main && git pull`, then:
 
 ```bash
-TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" && git tag "$TAG" && git push origin "$TAG"
+TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" \
+  && { git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 \
+       && echo "$TAG already on origin, leaving it alone." \
+       || { git tag "$TAG" && git push origin "$TAG"; }; }
 ```
 
-A multi-layer stack merge is one landing event: tag once for the lot, never once per layer. Push the single tag, never `git push --tags` (that publishes every local tag, strays included). Script exit **3** means nothing to release: no version-bumping commits since the current tag (a docs-only or chore-only PR); say so and skip to Step 4. If the script printed its 0.x guard note to stderr, relay it: the user should know a major bump was requested and deliberately held at 0.x.
+The `ls-remote` check only matters on a repo where something else (e.g. a CI tagging workflow) can also push the same tag; it costs one no-op round-trip everywhere else. A multi-layer stack merge is one landing event: tag once for the lot, never once per layer. Push the single tag, never `git push --tags` (that publishes every local tag, strays included). Script exit **3** means nothing to release: no version-bumping commits since the current tag (a docs-only or chore-only PR); say so and skip to Step 4. If the script printed its 0.x guard note to stderr, relay it: the user should know a major bump was requested and deliberately held at 0.x.
 
 ## Step 4: Clean up the checkout
 
