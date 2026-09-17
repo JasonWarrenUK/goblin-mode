@@ -68,7 +68,7 @@ Claude can load these automatically when relevant.
 | `/hud-profiles` | ᛊ sonnet | Show the profiles stored in the dossier and persona stores |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language and shepherd safe create/remove actions |
-| `/next-task-group` | ᚺ haiku | Show every currently unblocked roadmap task, grouped by milestone or topic |
+| `/next-task-group` | ᚺ haiku | Show every currently unblocked roadmap task as one table per milestone or topic, with similar tasks… |
 | `/next-task-suggest` | ᚺ haiku | Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signal… |
 | `/pr-create` | ᛊ sonnet | Create a pull request to main, or a stacked PR onto a parent branch: wordy or shiny (with screenshot… |
 | `/pr-review` | ᛟ opus | Review a pull request and post it as a GitHub review |
