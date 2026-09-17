@@ -17,6 +17,7 @@ hooks/post-commit
 
 !/output-styles/**
 !/skills/**
+skills/synced/
 !/library/**
 
 # Person dossiers stay local; the schema that documents them does not
