@@ -235,7 +235,7 @@ auto-reverted; absence still isn't evidence.
   a milestone at the end of the sequence is unambiguous; nothing yet defines
   what happens on a mid-sequence insertion, since `M{N}` numbering is loosely
   coupled to task-ID category prefixes elsewhere in the roadmap (a category
-  can span several milestones) — treat that as an open question, not a rule
+  can span several milestones): treat that as an open question, not a rule
   to invent on the spot, until a real need forces the decision.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
 - Phase field order: `name, path, project?, archived?, externalGates, milestones`
