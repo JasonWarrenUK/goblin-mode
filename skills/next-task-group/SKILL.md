@@ -7,7 +7,7 @@ effort: low
 metadata:
   glyph: ᚺ
   family: next-task
-disable-model-invocation: true
+disable-model-invocation: false # read-only display that writes nothing; invocable so a redundant Skill call after the slash command reloads cleanly instead of erroring
 allowed-tools: ["Bash(python3:*)"]
 arguments: ["pivot"]
 argument-hint: "[milestone|topic] (grouping pivot, default milestone)"
