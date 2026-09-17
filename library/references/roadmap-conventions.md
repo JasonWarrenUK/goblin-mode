@@ -2,7 +2,7 @@
 
 Shared reference for the roadmap skill family (`roadmap-create`,
 `roadmap-create-interview`, `roadmap-maintain`, `roadmap-update-tasks`,
-`roadmap-migrate`, `artefact-roadmap`). Skills point here instead of restating
+`roadmap-update-devs`, `roadmap-migrate`, `artefact-roadmap`). Skills point here instead of restating
 these rules; the deterministic halves live in
 `~/.claude/library/scripts/roadmap.py` (single CLI) and `_roadmap_core.py`.
 
@@ -225,6 +225,18 @@ auto-reverted; absence still isn't evidence.
   branching from main (see `library/references/stacked-prs.md`). It is never
   a status signal: `done` still means done, merged or not, and `recompute`
   ignores the field entirely.
+- Milestone field order: `id, name, goal, tasks`. Only `id` is enforced by
+  `roadmap.py` (`_require_id`); `name` and `goal` default to empty strings
+  everywhere else. Don't add fields beyond these four.
+- Milestone ID assignment: `M{max existing milestone number in the phase + 1}`,
+  same never-reuse rule as task IDs. Milestones have no `dependsOn` field of
+  their own; a milestone-level gate is expressed on the task(s) inside it
+  (`dependsOn: ["M{a}"]` on the task, not on the milestone object). Appending
+  a milestone at the end of the sequence is unambiguous; nothing yet defines
+  what happens on a mid-sequence insertion, since `M{N}` numbering is loosely
+  coupled to task-ID category prefixes elsewhere in the roadmap (a category
+  can span several milestones) — treat that as an open question, not a rule
+  to invent on the spot, until a real need forces the decision.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
 - Phase field order: `name, path, project?, archived?, externalGates, milestones`
 - `project` is optional free text naming the project the phase belongs to
@@ -272,7 +284,10 @@ forms above for how this renders in PHASE.md.
 | No roadmap yet | `roadmap-create` |
 | Old single-file format detected | `roadmap-migrate` |
 | Half-formed ideas to explore into tasks | `roadmap-create-interview` |
-| One known task to add | `roadmap-update-tasks` |
+| One known task to add | `roadmap-update-tasks` (`t` mode) |
+| Several tasks with an asserted dependency order | `roadmap-update-tasks` (`c` mode) |
+| New milestone needed | `roadmap-update-tasks` (`m` mode) |
+| Tasks need owners, or a dev's load needs handing over | `roadmap-update-devs` (`ready\|all` horizon, `devless\|<dev>\|all` scope) |
 | Work landed / statuses drifted | `roadmap-maintain` (add `reconcile` to check against code) |
 | Priorities / freshness / health / dependency-graph review | `roadmap-review` (lens: `health`, `deps` or default full) |
 | Render the HTML dashboard | `artefact-roadmap` |
