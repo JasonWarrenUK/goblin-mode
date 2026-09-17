@@ -2,7 +2,7 @@
 
 Shared reference for the roadmap skill family (`roadmap-create`,
 `roadmap-create-interview`, `roadmap-maintain`, `roadmap-update-tasks`,
-`roadmap-migrate`, `artefact-roadmap`). Skills point here instead of restating
+`roadmap-update-devs`, `roadmap-migrate`, `artefact-roadmap`). Skills point here instead of restating
 these rules; the deterministic halves live in
 `~/.claude/library/scripts/roadmap.py` (single CLI) and `_roadmap_core.py`.
 
@@ -287,6 +287,7 @@ forms above for how this renders in PHASE.md.
 | One known task to add | `roadmap-update-tasks` (`t` mode) |
 | Several tasks with an asserted dependency order | `roadmap-update-tasks` (`c` mode) |
 | New milestone needed | `roadmap-update-tasks` (`m` mode) |
+| Tasks need owners, or a dev's load needs handing over | `roadmap-update-devs` (`ready\|all` horizon, `devless\|<dev>\|all` scope) |
 | Work landed / statuses drifted | `roadmap-maintain` (add `reconcile` to check against code) |
 | Priorities / freshness / health / dependency-graph review | `roadmap-review` (lens: `health`, `deps` or default full) |
 | Render the HTML dashboard | `artefact-roadmap` |
