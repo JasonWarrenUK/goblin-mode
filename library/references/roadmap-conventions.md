@@ -236,7 +236,25 @@ auto-reverted; absence still isn't evidence.
 - PHASE.md task lines: `- [ ] **{ID}**: {description}` with annotations: none
   when `dependsOn` empty; `_(depends on {IDs})_` when all deps done;
   `_(blocked: depends on {IDs})_`; `_(paused: reconvene {gateId})_`;
-  `_(deferred to a later phase)_`
+  `_(deferred to a later phase)_` when the deferral is out of this phase
+  entirely. A task deferred *within* the current phase by a tier-release gate
+  (see Tiers below) instead uses `_(deferred: {gateId}, and every {tier}
+  milestone)_` on the tier's entry task and `_(deferred: follows {ID})_` on
+  each task chained behind it — "a later phase" would be false when the work
+  is still this phase's, just gated on the envelope rather than the calendar.
+
+### Tiers
+
+A phase may split into tiers (e.g. core/secondary/tertiary) released one
+after another by gate, not by date: a tier's entry task depends on every
+milestone in the tier(s) before it plus that tier's release gate (`imposes:
+"deferred"`), and every other task in the tier chains behind the entry task
+via ordinary `dependsOn`. This is the one case a root-seeded parked status
+doesn't fit: root-seeding only holds for empty `dependsOn`, and a tier's
+tasks depend on the whole of the tier(s) before them, so the gate is what
+keeps them `deferred` under `recompute` rather than escalating to `blocked`
+the moment their nominal deps are all `done`. See the deferred annotation
+forms above for how this renders in PHASE.md.
 
 ## The three artefacts
 
