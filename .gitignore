@@ -11,6 +11,7 @@
 !/agents/**
 !/docs/**
 docs/personal/
+docs/archive/
 
 !/hooks/**
 hooks/post-commit
