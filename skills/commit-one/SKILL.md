@@ -2,10 +2,10 @@
 name: "Commit: One"
 description: "Generate a commit message. If nothing staged, stage all changes."
 when_to_use: "When the working tree holds one logical change ready to commit and you just need a well-formed conventional-commit message written."
-model: haiku
+model: sonnet # was haiku: auto mode skips haiku and keeps the session model, which is sometimes Fable here; sonnet pins it
 effort: low
 metadata:
-  glyph: ᚺ
+  glyph: ᛊ
   family: commit
 disable-model-invocation: false
 allowed-tools: ["Bash(git:*)"]

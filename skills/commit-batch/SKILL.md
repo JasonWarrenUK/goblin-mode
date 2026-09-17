@@ -2,10 +2,10 @@
 name: "Commit: Batch"
 description: "Split uncommitted changes into granular commits."
 when_to_use: "When several unrelated changes have piled up uncommitted and a single commit would bundle them; splits into one logical commit per change."
-model: haiku
+model: sonnet # was haiku: auto mode skips haiku and keeps the session model, which is often Fable or Opus here; sonnet pins it
 effort: low
 metadata:
-  glyph: ᚺ
+  glyph: ᛊ
   family: commit
 disable-model-invocation: false
 allowed-tools: ["Bash(git:*)"]
