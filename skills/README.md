@@ -57,12 +57,12 @@ Claude can load these automatically when relevant.
 | Skill | Model | Description |
 |-------|-------|-------------|
 | `/artefact-conventions` |  | Jason's structural and epistemic-honesty conventions for every artefact Claude creates |
-| `/artefact-roadmap` | ᚺ haiku | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
+| `/artefact-roadmap` | ᛊ sonnet | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
 | `/branch-rename` | ᚺ haiku | Check the current branch name against convention (type/short-description) and rename it if it drifte… |
 | `/clod-config-skill_conventions` |  | Jason's placement, invocation and metadata conventions for creating or editing skills |
-| `/commit-batch` | ᚺ haiku | Split uncommitted changes into granular commits. |
-| `/commit-one` | ᚺ haiku | Generate a commit message. If nothing staged, stage all changes. |
-| `/doc-changelog` | ᚺ haiku | Build or update the changelog from conventional commits and project it to every surface the project… |
+| `/commit-batch` | ᛊ sonnet | Split uncommitted changes into granular commits. |
+| `/commit-one` | ᛊ sonnet | Generate a commit message. If nothing staged, stage all changes. |
+| `/doc-changelog` | ᛊ sonnet | Build or update the changelog from conventional commits and project it to every surface the project… |
 | `/doc-readme` | ᛊ sonnet | Create or update a README for the project root or any directory |
 | `/dossier-record` |  | Record a durable fact about a person Jason works with, in their own dossier file |
 | `/hud-cc_releases` | ᛊ sonnet | Summarise Claude Code's own CHANGELOG.md, filtered and grouped for what actually matters to Jason |
