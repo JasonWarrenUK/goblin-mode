@@ -172,4 +172,6 @@ The header task count must match `roadmaps.json`. Get it from `python3 "$HOME"/.
 - roadmaps.json is the source of truth; the PHASE file and overview are projections.
 - Everything else (statuses, colours, graph rules, formatting): `~/.claude/library/references/roadmap-conventions.md`.
 
-These roadmaps are maintained by `roadmap-maintain` (status synchronisation) and `roadmap-update-tasks` (adding tasks). Old simple-format roadmaps are upgraded by `roadmap-migrate`; the HTML dashboard comes from `artefact-roadmap` (`roadmap.py render`).
+These roadmaps are maintained by `roadmap-maintain` (status synchronisation) and `roadmap-update-tasks` (adding tasks, or a single new milestone via its `m` mode). Old simple-format roadmaps are upgraded by `roadmap-migrate`; the HTML dashboard comes from `artefact-roadmap` (`roadmap.py render`).
+
+The two skills split by scope, not by capability overlap: this skill (`roadmap-create`) builds an entire phase from scratch, multiple milestones at once, when none exists yet or an old one is being superseded wholesale. `roadmap-update-tasks m` appends exactly one milestone to a phase that already exists. Reach for this skill only in the "no roadmap yet" / "starting a new phase" cases in the Behaviour table above; a single new milestone inside a live phase is the other skill's job.
