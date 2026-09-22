@@ -56,12 +56,13 @@ Canonical review methodology. Produces structured findings only; **never posts t
   </blocking-gate>
   <matrix>
     <!-- Type x Scope -> where the comment anchors + suggestion eligibility -->
+    <!-- "Review body" anchors are sections of the top-level review comment: GitHub's review API has no file-level comments (see pr-review's <api-constraints/>), and a line-scoped finding whose line isn't in the diff is demoted to the body's "Off-diff notes" section with its location kept. -->
     <row type="major/minor changes, nits" scope="line" anchor="line highlight (inline diff comment)" suggestion="yes, if a concrete fix exists" />
-    <row type="major/minor changes, nits" scope="file" anchor="file-level comment" suggestion="no" />
-    <row type="major/minor changes, nits" scope="cross-file" anchor="top-level review comment" suggestion="no" />
-    <row type="admiration" scope="line" anchor="file-level comment; admiration never uses a line highlight, even when the praise is line-scoped" suggestion="no" />
-    <row type="admiration" scope="file" anchor="file-level comment" suggestion="no" />
-    <row type="admiration" scope="cross-file" anchor="top-level review comment" suggestion="no" />
+    <row type="major/minor changes, nits" scope="file" anchor="review body, File-scoped notes section" suggestion="no" />
+    <row type="major/minor changes, nits" scope="cross-file" anchor="review body, Cross-file notes section" suggestion="no" />
+    <row type="admiration" scope="line" anchor="review body, Accolades section; admiration never uses a line highlight, even when the praise is line-scoped" suggestion="no" />
+    <row type="admiration" scope="file" anchor="review body, Accolades section" suggestion="no" />
+    <row type="admiration" scope="cross-file" anchor="review body, Accolades section" suggestion="no" />
   </matrix>
   <suggestions>
     <guide>Emit a ```suggestion block only for line-scoped 🔴/🟠/🟡 findings with a concrete, single-location fix.</guide>
