@@ -36,6 +36,7 @@ Replaces the former pr-shiny-create / pr-shiny-draft / pr-wordy-create / pr-word
     <rules>
         <rule>The template is the single source of the body structure: do not restructure it.</rule>
         <rule>When the base isn't main, the Overview opens by naming the parent: "Layer on #&lt;parent-pr&gt;; review that first." The rest of the description covers this layer only.</rule>
+        <rule>Overview: never one dense paragraph. One paragraph per distinct unit of work; an enumeration of three or more items that carries its sentence becomes a numbered list under a colon-terminated lead-in, with the rest of the sentence restarting as prose beneath it. A parenthetical aside stays inline however many items it holds.</rule>
         <rule>Title: brief, descriptive, title case, understandable to non-devs.</rule>
         <rule>Summary: a non-technical, absurd metaphor.</rule>
         <rule>TL;DR: steps devs must take after pulling this down.</rule>
