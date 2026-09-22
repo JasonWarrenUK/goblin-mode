@@ -18,7 +18,7 @@
 | Component     | Count | What it does |
 |----------------|-------|--------------|
 | **Skills (command)** | 28 | Slash commands you invoke (e.g. `/commit-one`) |
-| **Skills (role)**    | 15 | Ambient knowledge that loads automatically when relevant |
+| **Skills (role)**    | 16 | Ambient knowledge that loads automatically when relevant |
 | **Skills (model-invocable command)** | 24 | Command skills the model can also self-invoke |
 | **Agents**     | 10 | Autonomous sub-processes for multi-step work |
 | **Hooks**      | 4 global + 2 project-level | Scripts triggered by git and session events |
