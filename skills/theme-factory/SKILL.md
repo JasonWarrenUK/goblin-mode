@@ -9,7 +9,7 @@ metadata:
   family: theme
 disable-model-invocation: true
 allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion", "Artifact"]
-argument-hint: "<target | family | 'print'|'display' [all|target|family]> [new] [from <family>]"
+argument-hint: "print|display [all|<target>|<family>] | <target>|<family> [new] [from <family>]"
 ---
 
 # Theme factory
