@@ -10,19 +10,23 @@ metadata:
 disable-model-invocation: false # invocable by Claude so it can offer a refresh when new commits leave the description stale; its approval step still gates the write
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Read", "Glob", "Grep"]
 arguments: ["pr"]
-argument-hint: "[PR number]"
+argument-hint: "[PR number | URL]"
 ---
 
 # Update an Existing PR
 
-Update the description of the PR named by `$ARGUMENTS` (number or URL), or of the current branch's PR when no argument is given; `pr-facts.sh` and `gh pr edit` both resolve the current branch on their own when passed nothing.
+Update the description of the PR named by `$ARGUMENTS`, or of the current branch's PR when no argument is given.
 
 ## Steps
+
+### 0. Resolve the identifier
+
+Pick `{pr}` out of `$ARGUMENTS`: the one token that is a PR number or a `github.com/.../pull/<n>` URL. With no argument at all, `{pr}` is empty and both commands below resolve the current branch's PR on their own. Any other bare token is an error, never passed through: `pr-facts.sh` reads only its first argument, and `gh` treats an unknown word as a branch name and reports "no pull requests found" with exit 0, so a stray token would fail quietly at the wrong step.
 
 ### 1. Gather the facts in one call
 
 ```bash
-"$HOME"/.claude/library/scripts/pr-facts.sh $ARGUMENTS
+"$HOME"/.claude/library/scripts/pr-facts.sh {pr}
 ```
 
 It prints the PR metadata, the current body, the watermark (`<!-- pr-update-watermark: <sha> -->`, or "none" when the whole branch is new), every commit since it with per-commit stats, and the SHA to use as the next watermark. Analyse that dump rather than running exploratory `gh`/`git` calls. Exit **3** means no new commits; tell me the description is already up to date and stop. Exit **2**: report the script's message.
@@ -76,7 +80,7 @@ Display the updated body in full and a brief summary of what changed vs the prev
 Once approved, pass the body on stdin so quoting never mangles it:
 
 ```bash
-gh pr edit $ARGUMENTS --body-file - <<'PR_EOF'
+gh pr edit {pr} --body-file - <<'PR_EOF'
 <updated body>
 PR_EOF
 ```
