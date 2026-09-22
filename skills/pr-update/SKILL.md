@@ -52,6 +52,7 @@ Take the existing body (in the dump) and update it:
   ```
 
   Append one dated line per update run. This block records *that* and *when* the description changed; the substantive content itself always lands in the sections above.
+- The Overview keeps the template's layout: one paragraph per distinct unit of work, and an enumeration of three or more items that carries its sentence sits as a numbered list under a colon-terminated lead-in. New work that is its own unit becomes its own paragraph rather than a clause bolted onto an existing one. Layout is not content, so the "do not rewrite" rule above does not shield a dense single-paragraph Overview: reshape it into this layout while folding the new work in, changing no facts.
 - If the description references behaviour that has changed, correct it.
 - Insert or replace the watermark comment at the very end of the body, using the `next watermark sha` from the dump:
 
