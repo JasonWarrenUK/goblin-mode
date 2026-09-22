@@ -89,6 +89,18 @@ The core is copied, never re-derived. Only the target block is generated, by the
 
 When a target needs colours the core lacks (16 ANSI slots), synthesise by rotating the anchor's hue in OKLCH at fixed intervals and say so in `mapping_notes`.
 
+### `tui` targets: check against the real terminal background, not an assumed neutral
+
+A `tui` target is read by a real terminal emulator with its own background, which on this machine is set per-project by `~/code/utils/terminal-config/hooks/cd-change-directory.sh` (ghostty theme files under `~/code/utils/terminal-config/apps/ghostty/themes/`). That background is not neutral: Osiris, the theme every project under `~/code/apps/` gets, is a dark olive (`#222600`, OKLCH hue ≈ 116°), not a generic dark grey.
+
+Before writing a `tui` target's palette:
+
+1. Resolve which ghostty theme the project actually gets (read the `_chpwd_theme_switch` case statement in `cd-change-directory.sh` against the project's path) and read that theme file's `background`/`foreground`.
+2. Check every `contrast` pair in the core's dark variant against that real background hex, not against an assumed `#000000`/`#1a1a1a`. A colour that clears AA on a neutral dark background can fail badly on a chromatic one: an anchor at or near the background's own hue reads as muddy or invisible regardless of lightness, and a hue on the wrong side of the wheel can fail contrast outright even at high chroma.
+3. Note the resolved background (theme name, hex, source file) in the core's `provenance.seed`, so a later reader knows which terminal the numbers were checked against.
+
+If the project's terminal background can't be resolved (no `terminal-config` on the machine, or the project matches no case), fall back to checking against the nearest ghostty default and say so in `mapping_notes`.
+
 ## Extending across targets
 
 `/theme-factory "vhs" from ember`. `from` names a family; when only one family exists it may be omitted. The new file records `provenance.derived_from` implicitly via `extends`; `theme-factory print` flags a target file whose core has changed since (`updated` newer than the target's own `updated`).
