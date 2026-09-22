@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: pr
 disable-model-invocation: true
-allowed-tools: ["Read", "Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
+allowed-tools: ["Read", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
 arguments: ["pr"]
 argument-hint: "[PR number | URL]"
 ---
@@ -25,7 +25,7 @@ The post-approval sequence as one skill: verify the PR is genuinely ready, merge
 
 Resolve the PR from `$ARGUMENTS`, then `gh pr view --json state,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,headRefName,baseRefName,title`.
 
-Proceed only when: state `OPEN`, no failing checks in `statusCheckRollup`, and `mergeable` isn't `CONFLICTING`. `reviewDecision` must additionally be `APPROVED` unless the repo lives under `github.com/jasonwarrenuk/` (personal repos have no reviewer, so that value never appears; check the resolved owner, not the local remote string). Anything short of that: report exactly what's unmet and stop. This skill lands ready PRs; it doesn't chase approvals (`pr-handle_review`) or fix branches.
+Proceed only when: state `OPEN`, every entry in `statusCheckRollup` has finished and passed, and `mergeable` isn't `CONFLICTING`. A check run whose `status` isn't `COMPLETED` (`QUEUED`, `IN_PROGRESS`, `PENDING`) counts as not passed, as does a status context whose `state` is `PENDING`; a `conclusion` or `state` of `FAILURE`, `ERROR`, `CANCELLED`, `TIMED_OUT` or `ACTION_REQUIRED` fails outright. `SUCCESS`, `NEUTRAL` and `SKIPPED` pass. `reviewDecision` must additionally be `APPROVED` unless the repo lives under `github.com/jasonwarrenuk/` (personal repos have no reviewer, so that value never appears; check the resolved owner, not the local remote string). Anything short of that: report exactly what's unmet and stop. This skill lands ready PRs; it doesn't chase approvals (`pr-handle_review`) or fix branches.
 
 **Stack detection** (see `~/.claude/library/references/stacked-prs.md`): the PR is part of a stack when `baseRefName` isn't the default branch, or `gh pr list --base {headRefName} --state open` shows a child PR targeting it. A stacked merge is bottom-up and contiguous: merging this PR also merges **every unmerged PR below it**, so extend the readiness check to each of those layers too, and note any open children above (they survive the merge and retarget automatically).
 
@@ -51,7 +51,13 @@ If child PRs remain open above the merge point, run `gh stack sync --prune` from
 
 ## Step 3: Tag the version
 
-From the main checkout: `git checkout main && git pull`, then:
+Move to the main checkout first: the shell is often still inside the merged branch's worktree, where `git checkout main` fails because main is checked out elsewhere. The common git dir always sits under the main checkout, so:
+
+```bash
+cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && git checkout main && git pull
+```
+
+Then, still in that directory:
 
 ```bash
 TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" \
