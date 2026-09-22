@@ -38,11 +38,22 @@ Canonical review methodology. Produces structured findings only; **never posts t
   </foci>
   <taxonomy>
     <!-- Replaces any older 🟣/🔴/🟡/🔵 four-colour key. This is the only taxonomy. -->
-    <row emoji="🔴" type="major changes" ceiling="Request Changes">Blocking: must fix before merge</row>
-    <row emoji="🟠" type="minor changes" ceiling="Comment (strict) / Approve (loose)">Should fix, won't block. Same ceiling and treatment as nits</row>
+    <row emoji="🔴" type="major changes" ceiling="Request Changes">Would be wrong to merge as-is. Decided by the closed trigger list in <blocking-gate/>, never by how big or effortful the fix is</row>
+    <row emoji="🟠" type="minor changes" ceiling="Comment (strict) / Approve (loose)">Correct as written, but would be better changed. Same ceiling and treatment as nits</row>
     <row emoji="🟡" type="nits" ceiling="Comment (strict) / Approve (loose)">Nice to have</row>
     <row emoji="🟣" type="admiration" ceiling="Approve">Accolade: only when genuinely warranted</row>
   </taxonomy>
+  <blocking-gate>
+    <guide>🔴 is a merge gate, not a severity band. The question is never "how bad is this?" but "is this a thing on the list below?". Size and effort-to-fix are irrelevant: a one-character fix is 🔴 if it trips a trigger, and a day of work is 🟠 if it doesn't.</guide>
+    <guide>The trigger list is closed. Only these block:</guide>
+    <trigger>Correctness bug on a reachable path: wrong output, crash, hang or silent no-op. Reachable means you can state the concrete input, state or call sequence that produces it; if you cannot name that trigger case, it is 🟠, not 🔴</trigger>
+    <trigger>Security issue: injection, auth bypass, leaked secret or credential, missing validation at a trust boundary, RLS gap on multi-tenant data</trigger>
+    <trigger>Data loss or migration hazard: destructive or irreversible schema change, unguarded delete, a multi-step write that isn't in a transaction</trigger>
+    <trigger>Breaking change to an exported or public contract without the `!` marker or `BREAKING CHANGE:` footer on its commit</trigger>
+    <trigger>Violation of a documented convention that itself guards correctness, security or data integrity: RLS on multi-tenant tables, validation at boundaries, transactions around multi-step writes, secrets kept out of the repo. Style, prose, naming and formatting conventions never block, however plainly `CLAUDE.md` states them; those are 🟠 at most</trigger>
+    <trigger>A test that asserts nothing, is skipped, or is committed failing, with no note explaining why</trigger>
+    <guide>Anything you believe should block but that trips no trigger is written as 🟠 with an explicit "I'd argue this should block: &lt;reason&gt;" line ending its body. That line is the signal for growing this list deliberately; never promote such a finding to 🔴 on your own judgement, in either mode. That line is live prose inside `findings[].body`, so it carries the same dash ban as every other body; a stray em-dash there hard-fails the whole post downstream.</guide>
+  </blocking-gate>
   <matrix>
     <!-- Type x Scope -> where the comment anchors + suggestion eligibility -->
     <row type="major/minor changes, nits" scope="line" anchor="line highlight (inline diff comment)" suggestion="yes, if a concrete fix exists" />
@@ -59,7 +70,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
   </suggestions>
   <verdict>
     <guide>Two modes, `loose` and `strict`, either given explicitly anywhere in `$ARGUMENTS` (order-agnostic, case-insensitive). Absent keyword means loose. A mode keyword is never a PR identifier. Any other unrecognised bare word in the mode slot is an error, not a silent fallback.</guide>
-    <guide>Mode changes the verdict only. Findings, taxonomy, scope classification, suggestion eligibility and comment bodies are identical in both modes; a 🟠 is still written and posted as a 🟠.</guide>
+    <guide>Mode changes the verdict only. Findings, taxonomy, scope classification, suggestion eligibility and comment bodies are identical in both modes; a 🟠 is still written and posted as a 🟠. <blocking-gate/> is mode-independent: loose never softens a trigger into 🟠, strict never promotes a non-trigger into 🔴.</guide>
     <guide>Derive one overall verdict from the highest ceiling present across all findings (highest-ceiling-wins):</guide>
     <rule mode="both">Any 🔴 present → Request Changes</rule>
     <rule mode="strict">Else any 🟠 or 🟡 present → Comment</rule>
@@ -68,7 +79,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
     <guide>Loose posts no marker to the PR explaining the collapsed verdict. The finding emoji already carry severity. Report the mode in the terminal output only.</guide>
   </verdict>
   <guides>
-    <guide>Keep it concise. Flag only the most important issues; skip minor style nits unless they're genuinely worth a 🟡.</guide>
+    <guide>Keep it concise. Flag only the most important issues; skip minor style nits unless they're genuinely worth a 🟡. Concision applies to 🟠 and 🟡 alone: every finding that trips a <blocking-gate/> trigger gets reported, however small it looks.</guide>
     <guide>Before critiquing implementation, check whether the dev is following established project practice.</guide>
     <guide>Omit any type that has no entries. Only include 🟣 findings if there's something genuinely worth praising; token praise is worse than none.</guide>
   </guides>
