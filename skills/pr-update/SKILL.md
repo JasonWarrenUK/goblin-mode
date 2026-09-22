@@ -15,7 +15,7 @@ argument-hint: "[PR number]"
 
 # Update an Existing PR
 
-Update the description of PR #$ARGUMENTS.
+Update the description of the PR named by `$ARGUMENTS` (number or URL), or of the current branch's PR when no argument is given; `pr-facts.sh` and `gh pr edit` both resolve the current branch on their own when passed nothing.
 
 ## Steps
 
@@ -73,4 +73,12 @@ Display the updated body in full and a brief summary of what changed vs the prev
 
 ### 6. Apply the update
 
-Once approved: `gh pr edit $ARGUMENTS --body "<updated body>"`. Confirm success.
+Once approved, pass the body on stdin so quoting never mangles it:
+
+```bash
+gh pr edit $ARGUMENTS --body-file - <<'PR_EOF'
+<updated body>
+PR_EOF
+```
+
+Confirm success.
