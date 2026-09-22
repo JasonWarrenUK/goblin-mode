@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: roadmap
 disable-model-invocation: false # invocable by Claude so it can offer a status sync after merges; the reconcile confirmation gate still applies
-allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)", "Bash(git:*)", "Task"]
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)", "Bash(git:*)", "Agent"]
 argument-hint: '[milestone id | "reconcile" to also check against the codebase]'
 ---
 
