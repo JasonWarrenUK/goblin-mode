@@ -10,19 +10,23 @@ metadata:
 disable-model-invocation: false # invocable by Claude so it can offer a refresh when new commits leave the description stale; its approval step still gates the write
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Read", "Glob", "Grep"]
 arguments: ["pr"]
-argument-hint: "[PR number]"
+argument-hint: "[PR number | URL]"
 ---
 
 # Update an Existing PR
 
-Update the description of PR #$ARGUMENTS.
+Update the description of the PR named by `$ARGUMENTS`, or of the current branch's PR when no argument is given.
 
 ## Steps
+
+### 0. Resolve the identifier
+
+Pick `{pr}` out of `$ARGUMENTS`: the one token that is a PR number or a `github.com/.../pull/<n>` URL. With no argument at all, `{pr}` is empty and both commands below resolve the current branch's PR on their own. Any other bare token is an error, never passed through: `pr-facts.sh` reads only its first argument, and `gh` treats an unknown word as a branch name and reports "no pull requests found" with exit 0, so a stray token would fail quietly at the wrong step.
 
 ### 1. Gather the facts in one call
 
 ```bash
-"$HOME"/.claude/library/scripts/pr-facts.sh $ARGUMENTS
+"$HOME"/.claude/library/scripts/pr-facts.sh {pr}
 ```
 
 It prints the PR metadata, the current body, the watermark (`<!-- pr-update-watermark: <sha> -->`, or "none" when the whole branch is new), every commit since it with per-commit stats, and the SHA to use as the next watermark. Analyse that dump rather than running exploratory `gh`/`git` calls. Exit **3** means no new commits; tell me the description is already up to date and stop. Exit **2**: report the script's message.
@@ -48,6 +52,7 @@ Take the existing body (in the dump) and update it:
   ```
 
   Append one dated line per update run. This block records *that* and *when* the description changed; the substantive content itself always lands in the sections above.
+- The Overview keeps the template's layout: one paragraph per distinct unit of work, and an enumeration of three or more items that carries its sentence sits as a numbered list under a colon-terminated lead-in. New work that is its own unit becomes its own paragraph rather than a clause bolted onto an existing one. Layout is not content, so the "do not rewrite" rule above does not shield a dense single-paragraph Overview: reshape it into this layout while folding the new work in, changing no facts.
 - If the description references behaviour that has changed, correct it.
 - Insert or replace the watermark comment at the very end of the body, using the `next watermark sha` from the dump:
 
@@ -73,4 +78,12 @@ Display the updated body in full and a brief summary of what changed vs the prev
 
 ### 6. Apply the update
 
-Once approved: `gh pr edit $ARGUMENTS --body "<updated body>"`. Confirm success.
+Once approved, pass the body on stdin so quoting never mangles it:
+
+```bash
+gh pr edit {pr} --body-file - <<'PR_EOF'
+<updated body>
+PR_EOF
+```
+
+Confirm success.

@@ -1,20 +1,19 @@
 #!/bin/zsh
-# pr-facts.sh — the "what changed since the description was written" gathering
+# pr-facts.sh: the "what changed since the description was written" gathering
 # step for pr-update: PR metadata, current body, the watermark, and every
 # commit since it, in one structured dump instead of several exploratory calls.
 #
-# usage: pr-facts.sh <pr-number-or-url>
+# usage: pr-facts.sh [pr-number-or-url]   (no argument: the current branch's PR)
 # exit codes: 0 ok, 2 environment/usage error,
 #             3 no new commits since the watermark (description is current)
 set -u
 
 pr=${1:-}
-[[ -n "$pr" ]] || { print -u2 "usage: pr-facts.sh <pr-number-or-url>"; exit 2 }
 command -v gh >/dev/null 2>&1 || { print -u2 "gh not installed"; exit 2 }
 command -v jq >/dev/null 2>&1 || { print -u2 "jq not installed"; exit 2 }
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { print -u2 "not inside a git repository"; exit 2 }
 
-json=$(gh pr view "$pr" --json number,title,body,headRefName,baseRefName) || exit 2
+json=$(gh pr view ${pr:+"$pr"} --json number,title,body,headRefName,baseRefName) || exit 2
 body=$(print -r -- "$json" | jq -r .body)
 head_ref=$(print -r -- "$json" | jq -r .headRefName)
 base_ref=$(print -r -- "$json" | jq -r .baseRefName)
@@ -42,7 +41,7 @@ fi
 
 commits=$(git log --oneline "$range" 2>/dev/null)
 if [[ -z "$commits" ]]; then
-	print "(no new commits — the description is already up to date)"
+	print "(no new commits: the description is already up to date)"
 	exit 3
 fi
 

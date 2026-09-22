@@ -80,10 +80,10 @@ Then record the PR number on the task in `roadmaps.json` as its `pr` field (a di
 
 ## Step 7: Self-review and fix
 
-1. Invoke `pr-review` against the PR just opened. It posts a real GitHub review (inline comments + verdict); let it run its full methodology (via `pr-review` underneath) rather than re-deriving findings here.
+1. Invoke `pr-review` against the PR just opened. It posts a real GitHub review (inline comments + verdict); let it run its full methodology (via `pr-review-dry_run` underneath) rather than re-deriving findings here. The PR's author is this run's own login, so GitHub only accepts a comment review: pr-review posts the verdict as the first line of the review body instead of as an approve/request-changes event.
 2. Read back the posted findings. Anything marked actionable and correctness/quality-bearing (not stylistic bikeshedding, not a finding the review itself flags as low-confidence) gets fixed in a **follow-up commit** on the same branch; never amend the commits already reviewed.
 3. Re-run the full test/typecheck/lint gate (Step 3.4) after the fix commit, same bar: all green.
-4. Push the follow-up commit, then re-invoke `pr-review` once so the posted verdict reflects the fixed state rather than leaving the PR wearing its own pre-fix REQUEST_CHANGES. Findings from this second review are reported in the final summary, never fixed in this run: one fix cycle per run is the cap.
+4. Push the follow-up commit, then re-invoke `pr-review` once so the newest review's verdict line reflects the fixed state rather than leaving a pre-fix "Request Changes" as the PR's last word from this run. Findings from this second review are reported in the final summary, never fixed in this run: one fix cycle per run is the cap.
 
 ## Step 8: BLOCKED.md (only if a hard rule triggers a stop)
 

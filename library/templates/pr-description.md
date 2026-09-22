@@ -7,7 +7,7 @@
 -->
 # {{ title: brief, descriptive, title case, understandable to non-devs }}
 ## Overview
-{{ overview: what the PR does and why; when issue numbers were supplied, end with GitHub issue-closing syntax (e.g. "Closes #12, closes #34") }}
+{{ overview: what the PR does and why, laid out to be scanned rather than read as one block: one paragraph per distinct unit of work (a docs suite, a roadmap addition, a follow-up pass each get their own); an enumeration of three or more items that is the point of its sentence becomes a numbered list under a lead-in line ending in a colon, with the sentence's remainder restarting as prose below it, while a parenthetical aside stays inline; when issue numbers were supplied, end with GitHub issue-closing syntax (e.g. "Closes #12, closes #34") }}
 ## Summary
 {{ a non-technical, absurd metaphor describing the PR }}
 > [!TIP]

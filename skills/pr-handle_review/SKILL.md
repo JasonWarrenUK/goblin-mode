@@ -8,7 +8,7 @@ metadata:
   glyph: ᛟ
   family: pr
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3:*)", "Task"]
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3:*)", "Agent"]
 arguments: ["pr", "mode"]
 argument-hint: "[PR number | URL] [legend]"
 ---
@@ -25,7 +25,7 @@ Scan `$ARGUMENTS` case-insensitively for the standalone token `legend`, in any p
 
 ## Step 1: Resolve the PR
 
-Resolve `owner`, `repo` and `pull_number` from the PR argument (whatever in `$ARGUMENTS` isn't the `legend` token): directly if it's a full URL, otherwise via `gh pr view {pr} --json number,headRefName,headRepositoryOwner,headRepository`. Resolve the authenticated login with `gh api user --jq .login`. This is the reaction-ownership discriminator, not a reviewer/not-reviewer test: Jason sometimes authors his own review comments (self-review), so author login alone can't separate "reviewer asking" from "Jason directing". Position in the thread carries that distinction; see Step 2.
+Resolve `owner`, `repo`, `pull_number` and the head branch from the PR argument (whatever in `$ARGUMENTS` isn't the `legend` token): `gh pr view {pr} --json number,url,headRefName`, with no `{pr}` at all when there is no argument, which makes gh resolve the current branch's PR. Take `owner` and `repo` from the `url` (`https://github.com/{owner}/{repo}/pull/{n}`): that is the base repository, where the threads live, whereas `headRepository` would name the fork on a cross-repository PR. Resolve the authenticated login with `gh api user --jq .login`. This is the reaction-ownership discriminator, not a reviewer/not-reviewer test: Jason sometimes authors his own review comments (self-review), so author login alone can't separate "reviewer asking" from "Jason directing". Position in the thread carries that distinction; see Step 2.
 
 Check out the PR branch if not already on it (`gh pr checkout {pull_number}`). Run `git status` first; if the working tree holds unrelated uncommitted work, stop and ask rather than mixing it into review fixes.
 
