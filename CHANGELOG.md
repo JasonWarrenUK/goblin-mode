@@ -5,6 +5,21 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-22
+
+### Fixed
+
+- `pr-land`'s check-status gate now defaults to blocking when a PR's check state can't be confidently read, instead of defaulting to allow.
+- `pr-land` now blocks on pending (not just failing) checks, and locates the main checkout correctly instead of assuming the current directory.
+- `pr-review` and `pr-review-dry_run` now leave a comment-only verdict when the reviewer is reviewing their own PR, rather than posting a blocking review against themselves.
+- `pr-review` now treats blocking severity as a merge gate rather than a subjective judgement call, so the same finding gets the same verdict regardless of who's reading it.
+- `pr-review-dry_run` now names its review-body anchors so repeat runs update the same anchors instead of duplicating them.
+- `pr-create` pushes the branch before stamping its update watermark, and stamps that watermark from the actually-pushed commit rather than a stale local one.
+- `pr-update` resolves the PR identifier correctly before acting on it, and now defaults to the current branch's own PR with the body read from stdin.
+- `pr-handle_review` now uses the Agent tool and resolves repos by URL.
+- `next-task-ship`'s self-review step now correctly matches a comment-only review outcome.
+- `roadmap-maintain` now uses the Agent tool instead of the retired Task tool.
+
 ## [2.0.0] - 2026-08-27
 
 ### Breaking
@@ -29,5 +44,6 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.0.0...v2.3.0
 [2.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v1.1.0...v2.0.0
