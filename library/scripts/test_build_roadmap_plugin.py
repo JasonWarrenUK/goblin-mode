@@ -70,6 +70,15 @@ class BuildSafeguards(unittest.TestCase):
 		problems = self.build_problems()
 		self.assertTrue(any("skills/maintain/SKILL.md" in p and "scripts/roadmap-extra.py is not shipped" in p for p in problems))
 
+	def test_unshipped_plugin_root_path_is_named_as_written(self) -> None:
+		# References get <plugin-root>, so the message must quote that form to be greppable
+		self.append("library/references/roadmap-conventions.md", "\nRun `python3 ~/.claude/library/scripts/roadmap-extra.py`.\n")
+		problems = self.build_problems()
+		self.assertTrue(any(
+			p.startswith("references/roadmap-conventions.md:") and "<plugin-root>/scripts/roadmap-extra.py is not shipped" in p
+			for p in problems
+		), problems)
+
 	def test_leftover_home_path_is_caught(self) -> None:
 		self.append("skills/roadmap-maintain/SKILL.md", "\nSee `~/.claude/docs/notes.md`.\n")
 		self.assertTrue(any("path into ~/.claude survives" in p for p in self.build_problems()))

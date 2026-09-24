@@ -259,7 +259,7 @@ def validate(root: Path, out: Path) -> None:
 			where = f"{rel}:{lineno}"
 			for match in PLUGIN_REF.finditer(line):
 				if not (out / match.group(1)).exists():
-					problems.append(f"{where}: ${{CLAUDE_PLUGIN_ROOT}}/{match.group(1)} is not shipped in the plugin (add it to FILES)")
+					problems.append(f"{where}: {match.group(0)} is not shipped in the plugin (add it to FILES)")
 			if rel.parts[0] not in RESOLVING_DIRS and ROOT_PLACEHOLDER.search(line):
 				problems.append(f"{where}: ${{CLAUDE_PLUGIN_ROOT}} never resolves outside skills/ and hooks/ (use <plugin-root>)")
 			if HOME_REF.search(line):
