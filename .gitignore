@@ -85,3 +85,4 @@ __pycache__/
 /docs/artefacts
 /settings.json.doctor-backup
 /library/state/commit-msg-log.jsonl
+/state
