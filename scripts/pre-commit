@@ -1,0 +1,29 @@
+#!/bin/zsh
+# Rebuilds the shareable roadmap plugin (marketplace/roadmap/) whenever a
+# commit touches one of its sources, and stages the result so the source and
+# the published copy always land in the same commit. Run by the global
+# hooks/pre-commit dispatcher; a build failure aborts the commit.
+
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+build="$repo_root/library/scripts/build-roadmap-plugin.py"
+[[ -f $build ]] || exit 0
+
+sources=(${(f)"$(python3 "$build" --sources)"}) || exit 1
+# --no-renames: a renamed source shows as its old (deleted) path too, so a
+# rename still triggers the build and its missing-source check
+staged=(${(f)"$(git diff --cached --name-only --no-renames)"})
+touched=(${staged:*sources})
+(( ${#touched} )) || exit 0
+
+# The build reads the working tree; unstaged edits to a source would leak
+# into the published copy without being part of this commit
+unstaged=(${(f)"$(git diff --name-only --no-renames)"})
+leaking=(${unstaged:*sources})
+if (( ${#leaking} )); then
+	print -u2 "pre-commit: roadmap plugin sources have unstaged changes; stage or stash them first:"
+	print -u2 -l -- "  "${^leaking}
+	exit 1
+fi
+
+python3 "$build" || { print -u2 "pre-commit: roadmap plugin build failed; commit aborted"; exit 1 }
+git add -- "$repo_root/marketplace/roadmap"
