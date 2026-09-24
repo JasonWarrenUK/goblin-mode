@@ -18,7 +18,7 @@ argument-hint: "[health|deps|full] [milestone id (optional)]"
 
 `roadmap:maintain` keeps the roadmap *consistent*; this skill asks whether it's still *true*. A roadmap can validate clean while quietly rotting: done-in-code tasks still `todo`, milestone goals describing last quarter's intent, edges that outlived their reason, a ready-set whose leverage ordering nobody has looked at since it was authored. This is a guided check that ends in decisions, not a report that ends in a shrug.
 
-Read-only: findings route to the skills that write. Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`.
+Read-only: findings route to the skills that write. Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. The CLI is `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py`.
 
 ## Step 0: Resolve the lens
 
