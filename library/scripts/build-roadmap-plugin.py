@@ -9,9 +9,15 @@ rewriting every ~/.claude path to ${CLAUDE_PLUGIN_ROOT} and every skill
 cross-reference to its namespaced `roadmap:<name>` form. Never hand-edit
 marketplace/roadmap/: edit the source, then rerun this.
 
-usage: build-roadmap-plugin.py [--check]
-	--check   exit 1 if marketplace/roadmap/ would change, without writing (for CI /
-	          pre-commit use)
+Every build is validated before anything is written: missing sources, plugin
+paths that point at files the plugin doesn't ship, leftover ~/.claude paths
+and skill names from this config that the plugin can't resolve all fail the
+build with one line per problem.
+
+usage: build-roadmap-plugin.py [--check | --sources]
+	--check     exit 1 if marketplace/roadmap/ would change, without writing
+	--sources   print every source path the build reads, one per line (the
+	            pre-commit hook uses this to decide whether to rebuild)
 """
 from __future__ import annotations
 
@@ -25,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = REPO_ROOT / "marketplace" / "roadmap"
 PLUGIN_NAME = "roadmap"
 # copied verbatim: edit the layout there, never in marketplace/roadmap/
-README_SOURCE = REPO_ROOT / "library" / "sources" / "plugins" / "roadmap" / "readme.md"
+README_SOURCE = "library/sources/plugins/roadmap/readme.md"
 
 # source skill dir -> plugin skill dir (invoked as roadmap:<dir>)
 SKILLS = {
@@ -150,11 +156,19 @@ DECOUPLINGS: list[tuple[str, str, str]] = [
 ]
 
 
+class BuildError(Exception):
+	"""One or more problems that make the plugin unsafe to publish."""
+
+	def __init__(self, problems: list[str]) -> None:
+		super().__init__("\n".join(problems))
+		self.problems = problems
+
+
 def skill_rewrites() -> list[tuple[str, str]]:
 	# Longest names first so roadmap-create-interview never matches as roadmap-create
 	names = sorted(SKILLS, key=len, reverse=True)
 	return [
-		(rf"(?<![\w.-]){re.escape(src)}(?![\w-])", f"{PLUGIN_NAME}:{SKILLS[src]}")
+		(rf"(?<![\w.-]){re.escape(src)}(?![\w-]|\.\w)", f"{PLUGIN_NAME}:{SKILLS[src]}")
 		for src in names
 	]
 
@@ -165,31 +179,91 @@ def transform(text: str, source: str) -> str:
 			continue
 		count = text.count(old)
 		if count != 1:
-			sys.exit(f"build-roadmap-plugin: decoupling in {rel} matched {count} times, expected 1:\n  {old[:80]}")
+			raise BuildError([f"{rel}: decoupling matched {count} times, expected 1: {old.strip()[:70]!r}"])
 		text = text.replace(old, new)
 	for pattern, replacement in PATH_REWRITES + skill_rewrites():
 		text = re.sub(pattern, replacement, text)
 	return text
 
 
-def build(out: Path) -> None:
+def source_paths() -> list[str]:
+	"""Every repo-relative file the build reads, including this script."""
+	return [
+		*(f"skills/{src}/SKILL.md" for src in SKILLS),
+		*FILES.values(),
+		README_SOURCE,
+		"library/scripts/build-roadmap-plugin.py",
+	]
+
+
+def check_sources(root: Path) -> None:
+	missing = [rel for rel in source_paths() if not (root / rel).is_file()]
+	if missing:
+		raise BuildError([
+			f"missing source: {rel} (renamed or moved? update SKILLS/FILES/README_SOURCE in this script)"
+			for rel in missing
+		])
+
+
+# A plugin-root reference with or without quotes around the variable:
+# ${CLAUDE_PLUGIN_ROOT}/scripts/x.py or "${CLAUDE_PLUGIN_ROOT}"/scripts/x.py
+PLUGIN_REF = re.compile(r'\$\{CLAUDE_PLUGIN_ROOT\}"?/([\w./-]+[\w])')
+HOME_REF = re.compile(r'(~|"?\$HOME"?|\$\{HOME\})/\.claude\b')
+
+
+def validate(root: Path, out: Path) -> None:
+	"""Fail if the built plugin refers to anything a teammate won't have."""
+	skill_names = sorted(
+		(d.name for d in (root / "skills").iterdir() if (d / "SKILL.md").is_file()),
+		key=len,
+		reverse=True,
+	)
+	# A skill of this config named in plugin text, not already namespaced (roadmap:x)
+	# and not part of a longer word, path or file name (roadmap-conventions.md)
+	foreign_skill = (
+		re.compile(r"(?<![\w.:/-])(" + "|".join(map(re.escape, skill_names)) + r")(?![\w-]|\.\w)")
+		if skill_names
+		else None
+	)
+	problems: list[str] = []
+	for path in sorted(out.rglob("*")):
+		if not path.is_file() or path.suffix not in {".md", ".py", ".sh", ".json", ".html"}:
+			continue
+		rel = path.relative_to(out)
+		for lineno, line in enumerate(path.read_text().splitlines(), start=1):
+			where = f"{rel}:{lineno}"
+			for match in PLUGIN_REF.finditer(line):
+				if not (out / match.group(1)).exists():
+					problems.append(f"{where}: ${{CLAUDE_PLUGIN_ROOT}}/{match.group(1)} is not shipped in the plugin (add it to FILES)")
+			if HOME_REF.search(line):
+				problems.append(f"{where}: path into ~/.claude survives the build (add a PATH_REWRITES rule or a decoupling)")
+			if foreign_skill:
+				for match in foreign_skill.finditer(line):
+					problems.append(f"{where}: skill {match.group(1)!r} is not in the plugin (add it to SKILLS or decouple the reference)")
+	if problems:
+		raise BuildError(problems)
+
+
+def build(root: Path, out: Path) -> None:
+	check_sources(root)
 	for src, dest in SKILLS.items():
 		source = f"skills/{src}/SKILL.md"
 		target = out / "skills" / dest / "SKILL.md"
 		target.parent.mkdir(parents=True, exist_ok=True)
-		target.write_text(transform((REPO_ROOT / source).read_text(), source))
+		target.write_text(transform((root / source).read_text(), source))
 	for dest, source in FILES.items():
 		target = out / dest
 		target.parent.mkdir(parents=True, exist_ok=True)
-		target.write_text(transform((REPO_ROOT / source).read_text(), source))
+		target.write_text(transform((root / source).read_text(), source))
 	(out / ".claude-plugin").mkdir(parents=True, exist_ok=True)
 	(out / ".claude-plugin" / "plugin.json").write_text(PLUGIN_JSON)
 	(out / "hooks").mkdir(exist_ok=True)
 	(out / "hooks" / "hooks.json").write_text(HOOKS_JSON)
 	(out / "scripts" / "roadmap-drift-check.sh").write_text(DRIFT_CHECK)
-	shutil.copyfile(README_SOURCE, out / "README.md")
+	shutil.copyfile(root / README_SOURCE, out / "README.md")
 	for script in (out / "scripts").iterdir():
 		script.chmod(0o755)
+	validate(root, out)
 
 
 def snapshot(root: Path) -> dict[str, bytes]:
@@ -204,10 +278,20 @@ def snapshot(root: Path) -> dict[str, bytes]:
 
 
 def main() -> None:
-	check = "--check" in sys.argv[1:]
+	args = sys.argv[1:]
+	if "--sources" in args:
+		print("\n".join(source_paths()))
+		return
+	check = "--check" in args
 	with tempfile.TemporaryDirectory() as tmp:
 		staged = Path(tmp) / "roadmap"
-		build(staged)
+		try:
+			build(REPO_ROOT, staged)
+		except BuildError as error:
+			print(f"build-roadmap-plugin: {len(error.problems)} problem(s), nothing written:", file=sys.stderr)
+			for problem in error.problems:
+				print(f"  {problem}", file=sys.stderr)
+			sys.exit(1)
 		if snapshot(staged) == snapshot(OUT_DIR):
 			print("marketplace/roadmap: up to date")
 			return
