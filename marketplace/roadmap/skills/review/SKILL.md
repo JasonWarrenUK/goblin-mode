@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Review"
 description: "Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) and dependency-graph rationality, in one pass or by lens"
-when_to_use: "Periodically, or when the roadmap feels stale, priorities feel off, tasks feel blocked for no reason or a milestone dragged past its intent. Lenses: 'health' for the strategic pass, 'deps' for the edge audit, default both; the judgement complement to roadmap-maintain's mechanical sync."
+when_to_use: "Periodically, or when the roadmap feels stale, priorities feel off, tasks feel blocked for no reason or a milestone dragged past its intent. Lenses: 'health' for the strategic pass, 'deps' for the edge audit, default both; the judgement complement to roadmap:maintain's mechanical sync."
 model: opus
 effort: high
 metadata:
@@ -16,9 +16,9 @@ argument-hint: "[health|deps|full] [milestone id (optional)]"
 
 # Roadmap: Review
 
-`roadmap-maintain` keeps the roadmap *consistent*; this skill asks whether it's still *true*. A roadmap can validate clean while quietly rotting: done-in-code tasks still `todo`, milestone goals describing last quarter's intent, edges that outlived their reason, a ready-set whose leverage ordering nobody has looked at since it was authored. This is a guided check that ends in decisions, not a report that ends in a shrug.
+`roadmap:maintain` keeps the roadmap *consistent*; this skill asks whether it's still *true*. A roadmap can validate clean while quietly rotting: done-in-code tasks still `todo`, milestone goals describing last quarter's intent, edges that outlived their reason, a ready-set whose leverage ordering nobody has looked at since it was authored. This is a guided check that ends in decisions, not a report that ends in a shrug.
 
-Read-only: findings route to the skills that write. Shared conventions: `~/.claude/library/references/roadmap-conventions.md`. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
+Read-only: findings route to the skills that write. Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. The CLI is `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py`.
 
 ## Step 0: Resolve the lens
 
@@ -26,12 +26,12 @@ Read-only: findings route to the skills that write. Shared conventions: `~/.clau
 
 ## Step 1: Gather the evidence
 
-`roadmap.py detect` guard as usual (exit 3 → `roadmap-migrate`; exit 2 → ask). Then:
+`roadmap.py detect` guard as usual (exit 3 → `roadmap:migrate`; exit 2 → ask). Then:
 
 - `roadmap.py stats` and `ready --json`: distribution, per-milestone done-%, the ready-set with leverage signals
 - `roadmap.py graph --json` (deps and full lenses): the full edge set
 - `.claude/roadmaps.json`: milestone goals, gates, notes, parked (`paused`/`deferred`) tasks, `softDependsOn`
-- `git log --oneline -30`: what actually shipped recently, as a drift smell-test (full reconciliation belongs to `roadmap-maintain reconcile`; here it only informs questions)
+- `git log --oneline -30`: what actually shipped recently, as a drift smell-test (full reconciliation belongs to `roadmap:maintain reconcile`; here it only informs questions)
 
 ## Step 2: Assess along five axes
 
@@ -68,19 +68,17 @@ Note updates:     {task}: record kept-edge rationale
 ```
 
 ```text
-→ roadmap-maintain (reconcile):  {suspected-done tasks to verify against code}
-→ roadmap-maintain (explicit):   {status calls, edge and gate edits from the shorthand above}
-→ roadmap-update-tasks:          {new tasks surfaced; milestone moves}
-→ roadmap-create-interview:      {a theme big enough to deserve its own session}
+→ roadmap:maintain (reconcile):  {suspected-done tasks to verify against code}
+→ roadmap:maintain (explicit):   {status calls, edge and gate edits from the shorthand above}
+→ roadmap:update-tasks:          {new tasks surfaced; milestone moves}
+→ roadmap:create-interview:      {a theme big enough to deserve its own session}
 → No action:                     {reviewed and healthy; say so explicitly}
 ```
 
 Offer to run the first of these now. This skill writes nothing itself.
 
-When the findings are substantial or worth sharing, also offer to render them visually: map them to `artefact-audit`'s JSON shape and run that skill in render-only mode. Decline gracefully if the terminal summary is all that's wanted.
-
 ## Red flags
 
-**Never:** edit any roadmap artefact directly; mark anything done without `roadmap-maintain`'s evidence gate; propose removing an edge just because it's inconvenient (the question is whether it's *true*); treat a user's "I don't remember why" as licence to delete: an unexplained edge that keeps coming up gets a note, not a silent removal; turn the review into feature brainstorming (route it); manufacture findings when the roadmap is healthy: "nothing needs changing" is a valid, complete outcome.
+**Never:** edit any roadmap artefact directly; mark anything done without `roadmap:maintain`'s evidence gate; propose removing an edge just because it's inconvenient (the question is whether it's *true*); treat a user's "I don't remember why" as licence to delete: an unexplained edge that keeps coming up gets a note, not a silent removal; turn the review into feature brainstorming (route it); manufacture findings when the roadmap is healthy: "nothing needs changing" is a valid, complete outcome.
 
 <raw-arguments value="$ARGUMENTS" />

@@ -1,0 +1,18 @@
+{
+	"name": "goblin-mode",
+	"owner": {
+		"name": "Jason Warren"
+	},
+	"metadata": {
+		"description": "Hyperfocussed & obsessive utilities for the discerning dev goblin"
+	},
+	"plugins": [
+		{
+			"name": "roadmap",
+			"source": "./marketplace/roadmap",
+			"description": "Roadmaps as a dependency graph: JSON source of truth, mechanical status recompute, projected task lists, Mermaid diagrams, an HTML dashboard and the interview, review and next-task skills that drive it.",
+			"category": "productivity",
+			"tags": ["roadmap", "planning", "dependency-graph"]
+		}
+	]
+}
