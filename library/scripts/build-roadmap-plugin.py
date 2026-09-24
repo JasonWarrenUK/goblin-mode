@@ -100,6 +100,11 @@ PATH_REWRITES: list[tuple[str, str]] = [
 	(r"(?<![\w/.-])library/(references|templates|scripts)/", r"\1/"),
 ]
 
+# ${CLAUDE_PLUGIN_ROOT} only resolves in skill content and hook commands; a
+# reference or template is read raw, so it gets a placeholder a reader fills in
+# from the calling skill's resolved CLI line instead
+UNRESOLVED_ROOT = (r'"?\$\{CLAUDE_PLUGIN_ROOT\}"?', "<plugin-root>")
+
 # Lines tied to the rest of Jason's config, removed or reworded for the plugin.
 # Each (source-relative path, old, new) must match exactly once or the build fails.
 DECOUPLINGS: list[tuple[str, str, str]] = [
@@ -153,6 +158,11 @@ DECOUPLINGS: list[tuple[str, str, str]] = [
 		"control from library/references/artefact-conventions.md;",
 		"control from the artefact conventions;",
 	),
+	(
+		"library/references/roadmap-conventions.md",
+		"(single CLI) and `_roadmap_core.py`.",
+		"(single CLI) and `_roadmap_core.py`.\n`<plugin-root>` is the plugin's install directory; every skill's CLI line\ngives it resolved.",
+	),
 ]
 
 
@@ -183,6 +193,8 @@ def transform(text: str, source: str) -> str:
 		text = text.replace(old, new)
 	for pattern, replacement in PATH_REWRITES + skill_rewrites():
 		text = re.sub(pattern, replacement, text)
+	if not source.startswith("skills/"):
+		text = re.sub(*UNRESOLVED_ROOT, text)
 	return text
 
 
@@ -197,17 +209,30 @@ def source_paths() -> list[str]:
 
 
 def check_sources(root: Path) -> None:
-	missing = [rel for rel in source_paths() if not (root / rel).is_file()]
-	if missing:
-		raise BuildError([
-			f"missing source: {rel} (renamed or moved? update SKILLS/FILES/README_SOURCE in this script)"
-			for rel in missing
-		])
+	sources = source_paths()
+	problems = [
+		f"missing source: {rel} (renamed or moved? update SKILLS/FILES/README_SOURCE in this script)"
+		for rel in sources
+		if not (root / rel).is_file()
+	]
+	problems += [
+		f"decoupling targets {rel}, which the build never reads (update DECOUPLINGS)"
+		for rel in dict.fromkeys(rel for rel, _, _ in DECOUPLINGS)
+		if rel not in sources
+	]
+	if problems:
+		raise BuildError(problems)
 
 
-# A plugin-root reference with or without quotes around the variable:
-# ${CLAUDE_PLUGIN_ROOT}/scripts/x.py or "${CLAUDE_PLUGIN_ROOT}"/scripts/x.py
-PLUGIN_REF = re.compile(r'\$\{CLAUDE_PLUGIN_ROOT\}"?/([\w./-]+[\w])')
+# A plugin-root reference with or without quotes around the variable, or the
+# placeholder non-skill files get: ${CLAUDE_PLUGIN_ROOT}/scripts/x.py,
+# "${CLAUDE_PLUGIN_ROOT}"/scripts/x.py or <plugin-root>/scripts/x.py
+PLUGIN_REF = re.compile(r'(?:\$\{CLAUDE_PLUGIN_ROOT\}"?|<plugin-root>)/([\w./-]+[\w])')
+# The exact form only: the drift check's ${CLAUDE_PLUGIN_ROOT:-...} is a real
+# environment variable in the hook process
+ROOT_PLACEHOLDER = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}")
+# Plugin directories whose content Claude Code substitutes the placeholder in
+RESOLVING_DIRS = {"skills", "hooks"}
 HOME_REF = re.compile(r'(~|"?\$HOME"?|\$\{HOME\})/\.claude\b')
 
 
@@ -235,6 +260,8 @@ def validate(root: Path, out: Path) -> None:
 			for match in PLUGIN_REF.finditer(line):
 				if not (out / match.group(1)).exists():
 					problems.append(f"{where}: ${{CLAUDE_PLUGIN_ROOT}}/{match.group(1)} is not shipped in the plugin (add it to FILES)")
+			if rel.parts[0] not in RESOLVING_DIRS and ROOT_PLACEHOLDER.search(line):
+				problems.append(f"{where}: ${{CLAUDE_PLUGIN_ROOT}} never resolves outside skills/ and hooks/ (use <plugin-root>)")
 			if HOME_REF.search(line):
 				problems.append(f"{where}: path into ~/.claude survives the build (add a PATH_REWRITES rule or a decoupling)")
 			if foreign_skill:

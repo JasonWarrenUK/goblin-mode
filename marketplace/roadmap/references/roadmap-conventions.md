@@ -4,12 +4,14 @@ Shared reference for the roadmap skill family (`roadmap:create`,
 `roadmap:create-interview`, `roadmap:maintain`, `roadmap:update-tasks`,
 `roadmap:update-devs`, `roadmap:migrate`, `roadmap:dashboard`). Skills point here instead of restating
 these rules; the deterministic halves live in
-`${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py` (single CLI) and `_roadmap_core.py`.
+`<plugin-root>/scripts/roadmap.py` (single CLI) and `_roadmap_core.py`.
+`<plugin-root>` is the plugin's install directory; every skill's CLI line
+gives it resolved.
 
 ## The CLI
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py <subcommand> [PATH] [--phase NAME]
+python3 <plugin-root>/scripts/roadmap.py <subcommand> [PATH] [--phase NAME]
 ```
 
 | Subcommand | Purpose | Key flags | Exit codes |

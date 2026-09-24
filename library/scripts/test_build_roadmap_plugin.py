@@ -98,6 +98,32 @@ class BuildSafeguards(unittest.TestCase):
 		path.write_text(path.read_text().replace("(Jason's terminal gradient)", "(the terminal gradient)"))
 		self.assertIn("decoupling matched 0 times", self.build_problems()[0])
 
+	def test_orphaned_decoupling_is_named(self) -> None:
+		orphan = ("library/references/moved-conventions.md", "old", "new")
+		original = plugin.DECOUPLINGS
+		plugin.DECOUPLINGS = [*original, orphan]
+		try:
+			problems = self.build_problems()
+		finally:
+			plugin.DECOUPLINGS = original
+		self.assertTrue(any("decoupling targets library/references/moved-conventions.md" in p for p in problems))
+
+	def test_references_get_a_readable_root(self) -> None:
+		plugin.build(self.root, self.out)
+		reference = (self.out / "references" / "roadmap-conventions.md").read_text()
+		self.assertNotIn("${CLAUDE_PLUGIN_ROOT}", reference)
+		self.assertIn("python3 <plugin-root>/scripts/roadmap.py", reference)
+		# Skill content is substituted by Claude Code, so it keeps the variable
+		self.assertIn('"${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py', (self.out / "skills" / "review" / "SKILL.md").read_text())
+
+	def test_unresolvable_root_is_caught(self) -> None:
+		# The README is copied verbatim, so nothing rewrites a placeholder in it
+		self.append(plugin.README_SOURCE, "\nRun `${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py`.\n")
+		self.assertTrue(any(
+			p.startswith("README.md:") and "never resolves outside skills/ and hooks/" in p
+			for p in self.build_problems()
+		))
+
 	def test_sources_lists_every_input(self) -> None:
 		result = subprocess.run(
 			[sys.executable, str(SCRIPT), "--sources"], capture_output=True, text=True, check=True
