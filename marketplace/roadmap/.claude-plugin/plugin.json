@@ -1,0 +1,9 @@
+{
+	"name": "roadmap",
+	"description": "Roadmaps as a dependency graph: JSON source of truth, mechanical status recompute, projected task lists, Mermaid diagrams, an HTML dashboard and the interview, review and next-task skills that drive it.",
+	"author": {
+		"name": "Jason Warren"
+	},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"keywords": ["roadmap", "planning", "dependency-graph"]
+}

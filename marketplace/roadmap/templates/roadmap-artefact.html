@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<!--
+	roadmap-artefact.html: template consumed by `roadmap.py render`.
+	Two placeholders, each substituted exactly once below: the phase-name
+	title (in the head; the h1 is overwritten by JS from project/phase, since
+	the two placeholders cannot diverge) and the JSON data blob
+	(project, phase, generated, stats, ready, mermaid, validation, devColours,
+	depKinds), which lands in the roadmap-data script element near the foot of
+	the document. Render does a global string replace, so the data-blob token
+	must appear verbatim exactly once in this file (the render step asserts
+	this); a second copy here would inject the blob into this comment and the
+	mermaid edge arrows would close the comment early and spill the JSON onto
+	the page. For the same reason this comment must not contain a raw
+	comment-close sequence.
+	Everything else is static so regenerated artefacts diff cleanly.
+	Palette: the canonical status/milestone-state/dev-chip colour table from
+	references/roadmap-conventions.md (STATUS_STYLE in roadmap.py).
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap — %%TITLE%%</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+	/* Palette: the roadmap system's own fixed status table (see roadmap.py
+	   STATUS_STYLE); literal hexes so the artefact is self-contained.
+	   Milestone — sky (structural, steel-blue half of the terminal gradient) */
+	--color-milestone:       #007590;
+	--color-milestone-bg:    #e3f7ff;
+	--color-milestone-text:  #001f28;
+	/* Primary accent — pink (warm half of the gradient; never a status) */
+	--color-primary:         #d2008f;
+	--color-primary-bg:      #fff7fb;
+	--color-primary-text:    #4b0030;
+	/* Status semantics: green finished, gray blank, red stop, purple parked,
+	   cinnamon shelved, faded gray struck, yellow external */
+	--color-done:            #008217;
+	--color-done-bg:         #e0ffd9;
+	--color-todo:            #6f6f6f;
+	--color-todo-bg:         #f6f6f6;
+	--color-blocked:         #e0002b;
+	--color-blocked-bg:      #fff8f6;
+	--color-paused:          #b01fe3;
+	--color-paused-bg:       #fdf4ff;
+	--color-deferred:        #ac5c00;
+	--color-deferred-bg:     #fff8f3;
+	--color-out-of-scope:    #8b8b8b;
+	--color-out-of-scope-bg: #f6f6f6;
+	--color-gate:            #7d6f00;
+	--color-gate-bg:         #fff9e5;
+	/* Milestone-level derived state (see roadmap-conventions.md): azure is
+	   unclaimed by task status and distinct from sky (structural), so a
+	   part-done milestone reads as "live" rather than the same gray as
+	   untouched work. */
+	--color-in-progress:     #0071af;
+	--color-in-progress-bg:  #e8f2ff;
+	/* Dev-chip palette: assignee is free-text with no roster (never
+	   inferred), so chips are coloured by a stable hash, never a hardcoded
+	   name map. Disjoint from every status/milestone/gate hue above. */
+	--color-dev-teal:        #007c6e;
+	--color-dev-teal-bg:     #d7fff7;
+	--color-dev-lime:        #677600;
+	--color-dev-lime-bg:     #f7ffac;
+	--color-dev-magenta:     #ca00b6;
+	--color-dev-magenta-bg:  #fff3fc;
+	--color-dev-indigo:      #0061fc;
+	--color-dev-indigo-bg:   #f3f3ff;
+	--color-dev-amber:       #926700;
+	--color-dev-amber-bg:    #fff8ef;
+	--color-dev-rose:        #db0072;
+	--color-dev-rose-bg:     #fff7f9;
+
+	--bg: #f6f6f6;
+	--surface: #ffffff;
+	--text: #222222;
+	--muted: #6f6f6f;
+	--line: #e2e2e2;
+	--grid-line: rgba(0, 117, 144, 0.06);
+	/* Mermaid chrome (edge stroke, arrowhead, edge-label backing) that the
+	   diagram's own classDefs don't cover — see the render script below for
+	   why this can't just be mermaid's base-theme default. */
+	--diagram-line: #6f6f6f;
+	--diagram-edge-label-bg: #ffffff;
+	--diagram-text: var(--text);
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--color-milestone:       #aee9ff;
+		--color-milestone-bg:    #001f28;
+		--color-milestone-text:  #e3f7ff;
+		--color-primary:         #ffdcec;
+		--color-primary-bg:      #4b0030;
+		--color-primary-text:    #fff7fb;
+		--color-done:            #72ff6c;
+		--color-done-bg:         #062800;
+		--color-todo:            #8b8b8b;
+		--color-todo-bg:         #222222;
+		--color-blocked:         #ffddd8;
+		--color-blocked-bg:      #530003;
+		--color-paused:          #f7d9ff;
+		--color-paused-bg:       #3a004f;
+		--color-deferred:        #ffdfc6;
+		--color-deferred-bg:     #371d00;
+		--color-out-of-scope:    #3e3e3e;
+		--color-out-of-scope-bg: #222222;
+		--color-gate:            #ffe53e;
+		--color-gate-bg:         #292300;
+		--color-in-progress:     #c6e0ff;
+		--color-in-progress-bg:  #001c30;
+		--color-dev-teal:        #00ffe4;
+		--color-dev-teal-bg:     #002722;
+		--color-dev-lime:        #d5f200;
+		--color-dev-lime-bg:     #222600;
+		--color-dev-magenta:     #ffd7f6;
+		--color-dev-magenta-bg:  #44003c;
+		--color-dev-indigo:      #deddff;
+		--color-dev-indigo-bg:   #001649;
+		--color-dev-amber:       #ffe0b2;
+		--color-dev-amber-bg:    #302100;
+		--color-dev-rose:        #ffdce5;
+		--color-dev-rose-bg:     #4c0023;
+
+		--bg: #121216;
+		--surface: #1b1b21;
+		--text: #f6f6f6;
+		--muted: #8b8b8b;
+		--line: #3e3e3e;
+		--grid-line: rgba(174, 233, 255, 0.05);
+		--diagram-line: #8b8b8b;
+		--diagram-edge-label-bg: var(--surface);
+		--diagram-text: var(--text);
+	}
+}
+/* Third theming state: an explicit toggle wins in both directions, even
+   against a light OS preference. The masthead ships the light/system/dark
+   control from the artefact conventions; this block is
+   what it writes to when a reader picks light or dark explicitly. */
+:root[data-theme="dark"] {
+	--color-milestone:       #aee9ff;
+	--color-milestone-bg:    #001f28;
+	--color-milestone-text:  #e3f7ff;
+	--color-primary:         #ffdcec;
+	--color-primary-bg:      #4b0030;
+	--color-primary-text:    #fff7fb;
+	--color-done:            #72ff6c;
+	--color-done-bg:         #062800;
+	--color-todo:            #8b8b8b;
+	--color-todo-bg:         #222222;
+	--color-blocked:         #ffddd8;
+	--color-blocked-bg:      #530003;
+	--color-paused:          #f7d9ff;
+	--color-paused-bg:       #3a004f;
+	--color-deferred:        #ffdfc6;
+	--color-deferred-bg:     #371d00;
+	--color-out-of-scope:    #3e3e3e;
+	--color-out-of-scope-bg: #222222;
+	--color-gate:            #ffe53e;
+	--color-gate-bg:         #292300;
+	--color-in-progress:     #c6e0ff;
+	--color-in-progress-bg:  #001c30;
+	--color-dev-teal:        #00ffe4;
+	--color-dev-teal-bg:     #002722;
+	--color-dev-lime:        #d5f200;
+	--color-dev-lime-bg:     #222600;
+	--color-dev-magenta:     #ffd7f6;
+	--color-dev-magenta-bg:  #44003c;
+	--color-dev-indigo:      #deddff;
+	--color-dev-indigo-bg:   #001649;
+	--color-dev-amber:       #ffe0b2;
+	--color-dev-amber-bg:    #302100;
+	--color-dev-rose:        #ffdce5;
+	--color-dev-rose-bg:     #4c0023;
+
+	--bg: #121216;
+	--surface: #1b1b21;
+	--text: #f6f6f6;
+	--muted: #8b8b8b;
+	--line: #3e3e3e;
+	--grid-line: rgba(174, 233, 255, 0.05);
+	--diagram-line: #8b8b8b;
+	--diagram-edge-label-bg: var(--surface);
+	--diagram-text: var(--text);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+	font-family: "IBM Plex Sans", system-ui, sans-serif;
+	background:
+		linear-gradient(var(--grid-line) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+		var(--bg);
+	background-size: 32px 32px, 32px 32px, auto;
+	color: var(--text);
+	line-height: 1.55;
+}
+.layout { display: flex; max-width: 1200px; margin: 0 auto; gap: 2rem; padding: 0 1.25rem; }
+nav {
+	position: sticky; top: 0; align-self: flex-start;
+	width: 180px; flex-shrink: 0; padding: 2rem 0;
+	font-family: "IBM Plex Mono", monospace; font-size: 0.8rem;
+}
+nav a { display: block; padding: 0.35rem 0.6rem; color: var(--muted); text-decoration: none; border-left: 2px solid var(--line); }
+nav a:hover, nav a.active { color: var(--color-milestone); border-left-color: var(--color-milestone); }
+main { flex: 1; min-width: 0; padding: 2rem 0 4rem; }
+
+header.page { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+header.page h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.2rem; }
+header.page .meta { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
+
+.theme-toggle { display: flex; gap: 0.15rem; margin-left: auto; flex: none; }
+.theme-toggle button {
+	font: 600 0.8rem "IBM Plex Mono", monospace; line-height: 1;
+	color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+	border-radius: 3px; padding: 0.3rem 0.55rem; cursor: pointer;
+}
+.theme-toggle button:hover { color: var(--text); border-color: var(--color-milestone); }
+.theme-toggle button:focus-visible { outline: 2px solid var(--color-milestone); outline-offset: 2px; }
+.theme-toggle button[aria-pressed="true"] { color: var(--color-milestone-text); background: var(--color-milestone-bg); border-color: var(--color-milestone); }
+@media print { .theme-toggle { display: none; } }
+
+section { margin-top: 2.5rem; }
+h2 {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; font-weight: 500;
+	text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+	display: flex; align-items: center; gap: 0.5rem; margin: 0 0 1rem;
+}
+h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--color-milestone); flex-shrink: 0; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1.1rem 1.3rem; min-width: 0; }
+.card--hero { background: var(--color-milestone-bg); border-color: var(--color-milestone); }
+.card--hero .kpi { font-size: 2.1rem; font-weight: 600; color: var(--color-milestone-text); }
+.card--hero .kpi small { font-size: 1rem; font-weight: 400; color: var(--color-milestone); margin-left: 0.5rem; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.9rem; margin-top: 0.9rem; }
+.grid > * { min-width: 0; }
+.mini { border-color: var(--m-colour, var(--line)); }
+.mini h3 { margin: 0 0 0.3rem; font-size: 0.9rem; font-weight: 600; overflow-wrap: break-word; }
+.mini .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
+.progress-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 0.55rem; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; }
+
+details.milestone {
+	background: var(--surface); border: 1px solid var(--m-colour, var(--line));
+	border-radius: 8px; margin-bottom: 0.8rem;
+}
+details.milestone > summary {
+	cursor: pointer; padding: 0.85rem 1.2rem; font-weight: 600;
+	display: flex; align-items: center; gap: 0.7rem; list-style: none; min-width: 0;
+}
+details.milestone > summary::-webkit-details-marker { display: none; }
+details.milestone > summary .mid {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+	background: var(--color-milestone-bg); color: var(--color-milestone-text);
+	border: 1px solid var(--color-milestone); border-radius: 4px; padding: 0.1rem 0.4rem;
+}
+details.milestone > summary .count { margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+details.milestone .body { padding: 0 1.2rem 1rem; }
+.group h4 { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
+.group ul { list-style: none; margin: 0; padding: 0; }
+.group li { padding: 0.28rem 0; overflow-wrap: break-word; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.tid {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+	background: var(--color-primary-bg); color: var(--color-primary-text);
+	border: 1px solid var(--color-primary); border-radius: 4px; padding: 0.05rem 0.35rem;
+}
+/* Generic coloured chip: dev-assignee and dependency chips share this shape,
+   coloured per-instance via the --chip-fg/--chip-bg custom properties so one
+   rule serves every status/milestone/gate/dev colour without a class per
+   colour. */
+.chip {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+	background: var(--chip-bg, var(--line)); color: var(--chip-fg, var(--muted));
+	border: 1px solid var(--chip-fg, var(--line)); border-radius: 4px; padding: 0.05rem 0.4rem;
+	white-space: nowrap;
+}
+.deps { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+.tasktext { flex: 1 1 auto; }
+.depnote { color: var(--muted); font-size: 0.82rem; }
+li.oos { text-decoration: line-through; color: var(--muted); }
+
+.diagram-shell { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; position: relative; overflow: hidden; }
+.diagram-toolbar { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 2; display: flex; gap: 0.25rem; }
+.diagram-toolbar button {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; line-height: 1;
+	background: var(--bg); color: var(--text); border: 1px solid var(--line);
+	border-radius: 4px; padding: 0.3rem 0.5rem; cursor: pointer;
+}
+.diagram-toolbar button:hover { border-color: var(--color-milestone); color: var(--color-milestone); }
+.mermaid-wrap { overflow: hidden; cursor: grab; min-height: 320px; }
+.mermaid-wrap:active { cursor: grabbing; }
+.mermaid-wrap svg { display: block; transform-origin: 0 0; max-width: none !important; }
+.diagram-shell.expanded { position: fixed; inset: 1.5rem; z-index: 10; box-shadow: 0 4px 40px rgba(0,0,0,0.35); }
+.diagram-shell.expanded .mermaid-wrap { height: calc(100% - 0px); }
+
+.legend {
+	display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; align-items: center;
+	margin-top: 0.6rem; font-size: 0.78rem; color: var(--muted);
+	font-family: "IBM Plex Mono", monospace;
+}
+.legend .key { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend .sw { width: 0.9rem; height: 0.9rem; border-radius: 3px; border: 1.5px solid; box-sizing: border-box; }
+.legend .key--mile { font-weight: 600; }
+.legend .key--gate { font-style: italic; }
+.legend .keynote { flex-basis: 100%; }
+
+.nextup li:not(.nextup-devgroup) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; padding: 0.3rem 0; }
+.nextup-devgroup { display: block; padding: 0; margin-top: 1rem; }
+.nextup-devgroup:first-child { margin-top: 0; }
+.nextup-devgroup h4 { margin: 0 0 0.4rem; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.signal { color: var(--muted); font-size: 0.78rem; font-family: "IBM Plex Mono", monospace; margin-left: auto; }
+
+.validation { border-left: 3px solid var(--color-blocked); background: var(--color-blocked-bg); color: var(--text); padding: 0.7rem 1rem; border-radius: 0 6px 6px 0; margin-top: 1rem; font-size: 0.85rem; }
+.validation ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+
+@media (max-width: 760px) {
+	.layout { flex-direction: column; gap: 0; }
+	nav { position: sticky; top: 0; width: auto; display: flex; overflow-x: auto; gap: 0.25rem; padding: 0.6rem 0; background: var(--bg); z-index: 5; }
+	nav a { border-left: none; border-bottom: 2px solid var(--line); white-space: nowrap; }
+	nav a:hover, nav a.active { border-bottom-color: var(--color-milestone); }
+}
+</style>
+</head>
+<body>
+<script>
+(function () {
+	var KEY = 'theme';
+	var root = document.documentElement;
+	function read() {
+		try { return localStorage.getItem(KEY) || 'system'; }
+		catch (e) { return 'system'; }
+	}
+	function write(mode) {
+		try { localStorage.setItem(KEY, mode); }
+		catch (e) { /* private window, blocked storage, preview capture: ignore */ }
+	}
+	function apply(mode) {
+		if (mode === 'system') root.removeAttribute('data-theme');
+		else root.setAttribute('data-theme', mode);
+		document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+			b.setAttribute('aria-pressed', String(b.dataset.setTheme === mode));
+		});
+	}
+	apply(read());
+	document.addEventListener('DOMContentLoaded', function () {
+		apply(read());
+		document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+			b.addEventListener('click', function () {
+				write(b.dataset.setTheme);
+				apply(b.dataset.setTheme);
+			});
+		});
+	});
+})();
+</script>
+<div class="layout">
+	<nav>
+		<a href="#overview">Overview</a>
+		<a href="#milestones">Milestones</a>
+		<a href="#graph">Dependency Graph</a>
+		<a href="#nextup">Next Up</a>
+	</nav>
+	<main>
+		<header class="page">
+			<div>
+				<h1 id="pageTitle">%%TITLE%%</h1>
+				<div class="meta" id="meta"></div>
+			</div>
+			<div class="theme-toggle" role="group" aria-label="Colour theme">
+				<button type="button" data-set-theme="light"  aria-pressed="false">☀</button>
+				<button type="button" data-set-theme="system" aria-pressed="true">◐</button>
+				<button type="button" data-set-theme="dark"   aria-pressed="false">☾</button>
+			</div>
+		</header>
+		<div id="validation"></div>
+
+		<section id="overview">
+			<h2><span class="dot"></span>Overview</h2>
+			<div class="card card--hero"><div class="kpi" id="hero"></div></div>
+			<div class="grid" id="milestone-cards"></div>
+		</section>
+
+		<section id="milestones">
+			<h2><span class="dot"></span>Milestones</h2>
+			<div id="milestone-details"></div>
+		</section>
+
+		<section id="graph">
+			<h2><span class="dot"></span>Dependency Graph</h2>
+			<div class="diagram-shell" id="shell">
+				<div class="diagram-toolbar">
+					<button data-act="in" title="Zoom in">+</button>
+					<button data-act="out" title="Zoom out">−</button>
+					<button data-act="reset" title="Reset">⌂</button>
+					<button data-act="expand" title="Expand">⤢</button>
+				</div>
+				<div class="mermaid-wrap" id="wrap"><div id="diagram"></div></div>
+			</div>
+			<div class="legend">
+				<span class="key"><i class="sw" style="background:var(--color-todo-bg);border-color:var(--color-todo)"></i>todo</span>
+				<span class="key"><i class="sw" style="background:var(--color-blocked-bg);border-color:var(--color-blocked);border-width:2px"></i>blocked</span>
+				<span class="key"><i class="sw" style="background:var(--color-paused-bg);border-color:var(--color-paused);border-style:dashed"></i>paused</span>
+				<span class="key"><i class="sw" style="background:var(--color-deferred-bg);border-color:var(--color-deferred);border-style:dashed"></i>deferred</span>
+				<span class="key"><i class="sw" style="background:var(--color-out-of-scope-bg);border-color:var(--color-out-of-scope);border-style:dotted"></i>out of scope</span>
+				<span class="key key--mile"><i class="sw" style="background:var(--color-milestone-bg);border-color:var(--color-milestone)"></i>milestone</span>
+				<span class="key key--gate"><i class="sw" style="background:var(--color-gate-bg);border-color:var(--color-gate);border-style:dashed"></i>external gate</span>
+				<span class="keynote">tasks flow into the milestone node that they complete; done tasks and fully-done milestones are hidden</span>
+			</div>
+		</section>
+
+		<section id="nextup">
+			<h2><span class="dot"></span>Next Up</h2>
+			<div class="card"><ul class="nextup group" id="ready" style="list-style:none;margin:0;padding:0"></ul></div>
+		</section>
+	</main>
+</div>
+
+<script id="roadmap-data" type="application/json">%%DATA%%</script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+const DATA = JSON.parse(document.getElementById("roadmap-data").textContent);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+	c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+document.getElementById("pageTitle").textContent =
+	DATA.project ? `${DATA.project}: ${DATA.phase}` : DATA.phase;
+document.getElementById("meta").textContent =
+	`generated ${DATA.generated} · source .claude/roadmaps.json`;
+
+/* Validation banner (empty when clean) */
+if (DATA.validation && DATA.validation.length) {
+	document.getElementById("validation").innerHTML =
+		`<div class="validation"><strong>${DATA.validation.length} validation ` +
+		`discrepancy(ies):</strong> the numbers below reflect the file as-is.` +
+		`<ul>${DATA.validation.map(v => `<li>${esc(v)}</li>`).join("")}</ul></div>`;
+}
+
+/* Milestone-level state (distinct from task status): computed server-side by
+   roadmap.py's milestone_state() and carried as m.state, so the artefact
+   never re-derives it and cannot disagree with the CLI's own stats/render
+   paths. States: deferred, done, inProgress, todo, blocked, paused. */
+const STATE_VAR = {
+	deferred: "deferred", done: "done", inProgress: "in-progress",
+	todo: "todo", blocked: "blocked", paused: "paused",
+};
+const STATE_RANK = { inProgress: 0, todo: 1, done: 2, blocked: 3, paused: 4, deferred: 5 };
+/* Overview cards and Milestones details share this one ordering, computed
+   once here rather than in Python, since build_stats' milestones[] stays in
+   roadmap order for other consumers (_human_stats, next-task-*). */
+const sortedMilestones = [...DATA.stats.milestones].sort((a, b) =>
+	(STATE_RANK[a.state] - STATE_RANK[b.state])
+	|| (b.donePct - a.donePct)
+	|| a.name.localeCompare(b.name));
+
+/* A dev-chip helper: colour + label for an assignee, empty string when unset. */
+const devChip = assignee => {
+	const varName = DATA.devColours?.[assignee];
+	if (!assignee || !varName) return "";
+	return `<span class="chip" style="--chip-fg:var(--color-dev-${varName});--chip-bg:var(--color-dev-${varName}-bg)">${esc(assignee)}</span>`;
+};
+/* A dependency-id chip: colour by what the id resolves to (task status,
+   milestone sky, or gate yellow), using the server-computed depKinds map
+   so the artefact never re-derives the graph. */
+const depChip = id => {
+	const k = DATA.depKinds?.[id];
+	if (!k) return `<span class="chip">${esc(id)}</span>`;
+	const varName = k.kind === "task" ? STATE_VAR[k.status] ?? "todo"
+		: k.kind === "milestone" ? "milestone" : "gate";
+	return `<span class="chip" style="--chip-fg:var(--color-${varName});--chip-bg:var(--color-${varName}-bg)">${esc(id)}</span>`;
+};
+
+/* Section 1 — Overview */
+const st = DATA.stats;
+document.getElementById("hero").innerHTML =
+	`${st.byStatus.done}/${st.total} tasks<small>${st.donePct}% complete</small>` +
+	`<small>${st.milestonesDone}/${st.milestonesTotal} milestones</small>`;
+
+document.getElementById("milestone-cards").innerHTML = sortedMilestones.map(m => `
+	<div class="card mini" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
+		<h3>${esc(m.id)}: ${esc(m.name)}</h3>
+		<span class="count">${m.done}/${m.total} done · ${m.donePct}%</span>
+		<div class="progress-bar"><div class="progress-fill"
+			style="width:${m.donePct}%;background:var(--color-${STATE_VAR[m.state]})"></div></div>
+	</div>`).join("");
+
+/* Section 2 — Milestones. Groups lead with actionable work; milestones
+   themselves follow the same order as the Overview cards above (A3), so a
+   reader scanning top-to-bottom sees the same priority twice, not two
+   different orderings of the same data. */
+const GROUPS = [
+	["todo",        "○ To Do",        "todo"],
+	["blocked",     "✗ Blocked",      "blocked"],
+	["paused",      "⏸ Paused",       "paused"],
+	["deferred",    "⤓ Deferred",     "deferred"],
+	["done",        "✓ Done",         "done"],
+	["out_of_scope","⊘ Out of Scope", "out-of-scope"],
+];
+const readyIds = new Set(DATA.ready.candidates.map(c => c.id));
+const tasksByMilestone = {};
+for (const t of DATA.tasks) (tasksByMilestone[t.milestone] ??= []).push(t);
+
+document.getElementById("milestone-details").innerHTML = sortedMilestones.map(m => {
+	const tasks = tasksByMilestone[m.id] || [];
+	const groups = GROUPS.map(([status, label, varName]) => {
+		const members = tasks.filter(t => t.status === status);
+		if (!members.length) return "";
+		const items = members.map(t => {
+			const deps = (t.dependsOn && t.dependsOn.length)
+				? `<span class="deps">${t.dependsOn.map(depChip).join("")}</span>` : "";
+			return `<li class="${status === "out_of_scope" ? "oos" : ""}">
+				<span class="tid">${esc(t.id)}</span>${devChip(t.assignee)}
+				<span class="tasktext">${esc(t.description)}</span>${deps}</li>`;
+		}).join("");
+		return `<div class="group">
+			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
+	}).join("");
+	// All milestones render collapsed; the reader chooses what to expand
+	return `<details class="milestone" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
+		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
+			<span class="count">${m.done}/${m.total}</span></summary>
+		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>
+	</details>`;
+}).join("");
+
+/* Section 3 — Dependency graph */
+/* ELK lays out this dense a graph with far fewer crossings than the default
+   dagre engine; if its module fails to load, dagre still renders. */
+let layout = "dagre";
+try {
+	const elkLayouts = (await import("https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0/dist/mermaid-layout-elk.esm.min.mjs")).default;
+	mermaid.registerLayoutLoaders(elkLayouts);
+	layout = "elk";
+} catch { /* CDN unreachable — fall back */ }
+/* Mermaid 11's classDef parser rejects var(--x), so the semantic variables
+   are resolved to concrete colours before rendering, and the graph re-renders
+   when the colour scheme flips so it keeps tracking the page theme. A render
+   failure is contained to the diagram shell — the sections after it must
+   still populate.
+
+   Node fills/strokes come entirely from the classDefs above (resolved via
+   the var() replace below), but mermaid's "base" theme still supplies its
+   own defaults for everything a classDef doesn't touch — edge stroke,
+   arrowhead fill, edge-label background. Those defaults assume a white
+   canvas, so left alone they render near-black on the dark surface. Fixing
+   that means passing --diagram-line/--diagram-edge-label-bg/--diagram-text
+   through as themeVariables — and critically, mermaid.initialize() must be
+   called again on every render (not once at module load) reading the
+   *currently resolved* values, or a colour-scheme flip silently keeps the
+   load-time edge colours and the explicit data-theme toggle below never
+   takes effect at all (matchMedia doesn't fire for it). */
+const wrap = document.getElementById("wrap");
+const shell = document.getElementById("shell");
+const diagram = document.getElementById("diagram");
+let svgEl = null;
+let scale = 1, tx = 0, ty = 0;
+const apply = () => { if (svgEl) svgEl.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
+const renderGraph = async () => {
+	const rootStyle = getComputedStyle(document.documentElement);
+	const cssVar = name => rootStyle.getPropertyValue(name).trim() || "#888888";
+	mermaid.initialize({
+		startOnLoad: false,
+		theme: "base",
+		layout,
+		themeVariables: {
+			fontSize: "16px",
+			fontFamily: '"IBM Plex Mono", monospace',
+			background: cssVar("--surface"),
+			lineColor: cssVar("--diagram-line"),
+			edgeLabelBackground: cssVar("--diagram-edge-label-bg"),
+			textColor: cssVar("--diagram-text"),
+		},
+	});
+	const src = DATA.mermaid.replace(/var\((--[\w-]+)\)/g, (_, name) => cssVar(name));
+	try {
+		const { svg } = await mermaid.render("roadmap-graph", src);
+		diagram.innerHTML = svg;
+	} catch (err) {
+		document.getElementById("droadmap-graph")?.remove();
+		diagram.innerHTML = `<p class="depnote">Dependency graph failed to render: ${esc(String(err))}</p>`;
+		return;
+	}
+	svgEl = wrap.querySelector("svg");
+	svgEl.addEventListener("dblclick", () => shell.classList.toggle("expanded"));
+	apply();
+};
+await renderGraph();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderGraph);
+/* Covers the explicit data-theme toggle (no UI ships today, but the
+   three-state contract says a future one must just work — see the CSS
+   comment above :root[data-theme="dark"]). matchMedia only fires for the OS
+   preference, so the attribute needs its own watcher. */
+new MutationObserver(renderGraph).observe(document.documentElement,
+	{ attributes: true, attributeFilter: ["data-theme"] });
+
+/* Zoom/pan: buttons, ctrl+wheel, drag; expand toggles a fixed overlay */
+const zoom = f => { scale = Math.min(4, Math.max(0.25, scale * f)); apply(); };
+shell.querySelector(".diagram-toolbar").addEventListener("click", e => {
+	const act = e.target.dataset.act;
+	if (act === "in") zoom(1.25);
+	else if (act === "out") zoom(0.8);
+	else if (act === "reset") { scale = 1; tx = ty = 0; apply(); }
+	else if (act === "expand") shell.classList.toggle("expanded");
+});
+wrap.addEventListener("wheel", e => {
+	if (!e.ctrlKey && !e.metaKey) return;
+	e.preventDefault();
+	zoom(e.deltaY < 0 ? 1.1 : 0.9);
+}, { passive: false });
+let drag = null;
+wrap.addEventListener("pointerdown", e => { drag = { x: e.clientX - tx, y: e.clientY - ty }; wrap.setPointerCapture(e.pointerId); });
+wrap.addEventListener("pointermove", e => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); } });
+wrap.addEventListener("pointerup", () => { drag = null; });
+
+/* Section 4 — Next Up (pre-vetted by roadmap.py ready). Same chip structure
+   as the Milestones section (A5); grouped by dev only when the READY SET
+   (the candidates actually shown here, not the whole phase) has more than
+   one distinct assignee, so a solo project (or a phase where only one dev's
+   work happens to be unblocked right now) stays flat rather than gaining a
+   pointless single-group heading. */
+const candidateLi = c => `
+	<li>
+		<span class="tid">${esc(c.id)}</span>${devChip(c.assignee)}
+		<span class="tasktext">${esc(c.description)}</span>
+		<span class="deps"><span class="chip" style="--chip-fg:var(--color-milestone);--chip-bg:var(--color-milestone-bg)">${esc(c.milestone)}: ${esc(c.milestoneName)}</span></span>
+		<span class="signal">unblocks ${c.transitiveUnblocks}${c.isMilestoneSink ? " · completes milestone" : ""}</span>
+	</li>`;
+const readyAssignees = new Set(DATA.ready.candidates.map(c => c.assignee).filter(Boolean));
+document.getElementById("ready").innerHTML = !DATA.ready.candidates.length
+	? "<li>No unblocked tasks: clear a blocker or a gate.</li>"
+	: readyAssignees.size > 1
+	? [...readyAssignees].sort().map(dev => `
+		<li class="nextup-devgroup"><h4>${devChip(dev)}</h4>
+			<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => c.assignee === dev).map(candidateLi).join("")}</ul>
+		</li>`).join("") +
+		(DATA.ready.candidates.some(c => !c.assignee)
+			? `<li class="nextup-devgroup"><h4>Unassigned</h4>
+				<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => !c.assignee).map(candidateLi).join("")}</ul>
+			</li>` : "")
+	: DATA.ready.candidates.map(candidateLi).join("");
+
+/* Nav highlight */
+const links = [...document.querySelectorAll("nav a")];
+const highlight = new IntersectionObserver(entries => {
+	for (const en of entries) if (en.isIntersecting) {
+		links.forEach(a => a.classList.toggle("active", a.hash === "#" + en.target.id));
+	}
+}, { rootMargin: "-30% 0px -60% 0px" });
+links.forEach(a => highlight.observe(document.querySelector(a.hash)));
+</script>
+</body>
+</html>
