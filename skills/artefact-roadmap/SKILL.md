@@ -21,7 +21,7 @@ Shared conventions (statuses, colour table): `~/.claude/library/references/roadm
 
 1. **Check the format.** Run `python3 "$HOME"/.claude/library/scripts/roadmap.py detect`. Exit **3** = old simple format: stop and tell the user to run `roadmap-migrate` first. Exit **2** = could not locate/parse; ask for the path. Proceed on exit 0.
 2. **Render.** Run `python3 "$HOME"/.claude/library/scripts/roadmap.py render`, adding `--phase "$ARGUMENTS"` when the user named a phase (required if several are active). Default output: `{project_root}/docs/artefacts/roadmap-{slug}.html`. On a validation-discrepancy note in the output, still render (the page shows a discrepancy banner) but include the discrepancies in your report.
-3. **Open and report.** `open` the written file. Report: the file path; milestone and task counts plus done percentage (`roadmap.py stats`); the unblocked `todo` tasks (`roadmap.py ready`; surfaced directly, no need to open the file); any validation discrepancies.
+3. **Open and report.** `open` the written file. Report: the file path; milestone and task counts plus done percentage (`roadmap.py stats`); the unblocked `todo` tasks and the claimed ones (`roadmap.py ready`; surfaced directly, no need to open the file); any validation discrepancies.
 
 ## Notes
 

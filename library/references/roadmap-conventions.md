@@ -21,6 +21,9 @@ python3 "$HOME"/.claude/library/scripts/roadmap.py <subcommand> [PATH] [--phase 
 | `graph` | dependency graph | `--json` (default), `--mermaid --direction LR\|TD --omit-done --palette light\|dark\|vars` | 0 · 2 |
 | `ready` | actionable todo candidates with leverage signals; `--json` adds `groups` (candidate ids per milestone and per topic, in display order) | `--json` | 0 · 2 |
 | `render` | deterministic HTML artefact from `library/templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
+| `claim ID` | record that someone has started a task (see Claims) | `--assignee NAME --reassign --date YYYY-MM-DD` | 0 · 1 refusal · 2 |
+| `release ID` | drop a claim | `--unassign` | 0 · 1 not claimed · 2 |
+| `hook EVENT` | Claude Code hook entry point (`session-start`, `post-tool-use`); reads the hook JSON on stdin | | always 0 |
 
 `PATH` is optional; the roadmap is located by walking up from the cwd. If `~`
 is not expanded in your shell context, use `"$HOME"` (as above). Multiple
@@ -32,8 +35,9 @@ pass `--phase NAME`.
 
 ## Status vocabulary
 
-Six statuses, no in-progress: `todo, blocked, paused, deferred, done,
-out_of_scope`.
+Six statuses: `todo, blocked, paused, deferred, done, out_of_scope`. In
+progress is not one of them: it is a claim on a task (see Claims), so it never
+disturbs the rule below.
 
 **Mechanical status rule:** empty `dependsOn` → `todo`; any non-done
 dependency → at least `blocked`, escalating under the precedence
@@ -45,6 +49,39 @@ hand-assign (except the held seeds and the terminal pair). `softDependsOn`
 never feeds this rule; a soft dependency can never impose `blocked` (or any
 other status) on its dependant, regardless of the soft dependency's own
 status.
+
+## Claims
+
+A claim says a person has started a task. It is the task's optional `started`
+field, an ISO date (`"2026-09-25"`), with `assignee` saying who; it is never
+a status and never inferred. Skills and hooks ask which task and who is doing
+it; `claim` stamps today's date unless given another.
+
+- **Making one:** `claim ID [--assignee NAME]` refuses unless the task's
+  effective status is `todo`, it isn't already claimed and any change of
+  assignee is explicit (`--reassign`). `release ID [--unassign]` deletes it.
+  Both write `roadmaps.json` only: like `assignee`, a claim has no PHASE.md
+  or overview projection.
+- **What views show:** a claimed task that is `todo` or `blocked` shows as
+  in progress; `paused`, `deferred`, `done` and `out_of_scope` win over a
+  claim. `display_status()` in `_roadmap_core.py` is the only implementation;
+  the dashboard, Mermaid and `stats` use it; anything mirroring the
+  roadmap elsewhere (a tracker sync) should apply the same rule.
+- **What it changes:** `ready` lists claimed tasks under `claimed`, never
+  among the `candidates`. `recompute` and `validate` never read `started`
+  beyond checking it is a date; a claimed task keeps its computed status, so
+  one that a reopened dependency blocks shows in progress in views and
+  `blocked` to the graph.
+- **Where it lives:** normally on the branch doing the work. A branch claims
+  a task when, relative to its merge-base with the default branch, the task
+  gained `started` or became `done`. Teammates see the claim once the branch
+  is pushed; it merges as `done` with the work.
+- **Hooks:** `hook session-start` and `hook post-tool-use` notice a branch
+  that claims nothing (at session start, or just after it is created) and
+  have Claude offer the claim in one question. `git config
+  branch.<name>.roadmapClaim none` stops the question for that branch.
+- **Staleness:** a claim more than 14 days old on an unfinished task is
+  stale. `roadmap-review` flags it; nothing releases it automatically.
 
 ## Graph conventions
 
@@ -113,6 +150,7 @@ diagrams from the CLI.
 |---|---|---|---|---|---|
 | `done` | green | `#e0ffd9` / `#008217` | `#062800` / `#72ff6c` | solid | finished, quietly |
 | `todo` | gray | `#f6f6f6` / `#6f6f6f` | `#222222` / `#8b8b8b` | solid | blank slate |
+| in progress (a claim, see Claims) | azure | `#e8f2ff` / `#0071af` | `#001c30` / `#c6e0ff` | solid + `▸` label marker (azure is close to sky) | someone is on it |
 | `blocked` | red | `#fff8f6` / `#e0002b` | `#530003` / `#ffddd8` | bold stroke | stop |
 | `paused` | purple | `#fdf4ff` / `#b01fe3` | `#3a004f` / `#f7d9ff` | dasharray 4 3 | deliberately parked |
 | `deferred` | cinnamon | `#fff8f3` / `#ac5c00` | `#371d00` / `#ffdfc6` | dasharray 2 4 + italic | shelved for later |
@@ -125,7 +163,8 @@ colour. Shade pattern: light bg = shade 1, stroke/text = shade 4; dark
 inverted. Shade differences ≥ 3 keep WCAG AA.
 
 Mermaid class names match statuses (`todo`, `blocked`, `paused`, `deferred`,
-`done`, `outOfScope`) plus `mile` and `external`. Legacy diagrams used `open`
+`done`, `outOfScope`) plus `inProgress` for a claimed task in play, `mile`
+and `external`. Legacy diagrams used `open`
 for todo and Bootstrap-era hexes; regenerating via `graph --mermaid` replaces
 both. classDef lines always come straight after the `graph LR`/`graph TD`
 line; before it is a silent render failure.
@@ -146,7 +185,7 @@ their own card colour but sit outside that four-way partition:
 | `done` | every member `done`/`out_of_scope` (nothing actionable, nothing deferred) or `donePct == 100` | green |
 | `blocked` | ≥1 member `blocked` (and not already deferred/done) | red |
 | `paused` | ≥1 member `paused` (and not already deferred/done/blocked) | purple |
-| `inProgress` | `0 < donePct < 100`, nothing blocked/paused | **azure**: unclaimed by task status, distinct from sky (milestone-structural) |
+| `inProgress` | `0 < donePct < 100` or a member shows in progress (a claim), nothing blocked/paused | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
 | `todo` | nothing started, or a genuinely empty (zero-task) milestone | gray |
 
 An all-`out_of_scope` milestone (struck-from-play) reads as `done`, not
@@ -184,17 +223,19 @@ status as computed, not judged.
 
 Nothing else. Inference never hand-sets `todo`, `blocked`, `paused` or
 `deferred` directly; those stay purely derived. It never re-opens `done`,
-flips `out_of_scope` or disturbs a root-seeded held status.
+flips `out_of_scope`, disturbs a root-seeded held status or makes or drops a
+claim (a claim is a person's statement).
 
 **Evidence rule:** positive, specific, whole-task evidence only. Absence of a
 match is never evidence of completion. A task whose feature is only partly
-built is left as-is (there is no in-progress status) rather than marked
-done. Corroboration (a passing test, a real call-site) outweighs a lone
+built is left as-is (inference never claims it; see Claims) rather than
+marked done. Corroboration (a passing test, a real call-site) outweighs a lone
 definition.
 
 **Candidate seeding (efficiency):** only non-terminal tasks (`todo`,
-`blocked`, `paused`; never `done`/`out_of_scope`/`deferred`) are candidates,
-ordered by leverage (`ready --json`). Search is bounded to files changed
+`blocked`, `paused`; never `done`/`out_of_scope`/`deferred`) are candidates:
+claimed tasks first (`ready --json`'s `claimed`, the likeliest to be built
+already), then the rest ordered by leverage (`ready --json`'s `candidates`). Search is bounded to files changed
 since the last reconciliation (or a recent window on first run), with 1–3
 targeted search terms drawn from each candidate's description/notes, never
 a whole-tree scan.
@@ -214,10 +255,12 @@ auto-reverted; absence still isn't evidence.
   another formatter) in a hook or CI should exclude the artefact glob from
   it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
   dashboard never fights the formatter.
-- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, pr?`
+- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, started?, pr?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred: a skill setting it must ask, never guess from description,
   git author, category or who's running the skill.
+- `started` is the claim date (see Claims), omit-when-empty; `claim` and
+  `release` keep the field order.
 - `pr` is an optional integer: the GitHub PR number that ships the task,
   recorded by `next-task-ship` at PR creation (worth setting by hand when
   shipping outside that skill). It lets a later run detect that a `done`
@@ -289,6 +332,7 @@ forms above for how this renders in PHASE.md.
 | New milestone needed | `roadmap-update-tasks` (`m` mode) |
 | Tasks need owners, or a dev's load needs handing over | `roadmap-update-devs` (`ready\|all` horizon, `devless\|<dev>\|all` scope) |
 | Work landed / statuses drifted | `roadmap-maintain` (add `reconcile` to check against code) |
+| Mark a task in progress, or stop working on one | `roadmap-maintain` (runs `claim` / `release`; the hooks usually offer the claim first) |
 | Priorities / freshness / health / dependency-graph review | `roadmap-review` (lens: `health`, `deps` or default full) |
 | Render the HTML dashboard | `artefact-roadmap` |
 | Choose the next task (one pick) | `next-task-suggest` |
