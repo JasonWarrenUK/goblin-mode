@@ -41,7 +41,7 @@ From the active phase, extract:
 - `blocked`/`paused`/`deferred` tasks (potential unlock targets)
 - The external gates (a proposed task may depend on a gate) and existing category prefixes per milestone
 
-Shared conventions (status vocabulary, graph rules): `~/.claude/library/references/roadmap-conventions.md`; there is no in-progress state. This context informs the interview: connect what the user describes to what's already tracked, and avoid proposing duplicates.
+Shared conventions (status vocabulary, graph rules): `~/.claude/library/references/roadmap-conventions.md`; in progress is a claim on an existing task, never a status; a new task is never claimed. This context informs the interview: connect what the user describes to what's already tracked, and avoid proposing duplicates.
 
 ---
 

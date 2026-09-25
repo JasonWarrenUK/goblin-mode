@@ -15,7 +15,7 @@ argument-hint: "[milestone|topic] (grouping pivot, default milestone)"
 
 # Next: Task Group
 
-Display the roadmap's complete ready-set (every task whose effective status is `todo`), grouped for choosing between, not choosing for you. Read-only: this skill writes nothing and picks nothing.
+Display the roadmap's complete ready-set (every unclaimed task whose effective status is `todo`), grouped for choosing between, not choosing for you. Read-only: this skill writes nothing and picks nothing.
 
 ## Step 0: Parse the pivot
 
@@ -100,8 +100,8 @@ No commentary between tables. After the last table, end with one line giving eac
 Shown {total rows in all tables} of {length of candidates} ready tasks ({group} {rows in its table}/{size of its groups list} · … one entry per table)
 ```
 
-The groups named there are this run's tables: milestone IDs in the milestone pivot, topics in the topic pivot.
+The groups named there are this run's tables: milestone IDs in the milestone pivot, topics in the topic pivot. Any pair that differs means a dropped or duplicated row: fix that table before finishing.
 
-Any pair that differs means a dropped or duplicated row: fix that table before finishing.
+When `ready --json`'s `claimed` list is not empty, follow that line with one more naming each claimed task, so nobody picks one twice: `Claimed: {id} ({assignee}, since {started}) · …` (drop the assignee when it is empty; add its `status` when that isn't `todo`).
 
 <raw-arguments value="$ARGUMENTS" />

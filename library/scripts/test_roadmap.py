@@ -8,9 +8,12 @@ root with .claude/roadmaps.json.
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,7 +25,9 @@ from _roadmap_core import (
     RoadmapError,
     active_phase,
     build_index,
+    display_status,
     find_cycles,
+    is_claimed,
     milestone_sinks,
     recompute_all,
 )
@@ -604,6 +609,318 @@ class FileBased(unittest.TestCase):
         stripped = [re.sub(r'"generated": "[^"]*"', '"generated": "X"', o)
                     for o in outs]
         self.assertEqual(stripped[0], stripped[1])
+
+
+class Claims(unittest.TestCase):
+    """A claim is the `started` field; views show it, recompute never reads
+    it (see roadmap-conventions.md, Claims)."""
+
+    def test_display_status_table(self):
+        claimed = {"started": "2026-09-25"}
+        for status, shown in [("todo", "in_progress"), ("blocked", "in_progress"),
+                              ("paused", "paused"), ("deferred", "deferred"),
+                              ("done", "done"), ("out_of_scope", "out_of_scope")]:
+            self.assertEqual(display_status(claimed, status), shown)
+            self.assertEqual(display_status({}, status), status)
+
+    def test_an_empty_started_is_no_claim(self):
+        self.assertFalse(is_claimed({"started": ""}))
+        self.assertTrue(is_claimed({"started": "2026-09-25"}))
+
+    def test_a_claim_changes_no_status(self):
+        ph = phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", started="2026-09-25"), task("b", "blocked", ["a"])]}])
+        t, m, g = build_index(ph)
+        self.assertEqual(recompute_all(t, m, g), {"a": "todo", "b": "blocked"})
+        self.assertEqual(roadmap._validate_phase(ph), [])
+
+
+class ClaimViews(unittest.TestCase):
+    def _phase(self):
+        return phase([
+            {"id": "M1", "name": "m1", "tasks": [
+                task("a", started="2026-09-20", assignee="jaz"),
+                task("b", "blocked", ["a"]),
+                task("c")]},
+            {"id": "M2", "name": "m2", "tasks": [
+                task("d", "done"), task("e", started="2026-09-21")]}])
+
+    def test_ready_leaves_claims_out_and_lists_them_oldest_first(self):
+        ready = roadmap.build_ready(self._phase())
+        self.assertEqual([c["id"] for c in ready["candidates"]], ["c"])
+        self.assertEqual(
+            [(c["id"], c["status"], c["display"], c["assignee"], c["started"])
+             for c in ready["claimed"]],
+            [("a", "todo", "in_progress", "jaz", "2026-09-20"),
+             ("e", "todo", "in_progress", "", "2026-09-21")])
+
+    def test_a_claim_on_a_reblocked_task_stays_visible(self):
+        ph = phase([{"id": "M1", "name": "m", "tasks": [
+            task("a"), task("b", "blocked", ["a"], started="2026-09-20")]}])
+        claim = roadmap.build_ready(ph)["claimed"][0]
+        self.assertEqual((claim["status"], claim["display"]), ("blocked", "in_progress"))
+        t, m, g = build_index(ph)
+        self.assertEqual(recompute_all(t, m, g)["b"], "blocked")
+
+    def test_stats_count_claims_as_an_overlay(self):
+        stats = roadmap.build_stats(self._phase())
+        self.assertEqual(stats["inProgress"], 2)
+        self.assertEqual(sum(stats["byStatus"].values()), stats["total"])
+        by_id = {m["id"]: m for m in stats["milestones"]}
+        self.assertEqual(by_id["M1"]["inProgress"], 1)
+        self.assertEqual(by_id["M1"]["state"], "blocked")
+        self.assertEqual(by_id["M2"]["state"], "inProgress")
+
+    def test_a_claim_starts_a_milestone_at_zero_percent(self):
+        self.assertEqual(roadmap.milestone_state({"todo": 2}, 0, in_progress=1), "inProgress")
+        self.assertEqual(roadmap.milestone_state({"todo": 2}, 0), "todo")
+        self.assertEqual(
+            roadmap.milestone_state({"todo": 1, "blocked": 1}, 0, in_progress=1), "blocked")
+
+    def test_mermaid_classes_and_marks_claimed_tasks(self):
+        src = roadmap.mermaid_source(self._phase())
+        self.assertIn("classDef inProgress", src)
+        self.assertIn('\ta["a: task a ▸"]', src)
+        self.assertIn('\tc["c: task c"]', src)
+        self.assertIn("\tclass a,e inProgress", src)
+
+    def test_marker_fits_inside_the_label_limit(self):
+        long = "x" * 80
+        ph = phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", started="2026-09-20", description=long)]}])
+        line = next(l for l in roadmap.mermaid_source(ph).splitlines()
+                    if l.startswith('\ta["'))
+        label = line[len('\ta["'):-len('"]')]
+        self.assertEqual(len(label), roadmap._LABEL_MAX)
+        self.assertTrue(label.endswith("… ▸"))
+
+    def test_dependency_chips_get_the_display_status(self):
+        kinds = roadmap._dep_kinds(self._phase())
+        self.assertEqual(kinds["a"]["display"], "in_progress")
+        self.assertEqual(kinds["c"]["display"], "todo")
+
+
+class ClaimCommand(unittest.TestCase):
+    def _project(self, tasks):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp.parent.mkdir()
+        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}])]
+        jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        return jp
+
+    def _task(self, jp, tid):
+        tasks = json.loads(jp.read_text())[0]["milestones"][0]["tasks"]
+        return next(t for t in tasks if t["id"] == tid)
+
+    def _run(self, *argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = roadmap.main(list(argv))
+        return rc, out.getvalue()
+
+    def test_claim_writes_started_in_field_order(self):
+        jp = self._project([task("a", notes="n", pr=12)])
+        rc, _ = self._run("claim", "a", str(jp), "--date", "2026-09-25",
+                          "--assignee", "Jaz")
+        self.assertEqual(rc, 0)
+        self.assertEqual(list(self._task(jp, "a")),
+                         ["id", "description", "status", "dependsOn", "notes",
+                          "assignee", "started", "pr"])
+        self.assertEqual(self._task(jp, "a")["started"], "2026-09-25")
+
+    def test_claim_then_release_is_byte_identical(self):
+        jp = self._project([task("a", notes="n", pr=12), task("b", "blocked", ["a"])])
+        before = jp.read_text()
+        self.assertEqual(self._run("claim", "a", str(jp))[0], 0)
+        self.assertNotEqual(jp.read_text(), before)
+        self.assertEqual(self._run("release", "a", str(jp))[0], 0)
+        self.assertEqual(jp.read_text(), before)
+
+    def test_release_unassign_undoes_a_claim_that_assigned(self):
+        jp = self._project([task("a")])
+        before = jp.read_text()
+        self._run("claim", "a", str(jp), "--assignee", "Max")
+        self._run("release", "a", str(jp), "--unassign")
+        self.assertEqual(jp.read_text(), before)
+
+    def test_claim_refusals_leave_the_file_alone(self):
+        jp = self._project([task("a", assignee="Jaz"), task("b", "blocked", ["a"]),
+                            task("c", started="2026-09-01")])
+        before = jp.read_text()
+        for argv, needle in [
+                (["claim", "b"], "blocked, not todo"),
+                (["claim", "c"], "already claimed"),
+                (["claim", "a", "--assignee", "Max"], "--reassign"),
+                (["claim", "zz"], "no task"),
+                (["claim", "a", "--date", "25/09/2026"], "YYYY-MM-DD")]:
+            rc, out = self._run(argv[0], argv[1], str(jp), *argv[2:])
+            self.assertEqual(rc, 1, argv)
+            self.assertIn(needle, out, argv)
+        self.assertEqual(jp.read_text(), before)
+
+    def test_same_name_keeps_its_spelling_and_reassign_replaces(self):
+        jp = self._project([task("a", assignee="Jaz")])
+        self.assertEqual(self._run("claim", "a", str(jp), "--assignee", "jaz")[0], 0)
+        self.assertEqual(self._task(jp, "a")["assignee"], "Jaz")
+        self._run("release", "a", str(jp))
+        self.assertEqual(
+            self._run("claim", "a", str(jp), "--assignee", "Max", "--reassign")[0], 0)
+        self.assertEqual(self._task(jp, "a")["assignee"], "Max")
+
+    def test_claim_refuses_cycles_and_non_canonical_files(self):
+        jp = self._project([task("a", "todo", ["b"]), task("b", "todo", ["a"])])
+        self.assertEqual(self._run("claim", "a", str(jp))[0], 1)
+        jp2 = self._project([task("a")])
+        jp2.write_text(json.dumps(json.loads(jp2.read_text()), indent=2) + "\n")
+        self.assertEqual(self._run("claim", "a", str(jp2))[0], 1)
+        self.assertEqual(self._run("claim", "a", str(jp2), "--reformat")[0], 0)
+
+    def test_claim_and_validate_refuse_a_week_date(self):
+        rc, out = self._run("claim", "a", str(self._project([task("a")])), "--date", "2026-W39-5")
+        self.assertEqual(rc, 1)
+        self.assertIn("YYYY-MM-DD", out)
+        ph = phase([{"id": "M1", "name": "m", "tasks": [task("a", started="2026-W39-5")]}])
+        self.assertTrue(any("not a YYYY-MM-DD date" in p for p in roadmap._validate_phase(ph)))
+
+    def test_release_refuses_an_unclaimed_task(self):
+        rc, out = self._run("release", "a", str(self._project([task("a")])))
+        self.assertEqual(rc, 1)
+        self.assertIn("not claimed", out)
+
+    def test_validate_checks_started_and_points_at_claims(self):
+        ph = phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", started="soon"), task("b", "in_progress")]}])
+        problems = roadmap._validate_phase(ph)
+        self.assertTrue(any("started 'soon'" in p for p in problems))
+        self.assertTrue(any("run roadmap.py claim" in p for p in problems))
+
+
+@unittest.skipUnless(shutil.which("git"), "git not installed")
+class Hooks(unittest.TestCase):
+    """The hook entry points against real repositories: a bare origin, a
+    clone on main and a roadmap with two ready tasks, one blocked and one
+    done (a done task is what a wrong base would misread as a claim)."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name).resolve()
+        # HOME and no system config keep the machine's git config out of it
+        self.env = {**os.environ, "HOME": str(self.root), "GIT_CONFIG_NOSYSTEM": "1",
+                    "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                    "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        self.git(self.root, "init", "-q", "--bare", "origin.git")
+        self.git(self.root, "clone", "-q", "origin.git", "repo")
+        self.repo = self.root / "repo"
+        self.git(self.repo, "checkout", "-q", "-b", "main")
+        (self.repo / ".claude").mkdir()
+        data = [phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", assignee="Jaz"), task("b"), task("c", "blocked", ["a"]),
+            task("d", "done")]}])]
+        (self.repo / ".claude" / "roadmaps.json").write_text(
+            json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        self.git(self.repo, "add", ".")
+        self.git(self.repo, "commit", "-qm", "init")
+        self.git(self.repo, "push", "-q", "-u", "origin", "main")
+        self.git(self.repo, "remote", "set-head", "origin", "main")
+
+    def git(self, cwd, *args):
+        return subprocess.run(["git", "-C", str(cwd), *args], env=self.env,
+                              capture_output=True, text=True, check=True).stdout.strip()
+
+    def cli(self, *args, stdin=""):
+        return subprocess.run([sys.executable, str(Path(roadmap.__file__)), *args],
+                              input=stdin, env=self.env, cwd=self.root,
+                              capture_output=True, text=True)
+
+    def hook(self, event, cwd, **extra):
+        done = self.cli("hook", event, stdin=json.dumps({"cwd": str(cwd), **extra}))
+        self.assertEqual((done.returncode, done.stderr), (0, ""))
+        return done.stdout
+
+    def context(self, out):
+        return json.loads(out)["hookSpecificOutput"]["additionalContext"]
+
+    def test_the_default_branch_is_silent(self):
+        self.assertEqual(self.hook("session-start", self.repo), "")
+
+    def test_a_new_branch_is_nudged_once(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/x")
+        text = self.context(self.hook("post-tool-use", self.repo))
+        self.assertIn("branch `feat/x`", text)
+        self.assertIn("a task a (Jaz); b task b.", text)
+        self.assertNotIn("c task c", text)
+        self.assertEqual(
+            self.git(self.repo, "config", "--get", "branch.feat/x.roadmapClaim"), "asked")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_session_start_nudges_until_the_branch_claims(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/x")
+        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+        self.assertEqual(self.cli("claim", "b", str(self.repo / ".claude" / "roadmaps.json")).returncode, 0)
+        self.assertEqual(self.hook("session-start", self.repo).strip(),
+                         "Roadmap: branch `feat/x` claims b.")
+
+    def test_a_worktree_claim_targets_the_worktree(self):
+        wt = self.root / "wt"
+        self.git(self.repo, "worktree", "add", "-q", str(wt), "-b", "feat/y")
+        text = self.context(self.hook("post-tool-use", self.repo))
+        self.assertIn(f"claim <ID> {wt / '.claude' / 'roadmaps.json'}", text)
+        self.assertIn(f"git -C {wt} commit", text)
+        self.assertNotIn(str(self.repo / ".claude"), text)
+
+    def test_a_decline_silences_the_branch(self):
+        self.git(self.repo, "checkout", "-q", "-b", "chore/x")
+        self.git(self.repo, "config", "branch.chore/x.roadmapClaim", "none")
+        self.assertEqual(self.hook("session-start", self.repo), "")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_a_local_copy_of_a_remote_branch_is_not_nudged(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/remote")
+        self.git(self.repo, "push", "-q", "origin", "feat/remote")
+        self.git(self.repo, "checkout", "-q", "main")
+        self.git(self.repo, "branch", "-q", "-D", "feat/remote")
+        self.git(self.repo, "checkout", "-q", "feat/remote")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_subagents_and_repos_without_a_roadmap_are_silent(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/z")
+        self.assertEqual(self.hook("post-tool-use", self.repo, agent_id="a1"), "")
+        plain = self.root / "plain"
+        self.git(self.root, "init", "-q", "plain")
+        self.git(plain, "commit", "-q", "--allow-empty", "-m", "x")
+        self.git(plain, "checkout", "-q", "-b", "feat/q")
+        self.assertEqual(self.hook("post-tool-use", plain), "")
+        self.assertEqual(self.hook("session-start", plain), "")
+
+    def test_a_dangling_origin_head_falls_back_to_main(self):
+        self.git(self.repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/gone")
+        self.assertEqual(self.hook("session-start", self.repo), "")
+        self.git(self.repo, "checkout", "-q", "-b", "feat/x")
+        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+
+    def test_no_merge_base_is_silent_not_a_false_claim(self):
+        self.git(self.repo, "checkout", "-q", "--orphan", "feat/orphan")
+        self.git(self.repo, "commit", "-qm", "unrelated history")
+        self.assertEqual(self.hook("session-start", self.repo), "")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_claude_code_subagent_worktrees_are_not_nudged(self):
+        wt = self.root / "agent-wt"
+        self.git(self.repo, "worktree", "add", "-q", "--no-track", "-B",
+                 "worktree-agent-a1b2c3", str(wt), "origin/main")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+        self.assertEqual(self.hook("session-start", wt), "")
+
+    def test_a_session_start_nudge_is_not_repeated_by_the_next_git_command(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/fresh")
+        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_bad_input_never_fails_the_hook(self):
+        done = self.cli("hook", "post-tool-use", stdin="not json")
+        self.assertEqual((done.returncode, done.stdout, done.stderr), (0, "", ""))
 
 
 if __name__ == "__main__":

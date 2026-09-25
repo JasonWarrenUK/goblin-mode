@@ -51,7 +51,7 @@ Build milestone objects `{id: "M{N}", name, goal, tasks:[…]}`. Each task: `{id
 Seed each task's status from its old section, then let the recompute derive the rest:
 
 - **Completed** (`- [x]`) → `done` (terminal seed, kept).
-- **In Progress** → there is **no in-progress state** in the rich format. Seed as `todo` (the recompute promotes it to `blocked` if it has non-`done` deps). **Record every task remapped this way** for the report: the user may want to re-seed one deliberately (e.g. `paused`).
+- **In Progress** → in the rich format, in progress is a **claim** (a `started` date), never a status, and the old format never said who or since when. Seed as `todo` (the recompute promotes it to `blocked` if it has non-`done` deps). **Record every task remapped this way** for the report: the user may want to re-seed one deliberately (e.g. `paused`).
 - **To Do / Blocked** → leave unseeded; the recompute sets `todo` (empty/all-done deps) or `blocked` (any non-done dep).
 
 Write the seeded JSON, then run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py recompute` so every non-terminal status is *derived*, not carried over. This guarantees the migrated file passes validation immediately.
@@ -73,7 +73,7 @@ The old format had no prose overview. Synthesise a minimal one (see `roadmap:cre
 Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py validate`: it must report clean; fix any discrepancy. Then report:
 
 - Milestones and tasks migrated; the status distribution (`roadmap.py stats`).
-- **In-Progress remaps**: every task that lost its in-progress state, so the user can re-seed any deliberately.
+- **In-Progress remaps**: every task that lost its in-progress state, so the user can claim any still under way (`roadmap.py claim <ID> --assignee <name>`, asking who) or re-seed one deliberately.
 - Any dependency edges recovered **only** from the Mermaid diagram (not written in prose); worth a glance in case the diagram was stale.
 - The three artefact paths written, and a note that `ROADMAP_OVERVIEW.md`'s narrative is a stub.
 

@@ -10,9 +10,11 @@ cross-reference to its namespaced `roadmap:<name>` form. Never hand-edit
 marketplace/roadmap/: edit the source, then rerun this.
 
 Every build is validated before anything is written: missing sources, plugin
-paths that point at files the plugin doesn't ship, leftover ~/.claude paths
-and skill names from this config that the plugin can't resolve all fail the
-build with one line per problem.
+paths that point at files the plugin doesn't ship, leftover ~/.claude paths,
+skill names from this config that the plugin can't resolve, shipped Python
+that no longer compiles after the rewrites, shipped JSON that doesn't parse
+and helper modules a shipped script imports but the plugin doesn't ship all
+fail the build with one line per problem.
 
 usage: build-roadmap-plugin.py [--check | --sources]
 	--check     exit 1 if marketplace/roadmap/ would change, without writing
@@ -21,6 +23,7 @@ usage: build-roadmap-plugin.py [--check | --sources]
 """
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import sys
@@ -51,6 +54,7 @@ SKILLS = {
 FILES = {
 	"scripts/roadmap.py": "library/scripts/roadmap.py",
 	"scripts/_roadmap_core.py": "library/scripts/_roadmap_core.py",
+	"scripts/_roadmap_hooks.py": "library/scripts/_roadmap_hooks.py",
 	"templates/roadmap-artefact.html": "library/templates/roadmap-artefact.html",
 	"references/roadmap-conventions.md": "library/references/roadmap-conventions.md",
 }
@@ -66,6 +70,9 @@ PLUGIN_JSON = """{
 }
 """
 
+# The claim hooks (library/scripts/_roadmap_hooks.py) nudge Claude to offer a
+# claim when work starts on a branch; python3 missing makes them a no-op
+CLAIM_HOOK = 'command -v python3 >/dev/null 2>&1 || exit 0; python3 \\"${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py\\" hook'
 HOOKS_JSON = """{
 	"hooks": {
 		"SessionStart": [
@@ -76,11 +83,44 @@ HOOKS_JSON = """{
 						"command": "sh \\"${CLAUDE_PLUGIN_ROOT}/scripts/roadmap-drift-check.sh\\""
 					}
 				]
+			},
+			{
+				"matcher": "startup",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "%(hook)s session-start",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "Bash",
+				"hooks": [
+					{
+						"type": "command",
+						"if": "Bash(git *)",
+						"command": "%(hook)s post-tool-use",
+						"timeout": 10
+					}
+				]
+			},
+			{
+				"matcher": "EnterWorktree",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "%(hook)s post-tool-use",
+						"timeout": 10
+					}
+				]
 			}
 		]
 	}
 }
-"""
+""" % {"hook": CLAIM_HOOK}
 
 # POSIX port of library/scripts/roadmap-drift-check.sh: teammates may not have zsh
 DRIFT_CHECK = """#!/bin/sh
@@ -234,6 +274,8 @@ ROOT_PLACEHOLDER = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}")
 # Plugin directories whose content Claude Code substitutes the placeholder in
 RESOLVING_DIRS = {"skills", "hooks"}
 HOME_REF = re.compile(r'(~|"?\$HOME"?|\$\{HOME\})/\.claude\b')
+# A shipped script importing one of the roadmap helper modules, lazily or not
+LOCAL_IMPORT = re.compile(r"^\s*(?:from\s+(_roadmap\w*)\s+import|import\s+(_roadmap\w*))", re.M)
 
 
 def validate(root: Path, out: Path) -> None:
@@ -267,8 +309,33 @@ def validate(root: Path, out: Path) -> None:
 			if foreign_skill:
 				for match in foreign_skill.finditer(line):
 					problems.append(f"{where}: skill {match.group(1)!r} is not in the plugin (add it to SKILLS or decouple the reference)")
+	problems += validate_code(out)
 	if problems:
 		raise BuildError(problems)
+
+
+def validate_code(out: Path) -> list[str]:
+	"""The rewrites run over scripts too, so check the result still runs:
+	every shipped .py compiles, every shipped .json parses and every helper
+	module a script imports is shipped beside it."""
+	problems: list[str] = []
+	for path in sorted(out.rglob("*.py")):
+		rel = path.relative_to(out)
+		source = path.read_text()
+		try:
+			compile(source, str(rel), "exec")
+		except SyntaxError as error:
+			problems.append(f"{rel}:{error.lineno}: does not compile after the build's rewrites: {error.msg}")
+		for match in LOCAL_IMPORT.finditer(source):
+			module = match.group(1) or match.group(2)
+			if not (path.parent / f"{module}.py").is_file():
+				problems.append(f"{rel}: imports {module}, which the plugin does not ship (add it to FILES)")
+	for path in sorted(out.rglob("*.json")):
+		try:
+			json.loads(path.read_text())
+		except ValueError as error:
+			problems.append(f"{path.relative_to(out)}: not valid JSON: {error}")
+	return problems
 
 
 def build(root: Path, out: Path) -> None:
