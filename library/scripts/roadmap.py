@@ -25,9 +25,9 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
              post-tool-use); reads the hook JSON on stdin, always exits 0
 
 PATH is optional everywhere (after ID for claim and release); without it the
-roadmap is located by walking up
-from the cwd. --phase selects one phase by name when several are active
-(without it, multiple active phases are an error — never a silent guess).
+roadmap is located by walking up from the cwd. --phase selects one phase by
+name when several are active (without it, multiple active phases are an
+error — never a silent guess).
 
 All subcommands exit 2 when the roadmap cannot be located or parsed.
 Requires Python 3.8+, stdlib only. British spelling throughout.
@@ -147,11 +147,12 @@ _LABEL_MAX = 48
 def milestone_state(by_status, done_pct, total=None, in_progress=0):
     """One of deferred/inProgress/todo/done/blocked/paused for a milestone,
     given its {status: count} map, completion percentage, (optionally) its
-    task total and (optionally) how many members are claimed and in play. `total` disambiguates two shapes that otherwise look
-    identical (all-zero counts, 0%): a genuinely empty milestone (total=0,
-    nothing to report on, so it stays `todo` rather than claiming to be
-    finished) versus an all-out_of_scope one (total>0, nothing actionable
-    left). Omit `total` to skip that distinction (treated as non-empty).
+    task total and (optionally) how many members are claimed and in play.
+    `total` disambiguates two shapes that otherwise look identical
+    (all-zero counts, 0%): a genuinely empty milestone (total=0, nothing to
+    report on, so it stays `todo` rather than claiming to be finished)
+    versus an all-out_of_scope one (total>0, nothing actionable left). Omit
+    `total` to skip that distinction (treated as non-empty).
 
     Deferred fires on ANY deferred member with no actionable (todo/blocked/
     paused) member left, not "every member deferred/out_of_scope": a
