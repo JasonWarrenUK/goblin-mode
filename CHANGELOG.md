@@ -5,6 +5,40 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-09-25
+
+### Added
+
+- Plugins can now carry their own version number and changelog, separate from the root repo's: `pr-land` bumps and tags a touched plugin alongside root, and `/doc-changelog plugin:NAME` builds that plugin's own changelog from its own source.
+
+### Fixed
+
+- `pr-land` checks out the PR branch before bumping its plugin's version, and now names the version script's own `--dir` flag instead of colliding with svu's.
+- The roadmap plugin's changelog is now written beside its own hand-maintained sources, so a rebuild of the shipped plugin no longer wipes it out.
+- The version script's untagged bootstrap path (picking a starting version when no tag exists yet) now only applies in plugin mode, leaving root-repo version resolution untouched.
+
+## [2.5.0] - 2026-09-23
+
+### Added
+
+- Roadmap tasks can now record a claim: a `started` date set when work begins on a branch, shown on the dashboard, so in-progress work is visible before it's done.
+
+### Fixed
+
+- The claim hooks now stay quiet when they can't confidently tell whether a claim applies, instead of guessing.
+
+## [2.4.0] - 2026-09-22
+
+### Added
+
+- A new shareable Roadmap plugin: generates a distributable roadmap dashboard plugin, listed in the goblin-mode marketplace, with its own README built from source and a build step that validates before writing.
+- `clod-stack-gum` skill: guidance for building interactive shell prompts and styled terminal output with `gum`.
+
+### Fixed
+
+- The roadmap plugin build now keeps an unresolvable plugin root out of the build and quotes unshipped plugin paths correctly, instead of writing broken paths.
+- `roadmap-review` now uses its own CLI path instead of a shared one.
+
 ## [2.3.0] - 2026-09-22
 
 ### Fixed
@@ -44,6 +78,9 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.5.0...v2.6.0
+[2.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.0.0...v2.3.0
 [2.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v1.1.0...v2.0.0
