@@ -25,6 +25,17 @@ Wired in [`settings.json`](configuration.md):
 | `bunx -y ccstatusline@latest --hook` | `PreToolUse` (matcher: `Skill`) | Updates the status line when a skill is about to run. |
 | `bunx -y ccstatusline@latest --hook` | `UserPromptSubmit` | Updates the status line on every prompt submit. |
 
+## Roadmap claim hooks (not wired here yet)
+
+The roadmap plugin ships these in its generated `hooks/hooks.json` (built from `HOOKS_JSON` in `library/scripts/build-roadmap-plugin.py`), so teammates get them with the plugin. This config's own `roadmap-*` skills run without them until the same entries go into `settings.json`; the logic lives in `library/scripts/_roadmap_hooks.py` and the claim rules in `library/references/roadmap-conventions.md` (Claims).
+
+| Command | Event | What it does |
+|---|---|---|
+| `python3 "$HOME/.claude/library/scripts/roadmap.py" hook session-start` | `SessionStart` (matcher: `startup`) | On a feature branch that claims no roadmap task, adds one line of context asking Claude to offer a claim; on a branch that claims one, names it. Silent on the default branch and without a rich roadmap; silent too on a branch marked `git config branch.<name>.roadmapClaim none`. |
+| `python3 "$HOME/.claude/library/scripts/roadmap.py" hook post-tool-use` | `PostToolUse` (matcher: `Bash` with `"if": "Bash(git *)"`, and matcher: `EnterWorktree`) | Finds local branches created in the last two minutes from their reflogs (so every way of making a branch counts), and for each one that is checked out and claims nothing, has Claude offer the claim once, with the exact commands for that branch's own checkout. Marks the branch `asked` so it stays quiet afterwards. |
+
+Both always exit 0 and stay silent inside a subagent (`agent_id` in the hook input). Guard each command with `command -v python3 >/dev/null 2>&1 || exit 0;` the way the plugin does, and give it `"timeout": 10`.
+
 ## Project-level hooks (`.claude/hooks/`)
 
 Only active when this `~/.claude` directory is itself opened as a project (e.g. working on this config remotely). Both are `SessionStart` hooks that branch on `CLAUDE_CODE_REMOTE`, so exactly one runs per session:
