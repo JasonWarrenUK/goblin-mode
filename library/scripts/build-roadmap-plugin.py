@@ -35,6 +35,13 @@ OUT_DIR = REPO_ROOT / "marketplace" / "roadmap"
 PLUGIN_NAME = "roadmap"
 # copied verbatim: edit the layout there, never in marketplace/roadmap/
 README_SOURCE = "library/sources/plugins/roadmap/readme.md"
+# one bare X.Y.Z line, bumped by safe-version-next.sh --plugin roadmap; read
+# into plugin.json's "version" field, never hand-edited in marketplace/roadmap/
+VERSION_SOURCE = "library/sources/plugins/roadmap/version"
+# doc-changelog's canonical output for the plugin:roadmap scope, copied
+# verbatim like README_SOURCE; optional (a plugin with no changelog yet just
+# doesn't ship one), unlike every other entry in source_paths()
+CHANGELOG_SOURCE = "library/sources/plugins/roadmap/CHANGELOG.md"
 
 # source skill dir -> plugin skill dir (invoked as roadmap:<dir>)
 SKILLS = {
@@ -59,16 +66,18 @@ FILES = {
 	"references/roadmap-conventions.md": "library/references/roadmap-conventions.md",
 }
 
-PLUGIN_JSON = """{
+def _plugin_json(version: str) -> str:
+	return """{{
 	"name": "roadmap",
+	"version": "{version}",
 	"description": "Roadmaps as a dependency graph: JSON source of truth, mechanical status recompute, projected task lists, Mermaid diagrams, an HTML dashboard and the interview, review and next-task skills that drive it.",
-	"author": {
+	"author": {{
 		"name": "Jason Warren"
-	},
+	}},
 	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
 	"keywords": ["roadmap", "planning", "dependency-graph"]
-}
-"""
+}}
+""".format(version=version)
 
 # The claim hooks (library/scripts/_roadmap_hooks.py) nudge Claude to offer a
 # claim when work starts on a branch; python3 missing makes them a no-op
@@ -239,13 +248,23 @@ def transform(text: str, source: str) -> str:
 
 
 def source_paths() -> list[str]:
-	"""Every repo-relative file the build reads, including this script."""
+	"""Every repo-relative file the build reads, including this script.
+
+	Includes CHANGELOG_SOURCE even though it's optional: the pre-commit hook
+	uses this list to decide whether to rebuild, and a changelog edit must
+	trigger a rebuild the same as any other source once the file exists."""
 	return [
 		*(f"skills/{src}/SKILL.md" for src in SKILLS),
 		*FILES.values(),
 		README_SOURCE,
+		VERSION_SOURCE,
+		CHANGELOG_SOURCE,
 		"library/scripts/build-roadmap-plugin.py",
 	]
+
+
+# source_paths() entries the build reads if present, never required
+OPTIONAL_SOURCES = {CHANGELOG_SOURCE}
 
 
 def check_sources(root: Path) -> None:
@@ -253,7 +272,7 @@ def check_sources(root: Path) -> None:
 	problems = [
 		f"missing source: {rel} (renamed or moved? update SKILLS/FILES/README_SOURCE in this script)"
 		for rel in sources
-		if not (root / rel).is_file()
+		if rel not in OPTIONAL_SOURCES and not (root / rel).is_file()
 	]
 	problems += [
 		f"decoupling targets {rel}, which the build never reads (update DECOUPLINGS)"
@@ -276,6 +295,17 @@ RESOLVING_DIRS = {"skills", "hooks"}
 HOME_REF = re.compile(r'(~|"?\$HOME"?|\$\{HOME\})/\.claude\b')
 # A shipped script importing one of the roadmap helper modules, lazily or not
 LOCAL_IMPORT = re.compile(r"^\s*(?:from\s+(_roadmap\w*)\s+import|import\s+(_roadmap\w*))", re.M)
+BARE_SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+
+
+def read_version(root: Path) -> str:
+	"""The plugin's own version, bumped by safe-version-next.sh --plugin
+	roadmap and tagged as roadmap-vX.Y.Z; never `v`-prefixed here, since
+	plugin.json's "version" field is bare semver, unlike a git tag."""
+	text = (root / VERSION_SOURCE).read_text().strip()
+	if not BARE_SEMVER.match(text):
+		raise BuildError([f"{VERSION_SOURCE}: {text!r} is not a bare X.Y.Z version"])
+	return text
 
 
 def validate(root: Path, out: Path) -> None:
@@ -350,11 +380,13 @@ def build(root: Path, out: Path) -> None:
 		target.parent.mkdir(parents=True, exist_ok=True)
 		target.write_text(transform((root / source).read_text(), source))
 	(out / ".claude-plugin").mkdir(parents=True, exist_ok=True)
-	(out / ".claude-plugin" / "plugin.json").write_text(PLUGIN_JSON)
+	(out / ".claude-plugin" / "plugin.json").write_text(_plugin_json(read_version(root)))
 	(out / "hooks").mkdir(exist_ok=True)
 	(out / "hooks" / "hooks.json").write_text(HOOKS_JSON)
 	(out / "scripts" / "roadmap-drift-check.sh").write_text(DRIFT_CHECK)
 	shutil.copyfile(root / README_SOURCE, out / "README.md")
+	if (root / CHANGELOG_SOURCE).is_file():
+		shutil.copyfile(root / CHANGELOG_SOURCE, out / "CHANGELOG.md")
 	for script in (out / "scripts").iterdir():
 		script.chmod(0o755)
 	validate(root, out)
