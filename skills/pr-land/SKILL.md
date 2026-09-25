@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: pr
 disable-model-invocation: true
-allowed-tools: ["Read", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
+allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
 arguments: ["pr"]
 argument-hint: "[PR number | URL]"
 ---
@@ -33,13 +33,17 @@ Proceed only when: state `OPEN`, every entry in `statusCheckRollup` has finished
 
 Only when `.claude-plugin/marketplace.json` exists (most repos don't ship plugins; skip this step entirely when it's absent). For each plugin entry (`name`, `source`), check whether this PR's diff touches that subtree: `gh pr diff {number} --name-only | grep -q "^${source#./}/"`. A stacked merge checks every layer's diff, not just this PR's own.
 
+**Run every command in this step from a checkout of the PR's own head branch**, not main: `safe-version-next.sh --log.directory` scans commits from `HEAD`, so running it from main (the common case, since Step 1 doesn't require checking the branch out) scans the wrong history and either misses the bump or, once a plugin tag exists, silently scans zero relevant commits. `gh pr checkout {number}` first (or `cd` into the worktree that already holds it), exactly as Step 4's cleanup later expects a checkout to exist.
+
 For each touched plugin, run `~/.claude/library/scripts/safe-version-next.sh --plugin {name} --dir {source}`:
 
-- **Exit 0** (a real bump): note the tag it printed (`{name}-v{X.Y.Z}`, not created yet, just computed) and the bare version (`{X.Y.Z}`) for the manifest. Find this plugin's own build script (`library/scripts/build-{name}-plugin.py` is this repo's naming for it; a repo with a differently-named or non-Python build step needs its own equivalent, found by reading the plugin's own docs or asking rather than assumed). That script names its version source file as a constant near its other per-plugin paths (`VERSION_SOURCE` in `build-roadmap-plugin.py`, for instance): write the bare version there, run the build script to regenerate the shipped plugin, then commit both onto the PR branch: `git commit -m "chore({name}): bump plugin version to {X.Y.Z}"` and push. This becomes part of what gets merged; it is not exempt from the "never amend or rebase reviewed commits" rule elsewhere in this config, because it is a brand new commit, not a rewrite of one the reviewer already saw.
+- **Exit 0** (a real bump): note the tag it printed (`{name}-v{X.Y.Z}`, not created yet, just computed) and the bare version (`{X.Y.Z}`) for the manifest. Find this plugin's own build script (`library/scripts/build-{name}-plugin.py` is this repo's naming for it; a repo with a differently-named or non-Python build step needs its own equivalent, found by reading the plugin's own docs or asking rather than assumed). That script names its version source file as a constant near its other per-plugin paths (`VERSION_SOURCE` in `build-roadmap-plugin.py`, for instance). Read the current value first: if it already equals `{X.Y.Z}` (someone bumped it by hand, or this step already ran once on this branch), skip straight to the rebuild check below rather than trying to commit a no-op. Otherwise write the bare version there, run the build script to regenerate the shipped plugin, then commit both onto the PR branch: `git commit -m "chore({name}): bump plugin version to {X.Y.Z}"` and push. This becomes part of what gets merged; it is not exempt from the "never amend or rebase reviewed commits" rule elsewhere in this config, because it is a brand new commit, not a rewrite of one the reviewer already saw. Rebuild check: even when the version file was already correct, `git status --short` the plugin's output directory after running the build script, since the version alone changing isn't the only reason the build could differ; commit if it produced any diff.
 - **Exit 3** (nothing to release): the touching commits were all `docs`/`chore`/`refactor`-type, nothing version-worthy. Leave the plugin's version untouched; note this in the Step 2 summary so it's not mistaken for an oversight.
 - **Exit 2** (environment error): stop and report; don't guess a version by hand.
 
 A plugin's own bump commit is scoped to that plugin's subtree only (the rebuild output plus the version source file); never bundle unrelated changes into it. Multiple touched plugins in one PR each get their own bump commit, pushed in the same batch before Step 2's confirmation.
+
+**Pushing restarts checks.** A push here can dismiss an existing approval or re-queue CI on a repo that has either; re-run Step 1's readiness check against the pushed commit before proceeding to Step 2, rather than trusting the state Step 1 read before this step existed.
 
 ## Step 2: Confirm and merge
 
