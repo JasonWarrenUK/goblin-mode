@@ -18,8 +18,14 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
                                                          --palette]
   ready      actionable todo tasks with ordering signals [--json]
   render     deterministic HTML artefact from template   [--out PATH]
+  claim      ID: record that someone has started a task [--assignee NAME
+                                                         --reassign --date]
+  release    ID: drop a claim                           [--unassign]
+  hook       EVENT: Claude Code hook entry point (session-start,
+             post-tool-use); reads the hook JSON on stdin, always exits 0
 
-PATH is optional everywhere; without it the roadmap is located by walking up
+PATH is optional everywhere (after ID for claim and release); without it the
+roadmap is located by walking up
 from the cwd. --phase selects one phase by name when several are active
 (without it, multiple active phases are an error — never a silent guess).
 
@@ -36,16 +42,19 @@ import re
 import sys
 import tempfile
 import zlib
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from _roadmap_core import (
     IMPOSABLE_STATUSES,
+    IN_PROGRESS,
     VALID_STATUSES,
     RoadmapError,
     active_phase,
     build_index,
+    display_status,
     find_cycles,
+    is_claimed,
     is_held,
     load,
     milestone_sinks,
@@ -63,13 +72,20 @@ from _roadmap_core import (
 # prose. Semantics: done=green (finished), todo=gray (blank slate),
 # blocked=red (stop), paused=purple (parked), deferred=cinnamon (shelved),
 # out_of_scope=faded gray (struck from play), gate=yellow (external),
-# milestone=sky (structural). Pink is accent-only, never a status.
+# milestone=sky (structural), inProgress=azure (a claimed task still in
+# play: a display class, never a stored status). Pink is accent-only, never
+# a status. Azure and sky are close in hue, so a claimed task's Mermaid label
+# also carries IN_PROGRESS_MARKER.
 # Every light bg/stroke and dark bg/stroke pair here clears AA (4.5:1).
 # ---------------------------------------------------------------------------
 STATUS_STYLE = {
     "todo": {
         "var": "todo", "bg": "#f6f6f6", "stroke": "#6f6f6f",
         "darkBg": "#222222", "darkStroke": "#8b8b8b", "extra": "",
+    },
+    "inProgress": {
+        "var": "in-progress", "bg": "#e8f2ff", "stroke": "#0071af",
+        "darkBg": "#001c30", "darkStroke": "#c6e0ff", "extra": "",
     },
     "blocked": {
         "var": "blocked", "bg": "#fff8f6", "stroke": "#e0002b",
@@ -105,9 +121,11 @@ STATUS_STYLE = {
     },
 }
 STATUS_TO_CLASS = {
-    "todo": "todo", "blocked": "blocked", "paused": "paused",
-    "deferred": "deferred", "done": "done", "out_of_scope": "outOfScope",
+    "todo": "todo", IN_PROGRESS: "inProgress", "blocked": "blocked",
+    "paused": "paused", "deferred": "deferred", "done": "done",
+    "out_of_scope": "outOfScope",
 }
+IN_PROGRESS_MARKER = " ▸"
 _STATS_ORDER = ["done", "todo", "blocked", "paused", "deferred", "out_of_scope"]
 _LABEL_MAX = 48
 
@@ -118,18 +136,18 @@ _LABEL_MAX = 48
 # ordered as the artefact's Overview sort wants them: deferred first (a
 # top-level "shelved" partition, ahead of percentage), then inProgress, todo,
 # done. blocked/paused surface as their own milestone-card colour but are not
-# part of that four-way partition. Azure is the one status-adjacent colour
-# with no task-status claim on it (see roadmap-conventions.md); it reads as
-# "live and moving" without being confused with any task-status hue.
+# part of that four-way partition. Azure is shared with claimed tasks (see
+# roadmap-conventions.md), the same way the deferred/blocked/paused/done
+# states share their task-status hues: it reads as "live and moving".
 #
 # The state->CSS-var mapping lives once, in the artefact template's own
 # STATE_VAR (JS), not duplicated here: this function only returns the state
 # name, so there is exactly one place that maps a state to a colour variable.
 # ---------------------------------------------------------------------------
-def milestone_state(by_status, done_pct, total=None):
+def milestone_state(by_status, done_pct, total=None, in_progress=0):
     """One of deferred/inProgress/todo/done/blocked/paused for a milestone,
-    given its {status: count} map, completion percentage, and (optionally)
-    its task total. `total` disambiguates two shapes that otherwise look
+    given its {status: count} map, completion percentage, (optionally) its
+    task total and (optionally) how many members are claimed and in play. `total` disambiguates two shapes that otherwise look
     identical (all-zero counts, 0%): a genuinely empty milestone (total=0,
     nothing to report on, so it stays `todo` rather than claiming to be
     finished) versus an all-out_of_scope one (total>0, nothing actionable
@@ -144,6 +162,9 @@ def milestone_state(by_status, done_pct, total=None):
     an all-out_of_scope milestone has done_pct 0 (_pct only counts `done`
     status), but nothing remains to act on and nothing was explicitly
     shelved, so "finished" reads truer than "deferred" or "todo".
+
+    A claimed member makes the milestone inProgress even at 0% done, unless
+    something blocked or paused outranks it.
     """
     if total == 0:
         return "todo"
@@ -159,7 +180,7 @@ def milestone_state(by_status, done_pct, total=None):
         return "blocked"
     if by_status.get("paused", 0) > 0:
         return "paused"
-    if 0 < done_pct < 100:
+    if 0 < done_pct < 100 or in_progress > 0:
         return "inProgress"
     return "todo"
 
@@ -253,7 +274,12 @@ def _validate_phase(phase):
     gate_expected_blocks = {gid: set() for gid in gates}
     for tid, task in tasks.items():
         if task.get("status") not in VALID_STATUSES:
-            problems.append(f"{tid}: invalid status {task.get('status')!r}")
+            hint = (" (a claim is the `started` field: run roadmap.py claim)"
+                    if task.get("status") == IN_PROGRESS else "")
+            problems.append(f"{tid}: invalid status {task.get('status')!r}{hint}")
+        if "started" in task and not _is_iso_date(task.get("started")):
+            problems.append(
+                f"{tid}: started {task.get('started')!r} is not a YYYY-MM-DD date")
         for dep in task.get("dependsOn", []):
             if dep not in known:
                 problems.append(f"{tid}: dependsOn {dep!r} resolves to nothing")
@@ -296,6 +322,16 @@ def _validate_phase(phase):
         problems.append("status recompute skipped: resolve the cycle(s) above first")
 
     return problems
+
+
+def _is_iso_date(value):
+    if not isinstance(value, str) or len(value) != 10:
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
 
 
 def cmd_validate(args) -> int:
@@ -428,10 +464,18 @@ def _pct(done, total):
     return round(done / total * 100) if total else 0
 
 
+def _in_progress_count(tasks):
+    """Claimed tasks still in play; they are also counted under their own
+    status in byStatus, so this is an overlay, never part of the total."""
+    return sum(1 for t in tasks
+               if display_status(t, t.get("status")) == IN_PROGRESS)
+
+
 def build_stats(phase):
     all_counts = {s: 0 for s in _STATS_ORDER}  # ordered: see _counts() above
     all_invalid = []
     total = 0
+    all_in_progress = 0
     milestones = []
     milestones_done = 0
     for m in phase.get("milestones", []):
@@ -441,8 +485,11 @@ def build_stats(phase):
             all_counts[s] += c[s]
         all_invalid.extend(invalid)
         total += len(tasks)
+        in_progress = _in_progress_count(tasks)
+        all_in_progress += in_progress
         done_pct = _pct(c["done"], len(tasks))
-        state = milestone_state(c, done_pct, total=len(tasks))
+        state = milestone_state(c, done_pct, total=len(tasks),
+                                in_progress=in_progress)
         if state == "done":
             milestones_done += 1
         milestones.append({
@@ -451,6 +498,7 @@ def build_stats(phase):
             "total": len(tasks),
             "done": c["done"],
             "byStatus": c,
+            "inProgress": in_progress,
             "donePct": done_pct,
             "state": state,
         })
@@ -458,6 +506,7 @@ def build_stats(phase):
         "phase": phase.get("name"),
         "total": total,
         "byStatus": all_counts,
+        "inProgress": all_in_progress,
         "invalid": all_invalid,
         "donePct": _pct(all_counts["done"], total),
         "milestonesTotal": len(milestones),
@@ -467,16 +516,21 @@ def build_stats(phase):
 
 
 def _human_stats(stats):
+    claimed = (f"  ({stats['inProgress']} in progress)"
+               if stats.get("inProgress") else "")
     lines = [
         f"{stats['phase']}: {stats['byStatus']['done']}/{stats['total']} done "
         f"({stats['donePct']}%)",
         "  " + "  ".join(f"{s}={stats['byStatus'][s]}"
-                         for s in _STATS_ORDER if stats['byStatus'][s]),
+                         for s in _STATS_ORDER if stats['byStatus'][s])
+        + claimed,
         "",
     ]
     for m in stats["milestones"]:
         active = "  ".join(f"{s}={m['byStatus'][s]}"
                            for s in _STATS_ORDER if m['byStatus'][s])
+        if m.get("inProgress"):
+            active += f"  ({m['inProgress']} in progress)"
         lines.append(f"  {m['id']:4} {m['done']}/{m['total']:<3} {m['name']}")
         if active:
             lines.append(f"       {active}")
@@ -514,14 +568,17 @@ def build_graph(phase):
         nodes.append({"id": gid, "kind": "gate", "label": gate.get("name", "")})
     for m in phase.get("milestones", []):
         for t in m.get("tasks", []):
-            nodes.append({
+            node = {
                 "id": t["id"],
                 "kind": "task",
                 "milestone": m["id"],
                 "status": t.get("status"),
                 "description": t.get("description", ""),
                 "iterative": bool(t.get("iterative")),
-            })
+            }
+            if is_claimed(t):
+                node["started"] = t["started"]
+            nodes.append(node)
 
     edges = []
     for tid, task in tasks.items():
@@ -545,10 +602,13 @@ def build_graph(phase):
     return {"phase": phase.get("name"), "nodes": nodes, "edges": edges}
 
 
-def _mermaid_label(text):
+def _mermaid_label(text, reserve=0):
+    """Collapse whitespace, cap the length (leaving `reserve` characters for a
+    marker appended after) and escape quotes for a Mermaid node label."""
+    limit = _LABEL_MAX - reserve
     text = " ".join(str(text).split())
-    if len(text) > _LABEL_MAX:
-        text = text[:_LABEL_MAX - 1].rstrip() + "…"
+    if len(text) > limit:
+        text = text[:limit - 1].rstrip() + "…"
     return text.replace('"', "#quot;")
 
 
@@ -651,8 +711,11 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
             label = f'{n["id"]}: {n["description"]}'
             if n.get("iterative"):
                 label += " ↻"
-            lines.append(f'\t{n["id"]}["{_mermaid_label(label)}"]')
-            cls = STATUS_TO_CLASS.get(n.get("status"))
+            status = display_status(n, n.get("status"))
+            marker = IN_PROGRESS_MARKER if status == IN_PROGRESS else ""
+            label = _mermaid_label(label, reserve=len(marker)) + marker
+            lines.append(f'\t{n["id"]}["{label}"]')
+            cls = STATUS_TO_CLASS.get(status)
             if cls:
                 status_members.setdefault(cls, []).append(n["id"])
 
@@ -662,7 +725,8 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
         arrow = "-.->" if e.get("soft") else "-->"
         lines.append(f'\t{e["from"]} {arrow} {e["to"]}')
 
-    for cls in ["todo", "blocked", "paused", "deferred", "done", "outOfScope"]:
+    for cls in ["todo", "inProgress", "blocked", "paused", "deferred", "done",
+                "outOfScope"]:
         members = status_members.get(cls)
         if members:
             lines.append(f'\tclass {",".join(sorted(members))} {cls}')
@@ -689,9 +753,10 @@ def cmd_graph(args) -> int:
 # ready
 # ---------------------------------------------------------------------------
 def build_ready(phase):
-    """Actionable candidates: tasks whose effective status is todo, annotated
-    with ordering signals so a small model can choose between valid options
-    instead of deriving them."""
+    """Actionable candidates: unclaimed tasks whose effective status is todo,
+    annotated with ordering signals so a small model can choose between valid
+    options instead of deriving them. Claimed tasks are listed apart under
+    `claimed` (someone is already on them), oldest claim first."""
     tasks, milestones, gates = build_index(phase)
     computed = recompute_all(tasks, milestones, gates)
     effective = {
@@ -731,7 +796,21 @@ def build_ready(phase):
         return seen
 
     candidates = []
+    claimed = []
     for tid, t in tasks.items():
+        if is_claimed(t) and effective.get(tid) not in ("done", "out_of_scope"):
+            mid = task_milestone.get(tid)
+            claimed.append({
+                "id": tid,
+                "description": t.get("description", ""),
+                "milestone": mid,
+                "milestoneName": milestone_name.get(mid, ""),
+                "status": effective.get(tid),
+                "display": display_status(t, effective.get(tid)),
+                "started": t["started"],
+                "assignee": t.get("assignee", ""),
+            })
+            continue
         if effective.get(tid) != "todo":
             continue
         mid = task_milestone.get(tid)
@@ -750,7 +829,9 @@ def build_ready(phase):
         })
     candidates.sort(key=lambda c: (-c["transitiveUnblocks"],
                                    -c["milestoneDonePct"], c["id"]))
-    return {"phase": phase.get("name"), "candidates": candidates}
+    claimed.sort(key=lambda c: (c["started"], c["id"]))
+    return {"phase": phase.get("name"), "candidates": candidates,
+            "claimed": claimed}
 
 
 def _truncate_notes(candidates, limit=200):
@@ -811,6 +892,7 @@ def cmd_ready(args) -> int:
         return 0
     if not ready["candidates"]:
         print(f"{ready['phase']}: no unblocked todo tasks.")
+        _print_claimed(ready["claimed"])
         return 0
     print(f"{ready['phase']}: {len(ready['candidates'])} unblocked task(s), "
           "highest leverage first")
@@ -820,7 +902,18 @@ def cmd_ready(args) -> int:
         print(f"  {c['id']:8} unblocks {c['transitiveUnblocks']:<3} "
               f"{c['milestone']} {c['milestoneDonePct']}% done{sink}{who}")
         print(f"           {c['description']}")
+    _print_claimed(ready["claimed"])
     return 0
+
+
+def _print_claimed(claimed):
+    if not claimed:
+        return
+    print(f"in progress: {len(claimed)} claimed task(s)")
+    for c in claimed:
+        who = f" by {c['assignee']}" if c.get("assignee") else ""
+        blocked = "" if c["status"] == "todo" else f" ({c['status']})"
+        print(f"  {c['id']:8} since {c['started']}{who}{blocked}")
 
 
 # ---------------------------------------------------------------------------
@@ -882,7 +975,8 @@ def _dep_kinds(phase):
     tasks, milestones, gates = build_index(phase)
     kinds = {}
     for tid, t in tasks.items():
-        kinds[tid] = {"kind": "task", "status": t.get("status")}
+        kinds[tid] = {"kind": "task", "status": t.get("status"),
+                      "display": display_status(t, t.get("status"))}
     for mid in milestones:
         kinds[mid] = {"kind": "milestone"}
     for gid in gates:
@@ -905,10 +999,12 @@ def _render_to(json_path, data, phase, out):
                 "id": t["id"],
                 "description": t.get("description", ""),
                 "status": t.get("status"),
+                "display": display_status(t, t.get("status")),
                 "dependsOn": t.get("dependsOn", []),
                 "milestone": m["id"],
                 "notes": t.get("notes", ""),
                 "assignee": assignee,
+                "started": t.get("started", ""),
             })
     blob = {
         "project": _project_name(json_path, phase),
@@ -954,6 +1050,128 @@ def cmd_render(args) -> int:
         print(f"✗ {exc}")
         return 2
     print(f"wrote {out}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# claim / release
+# ---------------------------------------------------------------------------
+TASK_FIELD_ORDER = ["id", "description", "status", "dependsOn",
+                    "softDependsOn", "softMilestone", "iterative", "notes",
+                    "assignee", "started", "pr"]
+
+
+def _set_task_field(task, key, value):
+    """Set `key` in place, or insert it where the canonical field order puts
+    it, leaving every other field exactly where it already is."""
+    if key in task:
+        task[key] = value
+        return
+    rank = TASK_FIELD_ORDER.index(key)
+    items = list(task.items())
+    at = len(items)
+    for i, (k, _v) in enumerate(items):
+        if k in TASK_FIELD_ORDER and TASK_FIELD_ORDER.index(k) > rank:
+            at = i
+            break
+    items.insert(at, (key, value))
+    task.clear()
+    task.update(items)
+
+
+def _load_for_write(args):
+    """(path, data, index, exit code or None) for claim and release, refusing
+    what recompute refuses before it writes. `index` is build_index()'s
+    (tasks, milestones, gates); its task dicts are the ones inside `data`, so
+    editing one edits what gets written."""
+    try:
+        path, data = load(args.path)
+        phase = active_phase(data, args.phase)
+    except RoadmapError as exc:
+        print(f"✗ {exc}")
+        return None, None, None, 2
+    if _canonical_text(data) != path.read_text() and not args.reformat:
+        print("✗ roadmaps.json is not in canonical form (tab-indented, "
+              "ensure_ascii off, trailing newline); a write would reformat "
+              "the whole file. Re-run with --reformat to accept that.")
+        return None, None, None, 1
+    index = build_index(phase)
+    if args.id not in index[0]:
+        print(f"✗ no task {args.id!r} in '{phase.get('name')}'")
+        return None, None, None, 1
+    return path, data, index, None
+
+
+def cmd_claim(args) -> int:
+    path, data, index, code = _load_for_write(args)
+    if code is not None:
+        return code
+    tasks, milestones, gates = index
+    task = tasks[args.id]
+    cycles = find_cycles(tasks, milestones)
+    if cycles:
+        print("✗ cycle detected; refusing to claim until it is resolved:")
+        for cycle in cycles:
+            print("  - " + " -> ".join(cycle))
+        return 1
+    if is_claimed(task):
+        who = f" by {task['assignee']}" if task.get("assignee") else ""
+        print(f"✗ {args.id} is already claimed{who} (started {task['started']})")
+        return 1
+    computed = recompute_all(tasks, milestones, gates)
+    effective = task.get("status") if is_held(task) else computed.get(args.id)
+    if effective != "todo":
+        print(f"✗ {args.id} is {effective}, not todo: only a task that is ready "
+              "to start can be claimed")
+        return 1
+    started = args.date or date.today().isoformat()
+    if not _is_iso_date(started):
+        print(f"✗ --date {started!r} is not a YYYY-MM-DD date")
+        return 1
+    if args.assignee is not None:
+        name = args.assignee.strip()
+        current = task.get("assignee", "")
+        if not name:
+            print("✗ --assignee needs a name")
+            return 1
+        if current and current.strip().lower() != name.lower() and not args.reassign:
+            print(f"✗ {args.id} is assigned to {current}; pass --reassign to "
+                  f"hand it to {name}")
+            return 1
+        if not current or current.strip().lower() != name.lower():
+            _set_task_field(task, "assignee", name)
+    _set_task_field(task, "started", started)
+    _atomic_write(path, _canonical_text(data))
+    who = f", assignee {task['assignee']}" if task.get("assignee") else ""
+    print(f"✓ claimed {args.id} (started {started}{who})")
+    return 0
+
+
+def cmd_release(args) -> int:
+    path, data, index, code = _load_for_write(args)
+    if code is not None:
+        return code
+    task = index[0][args.id]
+    if not is_claimed(task):
+        print(f"✗ {args.id} is not claimed")
+        return 1
+    del task["started"]
+    if args.unassign:
+        task.pop("assignee", None)
+    _atomic_write(path, _canonical_text(data))
+    print(f"✓ released {args.id}" + (" and cleared its assignee" if args.unassign else ""))
+    return 0
+
+
+def cmd_hook(args) -> int:
+    """Claude Code hook entry point. A hook must never fail the session, so
+    every error is swallowed and the exit code is always 0."""
+    try:
+        import _roadmap_hooks
+        _roadmap_hooks.run(args.event, sys.stdin, Path(__file__).resolve(),
+                           build_ready)
+    except Exception:  # noqa: BLE001 - a hook must never break the session
+        pass
     return 0
 
 
@@ -1006,6 +1224,31 @@ def main(argv=None) -> int:
     sp = common(sub.add_parser("render", help="write the HTML artefact"))
     sp.add_argument("--out", default=None, help="output path override")
 
+    def claim_common(sp):
+        # the task id comes first so `claim 2RT.17 path` never reads the id
+        # as the path
+        sp.add_argument("id", help="task id")
+        common(sp)
+        sp.add_argument("--reformat", action="store_true",
+                        help="allow rewriting a non-canonically-formatted file")
+        return sp
+
+    sp = claim_common(sub.add_parser(
+        "claim", help="record that someone has started a task"))
+    sp.add_argument("--assignee", default=None,
+                    help="who is doing it (asked for, never inferred)")
+    sp.add_argument("--reassign", action="store_true",
+                    help="allow --assignee to replace a different assignee")
+    sp.add_argument("--date", default=None,
+                    help="start date YYYY-MM-DD (default today)")
+
+    sp = claim_common(sub.add_parser("release", help="drop a claim"))
+    sp.add_argument("--unassign", action="store_true",
+                    help="also clear the assignee")
+
+    sp = sub.add_parser("hook", help="Claude Code hook entry point")
+    sp.add_argument("event", choices=["session-start", "post-tool-use"])
+
     args = parser.parse_args(argv)
     return {
         "detect": cmd_detect,
@@ -1015,6 +1258,9 @@ def main(argv=None) -> int:
         "graph": cmd_graph,
         "ready": cmd_ready,
         "render": cmd_render,
+        "claim": cmd_claim,
+        "release": cmd_release,
+        "hook": cmd_hook,
     }[args.cmd](args)
 
 

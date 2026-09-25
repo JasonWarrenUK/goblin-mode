@@ -9,6 +9,7 @@ the build refuses with a message naming the problem.
 from __future__ import annotations
 
 import importlib.util
+import json
 import shutil
 import subprocess
 import sys
@@ -152,6 +153,40 @@ class BuildSafeguards(unittest.TestCase):
 		self.assertIn("missing source: skills/roadmap-review/SKILL.md", result.stderr)
 		self.assertNotIn("Traceback", result.stderr)
 		self.assertFalse((self.root / "marketplace").exists())
+
+	def test_claim_hooks_ship_and_parse(self) -> None:
+		plugin.build(self.root, self.out)
+		hooks = json.loads((self.out / "hooks" / "hooks.json").read_text())["hooks"]
+		commands = [h["command"] for entries in hooks.values() for entry in entries for h in entry["hooks"]]
+		self.assertTrue(any(c.endswith("roadmap.py\" hook session-start") for c in commands))
+		self.assertEqual(sum(c.endswith("roadmap.py\" hook post-tool-use") for c in commands), 2)
+		self.assertTrue((self.out / "scripts" / "_roadmap_hooks.py").is_file())
+
+	def test_script_broken_by_a_rewrite_is_caught(self) -> None:
+		# ${CLAUDE_PLUGIN_ROOT} becomes <plugin-root> outside skills/ and hooks/,
+		# which turns this line into a syntax error
+		self.append("library/scripts/roadmap.py", '\nSHIPPED = "${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py"\n')
+		self.assertTrue(any(
+			p.startswith("scripts/roadmap.py:") and "does not compile" in p for p in self.build_problems()
+		))
+
+	def test_unshipped_helper_module_is_caught(self) -> None:
+		original = plugin.FILES
+		plugin.FILES = {k: v for k, v in original.items() if k != "scripts/_roadmap_hooks.py"}
+		try:
+			problems = self.build_problems()
+		finally:
+			plugin.FILES = original
+		self.assertTrue(any("imports _roadmap_hooks, which the plugin does not ship" in p for p in problems))
+
+	def test_invalid_hooks_json_is_caught(self) -> None:
+		original = plugin.HOOKS_JSON
+		plugin.HOOKS_JSON = original.replace('"timeout": 10', '"timeout": 10,', 1)
+		try:
+			problems = self.build_problems()
+		finally:
+			plugin.HOOKS_JSON = original
+		self.assertTrue(any(p.startswith("hooks/hooks.json: not valid JSON") for p in problems))
 
 if __name__ == "__main__":
 	unittest.main()
