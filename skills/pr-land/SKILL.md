@@ -33,7 +33,7 @@ Proceed only when: state `OPEN`, every entry in `statusCheckRollup` has finished
 
 Only when `.claude-plugin/marketplace.json` exists (most repos don't ship plugins; skip this step entirely when it's absent). For each plugin entry (`name`, `source`), check whether this PR's diff touches that subtree: `gh pr diff {number} --name-only | grep -q "^${source#./}/"`. A stacked merge checks every layer's diff, not just this PR's own.
 
-**Run every command in this step from a checkout of the PR's own head branch**, not main: `safe-version-next.sh --log.directory` scans commits from `HEAD`, so running it from main (the common case, since Step 1 doesn't require checking the branch out) scans the wrong history and either misses the bump or, once a plugin tag exists, silently scans zero relevant commits. `gh pr checkout {number}` first (or `cd` into the worktree that already holds it), exactly as Step 4's cleanup later expects a checkout to exist.
+**Run every command in this step from a checkout of the PR's own head branch**, not main: `safe-version-next.sh --dir` (svu's `--log.directory` underneath) scans commits from `HEAD`, so running it from main (the common case, since Step 1 doesn't require checking the branch out) scans the wrong history and either misses the bump or, once a plugin tag exists, silently scans zero relevant commits. `gh pr checkout {number}` first (or `cd` into the worktree that already holds it), exactly as Step 4's cleanup later expects a checkout to exist.
 
 For each touched plugin, run `~/.claude/library/scripts/safe-version-next.sh --plugin {name} --dir {source}`:
 
