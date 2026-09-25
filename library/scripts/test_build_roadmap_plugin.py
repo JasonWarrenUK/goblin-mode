@@ -188,5 +188,22 @@ class BuildSafeguards(unittest.TestCase):
 			plugin.HOOKS_JSON = original
 		self.assertTrue(any(p.startswith("hooks/hooks.json: not valid JSON") for p in problems))
 
+	def test_built_plugin_json_carries_the_version(self) -> None:
+		(self.root / plugin.VERSION_SOURCE).write_text("1.2.3\n")
+		plugin.build(self.root, self.out)
+		built = json.loads((self.out / ".claude-plugin" / "plugin.json").read_text())
+		self.assertEqual(built["version"], "1.2.3")
+
+	def test_non_semver_version_is_caught(self) -> None:
+		(self.root / plugin.VERSION_SOURCE).write_text("v1.2\n")
+		problems = self.build_problems()
+		self.assertTrue(any(
+			p.startswith(f"{plugin.VERSION_SOURCE}:") and "not a bare X.Y.Z version" in p for p in problems
+		), problems)
+
+	def test_read_version_strips_whitespace(self) -> None:
+		(self.root / plugin.VERSION_SOURCE).write_text(" 0.4.0 \n\n")
+		self.assertEqual(plugin.read_version(self.root), "0.4.0")
+
 if __name__ == "__main__":
 	unittest.main()

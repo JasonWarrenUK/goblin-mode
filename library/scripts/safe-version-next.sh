@@ -1,5 +1,5 @@
 #!/bin/zsh
-# safe-version-next.sh — `svu next` with a hard guard on the 0.x -> 1.x boundary.
+# safe-version-next.sh: `svu next` with a hard guard on the 0.x -> 1.x boundary.
 #
 # Prints the tag to create. Identical to `svu next` except when the current
 # version is 0.x and svu proposes 1.0.0: crossing into 1.x is a human decision
@@ -15,7 +15,7 @@
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
 #             2 environment error,
 #             3 nothing to release (no version-bumping commits since the
-#               current tag — creating a tag would fail on a duplicate)
+#               current tag: creating a tag would fail on a duplicate)
 set -u
 
 plugin=""
@@ -56,9 +56,15 @@ current=$(svu current "${current_args[@]}" 2>/dev/null) || current="${prefix}0.0
 if [[ "$current" == "${prefix}0.0.0" ]]; then
 	# svu current tolerates zero matching tags (falls back above); svu next
 	# does not, it hard-errors "no tags match" instead of treating an empty
-	# series as a first release. A fresh series starts at 0.1.0, same as the
-	# version this repo's source files declare before any tag exists.
-	next="${prefix}0.1.0"
+	# series as a first release. A fresh series starts at whatever the
+	# plugin's already-built plugin.json declares (so a plugin authored at
+	# 0.3.0 before its first tag doesn't get written back down to 0.1.0),
+	# or 0.1.0 when no built plugin.json exists yet either.
+	declared=""
+	if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
+		declared=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$dir/.claude-plugin/plugin.json" | head -1)
+	fi
+	next="${prefix}${declared:-0.1.0}"
 else
 	next=$(svu next "${next_args[@]}") || { print -u2 -- "svu next failed"; exit 2 }
 fi
