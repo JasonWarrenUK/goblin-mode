@@ -53,13 +53,16 @@ if [[ -n "$plugin" ]]; then
 fi
 
 current=$(svu current "${current_args[@]}" 2>/dev/null) || current="${prefix}0.0.0"
-if [[ "$current" == "${prefix}0.0.0" ]]; then
-	# svu current tolerates zero matching tags (falls back above); svu next
-	# does not, it hard-errors "no tags match" instead of treating an empty
-	# series as a first release. A fresh series starts at whatever the
-	# plugin's already-built plugin.json declares (so a plugin authored at
-	# 0.3.0 before its first tag doesn't get written back down to 0.1.0),
-	# or 0.1.0 when no built plugin.json exists yet either.
+if [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
+	# Plugin-only: svu current tolerates zero matching tags (falls back
+	# above); svu next does not, it hard-errors "no tags match" instead of
+	# treating an empty series as a first release. A fresh series starts at
+	# whatever the plugin's already-built plugin.json declares (so a plugin
+	# authored at 0.3.0 before its first tag doesn't get written back down
+	# to 0.1.0), or 0.1.0 when no built plugin.json exists yet either.
+	# Root mode never hits this: an untagged repo's bare "v" pattern still
+	# matches everything, so svu next works unaided and a docs-only history
+	# correctly falls through to the "nothing to release" exit below.
 	declared=""
 	if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
 		declared=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$dir/.claude-plugin/plugin.json" | head -1)
