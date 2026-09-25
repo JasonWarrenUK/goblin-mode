@@ -53,7 +53,7 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `pr-facts.sh` | `pr-update` | PR metadata, current body, watermark and every commit since it in one dump |
 | `pr-wall.sh` | `hud-pr_wall` | Buckets open PRs by relationship to the user (GraphQL search) and cross-references local clones |
 | `safe-version-next.sh` | `project-tag_version`, `pr-land` | `svu next` with a programmatic guard: never crosses 0.x → 1.x automatically |
-| `roadmap.py` + `_roadmap_core.py` | The whole roadmap-\* family | Single CLI for the rich phase-array roadmap system: ID assignment, status computation, dependency graph integrity, HTML rendering |
+| `roadmap.py` + `_roadmap_core.py` + `_roadmap_hooks.py` | The whole roadmap-\* family; the roadmap plugin's hooks | Single CLI for the rich phase-array roadmap system: ID assignment, status computation, claims (`claim`/`release`), dependency graph integrity and HTML rendering; also the claim hooks' entry point (`hook`) |
 | `config_permit.py` | `config-permit` | Deterministic half of permission-granting: the skill's `allowed-tools` is scoped to only this one script |
 | `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data: fails fast on a malformed finding instead of rendering it wrong |
 | `slop-scan.py` | `red-doc` (report mode); `hooks/commit-msg`, `pr-create`, `pr-update`, `doc-readme`, `doc-changelog` (`--strict`) | Mechanical prose scan: house-rule breaches plus rhetorical-tell candidates; `--strict` is the gate mode (house rules only, code masked, exit 1 on a hit) |
