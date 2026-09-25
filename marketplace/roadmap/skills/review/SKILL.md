@@ -35,7 +35,7 @@ Read-only: findings route to the skills that write. Shared conventions: `${CLAUD
 
 ## Step 2: Assess along five axes
 
-1. **Freshness**: does recent git activity suggest tasks are done-in-code but not marked? Are there `blocked` tasks whose blockers look finished? (Flag for a reconcile run; don't relitigate evidence here.)
+1. **Freshness**: does recent git activity suggest tasks are done-in-code but not marked? Are there `blocked` tasks whose blockers look finished? Is any claim stale (a `started` date more than 14 days old on an unfinished task) or claimed but no longer ready (in `ready --json`'s `claimed` with a `status` other than `todo`)? (Flag for a reconcile run or for the claimant; never release or change a claim here, and don't relitigate evidence.)
 2. **Implied priorities**: the ready-set *is* a priority statement: its leverage ordering says what matters next. Does the user agree with what it's saying? A high-leverage candidate nobody intends to touch, or a pet task with zero unblocks being worked first, are both findings.
 3. **Milestone integrity**, per milestone: is the goal sentence still the goal? Is a nearly-done milestone (high done-%) worth closing out before opening a new front? Has any milestone become a dumping ground?
 4. **The parked and the dead**: every `paused`/`deferred` task and every gate: still genuinely waiting, or quietly obsolete? Any `todo` that will realistically never be done and should be `out_of_scope`?

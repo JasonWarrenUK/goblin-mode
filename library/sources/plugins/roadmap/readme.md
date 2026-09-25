@@ -53,6 +53,22 @@ Requires `python3` (3.8+, stdlib only) on `PATH`.
 
 ---
 
+## Claims
+
+A claim says someone has started a task. The task gains a `started` date, and every view shows it as in progress; its status stays computed, so a claim never changes one.
+
+You rarely claim by hand. When a branch appears (from a git command or a worktree, or one you made just before) or a session starts on a branch that claims nothing, the plugin has Claude ask one question: which ready task this is, who is doing it and whether to push the branch so the team sees the claim. Nothing is written until you answer.
+
+| To | Run |
+|---|---|
+| Claim by hand | `python3 <plugin-root>/scripts/roadmap.py claim <ID> [--assignee NAME]` |
+| Drop a claim | `python3 <plugin-root>/scripts/roadmap.py release <ID> [--unassign]` |
+| Stop the question on one branch | `git config branch.<name>.roadmapClaim none` |
+
+The hooks need `python3` too; without it they stay silent.
+
+---
+
 The roadmap lives at `.claude/roadmaps.json` in the project; every skill finds it by walking up from the working directory.
 
 Full conventions: `references/roadmap-conventions.md`.

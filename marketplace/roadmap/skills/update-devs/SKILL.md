@@ -29,7 +29,7 @@ Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. T
 
 | Argument | Value | Meaning |
 |---|---|---|
-| `$horizon` | `ready` | only tasks that are currently unblocked (effective status `todo`) |
+| `$horizon` | `ready` | only tasks that are currently unblocked (effective status `todo`) and unclaimed |
 | `$horizon` | `all` | every unfinished task: any status except `done` and `out_of_scope` |
 | `$scope` | `devless` | only tasks with no `assignee` |
 | `$scope` | `<dev's name>` | only tasks currently assigned to that dev (case-insensitive match) |
@@ -76,20 +76,20 @@ The interview opens here, before any task is shown.
 
 ## Step 3: Build the working set
 
-- `$horizon` = `ready`: run `roadmap.py ready --json`. The `candidates` array is the complete unblocked set, already ordered by leverage, each with `assignee` (empty string when unassigned). Never re-derive status.
-- `$horizon` = `all`: take every task in the phase from `roadmaps.json` whose `status` is not `done` or `out_of_scope`, in file order. If `roadmap.py validate` reports status discrepancies, tell the user and suggest `roadmap:maintain` first; carry on if they say so, since assignment does not depend on status being fresh.
+- `$horizon` = `ready`: run `roadmap.py ready --json`. The `candidates` array is the complete unblocked, unclaimed set, already ordered by leverage, each with `assignee` (empty string when unassigned). Claimed tasks sit apart in its `claimed` list: someone is already working on them, so they are not up for assignment here. Never re-derive status.
+- `$horizon` = `all`: take every task in the phase from `roadmaps.json` whose `status` is not `done` or `out_of_scope`, in file order. A task with a `started` date is claimed: show it, but flag any proposal to move it to someone else, since that hands over live work. If `roadmap.py validate` reports status discrepancies, tell the user and suggest `roadmap:maintain` first; carry on if they say so, since assignment does not depend on status being fresh.
 
 Filter by `$scope`. An empty working set is a result: report it (`Every ready task already has a dev.`) and stop.
 
-Compute the **load table**, which the interview reprints as it changes: for each roster member, the count of unfinished tasks they hold across the whole phase, split into ready and not-yet-ready, plus one row for unassigned.
+Compute the **load table**, which the interview reprints as it changes: for each roster member, the count of unfinished tasks they hold across the whole phase, split into in progress (claimed), ready and not-yet-ready, plus one row for unassigned.
 
 ```text
 Working set: {N} tasks ({horizon}, {scope}) in {phase}
 
-Load now        ready   later   total
-  Jaz (j)           2       5       7
-  Max (m)           0       1       1
-  unassigned        6      11      17
+Load now        in progress   ready   later   total
+  Jaz (j)                 1       2       4       7
+  Max (m)                 0       0       1       1
+  unassigned              0       6      11      17
 ```
 
 ---
@@ -112,6 +112,7 @@ Batch 2 of 5 · M2: Search ({milestoneDonePct}% done) · 4 tasks
 Assign: "<rows> <dev>" clauses split by ";". Example: 1-2 j; 4 m
 ```
 
+- **Status** reads `in progress` for a claimed task (one with a `started` date), whatever its stored status.
 - **Now** is the current assignee. **Upstream owners** lists the task's direct `dependsOn` tasks with their assignee in brackets; assignments made earlier in this run show up here, and milestone and gate dependencies are omitted. It is a fact about the graph and never a recommendation.
 - Full descriptions always; wrap long ones and never truncate.
 - Print the grammar reference below in full with the first batch, then only the one-line reminder shown above.
@@ -173,7 +174,7 @@ Edit `roadmaps.json` only. Assignee has no projection in the PHASE file or `ROAD
 
 - **Set or replace**: `"assignee": "{roster spelling}"`, placed by the conventions' task field order (after `notes` when present, before `pr` when present).
 - **Clear**: delete the `assignee` line entirely and fix the trailing comma on the line before it. Never write an empty string; the field is omit-when-empty.
-- Tabs for indentation; leave every other field, including `status`, as found.
+- Tabs for indentation; leave every other field, including `status` and `started`, as found.
 - One Edit per task, anchored on the task's `"id"` line so the match is unique. Never use `replace_all` for spelling normalisation: similar names can share a prefix, so each occurrence is edited on its own.
 
 ---

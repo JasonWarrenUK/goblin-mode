@@ -87,7 +87,7 @@ The top level is an **array of phase objects**. Append + archive the superseded 
 ]
 ```
 
-- Field order for tasks: `id, description, status, dependsOn, softDependsOn, iterative, notes, assignee`; gates: `id, name, status, imposes, blocks, notes`. Include `softDependsOn`/`notes`/`iterative`/`assignee` only when meaningful; `assignee` is free-text with no roster, and must never be guessed.
+- Field order for tasks: `id, description, status, dependsOn, softDependsOn, iterative, notes, assignee` (a new task never carries `started`: claims come from starting work); gates: `id, name, status, imposes, blocks, notes`. Include `softDependsOn`/`notes`/`iterative`/`assignee` only when meaningful; `assignee` is free-text with no roster, and must never be guessed.
 - **External gates** (`externalGates`, per phase, beside `milestones`) model things outside the team's control that block work: `{id, name, status:"external", imposes?, blocks[], notes?}`. `imposes` (default `blocked`; may be `paused` or `deferred`) is the status the gate forces on its blocked children; `blocks[]` is the reverse edge: every task ID that lists this gate in its `dependsOn`. A gate ID can appear in a task's `dependsOn`.
 - A `dependsOn` entry may be a **milestone ID** (`M1`, `MP`…): it resolves `done` only when every task in that milestone is `done`.
 - The `iterative: true` flag marks a task that loops to convergence: descriptive only, never a cyclic `dependsOn`.

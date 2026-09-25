@@ -35,7 +35,9 @@ Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py detect`.
 3. `transitiveUnblocks`: prefer the task that unblocks the most downstream work
 4. `isMilestoneSink` on a milestone with high `milestoneDonePct`: closing out a nearly-done milestone beats starting a new front
 
-Name the chosen task by its roadmap ID and say which signals drove the choice. If `candidates` is empty, say so and name the cheapest unblock instead (which blocker or gate, if cleared, frees the most tasks; read the `stats` breakdown).
+Claimed tasks (the `claimed` list: someone has started them) are never candidates; if the user asks about one, say who claimed it and since when.
+
+Name the chosen task by its roadmap ID and say which signals drove the choice. Close with how it starts: where the roadmap hooks are installed, creating its branch prompts the claim; otherwise `roadmap:maintain` or `roadmap.py claim <ID> --assignee <name>` records it. If `candidates` is empty, say so and name the cheapest unblock instead (which blocker or gate, if cleared, frees the most tasks; read the `stats` breakdown).
 
 **Exit 3:** tell the user to run `roadmap:migrate` and stop. **Exit 2:** no roadmap; point at `roadmap:create` (or ask for the path if one exists somewhere unusual) and stop. This skill suggests from roadmap data only; it never derives tasks from the codebase.
 
