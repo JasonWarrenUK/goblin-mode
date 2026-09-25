@@ -31,9 +31,12 @@ class BuildSafeguards(unittest.TestCase):
 		self.root = Path(self._tmp.name) / "repo"
 		self.out = Path(self._tmp.name) / "out"
 		for rel in plugin.source_paths():
+			source = REPO_ROOT / rel
+			if rel in plugin.OPTIONAL_SOURCES and not source.is_file():
+				continue
 			target = self.root / rel
 			target.parent.mkdir(parents=True, exist_ok=True)
-			shutil.copyfile(REPO_ROOT / rel, target)
+			shutil.copyfile(source, target)
 
 	def tearDown(self) -> None:
 		self._tmp.cleanup()
@@ -187,6 +190,43 @@ class BuildSafeguards(unittest.TestCase):
 		finally:
 			plugin.HOOKS_JSON = original
 		self.assertTrue(any(p.startswith("hooks/hooks.json: not valid JSON") for p in problems))
+
+	def test_built_plugin_json_carries_the_version(self) -> None:
+		(self.root / plugin.VERSION_SOURCE).write_text("1.2.3\n")
+		plugin.build(self.root, self.out)
+		built = json.loads((self.out / ".claude-plugin" / "plugin.json").read_text())
+		self.assertEqual(built["version"], "1.2.3")
+
+	def test_non_semver_version_is_caught(self) -> None:
+		(self.root / plugin.VERSION_SOURCE).write_text("v1.2\n")
+		problems = self.build_problems()
+		self.assertTrue(any(
+			p.startswith(f"{plugin.VERSION_SOURCE}:") and "not a bare X.Y.Z version" in p for p in problems
+		), problems)
+
+	def test_read_version_strips_whitespace(self) -> None:
+		(self.root / plugin.VERSION_SOURCE).write_text(" 0.4.0 \n\n")
+		self.assertEqual(plugin.read_version(self.root), "0.4.0")
+
+	def test_build_without_changelog_still_succeeds(self) -> None:
+		self.assertFalse((self.root / plugin.CHANGELOG_SOURCE).exists())
+		plugin.build(self.root, self.out)
+		self.assertFalse((self.out / "CHANGELOG.md").exists())
+
+	def test_changelog_is_copied_when_present(self) -> None:
+		(self.root / plugin.CHANGELOG_SOURCE).parent.mkdir(parents=True, exist_ok=True)
+		(self.root / plugin.CHANGELOG_SOURCE).write_text("# Changelog\n\n## [0.1.0]\n- Added a thing.\n")
+		plugin.build(self.root, self.out)
+		self.assertEqual(
+			(self.out / "CHANGELOG.md").read_text(),
+			(self.root / plugin.CHANGELOG_SOURCE).read_text(),
+		)
+
+	def test_changelog_naming_an_unnamespaced_skill_is_caught(self) -> None:
+		(self.root / plugin.CHANGELOG_SOURCE).parent.mkdir(parents=True, exist_ok=True)
+		(self.root / plugin.CHANGELOG_SOURCE).write_text("# Changelog\n\n## [0.1.0]\n- Fixed roadmap-maintain drift.\n")
+		problems = self.build_problems()
+		self.assertTrue(any("CHANGELOG.md" in p and "roadmap-maintain" in p for p in problems), problems)
 
 if __name__ == "__main__":
 	unittest.main()
