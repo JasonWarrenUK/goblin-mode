@@ -112,7 +112,7 @@ Batch 2 of 5 · M2: Search ({milestoneDonePct}% done) · 4 tasks
 Assign: "<rows> <dev>" clauses split by ";". Example: 1-2 j; 4 m
 ```
 
-- **Status** reads `in progress` for a claimed task (one with a `started` date), whatever its stored status.
+- **Status** reads `in progress` for a claimed task (one with a `started` date) that is `todo` or `blocked`; a paused, deferred or finished status shows as itself.
 - **Now** is the current assignee. **Upstream owners** lists the task's direct `dependsOn` tasks with their assignee in brackets; assignments made earlier in this run show up here, and milestone and gate dependencies are omitted. It is a fact about the graph and never a recommendation.
 - Full descriptions always; wrap long ones and never truncate.
 - Print the grammar reference below in full with the first batch, then only the one-line reminder shown above.
@@ -172,7 +172,7 @@ Then ask with AskUserQuestion: **Apply** / **Revise a batch** / **Cancel**. Revi
 
 Edit `roadmaps.json` only. Assignee has no projection in the PHASE file or `ROADMAP_OVERVIEW.md`, so neither is touched.
 
-- **Set or replace**: `"assignee": "{roster spelling}"`, placed by the conventions' task field order (after `notes` when present, before `pr` when present).
+- **Set or replace**: `"assignee": "{roster spelling}"`, placed by the conventions' task field order (after `notes` when present, before `started` and `pr` when present).
 - **Clear**: delete the `assignee` line entirely and fix the trailing comma on the line before it. Never write an empty string; the field is omit-when-empty.
 - Tabs for indentation; leave every other field, including `status` and `started`, as found.
 - One Edit per task, anchored on the task's `"id"` line so the match is unique. Never use `replace_all` for spelling normalisation: similar names can share a prefix, so each occurrence is edited on its own.

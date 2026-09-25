@@ -55,7 +55,7 @@ Requires `python3` (3.8+, stdlib only) on `PATH`.
 
 ## Claims
 
-A claim says someone has started a task. The task gains a `started` date, and every view shows it as in progress; its status stays computed, so a claim never changes one.
+A claim says someone has started a task. The task gains a `started` date, and views show it as in progress while it is todo or blocked (a paused, deferred or finished status wins); its status stays computed, so a claim never changes one.
 
 You rarely claim by hand. When a branch appears (from a git command or a worktree, or one you made just before) or a session starts on a branch that claims nothing, the plugin has Claude ask one question: which ready task this is, who is doing it and whether to push the branch so the team sees the claim. Nothing is written until you answer.
 
