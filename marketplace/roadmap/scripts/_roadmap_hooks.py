@@ -13,10 +13,13 @@ hook must never break a session.
   nothing, and nudge once per branch.
 
 A branch claims a task when, relative to its merge-base with the default
-branch, the task gained a `started` date or became `done`. The only state is
-local git config, branch.<name>.roadmapClaim: `asked` (nudged once already)
-or `none` (the user said the branch is not roadmap work). Stdlib only,
-Python 3.8+.
+branch, the task gained a `started` date or became `done`. When that can't be
+worked out (no base ref, no merge-base, no roadmap or phase at the base) the
+hooks stay silent rather than guess. Claude Code's own subagent worktrees
+(branches named worktree-agent-*) are throwaway and never nudged. The only
+state is local git config, branch.<name>.roadmapClaim: `asked` (nudged once
+already) or `none` (the user said the branch is not roadmap work). Stdlib
+only, Python 3.8+.
 """
 from __future__ import annotations
 
@@ -34,6 +37,7 @@ WINDOW_SECONDS = 120
 MARKER = "roadmapClaim"
 MAX_CANDIDATES = 8
 ROADMAP = ".claude/roadmaps.json"
+SUBAGENT_BRANCH = "worktree-agent-"
 _CREATED = "branch: Created from "
 _REFLOG_LINE = re.compile(
     r"^(?P<old>[0-9a-f]{40,64}) [0-9a-f]{40,64} .* (?P<ts>\d+) [+-]\d{4}\t(?P<msg>.*)$")
@@ -75,11 +79,11 @@ def _git(cwd, *args):
 def base_ref(checkout):
     """The ref a branch is measured against: origin's default branch when it
     is known, else the first of origin/main, origin/master, main, master."""
-    ref = _git(checkout, "symbolic-ref", "--quiet", "--short",
-               "refs/remotes/origin/HEAD")
-    if ref:
-        return ref
-    for candidate in ("origin/main", "origin/master", "main", "master"):
+    head = _git(checkout, "symbolic-ref", "--quiet", "--short",
+                "refs/remotes/origin/HEAD")
+    # origin/HEAD can dangle (a default branch renamed upstream and pruned),
+    # so every candidate must resolve to a commit
+    for candidate in ([head] if head else []) + ["origin/main", "origin/master", "main", "master"]:
         if _git(checkout, "rev-parse", "--verify", "--quiet",
                 candidate + "^{commit}") is not None:
             return candidate
@@ -101,21 +105,24 @@ def load_roadmap(checkout):
 def branch_claims(checkout, base, phase):
     """Ids of the tasks the branch checked out in `checkout` claims: tasks
     that gained `started`, or became done, since the merge-base with `base`.
-    Uncommitted edits count, since the working-tree roadmap is compared."""
+    Uncommitted edits count, since the working-tree roadmap is compared.
+    None when there is no base to compare with: no base ref, no merge-base
+    (a shallow clone, unrelated history) or no roadmap or phase there."""
     tasks, _milestones, _gates = build_index(phase)
-    before = {}
     merge_base = _git(checkout, "merge-base", "HEAD", base) if base else None
     text = _git(checkout, "show", f"{merge_base}:{ROADMAP}") if merge_base else None
-    if text:
-        try:
-            data = json.loads(text)
-            phases = data if isinstance(data, list) else [data]
-            same = [p for p in phases
-                    if isinstance(p, dict) and p.get("name") == phase.get("name")]
-            if same:
-                before = build_index(same[-1])[0]
-        except (ValueError, RoadmapError):
-            before = {}
+    if not text:
+        return None
+    try:
+        data = json.loads(text)
+        phases = data if isinstance(data, list) else [data]
+        same = [p for p in phases
+                if isinstance(p, dict) and p.get("name") == phase.get("name")]
+        if not same:
+            return None
+        before = build_index(same[-1])[0]
+    except (ValueError, RoadmapError):
+        return None
     claimed = []
     for tid, task in tasks.items():
         was = before.get(tid, {})
@@ -179,12 +186,18 @@ def session_start(cwd, cli_path, ready_fn):
     if _git(top, "config", "--get", f"branch.{branch}.{MARKER}") == "none":
         return ""
     phase = load_roadmap(top)
-    if phase is None:
+    if phase is None or branch.startswith(SUBAGENT_BRANCH):
         return ""
     claims = branch_claims(top, base, phase)
+    if claims is None:
+        return ""
     if claims:
         return f"Roadmap: branch `{branch}` claims {', '.join(claims)}."
-    return nudge(branch, Path(top), phase, cli_path, ready_fn)
+    text = nudge(branch, Path(top), phase, cli_path, ready_fn)
+    if text:
+        # so the first git command of the session doesn't nudge it again
+        _git(top, "config", f"branch.{branch}.{MARKER}", "asked")
+    return text
 
 
 def post_tool_use(cwd, cli_path, ready_fn):
@@ -196,6 +209,8 @@ def post_tool_use(cwd, cli_path, ready_fn):
     texts = []
     checkouts = None
     for branch, source in recent_branches(common_dir, time.time()):
+        if branch.startswith(SUBAGENT_BRANCH):
+            continue
         if _git(top, "config", "--get", f"branch.{branch}.{MARKER}") is not None:
             continue
         # A local copy of an existing remote branch is someone's work already
@@ -208,8 +223,9 @@ def post_tool_use(cwd, cli_path, ready_fn):
         if phase is None:
             continue
         base = base_ref(checkout)
-        if base and (branch == default_branch_name(base)
-                     or branch_claims(checkout, base, phase)):
+        if base is None or branch == default_branch_name(base):
+            continue
+        if branch_claims(checkout, base, phase) != []:
             continue
         text = nudge(branch, Path(checkout), phase, cli_path, ready_fn)
         if text:

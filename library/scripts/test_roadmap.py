@@ -776,6 +776,13 @@ class ClaimCommand(unittest.TestCase):
         self.assertEqual(self._run("claim", "a", str(jp2))[0], 1)
         self.assertEqual(self._run("claim", "a", str(jp2), "--reformat")[0], 0)
 
+    def test_claim_and_validate_refuse_a_week_date(self):
+        rc, out = self._run("claim", "a", str(self._project([task("a")])), "--date", "2026-W39-5")
+        self.assertEqual(rc, 1)
+        self.assertIn("YYYY-MM-DD", out)
+        ph = phase([{"id": "M1", "name": "m", "tasks": [task("a", started="2026-W39-5")]}])
+        self.assertTrue(any("not a YYYY-MM-DD date" in p for p in roadmap._validate_phase(ph)))
+
     def test_release_refuses_an_unclaimed_task(self):
         rc, out = self._run("release", "a", str(self._project([task("a")])))
         self.assertEqual(rc, 1)
@@ -792,7 +799,8 @@ class ClaimCommand(unittest.TestCase):
 @unittest.skipUnless(shutil.which("git"), "git not installed")
 class Hooks(unittest.TestCase):
     """The hook entry points against real repositories: a bare origin, a
-    clone on main and a roadmap with two ready tasks and one blocked."""
+    clone on main and a roadmap with two ready tasks, one blocked and one
+    done (a done task is what a wrong base would misread as a claim)."""
 
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -808,7 +816,8 @@ class Hooks(unittest.TestCase):
         self.git(self.repo, "checkout", "-q", "-b", "main")
         (self.repo / ".claude").mkdir()
         data = [phase([{"id": "M1", "name": "m", "tasks": [
-            task("a", assignee="Jaz"), task("b"), task("c", "blocked", ["a"])]}])]
+            task("a", assignee="Jaz"), task("b"), task("c", "blocked", ["a"]),
+            task("d", "done")]}])]
         (self.repo / ".claude" / "roadmaps.json").write_text(
             json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
         self.git(self.repo, "add", ".")
@@ -884,6 +893,30 @@ class Hooks(unittest.TestCase):
         self.git(plain, "checkout", "-q", "-b", "feat/q")
         self.assertEqual(self.hook("post-tool-use", plain), "")
         self.assertEqual(self.hook("session-start", plain), "")
+
+    def test_a_dangling_origin_head_falls_back_to_main(self):
+        self.git(self.repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/gone")
+        self.assertEqual(self.hook("session-start", self.repo), "")
+        self.git(self.repo, "checkout", "-q", "-b", "feat/x")
+        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+
+    def test_no_merge_base_is_silent_not_a_false_claim(self):
+        self.git(self.repo, "checkout", "-q", "--orphan", "feat/orphan")
+        self.git(self.repo, "commit", "-qm", "unrelated history")
+        self.assertEqual(self.hook("session-start", self.repo), "")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_claude_code_subagent_worktrees_are_not_nudged(self):
+        wt = self.root / "agent-wt"
+        self.git(self.repo, "worktree", "add", "-q", "--no-track", "-B",
+                 "worktree-agent-a1b2c3", str(wt), "origin/main")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+        self.assertEqual(self.hook("session-start", wt), "")
+
+    def test_a_session_start_nudge_is_not_repeated_by_the_next_git_command(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/fresh")
+        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
 
     def test_bad_input_never_fails_the_hook(self):
         done = self.cli("hook", "post-tool-use", stdin="not json")
