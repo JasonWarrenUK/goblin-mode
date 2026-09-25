@@ -51,10 +51,10 @@
 	--color-out-of-scope-bg: #f6f6f6;
 	--color-gate:            #7d6f00;
 	--color-gate-bg:         #fff9e5;
-	/* Milestone-level derived state (see roadmap-conventions.md): azure is
-	   unclaimed by task status and distinct from sky (structural), so a
-	   part-done milestone reads as "live" rather than the same gray as
-	   untouched work. */
+	/* In progress (see roadmap-conventions.md): azure marks a claimed task
+	   still in play and the milestone state it drives, the way milestone
+	   states share their task-status hues. Distinct from sky (structural),
+	   though close enough that diagram labels also carry a marker. */
 	--color-in-progress:     #0071af;
 	--color-in-progress-bg:  #e8f2ff;
 	/* Dev-chip palette: assignee is free-text with no roster (never
@@ -308,8 +308,10 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 .legend .keynote { flex-basis: 100%; }
 
 .nextup li:not(.nextup-devgroup) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; padding: 0.3rem 0; }
-.nextup-devgroup { display: block; padding: 0; margin-top: 1rem; }
-.nextup-devgroup:first-child { margin-top: 0; }
+/* li.nextup-devgroup, not .nextup-devgroup: .group li (display:flex) would
+   otherwise outrank it and lay a heading out beside its own list */
+.nextup li.nextup-devgroup { display: block; padding: 0; margin-top: 1rem; }
+.nextup li.nextup-devgroup:first-child { margin-top: 0; }
 .nextup-devgroup h4 { margin: 0 0 0.4rem; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .signal { color: var(--muted); font-size: 0.78rem; font-family: "IBM Plex Mono", monospace; margin-left: auto; }
 
@@ -401,6 +403,7 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 			</div>
 			<div class="legend">
 				<span class="key"><i class="sw" style="background:var(--color-todo-bg);border-color:var(--color-todo)"></i>todo</span>
+				<span class="key"><i class="sw" style="background:var(--color-in-progress-bg);border-color:var(--color-in-progress)"></i>in progress ▸</span>
 				<span class="key"><i class="sw" style="background:var(--color-blocked-bg);border-color:var(--color-blocked);border-width:2px"></i>blocked</span>
 				<span class="key"><i class="sw" style="background:var(--color-paused-bg);border-color:var(--color-paused);border-style:dashed"></i>paused</span>
 				<span class="key"><i class="sw" style="background:var(--color-deferred-bg);border-color:var(--color-deferred);border-style:dashed"></i>deferred</span>
@@ -442,10 +445,13 @@ if (DATA.validation && DATA.validation.length) {
 /* Milestone-level state (distinct from task status): computed server-side by
    roadmap.py's milestone_state() and carried as m.state, so the artefact
    never re-derives it and cannot disagree with the CLI's own stats/render
-   paths. States: deferred, done, inProgress, todo, blocked, paused. */
+   paths. States: deferred, done, inProgress, todo, blocked, paused. The
+   same map colours dependency chips by a task's display status, which adds
+   in_progress (a claimed task) and out_of_scope. */
 const STATE_VAR = {
 	deferred: "deferred", done: "done", inProgress: "in-progress",
 	todo: "todo", blocked: "blocked", paused: "paused",
+	in_progress: "in-progress", out_of_scope: "out-of-scope",
 };
 const STATE_RANK = { inProgress: 0, todo: 1, done: 2, blocked: 3, paused: 4, deferred: 5 };
 /* Overview cards and Milestones details share this one ordering, computed
@@ -468,7 +474,7 @@ const devChip = assignee => {
 const depChip = id => {
 	const k = DATA.depKinds?.[id];
 	if (!k) return `<span class="chip">${esc(id)}</span>`;
-	const varName = k.kind === "task" ? STATE_VAR[k.status] ?? "todo"
+	const varName = k.kind === "task" ? STATE_VAR[k.display ?? k.status] ?? "todo"
 		: k.kind === "milestone" ? "milestone" : "gate";
 	return `<span class="chip" style="--chip-fg:var(--color-${varName});--chip-bg:var(--color-${varName}-bg)">${esc(id)}</span>`;
 };
@@ -492,6 +498,7 @@ document.getElementById("milestone-cards").innerHTML = sortedMilestones.map(m =>
    reader scanning top-to-bottom sees the same priority twice, not two
    different orderings of the same data. */
 const GROUPS = [
+	["in_progress", "▸ In Progress",  "in-progress"],
 	["todo",        "○ To Do",        "todo"],
 	["blocked",     "✗ Blocked",      "blocked"],
 	["paused",      "⏸ Paused",       "paused"],
@@ -506,7 +513,7 @@ for (const t of DATA.tasks) (tasksByMilestone[t.milestone] ??= []).push(t);
 document.getElementById("milestone-details").innerHTML = sortedMilestones.map(m => {
 	const tasks = tasksByMilestone[m.id] || [];
 	const groups = GROUPS.map(([status, label, varName]) => {
-		const members = tasks.filter(t => t.status === status);
+		const members = tasks.filter(t => (t.display ?? t.status) === status);
 		if (!members.length) return "";
 		const items = members.map(t => {
 			const deps = (t.dependsOn && t.dependsOn.length)
@@ -629,7 +636,7 @@ const candidateLi = c => `
 		<span class="signal">unblocks ${c.transitiveUnblocks}${c.isMilestoneSink ? " · completes milestone" : ""}</span>
 	</li>`;
 const readyAssignees = new Set(DATA.ready.candidates.map(c => c.assignee).filter(Boolean));
-document.getElementById("ready").innerHTML = !DATA.ready.candidates.length
+const readyHtml = !DATA.ready.candidates.length
 	? "<li>No unblocked tasks: clear a blocker or a gate.</li>"
 	: readyAssignees.size > 1
 	? [...readyAssignees].sort().map(dev => `
@@ -641,6 +648,22 @@ document.getElementById("ready").innerHTML = !DATA.ready.candidates.length
 				<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => !c.assignee).map(candidateLi).join("")}</ul>
 			</li>` : "")
 	: DATA.ready.candidates.map(candidateLi).join("");
+/* Claims in play lead, since someone is already on them; the ready set then
+   gets its own heading so the two lists never read as one. A parked claim
+   (paused/deferred wins over a claim) stays in its Milestones group. */
+const claimLi = c => `
+	<li>
+		<span class="tid">${esc(c.id)}</span>${devChip(c.assignee)}
+		<span class="tasktext">${esc(c.description)}</span>
+		<span class="signal">since ${esc(c.started)}${c.status === "todo" ? "" : ` · ${esc(c.status)}`}</span>
+	</li>`;
+const claimed = (DATA.ready.claimed ?? []).filter(c => c.display === "in_progress");
+document.getElementById("ready").innerHTML = claimed.length
+	? `<li class="nextup-devgroup"><h4 style="color:var(--color-in-progress)">▸ In progress</h4>
+		<ul style="list-style:none;margin:0;padding:0">${claimed.map(claimLi).join("")}</ul></li>
+		<li class="nextup-devgroup"><h4>Ready</h4>
+		<ul style="list-style:none;margin:0;padding:0">${readyHtml}</ul></li>`
+	: readyHtml;
 
 /* Nav highlight */
 const links = [...document.querySelectorAll("nav a")];
