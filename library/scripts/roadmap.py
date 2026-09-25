@@ -21,6 +21,8 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
   claim      ID: record that someone has started a task [--assignee NAME
                                                          --reassign --date]
   release    ID: drop a claim                           [--unassign]
+  hook       EVENT: Claude Code hook entry point (session-start,
+             post-tool-use); reads the hook JSON on stdin, always exits 0
 
 PATH is optional everywhere (after ID for claim and release); without it the
 roadmap is located by walking up
@@ -1161,6 +1163,18 @@ def cmd_release(args) -> int:
     return 0
 
 
+def cmd_hook(args) -> int:
+    """Claude Code hook entry point. A hook must never fail the session, so
+    every error is swallowed and the exit code is always 0."""
+    try:
+        import _roadmap_hooks
+        _roadmap_hooks.run(args.event, sys.stdin, Path(__file__).resolve(),
+                           build_ready)
+    except Exception:  # noqa: BLE001 - a hook must never break the session
+        pass
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
@@ -1232,6 +1246,9 @@ def main(argv=None) -> int:
     sp.add_argument("--unassign", action="store_true",
                     help="also clear the assignee")
 
+    sp = sub.add_parser("hook", help="Claude Code hook entry point")
+    sp.add_argument("event", choices=["session-start", "post-tool-use"])
+
     args = parser.parse_args(argv)
     return {
         "detect": cmd_detect,
@@ -1243,6 +1260,7 @@ def main(argv=None) -> int:
         "render": cmd_render,
         "claim": cmd_claim,
         "release": cmd_release,
+        "hook": cmd_hook,
     }[args.cmd](args)
 
 

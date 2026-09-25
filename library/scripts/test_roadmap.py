@@ -13,6 +13,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -786,6 +787,107 @@ class ClaimCommand(unittest.TestCase):
         problems = roadmap._validate_phase(ph)
         self.assertTrue(any("started 'soon'" in p for p in problems))
         self.assertTrue(any("run roadmap.py claim" in p for p in problems))
+
+
+@unittest.skipUnless(shutil.which("git"), "git not installed")
+class Hooks(unittest.TestCase):
+    """The hook entry points against real repositories: a bare origin, a
+    clone on main and a roadmap with two ready tasks and one blocked."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name).resolve()
+        # HOME and no system config keep the machine's git config out of it
+        self.env = {**os.environ, "HOME": str(self.root), "GIT_CONFIG_NOSYSTEM": "1",
+                    "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                    "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        self.git(self.root, "init", "-q", "--bare", "origin.git")
+        self.git(self.root, "clone", "-q", "origin.git", "repo")
+        self.repo = self.root / "repo"
+        self.git(self.repo, "checkout", "-q", "-b", "main")
+        (self.repo / ".claude").mkdir()
+        data = [phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", assignee="Jaz"), task("b"), task("c", "blocked", ["a"])]}])]
+        (self.repo / ".claude" / "roadmaps.json").write_text(
+            json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        self.git(self.repo, "add", ".")
+        self.git(self.repo, "commit", "-qm", "init")
+        self.git(self.repo, "push", "-q", "-u", "origin", "main")
+        self.git(self.repo, "remote", "set-head", "origin", "main")
+
+    def git(self, cwd, *args):
+        return subprocess.run(["git", "-C", str(cwd), *args], env=self.env,
+                              capture_output=True, text=True, check=True).stdout.strip()
+
+    def cli(self, *args, stdin=""):
+        return subprocess.run([sys.executable, str(Path(roadmap.__file__)), *args],
+                              input=stdin, env=self.env, cwd=self.root,
+                              capture_output=True, text=True)
+
+    def hook(self, event, cwd, **extra):
+        done = self.cli("hook", event, stdin=json.dumps({"cwd": str(cwd), **extra}))
+        self.assertEqual((done.returncode, done.stderr), (0, ""))
+        return done.stdout
+
+    def context(self, out):
+        return json.loads(out)["hookSpecificOutput"]["additionalContext"]
+
+    def test_the_default_branch_is_silent(self):
+        self.assertEqual(self.hook("session-start", self.repo), "")
+
+    def test_a_new_branch_is_nudged_once(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/x")
+        text = self.context(self.hook("post-tool-use", self.repo))
+        self.assertIn("branch `feat/x`", text)
+        self.assertIn("a task a (Jaz); b task b.", text)
+        self.assertNotIn("c task c", text)
+        self.assertEqual(
+            self.git(self.repo, "config", "--get", "branch.feat/x.roadmapClaim"), "asked")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_session_start_nudges_until_the_branch_claims(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/x")
+        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+        self.assertEqual(self.cli("claim", "b", str(self.repo / ".claude" / "roadmaps.json")).returncode, 0)
+        self.assertEqual(self.hook("session-start", self.repo).strip(),
+                         "Roadmap: branch `feat/x` claims b.")
+
+    def test_a_worktree_claim_targets_the_worktree(self):
+        wt = self.root / "wt"
+        self.git(self.repo, "worktree", "add", "-q", str(wt), "-b", "feat/y")
+        text = self.context(self.hook("post-tool-use", self.repo))
+        self.assertIn(f"claim <ID> {wt / '.claude' / 'roadmaps.json'}", text)
+        self.assertIn(f"git -C {wt} commit", text)
+        self.assertNotIn(str(self.repo / ".claude"), text)
+
+    def test_a_decline_silences_the_branch(self):
+        self.git(self.repo, "checkout", "-q", "-b", "chore/x")
+        self.git(self.repo, "config", "branch.chore/x.roadmapClaim", "none")
+        self.assertEqual(self.hook("session-start", self.repo), "")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_a_local_copy_of_a_remote_branch_is_not_nudged(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/remote")
+        self.git(self.repo, "push", "-q", "origin", "feat/remote")
+        self.git(self.repo, "checkout", "-q", "main")
+        self.git(self.repo, "branch", "-q", "-D", "feat/remote")
+        self.git(self.repo, "checkout", "-q", "feat/remote")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_subagents_and_repos_without_a_roadmap_are_silent(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/z")
+        self.assertEqual(self.hook("post-tool-use", self.repo, agent_id="a1"), "")
+        plain = self.root / "plain"
+        self.git(self.root, "init", "-q", "plain")
+        self.git(plain, "commit", "-q", "--allow-empty", "-m", "x")
+        self.git(plain, "checkout", "-q", "-b", "feat/q")
+        self.assertEqual(self.hook("post-tool-use", plain), "")
+        self.assertEqual(self.hook("session-start", plain), "")
+
+    def test_bad_input_never_fails_the_hook(self):
+        done = self.cli("hook", "post-tool-use", stdin="not json")
+        self.assertEqual((done.returncode, done.stdout, done.stderr), (0, "", ""))
 
 
 if __name__ == "__main__":
