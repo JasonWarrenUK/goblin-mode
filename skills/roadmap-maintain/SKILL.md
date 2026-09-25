@@ -16,7 +16,7 @@ Keep the roadmap coherent across its artefacts by recomputing statuses from the 
 
 Shared conventions: `~/.claude/library/references/roadmap-conventions.md`. The CLI is `python3 "$HOME"/.claude/library/scripts/roadmap.py`.
 
-> **Behaviour note.** The recompute (Steps 2–7) is **mechanical**, not inferred. It does *not* guess whether a blocker still applies, does *not* suggest promoting tasks to "in progress" (there is no in-progress state), and does *not* delete completed nodes from the diagram. A task's status is a deterministic function of its `dependsOn`, computed by `roadmap.py recompute`. The **only** sanctioned exception is Step 0: an opt-in, evidence-gated reconciliation against the codebase that proposes `done` calls and blocker-edge removals for you to confirm before anything is written. Outside Step 0, a gate or blocker clears only by a deliberate edit to the graph.
+> **Behaviour note.** The recompute (Steps 2–7) is **mechanical**, not inferred. It does *not* guess whether a blocker still applies, does *not* suggest promoting tasks to "in progress" (that is a claim a person makes, never a status; see Step 2), and does *not* delete completed nodes from the diagram. A task's status is a deterministic function of its `dependsOn`, computed by `roadmap.py recompute`. The **only** sanctioned exception is Step 0: an opt-in, evidence-gated reconciliation against the codebase that proposes `done` calls and blocker-edge removals for you to confirm before anything is written. Outside Step 0, a gate or blocker clears only by a deliberate edit to the graph.
 
 If `$ARGUMENTS` names a milestone (e.g. `M3`), scope your *reporting* to that milestone; the recompute always reads the whole graph, because dependencies cross milestones. If `$ARGUMENTS` says `reconcile` (or the user's intent is "check the roadmap against what's actually built" / "I just finished a batch, update the roadmap"), run Step 0 first.
 
@@ -27,7 +27,7 @@ If `$ARGUMENTS` names a milestone (e.g. `M3`), scope your *reporting* to that mi
 Skip this step entirely on a plain status-sync run. Run it when asked to reconcile, or after the user reports finishing a batch of work.
 
 1. **Detect + load.** Same guard as Step 1: `roadmap.py detect` (stop on exit 2/3). Read `roadmaps.json`.
-2. **Build the candidate set.** From `roadmaps.json` directly, take every task with status `todo`, `blocked`, or `paused`. Skip `done`, `out_of_scope`, and `deferred`; never reconsider those. Note that `roadmap.py ready --json` only returns effective-`todo` tasks, so it under-covers this set on its own; use it purely to *order* the `todo` portion by leverage (`transitiveUnblocks` / `isMilestoneSink`), so the highest-impact tasks get checked first and you can stop early on a large roadmap; `blocked`/`paused` candidates still come from the direct JSON read and are checked because their dependency might now be satisfied in code even though they aren't yet `todo`.
+2. **Build the candidate set.** From `roadmaps.json` directly, take every task with status `todo`, `blocked`, or `paused`. Skip `done`, `out_of_scope`, and `deferred`; never reconsider those. Check claimed tasks (`ready --json`'s `claimed` list) first: someone started them, so they are the likeliest to be built already. Note that `roadmap.py ready --json`'s `candidates` only holds unclaimed effective-`todo` tasks, so it under-covers this set on its own; use it purely to *order* the rest of the `todo` portion by leverage (`transitiveUnblocks` / `isMilestoneSink`), so the highest-impact tasks get checked first and you can stop early on a large roadmap; `blocked`/`paused` candidates still come from the direct JSON read and are checked because their dependency might now be satisfied in code even though they aren't yet `todo`.
 3. **Bound the search by recency.** Get the changed-file set since the last reconciliation: if a prior run left a "last reconciled at `<sha>`" marker (see step 7), use `git diff --name-only <sha>..HEAD`; otherwise use a recent window (`git log --oneline -30` and `git diff --name-only HEAD~30..HEAD`, or the whole history for a small/new repo). Only search within this changed-file set, never the whole tree.
 4. **Search per candidate.** For each candidate, derive 1–3 concrete terms from its `description`/`notes` (a filename, symbol, route, component name) and `Grep`/`Glob` for them within the changed-file set. Read a file only when a search hits.
 
@@ -39,7 +39,7 @@ Skip this step entirely on a plain status-sync run. Run it when asked to reconci
    - **Reverse drift**: a `done` task whose code can no longer be found. Report only; never revert a terminal status automatically.
 6. **Evidence rule (conservatism):**
    - Positive, specific, whole-task evidence only; absence of a match is never evidence of anything.
-   - A partially-implemented task stays exactly where it is (there's no in-progress state to move it to).
+   - A partially-implemented task stays exactly where it is: inference never claims or releases a task (a claim is a person's statement).
    - Never touch `done`, `out_of_scope`, or a root-seeded held `paused`/`deferred`.
    - Never infer a gate as cleared casually: gates are external by design; propose removing a gate dependency only on genuine, specific evidence and only through the gate below.
 7. **Confirmation gate.** Present the proposal before writing anything:
@@ -71,7 +71,9 @@ Read `.claude/roadmaps.json`, the active phase's PHASE file (its `path`), and `d
 
 ### 2. Apply the explicit status changes and edge removals requested
 
-If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first, preserving tab indentation, field order (`id, description, status, dependsOn, softDependsOn, iterative, notes, assignee`), and the `notes`/`iterative`/`assignee`/`softDependsOn` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here: this step edits status only.
+If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first, preserving tab indentation, field order (`id, description, status, dependsOn, softDependsOn, iterative, notes, assignee, started, pr`), and the `notes`/`iterative`/`assignee`/`started`/`softDependsOn` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here: this step edits status only.
+
+If the user says a task is **in progress** (someone has started it), claim it rather than editing its status: ask who is doing it (offer the task's current `assignee`; never infer one) and run `python3 "$HOME"/.claude/library/scripts/roadmap.py claim <ID> [--assignee <name>]`. If they say work on a task has **stopped**, run `... release <ID>` (add `--unassign` only if they want the assignee cleared too). A claim changes no status, has no PHASE file projection and never goes through step 3; `claim` refuses a task that isn't ready to start, so relay its message rather than forcing it.
 
 If the user asks to add or remove a soft (optional, best-effort) link between two nodes, edit the relevant task's `softDependsOn` array directly; see the conventions reference for direction and semantics. Soft edges never go through the recompute in step 3; they're pure data, picked up automatically when the diagram regenerates in step 5.
 
@@ -136,5 +138,5 @@ Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must repor
 - The recompute (Steps 2–7) is mechanical: never infer status from descriptions, external context or likelihood of completion outside Step 0. A gate clears by a deliberate edit (removing the gate ID from `dependsOn` and its `blocks[]`), never by casual judgement.
 - Step 0 is the one sanctioned exception: codebase-inferred `done` calls and blocker-edge removals, always evidence-backed and always confirmed before Step 2 writes them. It is opt-in: only runs on a reconcile request, never silently.
 - `done` and `out_of_scope` are terminal; root-seeded parked tasks are held as authored (details in the conventions reference). Step 0 never re-opens or flips these; reverse drift is reported, not corrected automatically.
-- No in-progress state; if asked to mark something "in progress", clarify the six options.
+- "In progress" is a claim (`claim` / `release` in step 2), never a seventh status: never write `"status": "in_progress"`.
 - Never parallelise steps 3, 5 or 7: those are direct `roadmap.py` invocations, and the script is the deterministic source of truth for their output. Parallel subagents belong only in step 0's per-candidate search and steps 4/6's read-only diff-and-propose passes, never around the script itself.
