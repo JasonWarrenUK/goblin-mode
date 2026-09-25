@@ -61,8 +61,9 @@ it; `claim` stamps today's date unless given another.
 - **Making one:** `claim ID [--assignee NAME]` refuses unless the task's
   effective status is `todo`, it isn't already claimed and any change of
   assignee is explicit (`--reassign`). `release ID [--unassign]` deletes it.
-  Both write `roadmaps.json` only: like `assignee`, a claim has no PHASE.md
-  or overview projection.
+  Both write `roadmaps.json` only. A claim has no PHASE.md task-line
+  annotation and no overview line; the PHASE.md diagram shows it, like the
+  dashboard, once `roadmap:maintain` regenerates the diagram.
 - **What views show:** a claimed task that is `todo` or `blocked` shows as
   in progress; `paused`, `deferred`, `done` and `out_of_scope` win over a
   claim. `display_status()` in `_roadmap_core.py` is the only implementation;
