@@ -325,7 +325,8 @@ def _validate_phase(phase):
 
 
 def _is_iso_date(value):
-    if not isinstance(value, str) or len(value) != 10:
+    # fromisoformat alone also takes week dates (2026-W39-5) on Python 3.11+
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         return False
     try:
         date.fromisoformat(value)
@@ -909,7 +910,7 @@ def cmd_ready(args) -> int:
 def _print_claimed(claimed):
     if not claimed:
         return
-    print(f"in progress: {len(claimed)} claimed task(s)")
+    print(f"claimed: {len(claimed)} task(s)")
     for c in claimed:
         who = f" by {c['assignee']}" if c.get("assignee") else ""
         blocked = "" if c["status"] == "todo" else f" ({c['status']})"
