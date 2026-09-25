@@ -8,14 +8,27 @@ metadata:
   glyph: ᛊ
   family: doc
 disable-model-invocation: false # programmatic (built from commits), and its trigger moment follows pr-land; approval gates the write
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)"]
-arguments: ["targets", "version"]
-argument-hint: "[md|release|app|docs|all] [tag (optional, scopes to one release)] (default targets: md + whatever already exists)"
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)"]
+arguments: ["scope", "targets", "version"]
+argument-hint: "[root|plugin:NAME] [md|release|app|docs|all] [tag (optional, scopes to one release)] (default scope: root; default targets: md + whatever already exists)"
 ---
 
 # Distro: Changelog
 
 One source of truth, projected outward, the same shape as the roadmap system. `CHANGELOG.md` at the repo root is canonical; GitHub Releases, an in-app what's-new surface and a docs-site page are projections built from it, never written independently. A projection that drifts from the file is a bug.
+
+## Scope
+
+The first argument, always optional, always defaulting to `root`:
+
+| Scope | Covers | Tag series | Changelog file |
+|---|---|---|---|
+| `root` (default) | the whole repo | `v*` | `CHANGELOG.md` |
+| `plugin:NAME` | one plugin's own subtree | `NAME-v*` | `<plugin dir>/CHANGELOG.md` |
+
+`plugin:NAME` resolves `NAME` against `.claude-plugin/marketplace.json`'s `plugins[]` entries: `name` gives the tag prefix (`NAME-v`), `source` gives the subtree directory (strip a leading `./`). No matching entry is an error, not a silent fallback to root. This is why the token carries a `kind:` prefix rather than a bare name: `docs` is both a target and a real top-level directory here, so slot one has to be unambiguous on sight. A future non-plugin subtree gets its own kind (`dir:`, `pkg:`) with its own resolver; the parse rule (`root`, or anything containing `:`, is a scope; anything else is a target) never changes.
+
+Every step below runs identically for either scope; only the directory git log is scoped to, the tag prefix svu/`safe-version-next.sh` uses and the `CHANGELOG.md` path change. `$scope` in the steps below means the resolved directory (repo root, or the plugin's subtree) and `$prefix` means the tag prefix (`v` or `NAME-v`).
 
 ## Targets
 
@@ -31,21 +44,21 @@ No arguments: build `md`, then refresh any projection that already exists in the
 
 ## Step 1: Establish the range
 
-First, a **three-way state check** on `CHANGELOG.md`, same idea as `doc-readme`:
+First, a **three-way state check** on `$scope/CHANGELOG.md`, same idea as `doc-readme`:
 
-- **(a) No `CHANGELOG.md`** → build fresh from the earliest tag (or full history if untagged).
+- **(a) No `CHANGELOG.md`** → build fresh from the earliest tag matching `$prefix*` (or full history under `$scope` if untagged).
 - **(b) Placeholder, or already Keep a Changelog-shaped** → a `<!-- doc-changelog: generated ... -->` marker (left as the first line by this skill from now on, mirroring `doc-readme`'s convention) or a file that's already unambiguously in Keep a Changelog structure (a prior unmarked run of this same skill); proceed with the normal forward-generation logic below.
 - **(c) Hand-written `CHANGELOG.md` in some other format/voice** → stop and flag it explicitly before writing anything: offer to convert it to Keep a Changelog format, or to respect the existing format and append new entries in its own voice instead. Don't silently Frankenstein a Keep a Changelog section onto a differently-structured hand-written file.
 
-`git tag --sort=-v:refname` for existing tags; `svu current` for the latest version. The unit of work is tag-to-tag: each version section covers `previousTag..tag`, and `[Unreleased]` covers `latestTag..HEAD`. If `CHANGELOG.md` exists (state b), its most recent version heading shows where it stopped: only generate forward from there; never rewrite sections already published.
+`git tag --sort=-v:refname --list "$prefix*"` for existing tags in this scope's series; `~/.claude/library/scripts/safe-version-next.sh` (with `--plugin NAME --dir $scope` for a plugin scope) rather than bare `svu current`/`svu next`, so the 0.x guard and the plugin's own tag/directory scoping both apply here the same as they do to any other tag this config creates. The unit of work is tag-to-tag within this series: each version section covers `previousTag..tag` (both `$prefix`-matching), and `[Unreleased]` covers `latestTag..HEAD`, in both cases limited to commits touching `$scope` (`-- $scope` on every `git log`, a no-op for the root scope). If `CHANGELOG.md` exists (state b), its most recent version heading shows where it stopped: only generate forward from there; never rewrite sections already published.
 
-`$version` names a tag: scope the run to that single release (`previousTag..$version`), leaving every other section untouched. This is pr-land's hand-off; it can invoke `/doc-changelog md {tag}` right after tagging.
+`$version` names a tag in this scope's series: scope the run to that single release (`previousTag..$version`), leaving every other section untouched. This is pr-land's hand-off; it can invoke `/doc-changelog root md {tag}` or `/doc-changelog plugin:NAME md {tag}` right after tagging.
 
 **Promote, don't regenerate:** when a new tag lands and `[Unreleased]` already carries curated entries, promote that content into the new version section, verify nothing in the tag range is missing (add what is), and rebuild `[Unreleased]` from `newTag..HEAD`. Hand-polish survives; only genuinely new material gets derived.
 
 ## Step 2: Build the canonical entries
 
-For each version in range, read `git log --first-parent previousTag..tag --format='%h %s%n%b'`: with merge-commit landings this yields one commit per merged PR (plus direct-to-main commits), so each entry derives from a PR-level change rather than branch-internal noise. Stacked-PR landings preserve this: a stack merge lands each layer bottom-up with its own merge commit, so first-parent still gives one entry per PR. Fall back to the full log only when the first-parent output is too thin to describe the release. Map conventional-commit types to Keep a Changelog sections:
+For each version in range, read `git log --first-parent previousTag..tag --format='%h %s%n%b' -- $scope`: with merge-commit landings this yields one commit per merged PR (plus direct-to-main commits), so each entry derives from a PR-level change rather than branch-internal noise. The `-- $scope` limit is what makes a plugin scope mean anything: a PR that touches both root config and a plugin (docs plus `marketplace/roadmap/**` in one PR, say) contributes an entry to both changelogs independently, each reading only the part of that PR's diff under its own scope. Stacked-PR landings preserve this: a stack merge lands each layer bottom-up with its own merge commit, so first-parent still gives one entry per PR. Fall back to the full log (still `-- $scope`-limited) only when the first-parent output is too thin to describe the release. Map conventional-commit types to Keep a Changelog sections:
 
 | Commit type | Section |
 |---|---|
@@ -57,7 +70,7 @@ For each version in range, read `git log --first-parent previousTag..tag --forma
 
 Entries describe the change from the user's side ("Exports now include timestamps"), not the commit's ("add timestamp to export serialiser"). Collapse commit-level noise: one entry per coherent change, not per commit. British spelling; no em-dashes.
 
-## Step 3: Write `CHANGELOG.md`
+## Step 3: Write `$scope/CHANGELOG.md`
 
 Keep a Changelog structure: `# Changelog` intro, `## [Unreleased]`, then `## [x.y.z] - YYYY-MM-DD` sections newest first, comparison links at the bottom when the repo is on GitHub. On a fresh build (state a/b from Step 1), the very first line is the marker comment: `<!-- doc-changelog: generated {date}. Delete this line once you hand-edit this file. -->`.
 
@@ -83,9 +96,9 @@ Show the draft (or the diff, when updating) and **await approval** before writin
 
 Only after `md` is approved and written:
 
-- **`release`**: for each new tag, `gh release create {tag} --title {tag} --notes-file -` fed with that version's section verbatim (`gh release edit` when the release exists). The Release body is the section, not a rewrite.
-- **`app`**: emit the structured form the app consumes. If none exists yet and the user asked for `app`, propose the simplest fit for the stack (for SvelteKit: a `changelog.json` importable by a route) and build it from the same entries.
-- **`docs`**: update the docs-site changelog page from the same sections, matching that site's existing format.
+- **`release`**: for each new tag (in this scope's `$prefix` series), `gh release create {tag} --title {tag} --notes-file -` fed with that version's section verbatim (`gh release edit` when the release exists). The Release body is the section, not a rewrite. A plugin's `NAME-v*` tags get their own GitHub Releases, distinct from the root `v*` series; both point at the same commit when a landing bumped both.
+- **`app`**: emit the structured form the app consumes. Root scope only; a plugin has no in-app what's-new surface of its own. If none exists yet and the user asked for `app`, propose the simplest fit for the stack (for SvelteKit: a `changelog.json` importable by a route) and build it from the same entries.
+- **`docs`**: update the docs-site changelog page from the same sections, matching that site's existing format. Root scope only, for the same reason.
 
 ## Step 5: Report
 
