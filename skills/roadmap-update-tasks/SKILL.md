@@ -84,7 +84,7 @@ No existing skill appends a milestone to a *live* phase (`roadmap-create` builds
 
 **Incoming** (`dependsOn`): tasks this new task requires. An entry may be a **task ID**, a **milestone ID** (`M1`: resolves done only when all its tasks are done), or an **external gate ID** (from `externalGates`). If a gate is an incoming dependency, the gate's `blocks[]` must gain this task ID (parity).
 
-**Outgoing**: existing tasks that this new task should now block; add the new ID to their `dependsOn` (and mirror any gate parity). Completing this task may change those tasks' computed status (the recompute handles that).
+**Outgoing**: existing tasks that this new task should now block; add the new ID to their `dependsOn` (and mirror any gate parity). Completing this task may change those tasks' computed status (the recompute handles that). If one of them is claimed (it has a `started` date), say so before adding the edge: the new dependency blocks work someone has already started.
 
 **Soft (`softDependsOn`):** an optional, best-effort link worth drawing but not worth blocking on; ask if the relationship is a real dependency or a soft one before defaulting to `dependsOn`. Renders dotted, imposes no status, no cycle constraint (see conventions reference for direction).
 

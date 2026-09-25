@@ -11,6 +11,10 @@ the dependency graph under the precedence rule
 with `done` and `out_of_scope` terminal, and root-seeded `paused`/`deferred`
 (a parked status on a task with empty `dependsOn`) held as authored.
 
+A claim is not a status: it is the optional `started` date a person sets when
+they begin a task. Recompute never reads it; views show a claimed task as in
+progress through display_status().
+
 This module is imported by roadmap.py (the single CLI entry point), which
 lives beside it in ~/.claude/library/scripts/. It has no dependencies outside
 the standard library and requires Python 3.8+. British spelling throughout.
@@ -25,6 +29,8 @@ RANK = {"todo": 0, "blocked": 1, "paused": 2, "deferred": 3}
 TERMINAL = {"done", "out_of_scope"}
 VALID_STATUSES = {"todo", "blocked", "paused", "deferred", "done", "out_of_scope"}
 IMPOSABLE_STATUSES = {"blocked", "paused", "deferred"}
+# The display status of a claimed task that is still actionable. Never stored.
+IN_PROGRESS = "in_progress"
 
 
 class RoadmapError(Exception):
@@ -190,6 +196,23 @@ def is_held(t):
     if s in ("paused", "deferred") and not t.get("dependsOn"):
         return True
     return False
+
+
+def is_claimed(task):
+    """True when someone has claimed the task: it carries a `started` date."""
+    return bool(task.get("started"))
+
+
+def display_status(task, status):
+    """The status a view shows for a task whose status is `status`.
+
+    A claimed task that is still actionable (todo, or blocked by a
+    dependency) shows as in progress. A parked or terminal status wins over a
+    claim: paused/deferred is a decision to stop, done/out_of_scope is final.
+    """
+    if is_claimed(task) and status in ("todo", "blocked"):
+        return IN_PROGRESS
+    return status
 
 
 def find_cycles(tasks, milestones=None):
