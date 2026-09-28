@@ -5,6 +5,23 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-09-28
+
+### Breaking
+
+- The roadmap dashboard's milestone colour rules are rewritten: an empty milestone now flags as its own bug state instead of silently reading as todo, deferred status cascades through release tiers, and `paused` is dropped from milestone-level state (it now only applies to individual tasks). `stats --json`'s `milestones[].state` no longer includes `paused`, and `empty`/`deferred` mean something different than before.
+
+### Added
+
+- The roadmap dashboard groups milestones by tier within a phase, in collapsible sections that expand once a tier is live, with dev chips showing who's assigned work in each milestone.
+- The dependency graph's layout direction (top-down or left-right) is now chosen automatically based on the shape of the graph, rather than fixed.
+- `next-task-group` can now group tasks by dev, alongside the existing milestone and topic groupings.
+
+### Fixed
+
+- A milestone with a deferred task and no other actionable work now correctly shows as shelved instead of todo or in-progress.
+- The dashboard's Overview section grid no longer collapses a tiered phase's milestones into a single narrow column.
+
 ## [2.6.0] - 2026-09-25
 
 ### Added
