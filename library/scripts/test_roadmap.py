@@ -407,6 +407,17 @@ class BuildStatsTiers(unittest.TestCase):
         self.assertEqual(by_id["M2"]["state"], "empty")
         self.assertEqual(by_id["M3"]["state"], "todo")
 
+    def test_milestones_carry_their_own_tier(self):
+        # overview_layout() reads tier back from here rather than
+        # re-deriving it from the name; a dropped field would silently
+        # send it back to milestone_tier() and split the two computations.
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a")]},
+            {"id": "M2", "name": "Extra (Secondary)", "tasks": [task("b")]}])
+        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        self.assertEqual(by_id["M1"]["tier"], 0)
+        self.assertEqual(by_id["M2"]["tier"], 1)
+
 
 def _layout(ph):
     stats = roadmap.build_stats(ph)

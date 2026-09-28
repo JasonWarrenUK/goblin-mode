@@ -566,7 +566,7 @@ def build_stats(phase):
             "id": m["id"], "name": m["name"], "total": m["total"],
             "done": m["done"], "byStatus": m["byStatus"],
             "inProgress": m["inProgress"], "donePct": m["donePct"],
-            "state": state,
+            "tier": m["tier"], "state": state,
         })
     return {
         "phase": phase.get("name"),
@@ -631,7 +631,10 @@ def overview_layout(phase, stats, ready):
     Tier groups (only built when >=1 milestone has tier >= 1; a phase with
     no tiered milestones gets one flat, unwrapped list instead):
       - a tier is "open" once every milestone in every lower tier reads
-        `done` (mirrors milestone_state's own cascade, computed once here)
+        `done` (a separate readback of the same tiers-with-unfinished-work
+        signal build_stats()'s own cascade already used, kept here because
+        this function additionally needs each tier's open/closed flag,
+        which milestone_state()'s per-milestone `state` doesn't expose)
       - a group is expanded only when its tier is open AND it contains a
         ready candidate or a claimed in-progress task; a tier that is not
         yet open stays collapsed regardless of what it contains
@@ -645,7 +648,9 @@ def overview_layout(phase, stats, ready):
     by_id = {m["id"]: m for m in stats["milestones"]}
     enriched = []
     for mid, m in by_id.items():
-        tier = milestone_tier(m["name"])
+        # tier comes straight from build_stats(), which already computed it
+        # via milestone_tier(); never re-derive it from the name here.
+        tier = m["tier"]
         devs = sorted({t.get("assignee") for t in tasks_by_milestone.get(mid, [])
                        if t.get("assignee")})
         enriched.append({**m, "tier": tier,
