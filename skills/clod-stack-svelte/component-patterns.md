@@ -1,29 +1,39 @@
 # Component Patterns
 
-Detail for `svelte-ninja`: slots and composition.
+Detail for `clod-stack-svelte`: slots and composition.
 
-## Slot Patterns
+## Snippet Patterns
 
-**Basic slot**:
+Svelte 5 replaces slots with snippets: `{@render children()}` on the creation side, `{#snippet name()}...{/snippet}` on the usage side.
+
+**Basic content**:
 ```svelte
 <!-- Card.svelte -->
+<script>
+	let { children } = $props();
+</script>
+
 <div class="card">
-	<slot />
+	{@render children()}
 </div>
 ```
 
-**Named slots**:
+**Named snippets**:
 ```svelte
 <!-- Modal.svelte -->
+<script>
+	let { header, children, footer } = $props();
+</script>
+
 <div class="modal">
 	<header>
-		<slot name="header" />
+		{@render header?.()}
 	</header>
 	<main>
-		<slot />
+		{@render children()}
 	</main>
 	<footer>
-		<slot name="footer" />
+		{@render footer?.()}
 	</footer>
 </div>
 ```
@@ -31,29 +41,29 @@ Detail for `svelte-ninja`: slots and composition.
 **Usage**:
 ```svelte
 <Modal>
-	<svelte:fragment slot="header">
+	{#snippet header()}
 		<h2>Title</h2>
-	</svelte:fragment>
-	
+	{/snippet}
+
 	<p>Content here</p>
-	
-	<svelte:fragment slot="footer">
+
+	{#snippet footer()}
 		<button>Close</button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>
 ```
 
-**Slot props**:
+**Snippet parameters** (replaces slot props):
 ```svelte
 <!-- List.svelte -->
 <script>
-	let { items } = $props();
+	let { items, children } = $props();
 </script>
 
 <ul>
 	{#each items as item}
 		<li>
-			<slot {item} />
+			{@render children(item)}
 		</li>
 	{/each}
 </ul>

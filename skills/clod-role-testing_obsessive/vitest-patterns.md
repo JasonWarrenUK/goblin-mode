@@ -1,6 +1,6 @@
 # Vitest Setup and Test Patterns
 
-Detail for `testing-obsessive`: mechanical how-to once risk assessment (see SKILL.md) has decided what to test.
+Detail for `clod-role-testing_obsessive`: mechanical how-to once risk assessment (see SKILL.md) has decided what to test.
 
 ## Vitest Setup
 
@@ -125,16 +125,15 @@ it('should accept and display custom label', () => {
 ```
 
 ### Testing Events
+Svelte 5 replaces `createEventDispatcher`/`$on` with callback props: pass a `vi.fn()` as the prop and assert it was called.
 ```typescript
-it('should emit custom event on click', async () => {
-  const { component } = render(Button);
-  
+it('should call onclick on click', async () => {
   const handleClick = vi.fn();
-  component.$on('click', handleClick);
-  
+  render(Button, { props: { onclick: handleClick } });
+
   const button = screen.getByRole('button');
   await fireEvent.click(button);
-  
+
   expect(handleClick).toHaveBeenCalledTimes(1);
 });
 ```

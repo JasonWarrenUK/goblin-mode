@@ -1,6 +1,6 @@
 # Performance Optimisation and Common Patterns
 
-Detail for `svelte-ninja`.
+Detail for `clod-stack-svelte`.
 
 ## Performance Optimisation
 
@@ -9,7 +9,7 @@ Detail for `svelte-ninja`.
 <script>
 	import { onMount } from 'svelte';
 	
-	let HeavyComponent;
+	let HeavyComponent = $state();
 	
 	onMount(async () => {
 		const module = await import('./HeavyComponent.svelte');
@@ -18,7 +18,7 @@ Detail for `svelte-ninja`.
 </script>
 
 {#if HeavyComponent}
-	<svelte:component this={HeavyComponent} />
+	<HeavyComponent />
 {/if}
 ```
 
@@ -110,6 +110,7 @@ Detail for `svelte-ninja`.
 ### Modal Management
 ```svelte
 <script>
+	let { children } = $props();
 	let isOpen = $state(false);
 	
 	$effect(() => {
@@ -128,7 +129,7 @@ Detail for `svelte-ninja`.
 {#if isOpen}
 	<div class="modal-backdrop" onclick={() => isOpen = false}>
 		<div class="modal" onclick={(e) => e.stopPropagation()}>
-			<slot />
+			{@render children()}
 			<button onclick={() => isOpen = false}>Close</button>
 		</div>
 	</div>
