@@ -637,12 +637,12 @@ class Mermaid(unittest.TestCase):
 
 
 class GraphDirection(unittest.TestCase):
-    """choose_direction() picks by estimated fit scale against the artefact's
-    usual diagram box, not by reading-convention intuition: at the node/box
-    sizes in roadmap.py, a long thin chain's height fits the box better than
-    its width would if laid sideways, so it comes out TD; a wide fan comes
-    out LR for the mirror reason. Confirmed with Jason to keep that literal
-    rule rather than bias toward the opposite convention."""
+    """choose_direction() picks by estimated width only: the artefact's
+    diagram shell has no height cap (the page scrolls past a tall diagram)
+    but its width is bounded by the layout column, measured against the
+    real template rather than assumed. A long thin chain is narrow in TD
+    (one node wide) and would sprawl sideways in LR (every layer end to
+    end), so it picks TD; a wide fan is the mirror case and picks LR."""
 
     def _chain(self, depth=12):
         tasks = [task("t0")]

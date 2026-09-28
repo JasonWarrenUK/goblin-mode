@@ -901,10 +901,6 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
 # be in the right ballpark to pick a direction, not to predict exact pixels.
 _NODE_WIDTH, _NODE_HEIGHT = 220, 70
 _RANK_GAP, _NODE_GAP = 60, 20
-# The diagram shell's usual visible box before the reader has to pan/zoom
-# (see .diagram-shell / .mermaid-wrap in the template); used only to compare
-# the two candidate layouts' required zoom-out, not as a hard limit.
-_DIAGRAM_BOX_W, _DIAGRAM_BOX_H = 950, 700
 
 
 def _longest_path_layers(ids, edges):
@@ -941,13 +937,19 @@ def choose_direction(phase):
     from the same live nodes/edges mermaid_source(omit_done=True) draws (see
     roadmap-conventions.md).
 
+    Width-only fit: the diagram shell (`.mermaid-wrap` in the template) has
+    no height cap, the SVG renders at natural size and the page simply
+    scrolls past a tall diagram, but its width is bounded by the layout
+    column (measured against the real template, not estimated). So the
+    only real trade-off between directions is which one needs less
+    horizontal zoom-out, not a two-axis "which box fits better" guess.
+
     Layers the live graph by longest path (_longest_path_layers): L layers,
-    widest layer W nodes. Estimates each direction's footprint from fixed
-    node-size/gap constants (TD: W nodes across, L ranks down; LR: the
-    transpose), then picks whichever needs less zoom-out to fit the
-    artefact's usual diagram box (min(box/estimated) on each axis; larger
-    wins). A tie keeps TD, today's fixed default, so an untiered/trivial
-    phase's diagram never changes shape from a coin flip.
+    widest layer W nodes. TD's width is W nodes side by side (node gap
+    between them); LR's width is L ranks laid out left to right (rank gap
+    between them). Whichever is narrower wins; a tie keeps TD, today's
+    fixed default, so an untiered/trivial phase's diagram never changes
+    shape from a coin flip.
     """
     graph, skipped, live_edges = _live_graph(phase, omit_done=True)
     ids = [n["id"] for n in graph["nodes"] if n["id"] not in skipped]
@@ -960,20 +962,12 @@ def choose_direction(phase):
     num_layers = max(layer.values(), default=0) + 1
     widest = max(layer_counts.values(), default=1)
 
-    def fit_scale(w, h):
-        return min(_DIAGRAM_BOX_W / w, _DIAGRAM_BOX_H / h)
-
-    # TD: layers stack downward (rank gap on the height axis), siblings
-    # within a layer sit side by side (node gap on the width axis).
+    # TD: siblings within the widest layer sit side by side (node gap).
     td_w = widest * _NODE_WIDTH + max(widest - 1, 0) * _NODE_GAP
-    td_h = num_layers * _NODE_HEIGHT + max(num_layers - 1, 0) * _RANK_GAP
-    # LR: layers run left to right (rank gap on the width axis), siblings
-    # within a layer stack top to bottom (node gap on the height axis).
+    # LR: ranks run left to right (rank gap between them).
     lr_w = num_layers * _NODE_WIDTH + max(num_layers - 1, 0) * _RANK_GAP
-    lr_h = widest * _NODE_HEIGHT + max(widest - 1, 0) * _NODE_GAP
 
-    td_scale, lr_scale = fit_scale(td_w, td_h), fit_scale(lr_w, lr_h)
-    return "LR" if lr_scale > td_scale else "TD"
+    return "LR" if lr_w < td_w else "TD"
 
 
 def cmd_graph(args) -> int:
