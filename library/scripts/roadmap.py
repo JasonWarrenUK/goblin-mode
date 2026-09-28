@@ -186,13 +186,23 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
     2. tier >= 1 and a lower tier is not yet fully done -> `deferred`
        (cascade: a Tertiary milestone waits on Secondary too, not only on
        Primary)
-    3. >=1 done task, or a claimed member in play -> `inProgress` (this
+    3. no actionable member (todo/blocked/paused) left, and >=1 member is
+       `deferred` -> `deferred` (a milestone-level gate, needing no tier
+       suffix, distinct from the cascade in rule 2. Fires ahead of
+       `inProgress` below it: a milestone with one deferred task and nine
+       done ones is still "shelved" even though donePct is 90, the same
+       deliberate-call-outranks-percentage reading main used before the
+       tier rewrite. It does NOT fire while actionable work remains: a
+       milestone with five todo tasks and one deferred one is still live
+       work to pick up, not a shelved milestone; hiding those five behind
+       "deferred" would contradict next-task-group's own ready-set)
+    4. >=1 done task, or a claimed member in play -> `inProgress` (this
        outranks "all unfinished tasks blocked": a milestone with some done
        work and the rest blocked still reads as live and moving, confirmed
        against Jason's own worked example: 2 done + 3 blocked -> inProgress,
        not blocked)
-    4. every unfinished task is blocked (out_of_scope ignored) -> `blocked`
-    5. otherwise -> `todo`
+    5. every unfinished task is blocked (out_of_scope ignored) -> `blocked`
+    6. otherwise -> `todo`
 
     `total` is the task count; 0 (or omitted) reads as empty. Every real
     caller passes it explicitly (build_stats() always knows the count).
@@ -202,6 +212,10 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
     if milestone_all_done(by_status, total):
         return "done"
     if tier >= 1 and not lower_tiers_done:
+        return "deferred"
+    actionable = (by_status.get("todo", 0) + by_status.get("blocked", 0)
+                  + by_status.get("paused", 0))
+    if actionable == 0 and by_status.get("deferred", 0) > 0:
         return "deferred"
     if by_status.get("done", 0) > 0 or in_progress > 0:
         return "inProgress"

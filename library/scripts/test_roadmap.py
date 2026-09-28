@@ -244,7 +244,8 @@ class MilestoneState(unittest.TestCase):
     """Milestone-level derived state (distinct from task status): drives the
     artefact's Overview/Milestones colour and sort (see roadmap-conventions.md
     and library/templates/roadmap-artefact.html). Rule order: empty -> done
-    -> deferred (tier cascade) -> inProgress -> blocked -> todo."""
+    -> deferred (tier cascade) -> deferred (member gate) -> inProgress ->
+    blocked -> todo."""
 
     def test_in_progress_when_partially_done(self):
         self.assertEqual(
@@ -272,7 +273,7 @@ class MilestoneState(unittest.TestCase):
 
     def test_in_progress_outranks_all_blocked(self):
         # Some done work with the rest blocked still reads as live and
-        # moving, not stuck: inProgress (rule 3) outranks blocked (rule 4).
+        # moving, not stuck: inProgress (rule 4) outranks blocked (rule 5).
         by_status = {"done": 2, "blocked": 3}
         self.assertEqual(
             roadmap.milestone_state(by_status, 40, total=5), "inProgress")
@@ -311,6 +312,31 @@ class MilestoneState(unittest.TestCase):
             roadmap.milestone_state(by_status, 0, total=2, tier=0,
                                     lower_tiers_done=False),
             "todo")
+
+    def test_member_deferred_fires_without_a_tier(self):
+        # A plain, untiered milestone (tier 0) can still shelve via a
+        # deferred member; this reading needs no (Secondary)/(Tertiary)
+        # suffix, unlike the tier-cascade deferred rule above.
+        by_status = {"deferred": 4}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 0, total=4), "deferred")
+
+    def test_member_deferred_outranks_done_percentage(self):
+        # A milestone with one deferred task and nine done ones is still
+        # "shelved" even at donePct 90: the deliberate call outranks
+        # percentage, matching the reading main used before the tier
+        # rewrite (rule 3 fires ahead of inProgress, rule 4).
+        by_status = {"done": 9, "deferred": 1}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 90, total=10), "deferred")
+
+    def test_member_deferred_never_fires_while_actionable_work_remains(self):
+        # Five todo tasks are still live work to pick up, not a shelved
+        # milestone: hiding them behind "deferred" would contradict
+        # next-task-group's own ready-set, which still lists them.
+        by_status = {"todo": 5, "deferred": 1}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 0, total=6), "todo")
 
 
 class MilestoneTier(unittest.TestCase):

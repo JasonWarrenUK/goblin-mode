@@ -179,14 +179,15 @@ written back to `roadmaps.json`, never used by `recompute`). The milestone
 sort is a separate computation that never reads `state` (see Milestone sort
 and tier grouping below). `validate` does separately flag an empty milestone
 (see Empty milestones below), but that check reads task counts directly
-rather than going through `milestone_state()`. Six states; first true rule
-wins:
+rather than going through `milestone_state()`. Six states (`deferred`
+fires from two different rules); first true rule wins:
 
 | State | Fires when | Colour |
 |---|---|---|
 | `empty` | zero tasks (a bug, see below) | red (shares the blocked hue) |
 | `done` | every member `done`/`out_of_scope` | green |
-| `deferred` | tier ≥ 1 and any milestone in a lower tier isn't `done` yet (see Tiers) | cinnamon (shares the task-status hue) |
+| `deferred` (tier cascade) | tier ≥ 1 and any milestone in a lower tier isn't `done` yet (see Tiers) | cinnamon (shares the task-status hue) |
+| `deferred` (member gate) | no actionable member (`todo`/`blocked`/`paused`) left, and ≥1 member is `deferred`; needs no tier suffix, only the cascade above does. Outranks done percentage: one deferred task and nine done ones still reads `deferred` at 90% | cinnamon |
 | `inProgress` | ≥1 member `done`, or a member shows in progress (a claim); outranks "every unfinished member blocked" below it, so some done work plus the rest blocked still reads live | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
 | `blocked` | every unfinished member (done/out_of_scope excluded) is `blocked` | red |
 | `todo` | otherwise | gray |
@@ -194,9 +195,15 @@ wins:
 An all-`out_of_scope` milestone (struck-from-play) reads as `done`: nothing
 remains actionable, whether it finished or was struck out. A tier's deferred
 state cascades: a Tertiary milestone waits on every milestone in Secondary
-being `done` too, not only on Primary (see Tiers). `paused` is no longer a
-milestone-level state (a paused member falls through to `blocked`/`todo` on
-its own merits); it remains a task-level status.
+being `done` too, not only on Primary (see Tiers). A plain, untiered
+milestone can still read `deferred` too, from its own member gate rather
+than the cascade: a milestone with one deferred task and nine done ones is
+"shelved" even though donePct is 90, the deliberate call outranking
+percentage. This gate never fires while actionable work remains: a
+milestone with five `todo` tasks and one `deferred` one stays `todo`, since
+those five are still live work to pick up, not a shelved milestone. `paused`
+is no longer a milestone-level state (a paused member falls through to
+`blocked`/`todo` on its own merits); it remains a task-level status.
 
 ### Empty milestones
 
