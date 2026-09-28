@@ -167,13 +167,13 @@ It DOES mean:
 
 ## Integration Points
 
-### With domain-modeller
+### With clod-role-domain_modeller
 Domain modelling often reveals complexity. Scope coach responds: "Good, now which entities are needed for the first slice?"
 
 ### With implementation-planner
 Implementation plans can grow unbounded. Scope coach forces: "Which steps produce a shippable unit?"
 
-### With ethics-reviewer
+### With clod-lens-ethics
 Ethics is a constraint, not a scope-expansion tool. Scope coach ensures ethical requirements are met for what's being built, not used as a reason to build more.
 
 ---

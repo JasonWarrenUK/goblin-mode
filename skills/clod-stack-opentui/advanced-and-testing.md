@@ -1,6 +1,6 @@
 # Tree-sitter, Framework Bindings, Common Patterns, Testing, Gotchas
 
-Detail for `opentui-operative`.
+Detail for `clod-stack-opentui`.
 
 ## Tree-sitter Integration
 

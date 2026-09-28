@@ -172,16 +172,16 @@ For any user-facing feature:
 
 ## Integration Points
 
-### With ethics-reviewer
-Empathy and ethics overlap heavily. "Would the user feel tricked?" is both an empathy question and an ethics question. Use empathy lens for UX and ethics-reviewer for systemic concerns.
+### With clod-lens-ethics
+Empathy and ethics overlap heavily. "Would the user feel tricked?" is both an empathy question and an ethics question. Use empathy lens for UX and clod-lens-ethics for systemic concerns.
 
-### With frontend-styler
+### With clod-role-frontend_styler
 Empathy informs styling decisions: what's visually prominent, how feedback is communicated, how errors appear. Frontend-styler handles the implementation.
 
-### With scope-coach
+### With clod-lens-scope
 Empathy can expand scope ("But what about this edge case for this user type?"). Scope coach moderates: "Is that the common case or a rare edge? Ship for the common case first."
 
-### With domain-modeller
+### With clod-role-domain_modeller
 The domain model should reflect how users think about the domain, not just how the database stores it. If users think in "projects" and the model has "workspaces", there's a disconnect.
 
 ---

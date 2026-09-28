@@ -1,7 +1,7 @@
 # React → Svelte 5 (runes) idiom mapping
 
 Reference for porting React/JSX code to Svelte 5. Used by
-`project-scaffold-from_artefact` Step 4; applies to any React→Svelte port.
+`import-scaffold_artefact` Step 4; applies to any React→Svelte port.
 
 | React (JSX) | Svelte 5 (runes) | Notes |
 |-------------|------------------|-------|

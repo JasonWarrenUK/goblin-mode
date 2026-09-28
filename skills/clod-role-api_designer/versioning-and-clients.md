@@ -1,6 +1,6 @@
 # Versioning, Type-Safe Clients, OpenAPI and Testing
 
-Detail for `role-expert-api_designer`: API lifecycle patterns beyond initial design.
+Detail for `clod-role-api_designer`: API lifecycle patterns beyond initial design.
 
 ## API Versioning
 

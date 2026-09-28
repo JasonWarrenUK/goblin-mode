@@ -1,6 +1,6 @@
 # Privacy-by-Default Patterns
 
-Detail for `role-expert-api_designer`.
+Detail for `clod-role-api_designer`.
 
 ## Principle
 

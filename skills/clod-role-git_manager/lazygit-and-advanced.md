@@ -1,6 +1,6 @@
 # LazyGit Integration and Advanced Patterns
 
-Detail for `git-manager`.
+Detail for `clod-role-git_manager`.
 
 ## LazyGit Integration
 

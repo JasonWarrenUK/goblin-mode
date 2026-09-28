@@ -1,6 +1,6 @@
 # SvelteKit Routing, Data Loading, Form Actions
 
-Detail for `svelte-ninja`.
+Detail for `clod-stack-svelte`.
 
 ## SvelteKit Routing
 

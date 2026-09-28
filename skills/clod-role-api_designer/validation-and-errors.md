@@ -1,6 +1,6 @@
 # Validation and Error Handling
 
-Detail for `role-expert-api_designer`: Zod validation and error-handling patterns.
+Detail for `clod-role-api_designer`: Zod validation and error-handling patterns.
 
 ## Validation with Zod
 

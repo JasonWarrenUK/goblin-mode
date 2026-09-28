@@ -97,7 +97,7 @@ Cover:
   footnote (see the reference doc).
 
 Once agreed, **write the outcome into the CSS as explicit mapping-notes
-comments**, the way `those-who-came-before/site/assets/site.css` does:
+comments**, the way `site/assets/site.css` does:
 document *why* each alias maps to which theme token. This first artefact becomes
 the self-documenting spec Step 2 reads back on every artefact after it in
 this project; nobody should have to re-ask these questions for the second

@@ -1,6 +1,6 @@
 # Anti-Patterns and Migration Strategies
 
-Detail for `Data Ontologist`.
+Detail for `clod-role-data_ontologist`.
 
 ## Anti-Patterns
 
