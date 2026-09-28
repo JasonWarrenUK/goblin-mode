@@ -243,51 +243,276 @@ class Stats(unittest.TestCase):
 class MilestoneState(unittest.TestCase):
     """Milestone-level derived state (distinct from task status): drives the
     artefact's Overview/Milestones colour and sort (see roadmap-conventions.md
-    and library/templates/roadmap-artefact.html)."""
+    and library/templates/roadmap-artefact.html). Rule order: empty -> done
+    -> deferred (tier cascade) -> deferred (member gate) -> inProgress ->
+    blocked -> todo."""
 
     def test_in_progress_when_partially_done(self):
         self.assertEqual(
-            roadmap.milestone_state({"todo": 1, "done": 1}, 50), "inProgress")
+            roadmap.milestone_state({"todo": 1, "done": 1}, 50, total=2),
+            "inProgress")
 
     def test_todo_when_nothing_started(self):
-        self.assertEqual(roadmap.milestone_state({"todo": 2}, 0), "todo")
+        self.assertEqual(
+            roadmap.milestone_state({"todo": 2}, 0, total=2), "todo")
 
     def test_done_when_fully_done(self):
-        self.assertEqual(roadmap.milestone_state({"done": 2}, 100), "done")
+        self.assertEqual(
+            roadmap.milestone_state({"done": 2}, 100, total=2), "done")
 
-    def test_deferred_fires_even_at_high_done_pct(self):
-        # One deferred task, nine done: still reads as shelved, not 90% done,
-        # because deferred is a deliberate call that outranks percentage.
-        by_status = {"done": 9, "deferred": 1}
-        self.assertEqual(roadmap.milestone_state(by_status, 90), "deferred")
-
-    def test_deferred_requires_no_actionable_member(self):
-        # A deferred task alongside a live todo is NOT shelved overall: work
-        # is still actionable, so the milestone should not read as parked.
-        by_status = {"todo": 1, "deferred": 1}
-        self.assertNotEqual(roadmap.milestone_state(by_status, 0), "deferred")
-
-    def test_all_out_of_scope_is_done_not_deferred(self):
-        # Struck-from-play (out_of_scope) is a different signal from shelved
-        # (deferred); with no deferred member, nothing actionable remains, so
-        # this reads as done rather than shelved. total=3 distinguishes this
-        # from a genuinely empty milestone (see test_empty_milestone_is_todo),
-        # which shares the same all-zero by_status shape.
+    def test_all_out_of_scope_is_done(self):
+        # Struck-from-play (out_of_scope) still reads as done: nothing
+        # actionable remains, whether it finished or was struck out.
         by_status = {"out_of_scope": 3}
         self.assertEqual(roadmap.milestone_state(by_status, 0, total=3), "done")
 
-    def test_blocked_and_paused_surface_over_partial_progress(self):
-        self.assertEqual(
-            roadmap.milestone_state({"blocked": 1, "done": 1}, 50), "blocked")
-        self.assertEqual(
-            roadmap.milestone_state({"paused": 1, "done": 1}, 50), "paused")
+    def test_empty_milestone_is_flagged(self):
+        # Zero tasks is a bug (see _validate_phase), never a legitimate
+        # state: it must never read as todo/done and hide the problem.
+        self.assertEqual(roadmap.milestone_state({}, 0, total=0), "empty")
 
-    def test_empty_milestone_is_todo(self):
-        # Zero tasks: nothing to report on, so it stays todo rather than
-        # claiming to be finished. total=0 is what distinguishes this from
-        # the all-out-of-scope case above, which shares the same by_status
-        # shape but genuinely has nothing actionable left to do.
-        self.assertEqual(roadmap.milestone_state({}, 0, total=0), "todo")
+    def test_in_progress_outranks_all_blocked(self):
+        # Some done work with the rest blocked still reads as live and
+        # moving, not stuck: inProgress (rule 4) outranks blocked (rule 5).
+        by_status = {"done": 2, "blocked": 3}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 40, total=5), "inProgress")
+
+    def test_blocked_when_every_unfinished_task_is_blocked(self):
+        by_status = {"blocked": 2}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 0, total=2), "blocked")
+
+    def test_claim_gives_in_progress_even_at_zero_done(self):
+        by_status = {"todo": 2}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 0, total=2, in_progress=1),
+            "inProgress")
+
+    def test_deferred_when_a_lower_tier_is_not_done(self):
+        by_status = {"todo": 2}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 0, total=2, tier=1,
+                                    lower_tiers_done=False),
+            "deferred")
+
+    def test_lower_tiers_done_lets_tier_through_to_its_own_rules(self):
+        by_status = {"done": 2}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 100, total=2, tier=1,
+                                    lower_tiers_done=True),
+            "done")
+
+    def test_deferred_never_fires_for_tier_zero(self):
+        # A Primary milestone has no lower tier to wait on: even with
+        # lower_tiers_done=False (should never happen for tier 0 in
+        # practice) tier>=1 is required for the deferred rule.
+        by_status = {"todo": 2}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 0, total=2, tier=0,
+                                    lower_tiers_done=False),
+            "todo")
+
+    def test_member_deferred_fires_without_a_tier(self):
+        # A plain, untiered milestone (tier 0) can still shelve via a
+        # deferred member; this reading needs no (Secondary)/(Tertiary)
+        # suffix, unlike the tier-cascade deferred rule above.
+        by_status = {"deferred": 4}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 0, total=4), "deferred")
+
+    def test_member_deferred_outranks_done_percentage(self):
+        # A milestone with one deferred task and nine done ones is still
+        # "shelved" even at donePct 90: the deliberate call outranks
+        # percentage, matching the reading main used before the tier
+        # rewrite (rule 3 fires ahead of inProgress, rule 4).
+        by_status = {"done": 9, "deferred": 1}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 90, total=10), "deferred")
+
+    def test_member_deferred_never_fires_while_actionable_work_remains(self):
+        # Five todo tasks are still live work to pick up, not a shelved
+        # milestone: hiding them behind "deferred" would contradict
+        # next-task-group's own ready-set, which still lists them.
+        by_status = {"todo": 5, "deferred": 1}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 0, total=6), "todo")
+
+
+class MilestoneTier(unittest.TestCase):
+    def test_no_suffix_is_primary(self):
+        self.assertEqual(roadmap.milestone_tier("Search"), 0)
+        self.assertEqual(roadmap.milestone_tier(""), 0)
+
+    def test_suffixes_in_order(self):
+        self.assertEqual(roadmap.milestone_tier("Search (Secondary)"), 1)
+        self.assertEqual(roadmap.milestone_tier("Search (Tertiary)"), 2)
+        self.assertEqual(roadmap.milestone_tier("Search (Quaternary)"), 3)
+        self.assertEqual(roadmap.milestone_tier("Search (Quinary)"), 4)
+
+    def test_case_insensitive(self):
+        self.assertEqual(roadmap.milestone_tier("Search (secondary)"), 1)
+        self.assertEqual(roadmap.milestone_tier("Search (SECONDARY)"), 1)
+
+    def test_suffix_must_be_trailing(self):
+        self.assertEqual(roadmap.milestone_tier("(Secondary) is not this"), 0)
+
+
+class MilestoneAllDone(unittest.TestCase):
+    def test_empty_is_not_done(self):
+        self.assertFalse(roadmap.milestone_all_done({}, 0))
+
+    def test_all_done_or_out_of_scope(self):
+        self.assertTrue(
+            roadmap.milestone_all_done({"done": 1, "out_of_scope": 1}, 2))
+
+    def test_one_actionable_task_is_not_done(self):
+        self.assertFalse(
+            roadmap.milestone_all_done({"done": 1, "todo": 1}, 2))
+
+
+class BuildStatsTiers(unittest.TestCase):
+    def test_cascade_defers_tertiary_while_secondary_is_open(self):
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "Extra (Secondary)", "tasks": [task("b")]},
+            {"id": "M3", "name": "More (Tertiary)", "tasks": [task("c")]}])
+        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        self.assertEqual(by_id["M1"]["state"], "done")
+        self.assertEqual(by_id["M2"]["state"], "todo")
+        self.assertEqual(by_id["M3"]["state"], "deferred")
+
+    def test_tertiary_opens_once_secondary_is_done(self):
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "Extra (Secondary)", "tasks": [task("b", "done")]},
+            {"id": "M3", "name": "More (Tertiary)", "tasks": [task("c")]}])
+        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        self.assertEqual(by_id["M3"]["state"], "todo")
+
+    def test_empty_milestone_reported_by_validate(self):
+        ph = phase([{"id": "M1", "name": "Empty", "tasks": []}])
+        problems = roadmap._validate_phase(ph)
+        self.assertIn("M1: milestone has no tasks", problems)
+
+    def test_empty_milestone_in_an_earlier_tier_never_blocks_the_cascade(self):
+        # A bug (empty milestone) must never masquerade as "still in
+        # progress" and freeze every later tier deferred forever: only a
+        # non-empty, unfinished milestone should hold a tier open.
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "Whoops", "tasks": []},
+            {"id": "M3", "name": "Extra (Secondary)", "tasks": [task("b")]}])
+        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        self.assertEqual(by_id["M2"]["state"], "empty")
+        self.assertEqual(by_id["M3"]["state"], "todo")
+
+    def test_milestones_carry_their_own_tier(self):
+        # overview_layout() reads tier back from here rather than
+        # re-deriving it from the name; a dropped field would silently
+        # send it back to milestone_tier() and split the two computations.
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a")]},
+            {"id": "M2", "name": "Extra (Secondary)", "tasks": [task("b")]}])
+        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        self.assertEqual(by_id["M1"]["tier"], 0)
+        self.assertEqual(by_id["M2"]["tier"], 1)
+
+
+def _layout(ph):
+    stats = roadmap.build_stats(ph)
+    ready = roadmap.build_ready(ph)
+    return roadmap.overview_layout(ph, stats, ready)
+
+
+class OverviewLayout(unittest.TestCase):
+    def test_flat_when_no_tiers(self):
+        ph = phase([
+            {"id": "M1", "name": "m1", "tasks": [task("a")]},
+            {"id": "M2", "name": "m2", "tasks": [task("b", "done")]}])
+        layout = _layout(ph)
+        self.assertIsNone(layout["tiers"])
+        self.assertEqual([m["id"] for m in layout["milestones"]], ["M1", "M2"])
+
+    def test_sort_partial_then_zero_then_full_pct(self):
+        ph = phase([
+            {"id": "M1", "name": "full", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "zero", "tasks": [task("b")]},
+            {"id": "M3", "name": "partial", "tasks": [
+                task("c", "done"), task("d")]}])
+        layout = _layout(ph)
+        self.assertEqual([m["id"] for m in layout["milestones"]],
+                         ["M3", "M2", "M1"])
+
+    def test_sort_ties_break_by_tier_then_pct_then_id(self):
+        ph = phase([
+            {"id": "M2", "name": "b (Secondary)", "tasks": [task("x")]},
+            {"id": "M1", "name": "a", "tasks": [task("y")]},
+            {"id": "M10", "name": "c", "tasks": [task("z", "done"), task("w")]}])
+        layout = _layout(ph)
+        # M10 (partial, tier 0) first; then M1/M2 (0%): tier 0 before tier 1
+        self.assertEqual([m["id"] for m in layout["milestones"]],
+                         ["M10", "M1", "M2"])
+
+    def test_sort_natural_milestone_id_order(self):
+        ph = phase([
+            {"id": "M10", "name": "ten", "tasks": [task("a")]},
+            {"id": "M2", "name": "two", "tasks": [task("b")]}])
+        layout = _layout(ph)
+        self.assertEqual([m["id"] for m in layout["milestones"]], ["M2", "M10"])
+
+    def test_devs_sorted_distinct_including_done_tasks(self):
+        ph = phase([{"id": "M1", "name": "m1", "tasks": [
+            task("a", "done", assignee="jaz"),
+            task("b", assignee="Jason"),
+            task("c", assignee="jaz")]}])
+        layout = _layout(ph)
+        self.assertEqual(layout["milestones"][0]["devs"], ["Jason", "jaz"])
+
+    def test_tier_group_expanded_only_when_open_and_active(self):
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "Extra (Secondary)", "tasks": [task("b")]}])
+        layout = _layout(ph)
+        groups = {g["tier"]: g for g in layout["tiers"]}
+        self.assertTrue(groups[1]["expanded"])  # open (M1 done) + b is ready
+
+    def test_tier_group_collapsed_when_not_yet_open_even_with_ready_task(self):
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a")]},
+            {"id": "M2", "name": "Extra (Secondary)", "tasks": [
+                task("b", "todo", depends=[])]}])
+        layout = _layout(ph)
+        groups = {g["tier"]: g for g in layout["tiers"]}
+        self.assertFalse(groups[1]["expanded"])
+
+    def test_empty_milestone_never_blocks_a_later_tier_from_opening(self):
+        # Regression: an empty (bugged) tier-0 milestone must not read as
+        # "still unfinished" and permanently keep tier 1 collapsed/deferred.
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "Whoops", "tasks": []},
+            {"id": "M3", "name": "Extra (Secondary)", "tasks": [task("b")]}])
+        layout = _layout(ph)
+        groups = {g["tier"]: g for g in layout["tiers"]}
+        self.assertTrue(groups[1]["expanded"])
+
+    def test_tier_group_order_expanded_then_open_then_done(self):
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "Live (Secondary)", "tasks": [task("b")]},
+            {"id": "M3", "name": "Done (Tertiary)", "tasks": [task("c", "done", depends=["M2"])]}])
+        layout = _layout(ph)
+        self.assertEqual([g["tier"] for g in layout["tiers"]], [1, 0, 2])
+
+    def test_milestone_ids_within_group_follow_the_sort_order(self):
+        ph = phase([
+            {"id": "M1", "name": "a (Secondary)", "tasks": [task("x")]},
+            {"id": "M2", "name": "b (Secondary)", "tasks": [
+                task("y", "done"), task("z")]}])
+        layout = _layout(ph)
+        group = layout["tiers"][0]
+        self.assertEqual(group["milestoneIds"], ["M2", "M1"])
 
 
 class DevColour(unittest.TestCase):
@@ -349,8 +574,10 @@ class Ready(unittest.TestCase):
 
     def test_groups_cover_every_candidate_once_per_pivot(self):
         ph = phase([
-            {"id": "M1", "name": "m1", "tasks": [task("1IN.1"), task("1UI.2")]},
-            {"id": "M2", "name": "m2", "tasks": [task("2IN.1"), task("odd")]}])
+            {"id": "M1", "name": "m1", "tasks": [
+                task("1IN.1", assignee="jaz"), task("1UI.2")]},
+            {"id": "M2", "name": "m2", "tasks": [
+                task("2IN.1", assignee="Jason"), task("odd")]}])
         candidates = roadmap.build_ready(ph)["candidates"]
         groups = roadmap.ready_groups(candidates)
         self.assertEqual(groups["milestone"],
@@ -358,6 +585,10 @@ class Ready(unittest.TestCase):
         self.assertEqual(groups["topic"],
                          {"IN": ["1IN.1", "2IN.1"], "UI": ["1UI.2"], "other": ["odd"]})
         self.assertEqual(list(groups["topic"]), ["IN", "UI", "other"])
+        self.assertEqual(groups["dev"],
+                         {"jaz": ["1IN.1"], "Jason": ["2IN.1"],
+                          "unassigned": ["1UI.2", "odd"]})
+        self.assertEqual(list(groups["dev"]), ["Jason", "jaz", "unassigned"])
         for pivot in groups.values():
             flat = [tid for ids in pivot.values() for tid in ids]
             self.assertEqual(sorted(flat), sorted(c["id"] for c in candidates))
@@ -440,6 +671,57 @@ class Mermaid(unittest.TestCase):
         self.assertLess(decl("a"), decl("b"))   # a --> b
         self.assertLess(decl("b"), decl("M1"))  # sink into milestone
         self.assertLess(decl("M1"), decl("c"))  # milestone as dependency
+
+
+class GraphDirection(unittest.TestCase):
+    """choose_direction() picks by estimated width only: the artefact's
+    diagram shell has no height cap (the page scrolls past a tall diagram)
+    but its width is bounded by the layout column, measured against the
+    real template rather than assumed. A long thin chain is narrow in TD
+    (one node wide) and would sprawl sideways in LR (every layer end to
+    end), so it picks TD; a wide fan is the mirror case and picks LR."""
+
+    def _chain(self, depth=12):
+        tasks = [task("t0")]
+        for i in range(1, depth):
+            tasks.append(task(f"t{i}", depends=[f"t{i - 1}"]))
+        return phase([{"id": "M1", "name": "chain", "tasks": tasks}])
+
+    def _fan(self, width=15):
+        tasks = [task("root")]
+        for i in range(width):
+            tasks.append(task(f"c{i}", depends=["root"]))
+        return phase([{"id": "M1", "name": "fan", "tasks": tasks}])
+
+    def test_long_thin_chain_picks_td(self):
+        self.assertEqual(roadmap.choose_direction(self._chain()), "TD")
+
+    def test_wide_fan_picks_lr(self):
+        self.assertEqual(roadmap.choose_direction(self._fan()), "LR")
+
+    def test_deterministic_across_repeated_calls(self):
+        ph = self._fan()
+        results = {roadmap.choose_direction(ph) for _ in range(5)}
+        self.assertEqual(len(results), 1)
+
+    def test_empty_graph_defaults_to_td(self):
+        ph = phase([{"id": "M1", "name": "m", "tasks": [task("a", "done")]}])
+        self.assertEqual(roadmap.choose_direction(ph), "TD")
+
+    def test_longest_path_layers_assigns_by_depth(self):
+        ids = ["a", "b", "c"]
+        edges = [{"from": "a", "to": "b"}, {"from": "b", "to": "c"}]
+        layers = roadmap._longest_path_layers(ids, edges)
+        self.assertEqual(layers, {"a": 0, "b": 1, "c": 2})
+
+    def test_longest_path_layers_takes_the_deepest_predecessor(self):
+        # d depends on both a (layer 0) and c (layer 1, via b); its own
+        # layer must be one past the deepest predecessor, not the shallowest.
+        ids = ["a", "b", "c", "d"]
+        edges = [{"from": "a", "to": "b"}, {"from": "b", "to": "c"},
+                 {"from": "a", "to": "d"}, {"from": "c", "to": "d"}]
+        layers = roadmap._longest_path_layers(ids, edges)
+        self.assertEqual(layers["d"], 3)
 
 
 class FileBased(unittest.TestCase):
@@ -668,14 +950,21 @@ class ClaimViews(unittest.TestCase):
         self.assertEqual(sum(stats["byStatus"].values()), stats["total"])
         by_id = {m["id"]: m for m in stats["milestones"]}
         self.assertEqual(by_id["M1"]["inProgress"], 1)
-        self.assertEqual(by_id["M1"]["state"], "blocked")
+        # a is claimed (in_progress) and b/c aren't all blocked, so the
+        # claim wins: inProgress outranks "all unfinished tasks blocked".
+        self.assertEqual(by_id["M1"]["state"], "inProgress")
         self.assertEqual(by_id["M2"]["state"], "inProgress")
 
     def test_a_claim_starts_a_milestone_at_zero_percent(self):
-        self.assertEqual(roadmap.milestone_state({"todo": 2}, 0, in_progress=1), "inProgress")
-        self.assertEqual(roadmap.milestone_state({"todo": 2}, 0), "todo")
         self.assertEqual(
-            roadmap.milestone_state({"todo": 1, "blocked": 1}, 0, in_progress=1), "blocked")
+            roadmap.milestone_state({"todo": 2}, 0, total=2, in_progress=1),
+            "inProgress")
+        self.assertEqual(
+            roadmap.milestone_state({"todo": 2}, 0, total=2), "todo")
+        self.assertEqual(
+            roadmap.milestone_state({"todo": 1, "blocked": 1}, 0, total=2,
+                                    in_progress=1),
+            "inProgress")
 
     def test_mermaid_classes_and_marks_claimed_tasks(self):
         src = roadmap.mermaid_source(self._phase())
