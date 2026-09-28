@@ -1,6 +1,6 @@
 # Integration with PostgreSQL/Supabase
 
-Detail for `Cypher Linguist`.
+Detail for `clod-stack-cypher`.
 
 ## Shared Primary Keys
 
@@ -26,18 +26,14 @@ await neo4j.run(`
 
 ## Data Synchronisation
 
-**Event-driven sync**:
+**Event-driven sync**: subscribe with `supabase.channel(...).on('postgres_changes', {...}, callback).subscribe()`; full worked example (Supabase → Neo4j + MongoDB) in `clod-role-data_ontologist/integration-and-schema.md` Pattern 4. The Neo4j write here is the same shape:
 ```typescript
-// PostgreSQL trigger → Sync to Neo4j
-supabase
-  .from('users')
-  .on('INSERT', async (payload) => {
-    await neo4j.run(`
-      MERGE (u:User {id: $id})
-      SET u.name = $name, u.email = $email
-    `, payload.record);
-  })
-  .subscribe();
+async (payload) => {
+  await neo4j.run(`
+    MERGE (u:User {id: $id})
+    SET u.name = $name, u.email = $email
+  `, payload.new);
+}
 ```
 
 **Batch sync**:

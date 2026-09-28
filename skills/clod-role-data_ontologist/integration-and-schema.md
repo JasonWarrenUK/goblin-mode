@@ -1,6 +1,6 @@
 # Integration Patterns, Schema Design and Query Optimisation
 
-Detail for `Data Ontologist`.
+Detail for `clod-role-data_ontologist`.
 
 ## Integration Patterns
 
@@ -93,19 +93,26 @@ Keep databases in sync via events:
 
 ```typescript
 // User created in Supabase
-supabase.on('INSERT', 'users', async (payload) => {
-  const user = payload.record;
+supabase
+  .channel('users-insert')
+  .on(
+    'postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'users' },
+    async (payload) => {
+      const user = payload.new;
 
-  // Create in Neo4j
-  await createUserNode(user);
+      // Create in Neo4j
+      await createUserNode(user);
 
-  // Create preferences in MongoDB
-  await mongo.collection('user_preferences').insertOne({
-    _id: user.id,
-    theme: 'light',
-    notifications: {}
-  });
-});
+      // Create preferences in MongoDB
+      await mongo.collection('user_preferences').insertOne({
+        _id: user.id,
+        theme: 'light',
+        notifications: {}
+      });
+    }
+  )
+  .subscribe();
 ```
 
 ### Pattern 5: Aggregate from Multiple Sources
