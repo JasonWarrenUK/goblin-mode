@@ -48,4 +48,4 @@ Docs: https://github.com/charmbracelet/freeze
 
 ## GitHub social preview upload
 
-No API. Settings page `https://github.com/<owner>/<repo>/settings`, "Social preview" → Edit → file input. PNG/JPG/GIF under 1 MB, 1280×640 recommended. Selectors used by gh-social-preview: `#edit-social-preview-button`, `input#repo-image-file-input`; success = 2xx `PUT` to `/upload/repository-images/`. GitHub can change these without notice; the skill drives the user's own logged-in Chrome via the claude-in-chrome MCP so no credentials are stored.
+No API. Settings page `https://github.com/<owner>/<repo>/settings`, "Social preview" → Edit → file input. PNG/JPG/GIF under 1 MB, 1280×640 recommended. If driving this via the claude-in-chrome MCP (no skill currently wraps this flow): selectors `#edit-social-preview-button`, `input#repo-image-file-input`; success = 2xx `PUT` to `/upload/repository-images/`. GitHub can change these without notice; drive the user's own logged-in Chrome so no credentials are stored.
