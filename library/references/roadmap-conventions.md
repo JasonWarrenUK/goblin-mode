@@ -174,22 +174,20 @@ line; before it is a silent render failure.
 
 A milestone has no `status` field; it is not itself a task. The HTML artefact
 derives a milestone-level state from its member tasks' status counts, purely
-for that artefact's own colour and sort (`roadmap.py`'s `milestone_state()`;
-never written back to `roadmaps.json`, never used by `recompute`). `validate`
-does separately flag an empty milestone (see Empty milestones below), but
-that check reads task counts directly rather than going through
-`milestone_state()`. Six states. `empty` and `deferred` sit ahead of
-percentage in the sort; `inProgress`, `blocked` and `todo` follow, in that
-rule order — a milestone with some done work and the rest blocked still
-reads `inProgress`, not `blocked` (some progress outranks "everything
-unfinished is stuck"). First true rule wins:
+for that artefact's own colour (`roadmap.py`'s `milestone_state()`; never
+written back to `roadmaps.json`, never used by `recompute`). The milestone
+sort is a separate computation that never reads `state` (see Milestone sort
+and tier grouping below). `validate` does separately flag an empty milestone
+(see Empty milestones below), but that check reads task counts directly
+rather than going through `milestone_state()`. Six states; first true rule
+wins:
 
 | State | Fires when | Colour |
 |---|---|---|
 | `empty` | zero tasks (a bug, see below) | red (shares the blocked hue) |
 | `done` | every member `done`/`out_of_scope` | green |
 | `deferred` | tier ≥ 1 and any milestone in a lower tier isn't `done` yet (see Tiers) | cinnamon (shares the task-status hue) |
-| `inProgress` | ≥1 member `done`, or a member shows in progress (a claim) | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
+| `inProgress` | ≥1 member `done`, or a member shows in progress (a claim); outranks "every unfinished member blocked" below it, so some done work plus the rest blocked still reads live | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
 | `blocked` | every unfinished member (done/out_of_scope excluded) is `blocked` | red |
 | `todo` | otherwise | gray |
 

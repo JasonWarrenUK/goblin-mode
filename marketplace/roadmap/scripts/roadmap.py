@@ -164,7 +164,7 @@ def milestone_all_done(by_status, total):
     """True when a milestone has ≥1 task and every one is done or
     out_of_scope: the "nothing actionable, nothing deferred" reading that
     both milestone_state's rule 1 and the tier cascade in build_stats()
-    need. An empty milestone (total=0) is never "done" here — see
+    need. An empty milestone (total=0) is never "done" here; see
     milestone_state's own `empty` rule."""
     if not total:
         return False
@@ -658,7 +658,7 @@ def overview_layout(phase, stats, ready):
             active_milestone_ids.add(mid)
 
     tiers_present = sorted({m["tier"] for m in enriched})
-    # An empty milestone (state "empty") never blocks its tier's cascade —
+    # An empty milestone (state "empty") never blocks its tier's cascade:
     # see the matching note in build_stats(); it is a flagged bug, not
     # unfinished work, so it is excluded here the same way.
     tier_all_done = {t: all(m["state"] in ("done", "empty")
@@ -912,7 +912,7 @@ def _longest_path_layers(ids, edges):
     one more than the deepest of its predecessors. This is the layering a
     layered graph-drawing algorithm (dagre/elk, sugiyama-style) would use
     for rank assignment, so it is a reasonable proxy for how many ranks the
-    real render will need — good enough to pick TD vs LR by, not a promise
+    real render will need: good enough to pick TD vs LR by, not a promise
     that mermaid's own engine ranks identically."""
     preds = {i: [] for i in ids}
     idset = set(ids)

@@ -262,7 +262,7 @@ details.overview .body { margin-top: 1rem; }
 
 /* A tier group: its own <details>, expanded per overview.tiers[].expanded.
    Unwrapped (no tier markup at all) when the phase has no tiered
-   milestones — see the JS below. */
+   milestones; see the JS below. */
 details.tier { margin-bottom: 1.1rem; }
 details.tier > summary {
 	cursor: pointer; list-style: none; display: flex; align-items: baseline;
@@ -420,7 +420,7 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 					<span class="headline" id="headline"></span>
 				</summary>
 				<div class="body">
-					<div class="grid" id="milestone-cards"></div>
+					<div id="milestone-cards"></div>
 				</div>
 			</details>
 		</section>
@@ -489,7 +489,7 @@ if (DATA.validation && DATA.validation.length) {
    (see roadmap-conventions.md; `empty` is a flagged bug, not a legitimate
    state, and borrows the blocked/red colour). The same map also colours
    dependency chips by a *task's* display status, which still uses `paused`
-   and adds in_progress (a claimed task) and out_of_scope — task status and
+   and adds in_progress (a claimed task) and out_of_scope: task status and
    milestone state are different vocabularies sharing one colour table. */
 const STATE_VAR = {
 	empty: "blocked", done: "done", deferred: "deferred",
@@ -519,7 +519,7 @@ const depChip = id => {
 	return `<span class="chip" style="--chip-fg:var(--color-${varName});--chip-bg:var(--color-${varName}-bg)">${esc(id)}</span>`;
 };
 
-/* Section 1 — Overview. Title Case throughout the headline bar; the
+/* Section 1: Overview. Title Case throughout the headline bar; the
    section itself is a closed-by-default <details> (see the overview.body
    CSS), so the headline is the only thing visible collapsed. */
 const st = DATA.stats;
@@ -539,7 +539,7 @@ const milestoneCard = m => `
    DATA.overview's own sort/tier-group order (roadmap.py's overview_layout,
    see roadmap-conventions.md), so a reader scanning top-to-bottom sees the
    same priority twice across Overview and Milestones, not two different
-   orderings of the same data — and Overview's tier grouping mirrors it. */
+   orderings of the same data; Overview's tier grouping mirrors it too. */
 const GROUPS = [
 	["in_progress", "▸ In Progress",  "in-progress"],
 	["todo",        "○ To Do",        "todo"],
@@ -595,8 +595,12 @@ if (DATA.overview.tiers) {
 			<div>${g.milestoneIds.map(id => milestoneDetails(milestonesById[id])).join("")}</div>
 		</details>`).join("");
 } else {
-	// No tiered milestones: flat, unwrapped list — no tier markup at all.
-	document.getElementById("milestone-cards").innerHTML = sortedMilestones.map(milestoneCard).join("");
+	// No tiered milestones: flat, unwrapped list, no tier markup at all.
+	// milestone-cards still needs its own grid wrapper now that the static
+	// container is plain (the tiered branch above puts a grid inside each
+	// tier <details> instead of on the shared outer container).
+	document.getElementById("milestone-cards").innerHTML =
+		`<div class="grid">${sortedMilestones.map(milestoneCard).join("")}</div>`;
 	document.getElementById("milestone-details").innerHTML = sortedMilestones.map(milestoneDetails).join("");
 }
 
