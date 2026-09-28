@@ -37,7 +37,7 @@ Canonical review methodology. Produces structured findings only; **never posts t
     <focus>Reinforcement: genuine strengths worth calling out, not token praise</focus>
   </foci>
   <taxonomy>
-    <!-- Replaces any older 🟣/🔴/🟡/🔵 four-colour key. This is the only taxonomy. -->
+    <!-- This is the only taxonomy. -->
     <row emoji="🔴" type="major changes" ceiling="Request Changes">Would be wrong to merge as-is. Decided by the closed trigger list in <blocking-gate/>, never by how big or effortful the fix is</row>
     <row emoji="🟠" type="minor changes" ceiling="Comment (strict) / Approve (loose)">Correct as written, but would be better changed. Same ceiling and treatment as nits</row>
     <row emoji="🟡" type="nits" ceiling="Comment (strict) / Approve (loose)">Nice to have</row>

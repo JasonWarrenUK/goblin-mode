@@ -145,9 +145,9 @@ not substitute a default, do not start the report.
 
 Then continue with the new persona alongside any others named.
 
-### Step 1b: No persona named
+### Step 1b: The `personas` roster lookup
 
-Do not fall back to the suggested pair silently. Run `red-personas.py roster
+Run `red-personas.py roster
 --scope {this skill's scope}` and print its output: each slug with its Needs,
 Power and Trigger summaries, with the suggested pair marked. Anyone in
 `~/.claude/library/profiles/dossier/` who has no persona yet is listed after them,
@@ -170,7 +170,7 @@ Bob and Cedric as the stand-ins they always were.
 is gitignored on purpose, and `dossier-record`'s own rule is explicit: dossier
 content never enters a tracked file, and a person named there is never named
 in anything published. The persona store (`library/profiles/personas/`)
-is **tracked**, and Step 5's refine-then-save writes reports out of it that
+is **tracked**, and the refine-then-save protocol below writes reports out of it that
 can end up read by other people. A persona derived from a real dossier entry
 must therefore carry an **invented name**, never the real one (the
 substitution is the anonymisation), and its fields must be a

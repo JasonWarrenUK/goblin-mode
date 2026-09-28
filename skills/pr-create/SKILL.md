@@ -14,7 +14,7 @@ argument-hint: "[shiny|wordy] [draft] [base <branch>] [screenshot files or issue
 
 # Open a PR to `main` (or, stacked, to a parent branch)
 
-Replaces the former pr-shiny-create / pr-shiny-draft / pr-wordy-create / pr-wordy-draft quartet: one skill, two axes.
+One skill, two axes.
 
 ```xml
 <pull-request-create>
