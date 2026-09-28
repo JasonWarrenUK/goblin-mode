@@ -1,6 +1,8 @@
 # Component Reference
 
-Detail for `opentui-operative`: the full renderable catalogue (BoxRenderable through FrameBufferRenderable).
+Detail for `clod-stack-opentui`: the full renderable catalogue (BoxRenderable through FrameBufferRenderable).
+
+> **Palette advisory:** the hex strings below are illustrative of the accepted format only, not styling choices to copy into an app. Real colour values come from the project's `tui` theme file (`.claude/themes/<family>-tui.json`, see `library/references/theme-conventions.md` and `input-and-styling.md`'s own advisory note); create one with `/theme-factory "tui"` if it's missing, and feed its values to `RGBA.fromHex()` rather than hardcoding a literal in a component.
 
 ## BoxRenderable
 
