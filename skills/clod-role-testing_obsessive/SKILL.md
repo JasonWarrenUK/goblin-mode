@@ -57,10 +57,7 @@ Use this skill when:
 ----------------  (Many, fast, cheap)
 ```
 
-**Distribution target**:
-- **70%** Unit tests - Fast, isolated, test single functions/modules
-- **20%** Integration tests - Test component interactions, API calls
-- **10%** E2E tests - Test critical user journeys
+**Shape, not a quota**: unit tests stay cheapest and most numerous for genuinely isolated logic, but CLAUDE.md's own preference for integration tests on critical paths over exhaustive unit coverage governs the actual split. Don't count towards a percentage; let the risk assessment below decide what gets covered and at which layer.
 
 ### Pragmatic Approach
 
