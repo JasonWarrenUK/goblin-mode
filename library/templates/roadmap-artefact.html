@@ -4,9 +4,13 @@
 	Two placeholders, each substituted exactly once below: the phase-name
 	title (in the head; the h1 is overwritten by JS from project/phase, since
 	the two placeholders cannot diverge) and the JSON data blob
-	(project, phase, generated, stats, ready, mermaid, validation, devColours,
-	depKinds), which lands in the roadmap-data script element near the foot of
-	the document. Render does a global string replace, so the data-blob token
+	(project, phase, generated, stats, overview, tasks, ready, mermaid,
+	graphDirection, validation, devColours, depKinds), which lands in the
+	roadmap-data script element near the foot of the document. `overview` is
+	roadmap.py's own sort/tier-group computation for the Overview and
+	Milestones sections (see overview_layout() and roadmap-conventions.md);
+	the template renders it as given and never re-sorts or re-groups
+	milestones itself. Render does a global string replace, so the data-blob token
 	must appear verbatim exactly once in this file (the render step asserts
 	this); a second copy here would inject the blob into this comment and the
 	mermaid edge arrows would close the comment early and spill the JSON onto
@@ -231,9 +235,6 @@ h2 {
 h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--color-milestone); flex-shrink: 0; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1.1rem 1.3rem; min-width: 0; }
-.card--hero { background: var(--color-milestone-bg); border-color: var(--color-milestone); }
-.card--hero .kpi { font-size: 2.1rem; font-weight: 600; color: var(--color-milestone-text); }
-.card--hero .kpi small { font-size: 1rem; font-weight: 400; color: var(--color-milestone); margin-left: 0.5rem; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.9rem; margin-top: 0.9rem; }
 .grid > * { min-width: 0; }
@@ -242,6 +243,38 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--color-m
 .mini .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
 .progress-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 0.55rem; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 3px; }
+
+/* Overview is itself a <details>: closed, it shows only the section name
+   and headline bar (both live in the summary); open, the progress-card
+   grid follows in the body. Reuses details.milestone's shape rather than a
+   second pattern. */
+details.overview { border: none; background: none; margin-bottom: 0; }
+details.overview > summary {
+	cursor: pointer; list-style: none; display: flex; align-items: center;
+	flex-wrap: wrap; gap: 0.5rem 1rem; padding: 0;
+}
+details.overview > summary::-webkit-details-marker { display: none; }
+details.overview > summary h2 { margin: 0; }
+details.overview .headline {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; color: var(--muted);
+}
+details.overview .body { margin-top: 1rem; }
+
+/* A tier group: its own <details>, expanded per overview.tiers[].expanded.
+   Unwrapped (no tier markup at all) when the phase has no tiered
+   milestones — see the JS below. */
+details.tier { margin-bottom: 1.1rem; }
+details.tier > summary {
+	cursor: pointer; list-style: none; display: flex; align-items: baseline;
+	gap: 0.6rem; margin-bottom: 0.7rem;
+}
+details.tier > summary::-webkit-details-marker { display: none; }
+details.tier > summary h3 {
+	margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem;
+	font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+}
+details.tier > summary .arrow { font-size: 0.7rem; color: var(--muted); transition: transform 0.15s; }
+details.tier[open] > summary .arrow { transform: rotate(90deg); }
 
 details.milestone {
 	background: var(--surface); border: 1px solid var(--m-colour, var(--line));
@@ -257,7 +290,8 @@ details.milestone > summary .mid {
 	background: var(--color-milestone-bg); color: var(--color-milestone-text);
 	border: 1px solid var(--color-milestone); border-radius: 4px; padding: 0.1rem 0.4rem;
 }
-details.milestone > summary .count { margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+details.milestone > summary .devs { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+details.milestone > summary .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
 details.milestone .body { padding: 0 1.2rem 1rem; }
 .group h4 { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
 .group ul { list-style: none; margin: 0; padding: 0; }
@@ -380,9 +414,15 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 		<div id="validation"></div>
 
 		<section id="overview">
-			<h2><span class="dot"></span>Overview</h2>
-			<div class="card card--hero"><div class="kpi" id="hero"></div></div>
-			<div class="grid" id="milestone-cards"></div>
+			<details class="overview">
+				<summary>
+					<h2><span class="dot"></span>Overview</h2>
+					<span class="headline" id="headline"></span>
+				</summary>
+				<div class="body">
+					<div class="grid" id="milestone-cards"></div>
+				</div>
+			</details>
 		</section>
 
 		<section id="milestones">
@@ -445,22 +485,22 @@ if (DATA.validation && DATA.validation.length) {
 /* Milestone-level state (distinct from task status): computed server-side by
    roadmap.py's milestone_state() and carried as m.state, so the artefact
    never re-derives it and cannot disagree with the CLI's own stats/render
-   paths. States: deferred, done, inProgress, todo, blocked, paused. The
-   same map colours dependency chips by a task's display status, which adds
-   in_progress (a claimed task) and out_of_scope. */
+   paths. Milestone states: empty, done, deferred, inProgress, blocked, todo
+   (see roadmap-conventions.md; `empty` is a flagged bug, not a legitimate
+   state, and borrows the blocked/red colour). The same map also colours
+   dependency chips by a *task's* display status, which still uses `paused`
+   and adds in_progress (a claimed task) and out_of_scope — task status and
+   milestone state are different vocabularies sharing one colour table. */
 const STATE_VAR = {
-	deferred: "deferred", done: "done", inProgress: "in-progress",
-	todo: "todo", blocked: "blocked", paused: "paused",
-	in_progress: "in-progress", out_of_scope: "out-of-scope",
+	empty: "blocked", done: "done", deferred: "deferred",
+	inProgress: "in-progress", blocked: "blocked", todo: "todo",
+	paused: "paused", in_progress: "in-progress", out_of_scope: "out-of-scope",
 };
-const STATE_RANK = { inProgress: 0, todo: 1, done: 2, blocked: 3, paused: 4, deferred: 5 };
-/* Overview cards and Milestones details share this one ordering, computed
-   once here rather than in Python, since build_stats' milestones[] stays in
-   roadmap order for other consumers (_human_stats, next-task-*). */
-const sortedMilestones = [...DATA.stats.milestones].sort((a, b) =>
-	(STATE_RANK[a.state] - STATE_RANK[b.state])
-	|| (b.donePct - a.donePct)
-	|| a.name.localeCompare(b.name));
+/* Overview cards and Milestones details both render DATA.overview.milestones
+   in the order roadmap.py's overview_layout() already sorted (see
+   roadmap-conventions.md's milestone sort rules): partially-done first,
+   then tier, then donePct, then milestone id. The artefact never re-sorts. */
+const sortedMilestones = DATA.overview.milestones;
 
 /* A dev-chip helper: colour + label for an assignee, empty string when unset. */
 const devChip = assignee => {
@@ -479,24 +519,27 @@ const depChip = id => {
 	return `<span class="chip" style="--chip-fg:var(--color-${varName});--chip-bg:var(--color-${varName}-bg)">${esc(id)}</span>`;
 };
 
-/* Section 1 — Overview */
+/* Section 1 — Overview. Title Case throughout the headline bar; the
+   section itself is a closed-by-default <details> (see the overview.body
+   CSS), so the headline is the only thing visible collapsed. */
 const st = DATA.stats;
-document.getElementById("hero").innerHTML =
-	`${st.byStatus.done}/${st.total} tasks<small>${st.donePct}% complete</small>` +
-	`<small>${st.milestonesDone}/${st.milestonesTotal} milestones</small>`;
+document.getElementById("headline").textContent =
+	`${st.byStatus.done}/${st.total} Tasks · ${st.donePct}% Complete · ` +
+	`${st.milestonesDone}/${st.milestonesTotal} Milestones`;
 
-document.getElementById("milestone-cards").innerHTML = sortedMilestones.map(m => `
+const milestoneCard = m => `
 	<div class="card mini" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
 		<h3>${esc(m.id)}: ${esc(m.name)}</h3>
-		<span class="count">${m.done}/${m.total} done · ${m.donePct}%</span>
+		<span class="count">${m.state === "empty" ? "No tasks" : `${m.done}/${m.total} done · ${m.donePct}%`}</span>
 		<div class="progress-bar"><div class="progress-fill"
 			style="width:${m.donePct}%;background:var(--color-${STATE_VAR[m.state]})"></div></div>
-	</div>`).join("");
+	</div>`;
 
-/* Section 2 — Milestones. Groups lead with actionable work; milestones
-   themselves follow the same order as the Overview cards above (A3), so a
-   reader scanning top-to-bottom sees the same priority twice, not two
-   different orderings of the same data. */
+/* Section 2 groups lead with actionable work; milestones themselves follow
+   DATA.overview's own sort/tier-group order (roadmap.py's overview_layout,
+   see roadmap-conventions.md), so a reader scanning top-to-bottom sees the
+   same priority twice across Overview and Milestones, not two different
+   orderings of the same data — and Overview's tier grouping mirrors it. */
 const GROUPS = [
 	["in_progress", "▸ In Progress",  "in-progress"],
 	["todo",        "○ To Do",        "todo"],
@@ -506,11 +549,13 @@ const GROUPS = [
 	["done",        "✓ Done",         "done"],
 	["out_of_scope","⊘ Out of Scope", "out-of-scope"],
 ];
-const readyIds = new Set(DATA.ready.candidates.map(c => c.id));
 const tasksByMilestone = {};
 for (const t of DATA.tasks) (tasksByMilestone[t.milestone] ??= []).push(t);
 
-document.getElementById("milestone-details").innerHTML = sortedMilestones.map(m => {
+const devChips = m => m.devs?.length
+	? `<span class="devs">${m.devs.map(devChip).join("")}</span>` : "";
+
+const milestoneDetails = m => {
 	const tasks = tasksByMilestone[m.id] || [];
 	const groups = GROUPS.map(([status, label, varName]) => {
 		const members = tasks.filter(t => (t.display ?? t.status) === status);
@@ -528,10 +573,32 @@ document.getElementById("milestone-details").innerHTML = sortedMilestones.map(m 
 	// All milestones render collapsed; the reader chooses what to expand
 	return `<details class="milestone" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
 		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
-			<span class="count">${m.done}/${m.total}</span></summary>
+			${devChips(m)}
+			<span class="count">${m.state === "empty" ? "No tasks" : `${m.done}/${m.total}`}</span></summary>
 		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>
 	</details>`;
-}).join("");
+};
+
+const milestonesById = Object.fromEntries(DATA.overview.milestones.map(m => [m.id, m]));
+
+if (DATA.overview.tiers) {
+	// Tiered phase: one <details class="tier"> per tier, expanded flag and
+	// milestone membership/order both computed server-side (overview_layout).
+	document.getElementById("milestone-cards").innerHTML = DATA.overview.tiers.map(g => `
+		<details class="tier"${g.expanded ? " open" : ""}>
+			<summary><span class="arrow">▸</span><h3>${esc(g.tierLabel)}</h3></summary>
+			<div class="grid">${g.milestoneIds.map(id => milestoneCard(milestonesById[id])).join("")}</div>
+		</details>`).join("");
+	document.getElementById("milestone-details").innerHTML = DATA.overview.tiers.map(g => `
+		<details class="tier"${g.expanded ? " open" : ""}>
+			<summary><span class="arrow">▸</span><h3>${esc(g.tierLabel)}</h3></summary>
+			<div>${g.milestoneIds.map(id => milestoneDetails(milestonesById[id])).join("")}</div>
+		</details>`).join("");
+} else {
+	// No tiered milestones: flat, unwrapped list — no tier markup at all.
+	document.getElementById("milestone-cards").innerHTML = sortedMilestones.map(milestoneCard).join("");
+	document.getElementById("milestone-details").innerHTML = sortedMilestones.map(milestoneDetails).join("");
+}
 
 /* Section 3 — Dependency graph */
 /* ELK lays out this dense a graph with far fewer crossings than the default

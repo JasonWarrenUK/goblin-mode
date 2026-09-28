@@ -175,26 +175,62 @@ line; before it is a silent render failure.
 A milestone has no `status` field; it is not itself a task. The HTML artefact
 derives a milestone-level state from its member tasks' status counts, purely
 for that artefact's own colour and sort (`roadmap.py`'s `milestone_state()`;
-never written back to `roadmaps.json`, never used by `recompute`/`validate`).
-Six states, four of which form a top-level sort partition (deferred first,
-ahead of percentage; then inProgress, todo, done); blocked/paused surface as
-their own card colour but sit outside that four-way partition:
+never written back to `roadmaps.json`, never used by `recompute`). `validate`
+does separately flag an empty milestone (see Empty milestones below), but
+that check reads task counts directly rather than going through
+`milestone_state()`. Six states. `empty` and `deferred` sit ahead of
+percentage in the sort; `inProgress`, `blocked` and `todo` follow, in that
+rule order — a milestone with some done work and the rest blocked still
+reads `inProgress`, not `blocked` (some progress outranks "everything
+unfinished is stuck"). First true rule wins:
 
 | State | Fires when | Colour |
 |---|---|---|
-| `deferred` | ≥1 member `deferred`, no `todo`/`blocked`/`paused` member left | cinnamon (shares the task-status hue) |
-| `done` | every member `done`/`out_of_scope` (nothing actionable, nothing deferred) or `donePct == 100` | green |
-| `blocked` | ≥1 member `blocked` (and not already deferred/done) | red |
-| `paused` | ≥1 member `paused` (and not already deferred/done/blocked) | purple |
-| `inProgress` | `0 < donePct < 100` or a member shows in progress (a claim), nothing blocked/paused | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
-| `todo` | nothing started, or a genuinely empty (zero-task) milestone | gray |
+| `empty` | zero tasks (a bug, see below) | red (shares the blocked hue) |
+| `done` | every member `done`/`out_of_scope` | green |
+| `deferred` | tier ≥ 1 and any milestone in a lower tier isn't `done` yet (see Tiers) | cinnamon (shares the task-status hue) |
+| `inProgress` | ≥1 member `done`, or a member shows in progress (a claim) | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
+| `blocked` | every unfinished member (done/out_of_scope excluded) is `blocked` | red |
+| `todo` | otherwise | gray |
 
-An all-`out_of_scope` milestone (struck-from-play) reads as `done`, not
-`deferred` (shelved-for-later): different signal, and nothing remains
-actionable either way. A milestone with one `deferred` task and nine `done`
-ones still reads `deferred` even at 90% complete: the deliberate shelving
-call outranks percentage. An empty milestone (zero tasks) stays `todo`
-rather than claiming to be finished.
+An all-`out_of_scope` milestone (struck-from-play) reads as `done`: nothing
+remains actionable, whether it finished or was struck out. A tier's deferred
+state cascades: a Tertiary milestone waits on every milestone in Secondary
+being `done` too, not only on Primary (see Tiers). `paused` is no longer a
+milestone-level state (a paused member falls through to `blocked`/`todo` on
+its own merits); it remains a task-level status.
+
+### Empty milestones
+
+A milestone with zero tasks is a bug, never a legitimate `todo`/empty state
+to render quietly: `roadmap.py validate` reports `{id}: milestone has no
+tasks` (exit 1), and the artefact's validation banner surfaces the same line.
+It still renders (`empty`, red, "No tasks") so the dashboard stays usable
+while the roadmap is fixed, and it never counts as "unfinished" for a tier
+cascade: an empty tier-0 milestone must not permanently defer every later
+tier, since that would hide the real problem behind a wrong colour instead
+of surfacing it.
+
+## Milestone sort and tier grouping (artefact only)
+
+`roadmap.py`'s `overview_layout()` computes the Overview and Milestones
+sections' shared sort and tier grouping once, server-side; the template
+renders it as given and never re-sorts or re-groups. Milestone sort, each
+layer breaking ties in the one before:
+
+1. partially done (`0 < donePct < 100`) before fully-0% before fully-100%
+2. tier, ascending (Primary first)
+3. `donePct`, descending
+4. milestone id, natural order (`M2` before `M10`)
+
+A phase with no tiered milestone (see Tiers) gets one flat, unwrapped list in
+that order; no tier markup renders at all. Otherwise every milestone groups
+under its tier's `<details>`, each carrying the dev chips of everyone
+assigned a task in it (done tasks included) on its summary line. Group
+order: expanded groups first, then groups with any not-done milestone, then
+all-done groups; ties break by tier index. A group's own `all-done` reading
+excludes nothing (an `empty` member keeps its group out of the all-done
+rank, distinct from the tier-cascade's own "empty never blocks" rule above).
 
 ## Dev-chip colour (artefact only)
 
@@ -311,6 +347,17 @@ tasks depend on the whole of the tier(s) before them, so the gate is what
 keeps them `deferred` under `recompute` rather than escalating to `blocked`
 the moment their nominal deps are all `done`. See the deferred annotation
 forms above for how this renders in PHASE.md.
+
+**Naming.** The artefact reads a milestone's tier from a suffix on its
+`name`, case-insensitive, trailing: `(Secondary)`, `(Tertiary)`,
+`(Quaternary)`, `(Quinary)` (`roadmap.py`'s `milestone_tier()`). No suffix is
+tier 0, labelled Primary. This is presentational only: it drives the
+Overview/Milestones tier grouping and the `deferred` colour cascade (see
+Milestone-level state above), and is never consulted by `recompute` or
+`validate`, which rely entirely on the gate-based mechanics above. A tier
+group in the dashboard expands only once every milestone in every lower tier
+is `done`, and only when it also holds a ready or in-progress task; a tier
+that isn't open yet stays collapsed regardless of what it contains.
 
 ## The three artefacts
 
