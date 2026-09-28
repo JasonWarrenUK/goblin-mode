@@ -100,7 +100,7 @@ No existing skill appends a milestone to a *live* phase (`roadmap-create` builds
 
 ## Step 6: Compute the new task's status (mechanical)
 
-The mechanical status rule applies (see conventions reference): empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`; behind a gate that `imposes: paused`/`deferred` → `paused`/`deferred`. `softDependsOn` never feeds this rule. After wiring, confirm the new task's status and any downstream changes with `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute --check` (preview, no write).
+The mechanical status rule applies (see conventions reference): empty `dependsOn` → `todo`; any non-`done` dependency → at least `blocked`, escalating under `deferred > paused > blocked > todo` — this covers both a dependency on a gate that `imposes: paused`/`deferred` and a dependency on a task that is itself already `paused`/`deferred`. `softDependsOn` never feeds this rule. After wiring, confirm the new task's status and any downstream changes with `python3 "$HOME"/.claude/library/scripts/roadmap.py recompute --check` (preview, no write).
 
 ---
 
@@ -136,7 +136,7 @@ Then ask: *"Does this look right? I'll write to the roadmap on your say-so."*
 ## Step 8: Write to both artefacts (once approved)
 
 0. **`m` mode only, before anything else**: insert the new milestone object (`{id, name, goal, tasks: []}`) into the phase's `milestones[]` array, after the last existing milestone.
-1. **`roadmaps.json`**: insert the task object in its milestone's `tasks[]` (field order `id, description, status, dependsOn, softDependsOn, iterative, notes, assignee`; tabs; British spelling). Include `assignee`/`softDependsOn` only when the user gave one; omit them entirely otherwise, exactly like `notes`. Update any existing tasks' `dependsOn`. Update any gate's `blocks[]` for parity. Add the placeholder task if any.
+1. **`roadmaps.json`**: insert the task object in its milestone's `tasks[]` (field order per the conventions reference; tabs; British spelling). Include `assignee`/`softDependsOn`/`softMilestone` only when the user gave one; omit them entirely otherwise, exactly like `notes`. Update any existing tasks' `dependsOn`. Update any gate's `blocks[]` for parity. Add the placeholder task if any.
 2. **PHASE file**: add the task line under its milestone with the status annotation (`_(blocked: depends on {IDs})_` etc.); update any existing task lines whose dependency clause changed; add the placeholder line. **`m` mode only**: first emit a full new milestone section (`## Milestone {N}: {Name}`, blank line, `**Goal:** {goal}`, blank line) before the task line, matching `roadmap-create` Step 7's shape. This is new work into an existing milestone; the section doesn't exist yet the way it does for a milestone `roadmap-create` built from scratch.
 3. **Mermaid diagram**: replace the entire fenced `mermaid` block with the output of `python3 "$HOME"/.claude/library/scripts/roadmap.py graph --mermaid --direction LR`. Never hand-edit edges, sinks or class lines; the generator recomputes milestone sinks (including any former sink displaced by the new task) and the canonical colours.
 4. **`ROADMAP_OVERVIEW.md`**: the task total (and, in `m` mode, the milestone total) changed, so update `**N tasks across M milestones.**`; pull *both* numbers from `python3 "$HOME"/.claude/library/scripts/roadmap.py stats --json` (`total` and `milestonesTotal`), never just the task count.
