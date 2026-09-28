@@ -144,45 +144,84 @@ _LABEL_MAX = 48
 # STATE_VAR (JS), not duplicated here: this function only returns the state
 # name, so there is exactly one place that maps a state to a colour variable.
 # ---------------------------------------------------------------------------
-def milestone_state(by_status, done_pct, total=None, in_progress=0):
-    """One of deferred/inProgress/todo/done/blocked/paused for a milestone,
+_TIER_SUFFIXES = ["Secondary", "Tertiary", "Quaternary", "Quinary"]
+
+
+def milestone_tier(name):
+    """A milestone's release tier from a `(Secondary)`/`(Tertiary)`/…
+    suffix on its name, case-insensitive: 0 for no suffix (Primary), 1 for
+    Secondary, 2 for Tertiary and so on. See roadmap-conventions.md's Tiers
+    section: a phase may split into tiers released one after another by
+    gate, not by date, and the dashboard reads the suffix to group and
+    colour milestones by tier."""
+    for i, suffix in enumerate(_TIER_SUFFIXES, start=1):
+        if re.search(rf"\({re.escape(suffix)}\)\s*$", name or "", re.IGNORECASE):
+            return i
+    return 0
+
+
+def milestone_all_done(by_status, total):
+    """True when a milestone has ≥1 task and every one is done or
+    out_of_scope: the "nothing actionable, nothing deferred" reading that
+    both milestone_state's rule 1 and the tier cascade in build_stats()
+    need. An empty milestone (total=0) is never "done" here; see
+    milestone_state's own `empty` rule."""
+    if not total:
+        return False
+    finished = by_status.get("done", 0) + by_status.get("out_of_scope", 0)
+    return finished == total
+
+
+def milestone_state(by_status, done_pct, total=None, in_progress=0,
+                     tier=0, lower_tiers_done=True):
+    """One of empty/done/deferred/blocked/inProgress/todo for a milestone,
     given its {status: count} map, completion percentage, (optionally) its
-    task total and (optionally) how many members are claimed and in play.
-    `total` disambiguates two shapes that otherwise look identical
-    (all-zero counts, 0%): a genuinely empty milestone (total=0, nothing to
-    report on, so it stays `todo` rather than claiming to be finished)
-    versus an all-out_of_scope one (total>0, nothing actionable left). Omit
-    `total` to skip that distinction (treated as non-empty).
+    task total, how many members are claimed and in play, its release tier
+    (0 = Primary, see milestone_tier()) and whether every milestone in a
+    lower tier is fully done (milestone_all_done()). First true rule wins:
 
-    Deferred fires on ANY deferred member with no actionable (todo/blocked/
-    paused) member left, not "every member deferred/out_of_scope": a
-    milestone with one deferred task and nine done ones is still "shelved",
-    even though donePct is 90 (deferred is a deliberate call that outranks
-    percentage). With nothing actionable left and no deferred member, a
-    non-empty milestone reads as done even if done_pct isn't literally 100:
-    an all-out_of_scope milestone has done_pct 0 (_pct only counts `done`
-    status), but nothing remains to act on and nothing was explicitly
-    shelved, so "finished" reads truer than "deferred" or "todo".
+    0. no tasks at all -> `empty` (a bug: an empty milestone is never a
+       legitimate state, so it is flagged rather than read as `todo`)
+    1. every task done/out_of_scope -> `done`
+    2. tier >= 1 and a lower tier is not yet fully done -> `deferred`
+       (cascade: a Tertiary milestone waits on Secondary too, not only on
+       Primary)
+    3. no actionable member (todo/blocked/paused) left, and >=1 member is
+       `deferred` -> `deferred` (a milestone-level gate, needing no tier
+       suffix, distinct from the cascade in rule 2. Fires ahead of
+       `inProgress` below it: a milestone with one deferred task and nine
+       done ones is still "shelved" even though donePct is 90, the same
+       deliberate-call-outranks-percentage reading main used before the
+       tier rewrite. It does NOT fire while actionable work remains: a
+       milestone with five todo tasks and one deferred one is still live
+       work to pick up, not a shelved milestone; hiding those five behind
+       "deferred" would contradict roadmap:next-group's own ready-set)
+    4. >=1 done task, or a claimed member in play -> `inProgress` (this
+       outranks "all unfinished tasks blocked": a milestone with some done
+       work and the rest blocked still reads as live and moving, confirmed
+       against Jason's own worked example: 2 done + 3 blocked -> inProgress,
+       not blocked)
+    5. every unfinished task is blocked (out_of_scope ignored) -> `blocked`
+    6. otherwise -> `todo`
 
-    A claimed member makes the milestone inProgress even at 0% done, unless
-    something blocked or paused outranks it.
+    `total` is the task count; 0 (or omitted) reads as empty. Every real
+    caller passes it explicitly (build_stats() always knows the count).
     """
-    if total == 0:
-        return "todo"
-    actionable = by_status.get("todo", 0) + by_status.get("blocked", 0) + \
-        by_status.get("paused", 0)
-    if actionable == 0:
-        if by_status.get("deferred", 0) > 0:
-            return "deferred"
+    if not total:
+        return "empty"
+    if milestone_all_done(by_status, total):
         return "done"
-    if done_pct == 100:
-        return "done"
-    if by_status.get("blocked", 0) > 0:
-        return "blocked"
-    if by_status.get("paused", 0) > 0:
-        return "paused"
-    if 0 < done_pct < 100 or in_progress > 0:
+    if tier >= 1 and not lower_tiers_done:
+        return "deferred"
+    actionable = (by_status.get("todo", 0) + by_status.get("blocked", 0)
+                  + by_status.get("paused", 0))
+    if actionable == 0 and by_status.get("deferred", 0) > 0:
+        return "deferred"
+    if by_status.get("done", 0) > 0 or in_progress > 0:
         return "inProgress"
+    unfinished = total - by_status.get("done", 0) - by_status.get("out_of_scope", 0)
+    if unfinished > 0 and by_status.get("blocked", 0) == unfinished:
+        return "blocked"
     return "todo"
 
 
@@ -270,6 +309,10 @@ def _validate_phase(phase):
     """Return the list of discrepancies for one phase (empty = clean)."""
     tasks, milestones, gates = build_index(phase)
     problems = []
+
+    for m in phase.get("milestones", []):
+        if not m.get("tasks"):
+            problems.append(f"{m['id']}: milestone has no tasks")
 
     known = set(tasks) | set(milestones) | set(gates)
     gate_expected_blocks = {gid: set() for gid in gates}
@@ -478,8 +521,7 @@ def build_stats(phase):
     all_invalid = []
     total = 0
     all_in_progress = 0
-    milestones = []
-    milestones_done = 0
+    prelim = []
     for m in phase.get("milestones", []):
         tasks = m.get("tasks", [])
         c, invalid = _counts(tasks)
@@ -489,20 +531,42 @@ def build_stats(phase):
         total += len(tasks)
         in_progress = _in_progress_count(tasks)
         all_in_progress += in_progress
-        done_pct = _pct(c["done"], len(tasks))
-        state = milestone_state(c, done_pct, total=len(tasks),
-                                in_progress=in_progress)
-        if state == "done":
-            milestones_done += 1
-        milestones.append({
+        prelim.append({
             "id": m["id"],
             "name": m.get("name", ""),
             "total": len(tasks),
             "done": c["done"],
             "byStatus": c,
             "inProgress": in_progress,
-            "donePct": done_pct,
-            "state": state,
+            "donePct": _pct(c["done"], len(tasks)),
+            "tier": milestone_tier(m.get("name", "")),
+            "allDone": milestone_all_done(c, len(tasks)),
+        })
+
+    # Tier cascade: a tier counts as "open" only once every non-empty
+    # milestone in every earlier tier is done. An empty milestone (total=0)
+    # is a data bug flagged separately by validation, not a legitimate
+    # "still in progress" member; letting it hold every later tier deferred
+    # forever would hide the real problem behind a wrong colour, so it never
+    # counts as keeping a tier undone. milestone_state() computes each
+    # milestone's own done-ness standalone, so this pass rolls that up into
+    # the one set of tiers with unfinished work, for the cascade check below.
+    undone_tiers = {m["tier"] for m in prelim if m["total"] and not m["allDone"]}
+
+    milestones = []
+    milestones_done = 0
+    for m in prelim:
+        lower_tiers_done = not any(t < m["tier"] for t in undone_tiers)
+        state = milestone_state(m["byStatus"], m["donePct"], total=m["total"],
+                                in_progress=m["inProgress"], tier=m["tier"],
+                                lower_tiers_done=lower_tiers_done)
+        if state == "done":
+            milestones_done += 1
+        milestones.append({
+            "id": m["id"], "name": m["name"], "total": m["total"],
+            "done": m["done"], "byStatus": m["byStatus"],
+            "inProgress": m["inProgress"], "donePct": m["donePct"],
+            "tier": m["tier"], "state": state,
         })
     return {
         "phase": phase.get("name"),
@@ -542,6 +606,107 @@ def _human_stats(stats):
                      f"status, excluded from byStatus: "
                      + ", ".join(stats["invalid"]))
     return "\n".join(lines)
+
+
+def _milestone_natural_key(mid):
+    return [int(part) if part.isdigit() else part
+            for part in re.split(r"(\d+)", str(mid))]
+
+
+def overview_layout(phase, stats, ready):
+    """Sort order and tier grouping for the artefact's Overview/Milestones
+    sections, computed once here so the template only renders what this
+    says (see roadmap-conventions.md's Milestone sort/tier-group rules).
+
+    Per-milestone: `tier`, `tierLabel` ("Primary" for tier 0, else the
+    matching `_TIER_SUFFIXES` entry) and `devs` (every distinct assignee
+    across the milestone's tasks, done ones included, sorted).
+
+    Milestone sort, each layer breaking ties in the one before:
+      1. partially done (0 < donePct < 100) before fully-0% before fully-100%
+      2. tier, ascending (Primary first)
+      3. donePct, descending
+      4. milestone id, natural order
+
+    Tier groups (only built when >=1 milestone has tier >= 1; a phase with
+    no tiered milestones gets one flat, unwrapped list instead):
+      - a tier is "open" once every milestone in every lower tier reads
+        `done` (a separate readback of the same tiers-with-unfinished-work
+        signal build_stats()'s own cascade already used, kept here because
+        this function additionally needs each tier's open/closed flag,
+        which milestone_state()'s per-milestone `state` doesn't expose)
+      - a group is expanded only when its tier is open AND it contains a
+        ready candidate or a claimed in-progress task; a tier that is not
+        yet open stays collapsed regardless of what it contains
+      - group order: expanded groups first, then groups with any
+        not-done milestone, then all-done groups; ties break by tier index
+    """
+    tasks_by_milestone = {}
+    for m in phase.get("milestones", []):
+        tasks_by_milestone[m["id"]] = m.get("tasks", [])
+
+    by_id = {m["id"]: m for m in stats["milestones"]}
+    enriched = []
+    for mid, m in by_id.items():
+        # tier comes straight from build_stats(), which already computed it
+        # via milestone_tier(); never re-derive it from the name here.
+        tier = m["tier"]
+        devs = sorted({t.get("assignee") for t in tasks_by_milestone.get(mid, [])
+                       if t.get("assignee")})
+        enriched.append({**m, "tier": tier,
+                         "tierLabel": "Primary" if tier == 0
+                         else _TIER_SUFFIXES[tier - 1],
+                         "devs": devs})
+
+    def sort_key(m):
+        pct = m["donePct"]
+        phase_bucket = 0 if 0 < pct < 100 else (1 if pct == 0 else 2)
+        return (phase_bucket, m["tier"], -pct, _milestone_natural_key(m["id"]))
+
+    enriched.sort(key=sort_key)
+
+    if not any(m["tier"] >= 1 for m in enriched):
+        return {"tiers": None, "milestones": enriched}
+
+    ready_ids = {c["id"] for c in ready.get("candidates", [])}
+    claimed_ids = {c["id"] for c in ready.get("claimed", [])
+                   if c.get("display") == IN_PROGRESS}
+    active_milestone_ids = set()
+    for mid, tasks in tasks_by_milestone.items():
+        if any(t["id"] in ready_ids or t["id"] in claimed_ids for t in tasks):
+            active_milestone_ids.add(mid)
+
+    tiers_present = sorted({m["tier"] for m in enriched})
+    # An empty milestone (state "empty") never blocks its tier's cascade:
+    # see the matching note in build_stats(); it is a flagged bug, not
+    # unfinished work, so it is excluded here the same way.
+    tier_all_done = {t: all(m["state"] in ("done", "empty")
+                            for m in enriched if m["tier"] == t)
+                     for t in tiers_present}
+
+    def tier_open(t):
+        return all(tier_all_done.get(lower, True)
+                   for lower in tiers_present if lower < t)
+
+    groups = []
+    for t in tiers_present:
+        members = [m for m in enriched if m["tier"] == t]
+        has_active = any(m["id"] in active_milestone_ids for m in members)
+        expanded = tier_open(t) and has_active
+        all_done = all(m["state"] == "done" for m in members)
+        rank = 0 if expanded else (2 if all_done else 1)
+        groups.append({
+            "tier": t,
+            "tierLabel": "Primary" if t == 0 else _TIER_SUFFIXES[t - 1],
+            "expanded": expanded,
+            "milestoneIds": [m["id"] for m in members],
+            "_rank": rank,
+        })
+    groups.sort(key=lambda g: (g["_rank"], g["tier"]))
+    for g in groups:
+        del g["_rank"]
+
+    return {"tiers": groups, "milestones": enriched}
 
 
 def cmd_stats(args) -> int:
@@ -655,24 +820,13 @@ def _topological_order(ids, order, edges):
     return topo
 
 
-def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
-    """The complete Mermaid diagram for a phase, classDefs included, so the
-    PHASE.md projection and the artefact can never drift. classDefs come
-    straight after the graph-type line (before it is a silent render failure).
-    Gates that gate nothing (resolved/superseded, kept in the data for the
-    record) are not drawn. Nodes and edges are emitted in topological order —
-    every source declared before its dependants — which gives the layout
-    engine a cleaner rank assignment and a more readable diagram.
-
-    softDependsOn edges render dotted (-.->) and are fed into the same
-    topological ordering as hard edges for layout stability; unlike
-    dependsOn they may form cycles (Kahn's tolerates this by appending the
-    remainder in roadmap order) and never impose status, block a milestone
-    sink, or fail validation's acyclicity check.
-    """
+def _live_graph(phase, omit_done=False):
+    """The graph mermaid_source() and choose_direction() both draw: full
+    build_graph() output plus the same set of node ids to skip (done tasks
+    and the milestones they empty out under omit_done, gates left
+    disconnected once those are gone). Kept in one place so the two never
+    compute a different notion of "the graph that actually renders"."""
     graph = build_graph(phase)
-    by_id = {n["id"]: n for n in graph["nodes"]}
-
     skipped = set()
     if omit_done:
         milestone_live = {}
@@ -693,6 +847,28 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
                  | {e["to"] for e in live_edges})
     skipped.update(n["id"] for n in graph["nodes"]
                    if n["kind"] == "gate" and n["id"] not in connected)
+    live_edges = [e for e in live_edges
+                  if e["from"] not in skipped and e["to"] not in skipped]
+    return graph, skipped, live_edges
+
+
+def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
+    """The complete Mermaid diagram for a phase, classDefs included, so the
+    PHASE.md projection and the artefact can never drift. classDefs come
+    straight after the graph-type line (before it is a silent render failure).
+    Gates that gate nothing (resolved/superseded, kept in the data for the
+    record) are not drawn. Nodes and edges are emitted in topological order —
+    every source declared before its dependants — which gives the layout
+    engine a cleaner rank assignment and a more readable diagram.
+
+    softDependsOn edges render dotted (-.->) and are fed into the same
+    topological ordering as hard edges for layout stability; unlike
+    dependsOn they may form cycles (Kahn's tolerates this by appending the
+    remainder in roadmap order) and never impose status, block a milestone
+    sink, or fail validation's acyclicity check.
+    """
+    graph, skipped, live_edges = _live_graph(phase, omit_done)
+    by_id = {n["id"]: n for n in graph["nodes"]}
 
     order = {n["id"]: i for i, n in enumerate(graph["nodes"])}
     ids = [n["id"] for n in graph["nodes"] if n["id"] not in skipped]
@@ -734,6 +910,83 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
             lines.append(f'\tclass {",".join(sorted(members))} {cls}')
 
     return "\n".join(lines)
+
+
+# Estimated on-screen footprint of one Mermaid node in the roadmap artefact's
+# diagram shell (IBM Plex Mono 16px, up to _LABEL_MAX-ish characters wrapped
+# by mermaid, plus its padding) and the gap the layout engine leaves between
+# ranks/nodes. Rough by nature: real layout depends on label length, mermaid
+# version and the chosen layout engine (elk vs dagre), so this only needs to
+# be in the right ballpark to pick a direction, not to predict exact pixels.
+_NODE_WIDTH, _NODE_HEIGHT = 220, 70
+_RANK_GAP, _NODE_GAP = 60, 20
+
+
+def _longest_path_layers(ids, edges):
+    """Assign every node the longest-path layer: 0 for a source, otherwise
+    one more than the deepest of its predecessors. This is the layering a
+    layered graph-drawing algorithm (dagre/elk, sugiyama-style) would use
+    for rank assignment, so it is a reasonable proxy for how many ranks the
+    real render will need: good enough to pick TD vs LR by, not a promise
+    that mermaid's own engine ranks identically."""
+    preds = {i: [] for i in ids}
+    idset = set(ids)
+    for e in edges:
+        if e["from"] in idset and e["to"] in idset:
+            preds[e["to"]].append(e["from"])
+    layer = {}
+
+    def depth(nid, seen):
+        if nid in layer:
+            return layer[nid]
+        if nid in seen or not preds[nid]:
+            layer[nid] = 0
+            return 0
+        seen = seen | {nid}
+        layer[nid] = 1 + max((depth(p, seen) for p in preds[nid]), default=-1)
+        return layer[nid]
+
+    for nid in ids:
+        depth(nid, set())
+    return layer
+
+
+def choose_direction(phase):
+    """`TD` or `LR` for the phase's dependency graph, picked deterministically
+    from the same live nodes/edges mermaid_source(omit_done=True) draws (see
+    roadmap-conventions.md).
+
+    Width-only fit: the diagram shell (`.mermaid-wrap` in the template) has
+    no height cap, the SVG renders at natural size and the page simply
+    scrolls past a tall diagram, but its width is bounded by the layout
+    column (measured against the real template, not estimated). So the
+    only real trade-off between directions is which one needs less
+    horizontal zoom-out, not a two-axis "which box fits better" guess.
+
+    Layers the live graph by longest path (_longest_path_layers): L layers,
+    widest layer W nodes. TD's width is W nodes side by side (node gap
+    between them); LR's width is L ranks laid out left to right (rank gap
+    between them). Whichever is narrower wins; a tie keeps TD, today's
+    fixed default, so an untiered/trivial phase's diagram never changes
+    shape from a coin flip.
+    """
+    graph, skipped, live_edges = _live_graph(phase, omit_done=True)
+    ids = [n["id"] for n in graph["nodes"] if n["id"] not in skipped]
+    if not ids:
+        return "TD"
+    layer = _longest_path_layers(ids, live_edges)
+    layer_counts = {}
+    for nid in ids:
+        layer_counts[layer[nid]] = layer_counts.get(layer[nid], 0) + 1
+    num_layers = max(layer.values(), default=0) + 1
+    widest = max(layer_counts.values(), default=1)
+
+    # TD: siblings within the widest layer sit side by side (node gap).
+    td_w = widest * _NODE_WIDTH + max(widest - 1, 0) * _NODE_GAP
+    # LR: ranks run left to right (rank gap between them).
+    lr_w = num_layers * _NODE_WIDTH + max(num_layers - 1, 0) * _RANK_GAP
+
+    return "LR" if lr_w < td_w else "TD"
 
 
 def cmd_graph(args) -> int:
@@ -857,27 +1110,35 @@ def _truncate_notes(candidates, limit=200):
 
 
 def ready_groups(candidates):
-    """Candidate ids keyed by milestone and by topic, for the --json path.
+    """Candidate ids keyed by milestone, by topic and by dev, for the
+    --json path.
 
     roadmap:next-group prints one table per group. Left to count for itself, a
     model drops rows and still reports a full total, so the membership of
     every table is fixed here instead. The topic is the letters between the
     milestone number and the sequence in a task id (`2TI.3` -> `TI`); an id
-    that does not fit that shape lands under `other`. Groups come out in
-    display order (milestones by number, topics alphabetically); ids inside a
+    that does not fit that shape lands under `other`. The dev key is the
+    trimmed `assignee`, or `unassigned` when empty. Groups come out in
+    display order (milestones by number, topics alphabetically, devs
+    case-insensitive alphabetical with `unassigned` last); ids inside a
     group keep the order of `candidates`.
     """
-    by_milestone, by_topic = {}, {}
+    by_milestone, by_topic, by_dev = {}, {}, {}
     for c in candidates:
         by_milestone.setdefault(c.get("milestone") or "none", []).append(c["id"])
         match = re.match(r"\d+([A-Za-z]+)\.", c["id"])
         by_topic.setdefault(match.group(1) if match else "other", []).append(c["id"])
+        dev = (c.get("assignee") or "").strip() or "unassigned"
+        by_dev.setdefault(dev, []).append(c["id"])
     def natural(key):
         return [int(part) if part.isdigit() else part
                 for part in re.split(r"(\d+)", key)]
+    def dev_key(key):
+        return (1, "") if key == "unassigned" else (0, key.lower())
 
     return {"milestone": {k: by_milestone[k] for k in sorted(by_milestone, key=natural)},
-            "topic": {k: by_topic[k] for k in sorted(by_topic)}}
+            "topic": {k: by_topic[k] for k in sorted(by_topic)},
+            "dev": {k: by_dev[k] for k in sorted(by_dev, key=dev_key)}}
 
 
 def cmd_ready(args) -> int:
@@ -1008,15 +1269,20 @@ def _render_to(json_path, data, phase, out):
                 "assignee": assignee,
                 "started": t.get("started", ""),
             })
+    stats = build_stats(phase)
+    ready = build_ready(phase)
+    direction = choose_direction(phase)
     blob = {
         "project": _project_name(json_path, phase),
         "phase": phase.get("name"),
         "generated": datetime.now().isoformat(timespec="seconds"),
-        "stats": build_stats(phase),
+        "stats": stats,
+        "overview": overview_layout(phase, stats, ready),
         "tasks": tasks,
-        "ready": build_ready(phase),
-        "mermaid": mermaid_source(phase, direction="TD",
+        "ready": ready,
+        "mermaid": mermaid_source(phase, direction=direction,
                                   omit_done=True, palette="vars"),
+        "graphDirection": direction,
         "validation": _validate_phase(phase),
         "devColours": {a: dev_colour(a) for a in sorted(assignees)},
         "depKinds": _dep_kinds(phase),
