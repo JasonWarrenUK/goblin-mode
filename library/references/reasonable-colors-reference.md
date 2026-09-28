@@ -1,8 +1,9 @@
 # Reasonable Colors — Quick Reference
 
 Source: `unpkg.com/reasonable-colors@0.4.0/reasonable-colors.css`
-Install: `npm install reasonable-colors`
 Docs: https://www.reasonable.work/colors/
+
+A seed palette for `/theme-factory` inputs only (CLAUDE.md 7.5): never imported or consumed directly by a component or artefact. Colour comes from the project theme system (`library/references/theme-conventions.md`); this file supplies raw hue/shade data as one of that pipeline's optional starting points.
 
 ---
 
@@ -17,24 +18,6 @@ Shade differences guarantee WCAG contrast ratios across all colour sets:
 | 4         | ≥ 7:1          | AAA               |
 
 The `color` spelling in CSS variable names is the library's convention — acceptable despite British spelling preference elsewhere.
-
----
-
-## Usage Pattern
-
-```css
-@import 'reasonable-colors'; /* or link CDN */
-
-:root {
-  /* Map RC vars to semantic roles */
-  --color-primary:    var(--color-azure-3);
-  --color-primary-bg: var(--color-azure-1);
-  --color-on-primary: var(--color-azure-6);
-}
-
-/* Components reference semantic vars only */
-.button { background: var(--color-primary); }
-```
 
 ---
 
