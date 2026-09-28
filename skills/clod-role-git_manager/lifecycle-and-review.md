@@ -1,6 +1,6 @@
 # Branch Lifecycle, Pull Requests, Merge Strategies, Conflict Resolution
 
-Detail for `git-manager`.
+Detail for `clod-role-git_manager`.
 
 ## Branch Lifecycle
 
@@ -127,39 +127,11 @@ Refactor Database Connection Logic
 Update API Documentation
 ```
 
-**Description template**:
-```markdown
-## What
-Brief description of what this PR does.
+**Description template**: `library/templates/pr-description.md` (CLAUDE.md §8.8), filled by `pr-create`/`pr-update` so the two never drift. Don't hand-write a PR body against a different shape.
 
-## Why
-Why this change is needed.
+### PR Size
 
-## How
-High-level explanation of approach.
-
-## Testing
-How to test these changes.
-
-## Screenshots (if applicable)
-Visual changes shown here.
-
-## Checklist
-- [ ] Tests added/updated
-- [ ] Documentation updated
-- [ ] No breaking changes (or documented)
-- [ ] Reviewed own code
-```
-
-### PR Size Guidelines
-
-**Ideal PR size**: 200-400 lines changed
-
-**Too large** (>500 lines):
-- Hard to review
-- Increases merge conflicts
-- Higher bug risk
-- Consider splitting
+No fixed line-count ceiling: judge by review difficulty, not a number. Branches represent minimal tangible improvements (CLAUDE.md §8.6) — when in doubt, go smaller.
 
 **Split large PRs**:
 ```

@@ -30,43 +30,7 @@ Use this skill when:
 
 ### Standard Prefixes
 
-**Core Development**:
-- `feat/` - New features (user-facing or API)
-- `enhance/` - Improvements to existing features (not bugs)
-- `fix/` - Bug fixes
-- `hotfix/` - Critical production fixes
-
-**Code Quality**:
-- `refactor/` - Code restructuring (no behaviour change)
-- `types/` - Type definitions (interfaces, types, contracts)
-- `perf/` - Performance improvements
-- `test/` - Adding/updating tests
-- `debug/` - Debugging/investigation branches (temporary)
-
-**Documentation & Content**:
-- `docs/` - Documentation changes
-- `content/` - Content updates (copy, text, data files)
-
-**Styling & UI**:
-- `styles/` - Visual styling (colours, fonts, spacing)
-- `layout/` - Structural positioning (grid, flexbox, responsive)
-- `a11y/` - Accessibility improvements
-
-**Dependencies & Configuration**:
-- `deps/` - Dependency updates
-- `build/` - Build system, bundler, tooling
-- `config/` - Configuration files (non-Claude)
-- `agents/` - Claude Code configuration
-- `chore/` - Maintenance tasks (cleanup, file moves)
-
-**CI/CD & DevOps**:
-- `ci/` - CI/CD pipeline changes
-- `deploy/` - Deployment-specific changes
-
-**Experimental**:
-- `spike/` - Research/proof-of-concept (not intended for merge)
-- `experiment/` - Experimental features (may be discarded)
-- `wip/` - Work in progress (explicit "not ready" signal)
+CLAUDE.md 8.6 is authoritative: `feat/`, `fix/`, `enhance/`, `refactor/`, `test/`, `docs/`, `config/`, `chore/`, `ci/`, `deps/`, `hotfix/`, `spike/`, `agents/`. All lowercase, hyphens between words, imperative mood.
 
 ### Naming Conventions
 
@@ -191,7 +155,7 @@ Examples:
 <footer>
 ```
 
-**Type**: Same as branch prefixes (feat, fix, docs, etc.)
+**Type**: `feat`, `fix`, `docs`, `refactor`, `test`, `chore` (CLAUDE.md 8.1)
 **Scope**: Component/module affected (optional)
 **Subject**: Brief description (50 chars max)
 **Body**: Detailed explanation (optional, wrap at 72 chars)
