@@ -71,7 +71,7 @@ Read `.claude/roadmaps.json`, the active phase's PHASE file (its `path`), and `d
 
 ### 2. Apply the explicit status changes and edge removals requested
 
-If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first, preserving tab indentation, field order (`id, description, status, dependsOn, softDependsOn, iterative, notes, assignee, started, pr`), and the `notes`/`iterative`/`assignee`/`started`/`softDependsOn` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here: this step edits status only.
+If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first, preserving tab indentation, the conventions reference's task field order, and the `notes`/`iterative`/`assignee`/`started`/`softDependsOn`/`softMilestone` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here: this step edits status only.
 
 If the user says a task is **in progress** (someone has started it), claim it rather than editing its status: ask who is doing it (offer the task's current `assignee`; never infer one) and run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py claim <ID> [--assignee <name>]`. If they say work on a task has **stopped**, run `... release <ID>` (add `--unassign` only if they want the assignee cleared too). A claim changes no status, has no PHASE file task-line annotation (the regenerated diagram in step 5 shows it) and never goes through step 3; `claim` refuses a task that isn't ready to start, so relay its message rather than forcing it.
 
@@ -101,7 +101,8 @@ For each task whose status changed (from the script's output), update its line i
 | `done`                              | `- [x]`  | none                                                       |
 | `blocked`                           | `- [ ]`  | `_(blocked: depends on {comma-separated dependsOn IDs})_` |
 | `paused`                            | `- [ ]`  | `_(paused: reconvene {gateId})_`                          |
-| `deferred`                          | `- [ ]`  | `_(deferred to a later phase)_`                            |
+| `deferred` (out of this phase)      | `- [ ]`  | `_(deferred to a later phase)_`                            |
+| `deferred` (tier-gated, this phase) | `- [ ]`  | `_(deferred: {gateId}, and every {tier} milestone)_` on the tier's entry task; `_(deferred: follows {ID})_` on each task chained behind it |
 | `todo` with dependencies (all done) | `- [ ]`  | `_(depends on {IDs})_`                                     |
 | `todo` with empty `dependsOn`       | `- [ ]`  | none                                                       |
 | `out_of_scope`                      | `- [ ]`  | left as authored (terminal)                                |

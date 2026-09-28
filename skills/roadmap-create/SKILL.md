@@ -60,7 +60,7 @@ Format: `{MilestoneNum}{Category}.{Seq}`, e.g. `1EV.1`, `3IN.6`. Sub-tasks use a
 
 ### 5. Compute initial statuses (mechanical)
 
-The mechanical status rule from the conventions reference applies: empty `dependsOn` → `todo`; any non-`done` dependency → `blocked`. No task starts `done` unless the user says the work is already complete. `paused`/`deferred` are only for tasks parked behind a gate or a later phase. `softDependsOn` never feeds this rule.
+The mechanical status rule from the conventions reference applies: empty `dependsOn` → `todo`; any non-`done` dependency → at least `blocked`, escalating under `deferred > paused > blocked > todo` when a dependency is itself parked. No task starts `done` unless the user says the work is already complete. A root-seeded `paused`/`deferred` (empty `dependsOn`) is only for tasks parked behind a gate or a later phase from the outset. `softDependsOn` never feeds this rule.
 
 ### 6. Generate `.claude/roadmaps.json`
 
@@ -87,7 +87,7 @@ The top level is an **array of phase objects**. Append + archive the superseded 
 ]
 ```
 
-- Field order for tasks: `id, description, status, dependsOn, softDependsOn, iterative, notes, assignee` (a new task never carries `started`: claims come from starting work); gates: `id, name, status, imposes, blocks, notes`. Include `softDependsOn`/`notes`/`iterative`/`assignee` only when meaningful; `assignee` is free-text with no roster, and must never be guessed.
+- Task and gate field order follows the conventions reference (a new task never carries `started`: claims come from starting work). Include `softDependsOn`/`softMilestone`/`notes`/`iterative`/`assignee` only when meaningful; `assignee` is free-text with no roster, and must never be guessed.
 - **External gates** (`externalGates`, per phase, beside `milestones`) model things outside the team's control that block work: `{id, name, status:"external", imposes?, blocks[], notes?}`. `imposes` (default `blocked`; may be `paused` or `deferred`) is the status the gate forces on its blocked children; `blocks[]` is the reverse edge: every task ID that lists this gate in its `dependsOn`. A gate ID can appear in a task's `dependsOn`.
 - A `dependsOn` entry may be a **milestone ID** (`M1`, `MP`…): it resolves `done` only when every task in that milestone is `done`.
 - The `iterative: true` flag marks a task that loops to convergence: descriptive only, never a cyclic `dependsOn`.
@@ -122,7 +122,7 @@ The top level is an **array of phase objects**. Append + archive the superseded 
 ```
 ````
 
-Task line annotations follow the conventions reference (none / `_(depends on {IDs})_` / `_(blocked: depends on {IDs})_` / `_(paused: reconvene {gateId})_` / `_(deferred to a later phase)_`).
+Task line annotations follow the conventions reference (none / `_(depends on {IDs})_` / `_(blocked: depends on {IDs})_` / `_(paused: reconvene {gateId})_` / `_(deferred to a later phase)_` / the tier-gated `_(deferred: {gateId}, and every {tier} milestone)_` and `_(deferred: follows {ID})_` forms — see Tiers in the conventions reference).
 
 **The diagram is generated, never hand-written.** Once the JSON is written, run:
 

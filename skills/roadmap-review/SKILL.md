@@ -69,9 +69,10 @@ Note updates:     {task}: record kept-edge rationale
 
 ```text
 → roadmap-maintain (reconcile):  {suspected-done tasks to verify against code}
-→ roadmap-maintain (explicit):   {status calls, edge and gate edits from the shorthand above}
-→ roadmap-update-tasks:          {new tasks surfaced; milestone moves}
+→ roadmap-maintain (explicit):   {status calls; soft-edge add/remove; approved edge/gate removals}
+→ roadmap-update-tasks:          {new tasks surfaced}
 → roadmap-create-interview:      {a theme big enough to deserve its own session}
+→ No writer yet (edit `.claude/roadmaps.json` directly, then `recompute --check`): {a new hard edge between two existing tasks; a gate field edit outside an approved removal; moving an existing task to a different milestone}
 → No action:                     {reviewed and healthy; say so explicitly}
 ```
 
