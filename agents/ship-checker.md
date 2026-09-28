@@ -33,7 +33,6 @@ Check if changes warrant documentation updates:
 - **New features** → Is the README current?
 - **Breaking changes** → Are migration notes needed?
 - **Configuration changes** → Are environment variable docs current?
-- Cross-reference against the file-to-doc mapping from `post-commit-docs` hook logic
 
 ### 4. Breaking Change Detection
 

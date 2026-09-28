@@ -158,5 +158,4 @@ When reviewing a design:
 
 - For code review (use PR review instead)
 - For implementation planning (use implementation-planner)
-- For debugging (use systematic-debugger)
 - For trivial changes that don't warrant design review
