@@ -35,7 +35,7 @@ Invoke `task-sync` as a subagent to:
 
 ### 4. Generate Work Record
 
-Produce a structured summary suitable for a work record entry (reuses the format from `/doc:create:work-record`):
+Produce a structured summary suitable for a work record entry (reuses the format from `library/templates/work-record.md`):
 
 ```markdown
 ### [Date] — [Project Name]
