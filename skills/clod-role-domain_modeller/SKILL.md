@@ -168,16 +168,16 @@ Watch for these; they usually indicate the model needs more thought:
 
 ## Integration Points
 
-### With data-ontologist
-Domain modeller identifies *what* exists and how it connects. Data-ontologist decides *where* it lives and how to query it.
+### With clod-role-data_ontologist
+Domain modeller identifies *what* exists and how it connects. clod-role-data_ontologist decides *where* it lives and how to query it.
 
 ### With implementation-planner
 The domain model feeds directly into the implementation plan. Model first, plan second, build third.
 
-### With ethics-reviewer
+### With clod-lens-ethics
 Certain domain entities (user data, tracking, notifications) trigger ethical review. If the model includes personal data or behavioural tracking, flag it.
 
-### With scope-coach
+### With clod-lens-scope
 A domain model often reveals more complexity than expected. Scope coach helps cut back to what's essential for the first iteration.
 
 ---

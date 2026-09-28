@@ -174,16 +174,16 @@ Not all ethical concerns are equal. Use these to calibrate:
 
 ## Integration Points
 
-### With domain-modeller
-When the domain model includes personal data entities (User, Profile, Preferences), ethics-reviewer flags data minimisation and privacy concerns.
+### With clod-role-domain_modeller
+When the domain model includes personal data entities (User, Profile, Preferences), clod-lens-ethics flags data minimisation and privacy concerns.
 
-### With frontend-styler
+### With clod-role-frontend_styler
 Accessibility checks integrate directly into styling work: contrast, focus indicators, semantic structure.
 
-### With api-designer
+### With clod-role-api_designer
 Privacy-by-default patterns in API design: no excessive data in responses, secure defaults, proper auth scoping.
 
-### With testing-obsessive
+### With clod-role-testing_obsessive
 Accessibility testing is part of the testing strategy: automated a11y checks, keyboard navigation tests, screen reader verification.
 
 ---

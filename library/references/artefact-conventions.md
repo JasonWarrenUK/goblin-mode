@@ -76,7 +76,7 @@ reference a raw hex; always a semantic alias (`--ink`, `--surface`,
 `--accent`, `--verd`, whatever names fit this artefact's own vocabulary).
 The theme's emitted `:root` block provides the base twelve; an artefact may
 alias them further. Document *why* each alias maps to which theme token, the
-way `those-who-came-before/site/assets/site.css` does:
+way `site/assets/site.css` does:
 
 ```css
 /*

@@ -1,6 +1,6 @@
 # Keyboard Input, Focus, Colours, Console, Environment Variables
 
-Detail for `opentui-operative`.
+Detail for `clod-stack-opentui`.
 
 ## Keyboard Input
 

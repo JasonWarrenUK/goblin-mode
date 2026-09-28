@@ -1,6 +1,6 @@
 # Common Query Patterns
 
-Detail for `Cypher Linguist`: social graph, hierarchy, recommendation, path-finding and access-control queries.
+Detail for `clod-stack-cypher`: social graph, hierarchy, recommendation, path-finding and access-control queries.
 
 ## Social Graph Patterns
 

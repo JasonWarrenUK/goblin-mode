@@ -1,6 +1,6 @@
 # Real-World Examples
 
-Detail for `Data Ontologist`: four worked examples of polyglot persistence splits.
+Detail for `clod-role-data_ontologist`: four worked examples of polyglot persistence splits.
 
 ## Example 1: Social Application (WorkWise)
 

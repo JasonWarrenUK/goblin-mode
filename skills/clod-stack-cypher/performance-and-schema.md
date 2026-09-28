@@ -1,6 +1,6 @@
 # Performance Optimisation and Schema Design
 
-Detail for `Cypher Linguist`.
+Detail for `clod-stack-cypher`.
 
 ## Indexes and Constraints
 
