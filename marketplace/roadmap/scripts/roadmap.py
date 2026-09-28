@@ -857,27 +857,35 @@ def _truncate_notes(candidates, limit=200):
 
 
 def ready_groups(candidates):
-    """Candidate ids keyed by milestone and by topic, for the --json path.
+    """Candidate ids keyed by milestone, by topic and by dev, for the
+    --json path.
 
     roadmap:next-group prints one table per group. Left to count for itself, a
     model drops rows and still reports a full total, so the membership of
     every table is fixed here instead. The topic is the letters between the
     milestone number and the sequence in a task id (`2TI.3` -> `TI`); an id
-    that does not fit that shape lands under `other`. Groups come out in
-    display order (milestones by number, topics alphabetically); ids inside a
+    that does not fit that shape lands under `other`. The dev key is the
+    trimmed `assignee`, or `unassigned` when empty. Groups come out in
+    display order (milestones by number, topics alphabetically, devs
+    case-insensitive alphabetical with `unassigned` last); ids inside a
     group keep the order of `candidates`.
     """
-    by_milestone, by_topic = {}, {}
+    by_milestone, by_topic, by_dev = {}, {}, {}
     for c in candidates:
         by_milestone.setdefault(c.get("milestone") or "none", []).append(c["id"])
         match = re.match(r"\d+([A-Za-z]+)\.", c["id"])
         by_topic.setdefault(match.group(1) if match else "other", []).append(c["id"])
+        dev = (c.get("assignee") or "").strip() or "unassigned"
+        by_dev.setdefault(dev, []).append(c["id"])
     def natural(key):
         return [int(part) if part.isdigit() else part
                 for part in re.split(r"(\d+)", key)]
+    def dev_key(key):
+        return (1, "") if key == "unassigned" else (0, key.lower())
 
     return {"milestone": {k: by_milestone[k] for k in sorted(by_milestone, key=natural)},
-            "topic": {k: by_topic[k] for k in sorted(by_topic)}}
+            "topic": {k: by_topic[k] for k in sorted(by_topic)},
+            "dev": {k: by_dev[k] for k in sorted(by_dev, key=dev_key)}}
 
 
 def cmd_ready(args) -> int:

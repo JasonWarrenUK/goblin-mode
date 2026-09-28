@@ -349,8 +349,10 @@ class Ready(unittest.TestCase):
 
     def test_groups_cover_every_candidate_once_per_pivot(self):
         ph = phase([
-            {"id": "M1", "name": "m1", "tasks": [task("1IN.1"), task("1UI.2")]},
-            {"id": "M2", "name": "m2", "tasks": [task("2IN.1"), task("odd")]}])
+            {"id": "M1", "name": "m1", "tasks": [
+                task("1IN.1", assignee="jaz"), task("1UI.2")]},
+            {"id": "M2", "name": "m2", "tasks": [
+                task("2IN.1", assignee="Jason"), task("odd")]}])
         candidates = roadmap.build_ready(ph)["candidates"]
         groups = roadmap.ready_groups(candidates)
         self.assertEqual(groups["milestone"],
@@ -358,6 +360,10 @@ class Ready(unittest.TestCase):
         self.assertEqual(groups["topic"],
                          {"IN": ["1IN.1", "2IN.1"], "UI": ["1UI.2"], "other": ["odd"]})
         self.assertEqual(list(groups["topic"]), ["IN", "UI", "other"])
+        self.assertEqual(groups["dev"],
+                         {"jaz": ["1IN.1"], "Jason": ["2IN.1"],
+                          "unassigned": ["1UI.2", "odd"]})
+        self.assertEqual(list(groups["dev"]), ["Jason", "jaz", "unassigned"])
         for pivot in groups.values():
             flat = [tid for ids in pivot.values() for tid in ids]
             self.assertEqual(sorted(flat), sorted(c["id"] for c in candidates))
