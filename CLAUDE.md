@@ -43,7 +43,7 @@
     - [7.2.2. Files](#722-files)
   - [7.3. TypeScript Standards](#73-typescript-standards)
   - [7.4. Code Style](#74-code-style)
-  - [7.5. Colour Palette](#75-colour-palette)
+  - [7.5. Colour and Theme](#75-colour-and-theme)
   - [7.6. Testing](#76-testing)
 - [8. Git Workflow](#8-git-workflow)
   - [8.1. Commit Style](#81-commit-style)
@@ -320,7 +320,7 @@ Colour, type and shape for anything rendered (HTML artefacts, app styling, termi
 
 **Usage rules:**
 
-- Components and artefacts reference semantic aliases only (`--ink`, `--surface`, `--accent`, `--danger`); the theme's `html` target file emits them, light and dark, via `scripts/theme/emit.ts`
+- Components and artefacts reference semantic aliases only (`--ink`, `--surface`, `--accent`, `--danger`); the theme's `html` target file emits them, light and dark, via `library/scripts/theme/emit.ts`
 - No inline hex values in components or skills; a missing colour is a theme change, not a local constant
 - Every theme ships its own verified contrast table (AA 4.5:1 body, 3:1 large) and passes an originality gate; only the user can lift an originality warning
 - No theme in the project yet: run `/theme-factory "html"` (or the target you need) before styling; the global `clod` family is the fallback until then
@@ -350,7 +350,7 @@ Detailed commit bodies when context needed. Good git history is documentation.
 
 ### 8.2. Versioning with `svu`
 
-See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `svu next --v0`, never bare `svu next`: the `--v0` flag refuses to cross 0.x → 1.x (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Once a project deliberately tags `1.0.0`, `--v0` becomes a no-op and later major bumps pass through normally.
+See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `safe-version-next.sh`, never bare `svu next`: it wraps `svu current`/`svu next` and refuses to cross 0.x → 1.x itself (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Once a project deliberately tags `1.0.0`, the guard becomes a no-op and later major bumps pass through normally.
 
 ---
 
