@@ -523,14 +523,27 @@ const depChip = id => {
    section itself is an open-by-default <details> (see the overview.body
    CSS), and the headline is the only thing left visible once collapsed. */
 const st = DATA.stats;
+/* Every done/total readout counts in-scope tasks only (inScope, computed by
+   roadmap.py's build_stats()): an out_of_scope task is struck from play, so
+   it is neither done nor outstanding. One readout shape serves the project
+   headline and each tier's own. */
+const readout = s =>
+	`${s.done}/${s.inScope} Tasks · ${s.donePct}% Complete · ` +
+	`${s.milestonesDone}/${s.milestonesTotal} Milestones`;
 document.getElementById("headline").textContent =
-	`${st.byStatus.done}/${st.total} Tasks · ${st.donePct}% Complete · ` +
-	`${st.milestonesDone}/${st.milestonesTotal} Milestones`;
+	readout({ ...st, done: st.byStatus.done });
+
+/* A milestone's own count: "No tasks" for an empty one (a flagged bug),
+   "Out of scope" when every task it holds was struck, else done/inScope. */
+const milestoneCount = (m, suffix = "") =>
+	m.state === "empty" ? "No tasks"
+	: !m.inScope ? "Out of scope"
+	: `${m.done}/${m.inScope}${suffix}`;
 
 const milestoneCard = m => `
 	<div class="card mini" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
 		<h3>${esc(m.id)}: ${esc(m.name)}</h3>
-		<span class="count">${m.state === "empty" ? "No tasks" : `${m.done}/${m.total} done · ${m.donePct}%`}</span>
+		<span class="count">${milestoneCount(m, ` done · ${m.donePct}%`)}</span>
 		<div class="progress-bar"><div class="progress-fill"
 			style="width:${m.donePct}%;background:var(--color-${STATE_VAR[m.state]})"></div></div>
 	</div>`;
@@ -574,7 +587,7 @@ const milestoneDetails = m => {
 	return `<details class="milestone" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
 		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
 			${devChips(m)}
-			<span class="count">${m.state === "empty" ? "No tasks" : `${m.done}/${m.total}`}</span></summary>
+			<span class="count">${milestoneCount(m)}</span></summary>
 		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>
 	</details>`;
 };

@@ -517,6 +517,15 @@ def _pct(done, total):
     return round(done / total * 100) if total else 0
 
 
+def _in_scope(counts, total):
+    """How many tasks are still in play: the total less every out_of_scope
+    one. The denominator of every done/total readout and of donePct, so a
+    task struck from play never counts as unfinished work. `total` itself
+    stays the raw task count (milestone_state() and the ROADMAP_OVERVIEW
+    header both need it)."""
+    return total - counts.get("out_of_scope", 0)
+
+
 def _in_progress_count(tasks):
     """Claimed tasks still in play; they are also counted under their own
     status in byStatus, so this is an overlay, never part of the total."""
@@ -539,14 +548,16 @@ def build_stats(phase):
         total += len(tasks)
         in_progress = _in_progress_count(tasks)
         all_in_progress += in_progress
+        in_scope = _in_scope(c, len(tasks))
         prelim.append({
             "id": m["id"],
             "name": m.get("name", ""),
             "total": len(tasks),
+            "inScope": in_scope,
             "done": c["done"],
             "byStatus": c,
             "inProgress": in_progress,
-            "donePct": _pct(c["done"], len(tasks)),
+            "donePct": _pct(c["done"], in_scope),
             "tier": milestone_tier(m.get("name", "")),
             "allDone": milestone_all_done(c, len(tasks)),
         })
@@ -572,17 +583,20 @@ def build_stats(phase):
             milestones_done += 1
         milestones.append({
             "id": m["id"], "name": m["name"], "total": m["total"],
+            "inScope": m["inScope"],
             "done": m["done"], "byStatus": m["byStatus"],
             "inProgress": m["inProgress"], "donePct": m["donePct"],
             "tier": m["tier"], "state": state,
         })
+    in_scope = _in_scope(all_counts, total)
     return {
         "phase": phase.get("name"),
         "total": total,
+        "inScope": in_scope,
         "byStatus": all_counts,
         "inProgress": all_in_progress,
         "invalid": all_invalid,
-        "donePct": _pct(all_counts["done"], total),
+        "donePct": _pct(all_counts["done"], in_scope),
         "milestonesTotal": len(milestones),
         "milestonesDone": milestones_done,
         "milestones": milestones,
@@ -593,7 +607,7 @@ def _human_stats(stats):
     claimed = (f"  ({stats['inProgress']} in progress)"
                if stats.get("inProgress") else "")
     lines = [
-        f"{stats['phase']}: {stats['byStatus']['done']}/{stats['total']} done "
+        f"{stats['phase']}: {stats['byStatus']['done']}/{stats['inScope']} done "
         f"({stats['donePct']}%)",
         "  " + "  ".join(f"{s}={stats['byStatus'][s]}"
                          for s in _STATS_ORDER if stats['byStatus'][s])
@@ -605,7 +619,7 @@ def _human_stats(stats):
                            for s in _STATS_ORDER if m['byStatus'][s])
         if m.get("inProgress"):
             active += f"  ({m['inProgress']} in progress)"
-        lines.append(f"  {m['id']:4} {m['done']}/{m['total']:<3} {m['name']}")
+        lines.append(f"  {m['id']:4} {m['done']}/{m['inScope']:<3} {m['name']}")
         if active:
             lines.append(f"       {active}")
     if stats["invalid"]:
@@ -630,7 +644,9 @@ def overview_layout(phase, stats, ready):
     0, else the matching suffix) and `devs` (every distinct assignee
     across the milestone's tasks, done ones included, sorted).
 
-    Milestone sort, each layer breaking ties in the one before:
+    Milestone sort, each layer breaking ties in the one before (donePct
+    is measured against in-scope tasks, see _in_scope(); a milestone with
+    every task out_of_scope sorts as fully-100%):
       1. partially done (0 < donePct < 100) before fully-0% before fully-100%
       2. tier, ascending (Core first)
       3. donePct, descending
@@ -666,7 +682,9 @@ def overview_layout(phase, stats, ready):
                          "devs": devs})
 
     def sort_key(m):
-        pct = m["donePct"]
+        # A milestone struck out whole (tasks, none in scope) has nothing
+        # left to do, so it sorts with the fully-100% ones, not the 0% ones.
+        pct = m["donePct"] if m["inScope"] or not m["total"] else 100
         phase_bucket = 0 if 0 < pct < 100 else (1 if pct == 0 else 2)
         return (phase_bucket, m["tier"], -pct, _milestone_natural_key(m["id"]))
 
