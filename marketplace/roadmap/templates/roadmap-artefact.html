@@ -273,6 +273,9 @@ details.tier > summary h3 {
 	margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem;
 	font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
 }
+details.tier > summary .readout {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted);
+}
 details.tier > summary .arrow { font-size: 0.7rem; color: var(--muted); transition: transform 0.15s; }
 details.tier[open] > summary .arrow { transform: rotate(90deg); }
 
@@ -597,9 +600,12 @@ const milestonesById = Object.fromEntries(DATA.overview.milestones.map(m => [m.i
 if (DATA.overview.tiers) {
 	// Tiered phase: one <details class="tier"> per tier, expanded flag and
 	// milestone membership/order both computed server-side (overview_layout).
+	// Overview's tier header carries the tier's own readout (g.stats), the
+	// per-tier counterpart of the headline; Milestones' keeps the bare name.
 	document.getElementById("milestone-cards").innerHTML = DATA.overview.tiers.map(g => `
 		<details class="tier"${g.expanded ? " open" : ""}>
-			<summary><span class="arrow">▸</span><h3>${esc(g.tierLabel)}</h3></summary>
+			<summary><span class="arrow">▸</span><h3>${esc(g.tierLabel)}</h3>
+				<span class="readout">${esc(readout(g.stats))}</span></summary>
 			<div class="grid">${g.milestoneIds.map(id => milestoneCard(milestonesById[id])).join("")}</div>
 		</details>`).join("");
 	document.getElementById("milestone-details").innerHTML = DATA.overview.tiers.map(g => `

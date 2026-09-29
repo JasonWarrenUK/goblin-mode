@@ -559,6 +559,22 @@ class OverviewLayout(unittest.TestCase):
         layout = _layout(ph)
         self.assertEqual([g["tier"] for g in layout["tiers"]], [1, 0, 2])
 
+    def test_tier_group_carries_its_own_readout(self):
+        ph = phase([
+            {"id": "M1", "name": "a", "tasks": [task("p", "done")]},
+            {"id": "M2", "name": "b", "tasks": [
+                task("q", "done"), task("r"), task("s", "out_of_scope")]},
+            {"id": "M3", "name": "c (Secondary)", "tasks": [
+                task("t", "blocked", ["M1", "M2"]), task("u", "blocked", ["t"])]}])
+        layout = _layout(ph)
+        groups = {g["tier"]: g["stats"] for g in layout["tiers"]}
+        self.assertEqual(groups[0], {
+            "done": 2, "inScope": 3, "donePct": 67,
+            "milestonesDone": 1, "milestonesTotal": 2})
+        self.assertEqual(groups[1], {
+            "done": 0, "inScope": 2, "donePct": 0,
+            "milestonesDone": 0, "milestonesTotal": 1})
+
     def test_milestone_ids_within_group_follow_the_sort_order(self):
         ph = phase([
             {"id": "M1", "name": "a (Secondary)", "tasks": [task("x")]},

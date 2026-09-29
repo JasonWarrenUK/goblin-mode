@@ -664,6 +664,9 @@ def overview_layout(phase, stats, ready):
         yet open stays collapsed regardless of what it contains
       - group order: expanded groups first, then groups with any
         not-done milestone, then all-done groups; ties break by tier index
+      - each group carries its own `stats` readout (done, inScope,
+        donePct, milestonesDone, milestonesTotal), summed from its
+        members, the per-tier counterpart of the phase headline
     """
     tasks_by_milestone = {}
     for m in phase.get("milestones", []):
@@ -720,11 +723,21 @@ def overview_layout(phase, stats, ready):
         expanded = tier_open(t) and has_active
         all_done = all(m["state"] == "done" for m in members)
         rank = 0 if expanded else (2 if all_done else 1)
+        done = sum(m["done"] for m in members)
+        in_scope = sum(m["inScope"] for m in members)
         groups.append({
             "tier": t,
             "tierLabel": tier_label(t),
             "expanded": expanded,
             "milestoneIds": [m["id"] for m in members],
+            "stats": {
+                "done": done,
+                "inScope": in_scope,
+                "donePct": _pct(done, in_scope),
+                "milestonesDone": sum(1 for m in members
+                                      if m["state"] == "done"),
+                "milestonesTotal": len(members),
+            },
             "_rank": rank,
         })
     groups.sort(key=lambda g: (g["_rank"], g["tier"]))
