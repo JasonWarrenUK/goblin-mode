@@ -310,7 +310,11 @@ details.milestone > summary .mid {
 	border: 1px solid var(--color-milestone); border-radius: 4px; padding: 0.1rem 0.4rem;
 }
 details.milestone > summary .devs { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
-details.milestone > summary .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+/* The count sits at the far right of every milestone summary. With dev
+   chips present they take the auto margin and the count follows them;
+   without, the count takes it itself. */
+details.milestone > summary .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; margin-left: auto; }
+details.milestone > summary .devs + .count { margin-left: 0; }
 details.milestone .body { padding: 0 1.2rem 1rem; }
 .group h4 { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
 .group ul { list-style: none; margin: 0; padding: 0; }
