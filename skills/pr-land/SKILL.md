@@ -8,7 +8,7 @@ metadata:
   glyph: ᛟ
   family: pr
 disable-model-invocation: true
-allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
+allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(python3:*)"]
 arguments: ["pr"]
 argument-hint: "[PR number | URL]"
 ---
@@ -19,7 +19,7 @@ The post-approval sequence as one skill: verify the PR is genuinely ready, merge
 
 ## Hard rule: the version guard
 
-**The 0.x → 1.x boundary is never crossed by this skill, under any circumstances.** Tagging v1.0.0 (or `{plugin}-v1.0.0`) declares that surface's API stable and only a human does that. The guard is programmatic: every tag, root or plugin, always comes from `safe-version-next.sh` (bare for root, `--plugin {name} --dir {source}` for a plugin), which emits a 0.x minor bump when svu proposes 1.0.0 and passes every other bump through (2.x, 3.x major bumps are fine). Never call `svu next` directly here, and never hand-compute a tag or a `plugin.json` version.
+**The 0.x → 1.x boundary is never crossed by this skill, under any circumstances.** Tagging v1.0.0 (or `{plugin}-v1.0.0`) declares that surface's API stable and only a human does that. The guard is programmatic: every tag this skill creates, root or plugin, always comes from `safe-version-next.sh` (bare for root, `--plugin {name} --dir {source}` for a plugin), which emits a 0.x minor bump when svu proposes 1.0.0 and passes every other bump through (2.x, 3.x major bumps are fine). Never call `svu next` directly here, and never hand-compute a tag or a `plugin.json` version.
 
 ## Step 1: Verify readiness
 
@@ -67,13 +67,35 @@ If child PRs remain open above the merge point, run `gh stack sync --prune` from
 
 ## Step 3: Tag the version
 
-Move to the main checkout first: the shell is often still inside the merged branch's worktree, where `git checkout main` fails because main is checked out elsewhere. The common git dir always sits under the main checkout, so:
+**The main checkout is never switched, pulled or committed to here.** Another session may be working in it, and a branch change under that session sends its next commits to the wrong branch. Everything after the merge runs in a detached landing worktree on `origin/main`, created from wherever the shell is:
 
 ```bash
-cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && git checkout main && git pull
+git fetch origin main --tags \
+  && git worktree add --detach "${TMPDIR:-/tmp}/pr-land-{repo}-{number}" origin/main \
+  && cd "${TMPDIR:-/tmp}/pr-land-{repo}-{number}"
 ```
 
-Then, still in that directory:
+The path is built from the repo name and PR number because shell variables don't survive between commands; later steps rebuild the same string.
+
+**Then find out whether CI tags this repo.** Look on the default branch for a workflow that creates tags on push:
+
+```bash
+git grep -lE 'git tag|svu|semantic-release|release-please|tag-action' origin/main -- .github/workflows
+```
+
+Read each hit (`git show origin/main:{path}`) to confirm it runs on a push to the default branch and pushes a tag for this series.
+
+**A tagging workflow exists: defer to it and create no tag.** Find its run for the merge commit and wait for it:
+
+```bash
+gh run list --workflow {file} --commit {mergeSha} --json databaseId,status,conclusion
+gh run watch {databaseId} --exit-status
+git fetch origin --tags && git tag --points-at {mergeSha}
+```
+
+Report the tag CI created, or that CI found nothing to release. A failed or missing run gets reported as it stands and tagging stops there: a hand-made tag on a repo whose CI tags is how tag and changelog drift apart. If the CI tag crossed 0.x → 1.x, say so plainly in the report.
+
+**No tagging workflow: tag from the landing worktree.**
 
 ```bash
 TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" \
@@ -82,15 +104,18 @@ TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" \
        || { git tag "$TAG" && git push origin "$TAG"; }; }
 ```
 
-The `ls-remote` check only matters on a repo where something else (e.g. a CI tagging workflow) can also push the same tag; it costs one no-op round-trip everywhere else. A multi-layer stack merge is one landing event: tag once for the lot, never once per layer. Push the single tag, never `git push --tags` (that publishes every local tag, strays included). Script exit **3** means nothing to release: no version-bumping commits since the current tag (a docs-only or chore-only PR); say so and skip to Step 4. If the script printed its 0.x guard note to stderr, relay it: the user should know a major bump was requested and deliberately held at 0.x.
+The `ls-remote` check is a backstop for a tag source the grep missed; it costs one no-op round-trip everywhere else. A multi-layer stack merge is one landing event: tag once for the lot, never once per layer. Push the single tag, never `git push --tags` (that publishes every local tag, strays included). Script exit **3** means nothing to release: no version-bumping commits since the current tag (a docs-only or chore-only PR); say so and skip to Step 4. If the script printed its 0.x guard note to stderr, relay it: the user should know a major bump was requested and deliberately held at 0.x.
 
-**Any plugin Step 1.5 bumped gets tagged here too**, same landing event, same `ls-remote`-before-push pattern, with `--plugin {name} --dir {source}` on `safe-version-next.sh` and `{name}-v{X.Y.Z}` as the tag. Since the version was already computed and committed pre-merge, this recomputes the same value from the now-merged commit (the tag anchors to the merge commit, not the pre-merge bump commit) rather than reusing the Step 1.5 string outright: if something else landed on main between Step 1.5 and the merge, this is the check that catches drift. A mismatch here (the script proposes something other than what Step 1.5 bumped to) means main moved under you; stop and report rather than tagging something that no longer matches `plugin.json`.
+**Any plugin Step 1.5 bumped gets tagged here too** (unless the CI workflow covers that plugin's tag series as well), same landing event, same `ls-remote`-before-push pattern, with `--plugin {name} --dir {source}` on `safe-version-next.sh` and `{name}-v{X.Y.Z}` as the tag. Since the version was already computed and committed pre-merge, this recomputes the same value from the now-merged commit (the tag anchors to the merge commit, not the pre-merge bump commit) rather than reusing the Step 1.5 string outright: if something else landed on main between Step 1.5 and the merge, this is the check that catches drift. A mismatch here (the script proposes something other than what Step 1.5 bumped to) means main moved under you; stop and report rather than tagging something that no longer matches `plugin.json`.
 
 ## Step 4: Clean up the checkout
 
-1. If a worktree held this branch (`git worktree list`), remove it, from **outside** it, never while the shell is inside; `cd` to the main checkout first, and return there after. A stack merge may have landed several branches; clean up each merged layer's worktree, but leave the worktrees of still-open child PRs alone (post-sync they're live work, not leftovers).
+Steps 1 and 2 run from the landing worktree: it sits outside the branch's own worktree, and its `HEAD` holds the merge, which is what `git branch -d` checks against.
+
+1. If a worktree held this branch (`git worktree list`), remove it, from **outside** it, never while the shell is inside. A stack merge may have landed several branches; clean up each merged layer's worktree, but leave the worktrees of still-open child PRs alone (post-sync they're live work, not leftovers).
 2. If the local branch survived (it was checked out somewhere), `git branch -d {branch}`: only `-d`; a refusal means unmerged commits and stops the line, not `-D`.
-3. `git worktree prune`.
+3. Remove the landing worktree last, standing in the main checkout without touching its branch: `cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && git worktree remove "${TMPDIR:-/tmp}/pr-land-{repo}-{number}" && git worktree prune`.
+4. Bring the main checkout up to date only when that is safe. Run `~/.claude/library/scripts/checkout-occupied.sh` there: fast-forward with `git pull --ff-only` when it exits 0 **and** its JSON shows `branch` as `main` and `dirty_files` as 0. Anything else (another live session, a different branch, uncommitted files), leave the checkout exactly as it is and name the reason in the Step 6 report.
 
 ## Step 5: Roadmap sync
 
@@ -102,6 +127,6 @@ PR merged (URL), tag(s) created (root and any bumped plugin), branch/worktree st
 
 ## Red flags
 
-**Never:** cross 0.x → 1.x on any tag series, root or plugin (the guard script is the only tag source); squash or rebase-merge; merge with failing or pending checks "because they'll pass"; remove a worktree from inside it; use `git branch -D`; tag before the merge has actually landed on main; run plain `gh pr merge` on a stacked PR (use `gh stack merge`); delete a branch that is still the base of an open PR; hand-edit a plugin's `version` field or its build output instead of running `safe-version-next.sh` and the plugin's own build script.
+**Never:** cross 0.x → 1.x on any tag series, root or plugin (the guard script is the only tag source); squash or rebase-merge; merge with failing or pending checks "because they'll pass"; run `git checkout`, `git switch` or a bare `git pull` in the main checkout; create a tag on a repo whose CI tags; remove a worktree from inside it; use `git branch -D`; tag before the merge has actually landed on main; run plain `gh pr merge` on a stacked PR (use `gh stack merge`); delete a branch that is still the base of an open PR; hand-edit a plugin's `version` field or its build output instead of running `safe-version-next.sh` and the plugin's own build script.
 
 <raw-arguments value="$ARGUMENTS" />
