@@ -311,12 +311,31 @@ class MilestoneState(unittest.TestCase):
         # state: it must never read as todo/done and hide the problem.
         self.assertEqual(roadmap.milestone_state({}, 0, total=0), "empty")
 
-    def test_in_progress_outranks_all_blocked(self):
-        # Some done work with the rest blocked still reads as live and
-        # moving, not stuck: inProgress (rule 4) outranks blocked (rule 5).
+    def test_blocked_outranks_in_progress_when_nothing_can_be_picked_up(self):
+        # Done work does not soften a stuck milestone: every remaining
+        # task is blocked, so blocked (rule 4) outranks inProgress (rule 5).
+        self.assertEqual(
+            roadmap.milestone_state({"done": 2, "blocked": 3}, 40, total=5),
+            "blocked")
+        self.assertEqual(
+            roadmap.milestone_state({"done": 7, "blocked": 1}, 88, total=8),
+            "blocked")
+
+    def test_blocked_sets_out_of_scope_tasks_aside(self):
+        by_status = {"done": 1, "blocked": 2, "out_of_scope": 1}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 33, total=4), "blocked")
+
+    def test_one_actionable_task_keeps_a_milestone_in_progress(self):
+        by_status = {"done": 2, "blocked": 3, "todo": 1}
+        self.assertEqual(
+            roadmap.milestone_state(by_status, 33, total=6), "inProgress")
+
+    def test_a_claim_on_a_blocked_task_keeps_a_milestone_in_progress(self):
         by_status = {"done": 2, "blocked": 3}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 40, total=5), "inProgress")
+            roadmap.milestone_state(by_status, 40, total=5, in_progress=1),
+            "inProgress")
 
     def test_blocked_when_every_unfinished_task_is_blocked(self):
         by_status = {"blocked": 2}
@@ -497,6 +516,32 @@ class OverviewLayout(unittest.TestCase):
         layout = _layout(ph)
         self.assertEqual([m["id"] for m in layout["milestones"]],
                          ["M3", "M2", "M1"])
+
+    def test_sort_puts_a_stuck_milestone_behind_every_actionable_one(self):
+        ph = phase([
+            {"id": "M1", "name": "stuck", "tasks": [
+                task("a", "done"), task("b", "blocked", ["M3"])]},
+            {"id": "M2", "name": "zero", "tasks": [task("c")]},
+            {"id": "M3", "name": "partial", "tasks": [
+                task("d", "done"), task("e")]},
+            {"id": "M4", "name": "full", "tasks": [task("f", "done")]},
+            {"id": "M5", "name": "stuck at zero", "tasks": [
+                task("g", "blocked", ["M3"])]}])
+        layout = _layout(ph)
+        self.assertEqual([m["id"] for m in layout["milestones"]],
+                         ["M3", "M2", "M1", "M5", "M4"])
+        by_id = {m["id"]: m["state"] for m in layout["milestones"]}
+        self.assertEqual((by_id["M1"], by_id["M5"]), ("blocked", "blocked"))
+
+    def test_sort_keeps_a_claimed_blocked_milestone_with_the_partial_ones(self):
+        ph = phase([
+            {"id": "M1", "name": "claimed", "tasks": [
+                task("a", "done"),
+                task("b", "blocked", ["c"], started="2026-09-20")]},
+            {"id": "M2", "name": "zero", "tasks": [task("c")]}])
+        layout = _layout(ph)
+        self.assertEqual([m["id"] for m in layout["milestones"]], ["M1", "M2"])
+        self.assertEqual(layout["milestones"][0]["state"], "inProgress")
 
     def test_sort_ties_break_by_tier_then_pct_then_id(self):
         ph = phase([

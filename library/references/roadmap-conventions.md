@@ -220,8 +220,8 @@ fires from two different rules); first true rule wins:
 | `done` | every member `done`/`out_of_scope` | green |
 | `deferred` (tier cascade) | tier ≥ 1 and any milestone in a lower tier isn't `done` yet (see Tiers) | cinnamon (shares the task-status hue) |
 | `deferred` (member gate) | no actionable member (`todo`/`blocked`/`paused`) left, and ≥1 member is `deferred`; needs no tier suffix, only the cascade above does. Outranks done percentage: one deferred task and nine done ones still reads `deferred` at 90% | cinnamon |
-| `inProgress` | ≥1 member `done`, or a member shows in progress (a claim); outranks "every unfinished member blocked" below it, so some done work plus the rest blocked still reads live | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
-| `blocked` | every unfinished member (done/out_of_scope excluded) is `blocked` | red |
+| `blocked` | stuck: work remains, every unfinished member (done/out_of_scope excluded) is `blocked` and no member shows in progress (`milestone_all_blocked()`). Outranks `inProgress` below it, so done work never softens it: 7 done and 1 blocked reads `blocked`, since nothing in the milestone can be picked up | red |
+| `inProgress` | ≥1 member `done`, or a member shows in progress (a claim). A claim on a blocked task keeps the milestone here: someone is on it | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
 | `todo` | otherwise | gray |
 
 An all-`out_of_scope` milestone (struck-from-play) reads as `done`: nothing
@@ -270,7 +270,11 @@ sections' shared sort and tier grouping once, server-side; the template
 renders it as given and never re-sorts or re-groups. Milestone sort, each
 layer breaking ties in the one before:
 
-1. partially done (`0 < donePct < 100`) before fully-0% before fully-100%
+1. partially done (`0 < donePct < 100`) before fully-0% before stuck
+   (`milestone_all_blocked()`, whatever its `donePct`) before fully-100%. A
+   stuck milestone holds nothing to pick up, so it sorts behind every
+   milestone that does. The sort and the `blocked` state read the same
+   function, so colour and position never disagree
 2. tier, ascending (Core first)
 3. `donePct`, descending
 4. milestone id, natural order (`M2` before `M10`)

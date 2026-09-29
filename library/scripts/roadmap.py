@@ -245,6 +245,19 @@ def milestone_all_done(by_status, total):
     return finished == total
 
 
+def milestone_all_blocked(by_status, total, in_progress=0):
+    """True when a milestone is stuck: work remains, every unfinished task
+    (done and out_of_scope set aside) is blocked and no member is claimed
+    and in play. However much of it is done, nothing in it can be picked
+    up. Both milestone_state()'s `blocked` rule and overview_layout()'s
+    sort read this, so a milestone's colour and its place in the list
+    never disagree about whether it is stuck."""
+    unfinished = (total - by_status.get("done", 0)
+                  - by_status.get("out_of_scope", 0))
+    return (unfinished > 0 and by_status.get("blocked", 0) == unfinished
+            and not in_progress)
+
+
 def milestone_state(by_status, done_pct, total=None, in_progress=0,
                      tier=0, lower_tiers_done=True):
     """One of empty/done/deferred/blocked/inProgress/todo for a milestone,
@@ -269,12 +282,12 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
        milestone with five todo tasks and one deferred one is still live
        work to pick up, not a shelved milestone; hiding those five behind
        "deferred" would contradict next-task-group's own ready-set)
-    4. >=1 done task, or a claimed member in play -> `inProgress` (this
-       outranks "all unfinished tasks blocked": a milestone with some done
-       work and the rest blocked still reads as live and moving, confirmed
-       against Jason's own worked example: 2 done + 3 blocked -> inProgress,
-       not blocked)
-    5. every unfinished task is blocked (out_of_scope ignored) -> `blocked`
+    4. stuck (milestone_all_blocked(): work remains, every unfinished task
+       is blocked and nobody has a claim in play) -> `blocked`. Done work
+       does not soften this: 7 done + 1 blocked reads `blocked`, since
+       nothing in the milestone can be picked up
+    5. >=1 done task, or a claimed member in play -> `inProgress` (a claim
+       on a blocked task keeps the milestone here: someone is on it)
     6. otherwise -> `todo`
 
     `total` is the task count; 0 (or omitted) reads as empty. Every real
@@ -290,11 +303,10 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
                   + by_status.get("paused", 0))
     if actionable == 0 and by_status.get("deferred", 0) > 0:
         return "deferred"
+    if milestone_all_blocked(by_status, total, in_progress):
+        return "blocked"
     if by_status.get("done", 0) > 0 or in_progress > 0:
         return "inProgress"
-    unfinished = total - by_status.get("done", 0) - by_status.get("out_of_scope", 0)
-    if unfinished > 0 and by_status.get("blocked", 0) == unfinished:
-        return "blocked"
     return "todo"
 
 
@@ -708,7 +720,10 @@ def overview_layout(phase, stats, ready):
     Milestone sort, each layer breaking ties in the one before (donePct
     is measured against in-scope tasks, see _in_scope(); a milestone with
     every task out_of_scope sorts as fully-100%):
-      1. partially done (0 < donePct < 100) before fully-0% before fully-100%
+      1. partially done (0 < donePct < 100) before fully-0% before stuck
+         (milestone_all_blocked(), whatever its donePct) before fully-100%:
+         a stuck milestone holds nothing to pick up, so it sorts behind
+         every milestone that does and ahead of the finished ones
       2. tier, ascending (Core first)
       3. donePct, descending
       4. milestone id, natural order
@@ -749,7 +764,10 @@ def overview_layout(phase, stats, ready):
         # A milestone struck out whole (tasks, none in scope) has nothing
         # left to do, so it sorts with the fully-100% ones, not the 0% ones.
         pct = m["donePct"] if m["inScope"] or not m["total"] else 100
-        phase_bucket = 0 if 0 < pct < 100 else (1 if pct == 0 else 2)
+        if milestone_all_blocked(m["byStatus"], m["total"], m["inProgress"]):
+            phase_bucket = 2
+        else:
+            phase_bucket = 0 if 0 < pct < 100 else (1 if pct == 0 else 3)
         return (phase_bucket, m["tier"], -pct, _milestone_natural_key(m["id"]))
 
     enriched.sort(key=sort_key)
