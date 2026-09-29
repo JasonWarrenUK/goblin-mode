@@ -247,7 +247,11 @@ layer breaking ties in the one before:
 A phase with no tiered milestone (see Tiers) gets one flat, unwrapped list in
 that order; no tier markup renders at all. Otherwise every milestone groups
 under its tier's `<details>`, each carrying the dev chips of everyone
-assigned a task in it (done tasks included) on its summary line. Group
+assigned a task in it (done tasks included) on its summary line. In the
+Overview section each tier header also carries that tier's own readout
+(`Core · 20/45 Tasks · 44% Complete · 0/6 Milestones`), summed from its
+members into the group's `stats`; the Milestones section's tier headers
+keep the bare tier name. Group
 order: expanded groups first, then groups with any not-done milestone, then
 all-done groups; ties break by tier index. A group's own `all-done` reading
 excludes nothing (an `empty` member keeps its group out of the all-done
