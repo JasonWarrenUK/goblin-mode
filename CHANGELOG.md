@@ -5,6 +5,21 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-09-29
+
+### Added
+
+- `checkout-occupied.sh` reports whether another live Claude session is working in a checkout. Its JSON lists each occupying session with the checkout's branch and its count of uncommitted files, and its exit code is 1 when the checkout is occupied.
+
+### Changed
+
+- `pr-land` now runs on opus; it ran on sonnet before.
+
+### Fixed
+
+- `pr-land` no longer runs `git checkout main` in your main checkout after a merge, a switch that sent another session's next commits to `main`. Post-merge work happens in a temporary detached worktree on `origin/main`, and the main checkout is fast-forwarded only when no other session is in it, it is on `main` and it has no uncommitted files.
+- On a repo whose CI workflow tags on push, `pr-land` waits for that run and reports the tag CI created. It makes no tag of its own there.
+
 ## [3.0.0] - 2026-09-28
 
 ### Breaking
@@ -95,7 +110,9 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.0.0...v3.1.0
+[3.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.6.0...v3.0.0
 [2.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.3.0...v2.4.0
