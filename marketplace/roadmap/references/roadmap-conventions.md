@@ -156,7 +156,7 @@ diagrams from the CLI.
 | `blocked` | red | `#fff8f6` / `#e0002b` | `#530003` / `#ffddd8` | bold stroke | stop |
 | `paused` | purple | `#fdf4ff` / `#b01fe3` | `#3a004f` / `#f7d9ff` | dasharray 4 3 | deliberately parked |
 | `deferred` | cinnamon | `#fff8f3` / `#ac5c00` | `#371d00` / `#ffdfc6` | dasharray 2 4 + italic | shelved for later |
-| `out_of_scope` | gray, faded | `#f6f6f6` / `#e2e2e2` | `#222222` / `#3e3e3e` | dasharray 2 2, struck label | struck from play |
+| `out_of_scope` | gray, dotted | `#f6f6f6` / `#717171` | `#222222` / `#898989` | dasharray 2 2, struck label | struck from play |
 | gate (`external`) | yellow | `#fff9e5` / `#7d6f00` | `#292300` / `#ffe53e` | dasharray 4 3 + italic | outside our control |
 | milestone (`mile`) | sky | `#e3f7ff` / `#007590` | `#001f28` / `#aee9ff` | bold | structural waypoint |
 
@@ -170,6 +170,38 @@ and `external`. Legacy diagrams used `open`
 for todo and Bootstrap-era hexes; regenerating via `graph --mermaid` replaces
 both. classDef lines always come straight after the `graph LR`/`graph TD`
 line; before it is a silent render failure.
+
+The `out_of_scope` stroke sits within two hex steps of `todo`'s gray, and
+the two share a fill: it is as faint as it can be while still clearing 3:1
+against both tier backgrounds below. The dotted border and the struck label
+tell them apart.
+
+### Tier backgrounds (tiered phases only)
+
+A phase with a milestone in tier 1 or above (see Tiers) draws every node of
+its dependency graph inside a subgraph for its tier, in `graph --mermaid` and
+the artefact alike. An untiered phase draws no subgraph, and its diagram is
+unchanged. `TIER_STYLE` in `roadmap.py` is the machine-readable copy.
+
+| Tier state | Family | Light (bg / label) | Dark (bg / label) | Non-colour encoding | Fires when |
+|---|---|---|---|---|---|
+| `underway` | slate | `#c3cede` / `#2f3b4c` | `#343e4f` / `#d5deea` | solid border, state named in the label | every lower tier is done and this one holds unfinished work |
+| `deferred` | taupe | `#dccbb9` / `#4a3826` | `#4a3c2f` / `#ecdccb` | dashed border, state named in the label | any lower tier still holds unfinished work |
+| `done` | slate (shares `underway`) | as `underway` | as `underway` | state named in the label | the tier holds no unfinished work; drawn only in the full graph, since `--omit-done` drops a finished tier whole |
+
+The subgraph label reads `{tier} · {state}`, for example `Secondary ·
+deferred`. A task sits in its milestone's tier, a milestone in its own and a
+gate in the lowest tier among the tasks it gates.
+
+A background is never a node colour. A node's fill is a near-white tint
+(near-black in dark) and its stroke carries the hue, so the background is a
+muted mid-tone between the two. Gates, enforced by `test_roadmap.py` in
+light and dark alike: 3:1 or better against every node stroke and the
+diagram's edge line, 1.35:1 or better against every node fill, 4.5:1 or
+better for the tier's own label. 3:1 against the fills is out of reach: a
+background that dark would hide the edges. The two backgrounds share a
+luminance, so hue alone separates them; the border and the label carry the
+same signal without colour.
 
 ## Milestone-level state (artefact only)
 

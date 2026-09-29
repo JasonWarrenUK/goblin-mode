@@ -743,6 +743,231 @@ class Mermaid(unittest.TestCase):
         self.assertLess(decl("M1"), decl("c"))  # milestone as dependency
 
 
+def _subgraphs(src):
+    """{subgraph id: (label, [node ids declared inside])} from Mermaid
+    source, plus the ids of any node declared outside every subgraph."""
+    inside, outside, current = {}, [], None
+    for line in src.splitlines():
+        text = line.strip()
+        opened = re.match(r'subgraph (\w+)\["(.*)"\]$', text)
+        node = re.match(r'([\w.]+)\["', text)
+        if opened:
+            current = opened.group(1)
+            inside[current] = (opened.group(2), [])
+        elif text == "end":
+            current = None
+        elif node and current:
+            inside[current][1].append(node.group(1))
+        elif node:
+            outside.append(node.group(1))
+    return inside, outside
+
+
+class MermaidTiers(unittest.TestCase):
+    def setUp(self):
+        self.ph = phase(
+            [{"id": "M1", "name": "Core work", "tasks": [
+                task("a", "done"), task("b", "todo", ["a"])]},
+             {"id": "M2", "name": "More (Secondary)", "tasks": [
+                 task("c", "deferred", ["M1", "G1"]),
+                 task("d", "blocked", ["c"])]},
+             {"id": "M3", "name": "Last (Tertiary)", "tasks": [
+                 task("e", "deferred", ["M2", "G1"])]}],
+            gates=[{"id": "G1", "name": "release", "status": "external",
+                    "imposes": "deferred", "blocks": ["c", "e"]}])
+
+    def test_every_node_sits_inside_its_tier(self):
+        inside, outside = _subgraphs(roadmap.mermaid_source(self.ph))
+        self.assertEqual(outside, [])
+        self.assertEqual(list(inside), ["tier0", "tier1", "tier2"])
+        self.assertEqual(sorted(inside["tier0"][1]), ["M1", "a", "b"])
+        self.assertEqual(sorted(inside["tier2"][1]), ["M3", "e"])
+
+    def test_gate_sits_in_the_lowest_tier_it_gates(self):
+        inside, _ = _subgraphs(roadmap.mermaid_source(self.ph))
+        self.assertEqual(sorted(inside["tier1"][1]), ["G1", "M2", "c", "d"])
+
+    def test_labels_name_the_tier_and_its_state(self):
+        inside, _ = _subgraphs(roadmap.mermaid_source(self.ph))
+        self.assertEqual([label for label, _ in inside.values()],
+                         ["Core · underway", "Secondary · deferred",
+                          "Tertiary · deferred"])
+
+    def test_tier_classes_follow_the_state(self):
+        src = roadmap.mermaid_source(self.ph)
+        self.assertIn("\tclass tier0 tierUnderway", src)
+        self.assertIn("\tclass tier1,tier2 tierDeferred", src)
+
+    def test_classdefs_still_follow_the_graph_line(self):
+        lines = roadmap.mermaid_source(self.ph).splitlines()
+        count = len(roadmap.STATUS_STYLE) + len(roadmap.TIER_STYLE)
+        self.assertTrue(all(l.strip().startswith("classDef")
+                            for l in lines[1:1 + count]))
+        self.assertTrue(lines[1 + count].strip().startswith("subgraph"))
+
+    def test_edges_come_after_every_subgraph(self):
+        lines = roadmap.mermaid_source(self.ph).splitlines()
+        last_end = max(i for i, l in enumerate(lines) if l.strip() == "end")
+        first_edge = min(i for i, l in enumerate(lines) if "-->" in l)
+        self.assertGreater(first_edge, last_end)
+
+    def test_a_finished_tier_reads_done_in_the_full_graph(self):
+        ph = phase([
+            {"id": "M1", "name": "Core work", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "More (Secondary)", "tasks": [
+                task("b", "todo", ["M1"])]}])
+        inside, _ = _subgraphs(roadmap.mermaid_source(ph))
+        self.assertEqual([label for label, _ in inside.values()],
+                         ["Core · done", "Secondary · underway"])
+        self.assertIn("\tclass tier0,tier1 tierUnderway",
+                      roadmap.mermaid_source(ph))
+
+    def test_omit_done_drops_a_finished_tier_whole(self):
+        ph = phase([
+            {"id": "M1", "name": "Core work", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "More (Secondary)", "tasks": [task("b")]}])
+        inside, outside = _subgraphs(
+            roadmap.mermaid_source(ph, omit_done=True))
+        self.assertEqual(list(inside), ["tier1"])
+        self.assertEqual(outside, [])
+
+    def test_untiered_phase_draws_no_subgraph(self):
+        ph = phase([
+            {"id": "M1", "name": "First", "tasks": [task("a")]},
+            {"id": "M2", "name": "Second", "tasks": [
+                task("b", "blocked", ["M1"])]}])
+        src = roadmap.mermaid_source(ph)
+        self.assertNotIn("subgraph", src)
+        self.assertNotIn("classDef tier", src)
+        self.assertNotIn("\tend", src)
+
+    def test_vars_palette_names_the_tier_properties(self):
+        src = roadmap.mermaid_source(self.ph, palette="vars")
+        self.assertIn("fill:var(--color-tier-underway-bg)", src)
+        self.assertIn("fill:var(--color-tier-deferred-bg)", src)
+
+
+class TierStates(unittest.TestCase):
+    def _states(self, ph):
+        return roadmap.tier_states(roadmap.build_stats(ph)["milestones"])
+
+    def test_deferred_while_a_lower_tier_is_unfinished(self):
+        ph = phase([
+            {"id": "M1", "name": "a", "tasks": [task("x")]},
+            {"id": "M2", "name": "b (Secondary)", "tasks": [task("y")]},
+            {"id": "M3", "name": "c (Tertiary)", "tasks": [task("z")]}])
+        self.assertEqual(self._states(ph),
+                         {0: "underway", 1: "deferred", 2: "deferred"})
+
+    def test_underway_once_every_lower_tier_is_done(self):
+        ph = phase([
+            {"id": "M1", "name": "a", "tasks": [
+                task("x", "done"), task("w", "out_of_scope")]},
+            {"id": "M2", "name": "b (Secondary)", "tasks": [task("y")]},
+            {"id": "M3", "name": "c (Tertiary)", "tasks": [task("z")]}])
+        self.assertEqual(self._states(ph),
+                         {0: "done", 1: "underway", 2: "deferred"})
+
+    def test_an_empty_milestone_never_holds_a_tier_back(self):
+        ph = phase([
+            {"id": "M1", "name": "a", "tasks": [task("x", "done")]},
+            {"id": "M2", "name": "whoops", "tasks": []},
+            {"id": "M3", "name": "b (Secondary)", "tasks": [task("y")]}])
+        self.assertEqual(self._states(ph), {0: "done", 1: "underway"})
+
+
+def _luminance(colour):
+    channels = [int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+              for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(one, other):
+    hi, lo = sorted((_luminance(one), _luminance(other)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def _template_palettes():
+    """[(selector, {custom property: hex})] for each theme block of the
+    artefact template: the light root and its two dark counterparts."""
+    html = (Path(roadmap.__file__).resolve().parent.parent
+            / "templates" / "roadmap-artefact.html").read_text()
+    css = html[html.index("<style>"):html.index("</style>")]
+    return [(selector.strip(),
+             dict(re.findall(r"(--[\w-]+):\s*(#[0-9a-fA-F]{6});", body)))
+            for selector, body in re.findall(r"(:root[^{]*)\{(.*?)\n\t?\}",
+                                             css, re.S)]
+
+
+class TierStyle(unittest.TestCase):
+    """The contrast gates a tier background must clear against every node
+    it can contain (see the TIER_STYLE comment in roadmap.py), in both the
+    light and the dark palette."""
+
+    MODES = [("light", "bg", "stroke"), ("dark", "darkBg", "darkStroke")]
+
+    def _pairs(self):
+        for mode, fill, stroke in self.MODES:
+            for tier, tier_style in roadmap.TIER_STYLE.items():
+                for node, node_style in roadmap.STATUS_STYLE.items():
+                    yield (mode, tier, node, tier_style[fill],
+                           node_style[fill], node_style[stroke])
+
+    def test_every_node_stroke_clears_three_to_one(self):
+        for mode, tier, node, background, _fill, stroke in self._pairs():
+            with self.subTest(mode=mode, tier=tier, node=node):
+                self.assertGreaterEqual(_contrast(background, stroke), 3)
+
+    def test_every_node_fill_stands_off_the_background(self):
+        for mode, tier, node, background, fill, _stroke in self._pairs():
+            with self.subTest(mode=mode, tier=tier, node=node):
+                self.assertGreaterEqual(_contrast(background, fill), 1.35)
+
+    def test_every_node_label_still_clears_aa_on_its_own_fill(self):
+        for mode, fill, stroke in self.MODES:
+            for node, style in roadmap.STATUS_STYLE.items():
+                with self.subTest(mode=mode, node=node):
+                    self.assertGreaterEqual(
+                        _contrast(style[fill], style[stroke]), 4.5)
+
+    def test_tier_label_clears_aa_on_its_background(self):
+        for mode, fill, stroke in self.MODES:
+            for tier, style in roadmap.TIER_STYLE.items():
+                with self.subTest(mode=mode, tier=tier):
+                    self.assertGreaterEqual(
+                        _contrast(style[fill], style[stroke]), 4.5)
+
+    def test_edge_line_clears_three_to_one(self):
+        for selector, palette in _template_palettes():
+            fill = "bg" if selector == ":root" else "darkBg"
+            for tier, style in roadmap.TIER_STYLE.items():
+                with self.subTest(selector=selector, tier=tier):
+                    self.assertGreaterEqual(
+                        _contrast(style[fill], palette["--diagram-line"]), 3)
+
+    def test_backgrounds_reuse_no_node_colour(self):
+        node_colours = {style[key] for style in roadmap.STATUS_STYLE.values()
+                        for key in ("bg", "stroke", "darkBg", "darkStroke")}
+        tier_colours = {style[key] for style in roadmap.TIER_STYLE.values()
+                        for key in ("bg", "darkBg")}
+        self.assertEqual(tier_colours & node_colours, set())
+
+    def test_template_carries_the_same_colours_as_the_tables(self):
+        palettes = _template_palettes()
+        self.assertEqual(len(palettes), 3)
+        tables = {**roadmap.STATUS_STYLE, **roadmap.TIER_STYLE}
+        for selector, palette in palettes:
+            fill, stroke = (("bg", "stroke") if selector == ":root"
+                            else ("darkBg", "darkStroke"))
+            for name, style in tables.items():
+                with self.subTest(selector=selector, name=name):
+                    self.assertEqual(
+                        (palette[f"--color-{style['var']}-bg"],
+                         palette[f"--color-{style['var']}"]),
+                        (style[fill], style[stroke]))
+
+
 class GraphDirection(unittest.TestCase):
     """choose_direction() picks by estimated width only: the artefact's
     diagram shell has no height cap (the page scrolls past a tall diagram)

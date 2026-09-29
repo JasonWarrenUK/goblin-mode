@@ -71,7 +71,7 @@ from _roadmap_core import (
 # library/references/roadmap-conventions.md, which documents this table in
 # prose. Semantics: done=green (finished), todo=gray (blank slate),
 # blocked=red (stop), paused=purple (parked), deferred=cinnamon (shelved),
-# out_of_scope=faded gray (struck from play), gate=yellow (external),
+# out_of_scope=gray, dotted (struck from play), gate=yellow (external),
 # milestone=sky (structural), inProgress=azure (a claimed task still in
 # play: a display class, never a stored status). Pink is accent-only, never
 # a status. Azure and sky are close in hue, so a claimed task's Mermaid label
@@ -105,9 +105,13 @@ STATUS_STYLE = {
         "var": "done", "bg": "#e0ffd9", "stroke": "#008217",
         "darkBg": "#062800", "darkStroke": "#72ff6c", "extra": "",
     },
+    # The stroke is as faint as it can be while still clearing 3:1 against
+    # both tier backgrounds (TIER_STYLE below) and 4.5:1 on its own fill.
+    # That lands it within two hex steps of todo's gray, so the dotted
+    # border (and the struck label in task lists) is what tells them apart.
     "outOfScope": {
-        "var": "out-of-scope", "bg": "#f6f6f6", "stroke": "#e2e2e2",
-        "darkBg": "#222222", "darkStroke": "#3e3e3e",
+        "var": "out-of-scope", "bg": "#f6f6f6", "stroke": "#717171",
+        "darkBg": "#222222", "darkStroke": "#898989",
         "extra": "stroke-dasharray:2 2",
     },
     "mile": {
@@ -124,6 +128,39 @@ STATUS_TO_CLASS = {
     "todo": "todo", IN_PROGRESS: "inProgress", "blocked": "blocked",
     "paused": "paused", "deferred": "deferred", "done": "done",
     "out_of_scope": "outOfScope",
+}
+
+# ---------------------------------------------------------------------------
+# Tier backgrounds: the fill behind a tier's subgraph in the dependency
+# graph of a tiered phase (see mermaid_source()). Keyed by Mermaid class
+# name, same shape as STATUS_STYLE. Two backgrounds, chosen by the tier's
+# state (tier_states()): slate for a tier that is underway, taupe with a
+# dashed border for one still deferred behind a lower tier. Neither is a
+# node colour. Both are muted mid-tones, because a node's fill is a
+# near-white tint (near-black in dark) and its stroke carries the hue: the
+# background has to sit between the two. Gates every pair must clear, in
+# light and dark alike (test_roadmap.py's TierStyle enforces them):
+#   - 3:1 or better against every node stroke and the diagram's edge line
+#   - 1.35:1 or better against every node fill
+#   - 4.5:1 or better for the tier's own label (its stroke colour)
+# The two backgrounds share a luminance, so hue alone separates them: the
+# dashed border and the state named in the subgraph label carry the same
+# signal without colour.
+# ---------------------------------------------------------------------------
+TIER_STYLE = {
+    "tierUnderway": {
+        "var": "tier-underway", "bg": "#c3cede", "stroke": "#2f3b4c",
+        "darkBg": "#343e4f", "darkStroke": "#d5deea", "extra": "",
+    },
+    "tierDeferred": {
+        "var": "tier-deferred", "bg": "#dccbb9", "stroke": "#4a3826",
+        "darkBg": "#4a3c2f", "darkStroke": "#ecdccb",
+        "extra": "stroke-dasharray:6 4",
+    },
+}
+TIER_STATE_TO_CLASS = {
+    "underway": "tierUnderway", "done": "tierUnderway",
+    "deferred": "tierDeferred",
 }
 IN_PROGRESS_MARKER = " ▸"
 _STATS_ORDER = ["done", "todo", "blocked", "paused", "deferred", "out_of_scope"]
@@ -166,6 +203,34 @@ def tier_label(tier):
     matching `_TIER_SUFFIXES` entry. The one place the tier vocabulary is
     spelled, so every projection reads core/secondary/tertiary."""
     return _TIER_CORE if tier == 0 else _TIER_SUFFIXES[tier - 1]
+
+
+def undone_tiers(milestones):
+    """The tiers still holding unfinished work, from entries carrying
+    `tier`, `total` and `byStatus` (build_stats()'s own milestone shape).
+    An empty milestone (total=0) is a data bug flagged separately by
+    validation, not a legitimate "still in progress" member; letting it
+    hold every later tier deferred forever would hide the real problem
+    behind a wrong colour, so it never counts as keeping a tier undone."""
+    return {m["tier"] for m in milestones
+            if m["total"] and not milestone_all_done(m["byStatus"], m["total"])}
+
+
+def tier_states(milestones):
+    """{tier: state} for every tier present, from the same entries
+    undone_tiers() reads. `done` once the tier holds no unfinished work,
+    `deferred` while any lower tier still does (the cascade
+    milestone_state() applies per milestone), otherwise `underway`."""
+    undone = undone_tiers(milestones)
+    states = {}
+    for tier in sorted({m["tier"] for m in milestones}):
+        if tier not in undone:
+            states[tier] = "done"
+        elif any(lower < tier for lower in undone):
+            states[tier] = "deferred"
+        else:
+            states[tier] = "underway"
+    return states
 
 
 def milestone_all_done(by_status, total):
@@ -559,23 +624,19 @@ def build_stats(phase):
             "inProgress": in_progress,
             "donePct": _pct(c["done"], in_scope),
             "tier": milestone_tier(m.get("name", "")),
-            "allDone": milestone_all_done(c, len(tasks)),
         })
 
     # Tier cascade: a tier counts as "open" only once every non-empty
-    # milestone in every earlier tier is done. An empty milestone (total=0)
-    # is a data bug flagged separately by validation, not a legitimate
-    # "still in progress" member; letting it hold every later tier deferred
-    # forever would hide the real problem behind a wrong colour, so it never
-    # counts as keeping a tier undone. milestone_state() computes each
+    # milestone in every earlier tier is done (see undone_tiers() for why an
+    # empty one never holds a tier back). milestone_state() computes each
     # milestone's own done-ness standalone, so this pass rolls that up into
     # the one set of tiers with unfinished work, for the cascade check below.
-    undone_tiers = {m["tier"] for m in prelim if m["total"] and not m["allDone"]}
+    undone = undone_tiers(prelim)
 
     milestones = []
     milestones_done = 0
     for m in prelim:
-        lower_tiers_done = not any(t < m["tier"] for t in undone_tiers)
+        lower_tiers_done = not any(t < m["tier"] for t in undone)
         state = milestone_state(m["byStatus"], m["donePct"], total=m["total"],
                                 in_progress=m["inProgress"], tier=m["tier"],
                                 lower_tiers_done=lower_tiers_done)
@@ -817,9 +878,9 @@ def _mermaid_label(text, reserve=0):
     return text.replace('"', "#quot;")
 
 
-def _classdef_lines(palette):
+def _classdef_lines(palette, styles=STATUS_STYLE):
     lines = []
-    for cls, st in STATUS_STYLE.items():
+    for cls, st in styles.items():
         if palette == "vars":
             bg = f"var(--color-{st['var']}-bg)"
             stroke = f"var(--color-{st['var']})"
@@ -890,6 +951,31 @@ def _live_graph(phase, omit_done=False):
     return graph, skipped, live_edges
 
 
+_TIER_NODE_PREFIX = "tier"
+
+
+def _node_tiers(graph, live_edges):
+    """{node id: tier} for every node of a tiered phase, or None when no
+    milestone sits in tier >= 1 (an untiered phase draws no subgraph). A
+    milestone takes its own tier (milestone_tier()), a task its
+    milestone's, and a gate the lowest tier among the nodes it gates: a
+    tier's release gate sits with the work it releases, and a gate shared
+    across tiers sits with the first of them."""
+    tiers = {n["id"]: milestone_tier(n["label"])
+             for n in graph["nodes"] if n["kind"] == "milestone"}
+    if not any(tiers.values()):
+        return None
+    for n in graph["nodes"]:
+        if n["kind"] == "task":
+            tiers[n["id"]] = tiers.get(n["milestone"], 0)
+    for n in graph["nodes"]:
+        if n["kind"] == "gate":
+            gated = [tiers[e["to"]] for e in live_edges
+                     if e["from"] == n["id"] and e["to"] in tiers]
+            tiers[n["id"]] = min(gated, default=0)
+    return tiers
+
+
 def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     """The complete Mermaid diagram for a phase, classDefs included, so the
     PHASE.md projection and the artefact can never drift. classDefs come
@@ -904,6 +990,12 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     dependsOn they may form cycles (Kahn's tolerates this by appending the
     remainder in roadmap order) and never impose status, block a milestone
     sink, or fail validation's acyclicity check.
+
+    A tiered phase (any milestone in tier >= 1) draws every node inside
+    its tier's own subgraph, ascending, each filled by the tier's state
+    (TIER_STYLE, tier_states()) and labelled with it, so three tiers never
+    read as one undivided mass. An untiered phase emits no subgraph at all
+    and its output is unchanged.
     """
     graph, skipped, live_edges = _live_graph(phase, omit_done)
     by_id = {n["id"]: n for n in graph["nodes"]}
@@ -912,28 +1004,45 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     ids = [n["id"] for n in graph["nodes"] if n["id"] not in skipped]
     topo = _topological_order(ids, order, live_edges)
     topo_idx = {nid: i for i, nid in enumerate(topo)}
+    node_tier = _node_tiers(graph, live_edges)
 
     lines = [f"graph {direction}"]
     lines.extend(_classdef_lines(palette))
+    if node_tier:
+        lines.extend(_classdef_lines(palette, TIER_STYLE))
 
     status_members = {}
-    for nid in topo:
-        n = by_id[nid]
+
+    def node_line(n):
         if n["kind"] == "milestone":
-            lines.append(f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::mile')
-        elif n["kind"] == "gate":
-            lines.append(f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::external')
-        else:
-            label = f'{n["id"]}: {n["description"]}'
-            if n.get("iterative"):
-                label += " ↻"
-            status = display_status(n, n.get("status"))
-            marker = IN_PROGRESS_MARKER if status == IN_PROGRESS else ""
-            label = _mermaid_label(label, reserve=len(marker)) + marker
-            lines.append(f'\t{n["id"]}["{label}"]')
-            cls = STATUS_TO_CLASS.get(status)
-            if cls:
-                status_members.setdefault(cls, []).append(n["id"])
+            return f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::mile'
+        if n["kind"] == "gate":
+            return f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::external'
+        label = f'{n["id"]}: {n["description"]}'
+        if n.get("iterative"):
+            label += " ↻"
+        status = display_status(n, n.get("status"))
+        marker = IN_PROGRESS_MARKER if status == IN_PROGRESS else ""
+        label = _mermaid_label(label, reserve=len(marker)) + marker
+        cls = STATUS_TO_CLASS.get(status)
+        if cls:
+            status_members.setdefault(cls, []).append(n["id"])
+        return f'\t{n["id"]}["{label}"]'
+
+    tier_members = {}
+    if node_tier:
+        states = tier_states(build_stats(phase)["milestones"])
+        for tier in sorted({node_tier[nid] for nid in topo}):
+            state = states.get(tier, "underway")
+            lines.append(f'\tsubgraph {_TIER_NODE_PREFIX}{tier}'
+                         f'["{tier_label(tier)} · {state}"]')
+            lines.extend("\t" + node_line(by_id[nid])
+                         for nid in topo if node_tier[nid] == tier)
+            lines.append("\tend")
+            tier_members.setdefault(TIER_STATE_TO_CLASS[state], []).append(
+                f"{_TIER_NODE_PREFIX}{tier}")
+    else:
+        lines.extend(node_line(by_id[nid]) for nid in topo)
 
     for e in sorted(live_edges,
                     key=lambda e: (topo_idx.get(e["from"], len(topo)),
@@ -946,6 +1055,10 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
         members = status_members.get(cls)
         if members:
             lines.append(f'\tclass {",".join(sorted(members))} {cls}')
+    for cls in TIER_STYLE:
+        members = tier_members.get(cls)
+        if members:
+            lines.append(f'\tclass {",".join(members)} {cls}')
 
     return "\n".join(lines)
 
