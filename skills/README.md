@@ -36,7 +36,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
 | `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
 | `/pr-handle_review` | ᛟ opus | Work through a PR's change requests: verify each independently, fix what holds up, reply to every th… |
-| `/pr-land` | ᛊ sonnet | Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up |
+| `/pr-land` | ᛟ opus | Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up |
 | `/project-audit_deps` | ᛊ sonnet | Investigate this repo's dependencies in detail |
 | `/project-tag_version` | ᚺ haiku | Tag the release after a merge to main, computing the next semver tag with svu |
 | `/red-branch` | ᛟ opus | Adversarial review of a branch diff written as the colleague trying to get it rejected, aimed at one… |
