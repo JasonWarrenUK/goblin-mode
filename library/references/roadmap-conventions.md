@@ -195,7 +195,7 @@ fires from two different rules); first true rule wins:
 An all-`out_of_scope` milestone (struck-from-play) reads as `done`: nothing
 remains actionable, whether it finished or was struck out. A tier's deferred
 state cascades: a Tertiary milestone waits on every milestone in Secondary
-being `done` too, not only on Primary (see Tiers). A plain, untiered
+being `done` too, not only on Core (see Tiers). A plain, untiered
 milestone can still read `deferred` too, from its own member gate rather
 than the cascade: a milestone with one deferred task and nine done ones is
 "shelved" even though donePct is 90, the deliberate call outranking
@@ -224,7 +224,7 @@ renders it as given and never re-sorts or re-groups. Milestone sort, each
 layer breaking ties in the one before:
 
 1. partially done (`0 < donePct < 100`) before fully-0% before fully-100%
-2. tier, ascending (Primary first)
+2. tier, ascending (Core first)
 3. `donePct`, descending
 4. milestone id, natural order (`M2` before `M10`)
 
@@ -356,7 +356,8 @@ forms above for how this renders in PHASE.md.
 **Naming.** The artefact reads a milestone's tier from a suffix on its
 `name`, case-insensitive, trailing: `(Secondary)`, `(Tertiary)`,
 `(Quaternary)`, `(Quinary)` (`roadmap.py`'s `milestone_tier()`). No suffix is
-tier 0, labelled Primary. This is presentational only: it drives the
+tier 0, labelled Core (`tier_label()` spells every tier name; the vocabulary
+is core, secondary, tertiary). This is presentational only: it drives the
 Overview/Milestones tier grouping and the `deferred` colour cascade (see
 Milestone-level state above), and is never consulted by `recompute` or
 `validate`, which rely entirely on the gate-based mechanics above. A tier

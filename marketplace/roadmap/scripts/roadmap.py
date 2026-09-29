@@ -144,12 +144,13 @@ _LABEL_MAX = 48
 # STATE_VAR (JS), not duplicated here: this function only returns the state
 # name, so there is exactly one place that maps a state to a colour variable.
 # ---------------------------------------------------------------------------
+_TIER_CORE = "Core"
 _TIER_SUFFIXES = ["Secondary", "Tertiary", "Quaternary", "Quinary"]
 
 
 def milestone_tier(name):
     """A milestone's release tier from a `(Secondary)`/`(Tertiary)`/…
-    suffix on its name, case-insensitive: 0 for no suffix (Primary), 1 for
+    suffix on its name, case-insensitive: 0 for no suffix (Core), 1 for
     Secondary, 2 for Tertiary and so on. See roadmap-conventions.md's Tiers
     section: a phase may split into tiers released one after another by
     gate, not by date, and the dashboard reads the suffix to group and
@@ -158,6 +159,13 @@ def milestone_tier(name):
         if re.search(rf"\({re.escape(suffix)}\)\s*$", name or "", re.IGNORECASE):
             return i
     return 0
+
+
+def tier_label(tier):
+    """The display name of a release tier: `Core` for tier 0, else the
+    matching `_TIER_SUFFIXES` entry. The one place the tier vocabulary is
+    spelled, so every projection reads core/secondary/tertiary."""
+    return _TIER_CORE if tier == 0 else _TIER_SUFFIXES[tier - 1]
 
 
 def milestone_all_done(by_status, total):
@@ -177,7 +185,7 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
     """One of empty/done/deferred/blocked/inProgress/todo for a milestone,
     given its {status: count} map, completion percentage, (optionally) its
     task total, how many members are claimed and in play, its release tier
-    (0 = Primary, see milestone_tier()) and whether every milestone in a
+    (0 = Core, see milestone_tier()) and whether every milestone in a
     lower tier is fully done (milestone_all_done()). First true rule wins:
 
     0. no tasks at all -> `empty` (a bug: an empty milestone is never a
@@ -185,7 +193,7 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
     1. every task done/out_of_scope -> `done`
     2. tier >= 1 and a lower tier is not yet fully done -> `deferred`
        (cascade: a Tertiary milestone waits on Secondary too, not only on
-       Primary)
+       Core)
     3. no actionable member (todo/blocked/paused) left, and >=1 member is
        `deferred` -> `deferred` (a milestone-level gate, needing no tier
        suffix, distinct from the cascade in rule 2. Fires ahead of
@@ -618,13 +626,13 @@ def overview_layout(phase, stats, ready):
     sections, computed once here so the template only renders what this
     says (see roadmap-conventions.md's Milestone sort/tier-group rules).
 
-    Per-milestone: `tier`, `tierLabel` ("Primary" for tier 0, else the
-    matching `_TIER_SUFFIXES` entry) and `devs` (every distinct assignee
+    Per-milestone: `tier`, `tierLabel` (see tier_label(): "Core" for tier
+    0, else the matching suffix) and `devs` (every distinct assignee
     across the milestone's tasks, done ones included, sorted).
 
     Milestone sort, each layer breaking ties in the one before:
       1. partially done (0 < donePct < 100) before fully-0% before fully-100%
-      2. tier, ascending (Primary first)
+      2. tier, ascending (Core first)
       3. donePct, descending
       4. milestone id, natural order
 
@@ -654,8 +662,7 @@ def overview_layout(phase, stats, ready):
         devs = sorted({t.get("assignee") for t in tasks_by_milestone.get(mid, [])
                        if t.get("assignee")})
         enriched.append({**m, "tier": tier,
-                         "tierLabel": "Primary" if tier == 0
-                         else _TIER_SUFFIXES[tier - 1],
+                         "tierLabel": tier_label(tier),
                          "devs": devs})
 
     def sort_key(m):
@@ -697,7 +704,7 @@ def overview_layout(phase, stats, ready):
         rank = 0 if expanded else (2 if all_done else 1)
         groups.append({
             "tier": t,
-            "tierLabel": "Primary" if t == 0 else _TIER_SUFFIXES[t - 1],
+            "tierLabel": tier_label(t),
             "expanded": expanded,
             "milestoneIds": [m["id"] for m in members],
             "_rank": rank,
