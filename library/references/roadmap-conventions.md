@@ -17,7 +17,7 @@ python3 "$HOME"/.claude/library/scripts/roadmap.py <subcommand> [PATH] [--phase 
 | `detect` | rich vs old-simple format | | 0 rich · 3 old · 2 unlocatable |
 | `validate` | graph integrity + status correctness | | 0 clean · 1 discrepancies · 2 |
 | `recompute` | fixed-point status recompute, writes back | `--check` `--json` `--reformat` `--render` | 0 · 1 cycle/format refusal · 2 |
-| `stats` | status counts | `--json` | 0 · 2 |
+| `stats` | status counts; done fractions count in-scope tasks only (see Task counts) | `--json` | 0 · 2 |
 | `graph` | dependency graph | `--json` (default), `--mermaid --direction LR\|TD --omit-done --palette light\|dark\|vars` | 0 · 2 |
 | `ready` | actionable todo candidates with leverage signals; `--json` adds `groups` (candidate ids per milestone and per topic, in display order) | `--json` | 0 · 2 |
 | `render` | deterministic HTML artefact from `library/templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
@@ -215,6 +215,21 @@ while the roadmap is fixed, and it never counts as "unfinished" for a tier
 cascade: an empty tier-0 milestone must not permanently defer every later
 tier, since that would hide the real problem behind a wrong colour instead
 of surfacing it.
+
+## Task counts: in scope only
+
+Every done/total readout and every `donePct` counts in-scope tasks: the
+total less each `out_of_scope` one (`roadmap.py`'s `_in_scope()`, carried as
+`inScope` on the phase and on each milestone in `stats --json`). A task
+struck from play is neither done nor outstanding, so it leaves both sides of
+the fraction. This holds for the `stats` line, the dashboard's headline, its
+per-tier readouts and its milestone counts alike.
+
+`total` stays the raw task count, struck tasks included: it is what the
+`N tasks across M milestones` header in `ROADMAP_OVERVIEW.md` reports and
+what `milestone_state()` reads. A milestone whose every task is
+`out_of_scope` has `inScope` 0: the dashboard prints `Out of scope` for it,
+never `0/0`, and it sorts with the fully-100% milestones.
 
 ## Milestone sort and tier grouping (artefact only)
 

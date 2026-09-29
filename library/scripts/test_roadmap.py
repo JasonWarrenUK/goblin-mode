@@ -239,6 +239,46 @@ class Stats(unittest.TestCase):
         self.assertEqual(stats["milestonesTotal"], 2)
         self.assertEqual(stats["milestonesDone"], 1)
 
+    def test_out_of_scope_leaves_done_and_total(self):
+        ph = phase([
+            {"id": "M1", "name": "mixed", "tasks": [
+                task("a", "done"), task("b"), task("c", "out_of_scope")]},
+            {"id": "M2", "name": "plain", "tasks": [
+                task("d", "done"), task("e", "out_of_scope"),
+                task("f", "out_of_scope")]}])
+        stats = roadmap.build_stats(ph)
+        by_id = {m["id"]: m for m in stats["milestones"]}
+        self.assertEqual((by_id["M1"]["done"], by_id["M1"]["inScope"],
+                          by_id["M1"]["donePct"]), (1, 2, 50))
+        self.assertEqual((by_id["M2"]["done"], by_id["M2"]["inScope"],
+                          by_id["M2"]["donePct"]), (1, 1, 100))
+        self.assertEqual((stats["byStatus"]["done"], stats["inScope"],
+                          stats["donePct"]), (2, 3, 67))
+        # total stays raw: the ROADMAP_OVERVIEW header count reads it
+        self.assertEqual(stats["total"], 6)
+        self.assertEqual(by_id["M1"]["total"], 3)
+
+    def test_milestone_struck_out_whole_has_nothing_in_scope(self):
+        ph = phase([
+            {"id": "M1", "name": "struck", "tasks": [
+                task("a", "out_of_scope"), task("b", "out_of_scope")]},
+            {"id": "M2", "name": "zero", "tasks": [task("c")]}])
+        stats = roadmap.build_stats(ph)
+        struck = stats["milestones"][0]
+        self.assertEqual((struck["inScope"], struck["donePct"],
+                          struck["state"]), (0, 0, "done"))
+        # nothing left to do, so it sorts after the untouched milestone
+        self.assertEqual([m["id"] for m in _layout(ph)["milestones"]],
+                         ["M2", "M1"])
+
+    def test_human_stats_print_in_scope_fractions(self):
+        ph = phase([{"id": "M1", "name": "mixed", "tasks": [
+            task("a", "done"), task("b"), task("c", "out_of_scope")]}])
+        text = roadmap._human_stats(roadmap.build_stats(ph))
+        self.assertIn("1/2 done (50%)", text)
+        self.assertIn("M1   1/2", text)
+        self.assertNotIn("/3", text)
+
 
 class MilestoneState(unittest.TestCase):
     """Milestone-level derived state (distinct from task status): drives the
