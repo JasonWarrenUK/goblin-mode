@@ -2,10 +2,10 @@
 name: "PR: Land"
 description: "Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up"
 when_to_use: "When a PR is approved with checks green and the user wants it merged and the aftermath handled."
-model: sonnet
+model: opus
 effort: medium
 metadata:
-  glyph: ᛊ
+  glyph: ᛟ
   family: pr
 disable-model-invocation: true
 allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(python3:*)"]
