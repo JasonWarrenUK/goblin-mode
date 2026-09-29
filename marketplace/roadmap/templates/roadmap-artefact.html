@@ -298,6 +298,14 @@ details.milestone > summary .count { font-family: "IBM Plex Mono", monospace; fo
 details.milestone .body { padding: 0 1.2rem 1rem; }
 .group h4 { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
 .group ul { list-style: none; margin: 0; padding: 0; }
+/* A status group that folds away (blocked, done): closed by default, the
+   summary is its heading plus a task count. Same arrow as details.tier. */
+details.statusgroup > summary {
+	cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 0.45rem;
+}
+details.statusgroup > summary::-webkit-details-marker { display: none; }
+details.statusgroup > summary .arrow { font-size: 0.7rem; color: var(--muted); transition: transform 0.15s; }
+details.statusgroup[open] > summary .arrow { transform: rotate(90deg); }
 .group li { padding: 0.28rem 0; overflow-wrap: break-word; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
 .tid {
 	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
@@ -556,14 +564,17 @@ const milestoneCard = m => `
    see roadmap-conventions.md), so a reader scanning top-to-bottom sees the
    same priority twice across Overview and Milestones, not two different
    orderings of the same data; Overview's tier grouping mirrors it too. */
+/* The fourth field marks a group that renders as its own closed <details>:
+   blocked and done tasks are nothing a reader can pick up, so they fold
+   away behind a heading that carries their count. */
 const GROUPS = [
-	["in_progress", "▸ In Progress",  "in-progress"],
-	["todo",        "○ To Do",        "todo"],
-	["blocked",     "✗ Blocked",      "blocked"],
-	["paused",      "⏸ Paused",       "paused"],
-	["deferred",    "⤓ Deferred",     "deferred"],
-	["done",        "✓ Done",         "done"],
-	["out_of_scope","⊘ Out of Scope", "out-of-scope"],
+	["in_progress", "▸ In Progress",  "in-progress",  false],
+	["todo",        "○ To Do",        "todo",         false],
+	["blocked",     "✗ Blocked",      "blocked",      true],
+	["paused",      "⏸ Paused",       "paused",       false],
+	["deferred",    "⤓ Deferred",     "deferred",     false],
+	["done",        "✓ Done",         "done",         true],
+	["out_of_scope","⊘ Out of Scope", "out-of-scope", false],
 ];
 const tasksByMilestone = {};
 for (const t of DATA.tasks) (tasksByMilestone[t.milestone] ??= []).push(t);
@@ -573,7 +584,7 @@ const devChips = m => m.devs?.length
 
 const milestoneDetails = m => {
 	const tasks = tasksByMilestone[m.id] || [];
-	const groups = GROUPS.map(([status, label, varName]) => {
+	const groups = GROUPS.map(([status, label, varName, collapsed]) => {
 		const members = tasks.filter(t => (t.display ?? t.status) === status);
 		if (!members.length) return "";
 		const items = members.map(t => {
@@ -583,6 +594,9 @@ const milestoneDetails = m => {
 				<span class="tid">${esc(t.id)}</span>${devChip(t.assignee)}
 				<span class="tasktext">${esc(t.description)}</span>${deps}</li>`;
 		}).join("");
+		if (collapsed) return `<details class="group statusgroup">
+			<summary><span class="arrow">▸</span><h4 style="color:var(--color-${varName})">${label} (${members.length})</h4></summary>
+			<ul>${items}</ul></details>`;
 		return `<div class="group">
 			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
 	}).join("");
