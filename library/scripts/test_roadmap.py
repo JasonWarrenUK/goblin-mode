@@ -304,7 +304,7 @@ class MilestoneState(unittest.TestCase):
             "done")
 
     def test_deferred_never_fires_for_tier_zero(self):
-        # A Primary milestone has no lower tier to wait on: even with
+        # A Core milestone has no lower tier to wait on: even with
         # lower_tiers_done=False (should never happen for tier 0 in
         # practice) tier>=1 is required for the deferred rule.
         by_status = {"todo": 2}
@@ -340,9 +340,23 @@ class MilestoneState(unittest.TestCase):
 
 
 class MilestoneTier(unittest.TestCase):
-    def test_no_suffix_is_primary(self):
+    def test_no_suffix_is_core(self):
         self.assertEqual(roadmap.milestone_tier("Search"), 0)
         self.assertEqual(roadmap.milestone_tier(""), 0)
+
+    def test_labels_spell_core_secondary_tertiary(self):
+        self.assertEqual([roadmap.tier_label(t) for t in range(3)],
+                         ["Core", "Secondary", "Tertiary"])
+
+    def test_layout_labels_never_say_primary(self):
+        ph = phase([
+            {"id": "M1", "name": "a", "tasks": [task("x")]},
+            {"id": "M2", "name": "b (Secondary)", "tasks": [task("y")]}])
+        layout = _layout(ph)
+        self.assertEqual(
+            {g["tier"]: g["tierLabel"] for g in layout["tiers"]},
+            {0: "Core", 1: "Secondary"})
+        self.assertNotIn("Primary", json.dumps(layout))
 
     def test_suffixes_in_order(self):
         self.assertEqual(roadmap.milestone_tier("Search (Secondary)"), 1)
