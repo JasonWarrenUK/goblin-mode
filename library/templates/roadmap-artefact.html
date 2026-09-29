@@ -244,10 +244,10 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--color-m
 .progress-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 0.55rem; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 3px; }
 
-/* Overview is itself a <details>: closed, it shows only the section name
-   and headline bar (both live in the summary); open, the progress-card
-   grid follows in the body. Reuses details.milestone's shape rather than a
-   second pattern. */
+/* Overview is itself a <details>, shipped open: the progress-card grid
+   follows the summary in the body. Closed by the reader, it shows only the
+   section name and headline bar (both live in the summary). Reuses
+   details.milestone's shape rather than a second pattern. */
 details.overview { border: none; background: none; margin-bottom: 0; }
 details.overview > summary {
 	cursor: pointer; list-style: none; display: flex; align-items: center;
@@ -414,7 +414,7 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 		<div id="validation"></div>
 
 		<section id="overview">
-			<details class="overview">
+			<details class="overview" open>
 				<summary>
 					<h2><span class="dot"></span>Overview</h2>
 					<span class="headline" id="headline"></span>
@@ -520,8 +520,8 @@ const depChip = id => {
 };
 
 /* Section 1: Overview. Title Case throughout the headline bar; the
-   section itself is a closed-by-default <details> (see the overview.body
-   CSS), so the headline is the only thing visible collapsed. */
+   section itself is an open-by-default <details> (see the overview.body
+   CSS), and the headline is the only thing left visible once collapsed. */
 const st = DATA.stats;
 document.getElementById("headline").textContent =
 	`${st.byStatus.done}/${st.total} Tasks · ${st.donePct}% Complete · ` +
