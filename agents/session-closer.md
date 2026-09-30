@@ -1,7 +1,7 @@
 ---
 name: session-closer
 description: "Use this agent at the end of a session to capture state for next time. Summarises accomplishments, notes uncommitted work, updates task-tracker status, generates a work record entry and writes a handoff note for the next session-orchestrator run. Invoke with \"I'm done for today\", \"wrap up\", or triggered by SessionEnd."
-model: haiku
+model: sonnet
 color: yellow
 ---
 

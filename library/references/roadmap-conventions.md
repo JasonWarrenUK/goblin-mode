@@ -17,7 +17,7 @@ python3 "$HOME"/.claude/library/scripts/roadmap.py <subcommand> [PATH] [--phase 
 | `detect` | rich vs old-simple format | | 0 rich · 3 old · 2 unlocatable |
 | `validate` | graph integrity + status correctness | | 0 clean · 1 discrepancies · 2 |
 | `recompute` | fixed-point status recompute, writes back | `--check` `--json` `--reformat` `--render` | 0 · 1 cycle/format refusal · 2 |
-| `stats` | status counts | `--json` | 0 · 2 |
+| `stats` | status counts; done fractions count in-scope tasks only (see Task counts) | `--json` | 0 · 2 |
 | `graph` | dependency graph | `--json` (default), `--mermaid --direction LR\|TD --omit-done --palette light\|dark\|vars` | 0 · 2 |
 | `ready` | actionable todo candidates with leverage signals; `--json` adds `groups` (candidate ids per milestone and per topic, in display order) | `--json` | 0 · 2 |
 | `render` | deterministic HTML artefact from `library/templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
@@ -155,7 +155,7 @@ diagrams from the CLI.
 | `blocked` | red | `#fff8f6` / `#e0002b` | `#530003` / `#ffddd8` | bold stroke | stop |
 | `paused` | purple | `#fdf4ff` / `#b01fe3` | `#3a004f` / `#f7d9ff` | dasharray 4 3 | deliberately parked |
 | `deferred` | cinnamon | `#fff8f3` / `#ac5c00` | `#371d00` / `#ffdfc6` | dasharray 2 4 + italic | shelved for later |
-| `out_of_scope` | gray, faded | `#f6f6f6` / `#e2e2e2` | `#222222` / `#3e3e3e` | dasharray 2 2, struck label | struck from play |
+| `out_of_scope` | gray, dotted | `#f6f6f6` / `#717171` | `#222222` / `#898989` | dasharray 2 2, struck label | struck from play |
 | gate (`external`) | yellow | `#fff9e5` / `#7d6f00` | `#292300` / `#ffe53e` | dasharray 4 3 + italic | outside our control |
 | milestone (`mile`) | sky | `#e3f7ff` / `#007590` | `#001f28` / `#aee9ff` | bold | structural waypoint |
 
@@ -169,6 +169,38 @@ and `external`. Legacy diagrams used `open`
 for todo and Bootstrap-era hexes; regenerating via `graph --mermaid` replaces
 both. classDef lines always come straight after the `graph LR`/`graph TD`
 line; before it is a silent render failure.
+
+The `out_of_scope` stroke sits within two hex steps of `todo`'s gray, and
+the two share a fill: it is as faint as it can be while still clearing 3:1
+against both tier backgrounds below. The dotted border and the struck label
+tell them apart.
+
+### Tier backgrounds (tiered phases only)
+
+A phase with a milestone in tier 1 or above (see Tiers) draws every node of
+its dependency graph inside a subgraph for its tier, in `graph --mermaid` and
+the artefact alike. An untiered phase draws no subgraph, and its diagram is
+unchanged. `TIER_STYLE` in `roadmap.py` is the machine-readable copy.
+
+| Tier state | Family | Light (bg / label) | Dark (bg / label) | Non-colour encoding | Fires when |
+|---|---|---|---|---|---|
+| `underway` | slate | `#c3cede` / `#2f3b4c` | `#343e4f` / `#d5deea` | solid border, state named in the label | every lower tier is done and this one holds unfinished work |
+| `deferred` | taupe | `#dccbb9` / `#4a3826` | `#4a3c2f` / `#ecdccb` | dashed border, state named in the label | any lower tier still holds unfinished work |
+| `done` | slate (shares `underway`) | as `underway` | as `underway` | state named in the label | the tier holds no unfinished work; drawn only in the full graph, since `--omit-done` drops a finished tier whole |
+
+The subgraph label reads `{tier} · {state}`, for example `Secondary ·
+deferred`. A task sits in its milestone's tier, a milestone in its own and a
+gate in the lowest tier among the tasks it gates.
+
+A background is never a node colour. A node's fill is a near-white tint
+(near-black in dark) and its stroke carries the hue, so the background is a
+muted mid-tone between the two. Gates, enforced by `test_roadmap.py` in
+light and dark alike: 3:1 or better against every node stroke and the
+diagram's edge line, 1.35:1 or better against every node fill, 4.5:1 or
+better for the tier's own label. 3:1 against the fills is out of reach: a
+background that dark would hide the edges. The two backgrounds share a
+luminance, so hue alone separates them; the border and the label carry the
+same signal without colour.
 
 ## Milestone-level state (artefact only)
 
@@ -188,14 +220,14 @@ fires from two different rules); first true rule wins:
 | `done` | every member `done`/`out_of_scope` | green |
 | `deferred` (tier cascade) | tier ≥ 1 and any milestone in a lower tier isn't `done` yet (see Tiers) | cinnamon (shares the task-status hue) |
 | `deferred` (member gate) | no actionable member (`todo`/`blocked`/`paused`) left, and ≥1 member is `deferred`; needs no tier suffix, only the cascade above does. Outranks done percentage: one deferred task and nine done ones still reads `deferred` at 90% | cinnamon |
-| `inProgress` | ≥1 member `done`, or a member shows in progress (a claim); outranks "every unfinished member blocked" below it, so some done work plus the rest blocked still reads live | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
-| `blocked` | every unfinished member (done/out_of_scope excluded) is `blocked` | red |
+| `blocked` | stuck: work remains, every unfinished member (done/out_of_scope excluded) is `blocked` and no member shows in progress (`milestone_all_blocked()`). Outranks `inProgress` below it, so done work never softens it: 7 done and 1 blocked reads `blocked`, since nothing in the milestone can be picked up | red |
+| `inProgress` | ≥1 member `done`, or a member shows in progress (a claim). A claim on a blocked task keeps the milestone here: someone is on it | **azure**: shared with claimed tasks, distinct from sky (milestone-structural) |
 | `todo` | otherwise | gray |
 
 An all-`out_of_scope` milestone (struck-from-play) reads as `done`: nothing
 remains actionable, whether it finished or was struck out. A tier's deferred
 state cascades: a Tertiary milestone waits on every milestone in Secondary
-being `done` too, not only on Primary (see Tiers). A plain, untiered
+being `done` too, not only on Core (see Tiers). A plain, untiered
 milestone can still read `deferred` too, from its own member gate rather
 than the cascade: a milestone with one deferred task and nine done ones is
 "shelved" even though donePct is 90, the deliberate call outranking
@@ -216,6 +248,25 @@ cascade: an empty tier-0 milestone must not permanently defer every later
 tier, since that would hide the real problem behind a wrong colour instead
 of surfacing it.
 
+## Task counts: in scope only
+
+Every done/total readout and every `donePct` counts in-scope tasks: the
+total less each `out_of_scope` one (`roadmap.py`'s `_in_scope()`, carried as
+`inScope` on the phase and on each milestone in `stats --json`). A task
+struck from play is neither done nor outstanding, so it leaves both sides of
+the fraction. This holds for the `stats` line, the dashboard's headline, its
+per-tier readouts and its milestone counts alike.
+
+`total` stays the raw task count, struck tasks included: it is what the
+`N tasks across M milestones` header in `ROADMAP_OVERVIEW.md` reports and
+what `milestone_state()` reads. A milestone whose every task is
+`out_of_scope` has `inScope` 0: its `donePct` reads 100 (`_done_pct()`: tasks
+but none in scope means nothing left to do), the dashboard prints `Out of
+scope` for it, never `0/0`, its progress bar fills to match its `done` colour
+and it sorts with the fully-100% milestones. The same rule covers a tier
+group or phase struck out whole. A milestone with no tasks at all stays at 0
+(state `empty`, see above).
+
 ## Milestone sort and tier grouping (artefact only)
 
 `roadmap.py`'s `overview_layout()` computes the Overview and Milestones
@@ -223,15 +274,26 @@ sections' shared sort and tier grouping once, server-side; the template
 renders it as given and never re-sorts or re-groups. Milestone sort, each
 layer breaking ties in the one before:
 
-1. partially done (`0 < donePct < 100`) before fully-0% before fully-100%
-2. tier, ascending (Primary first)
+1. partially done (`0 < donePct < 100`) before fully-0% before stuck
+   (state `blocked`, whatever its `donePct`) before fully-100%. A stuck
+   milestone holds nothing to pick up, so it sorts behind every milestone
+   that does. The sort reads the milestone's `state`, never
+   `milestone_all_blocked()` directly, so the tier cascade governs both: a
+   Secondary milestone blocked while Core still has open work is coloured
+   `deferred` and sorts as deferred, beside its 0% siblings rather than
+   behind them
+2. tier, ascending (Core first)
 3. `donePct`, descending
 4. milestone id, natural order (`M2` before `M10`)
 
 A phase with no tiered milestone (see Tiers) gets one flat, unwrapped list in
 that order; no tier markup renders at all. Otherwise every milestone groups
 under its tier's `<details>`, each carrying the dev chips of everyone
-assigned a task in it (done tasks included) on its summary line. Group
+assigned a task in it (done tasks included) on its summary line. In the
+Overview section each tier header also carries that tier's own readout
+(`Core · 20/45 Tasks · 44% Complete · 0/6 Milestones`), summed from its
+members into the group's `stats`; the Milestones section's tier headers
+keep the bare tier name. Group
 order: expanded groups first, then groups with any not-done milestone, then
 all-done groups; ties break by tier index. A group's own `all-done` reading
 excludes nothing (an `empty` member keeps its group out of the all-done
@@ -356,7 +418,8 @@ forms above for how this renders in PHASE.md.
 **Naming.** The artefact reads a milestone's tier from a suffix on its
 `name`, case-insensitive, trailing: `(Secondary)`, `(Tertiary)`,
 `(Quaternary)`, `(Quinary)` (`roadmap.py`'s `milestone_tier()`). No suffix is
-tier 0, labelled Primary. This is presentational only: it drives the
+tier 0, labelled Core (`tier_label()` spells every tier name; the vocabulary
+is core, secondary, tertiary). This is presentational only: it drives the
 Overview/Milestones tier grouping and the `deferred` colour cascade (see
 Milestone-level state above), and is never consulted by `recompute` or
 `validate`, which rely entirely on the gate-based mechanics above. A tier

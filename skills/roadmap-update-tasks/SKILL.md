@@ -2,10 +2,10 @@
 name: "Roadmap: Add Task"
 description: "Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, dependency wiring in both directions, graph integrity"
 when_to_use: "Whenever the user wants to add a task, feature or work item to a roadmap, even phrased as 'add this to the roadmap', 'put this in the plan' or 'track this as a task'. For a batch of half-formed ideas, run roadmap-create-interview first and feed its approved proposal here as one batch."
-model: sonnet
+model: opus
 effort: medium
 metadata:
-  glyph: ᛊ
+  glyph: ᛟ
   family: roadmap
 disable-model-invocation: false # invocable by Claude so "add this to the roadmap" loads this skill instead of hand-editing the JSON; Step 7's approval gate still applies
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)"]
@@ -29,11 +29,11 @@ When the input is a multi-task proposal (typically `roadmap-create-interview`'s 
 
 `$mode` is `t`, `c` or `m` (aliases below), first token of `$ARGUMENTS`, case-insensitive. Remainder is `$description`.
 
-| Token | Aliases | Meaning |
-|---|---|---|
-| `t` | `task`, `tasks` | One or more tasks, independence unknown: treat as unrelated unless `$description` says otherwise |
-| `c` | `chain`, `sequence`, `set` | At least two tasks with a natural dependency order the user asserts: wire the chain in the order given |
-| `m` | `mile`, `ms`, `miles`, `milestone` | Create at least one new milestone; `$description` may also carry a seed task |
+| Token | Aliases                            | Meaning |
+|-------|------------------------------------|---------|
+| `t`   | `task`, `tasks`                    | One or more tasks, independence unknown: treat as unrelated unless `$description` says otherwise |
+| `c`   | `chain`, `sequence`, `set`         | At least two tasks with a natural dependency order the user asserts: wire the chain in the order given |
+| `m`   | `mile`, `ms`, `miles`, `milestone` | Create at least one new milestone; `$description` may also carry a seed task |
 
 Resolution depends on how this skill was reached:
 
