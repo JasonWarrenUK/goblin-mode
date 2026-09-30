@@ -275,10 +275,13 @@ renders it as given and never re-sorts or re-groups. Milestone sort, each
 layer breaking ties in the one before:
 
 1. partially done (`0 < donePct < 100`) before fully-0% before stuck
-   (`milestone_all_blocked()`, whatever its `donePct`) before fully-100%. A
-   stuck milestone holds nothing to pick up, so it sorts behind every
-   milestone that does. The sort and the `blocked` state read the same
-   function, so colour and position never disagree
+   (state `blocked`, whatever its `donePct`) before fully-100%. A stuck
+   milestone holds nothing to pick up, so it sorts behind every milestone
+   that does. The sort reads the milestone's `state`, never
+   `milestone_all_blocked()` directly, so the tier cascade governs both: a
+   Secondary milestone blocked while Core still has open work is coloured
+   `deferred` and sorts as deferred, beside its 0% siblings rather than
+   behind them
 2. tier, ascending (Core first)
 3. `donePct`, descending
 4. milestone id, natural order (`M2` before `M10`)

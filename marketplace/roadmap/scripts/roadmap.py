@@ -249,9 +249,9 @@ def milestone_all_blocked(by_status, total, in_progress=0):
     """True when a milestone is stuck: work remains, every unfinished task
     (done and out_of_scope set aside) is blocked and no member is claimed
     and in play. However much of it is done, nothing in it can be picked
-    up. Both milestone_state()'s `blocked` rule and overview_layout()'s
-    sort read this, so a milestone's colour and its place in the list
-    never disagree about whether it is stuck."""
+    up. Only milestone_state()'s `blocked` rule reads this; overview_layout()
+    sorts on the resulting `state`, so the tier cascade (which outranks
+    stuckness there) governs colour and position alike."""
     unfinished = (total - by_status.get("done", 0)
                   - by_status.get("out_of_scope", 0))
     return (unfinished > 0 and by_status.get("blocked", 0) == unfinished
@@ -777,7 +777,12 @@ def overview_layout(phase, stats, ready):
         # donePct already reads 100 for a milestone struck out whole (see
         # _done_pct()), so it sorts with the fully-100% ones unaided.
         pct = m["donePct"]
-        if milestone_all_blocked(m["byStatus"], m["total"], m["inProgress"]):
+        # The stuck bucket keys off the state build_stats() settled on,
+        # not milestone_all_blocked() directly: milestone_state() lets the
+        # tier cascade outrank stuckness, so a Secondary milestone that is
+        # blocked while Core still has open work is coloured `deferred`
+        # and must sort as deferred too, never behind its 0% siblings.
+        if m["state"] == "blocked":
             phase_bucket = 2
         else:
             phase_bucket = 0 if 0 < pct < 100 else (1 if pct == 0 else 3)
