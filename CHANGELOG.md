@@ -5,6 +5,35 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-09-30
+
+### Breaking
+
+- `roadmap.py stats --json` measures `donePct` against in-scope tasks (the total less every `out_of_scope` task) rather than the raw total, and reports 100 rather than 0 for a milestone, tier or phase whose tasks are all out of scope.
+- A milestone whose every unfinished task is blocked, with no claim in play, now reports state `blocked` where it reported `inProgress`; done work no longer softens it.
+- `graph --mermaid` wraps each tier of a tiered phase in its own subgraph, so PHASE.md diagrams change shape at their next regeneration.
+- `tierLabel` in the dashboard render data reads `Core` where it read `Primary`; the tier vocabulary is now core, secondary and tertiary in every projection.
+- The out-of-scope node stroke changes to `#717171` (light) and `#898989` (dark) in every projection.
+
+### Added
+
+- Each tier header in the dashboard Overview carries its own readout (done, in-scope tasks, percentage and milestones) in the same shape as the phase headline.
+- The dependency graph draws each tier of a tiered phase as a labelled subgraph: slate for a tier underway, taupe with a dashed border for one still deferred. The legend gains two tier swatches for tiered phases.
+
+### Changed
+
+- The dashboard Overview opens expanded, so the headline and progress cards show without a click.
+- Task counts everywhere (stats line, dashboard headline, milestone counts) leave out-of-scope tasks out of both sides of the fraction, so a struck task is neither done nor outstanding.
+- Inside each milestone the Blocked, Done and Out of Scope groups fold away by default, each with its task count in the heading.
+- A stuck milestone sorts behind every milestone with actionable work and ahead of the finished ones, keyed on the same state that colours it, so colour and position agree; a tier-deferred milestone stays with its deferred siblings.
+- Skill and agent frontmatter `model` levels refreshed across 18 files.
+- The roadmap plugin ships as `roadmap-v0.2.0`.
+
+### Fixed
+
+- A milestone struck out whole draws a full progress bar rather than a green bar at 0% width.
+- The task count sits at the far right of every milestone summary, with or without dev chips.
+
 ## [3.1.0] - 2026-09-29
 
 ### Added
@@ -110,7 +139,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.1.0...v4.0.0
 [3.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.6.0...v3.0.0
 [2.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.5.0...v2.6.0
