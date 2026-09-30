@@ -2,10 +2,10 @@
 name: "Next Task: Group"
 description: "Show every currently unblocked roadmap task as one table per milestone, topic or dev, with similar tasks adjacent"
 when_to_use: "When you want the whole actionable frontier laid out to choose from: roadmap:next-suggest picks one; this shows them all."
-model: haiku
+model: sonnet
 effort: low
 metadata:
-  glyph: ᚺ
+  glyph: ᛊ
   family: next-task
 disable-model-invocation: false # read-only display that writes nothing; invocable so a redundant Skill call after the slash command reloads cleanly instead of erroring
 allowed-tools: ["Bash(python3:*)"]
@@ -102,7 +102,7 @@ Cell rules:
 
 - **Theme**: printed on every row, including repeats, so a row still reads on its own.
 - **Task**: the full description, always. Never shorten it to tidy the table; escape any `|` in the text as `\|`.
-- **Unblocks**: the number, and `0` still prints; a task that frees nothing is worth knowing about. Append ` · closes {milestone}` when `isMilestoneSink` is true, in every pivot.
+- **Unblocks**: the number, and `0` still prints; a task that frees nothing is worth knowing about. Append `· closes {milestone}` when `isMilestoneSink` is true, in every pivot.
 - **Dev**: empty cell when the field is empty. Drop the column from a table where it is empty on every row (milestone and topic pivots only; the dev pivot never has this column).
 
 **Notes never go in the table.** A long note beside a long Task cell is what pushes the table past the terminal's box-table width and drops it into the stacked `Key: value` fallback, so it stays out of every pivot's columns. Directly under each table, one bullet per row that has a non-empty `notes`, in the same row order as the table above it; skip the whole block when no row in that table has notes:

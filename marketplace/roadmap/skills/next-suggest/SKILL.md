@@ -2,10 +2,10 @@
 name: "Next Task: Suggest"
 description: "Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signals"
 when_to_use: "When you don't know what to work on next and want a grounded recommendation rather than picking arbitrarily."
-model: haiku
+model: sonnet
 effort: low
 metadata:
-  glyph: ᚺ
+  glyph: ᛊ
   family: next-task
 disable-model-invocation: false # read-only suggestion; invocable so "what should I work on?" loads it
 allowed-tools: ["Read", "Glob", "Grep", "Bash(python3:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]

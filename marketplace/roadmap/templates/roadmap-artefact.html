@@ -40,7 +40,7 @@
 	--color-primary-bg:      #fff7fb;
 	--color-primary-text:    #4b0030;
 	/* Status semantics: green finished, gray blank, red stop, purple parked,
-	   cinnamon shelved, faded gray struck, yellow external */
+	   cinnamon shelved, dotted gray struck, yellow external */
 	--color-done:            #008217;
 	--color-done-bg:         #e0ffd9;
 	--color-todo:            #6f6f6f;
@@ -51,10 +51,18 @@
 	--color-paused-bg:       #fdf4ff;
 	--color-deferred:        #ac5c00;
 	--color-deferred-bg:     #fff8f3;
-	--color-out-of-scope:    #8b8b8b;
+	--color-out-of-scope:    #717171;
 	--color-out-of-scope-bg: #f6f6f6;
 	--color-gate:            #7d6f00;
 	--color-gate-bg:         #fff9e5;
+	/* Tier backgrounds (see roadmap.py TIER_STYLE): the fill behind a
+	   tier's subgraph in the dependency graph, slate while the tier is
+	   underway, taupe while it is deferred. Muted mid-tones, never a node
+	   colour: every node stroke clears 3:1 against them. */
+	--color-tier-underway:    #2f3b4c;
+	--color-tier-underway-bg: #c3cede;
+	--color-tier-deferred:    #4a3826;
+	--color-tier-deferred-bg: #dccbb9;
 	/* In progress (see roadmap-conventions.md): azure marks a claimed task
 	   still in play and the milestone state it drives, the way milestone
 	   states share their task-status hues. Distinct from sky (structural),
@@ -108,10 +116,14 @@
 		--color-paused-bg:       #3a004f;
 		--color-deferred:        #ffdfc6;
 		--color-deferred-bg:     #371d00;
-		--color-out-of-scope:    #3e3e3e;
+		--color-out-of-scope:    #898989;
 		--color-out-of-scope-bg: #222222;
 		--color-gate:            #ffe53e;
 		--color-gate-bg:         #292300;
+		--color-tier-underway:    #d5deea;
+		--color-tier-underway-bg: #343e4f;
+		--color-tier-deferred:    #ecdccb;
+		--color-tier-deferred-bg: #4a3c2f;
 		--color-in-progress:     #c6e0ff;
 		--color-in-progress-bg:  #001c30;
 		--color-dev-teal:        #00ffe4;
@@ -159,10 +171,14 @@
 	--color-paused-bg:       #3a004f;
 	--color-deferred:        #ffdfc6;
 	--color-deferred-bg:     #371d00;
-	--color-out-of-scope:    #3e3e3e;
+	--color-out-of-scope:    #898989;
 	--color-out-of-scope-bg: #222222;
 	--color-gate:            #ffe53e;
 	--color-gate-bg:         #292300;
+	--color-tier-underway:    #d5deea;
+	--color-tier-underway-bg: #343e4f;
+	--color-tier-deferred:    #ecdccb;
+	--color-tier-deferred-bg: #4a3c2f;
 	--color-in-progress:     #c6e0ff;
 	--color-in-progress-bg:  #001c30;
 	--color-dev-teal:        #00ffe4;
@@ -244,10 +260,10 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--color-m
 .progress-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 0.55rem; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 3px; }
 
-/* Overview is itself a <details>: closed, it shows only the section name
-   and headline bar (both live in the summary); open, the progress-card
-   grid follows in the body. Reuses details.milestone's shape rather than a
-   second pattern. */
+/* Overview is itself a <details>, shipped open: the progress-card grid
+   follows the summary in the body. Closed by the reader, it shows only the
+   section name and headline bar (both live in the summary). Reuses
+   details.milestone's shape rather than a second pattern. */
 details.overview { border: none; background: none; margin-bottom: 0; }
 details.overview > summary {
 	cursor: pointer; list-style: none; display: flex; align-items: center;
@@ -273,6 +289,9 @@ details.tier > summary h3 {
 	margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem;
 	font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
 }
+details.tier > summary .readout {
+	font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted);
+}
 details.tier > summary .arrow { font-size: 0.7rem; color: var(--muted); transition: transform 0.15s; }
 details.tier[open] > summary .arrow { transform: rotate(90deg); }
 
@@ -291,10 +310,22 @@ details.milestone > summary .mid {
 	border: 1px solid var(--color-milestone); border-radius: 4px; padding: 0.1rem 0.4rem;
 }
 details.milestone > summary .devs { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
-details.milestone > summary .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+/* The count sits at the far right of every milestone summary. With dev
+   chips present they take the auto margin and the count follows them;
+   without, the count takes it itself. */
+details.milestone > summary .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; margin-left: auto; }
+details.milestone > summary .devs + .count { margin-left: 0; }
 details.milestone .body { padding: 0 1.2rem 1rem; }
 .group h4 { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
 .group ul { list-style: none; margin: 0; padding: 0; }
+/* A status group that folds away (blocked, done, out of scope): closed by default, the
+   summary is its heading plus a task count. Same arrow as details.tier. */
+details.statusgroup > summary {
+	cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 0.45rem;
+}
+details.statusgroup > summary::-webkit-details-marker { display: none; }
+details.statusgroup > summary .arrow { font-size: 0.7rem; color: var(--muted); transition: transform 0.15s; }
+details.statusgroup[open] > summary .arrow { transform: rotate(90deg); }
 .group li { padding: 0.28rem 0; overflow-wrap: break-word; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
 .tid {
 	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
@@ -340,6 +371,9 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 .legend .key--mile { font-weight: 600; }
 .legend .key--gate { font-style: italic; }
 .legend .keynote { flex-basis: 100%; }
+/* The two tier swatches: shown only for a tiered phase (see the JS below),
+   laid out as two more keys in the same row. */
+#tier-keys:not([hidden]) { display: contents; }
 
 .nextup li:not(.nextup-devgroup) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; padding: 0.3rem 0; }
 /* li.nextup-devgroup, not .nextup-devgroup: .group li (display:flex) would
@@ -414,7 +448,7 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 		<div id="validation"></div>
 
 		<section id="overview">
-			<details class="overview">
+			<details class="overview" open>
 				<summary>
 					<h2><span class="dot"></span>Overview</h2>
 					<span class="headline" id="headline"></span>
@@ -450,6 +484,10 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 				<span class="key"><i class="sw" style="background:var(--color-out-of-scope-bg);border-color:var(--color-out-of-scope);border-style:dotted"></i>out of scope</span>
 				<span class="key key--mile"><i class="sw" style="background:var(--color-milestone-bg);border-color:var(--color-milestone)"></i>milestone</span>
 				<span class="key key--gate"><i class="sw" style="background:var(--color-gate-bg);border-color:var(--color-gate);border-style:dashed"></i>external gate</span>
+				<span id="tier-keys" hidden>
+					<span class="key"><i class="sw" style="background:var(--color-tier-underway-bg);border-color:var(--color-tier-underway)"></i>tier underway</span>
+					<span class="key"><i class="sw" style="background:var(--color-tier-deferred-bg);border-color:var(--color-tier-deferred);border-style:dashed"></i>tier deferred</span>
+				</span>
 				<span class="keynote">tasks flow into the milestone node that they complete; done tasks and fully-done milestones are hidden</span>
 			</div>
 		</section>
@@ -520,17 +558,30 @@ const depChip = id => {
 };
 
 /* Section 1: Overview. Title Case throughout the headline bar; the
-   section itself is a closed-by-default <details> (see the overview.body
-   CSS), so the headline is the only thing visible collapsed. */
+   section itself is an open-by-default <details> (see the overview.body
+   CSS), and the headline is the only thing left visible once collapsed. */
 const st = DATA.stats;
+/* Every done/total readout counts in-scope tasks only (inScope, computed by
+   roadmap.py's build_stats()): an out_of_scope task is struck from play, so
+   it is neither done nor outstanding. One readout shape serves the project
+   headline and each tier's own. */
+const readout = s =>
+	`${s.done}/${s.inScope} Tasks · ${s.donePct}% Complete · ` +
+	`${s.milestonesDone}/${s.milestonesTotal} Milestones`;
 document.getElementById("headline").textContent =
-	`${st.byStatus.done}/${st.total} Tasks · ${st.donePct}% Complete · ` +
-	`${st.milestonesDone}/${st.milestonesTotal} Milestones`;
+	readout({ ...st, done: st.byStatus.done });
+
+/* A milestone's own count: "No tasks" for an empty one (a flagged bug),
+   "Out of scope" when every task it holds was struck, else done/inScope. */
+const milestoneCount = (m, suffix = "") =>
+	m.state === "empty" ? "No tasks"
+	: !m.inScope ? "Out of scope"
+	: `${m.done}/${m.inScope}${suffix}`;
 
 const milestoneCard = m => `
 	<div class="card mini" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
 		<h3>${esc(m.id)}: ${esc(m.name)}</h3>
-		<span class="count">${m.state === "empty" ? "No tasks" : `${m.done}/${m.total} done · ${m.donePct}%`}</span>
+		<span class="count">${milestoneCount(m, ` done · ${m.donePct}%`)}</span>
 		<div class="progress-bar"><div class="progress-fill"
 			style="width:${m.donePct}%;background:var(--color-${STATE_VAR[m.state]})"></div></div>
 	</div>`;
@@ -540,14 +591,17 @@ const milestoneCard = m => `
    see roadmap-conventions.md), so a reader scanning top-to-bottom sees the
    same priority twice across Overview and Milestones, not two different
    orderings of the same data; Overview's tier grouping mirrors it too. */
+/* The fourth field marks a group that renders as its own closed <details>:
+   blocked, done and out-of-scope tasks are nothing a reader can pick up, so
+   they fold away behind a heading that carries their count. */
 const GROUPS = [
-	["in_progress", "▸ In Progress",  "in-progress"],
-	["todo",        "○ To Do",        "todo"],
-	["blocked",     "✗ Blocked",      "blocked"],
-	["paused",      "⏸ Paused",       "paused"],
-	["deferred",    "⤓ Deferred",     "deferred"],
-	["done",        "✓ Done",         "done"],
-	["out_of_scope","⊘ Out of Scope", "out-of-scope"],
+	["in_progress", "▸ In Progress",  "in-progress",  false],
+	["todo",        "○ To Do",        "todo",         false],
+	["blocked",     "✗ Blocked",      "blocked",      true],
+	["paused",      "⏸ Paused",       "paused",       false],
+	["deferred",    "⤓ Deferred",     "deferred",     false],
+	["done",        "✓ Done",         "done",         true],
+	["out_of_scope","⊘ Out of Scope", "out-of-scope", true],
 ];
 const tasksByMilestone = {};
 for (const t of DATA.tasks) (tasksByMilestone[t.milestone] ??= []).push(t);
@@ -557,7 +611,7 @@ const devChips = m => m.devs?.length
 
 const milestoneDetails = m => {
 	const tasks = tasksByMilestone[m.id] || [];
-	const groups = GROUPS.map(([status, label, varName]) => {
+	const groups = GROUPS.map(([status, label, varName, collapsed]) => {
 		const members = tasks.filter(t => (t.display ?? t.status) === status);
 		if (!members.length) return "";
 		const items = members.map(t => {
@@ -567,6 +621,9 @@ const milestoneDetails = m => {
 				<span class="tid">${esc(t.id)}</span>${devChip(t.assignee)}
 				<span class="tasktext">${esc(t.description)}</span>${deps}</li>`;
 		}).join("");
+		if (collapsed) return `<details class="group statusgroup">
+			<summary><span class="arrow">▸</span><h4 style="color:var(--color-${varName})">${label} (${members.length})</h4></summary>
+			<ul>${items}</ul></details>`;
 		return `<div class="group">
 			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
 	}).join("");
@@ -574,7 +631,7 @@ const milestoneDetails = m => {
 	return `<details class="milestone" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
 		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
 			${devChips(m)}
-			<span class="count">${m.state === "empty" ? "No tasks" : `${m.done}/${m.total}`}</span></summary>
+			<span class="count">${milestoneCount(m)}</span></summary>
 		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>
 	</details>`;
 };
@@ -584,9 +641,12 @@ const milestonesById = Object.fromEntries(DATA.overview.milestones.map(m => [m.i
 if (DATA.overview.tiers) {
 	// Tiered phase: one <details class="tier"> per tier, expanded flag and
 	// milestone membership/order both computed server-side (overview_layout).
+	// Overview's tier header carries the tier's own readout (g.stats), the
+	// per-tier counterpart of the headline; Milestones' keeps the bare name.
 	document.getElementById("milestone-cards").innerHTML = DATA.overview.tiers.map(g => `
 		<details class="tier"${g.expanded ? " open" : ""}>
-			<summary><span class="arrow">▸</span><h3>${esc(g.tierLabel)}</h3></summary>
+			<summary><span class="arrow">▸</span><h3>${esc(g.tierLabel)}</h3>
+				<span class="readout">${esc(readout(g.stats))}</span></summary>
 			<div class="grid">${g.milestoneIds.map(id => milestoneCard(milestonesById[id])).join("")}</div>
 		</details>`).join("");
 	document.getElementById("milestone-details").innerHTML = DATA.overview.tiers.map(g => `
@@ -605,6 +665,10 @@ if (DATA.overview.tiers) {
 }
 
 /* Section 3 — Dependency graph */
+/* A tiered phase draws each tier as its own subgraph (roadmap.py's
+   mermaid_source()), so its legend gains the two tier backgrounds; an
+   untiered phase has no subgraph and keeps the keys hidden. */
+document.getElementById("tier-keys").hidden = !DATA.overview.tiers;
 /* ELK lays out this dense a graph with far fewer crossings than the default
    dagre engine; if its module fails to load, dagre still renders. */
 let layout = "dagre";

@@ -71,7 +71,7 @@ from _roadmap_core import (
 # library/references/roadmap-conventions.md, which documents this table in
 # prose. Semantics: done=green (finished), todo=gray (blank slate),
 # blocked=red (stop), paused=purple (parked), deferred=cinnamon (shelved),
-# out_of_scope=faded gray (struck from play), gate=yellow (external),
+# out_of_scope=gray, dotted (struck from play), gate=yellow (external),
 # milestone=sky (structural), inProgress=azure (a claimed task still in
 # play: a display class, never a stored status). Pink is accent-only, never
 # a status. Azure and sky are close in hue, so a claimed task's Mermaid label
@@ -105,9 +105,13 @@ STATUS_STYLE = {
         "var": "done", "bg": "#e0ffd9", "stroke": "#008217",
         "darkBg": "#062800", "darkStroke": "#72ff6c", "extra": "",
     },
+    # The stroke is as faint as it can be while still clearing 3:1 against
+    # both tier backgrounds (TIER_STYLE below) and 4.5:1 on its own fill.
+    # That lands it within two hex steps of todo's gray, so the dotted
+    # border (and the struck label in task lists) is what tells them apart.
     "outOfScope": {
-        "var": "out-of-scope", "bg": "#f6f6f6", "stroke": "#e2e2e2",
-        "darkBg": "#222222", "darkStroke": "#3e3e3e",
+        "var": "out-of-scope", "bg": "#f6f6f6", "stroke": "#717171",
+        "darkBg": "#222222", "darkStroke": "#898989",
         "extra": "stroke-dasharray:2 2",
     },
     "mile": {
@@ -124,6 +128,39 @@ STATUS_TO_CLASS = {
     "todo": "todo", IN_PROGRESS: "inProgress", "blocked": "blocked",
     "paused": "paused", "deferred": "deferred", "done": "done",
     "out_of_scope": "outOfScope",
+}
+
+# ---------------------------------------------------------------------------
+# Tier backgrounds: the fill behind a tier's subgraph in the dependency
+# graph of a tiered phase (see mermaid_source()). Keyed by Mermaid class
+# name, same shape as STATUS_STYLE. Two backgrounds, chosen by the tier's
+# state (tier_states()): slate for a tier that is underway, taupe with a
+# dashed border for one still deferred behind a lower tier. Neither is a
+# node colour. Both are muted mid-tones, because a node's fill is a
+# near-white tint (near-black in dark) and its stroke carries the hue: the
+# background has to sit between the two. Gates every pair must clear, in
+# light and dark alike (test_roadmap.py's TierStyle enforces them):
+#   - 3:1 or better against every node stroke and the diagram's edge line
+#   - 1.35:1 or better against every node fill
+#   - 4.5:1 or better for the tier's own label (its stroke colour)
+# The two backgrounds share a luminance, so hue alone separates them: the
+# dashed border and the state named in the subgraph label carry the same
+# signal without colour.
+# ---------------------------------------------------------------------------
+TIER_STYLE = {
+    "tierUnderway": {
+        "var": "tier-underway", "bg": "#c3cede", "stroke": "#2f3b4c",
+        "darkBg": "#343e4f", "darkStroke": "#d5deea", "extra": "",
+    },
+    "tierDeferred": {
+        "var": "tier-deferred", "bg": "#dccbb9", "stroke": "#4a3826",
+        "darkBg": "#4a3c2f", "darkStroke": "#ecdccb",
+        "extra": "stroke-dasharray:6 4",
+    },
+}
+TIER_STATE_TO_CLASS = {
+    "underway": "tierUnderway", "done": "tierUnderway",
+    "deferred": "tierDeferred",
 }
 IN_PROGRESS_MARKER = " ▸"
 _STATS_ORDER = ["done", "todo", "blocked", "paused", "deferred", "out_of_scope"]
@@ -144,12 +181,13 @@ _LABEL_MAX = 48
 # STATE_VAR (JS), not duplicated here: this function only returns the state
 # name, so there is exactly one place that maps a state to a colour variable.
 # ---------------------------------------------------------------------------
+_TIER_CORE = "Core"
 _TIER_SUFFIXES = ["Secondary", "Tertiary", "Quaternary", "Quinary"]
 
 
 def milestone_tier(name):
     """A milestone's release tier from a `(Secondary)`/`(Tertiary)`/…
-    suffix on its name, case-insensitive: 0 for no suffix (Primary), 1 for
+    suffix on its name, case-insensitive: 0 for no suffix (Core), 1 for
     Secondary, 2 for Tertiary and so on. See roadmap-conventions.md's Tiers
     section: a phase may split into tiers released one after another by
     gate, not by date, and the dashboard reads the suffix to group and
@@ -158,6 +196,41 @@ def milestone_tier(name):
         if re.search(rf"\({re.escape(suffix)}\)\s*$", name or "", re.IGNORECASE):
             return i
     return 0
+
+
+def tier_label(tier):
+    """The display name of a release tier: `Core` for tier 0, else the
+    matching `_TIER_SUFFIXES` entry. The one place the tier vocabulary is
+    spelled, so every projection reads core/secondary/tertiary."""
+    return _TIER_CORE if tier == 0 else _TIER_SUFFIXES[tier - 1]
+
+
+def undone_tiers(milestones):
+    """The tiers still holding unfinished work, from entries carrying
+    `tier`, `total` and `byStatus` (build_stats()'s own milestone shape).
+    An empty milestone (total=0) is a data bug flagged separately by
+    validation, not a legitimate "still in progress" member; letting it
+    hold every later tier deferred forever would hide the real problem
+    behind a wrong colour, so it never counts as keeping a tier undone."""
+    return {m["tier"] for m in milestones
+            if m["total"] and not milestone_all_done(m["byStatus"], m["total"])}
+
+
+def tier_states(milestones):
+    """{tier: state} for every tier present, from the same entries
+    undone_tiers() reads. `done` once the tier holds no unfinished work,
+    `deferred` while any lower tier still does (the cascade
+    milestone_state() applies per milestone), otherwise `underway`."""
+    undone = undone_tiers(milestones)
+    states = {}
+    for tier in sorted({m["tier"] for m in milestones}):
+        if tier not in undone:
+            states[tier] = "done"
+        elif any(lower < tier for lower in undone):
+            states[tier] = "deferred"
+        else:
+            states[tier] = "underway"
+    return states
 
 
 def milestone_all_done(by_status, total):
@@ -172,12 +245,25 @@ def milestone_all_done(by_status, total):
     return finished == total
 
 
+def milestone_all_blocked(by_status, total, in_progress=0):
+    """True when a milestone is stuck: work remains, every unfinished task
+    (done and out_of_scope set aside) is blocked and no member is claimed
+    and in play. However much of it is done, nothing in it can be picked
+    up. Only milestone_state()'s `blocked` rule reads this; overview_layout()
+    sorts on the resulting `state`, so the tier cascade (which outranks
+    stuckness there) governs colour and position alike."""
+    unfinished = (total - by_status.get("done", 0)
+                  - by_status.get("out_of_scope", 0))
+    return (unfinished > 0 and by_status.get("blocked", 0) == unfinished
+            and not in_progress)
+
+
 def milestone_state(by_status, done_pct, total=None, in_progress=0,
                      tier=0, lower_tiers_done=True):
     """One of empty/done/deferred/blocked/inProgress/todo for a milestone,
     given its {status: count} map, completion percentage, (optionally) its
     task total, how many members are claimed and in play, its release tier
-    (0 = Primary, see milestone_tier()) and whether every milestone in a
+    (0 = Core, see milestone_tier()) and whether every milestone in a
     lower tier is fully done (milestone_all_done()). First true rule wins:
 
     0. no tasks at all -> `empty` (a bug: an empty milestone is never a
@@ -185,7 +271,7 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
     1. every task done/out_of_scope -> `done`
     2. tier >= 1 and a lower tier is not yet fully done -> `deferred`
        (cascade: a Tertiary milestone waits on Secondary too, not only on
-       Primary)
+       Core)
     3. no actionable member (todo/blocked/paused) left, and >=1 member is
        `deferred` -> `deferred` (a milestone-level gate, needing no tier
        suffix, distinct from the cascade in rule 2. Fires ahead of
@@ -196,12 +282,12 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
        milestone with five todo tasks and one deferred one is still live
        work to pick up, not a shelved milestone; hiding those five behind
        "deferred" would contradict next-task-group's own ready-set)
-    4. >=1 done task, or a claimed member in play -> `inProgress` (this
-       outranks "all unfinished tasks blocked": a milestone with some done
-       work and the rest blocked still reads as live and moving, confirmed
-       against Jason's own worked example: 2 done + 3 blocked -> inProgress,
-       not blocked)
-    5. every unfinished task is blocked (out_of_scope ignored) -> `blocked`
+    4. stuck (milestone_all_blocked(): work remains, every unfinished task
+       is blocked and nobody has a claim in play) -> `blocked`. Done work
+       does not soften this: 7 done + 1 blocked reads `blocked`, since
+       nothing in the milestone can be picked up
+    5. >=1 done task, or a claimed member in play -> `inProgress` (a claim
+       on a blocked task keeps the milestone here: someone is on it)
     6. otherwise -> `todo`
 
     `total` is the task count; 0 (or omitted) reads as empty. Every real
@@ -217,11 +303,10 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
                   + by_status.get("paused", 0))
     if actionable == 0 and by_status.get("deferred", 0) > 0:
         return "deferred"
+    if milestone_all_blocked(by_status, total, in_progress):
+        return "blocked"
     if by_status.get("done", 0) > 0 or in_progress > 0:
         return "inProgress"
-    unfinished = total - by_status.get("done", 0) - by_status.get("out_of_scope", 0)
-    if unfinished > 0 and by_status.get("blocked", 0) == unfinished:
-        return "blocked"
     return "todo"
 
 
@@ -509,6 +594,28 @@ def _pct(done, total):
     return round(done / total * 100) if total else 0
 
 
+def _done_pct(done, in_scope, total):
+    """donePct for a milestone, tier or phase: done over in_scope, except
+    that a set with tasks but none in scope (every one struck out) reads
+    100, since nothing in it is left to do. Its state is `done` (see
+    milestone_all_done()), so the readout, the progress bar and the sort
+    all agree with the colour instead of each patching the same zero. A
+    set with no tasks at all stays 0: an empty milestone is a bug (state
+    `empty`), never finished work."""
+    if total and not in_scope:
+        return 100
+    return _pct(done, in_scope)
+
+
+def _in_scope(counts, total):
+    """How many tasks are still in play: the total less every out_of_scope
+    one. The denominator of every done/total readout and of donePct, so a
+    task struck from play never counts as unfinished work. `total` itself
+    stays the raw task count (milestone_state() and the ROADMAP_OVERVIEW
+    header both need it)."""
+    return total - counts.get("out_of_scope", 0)
+
+
 def _in_progress_count(tasks):
     """Claimed tasks still in play; they are also counted under their own
     status in byStatus, so this is an overlay, never part of the total."""
@@ -531,32 +638,30 @@ def build_stats(phase):
         total += len(tasks)
         in_progress = _in_progress_count(tasks)
         all_in_progress += in_progress
+        in_scope = _in_scope(c, len(tasks))
         prelim.append({
             "id": m["id"],
             "name": m.get("name", ""),
             "total": len(tasks),
+            "inScope": in_scope,
             "done": c["done"],
             "byStatus": c,
             "inProgress": in_progress,
-            "donePct": _pct(c["done"], len(tasks)),
+            "donePct": _done_pct(c["done"], in_scope, len(tasks)),
             "tier": milestone_tier(m.get("name", "")),
-            "allDone": milestone_all_done(c, len(tasks)),
         })
 
     # Tier cascade: a tier counts as "open" only once every non-empty
-    # milestone in every earlier tier is done. An empty milestone (total=0)
-    # is a data bug flagged separately by validation, not a legitimate
-    # "still in progress" member; letting it hold every later tier deferred
-    # forever would hide the real problem behind a wrong colour, so it never
-    # counts as keeping a tier undone. milestone_state() computes each
+    # milestone in every earlier tier is done (see undone_tiers() for why an
+    # empty one never holds a tier back). milestone_state() computes each
     # milestone's own done-ness standalone, so this pass rolls that up into
     # the one set of tiers with unfinished work, for the cascade check below.
-    undone_tiers = {m["tier"] for m in prelim if m["total"] and not m["allDone"]}
+    undone = undone_tiers(prelim)
 
     milestones = []
     milestones_done = 0
     for m in prelim:
-        lower_tiers_done = not any(t < m["tier"] for t in undone_tiers)
+        lower_tiers_done = not any(t < m["tier"] for t in undone)
         state = milestone_state(m["byStatus"], m["donePct"], total=m["total"],
                                 in_progress=m["inProgress"], tier=m["tier"],
                                 lower_tiers_done=lower_tiers_done)
@@ -564,17 +669,20 @@ def build_stats(phase):
             milestones_done += 1
         milestones.append({
             "id": m["id"], "name": m["name"], "total": m["total"],
+            "inScope": m["inScope"],
             "done": m["done"], "byStatus": m["byStatus"],
             "inProgress": m["inProgress"], "donePct": m["donePct"],
             "tier": m["tier"], "state": state,
         })
+    in_scope = _in_scope(all_counts, total)
     return {
         "phase": phase.get("name"),
         "total": total,
+        "inScope": in_scope,
         "byStatus": all_counts,
         "inProgress": all_in_progress,
         "invalid": all_invalid,
-        "donePct": _pct(all_counts["done"], total),
+        "donePct": _done_pct(all_counts["done"], in_scope, total),
         "milestonesTotal": len(milestones),
         "milestonesDone": milestones_done,
         "milestones": milestones,
@@ -585,7 +693,7 @@ def _human_stats(stats):
     claimed = (f"  ({stats['inProgress']} in progress)"
                if stats.get("inProgress") else "")
     lines = [
-        f"{stats['phase']}: {stats['byStatus']['done']}/{stats['total']} done "
+        f"{stats['phase']}: {stats['byStatus']['done']}/{stats['inScope']} done "
         f"({stats['donePct']}%)",
         "  " + "  ".join(f"{s}={stats['byStatus'][s]}"
                          for s in _STATS_ORDER if stats['byStatus'][s])
@@ -597,7 +705,7 @@ def _human_stats(stats):
                            for s in _STATS_ORDER if m['byStatus'][s])
         if m.get("inProgress"):
             active += f"  ({m['inProgress']} in progress)"
-        lines.append(f"  {m['id']:4} {m['done']}/{m['total']:<3} {m['name']}")
+        lines.append(f"  {m['id']:4} {m['done']}/{m['inScope']:<3} {m['name']}")
         if active:
             lines.append(f"       {active}")
     if stats["invalid"]:
@@ -618,13 +726,18 @@ def overview_layout(phase, stats, ready):
     sections, computed once here so the template only renders what this
     says (see roadmap-conventions.md's Milestone sort/tier-group rules).
 
-    Per-milestone: `tier`, `tierLabel` ("Primary" for tier 0, else the
-    matching `_TIER_SUFFIXES` entry) and `devs` (every distinct assignee
+    Per-milestone: `tier`, `tierLabel` (see tier_label(): "Core" for tier
+    0, else the matching suffix) and `devs` (every distinct assignee
     across the milestone's tasks, done ones included, sorted).
 
-    Milestone sort, each layer breaking ties in the one before:
-      1. partially done (0 < donePct < 100) before fully-0% before fully-100%
-      2. tier, ascending (Primary first)
+    Milestone sort, each layer breaking ties in the one before (donePct
+    is measured against in-scope tasks, see _in_scope(); a milestone with
+    every task out_of_scope sorts as fully-100%):
+      1. partially done (0 < donePct < 100) before fully-0% before stuck
+         (milestone_all_blocked(), whatever its donePct) before fully-100%:
+         a stuck milestone holds nothing to pick up, so it sorts behind
+         every milestone that does and ahead of the finished ones
+      2. tier, ascending (Core first)
       3. donePct, descending
       4. milestone id, natural order
 
@@ -640,6 +753,9 @@ def overview_layout(phase, stats, ready):
         yet open stays collapsed regardless of what it contains
       - group order: expanded groups first, then groups with any
         not-done milestone, then all-done groups; ties break by tier index
+      - each group carries its own `stats` readout (done, inScope,
+        donePct, milestonesDone, milestonesTotal), summed from its
+        members, the per-tier counterpart of the phase headline
     """
     tasks_by_milestone = {}
     for m in phase.get("milestones", []):
@@ -654,13 +770,22 @@ def overview_layout(phase, stats, ready):
         devs = sorted({t.get("assignee") for t in tasks_by_milestone.get(mid, [])
                        if t.get("assignee")})
         enriched.append({**m, "tier": tier,
-                         "tierLabel": "Primary" if tier == 0
-                         else _TIER_SUFFIXES[tier - 1],
+                         "tierLabel": tier_label(tier),
                          "devs": devs})
 
     def sort_key(m):
+        # donePct already reads 100 for a milestone struck out whole (see
+        # _done_pct()), so it sorts with the fully-100% ones unaided.
         pct = m["donePct"]
-        phase_bucket = 0 if 0 < pct < 100 else (1 if pct == 0 else 2)
+        # The stuck bucket keys off the state build_stats() settled on,
+        # not milestone_all_blocked() directly: milestone_state() lets the
+        # tier cascade outrank stuckness, so a Secondary milestone that is
+        # blocked while Core still has open work is coloured `deferred`
+        # and must sort as deferred too, never behind its 0% siblings.
+        if m["state"] == "blocked":
+            phase_bucket = 2
+        else:
+            phase_bucket = 0 if 0 < pct < 100 else (1 if pct == 0 else 3)
         return (phase_bucket, m["tier"], -pct, _milestone_natural_key(m["id"]))
 
     enriched.sort(key=sort_key)
@@ -695,11 +820,22 @@ def overview_layout(phase, stats, ready):
         expanded = tier_open(t) and has_active
         all_done = all(m["state"] == "done" for m in members)
         rank = 0 if expanded else (2 if all_done else 1)
+        done = sum(m["done"] for m in members)
+        in_scope = sum(m["inScope"] for m in members)
+        total = sum(m["total"] for m in members)
         groups.append({
             "tier": t,
-            "tierLabel": "Primary" if t == 0 else _TIER_SUFFIXES[t - 1],
+            "tierLabel": tier_label(t),
             "expanded": expanded,
             "milestoneIds": [m["id"] for m in members],
+            "stats": {
+                "done": done,
+                "inScope": in_scope,
+                "donePct": _done_pct(done, in_scope, total),
+                "milestonesDone": sum(1 for m in members
+                                      if m["state"] == "done"),
+                "milestonesTotal": len(members),
+            },
             "_rank": rank,
         })
     groups.sort(key=lambda g: (g["_rank"], g["tier"]))
@@ -779,9 +915,9 @@ def _mermaid_label(text, reserve=0):
     return text.replace('"', "#quot;")
 
 
-def _classdef_lines(palette):
+def _classdef_lines(palette, styles=STATUS_STYLE):
     lines = []
-    for cls, st in STATUS_STYLE.items():
+    for cls, st in styles.items():
         if palette == "vars":
             bg = f"var(--color-{st['var']}-bg)"
             stroke = f"var(--color-{st['var']})"
@@ -852,6 +988,31 @@ def _live_graph(phase, omit_done=False):
     return graph, skipped, live_edges
 
 
+_TIER_NODE_PREFIX = "tier"
+
+
+def _node_tiers(graph, live_edges):
+    """{node id: tier} for every node of a tiered phase, or None when no
+    milestone sits in tier >= 1 (an untiered phase draws no subgraph). A
+    milestone takes its own tier (milestone_tier()), a task its
+    milestone's, and a gate the lowest tier among the nodes it gates: a
+    tier's release gate sits with the work it releases, and a gate shared
+    across tiers sits with the first of them."""
+    tiers = {n["id"]: milestone_tier(n["label"])
+             for n in graph["nodes"] if n["kind"] == "milestone"}
+    if not any(tiers.values()):
+        return None
+    for n in graph["nodes"]:
+        if n["kind"] == "task":
+            tiers[n["id"]] = tiers.get(n["milestone"], 0)
+    for n in graph["nodes"]:
+        if n["kind"] == "gate":
+            gated = [tiers[e["to"]] for e in live_edges
+                     if e["from"] == n["id"] and e["to"] in tiers]
+            tiers[n["id"]] = min(gated, default=0)
+    return tiers
+
+
 def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     """The complete Mermaid diagram for a phase, classDefs included, so the
     PHASE.md projection and the artefact can never drift. classDefs come
@@ -866,6 +1027,12 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     dependsOn they may form cycles (Kahn's tolerates this by appending the
     remainder in roadmap order) and never impose status, block a milestone
     sink, or fail validation's acyclicity check.
+
+    A tiered phase (any milestone in tier >= 1) draws every node inside
+    its tier's own subgraph, ascending, each filled by the tier's state
+    (TIER_STYLE, tier_states()) and labelled with it, so three tiers never
+    read as one undivided mass. An untiered phase emits no subgraph at all
+    and its output is unchanged.
     """
     graph, skipped, live_edges = _live_graph(phase, omit_done)
     by_id = {n["id"]: n for n in graph["nodes"]}
@@ -874,28 +1041,45 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     ids = [n["id"] for n in graph["nodes"] if n["id"] not in skipped]
     topo = _topological_order(ids, order, live_edges)
     topo_idx = {nid: i for i, nid in enumerate(topo)}
+    node_tier = _node_tiers(graph, live_edges)
 
     lines = [f"graph {direction}"]
     lines.extend(_classdef_lines(palette))
+    if node_tier:
+        lines.extend(_classdef_lines(palette, TIER_STYLE))
 
     status_members = {}
-    for nid in topo:
-        n = by_id[nid]
+
+    def node_line(n):
         if n["kind"] == "milestone":
-            lines.append(f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::mile')
-        elif n["kind"] == "gate":
-            lines.append(f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::external')
-        else:
-            label = f'{n["id"]}: {n["description"]}'
-            if n.get("iterative"):
-                label += " ↻"
-            status = display_status(n, n.get("status"))
-            marker = IN_PROGRESS_MARKER if status == IN_PROGRESS else ""
-            label = _mermaid_label(label, reserve=len(marker)) + marker
-            lines.append(f'\t{n["id"]}["{label}"]')
-            cls = STATUS_TO_CLASS.get(status)
-            if cls:
-                status_members.setdefault(cls, []).append(n["id"])
+            return f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::mile'
+        if n["kind"] == "gate":
+            return f'\t{n["id"]}["{_mermaid_label(n["id"] + ": " + n["label"])}"]:::external'
+        label = f'{n["id"]}: {n["description"]}'
+        if n.get("iterative"):
+            label += " ↻"
+        status = display_status(n, n.get("status"))
+        marker = IN_PROGRESS_MARKER if status == IN_PROGRESS else ""
+        label = _mermaid_label(label, reserve=len(marker)) + marker
+        cls = STATUS_TO_CLASS.get(status)
+        if cls:
+            status_members.setdefault(cls, []).append(n["id"])
+        return f'\t{n["id"]}["{label}"]'
+
+    tier_members = {}
+    if node_tier:
+        states = tier_states(build_stats(phase)["milestones"])
+        for tier in sorted({node_tier[nid] for nid in topo}):
+            state = states.get(tier, "underway")
+            lines.append(f'\tsubgraph {_TIER_NODE_PREFIX}{tier}'
+                         f'["{tier_label(tier)} · {state}"]')
+            lines.extend("\t" + node_line(by_id[nid])
+                         for nid in topo if node_tier[nid] == tier)
+            lines.append("\tend")
+            tier_members.setdefault(TIER_STATE_TO_CLASS[state], []).append(
+                f"{_TIER_NODE_PREFIX}{tier}")
+    else:
+        lines.extend(node_line(by_id[nid]) for nid in topo)
 
     for e in sorted(live_edges,
                     key=lambda e: (topo_idx.get(e["from"], len(topo)),
@@ -908,6 +1092,10 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
         members = status_members.get(cls)
         if members:
             lines.append(f'\tclass {",".join(sorted(members))} {cls}')
+    for cls in TIER_STYLE:
+        members = tier_members.get(cls)
+        if members:
+            lines.append(f'\tclass {",".join(members)} {cls}')
 
     return "\n".join(lines)
 

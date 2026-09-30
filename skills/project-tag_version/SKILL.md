@@ -2,7 +2,7 @@
 name: "Project: Tag Version"
 description: "Tag the release after a merge to main, computing the next semver tag with svu"
 when_to_use: "When a merge to main has landed and the release should be tagged, or to report what bump is pending on a branch. Never tags at PR creation, mid-branch or on staging; releases are things that happened to main."
-model: haiku
+model: sonnet
 effort: low
 metadata:
   glyph: ᚺ
