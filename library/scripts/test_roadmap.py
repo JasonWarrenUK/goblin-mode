@@ -551,6 +551,22 @@ class OverviewLayout(unittest.TestCase):
         by_id = {m["id"]: m["state"] for m in layout["milestones"]}
         self.assertEqual((by_id["M1"], by_id["M5"]), ("blocked", "blocked"))
 
+    def test_sort_reads_state_so_a_tier_deferred_stuck_milestone_sorts_deferred(self):
+        # M2 is stuck on its own terms, but the tier cascade colours it
+        # `deferred` while Core still has open work; it must sort beside its
+        # 0% Secondary sibling (tier, then -pct, then id), not behind it in
+        # the stuck bucket. Position follows colour by construction.
+        ph = phase([
+            {"id": "M1", "name": "core", "tasks": [task("a", "done"), task("b")]},
+            {"id": "M2", "name": "stuck (Secondary)", "tasks": [
+                task("c", "blocked", ["b"])]},
+            {"id": "M3", "name": "zero (Secondary)", "tasks": [task("d")]},
+            {"id": "M4", "name": "full", "tasks": [task("e", "done")]}])
+        layout = _layout(ph)
+        self.assertEqual([m["id"] for m in layout["milestones"]],
+                         ["M1", "M2", "M3", "M4"])
+        self.assertEqual(layout["milestones"][1]["state"], "deferred")
+
     def test_sort_keeps_a_claimed_blocked_milestone_with_the_partial_ones(self):
         ph = phase([
             {"id": "M1", "name": "claimed", "tasks": [
