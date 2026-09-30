@@ -265,11 +265,29 @@ class Stats(unittest.TestCase):
             {"id": "M2", "name": "zero", "tasks": [task("c")]}])
         stats = roadmap.build_stats(ph)
         struck = stats["milestones"][0]
+        # donePct reads 100, not 0/0's 0: the card's progress bar fills to
+        # match its `done` colour and the sort needs no special case
         self.assertEqual((struck["inScope"], struck["donePct"],
-                          struck["state"]), (0, 0, "done"))
+                          struck["state"]), (0, 100, "done"))
         # nothing left to do, so it sorts after the untouched milestone
         self.assertEqual([m["id"] for m in _layout(ph)["milestones"]],
                          ["M2", "M1"])
+
+    def test_phase_and_tier_struck_out_whole_read_100(self):
+        ph = phase([
+            {"id": "M1", "name": "struck", "tasks": [task("a", "out_of_scope")]},
+            {"id": "M2", "name": "also struck (Secondary)", "tasks": [
+                task("b", "out_of_scope")]}])
+        stats = roadmap.build_stats(ph)
+        self.assertEqual((stats["inScope"], stats["donePct"]), (0, 100))
+        tiers = _layout(ph)["tiers"]
+        self.assertEqual([g["stats"]["donePct"] for g in tiers], [100, 100])
+
+    def test_empty_milestone_done_pct_stays_zero(self):
+        # no tasks at all is a bug (state `empty`), never finished work
+        ph = phase([{"id": "M1", "name": "empty", "tasks": []}])
+        m = roadmap.build_stats(ph)["milestones"][0]
+        self.assertEqual((m["donePct"], m["state"]), (0, "empty"))
 
     def test_human_stats_print_in_scope_fractions(self):
         ph = phase([{"id": "M1", "name": "mixed", "tasks": [

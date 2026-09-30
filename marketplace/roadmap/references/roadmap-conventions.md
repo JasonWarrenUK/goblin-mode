@@ -261,8 +261,12 @@ per-tier readouts and its milestone counts alike.
 `total` stays the raw task count, struck tasks included: it is what the
 `N tasks across M milestones` header in `ROADMAP_OVERVIEW.md` reports and
 what `milestone_state()` reads. A milestone whose every task is
-`out_of_scope` has `inScope` 0: the dashboard prints `Out of scope` for it,
-never `0/0`, and it sorts with the fully-100% milestones.
+`out_of_scope` has `inScope` 0: its `donePct` reads 100 (`_done_pct()`: tasks
+but none in scope means nothing left to do), the dashboard prints `Out of
+scope` for it, never `0/0`, its progress bar fills to match its `done` colour
+and it sorts with the fully-100% milestones. The same rule covers a tier
+group or phase struck out whole. A milestone with no tasks at all stays at 0
+(state `empty`, see above).
 
 ## Milestone sort and tier grouping (artefact only)
 
