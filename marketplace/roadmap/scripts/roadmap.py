@@ -594,6 +594,19 @@ def _pct(done, total):
     return round(done / total * 100) if total else 0
 
 
+def _done_pct(done, in_scope, total):
+    """donePct for a milestone, tier or phase: done over in_scope, except
+    that a set with tasks but none in scope (every one struck out) reads
+    100, since nothing in it is left to do. Its state is `done` (see
+    milestone_all_done()), so the readout, the progress bar and the sort
+    all agree with the colour instead of each patching the same zero. A
+    set with no tasks at all stays 0: an empty milestone is a bug (state
+    `empty`), never finished work."""
+    if total and not in_scope:
+        return 100
+    return _pct(done, in_scope)
+
+
 def _in_scope(counts, total):
     """How many tasks are still in play: the total less every out_of_scope
     one. The denominator of every done/total readout and of donePct, so a
@@ -634,7 +647,7 @@ def build_stats(phase):
             "done": c["done"],
             "byStatus": c,
             "inProgress": in_progress,
-            "donePct": _pct(c["done"], in_scope),
+            "donePct": _done_pct(c["done"], in_scope, len(tasks)),
             "tier": milestone_tier(m.get("name", "")),
         })
 
@@ -669,7 +682,7 @@ def build_stats(phase):
         "byStatus": all_counts,
         "inProgress": all_in_progress,
         "invalid": all_invalid,
-        "donePct": _pct(all_counts["done"], in_scope),
+        "donePct": _done_pct(all_counts["done"], in_scope, total),
         "milestonesTotal": len(milestones),
         "milestonesDone": milestones_done,
         "milestones": milestones,
@@ -761,9 +774,9 @@ def overview_layout(phase, stats, ready):
                          "devs": devs})
 
     def sort_key(m):
-        # A milestone struck out whole (tasks, none in scope) has nothing
-        # left to do, so it sorts with the fully-100% ones, not the 0% ones.
-        pct = m["donePct"] if m["inScope"] or not m["total"] else 100
+        # donePct already reads 100 for a milestone struck out whole (see
+        # _done_pct()), so it sorts with the fully-100% ones unaided.
+        pct = m["donePct"]
         if milestone_all_blocked(m["byStatus"], m["total"], m["inProgress"]):
             phase_bucket = 2
         else:
@@ -804,6 +817,7 @@ def overview_layout(phase, stats, ready):
         rank = 0 if expanded else (2 if all_done else 1)
         done = sum(m["done"] for m in members)
         in_scope = sum(m["inScope"] for m in members)
+        total = sum(m["total"] for m in members)
         groups.append({
             "tier": t,
             "tierLabel": tier_label(t),
@@ -812,7 +826,7 @@ def overview_layout(phase, stats, ready):
             "stats": {
                 "done": done,
                 "inScope": in_scope,
-                "donePct": _pct(done, in_scope),
+                "donePct": _done_pct(done, in_scope, total),
                 "milestonesDone": sum(1 for m in members
                                       if m["state"] == "done"),
                 "milestonesTotal": len(members),
