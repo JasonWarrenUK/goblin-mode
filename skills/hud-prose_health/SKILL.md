@@ -2,10 +2,10 @@
 name: "HUD: Prose Health"
 description: "Check every layer of the prose-gating suite is still wired and report how Claude's own output is trending against the house rules"
 when_to_use: "When Jason asks whether the writing-style setup is working, whether em dashes are creeping back, how often the commit-msg hook fires or after editing settings, hooks, the output style or the commit and prose skills; also as a periodic check."
-model: haiku
+model: sonnet
 effort: low
 metadata:
-  glyph: ᚺ
+  glyph: ᛊ
   family: hud
 disable-model-invocation: true
 allowed-tools: ["Bash(~/.claude/library/scripts/prose-health.py:*)", "Bash(~/.claude/library/scripts/prose-metrics.py:*)", "Read"]
@@ -41,18 +41,18 @@ Print the script's output as it came: the status lines, any `tree hits` list and
 
 One line per non-PASS check, naming the file to open or the command to run:
 
-| Check | Fix |
-|---|---|
-| `settings` | Edit `~/.claude/settings.json`: `outputStyle` and the `attribution` block (see `docs/reference/configuration.md`) |
-| `style` | Edit `output-styles/british-dev-goblin.md` frontmatter, or run the strict scan on it and fix the hits |
-| `hook` | `git config --global core.hooksPath ~/.claude/hooks`, `chmod +x ~/.claude/hooks/commit-msg`, or reinstall python3 |
-| `hook-log` | Informational; a rejection rate above about 20% over a week means the commit skills are not pre-checking their messages |
-| `skills` | Open the named skill; the gate text or the `allowed-tools` entry was removed. Restore it from git history |
+| Check         | Fix |
+|---------------|-----|
+| `settings`    | Edit `~/.claude/settings.json`: `outputStyle` and the `attribution` block (see `docs/reference/configuration.md`) |
+| `style`       | Edit `output-styles/british-dev-goblin.md` frontmatter, or run the strict scan on it and fix the hits |
+| `hook`        | `git config --global core.hooksPath ~/.claude/hooks`, `chmod +x ~/.claude/hooks/commit-msg`, or reinstall python3 |
+| `hook-log`    | Informational; a rejection rate above about 20% over a week means the commit skills are not pre-checking their messages |
+| `skills`      | Open the named skill; the gate text or the `allowed-tools` entry was removed. Restore it from git history |
 | `frontmatter` | Open the named file; usually an unquoted colon in a `description:` value |
-| `tree` | Run `~/.claude/library/scripts/slop-scan.py --strict` on the listed files and fix them, or raise `RESIDUAL_TOLERANCE` in `prose-health.py` if the new hits are clause-joining commas (the tolerance carries headroom above the audited count, so tripping it means several have accumulated) |
-| `tests` | Run `python3 -m pytest library/scripts/test_slop_scan.py library/scripts/test_prose_metrics.py library/scripts/test_commit_msg_hook.py` and read the failure |
-| `index` | `python3 ~/.claude/library/scripts/gen-skills-index.py` |
-| `output` | The system-prompt layer is not holding. Check `settings` and `style` first; if both pass and the rate stays above 3 per 1k words for a week, the next structural step is a `MessageDisplay` hook, which nothing here builds |
+| `tree`        | Run `~/.claude/library/scripts/slop-scan.py --strict` on the listed files and fix them, or raise `RESIDUAL_TOLERANCE` in `prose-health.py` if the new hits are clause-joining commas (the tolerance carries headroom above the audited count, so tripping it means several have accumulated) |
+| `tests`       | Run `python3 -m pytest library/scripts/test_slop_scan.py library/scripts/test_prose_metrics.py library/scripts/test_commit_msg_hook.py` and read the failure |
+| `index`       | `python3 ~/.claude/library/scripts/gen-skills-index.py` |
+| `output`      | The system-prompt layer is not holding. Check `settings` and `style` first; if both pass and the rate stays above 3 per 1k words for a week, the next structural step is a `MessageDisplay` hook, which nothing here builds |
 
 Never apply a fix in this skill; it reports. Offer the fix and stop.
 

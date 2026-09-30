@@ -2,10 +2,10 @@
 name: "PR: Create"
 description: "Create a pull request to main, or a stacked PR onto a parent branch: wordy or shiny (with screenshots), ready-for-review or draft"
 when_to_use: "When a branch is ready (or nearly ready) to open as a PR and needs a description written from its commits; reached via next-task-ship's Step 6, branch-qa_review's Ready verdict or an explicit ask. Never invoke just because a branch looks finished; its approval step gates the actual creation."
-model: sonnet
+model: opus
 effort: medium
 metadata:
-  glyph: ᛊ
+  glyph: ᛟ
   family: pr
 disable-model-invocation: false # invocable so next-task-ship (Step 6) and branch-qa_review's Ready offer can call it; its own approval step gates PR creation
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Read", "Glob", "Grep"]

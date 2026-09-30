@@ -2,10 +2,10 @@
 name: "Roadmap: Create"
 description: "Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHASE task list and prose overview"
 when_to_use: "When a project has no roadmap yet, or an existing simple-style one needs superseding with a new phase built from scratch (for converting an old roadmap, use roadmap-migrate instead)."
-model: opus
+model: fable
 effort: high
 metadata:
-  glyph: ᛟ
+  glyph: ᚠ
   family: roadmap
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)"]
@@ -25,10 +25,10 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 
 ## Behaviour
 
-| Codebase Context  | Arguments Passed | Action                                                    |
-| ----------------- | ---------------- | --------------------------------------------------------- |
-| No other roadmaps | 0                | Propose a phase name drawn from the project's goal and confirm it   |
-| N/A               | 1                | Create the roadmap/phase named in the argument            |
+| Codebase Context  | Arguments Passed | Action |
+|-------------------|------------------|--------|
+| No other roadmaps | 0                | Propose a phase name drawn from the project's goal and confirm it |
+| N/A               | 1                | Create the roadmap/phase named in the argument |
 | Roadmaps exist    | 0                | Ask the user which phase to create or if starting a new phase |
 
 ## Steps
