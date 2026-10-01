@@ -130,11 +130,11 @@ def lint(raw: str) -> list[tuple[int, str, str]]:
 
 		if RULE.match(line) and paragraph_start is not None:
 			opener = paragraph_start
+			paragraph_start = None
 			if not (LIST_ITEM.match(opener) or QUOTE.match(opener) or TABLE.match(opener)):
 				hits.append((number, "setext", excerpt(previous)))
-			paragraph_start = None
-			previous = line
-			continue
+				previous = line
+				continue
 
 		if HR.match(line):
 			if last_rule_line and blank_since_rule:

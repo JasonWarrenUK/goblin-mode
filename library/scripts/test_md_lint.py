@@ -90,6 +90,9 @@ class DoubleRule(unittest.TestCase):
 	def test_adjacent_rules_are_flagged(self):
 		self.assertEqual(rules("text\n\n---\n\n---\n\n## Changes\n"), ["double-rule"])
 
+	def test_rule_under_list_still_counts_toward_double(self):
+		self.assertEqual(rules("- a\n---\n\n---\n"), ["double-rule"])
+
 	def test_rules_with_content_between_are_clean(self):
 		self.assertEqual(rules("text\n\n---\n\n## Changes\n\nmore\n\n---\n"), [])
 
