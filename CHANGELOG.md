@@ -5,6 +5,28 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-10-01
+
+### Breaking
+
+- The roadmap plugin is declared stable as `roadmap-v1.0.0`, which is what moves the root series to a major version. Nothing breaks in behaviour: `stats --json`, `graph --mermaid`, the dashboard render data and the milestone states are as they were in 4.0.0.
+
+### Added
+
+- PR descriptions gain a Verification section (what was run and what was not) and an optional WARNING alert for breaking changes, so neither crowds the Overview.
+- `md-lint.py` checks GitHub-rendered Markdown for five layout faults: a `---` that turns the line above into a heading, text swallowed by a `</details>` block, a missing blank line after `<summary>`, backticks inside `<summary>` and doubled rules.
+- A `PreToolUse` hook, `pr-body-lint.sh`, blocks `gh pr create` and `gh pr edit` when the body would render wrongly, whichever skill or ad-hoc command wrote it. Its entry in `settings.json` is not in git, so copy it onto any other machine (see `docs/reference/hooks.md`).
+
+### Changed
+
+- PR descriptions open with a 2-4 sentence plain-language Overview. The detail moves to Changes, where each block gives an intro, a reason per bullet and a Review line.
+- `pr-create` and `pr-update` run the layout linter before showing a draft, and `pr-update` reshapes a body written to the older template: verification notes and breaking-change text move out of the Overview.
+- The roadmap plugin ships as `roadmap-v1.0.0`.
+
+### Fixed
+
+- The PR template keeps a blank line around every rule and `<details>` tag. Without them a `---` turned the text above it into a heading (CHIRPdb #139) and a `---` under `</details>` printed literally (#26).
+
 ## [4.0.0] - 2026-09-30
 
 ### Breaking
@@ -139,7 +161,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.1.0...v4.0.0
 [3.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v2.6.0...v3.0.0
