@@ -18,9 +18,16 @@ Branch protection, CODEOWNERS and required checks are enforced on **every**
 layer, including mid-stack PRs that don't target `main`.
 
 **Merging is bottom-up and contiguous.** Merging any PR also merges every
-unmerged PR below it, as one operation; a mid-stack PR can never merge in
-isolation. After a partial merge, the PRs above automatically retarget the
-trunk via a server-side cascading rebase.
+unmerged PR below it, as one all-or-nothing operation; a mid-stack PR can never
+merge in isolation. The PRs above stay open and automatically retarget the trunk
+via a server-side cascading rebase. Once every layer has merged the stack is
+closed; a later `gh stack submit` on new branches above it starts a new stack.
+
+**Claude's shell has no terminal, and that changes what a command does.** In a
+non-interactive terminal `gh stack merge` merges everything it names *without
+prompting*. So `gh stack merge` with no argument lands the whole stack. The only
+safe merge form is `gh stack merge <pr#> --merge` with the PR's own number. The
+chirpdb project enforces this with a hook; other repos rely on this page.
 
 ## When to stack
 
@@ -40,27 +47,38 @@ case.
 
 ## CLI: `gh stack`
 
-Installed with `gh extension install github/gh-stack` (needs gh ≥ 2.0).
+Installed with `gh extension install github/gh-stack` (v0.1.0; gh ≥ 2.90 per
+the quickstart). Verified against `gh stack <command> --help`.
 
 | Command | Does |
 |---|---|
-| `gh stack init [-b <trunk>] [branches...]` | start a stack; existing branches become layers |
-| `gh stack add <branch>` | new branch at HEAD, added as the top layer |
-| `gh stack submit` | push all layers, open one PR per layer with correct bases |
-| `gh stack link <stack\|branch-or-pr> <branch-or-pr>...` | build a stack on GitHub from PRs and/or branches given bottom-to-top, no local tracking needed; existing PRs are used, bare branches get PRs created with correct base chaining |
-| `gh stack view [--json]` | layers, order, PR links |
-| `gh stack checkout <stack# \| pr# \| url \| branch>` | check a stack out |
+| `gh stack init [-b <trunk>] [branches...]` | start a stack; existing branches become layers, missing ones are created |
+| `gh stack add [branch] [-m <msg>]` | new branch on top of the current stack; with `-m` and no name the name comes from the message. **`-A`/`-u` without `-m` opens an editor: never.** |
+| `gh stack submit [--auto] [--open]` | push all layers, create missing PRs, update bases, link the stack. Non-interactive implies `--auto`, and **new PRs are drafts unless `--open`** |
+| `gh stack link <stack#\|branch-or-pr> <branch-or-pr>...` | build or extend a stack on GitHub from PRs and/or branches given bottom-to-top, no local tracking needed. A **stack number** first argument appends the rest to the top of that stack |
+| `gh stack view [--json]` | layers, order, PR links (✓ merged, ◎ queued, ○ open, ⚠ needs rebase). Needs local tracking: exits 2 in a checkout that does not track the stack |
+| `gh stack checkout <stack# \| pr# \| url \| branch>` | check a stack out; given a PR it can find the stack on GitHub and set up tracking |
 | `gh stack rebase [--upstack\|--downstack] [--continue\|--abort]` | cascading rebase, each layer onto the one below |
-| `gh stack push` | push all active layers (`--force-with-lease` per branch) |
-| `gh stack sync [--prune]` | fetch, fast-forward trunk, rebase remaining layers onto it, push, sync PR state; `--prune` also deletes local branches whose PRs merged |
-| `gh stack merge <pr#> [--merge\|--squash\|--rebase]` | merge a layer and everything below it, atomically (all or none). A bare number resolves as a *stack* number first, PR number second; when they could collide, `gh stack checkout <pr-url>` then a bare `gh stack merge` |
-| `gh stack modify [--continue\|--abort]` | interactive restructure: drop, fold, insert, reorder, rename |
-| `gh stack unstack [--local]` | dissolve the stack (open/draft/closed PRs leave it; merged ones stay) |
-| `gh stack up / down / top / bottom / trunk` | navigate layers |
+| `gh stack push` | push all active layers (`--force-with-lease` per branch, not atomic); merged and queued layers are skipped |
+| `gh stack sync [--prune]` | fetch, fast-forward trunk, cascade-rebase, push atomically, sync PR state. Aborts on divergence when non-interactive; never opens PRs. `--prune` deletes local branches whose PRs merged |
+| `gh stack merge <pr#> --merge` | **the only safe merge form.** Merges that PR and every unmerged layer below it, all or nothing. Takes a stack number or a PR number (never a URL); a bare number is tried as a stack number first. **With no argument, a stack number, or in a shell with no terminal, it merges the whole named set without prompting.** A merge queue on the base branch takes the stack instead |
+| `gh stack modify [--continue\|--abort]` | **full-screen interactive editor: Claude cannot drive it.** To restructure, unstack and `init` again, or ask the user |
+| `gh stack unstack [--local]` | dissolve the stack (alias `delete`); queued or auto-merge PRs stay stacked |
+| `gh stack up / down / top / bottom / trunk` | navigate layers (`switch` is interactive: never) |
 
-For PRs created by other means (e.g. `pr-create`), `gh stack link` is the
-lightest path: create the child PR with `--base <parent-branch>`, then link it
-to the parent's PR or stack.
+Useful exit codes: 2 not in a stack, 3 rebase conflict, 6 branch is in more than
+one stack, 8 stack locked by another process, 9 stacked PRs not enabled.
+
+For PRs created by other means (e.g. `pr-create`): create the child PR with
+`--base <parent-branch>`, then `gh stack link <stack#> <new-pr>` to append it to
+the top of an existing stack (the stack number is on the GitHub stack UI), or
+`gh stack link <parent-pr> <new-pr>` to start one. Branches built with plain git
+and linked this way have no local tracking; run `gh stack checkout <pr#>` before
+`rebase`, `sync` or `up`/`down` (inferred from the docs, not tested).
+
+To add a layer to an existing stack from a clean checkout:
+`gh stack checkout <pr#>`, `gh stack top`, `gh stack add -m "<message>" <branch>`,
+`gh stack submit --auto --open`.
 
 ## Maintenance flows
 
@@ -78,28 +96,41 @@ pre-rebase state.
 
 ## Hard caveats
 
-- **Plain `gh pr merge` fails on a stacked PR**: the legacy merge endpoint
-  can't merge stacks. Use `gh stack merge <pr#> --merge` (or the web UI).
+- **Do not run plain `gh pr merge` on a stacked PR.** The docs say the legacy
+  merge endpoints cannot merge a stack; what `gh pr merge` does to a stacked PR
+  is untested here. Use `gh stack merge <pr#> --merge` (or the web UI).
+- **The merge button on a PR lands every layer below it too** (and the top PR's
+  button lands the whole stack). Say which layers it will land before anyone
+  clicks it.
+- **Every layer needs CI.** Required checks and review are judged on each layer
+  against the stack's base, so a workflow filtered to `pull_request` on `main`
+  leaves upper layers with no checks and unmergeable. Run CI on pull requests into
+  any branch.
 - **Auto-merge is not supported** on stacked PRs.
 - **Same repository only**; cross-fork stacks don't exist. GitHub Desktop has
   no support.
-- **Server-side rebases produce unsigned commits.** A repo requiring signed
-  commits must rebase locally via `gh stack rebase` and `gh stack push`
-  instead of the PR page's Rebase button.
-- **Closing a mid-stack PR blocks everything above it**; dissolve or
-  restructure with `gh stack modify` rather than closing layers casually.
+- **Server-side rebases produce unsigned commits**, including the automatic
+  retarget of the layers above after a merge. A repo requiring signed commits
+  must rebase locally via `gh stack rebase` and `gh stack push` instead of the PR
+  page's Rebase button.
 - **Never rename or delete a branch that is the base of an open PR** (check
-  `gh pr list --base <branch>`); rename inside a stack only via
-  `gh stack modify`.
-- Merge queues are supported (layers queue in order; an ejected layer ejects
-  everything above it). One quirk: the merge group may exceed the queue's
-  size limit by up to 50% to keep a stack together.
+  `gh pr list --base <branch>`). `gh stack modify` can rename inside a stack but
+  is interactive; Claude's route is to unstack, rename and `init` again, or to ask
+  the user.
+- Merge queues are supported, with progressive rollout reported at launch
+  (layers queue in order; an ejected layer ejects everything above it). One
+  quirk: the merge group may exceed the queue's size limit by up to 50% to keep
+  a stack together.
+- Everything must be in one repository with a straight chain; branching is not
+  allowed.
 
 ## Interaction with this config's conventions
 
-- **Merge commits survive**: `gh stack merge --merge` gives each layer its own
-  merge commit on `main`, bottom-up, so `doc-changelog`'s `--first-parent`
-  one-entry-per-PR view and `pr-land`'s merge-commit rule both hold.
+- **Merge commits**: `pr-land` and `doc-changelog` assume `gh stack merge --merge`
+  leaves one merge commit per layer on `main`, bottom-up. The docs say only that
+  the stack merges "in a single operation, ordered from the bottom up", so treat
+  that as unverified and check `git log --first-parent` after the first real
+  stacked landing.
 - **One landing, one tag**: a multi-layer merge is a single landing event;
   `pr-land` tags once afterwards, not once per layer.
 - **Roadmap linkage**: a task's optional `pr` field in `roadmaps.json`
