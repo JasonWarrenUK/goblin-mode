@@ -74,7 +74,7 @@ Every commit passes through the global `commit-msg` hook (British spelling, no e
 
 ## Step 6: Open the PR
 
-Invoke the `pr-create` skill from this branch with the `auto` token: the user's veto already happened at task selection, so the PR is created without a second pause. When Step 2 branched from a stacking parent, also pass `base <parent-branch>` so the PR opens as a stacked layer, and after creation link it into the parent's stack: `gh stack link <parent-pr-number> <new-pr-number>` (extends the existing stack when the parent is already in one). Capture the PR URL/number.
+Invoke the `pr-create` skill from this branch with the `auto` token: the user's veto already happened at task selection, so the PR is created without a second pause. When Step 2 branched from a stacking parent, also pass `base <parent-branch>` so the PR opens as a stacked layer, and `pr-create` links it into the parent's stack: `gh stack link <stack#> <new-pr-number>` appends it to the top of an existing stack, and `gh stack link <parent-pr-number> <new-pr-number>` starts one when the parent is not in a stack yet. Capture the PR URL/number.
 
 Then record the PR number on the task in `roadmaps.json` as its `pr` field (a direct edit of the source file is fine; hard rule 1 forbids hand-editing the *projections*, not the source), commit it (`chore(roadmap): record PR for <task-id>`) and push. This field is what lets a later run detect this task as a stacking parent while its PR is open.
 
