@@ -8,7 +8,7 @@ metadata:
   glyph: ᛟ
   family: pr
 disable-model-invocation: false # invocable so next-task-ship (Step 6) and branch-qa_review's Ready offer can call it; its own approval step gates PR creation
-allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Read", "Glob", "Grep"]
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Bash(~/.claude/library/scripts/md-lint.py:*)", "Read", "Glob", "Grep"]
 argument-hint: "[shiny|wordy] [draft] [base <branch>] [screenshot files or issue numbers...]"
 ---
 
@@ -28,8 +28,8 @@ One skill, two axes.
     <steps>
         <step num="1">Look at the commits on this branch (`git log` against `origin/&lt;base&gt;`, default `origin/main`); for a stacked PR this scopes the log to this layer only, which is the point</step>
         <step num="2">Analyse the overall effect of these changes if merged into the base branch</step>
-        <step num="3">Fill the template at `~/.claude/library/templates/pr-description.md` exactly; each {{ slot }} describes its content. For wordy style, omit the Screenshots block entirely (and its trailing `---`). For shiny style, one collapsible `&lt;details&gt;` per named screenshot. Leave the watermark line out here; step 6 stamps it after the push, so it names the sha that actually went up.</step>
-        <step num="4">Scan the draft (title and body) before showing it: `~/.claude/library/scripts/slop-scan.py --strict - &lt;&lt;'SLOP_EOF'` … `SLOP_EOF`. Non-zero exit: rewrite to clear every `L&lt;n&gt; &lt;rule&gt;: &lt;excerpt&gt;` line and rescan, at most twice. If hits remain, carry them to step 5 listed under the draft so the reviewer decides; under `auto`, list them in the run's report instead.</step>
+        <step num="3">Fill the template at `~/.claude/library/templates/pr-description.md` exactly; each {{ slot }} describes its content. For wordy style, omit the Screenshots block entirely (and its trailing `---`); the same goes for the WARNING alert when nothing breaks and the Verification block when nothing was run. Keep every blank line the template has. For shiny style, one collapsible `&lt;details&gt;` per named screenshot. Leave the watermark line out here; step 6 stamps it after the push, so it names the sha that actually went up.</step>
+        <step num="4">Scan the draft (title and body) before showing it: `~/.claude/library/scripts/slop-scan.py --strict - &lt;&lt;'SLOP_EOF'` … `SLOP_EOF`. Non-zero exit: rewrite to clear every `L&lt;n&gt; &lt;rule&gt;: &lt;excerpt&gt;` line and rescan, at most twice. Then lint the typography the same way: `~/.claude/library/scripts/md-lint.py - &lt;&lt;'MD_EOF'` … `MD_EOF`, and fix every hit (almost always a missing blank line, or backticks inside `&lt;summary&gt;`) before showing the draft; a PreToolUse hook blocks `gh pr create` on the same rules, so a hit left here only fails later. If slop-scan hits remain, carry them to step 5 listed under the draft so the reviewer decides; under `auto`, list them in the run's report instead.</step>
         <step num="5">Show the draft description and **stop for approval**; if changes are requested, incorporate them and repeat from step 3. Under the `auto` token, show the description but do not pause.</step>
         <step num="6">On approval, push first: `git push -u origin HEAD`. (`gh pr create` prompts for a push destination when the branch isn't on the remote, and a non-interactive run cannot answer that prompt.) Only now, with the push done, read `git rev-parse HEAD` and append `&lt;!-- pr-update-watermark: &lt;sha&gt; --&gt;` as the very last line of the approved body: pr-update scopes its next run to commits after that sha, so it has to be the tip that was pushed, and reading it earlier (step 3, before a step 5 revision loop) would stamp commits made in between as already described. The line is an HTML comment and changes nothing the reviewer approved. Then create the PR with the body on stdin so quoting never mangles it: `gh pr create --base &lt;base&gt; --title "&lt;title&gt;" --body-file - &lt;&lt;'PR_EOF'` … `PR_EOF`; add `--draft` when mode is draft. For a non-main base, then link it into the parent's stack (`gh stack link &lt;parent-pr&gt; &lt;new-pr&gt;`); under `auto` do this immediately, otherwise offer it. Report the PR URL.</step>
     </steps>
@@ -39,8 +39,11 @@ One skill, two axes.
         <rule>Title: brief, descriptive, title case, understandable to non-devs.</rule>
         <rule>Summary: a non-technical, absurd metaphor.</rule>
         <rule>TL;DR: steps devs must take after pulling this down.</rule>
-        <rule>Overview: never one dense paragraph. One paragraph per distinct unit of work; an enumeration of three or more items that carries its sentence becomes a numbered list under a colon-terminated lead-in, with the rest of the sentence restarting as prose beneath it. A parenthetical aside stays inline however many items it holds.</rule>
-        <rule>Changes: break into files or categories depending on PR scope; use collapsible details.</rule>
+        <rule>Breaking change: when anything breaks (removed or renamed exports, changed signatures or output shapes, schema, config or env changes), say what breaks and what to do in the WARNING alert. Otherwise omit the alert.</rule>
+        <rule>Overview: what and why for a non-dev, in 2-4 sentences, or a lead-in line plus at most 5 bullets when the PR holds several distinct units of work. No code identifiers, file paths, figures or test results; those belong in Changes and Verification. If the Overview runs longer than the Changes intros put together, it is carrying detail that belongs below.</rule>
+        <rule>Changes: one collapsible block per file or category. Each opens with a 1-2 sentence intro to the area, then gives one bullet per change stating the change and the reason for it. Add before → after only where existing behaviour changed; a new file has no before. Close each block with a **Review:** line naming where to look first, the riskiest spot and how to check it. A bullet that only names a symbol ("`foo()` added") is unfinished.</rule>
+        <rule>Verification: a numbered **Checked** list of what was run or tried and its result, then a **Not checked** list of what was left untested and why. Omit the block when nothing was run; never invent results.</rule>
+        <rule>Typography: blank line before and after every `---`, `&lt;details&gt;`, `&lt;/details&gt;` and `&lt;summary&gt;` line; `&lt;code&gt;` inside `&lt;summary&gt;`, never backticks. md-lint enforces it.</rule>
     </rules>
 </pull-request-create>
 ```
