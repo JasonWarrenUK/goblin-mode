@@ -43,7 +43,7 @@ One skill, two axes.
         <rule>Overview: what and why for a non-dev, in 2-4 sentences, or a lead-in line plus at most 5 bullets when the PR holds several distinct units of work. No code identifiers, file paths, figures or test results; those belong in Changes and Verification. If the Overview runs longer than the Changes intros put together, it is carrying detail that belongs below.</rule>
         <rule>Changes: one collapsible block per file or category. Each opens with a 1-2 sentence intro to the area, then gives one bullet per change stating the change and the reason for it. Add before → after only where existing behaviour changed; a new file has no before. Close each block with a **Review:** line naming where to look first, the riskiest spot and how to check it. A bullet that only names a symbol ("`foo()` added") is unfinished.</rule>
         <rule>Verification: a numbered **Checked** list of what was run or tried and its result, then a **Not checked** list of what was left untested and why. Omit the block when nothing was run; never invent results.</rule>
-        <rule>Typography: blank line before and after every `---`, `&lt;details&gt;`, `&lt;/details&gt;` and `&lt;summary&gt;` line; `&lt;code&gt;` inside `&lt;summary&gt;`, never backticks. md-lint enforces it.</rule>
+        <rule>Typography: blank line before and after every `---` and `&lt;/details&gt;` line, before every `&lt;details&gt;` and after every `&lt;summary&gt;` line, with `&lt;summary&gt;` directly under its `&lt;details&gt;` as in the template; `&lt;code&gt;` inside `&lt;summary&gt;`, never backticks. md-lint enforces it.</rule>
     </rules>
 </pull-request-create>
 ```

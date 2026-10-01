@@ -63,7 +63,7 @@ Take the existing body (in the dump) and update it:
   - Changes blocks gain their intro, a reason per bullet and a **Review:** line where they lack them.
 
   Verification and WARNING are template sections, so adding them is not a new top-level section.
-- Keep every blank line the template has, around each `---`, `<details>` and `</details>`.
+- Keep every blank line the template has: before and after each `---` and `</details>`, before each `<details>` and after each `<summary>`, with `<summary>` directly under its `<details>`.
 - If the description references behaviour that has changed, correct it.
 - Insert or replace the watermark comment at the very end of the body, using the `next watermark sha` from the dump:
 
