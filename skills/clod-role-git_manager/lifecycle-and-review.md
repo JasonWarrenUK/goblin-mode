@@ -33,16 +33,24 @@ mechanics, the `gh stack` CLI and the caveats live in
 `~/.claude/library/references/stacked-prs.md`; the short version:
 
 ```bash
-gh stack init feat/base-feature          # or start the stack before branching
-gh stack add feat/add-dependent-feature  # new branch as the next layer
-gh stack submit                          # one PR per layer, correct bases
+gh stack init feat/base-feature                      # or start the stack before branching
+gh stack add -m "feat: dependent work" feat/add-dependent-feature  # next layer (-m: no editor)
+gh stack submit --auto --open                        # one PR per layer, correct bases (drafts without --open)
 
 # after fixing something on the base layer
 gh stack rebase --upstack && gh stack push
+
+# landing one layer: always name the PR
+gh stack merge <pr-number> --merge
 ```
 
+A bare `gh stack merge` (or a stack number) lands every layer, and without a
+terminal it does so without asking. `gh stack modify` and `gh stack switch` are
+interactive: leave them to the user.
+
 Keep stacks to 3 layers or fewer, and never rename or delete a branch that is
-the base of an open PR outside `gh stack modify`.
+the base of an open PR. To rename inside a stack, unstack and `init` again, or
+ask the user to run `gh stack modify`.
 
 ### Keeping Branches Updated
 
