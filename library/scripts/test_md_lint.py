@@ -65,6 +65,15 @@ class HtmlTail(unittest.TestCase):
 	def test_comment_after_closing_details_is_clean(self):
 		self.assertEqual(rules("<details>\n<summary>x</summary>\n\n- a\n\n</details>\n<!-- pr-update-watermark: abc -->\n"), [])
 
+	def test_inline_tag_leading_prose_is_clean(self):
+		# GitHub renders both as one paragraph
+		self.assertEqual(rules("<code>x</code> does y\nsecond line\n"), [])
+		self.assertEqual(rules("<b>Note:</b> text\nmore\n"), [])
+
+	def test_lone_tag_swallows_next_line(self):
+		# CommonMark type 7: GitHub prints "Caption *em*" raw
+		self.assertEqual(rules('<img src="a.png">\nCaption\n'), ["html-tail"])
+
 	def test_one_hit_per_block(self):
 		self.assertEqual(rules("</details>\nfirst\nsecond\n"), ["html-tail"])
 

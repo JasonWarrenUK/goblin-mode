@@ -45,9 +45,20 @@ ATX = re.compile(r"^\s{0,3}#{1,6}(\s|$)")
 LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)])(\s|$)")
 QUOTE = re.compile(r"^\s{0,3}>")
 TABLE = re.compile(r"^\s*\|")
-# CommonMark HTML block types 6 and 7: a line opening with a tag. Both run
-# until the next blank line, swallowing whatever text follows them.
-HTML_LINE = re.compile(r"^\s{0,3}</?[A-Za-z][A-Za-z0-9-]*(\s[^>]*)?/?>")
+# CommonMark HTML block types 6 and 7: a line opening with a block-level tag,
+# or one tag standing alone. Both run until the next blank line, swallowing
+# whatever text follows them. An inline tag leading prose (`<code>x</code>
+# does y`) opens nothing; GitHub renders it as a paragraph.
+BLOCK_TAGS = (
+	"address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt"
+	"|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main"
+	"|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead"
+	"|title|tr|track|ul"
+)
+HTML_LINE = re.compile(
+	rf"^\s{{0,3}}(</?({BLOCK_TAGS})(\s|/?>|$)|</?[A-Za-z][A-Za-z0-9-]*(\s[^<>]*)?/?>\s*$)",
+	re.I,
+)
 COMMENT = re.compile(r"^\s{0,3}<!--")
 SUMMARY = re.compile(r"<summary>(.*?)</summary>", re.I)
 
