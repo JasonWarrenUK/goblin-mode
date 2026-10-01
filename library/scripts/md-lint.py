@@ -183,9 +183,12 @@ def body_from_command(command: str, cwd: str) -> str | None:
 	if not match:
 		return None
 	tail = command[match.start():]
-	head = tail.split("\n", 1)[0]
-	# A heredoc's body is not shell words; otherwise a quoted --body may span lines.
-	words = head.split("<<", 1)[0] if "<<" in head else tail
+	# A heredoc's body is not shell words: blank each one out, so an apostrophe in
+	# the body cannot break tokenising, while flags wrapped over lines with \ still parse.
+	heredocs = list(HEREDOC.finditer(tail))
+	words = tail
+	for heredoc in reversed(heredocs):
+		words = words[: heredoc.start(3)] + words[heredoc.end():]
 	try:
 		tokens = shlex.split(words)
 	except ValueError:
@@ -197,11 +200,11 @@ def body_from_command(command: str, cwd: str) -> str | None:
 		value = inline if inline else (tokens[index + 1] if index + 1 < len(tokens) else None)
 		if value is None:
 			return None
+		# --body "$(cat <<'EOF' ...)" carries its body in the heredoc, as --body-file - does.
+		if value == "-" or (key in ("--body", "-b") and "<<" in value):
+			return heredocs[0].group(3) if heredocs else None
 		if key in ("--body", "-b"):
 			return value
-		if value == "-":
-			heredoc = HEREDOC.search(tail)
-			return heredoc.group(3) if heredoc else None
 		path = Path(value).expanduser()
 		if not path.is_absolute():
 			path = Path(cwd) / path

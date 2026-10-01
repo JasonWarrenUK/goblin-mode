@@ -129,6 +129,18 @@ class Hook(unittest.TestCase):
 	def test_inline_body_is_linted(self):
 		self.assertEqual(run_hook('gh pr edit 5 --body "Text.\n---"').returncode, 2)
 
+	def test_command_substitution_heredoc_body_blocks(self):
+		bad = self.BAD.replace("Text.", "It doesn't render.")
+		self.assertEqual(run_hook(f"gh pr create --title \"T\" --body \"$(cat <<'EOF'\n{bad}EOF\n)\"").returncode, 2)
+
+	def test_command_substitution_heredoc_good_body_passes(self):
+		self.assertEqual(run_hook(f"gh pr create --title \"T\" --body \"$(cat <<'EOF'\n{self.GOOD}EOF\n)\"").returncode, 0)
+
+	def test_wrapped_command_with_apostrophe_blocks(self):
+		bad = self.BAD.replace("Text.", "It doesn't render.")
+		command = f"gh pr create --base main \\\n  --title \"T\" \\\n  --body-file - <<'PR_EOF'\n{bad}PR_EOF"
+		self.assertEqual(run_hook(command).returncode, 2)
+
 	def test_body_file_path_is_read(self):
 		with tempfile.TemporaryDirectory() as directory:
 			Path(directory, "body.md").write_text(self.BAD, encoding="utf-8")
