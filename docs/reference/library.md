@@ -57,10 +57,12 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `config_permit.py` | `config-permit` | Deterministic half of permission-granting: the skill's `allowed-tools` is scoped to only this one script |
 | `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data: fails fast on a malformed finding instead of rendering it wrong |
 | `slop-scan.py` | `red-doc` (report mode); `hooks/commit-msg`, `pr-create`, `pr-update`, `doc-readme`, `doc-changelog` (`--strict`) | Mechanical prose scan: house-rule breaches plus rhetorical-tell candidates; `--strict` is the gate mode (house rules only, code masked, exit 1 on a hit) |
+| `md-lint.py` | `pr-create`, `pr-update`; `hooks/pr-body-lint.sh` (`--hook`) | Markdown typography gate for GitHub-rendered bodies: setext headings from a stray `---`, text swallowed by an HTML block, backticks in `<summary>`, doubled rules; exit 1 on a hit, or 2 in hook mode to block the `gh pr` call |
 | `prose-metrics.py` | `hud-prose_health` | House-rule breaches per day in Claude's own terminal output, from the session transcripts; `--record` keeps the trend in `state/prose-metrics.json` |
 | `prose-health.py` | `hud-prose_health` | PASS/WARN/FAIL per layer of the prose-gating suite (settings, style, hook, skills, frontmatter, tree scan, tests, index, output trend) |
 | `test_roadmap.py` | none | Fixture tests for `roadmap.py` + `_roadmap_core.py` |
 | `test_slop_scan.py`, `test_prose_metrics.py`, `test_commit_msg_hook.py` | none | Tests for the two scanners above and for `hooks/commit-msg`; `prose-health.py` runs all three |
+| `test_md_lint.py` | none | Tests for `md-lint.py`: every rule, the clean PR template and hook-mode body extraction |
 
 `gen-skills-index.py` also lives here (see [Skills](skills.md#regenerating-the-index)).
 
