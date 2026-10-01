@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: pr
 disable-model-invocation: false # invocable by Claude so it can offer a refresh when new commits leave the description stale; its approval step still gates the write
-allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Read", "Glob", "Grep"]
+allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Bash(~/.claude/library/scripts/md-lint.py:*)", "Read", "Glob", "Grep"]
 arguments: ["pr"]
 argument-hint: "[PR number | URL]"
 ---
@@ -48,11 +48,22 @@ Take the existing body (in the dump) and update it:
   <details><summary>Update history</summary>
 
   - 2026-08-13: folded in <one-line summary> (`<first-sha>..<last-sha>`)
+
   </details>
   ```
 
+  It sits under the template's closing `---`, with a blank line between; add no rule of its own. The blank line above `</details>` is load-bearing: without it the closing tag joins the list and anything after it renders raw.
+
   Append one dated line per update run. This block records *that* and *when* the description changed; the substantive content itself always lands in the sections above.
-- The Overview keeps the template's layout: one paragraph per distinct unit of work, and an enumeration of three or more items that carries its sentence sits as a numbered list under a colon-terminated lead-in. New work that is its own unit becomes its own paragraph rather than a clause bolted onto an existing one. Layout is not content, so the "do not rewrite" rule above does not shield a dense single-paragraph Overview: reshape it into this layout while folding the new work in, changing no facts.
+- The Overview follows the template's current rule: what and why for a non-dev, 2-4 sentences or a lead-in plus at most 5 bullets, with no code identifiers, file paths, figures or test results. New work that is its own unit becomes its own sentence or bullet rather than a clause bolted onto an existing one.
+- **Layout is not content**, so the "do not rewrite" rule above does not shield a body written to an older template. Reshape it while folding the new work in, changing no facts:
+  - a long or dense Overview gets cut down, with its mechanics moved into the matching Changes block;
+  - verification runs and "not checked" notes move into the Verification section;
+  - breaking-change notes move into the WARNING alert under the TIP;
+  - Changes blocks gain their intro, a reason per bullet and a **Review:** line where they lack them.
+
+  Verification and WARNING are template sections, so adding them is not a new top-level section.
+- Keep every blank line the template has, around each `---`, `<details>` and `</details>`.
 - If the description references behaviour that has changed, correct it.
 - Insert or replace the watermark comment at the very end of the body, using the `next watermark sha` from the dump:
 
@@ -70,7 +81,15 @@ Before showing it:
 SLOP_EOF
 ```
 
-Non-zero exit: rewrite to clear every `L<n> <rule>: <excerpt>` line and rescan, at most twice. Hits in text you did not write (the existing body) count too; this is the moment they get fixed. If hits remain, carry them to step 5 listed under the body so I decide.
+Then lint the typography:
+
+```bash
+~/.claude/library/scripts/md-lint.py - <<'MD_EOF'
+<updated body>
+MD_EOF
+```
+
+Fix every md-lint hit before showing the body (almost always a missing blank line, or backticks inside `<summary>`); a PreToolUse hook blocks `gh pr edit` on the same rules. For slop-scan, a non-zero exit means rewrite to clear every `L<n> <rule>: <excerpt>` line and rescan, at most twice. Hits in text you did not write (the existing body) count too; this is the moment they get fixed. If hits remain, carry them to step 5 listed under the body so I decide.
 
 ### 5. Show me the diff
 
