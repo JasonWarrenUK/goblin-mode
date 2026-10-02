@@ -75,24 +75,23 @@ Existence checks, after `git fetch origin`: `git show-ref --verify --quiet refs/
 ## Action: `prune`
 
 1. **Build the map** exactly as `hud-worktrees` does (its "Always start with the map" section): every worktree with path, branch, dirty or clean, ahead and behind (counted against the PR base for a stacked layer), and which one this session is standing in. Add an **In use** column from `~/.claude/library/scripts/checkout-occupied.sh <path>`: exit 1 means another live Claude session is working there.
-2. **Find the candidates.** A worktree is redundant when all of these hold:
-   - its branch's PR has merged, or (never PR'd) the branch is merged into the default branch
-   - its tree is clean
-   - no other live session is in it
-   - its branch is not the base of an open PR (`gh pr list --base <branch>`); a stack layer is never a candidate while a child is open
+2. **Find the candidates**, in two tiers. Removing a worktree never touches its branch, its commits or its PR, so a worktree can be idle while the branch is still live. Both tiers need a clean tree and no other live session in the worktree.
+   - **Tier 1, finished:** the branch's PR has merged, or (never PR'd) the branch is merged into the default branch, and the branch is not the base of an open PR (`gh pr list --base <branch>`); a stack layer is never a tier 1 candidate while a child is open. Removal clears the worktree and offers to delete the branch.
+   - **Tier 2, idle:** the branch is still live (an open PR or unmerged work) and fully pushed: it has an upstream and `git -C <path> rev-list --count @{upstream}..HEAD` is 0. Removal clears the worktree only and keeps the branch. A branch that is the base of an open PR can be tier 2, since its branch survives; only tier 1 refuses it.
+   - Neither tier: a branch with unpushed commits, no upstream or a dirty tree. Say which condition failed.
 
    Also list, separately, anything that is not a worktree but looks like debris:
    - registered worktrees whose directory is gone (`prunable` in `git worktree list --porcelain`)
    - directories under `.claude/worktrees/` that git does not list
    - inside each candidate and each stray directory, the heavy leftovers by name and size (`.venv`, `venv`, `node_modules`, `dist`, `build`; `du -sh`)
-3. **Show the table** with the candidates and debris marked, then one AskUserQuestion (multi-select) over them. A dirty worktree is never a silent candidate: if the user wants one cleared, show its uncommitted files first and ask again.
-4. **Remove, one at a time, in this order:** `git worktree remove <path>`, then offer `git branch -d <branch>`. After the last one, `git worktree prune`, then the fresh map. Stray directories are deleted only after approval, by name.
+3. **Show the table** with a Tier column and the debris marked. For every tier 2 row add what would be lost: `git -C <path> status --porcelain --ignored` lists ignored files (`.env`, `.venv`, `node_modules`, local databases), which `git worktree remove` deletes without a warning, and name the PR or branch that stays open. Then one AskUserQuestion (multi-select) over the candidates; offer tier 2 rows unselected, since a live branch should never be cleared by accident. A dirty worktree is never a silent candidate: if the user wants one cleared, show its uncommitted files first and ask again.
+4. **Remove, one at a time, in this order:** `git worktree remove <path>`; for tier 1 then offer `git branch -d <branch>`, for tier 2 keep the branch and say `/branch-worktree new <branch>` recreates the worktree. After the last one, `git worktree prune`, then the fresh map. Stray directories are deleted only after approval, by name.
 5. **If this session is standing in a target:** when it entered that worktree through `EnterWorktree` this session, call `ExitWorktree` with `action: "keep"` first and remove it afterwards. In any other case leave it out of the list and say why. Never `cd` out of it.
 
 ---
 
 ## Red flags
 
-**Never:** `cd` into a worktree to "move" the session; use `git worktree remove --force` or `git branch -D` to get past a refusal (the refusal is information); remove a worktree you are standing in, one another session is using, or one whose branch is the base of an open PR; create a second branch because the intended name was taken (use the existing one, or stop); edit `.gitignore` or `.git/info/exclude` without approval; delete anything under `.claude/worktrees/` that was not shown in the approved list.
+**Never:** `cd` into a worktree to "move" the session; use `git worktree remove --force` or `git branch -D` to get past a refusal (the refusal is information); remove a worktree you are standing in or one another session is using; offer a worktree whose branch is the base of an open PR as tier 1 (it can only be tier 2); delete the branch of a tier 2 worktree; offer a tier 2 row without listing its ignored files; create a second branch because the intended name was taken (use the existing one, or stop); edit `.gitignore` or `.git/info/exclude` without approval; delete anything under `.claude/worktrees/` that was not shown in the approved list.
 
 <raw-arguments value="$ARGUMENTS" />
