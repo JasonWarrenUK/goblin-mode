@@ -890,6 +890,40 @@ class Mermaid(unittest.TestCase):
         self.assertNotIn("M1", src)
         self.assertIn('b["', src)
 
+    def test_omit_done_drops_out_of_scope_tasks_and_their_edges(self):
+        ph = phase([
+            {"id": "M1", "name": "Mixed", "tasks": [
+                task("a", "out_of_scope"), task("b", "todo", ["a"])]},
+            {"id": "M2", "name": "Next", "tasks": [task("c", "blocked", ["M1"])]}])
+        src = roadmap.mermaid_source(ph, omit_done=True)
+        self.assertNotIn('a["', src)
+        self.assertNotIn("a -->", src)
+        self.assertNotIn("class a ", src)
+        self.assertIn('b["', src)
+        self.assertIn("b --> M1", src)
+
+    def test_omit_done_drops_a_milestone_of_only_out_of_scope_tasks(self):
+        ph = phase([
+            {"id": "M1", "name": "Struck", "tasks": [task("a", "out_of_scope")]},
+            {"id": "M2", "name": "Live", "tasks": [task("b")]}])
+        src = roadmap.mermaid_source(ph, omit_done=True)
+        self.assertNotIn("M1", src)
+        self.assertNotIn('a["', src)
+        self.assertIn('b["', src)
+
+    def test_omit_done_drops_a_tier_of_done_and_out_of_scope_whole(self):
+        ph = phase([
+            {"id": "M1", "name": "Core work", "tasks": [
+                task("a", "done"), task("w", "out_of_scope")]},
+            {"id": "M2", "name": "More (Secondary)", "tasks": [task("b")]}])
+        inside, _ = _subgraphs(roadmap.mermaid_source(ph, omit_done=True))
+        self.assertEqual(list(inside), ["tier1"])
+
+    def test_the_full_graph_still_draws_out_of_scope_tasks(self):
+        ph = phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", "out_of_scope"), task("b")]}])
+        self.assertIn('a["', roadmap.mermaid_source(ph))
+
     def test_out_of_scope_gets_its_classdef(self):
         ph = phase([{"id": "M1", "name": "m",
                      "tasks": [task("a", "out_of_scope")]}])

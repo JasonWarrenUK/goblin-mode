@@ -980,17 +980,18 @@ def _topological_order(ids, order, edges):
 
 def _live_graph(phase, omit_done=False):
     """The graph mermaid_source() and choose_direction() both draw: full
-    build_graph() output plus the same set of node ids to skip (done tasks
-    and the milestones they empty out under omit_done, gates left
-    disconnected once those are gone). Kept in one place so the two never
-    compute a different notion of "the graph that actually renders"."""
+    build_graph() output plus the same set of node ids to skip (done and
+    out_of_scope tasks and the milestones they empty out under omit_done,
+    gates left disconnected once those are gone). Kept in one place so the
+    two never compute a different notion of "the graph that actually
+    renders"."""
     graph = build_graph(phase)
     skipped = set()
     if omit_done:
         milestone_live = {}
         for n in graph["nodes"]:
             if n["kind"] == "task":
-                live = n.get("status") != "done"
+                live = n.get("status") not in ("done", "out_of_scope")
                 milestone_live[n["milestone"]] = (
                     milestone_live.get(n["milestone"], False) or live)
                 if not live:
@@ -1977,7 +1978,8 @@ def main(argv=None) -> int:
                     help="complete Mermaid source incl. classDefs")
     sp.add_argument("--direction", choices=["LR", "TD"], default="LR")
     sp.add_argument("--omit-done", action="store_true",
-                    help="drop done tasks and fully-done milestones")
+                    help="drop done and out_of_scope tasks and the milestones "
+                         "they empty")
     sp.add_argument("--palette", choices=["light", "dark", "vars"],
                     default="light",
                     help="literal light/dark hexes, or CSS custom properties")
