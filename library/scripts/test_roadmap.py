@@ -743,6 +743,120 @@ class Ready(unittest.TestCase):
             self.assertEqual(sorted(flat), sorted(c["id"] for c in candidates))
 
 
+class ReadyFilters(unittest.TestCase):
+    """--milestones / --tiers narrowing for `ready` and `open`."""
+
+    def _phase(self):
+        return phase([
+            {"id": "M1", "name": "Core one", "tasks": [
+                task("a"), task("b", "blocked", ["a"]),
+                task("c", started="2026-09-25", assignee="Jaz")]},
+            {"id": "M2", "name": "Core two", "tasks": [
+                task("d"), task("e", "done")]},
+            {"id": "M3", "name": "Extras (Secondary)", "tasks": [
+                task("f", "blocked", ["M1"])]}])
+
+    def test_within_none_when_no_filter(self):
+        self.assertIsNone(roadmap.resolve_within(self._phase()))
+
+    def test_milestones_narrow_ready_and_claimed(self):
+        ph = self._phase()
+        within = roadmap.resolve_within(ph, milestones=["m1"])
+        ready = roadmap.build_ready(ph, within=within)
+        self.assertEqual([c["id"] for c in ready["candidates"]], ["a"])
+        self.assertEqual([c["id"] for c in ready["claimed"]], ["c"])
+
+    def test_tier_words_select_every_milestone_in_the_tier(self):
+        ph = self._phase()
+        self.assertEqual(roadmap.resolve_within(ph, tiers=["core"]), {"M1", "M2"})
+        self.assertEqual(roadmap.resolve_within(ph, tiers=["Secondary"]), {"M3"})
+
+    def test_focus_is_the_underway_tier(self):
+        ph = self._phase()
+        self.assertEqual(roadmap.resolve_within(ph, tiers=["focus"]), {"M1", "M2"})
+
+    def test_focus_moves_up_when_core_is_done(self):
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "More (Secondary)", "tasks": [task("b", "blocked", ["M1"])]}])
+        self.assertEqual(roadmap.resolve_within(ph, tiers=["focus"]), {"M2"})
+
+    def test_focus_errors_when_nothing_is_underway(self):
+        ph = phase([{"id": "M1", "name": "Core", "tasks": [task("a", "done")]}])
+        with self.assertRaises(RoadmapError):
+            roadmap.resolve_within(ph, tiers=["focus"])
+
+    def test_unknown_milestone_and_tier_error(self):
+        ph = self._phase()
+        with self.assertRaisesRegex(RoadmapError, "M9"):
+            roadmap.resolve_within(ph, milestones=["M9"])
+        with self.assertRaisesRegex(RoadmapError, "tertiary"):
+            roadmap.resolve_within(ph, tiers=["tertiary"])
+
+    def test_milestones_and_tiers_are_mutually_exclusive(self):
+        with self.assertRaises(RoadmapError):
+            roadmap.resolve_within(self._phase(), milestones=["M1"], tiers=["core"])
+
+    def test_candidates_carry_tier(self):
+        ph = self._phase()
+        opened = roadmap.build_ready(ph, horizon="open")
+        by_id = {c["id"]: c for c in opened["candidates"]}
+        self.assertEqual(by_id["f"]["tierLabel"], "Secondary")
+        self.assertEqual(by_id["a"]["tierLabel"], "Core")
+
+    def test_open_horizon_includes_blocked_and_claimed_but_not_done(self):
+        ph = self._phase()
+        opened = roadmap.build_ready(ph, horizon="open")
+        self.assertEqual({c["id"] for c in opened["candidates"]},
+                         {"a", "b", "c", "d", "f"})
+        self.assertEqual(opened["claimed"], [])
+        by_id = {c["id"]: c for c in opened["candidates"]}
+        self.assertEqual(by_id["c"]["display"], "in_progress")
+        self.assertEqual(by_id["c"]["started"], "2026-09-25")
+        self.assertEqual(by_id["b"]["status"], "blocked")
+
+    def test_open_with_tier_filter(self):
+        ph = self._phase()
+        within = roadmap.resolve_within(ph, tiers=["secondary"])
+        opened = roadmap.build_ready(ph, within=within, horizon="open")
+        self.assertEqual([c["id"] for c in opened["candidates"]], ["f"])
+
+
+class ReadyFilterCli(unittest.TestCase):
+    def _project(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp.parent.mkdir()
+        data = [phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a")]},
+            {"id": "M2", "name": "More (Secondary)", "tasks": [task("b")]}])]
+        jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        return jp
+
+    def _run(self, *argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = roadmap.main(list(argv))
+        return rc, out.getvalue()
+
+    def test_ready_json_milestone_filter(self):
+        rc, out = self._run("ready", str(self._project()), "--json", "--milestones", "M2")
+        self.assertEqual(rc, 0)
+        data = json.loads(out)
+        self.assertEqual([c["id"] for c in data["candidates"]], ["b"])
+        self.assertEqual(data["groups"]["milestone"], {"M2": ["b"]})
+
+    def test_open_json_focus(self):
+        rc, out = self._run("open", str(self._project()), "--json", "--tiers", "focus")
+        self.assertEqual(rc, 0)
+        self.assertEqual([c["id"] for c in json.loads(out)["candidates"]], ["a"])
+
+    def test_invalid_filter_exits_2(self):
+        rc, out = self._run("ready", str(self._project()), "--milestones", "M9")
+        self.assertEqual(rc, 2)
+        self.assertIn("M9", out)
+
+
 class Mermaid(unittest.TestCase):
     def setUp(self):
         self.ph = phase([
