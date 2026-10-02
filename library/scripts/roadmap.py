@@ -16,7 +16,10 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
   graph      dependency graph                           [--json --mermaid
                                                          --direction --omit-done
                                                          --palette]
-  ready      actionable todo tasks with ordering signals [--json]
+  ready      actionable todo tasks with ordering signals [--json
+                                                         --milestones --tiers]
+  open       every task not done or out of scope        [--json
+                                                         --milestones --tiers]
   render     deterministic HTML artefact from template   [--out PATH]
   claim      ID: record that someone has started a task [--assignee NAME
                                                          --reassign --date]
@@ -1195,11 +1198,53 @@ def cmd_graph(args) -> int:
 # ---------------------------------------------------------------------------
 # ready
 # ---------------------------------------------------------------------------
-def build_ready(phase):
+def resolve_within(phase, milestones=None, tiers=None):
+    """The milestone ids a `--milestones` / `--tiers` filter selects, or None
+    for the whole phase. `milestones` is a list of ids (`M2`); `tiers` is a
+    list of tier words (`core`, `secondary`, …) or the single word `focus`,
+    the one tier `tier_states()` calls underway. The two are mutually
+    exclusive. Raises RoadmapError on an unknown id or tier, on both being
+    given, and on `focus` when no tier is underway."""
+    if milestones and tiers:
+        raise RoadmapError("milestones and tiers are mutually exclusive")
+    entries = build_stats(phase)["milestones"]
+    if milestones:
+        known = {m["id"].lower(): m["id"] for m in entries}
+        unknown = [m for m in milestones if m.lower() not in known]
+        if unknown:
+            raise RoadmapError(
+                f"unknown milestone(s) {', '.join(unknown)}; "
+                f"{phase.get('name')} has {', '.join(m['id'] for m in entries)}")
+        return {known[m.lower()] for m in milestones}
+    if not tiers:
+        return None
+    states = tier_states(entries)
+    words = {tier_label(t).lower(): t for t in states}
+    if [t.lower() for t in tiers] == ["focus"]:
+        underway = [t for t, state in states.items() if state == "underway"]
+        if not underway:
+            raise RoadmapError(f"no tier is underway in {phase.get('name')}")
+        wanted = set(underway)
+    else:
+        unknown = [t for t in tiers if t.lower() not in words]
+        if unknown:
+            raise RoadmapError(
+                f"unknown tier(s) {', '.join(unknown)}; "
+                f"{phase.get('name')} has {', '.join(sorted(words, key=words.get))}")
+        wanted = {words[t.lower()] for t in tiers}
+    return {m["id"] for m in entries if m["tier"] in wanted}
+
+
+def build_ready(phase, within=None, horizon="ready"):
     """Actionable candidates: unclaimed tasks whose effective status is todo,
     annotated with ordering signals so a small model can choose between valid
     options instead of deriving them. Claimed tasks are listed apart under
-    `claimed` (someone is already on them), oldest claim first."""
+    `claimed` (someone is already on them), oldest claim first.
+
+    `within` (a set of milestone ids from resolve_within) narrows both lists
+    to those milestones. `horizon="open"` widens the candidates to every task
+    not done or out of scope, claimed ones included (each carries `status`,
+    `display` and `started`), and leaves `claimed` empty."""
     tasks, milestones, gates = build_index(phase)
     computed = recompute_all(tasks, milestones, gates)
     effective = {
@@ -1210,6 +1255,7 @@ def build_ready(phase):
     stats = build_stats(phase)
     milestone_pct = {m["id"]: m["donePct"] for m in stats["milestones"]}
     milestone_name = {m["id"]: m["name"] for m in stats["milestones"]}
+    milestone_tier_of = {m["id"]: m["tier"] for m in stats["milestones"]}
     task_milestone = {}
     for m in phase.get("milestones", []):
         for t in m.get("tasks", []):
@@ -1241,27 +1287,40 @@ def build_ready(phase):
     candidates = []
     claimed = []
     for tid, t in tasks.items():
-        if is_claimed(t) and effective.get(tid) not in ("done", "out_of_scope"):
-            mid = task_milestone.get(tid)
+        mid = task_milestone.get(tid)
+        if within is not None and mid not in within:
+            continue
+        tier = milestone_tier_of.get(mid, 0)
+        is_open = effective.get(tid) not in ("done", "out_of_scope")
+        if horizon == "ready" and is_claimed(t) and is_open:
             claimed.append({
                 "id": tid,
                 "description": t.get("description", ""),
                 "milestone": mid,
                 "milestoneName": milestone_name.get(mid, ""),
+                "tier": tier,
+                "tierLabel": tier_label(tier),
                 "status": effective.get(tid),
                 "display": display_status(t, effective.get(tid)),
                 "started": t["started"],
                 "assignee": t.get("assignee", ""),
             })
             continue
-        if effective.get(tid) != "todo":
+        if horizon == "open":
+            if not is_open:
+                continue
+        elif effective.get(tid) != "todo":
             continue
-        mid = task_milestone.get(tid)
         candidates.append({
             "id": tid,
             "description": t.get("description", ""),
             "milestone": mid,
             "milestoneName": milestone_name.get(mid, ""),
+            "tier": tier,
+            "tierLabel": tier_label(tier),
+            "status": effective.get(tid),
+            "display": display_status(t, effective.get(tid)),
+            "started": t.get("started", ""),
             "milestoneDonePct": milestone_pct.get(mid, 0),
             "directDependents": len(dependents.get(tid, ())),
             "transitiveUnblocks": len(transitive(tid)),
@@ -1329,10 +1388,18 @@ def ready_groups(candidates):
             "dev": {k: by_dev[k] for k in sorted(by_dev, key=dev_key)}}
 
 
-def cmd_ready(args) -> int:
+def _csv(value):
+    """`M2, M4` -> ['M2', 'M4']; None or empty -> None."""
+    items = [v.strip() for v in (value or "").split(",") if v.strip()]
+    return items or None
+
+
+def cmd_ready(args, horizon="ready") -> int:
     try:
         _path, data = load(args.path)
-        ready = build_ready(active_phase(data, args.phase))
+        phase = active_phase(data, args.phase)
+        within = resolve_within(phase, _csv(args.milestones), _csv(args.tiers))
+        ready = build_ready(phase, within=within, horizon=horizon)
     except RoadmapError as exc:
         print(f"✗ {exc}")
         return 2
@@ -1341,11 +1408,12 @@ def cmd_ready(args) -> int:
                  "groups": ready_groups(ready["candidates"])}
         print(json.dumps(ready, indent="\t"))
         return 0
+    noun = "open" if horizon == "open" else "unblocked"
     if not ready["candidates"]:
-        print(f"{ready['phase']}: no unblocked todo tasks.")
+        print(f"{ready['phase']}: no {noun} tasks.")
         _print_claimed(ready["claimed"])
         return 0
-    print(f"{ready['phase']}: {len(ready['candidates'])} unblocked task(s), "
+    print(f"{ready['phase']}: {len(ready['candidates'])} {noun} task(s), "
           "highest leverage first")
     for c in ready["candidates"]:
         sink = "  [completes milestone]" if c["isMilestoneSink"] else ""
@@ -1674,8 +1742,20 @@ def main(argv=None) -> int:
                     default="light",
                     help="literal light/dark hexes, or CSS custom properties")
 
-    sp = common(sub.add_parser("ready", help="actionable todo candidates"))
-    sp.add_argument("--json", action="store_true")
+    def within_flags(sp):
+        sp.add_argument("--json", action="store_true")
+        group = sp.add_mutually_exclusive_group()
+        group.add_argument("--milestones", default=None,
+                           help="comma-separated milestone ids, e.g. M2,M4")
+        group.add_argument("--tiers", default=None,
+                           help="comma-separated tiers (core,secondary,…) "
+                                "or `focus` for the tier now underway")
+        return sp
+
+    within_flags(common(sub.add_parser(
+        "ready", help="actionable todo candidates")))
+    within_flags(common(sub.add_parser(
+        "open", help="every task not done or out of scope")))
 
     sp = common(sub.add_parser("render", help="write the HTML artefact"))
     sp.add_argument("--out", default=None, help="output path override")
@@ -1713,6 +1793,7 @@ def main(argv=None) -> int:
         "stats": cmd_stats,
         "graph": cmd_graph,
         "ready": cmd_ready,
+        "open": lambda a: cmd_ready(a, horizon="open"),
         "render": cmd_render,
         "claim": cmd_claim,
         "release": cmd_release,
