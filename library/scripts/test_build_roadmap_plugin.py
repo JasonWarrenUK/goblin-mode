@@ -157,6 +157,16 @@ class BuildSafeguards(unittest.TestCase):
 		self.assertNotIn("Traceback", result.stderr)
 		self.assertFalse((self.root / "marketplace").exists())
 
+	def test_claim_skill_ships_namespaced(self) -> None:
+		plugin.build(self.root, self.out)
+		skill = (self.out / "skills" / "claim" / "SKILL.md").read_text()
+		self.assertIn("roadmap:update-devs", skill)
+		self.assertNotIn("roadmap-update-devs", skill)
+		# the hook nudge names the skill, so the build must namespace it there too
+		hooks = (self.out / "scripts" / "_roadmap_hooks.py").read_text()
+		self.assertIn("roadmap:claim skill", hooks)
+		self.assertNotIn("roadmap-claim skill", hooks)
+
 	def test_claim_hooks_ship_and_parse(self) -> None:
 		plugin.build(self.root, self.out)
 		hooks = json.loads((self.out / "hooks" / "hooks.json").read_text())["hooks"]
@@ -209,6 +219,8 @@ class BuildSafeguards(unittest.TestCase):
 		self.assertEqual(plugin.read_version(self.root), "0.4.0")
 
 	def test_build_without_changelog_still_succeeds(self) -> None:
+		# setUp copies the real changelog now that the repo ships one
+		(self.root / plugin.CHANGELOG_SOURCE).unlink(missing_ok=True)
 		self.assertFalse((self.root / plugin.CHANGELOG_SOURCE).exists())
 		plugin.build(self.root, self.out)
 		self.assertFalse((self.out / "CHANGELOG.md").exists())

@@ -31,6 +31,7 @@ Requires `python3` (3.8+, stdlib only) on `PATH`.
 |-------------------------------------------------------|-------|
 | Add a task, a chain of tasks or a milestone           | `/roadmap:update-tasks` |
 | Tasks need owners, or a dev's load needs handing over | `/roadmap:update-devs` |
+| You are starting a task, or dropping one | `/roadmap:claim [<task id>] [<assignee>\|release]` |
 
 ### 2c. Maintaining the Roadmap
 
@@ -56,12 +57,12 @@ Requires `python3` (3.8+, stdlib only) on `PATH`.
 
 A claim says someone has started a task. The task gains a `started` date, and views show it as in progress while it is todo or blocked (a paused, deferred or finished status wins); its status stays computed, so a claim never changes one.
 
-You rarely claim by hand. When a branch appears (from a git command or a worktree, or one you made just before) or a session starts on a branch that claims nothing, the plugin has Claude ask one question: which ready task this is, who is doing it and whether to push the branch so the team sees the claim. Nothing is written until you answer.
+You rarely claim by hand. When a branch appears (from a git command or a worktree, or one you made just before) or a session starts on a branch that claims nothing, the plugin has Claude ask one question: which ready task this is, who is doing it and whether to push the branch so the team sees the claim. Nothing is written until you answer. To claim or drop a task yourself, run `/roadmap:claim`: it lists the ready tasks when you give no ID, asks who is doing it and commits the change.
 
 | To                              | Run |
 |---------------------------------|-----|
-| Claim by hand                   | `python3 <plugin-root>/scripts/roadmap.py claim <ID> [--assignee NAME]` |
-| Drop a claim                    | `python3 <plugin-root>/scripts/roadmap.py release <ID> [--unassign]` |
+| Claim by hand (no skill)        | `python3 <plugin-root>/scripts/roadmap.py claim <ID> [--assignee NAME]` |
+| Drop a claim (no skill)         | `python3 <plugin-root>/scripts/roadmap.py release <ID> [--unassign]` |
 | Stop the question on one branch | `git config branch.<name>.roadmapClaim none` |
 
 The hooks need `python3` too; without it they stay silent.

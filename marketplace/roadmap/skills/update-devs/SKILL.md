@@ -9,8 +9,8 @@ metadata:
   family: roadmap
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3:*)"]
-arguments: ["horizon", "scope", "roadmap"]
-argument-hint: "[ready|all] [devless|<dev's name>|all] [roadmaps.json path (optional)]"
+arguments: ["horizon", "scope", "where", "roadmap"]
+argument-hint: "[ready|open] [free|taken|all|<dev>] [<phase>|current[:project|focus|<tiers>|<milestones>]] (defaults: ready free current:project)"
 ---
 
 # Roadmap Dev Assigner
@@ -25,32 +25,50 @@ Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. T
 
 ## Step 0: Parse the arguments
 
-`$horizon` and `$scope` are both required. `$roadmap` is optional.
+Every argument is optional, but they are positional: passing argument N requires arguments 1 to N-1. Defaults are `ready free current:project`.
 
-| Argument | Value | Meaning |
+| # | Argument | Value | Meaning |
+|---|---|---|---|
+| 1 | `$horizon` | `ready` (default) | only tasks that are currently unblocked (effective status `todo`) and unclaimed |
+| 1 | `$horizon` | `open` | every unfinished task: any status except `done` and `out_of_scope` |
+| 2 | `$scope` | `free` (default) | only tasks with no `assignee` |
+| 2 | `$scope` | `taken` | only tasks with an `assignee` |
+| 2 | `$scope` | `all` | every task inside the horizon, assigned or unassigned |
+| 2 | `$scope` | `<dev>` | only tasks assigned to that dev (case-insensitive match) |
+| 3 | `$where` | `<roadmap>[:<filter>]` | which phase, and which slice of it (below) |
+| 4 | `$roadmap` | a path | the `roadmaps.json` to use; recognised by ending in `.json` or containing a `/`, so it never collides with `$where` |
+
+**`$where`** is `<roadmap>:<filter>`, split on the **last** `:`. When passed, `<roadmap>` is required and `<filter>` is optional.
+
+| Part | Value | Meaning |
 |---|---|---|
-| `$horizon` | `ready` | only tasks that are currently unblocked (effective status `todo`) and unclaimed |
-| `$horizon` | `all` | every unfinished task: any status except `done` and `out_of_scope` |
-| `$scope` | `devless` | only tasks with no `assignee` |
-| `$scope` | `<dev's name>` | only tasks currently assigned to that dev (case-insensitive match) |
-| `$scope` | `all` | every task inside the horizon, assigned or unassigned |
-| `$roadmap` | a path | the `roadmaps.json` to use; recognised by ending in `.json` or containing a `/` |
+| `<roadmap>` | `current` (default) | the only active phase, or the one the user picks in Step 1 when several are active |
+| `<roadmap>` | a phase name | that phase, matched case-insensitively against the active phases |
+| `<filter>` | `project` (default) | the whole phase |
+| `<filter>` | `focus` | tasks in the tier now underway (the lowest tier with unfinished work) |
+| `<filter>` | `<tiers>` | comma-separated tier words: `core`, `secondary`, `tertiary`, … (tasks in milestones of those tiers) |
+| `<filter>` | `<milestones>` | comma-separated milestone ids: `M2,M4` |
 
-Matching is case-insensitive. A multi-word dev name arrives quoted (`"Mary Ann"`); take the quoted string whole. `devless` and `all` are reserved words in the scope slot, so a dev whose name is either one needs the roadmap edited by hand.
+Tiers and milestones are mutually exclusive in one call. `M2,secondary` is a hard stop.
 
-Missing or unrecognised `$horizon`, or missing `$scope`: hard stop. Print the usage line below and run nothing. Never guess a horizon or scope for an explicit invocation.
+Matching is case-insensitive. A multi-word dev name or phase name arrives quoted (`"Mary Ann"`); take the quoted string whole. `free`, `taken` and `all` are reserved words in the scope slot, so a dev with one of those names needs the roadmap edited by hand.
+
+Hard stop (print the usage line, run nothing, never guess) when: argument 1 is passed and is not `ready` or `open`; the phase name matches no active phase (list the active names); the filter mixes tiers and milestones; a tier word or milestone id is unknown for the phase, or `focus` has no tier underway (the CLI says which and exits 2; relay its message).
 
 ```text
-Usage: /roadmap:update-devs ready|all devless|<dev's name>|all [path/to/roadmaps.json]
+Usage: /roadmap:update-devs [ready|open] [free|taken|all|<dev>] [<phase>|current[:project|focus|<tiers>|<milestones>]]
+Defaults: ready free current:project
 ```
+
+Before doing anything else, echo the resolved form so a defaulted argument is never a surprise: `→ ready free MVP:focus` (the phase name once Step 1 has resolved it).
 
 ---
 
 ## Step 1: Locate the roadmap and check the format
 
-Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py detect`, appending `$roadmap` as the PATH argument when one was given. Exit **3** = old simple format: stop and tell the user to run `roadmap:migrate` first. Exit **2** = could not locate or parse: ask the user for the path. Proceed only on exit 0. Every later CLI call in this skill carries the same PATH.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py detect`, appending `$roadmap` (argument 4) as the PATH argument when one was given. Exit **3** = old simple format: stop and tell the user to run `roadmap:migrate` first. Exit **2** = could not locate or parse: ask the user for the path. Proceed only on exit 0. Every later CLI call in this skill carries the same PATH.
 
-**Phase selection.** Read `roadmaps.json` and list the phases without `archived: true`. One active phase: use it. Several: ask with AskUserQuestion which to work on, listing the last active phase in the array first and marking it recommended (the array is appended to, so last is most recent). Pass the choice as `--phase "{name}"` on every later CLI call. Never pick silently between active phases.
+**Phase selection.** Read `roadmaps.json` and list the phases without `archived: true`. A named `<roadmap>` in `$where` selects that phase (hard stop if it matches none). `current`: one active phase, use it; several, ask with AskUserQuestion which to work on, listing the last active phase in the array first and marking it recommended (the array is appended to, so last is most recent). Pass the choice as `--phase "{name}"` on every later CLI call. Never pick silently between active phases.
 
 ---
 
@@ -76,15 +94,17 @@ The interview opens here, before any task is shown.
 
 ## Step 3: Build the working set
 
-- `$horizon` = `ready`: run `roadmap.py ready --json`. The `candidates` array is the complete unblocked, unclaimed set, already ordered by leverage, each with `assignee` (empty string when unassigned). Claimed tasks sit apart in its `claimed` list: someone is already working on them, so they are not up for assignment here. Never re-derive status.
-- `$horizon` = `all`: take every task in the phase from `roadmaps.json` whose `status` is not `done` or `out_of_scope`, in file order. A task with a `started` date is claimed: show it, but flag any proposal to move it to someone else, since that hands over live work. If `roadmap.py validate` reports status discrepancies, tell the user and suggest `roadmap:maintain` first; carry on if they say so, since assignment does not depend on status being fresh.
+Both horizons come from the CLI, so status, claims and tiers are never re-derived. Pass the `$where` filter through: `--milestones M2,M4` for a milestone list, `--tiers core,secondary` for a tier list, `--tiers focus` for `focus`, and nothing for `project`.
 
-Filter by `$scope`. An empty working set is a result: report it (`Every ready task already has a dev.`) and stop.
+- `$horizon` = `ready`: run `roadmap.py ready --json {filter flags}`. The `candidates` array is the complete unblocked, unclaimed set inside the filter, already ordered by leverage, each with `assignee` (empty string when unassigned). Claimed tasks sit apart in its `claimed` list: someone is already working on them, so they are not up for assignment here.
+- `$horizon` = `open`: run `roadmap.py open --json {filter flags}`. `candidates` holds every task inside the filter that is not `done` or `out_of_scope`, each with `status`, `display` and `started`. A task with a `started` date is claimed: show it, but flag any proposal to move it to someone else, since that hands over live work. If `roadmap.py validate` reports status discrepancies, tell the user and suggest `roadmap:maintain` first; carry on if they say so, since assignment does not depend on status being fresh.
+
+Filter by `$scope` (`free`: empty `assignee`; `taken`: non-empty; `all`: no filter; `<dev>`: case-insensitive match). An empty working set is a result: report it (`Every ready task in M2 already has a dev.`) and stop.
 
 Compute the **load table**, which the interview reprints as it changes: for each roster member, the count of unfinished tasks they hold across the whole phase, split into in progress (claimed), ready and not-yet-ready, plus one row for unassigned.
 
 ```text
-Working set: {N} tasks ({horizon}, {scope}) in {phase}
+Working set: {N} tasks ({horizon}, {scope}) in {phase} · {filter}
 
 Load now        in progress   ready   later   total
   Jaz (j)                 1       2       4       7

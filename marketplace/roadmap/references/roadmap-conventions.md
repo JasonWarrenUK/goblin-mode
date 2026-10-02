@@ -58,7 +58,7 @@ field, an ISO date (`"2026-09-25"`), with `assignee` saying who; it is never
 a status and never inferred. Skills and hooks ask which task and who is doing
 it; `claim` stamps today's date unless given another.
 
-- **Making one:** `claim ID [--assignee NAME]` refuses unless the task's
+- **Making one:** the `roadmap:claim` skill (`roadmap:claim [ID] [assignee|release]`) is the front door: it asks who, runs the CLI, commits the change and offers the push. Underneath, `claim ID [--assignee NAME]` refuses unless the task's
   effective status is `todo`, it isn't already claimed and any change of
   assignee is explicit (`--reassign`). `release ID [--unassign]` deletes it.
   Both write `roadmaps.json` only. A claim has no PHASE.md task-line
@@ -84,6 +84,38 @@ it; `claim` stamps today's date unless given another.
   branch.<name>.roadmapClaim none` stops the question for that branch.
 - **Staleness:** a claim more than 14 days old on an unfinished task is
   stale. `roadmap:review` flags it; nothing releases it automatically.
+
+## Ended dates
+
+A done task carries an optional `ended` field: the ISO date (`"2026-10-02"`,
+no time, no timezone) on which its work finished, the counterpart of
+`started`. It records the past, never a plan: there is no target or due date
+field, and `validate` rejects `ended` on any task whose status is not
+`done`.
+
+- **Writing one:** `end ID [--date YYYY-MM-DD] [--force]` stamps a done task
+  (today by default) and refuses to overwrite one without `--force`.
+  `stamp-ended --base REF [--pr N]` stamps every done task that was not done
+  at the branch's merge-base with REF, plus any done task whose `pr` is N;
+  the PR-landing flow runs it on the branch before merge, so the date
+  arrives on the default branch with the work. `backfill-ended [--dry-run]`
+  dates every done task lacking one from the git history of `roadmaps.json`
+  (the commit where it last became done); `roadmap:maintain` runs it. It
+  skips and reports a task whose date would precede its `started`.
+  `stamp-ended` exits 1 when the merge-base copy of the file is missing,
+  unparseable or has no phase of the active phase's name, rather than
+  treating every done task as finished by the branch.
+- **How trustworthy the date is:** a status-change commit's date is when the
+  roadmap recorded the change, not necessarily when the work shipped. A
+  backfill basis of `first-seen` means the task was already done when the
+  roadmap first reached git (a lower bound), and `uncommitted` means it is
+  done only in the working tree (today).
+- **Reopening:** a task reset from `done` loses its `ended` line; `validate`
+  flags the stale date otherwise. Finishing it again stamps a new date.
+- **Checks:** `validate` also rejects a date that does not parse and an
+  `ended` before `started`.
+- **What it changes:** nothing computed. `recompute`, `ready` and the graph
+  ignore the field; `started` and every status value are unchanged.
 
 ## Graph conventions
 
@@ -156,7 +188,7 @@ diagrams from the CLI.
 | `blocked` | red | `#fff8f6` / `#e0002b` | `#530003` / `#ffddd8` | bold stroke | stop |
 | `paused` | purple | `#fdf4ff` / `#b01fe3` | `#3a004f` / `#f7d9ff` | dasharray 4 3 | deliberately parked |
 | `deferred` | cinnamon | `#fff8f3` / `#ac5c00` | `#371d00` / `#ffdfc6` | dasharray 2 4 + italic | shelved for later |
-| `out_of_scope` | gray, dotted | `#f6f6f6` / `#717171` | `#222222` / `#898989` | dasharray 2 2, struck label | struck from play |
+| `out_of_scope` | gray, dotted | `#f6f6f6` / `#717171` | `#222222` / `#898989` | dasharray 2 2, struck label | struck from play; drawn only in the full graph, since `--omit-done` (the artefact's diagram) drops it |
 | gate (`external`) | yellow | `#fff9e5` / `#7d6f00` | `#292300` / `#ffe53e` | dasharray 4 3 + italic | outside our control |
 | milestone (`mile`) | sky | `#e3f7ff` / `#007590` | `#001f28` / `#aee9ff` | bold | structural waypoint |
 
@@ -187,7 +219,7 @@ unchanged. `TIER_STYLE` in `roadmap.py` is the machine-readable copy.
 |---|---|---|---|---|---|
 | `underway` | slate | `#c3cede` / `#2f3b4c` | `#343e4f` / `#d5deea` | solid border, state named in the label | every lower tier is done and this one holds unfinished work |
 | `deferred` | taupe | `#dccbb9` / `#4a3826` | `#4a3c2f` / `#ecdccb` | dashed border, state named in the label | any lower tier still holds unfinished work |
-| `done` | slate (shares `underway`) | as `underway` | as `underway` | state named in the label | the tier holds no unfinished work; drawn only in the full graph, since `--omit-done` drops a finished tier whole |
+| `done` | slate (shares `underway`) | as `underway` | as `underway` | state named in the label | the tier holds no unfinished work; drawn only in the full graph, since `--omit-done` drops a finished tier whole (done and `out_of_scope` tasks alike) |
 
 The subgraph label reads `{tier} · {state}`, for example `Secondary ·
 deferred`. A task sits in its milestone's tier, a milestone in its own and a
@@ -360,12 +392,15 @@ auto-reverted; absence still isn't evidence.
   another formatter) in a hook or CI should exclude the artefact glob from
   it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
   dashboard never fights the formatter.
-- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, started?, pr?`
+- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, started?, ended?, pr?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred: a skill setting it must ask, never guess from description,
   git author, category or who's running the skill.
 - `started` is the claim date (see Claims), omit-when-empty; `claim` and
   `release` keep the field order.
+- `ended` is the finish date (see Ended dates), omit-when-empty, only valid
+  on a `done` task; `end`, `stamp-ended` and `backfill-ended` keep the field
+  order.
 - `pr` is an optional integer: the GitHub PR number that ships the task,
   worth setting by hand when a task ships. It lets a later run detect that a
   `done` dependency is still unmerged and stack a dependent branch on it
@@ -446,7 +481,8 @@ that isn't open yet stays collapsed regardless of what it contains.
 | One known task to add | `roadmap:update-tasks` (`t` mode) |
 | Several tasks with an asserted dependency order | `roadmap:update-tasks` (`c` mode) |
 | New milestone needed | `roadmap:update-tasks` (`m` mode) |
-| Tasks need owners, or a dev's load needs handing over | `roadmap:update-devs` (`ready\|all` horizon, `devless\|<dev>\|all` scope) |
+| Starting or dropping work on a task | `roadmap:claim` (`[task id] [assignee\|release]`) |
+| Tasks need owners, or a dev's load needs handing over | `roadmap:update-devs` (`ready\|open` horizon, `free\|taken\|all\|<dev>` scope, optional `<phase>:<tiers\|milestones\|focus>` slice) |
 | Work landed / statuses drifted | `roadmap:maintain` (add `reconcile` to check against code) |
 | Mark a task in progress, or stop working on one | `roadmap:maintain` (runs `claim` / `release`; the hooks usually offer the claim first) |
 | Priorities / freshness / health / dependency-graph review | `roadmap:review` (lens: `health`, `deps` or default full) |

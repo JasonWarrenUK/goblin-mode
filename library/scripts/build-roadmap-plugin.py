@@ -51,6 +51,7 @@ SKILLS = {
 	"roadmap-update-tasks": "update-tasks",
 	"roadmap-update-devs": "update-devs",
 	"roadmap-maintain": "maintain",
+	"roadmap-claim": "claim",
 	"roadmap-review": "review",
 	"artefact-roadmap": "dashboard",
 	"next-task-suggest": "next-suggest",
