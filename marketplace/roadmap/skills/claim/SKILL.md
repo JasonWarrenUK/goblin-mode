@@ -66,7 +66,7 @@ Run `roadmap.py ready --json`. Show the first 5 `candidates` (already in leverag
 
 1. `$who` given: that is the assignee. Otherwise ask in plain text, `Who is doing {id}?`, offering the task's current `assignee` when it has one.
 2. Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py claim {id} --assignee "{name}"` with the Step 1 phase and path. Without an assignee answer, leave `--assignee` off.
-3. Relay a refusal word for word. The cases: the task is not ready to start (it reports its effective status), it is already claimed (by whom, since when), or it is assigned to someone else. Only for the last, offer to hand the task over, and rerun with `--reassign` solely when the user agrees.
+3. Relay a refusal word for word. The cases: the task is not ready to start (it reports its effective status), it is already claimed (by whom, since when), it is assigned to someone else, or `roadmaps.json` is not in canonical form. For the assignee case offer to hand the task over, and rerun with `--reassign` solely when the user agrees. For the format case say that a write would reformat the whole file, and rerun with `--reformat` solely when the user agrees.
 
 **Release.**
 
