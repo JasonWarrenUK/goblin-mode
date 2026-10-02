@@ -82,6 +82,13 @@ class WorktreeState(unittest.TestCase):
 		self.assertEqual((report["base"], report["ahead"], report["behind"]),
 			(None, None, None))
 
+	def test_a_failing_status_is_refused_not_reported_clean(self) -> None:
+		(self.repo / "a.txt").write_text("a")
+		(self.repo / ".git" / "index").write_text("junk")
+		code, report, stderr = self._run(str(self.repo))
+		self.assertEqual((code, report), (2, {}))
+		self.assertIn("git status failed", stderr)
+
 	def test_a_linked_worktree_reports_its_own_state(self) -> None:
 		linked = self.root / "linked"
 		_git(self.repo, "worktree", "add", "-q", "-b", "feat/y", str(linked))

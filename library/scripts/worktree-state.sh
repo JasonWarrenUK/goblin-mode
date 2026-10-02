@@ -24,7 +24,8 @@ command -v jq >/dev/null 2>&1 || { print -u2 -- "jq not installed"; exit 2 }
 [[ "$(git -C "$target" rev-parse --is-inside-work-tree 2>/dev/null)" == true ]] \
 	|| { print -u2 -- "$target: not inside a git work tree"; exit 2 }
 
-dirty=$(git -C "$target" status --porcelain | wc -l | tr -d ' ')
+dirty=$(setopt pipefail; git -C "$target" status --porcelain | wc -l | tr -d ' ') \
+	|| { print -u2 -- "$target: git status failed"; exit 2 }
 
 if [[ -n "$base" ]]; then
 	base_commit=$(git -C "$target" rev-parse --verify --quiet --end-of-options "$base^{commit}") \
