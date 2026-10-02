@@ -1573,6 +1573,208 @@ class ClaimCommand(unittest.TestCase):
         self.assertTrue(any("run roadmap.py claim" in p for p in problems))
 
 
+class EndedField(unittest.TestCase):
+    def _problems(self, **fields):
+        ph = phase([{"id": "M1", "name": "m", "tasks": [task("a", **fields)]}])
+        return roadmap._validate_phase(ph)
+
+    def test_valid_ended_on_done_is_clean(self):
+        self.assertEqual(self._problems(status="done", started="2026-09-25",
+                                        ended="2026-10-02"), [])
+
+    def test_ended_must_be_an_iso_date(self):
+        self.assertTrue(any("ended 'soon'" in p for p in
+                            self._problems(status="done", ended="soon")))
+
+    def test_ended_on_a_task_that_is_not_done_is_a_problem(self):
+        problems = self._problems(status="todo", ended="2026-10-02")
+        self.assertTrue(any("not done" in p for p in problems))
+
+    def test_ended_before_started_is_a_problem(self):
+        problems = self._problems(status="done", started="2026-10-02",
+                                  ended="2026-09-25")
+        self.assertTrue(any("before started" in p for p in problems))
+
+    def test_ended_sits_between_started_and_pr(self):
+        self.assertEqual(roadmap.TASK_FIELD_ORDER[-3:], ["started", "ended", "pr"])
+
+
+class EndCommand(unittest.TestCase):
+    def _project(self, tasks):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp.parent.mkdir()
+        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}])]
+        jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        return jp
+
+    def _task(self, jp, tid):
+        tasks = json.loads(jp.read_text())[0]["milestones"][0]["tasks"]
+        return next(t for t in tasks if t["id"] == tid)
+
+    def _run(self, *argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = roadmap.main(list(argv))
+        return rc, out.getvalue()
+
+    def test_end_writes_ended_in_field_order(self):
+        jp = self._project([task("a", "done", started="2026-09-25", pr=12)])
+        rc, _ = self._run("end", "a", str(jp), "--date", "2026-10-02")
+        self.assertEqual(rc, 0)
+        self.assertEqual(list(self._task(jp, "a")),
+                         ["id", "description", "status", "dependsOn",
+                          "started", "ended", "pr"])
+        self.assertEqual(self._task(jp, "a")["ended"], "2026-10-02")
+
+    def test_end_defaults_to_today(self):
+        jp = self._project([task("a", "done")])
+        self.assertEqual(self._run("end", "a", str(jp))[0], 0)
+        self.assertEqual(self._task(jp, "a")["ended"], roadmap.date.today().isoformat())
+
+    def test_end_refuses_a_task_that_is_not_done(self):
+        jp = self._project([task("a")])
+        before = jp.read_text()
+        rc, out = self._run("end", "a", str(jp))
+        self.assertEqual(rc, 1)
+        self.assertIn("not done", out)
+        self.assertEqual(jp.read_text(), before)
+
+    def test_end_refuses_to_overwrite_without_force(self):
+        jp = self._project([task("a", "done", ended="2026-09-30")])
+        self.assertEqual(self._run("end", "a", str(jp), "--date", "2026-10-02")[0], 1)
+        self.assertEqual(self._task(jp, "a")["ended"], "2026-09-30")
+        self.assertEqual(self._run("end", "a", str(jp), "--date", "2026-10-02",
+                                   "--force")[0], 0)
+        self.assertEqual(self._task(jp, "a")["ended"], "2026-10-02")
+
+    def test_end_rejects_a_bad_date_and_a_date_before_started(self):
+        jp = self._project([task("a", "done", started="2026-10-01")])
+        self.assertEqual(self._run("end", "a", str(jp), "--date", "tomorrow")[0], 1)
+        self.assertEqual(self._run("end", "a", str(jp), "--date", "2026-09-01")[0], 1)
+        self.assertNotIn("ended", self._task(jp, "a"))
+
+
+class EndedFromHistory(unittest.TestCase):
+    def test_date_is_the_version_where_the_task_became_done(self):
+        versions = [("s1", "2026-09-01", {"a": "todo"}),
+                    ("s2", "2026-09-10", {"a": "done"}),
+                    ("s3", "2026-09-20", {"a": "done", "b": "todo"})]
+        found = roadmap.ended_from_history(versions, "2026-10-02")
+        self.assertEqual(found, {"a": ("2026-09-10", "s2", "transition")})
+
+    def test_reopened_then_redone_uses_the_latest_finish(self):
+        versions = [("s1", "2026-09-01", {"a": "done"}),
+                    ("s2", "2026-09-05", {"a": "todo"}),
+                    ("s3", "2026-09-09", {"a": "done"})]
+        self.assertEqual(roadmap.ended_from_history(versions, "x")["a"][0],
+                         "2026-09-09")
+
+    def test_done_on_first_sight_is_flagged_first_seen(self):
+        versions = [("s1", "2026-09-01", {"a": "done"}),
+                    ("s2", "2026-09-05", {"a": "done", "b": "done"})]
+        found = roadmap.ended_from_history(versions, "x")
+        self.assertEqual(found["a"], ("2026-09-01", "s1", "first-seen"))
+        self.assertEqual(found["b"], ("2026-09-05", "s2", "first-seen"))
+
+    def test_working_tree_only_done_is_dated_today(self):
+        versions = [("s1", "2026-09-01", {"a": "todo"}),
+                    ("", "", {"a": "done"})]
+        self.assertEqual(roadmap.ended_from_history(versions, "2026-10-02")["a"],
+                         ("2026-10-02", "", "uncommitted"))
+
+    def test_task_no_longer_done_at_the_end_is_dropped(self):
+        versions = [("s1", "2026-09-01", {"a": "done"}),
+                    ("s2", "2026-09-05", {"a": "todo"})]
+        self.assertEqual(roadmap.ended_from_history(versions, "x"), {})
+
+
+@unittest.skipUnless(shutil.which("git"), "git not installed")
+class BackfillEnded(unittest.TestCase):
+    """backfill-ended against a real repository with dated commits."""
+
+    def _git(self, *argv, when=None):
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        if when:
+            env["GIT_COMMITTER_DATE"] = env["GIT_AUTHOR_DATE"] = f"{when}T12:00:00"
+        subprocess.run(["git", "-C", str(self.root), *argv], check=True,
+                       capture_output=True, env=env)
+
+    def _write(self, tasks):
+        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}])]
+        self.jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+
+    def _commit(self, tasks, when, message="roadmap"):
+        self._write(tasks)
+        self._git("add", ".")
+        self._git("commit", "-q", "-m", message, when=when)
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        self.jp = self.root / ".claude" / "roadmaps.json"
+        self.jp.parent.mkdir()
+        self._git("init", "-q", "-b", "main")
+
+    def _run(self, *argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = roadmap.main(list(argv))
+        return rc, out.getvalue()
+
+    def _tasks(self):
+        return {t["id"]: t for t in
+                json.loads(self.jp.read_text())[0]["milestones"][0]["tasks"]}
+
+    def test_dates_come_from_the_commit_where_each_task_became_done(self):
+        self._commit([task("a"), task("b"), task("c", "done")], "2026-09-01")
+        self._commit([task("a", "done"), task("b"), task("c", "done")], "2026-09-10")
+        self._commit([task("a", "done"), task("b", "done"), task("c", "done")],
+                     "2026-09-20")
+        rc, out = self._run("backfill-ended", str(self.jp), "--json")
+        self.assertEqual(rc, 0)
+        rows = {r["id"]: r for r in json.loads(out)["tasks"]}
+        self.assertEqual(rows["a"]["ended"], "2026-09-10")
+        self.assertEqual(rows["b"]["ended"], "2026-09-20")
+        self.assertEqual((rows["c"]["ended"], rows["c"]["basis"]),
+                         ("2026-09-01", "first-seen"))
+        self.assertEqual(self._tasks()["a"]["ended"], "2026-09-10")
+
+    def test_dry_run_writes_nothing(self):
+        self._commit([task("a", "done")], "2026-09-01")
+        before = self.jp.read_text()
+        rc, out = self._run("backfill-ended", str(self.jp), "--dry-run")
+        self.assertEqual(rc, 0)
+        self.assertIn("would set", out)
+        self.assertEqual(self.jp.read_text(), before)
+
+    def test_existing_ended_is_left_alone(self):
+        self._commit([task("a", "done", ended="2026-09-30")], "2026-09-01")
+        rc, out = self._run("backfill-ended", str(self.jp))
+        self.assertEqual(rc, 0)
+        self.assertIn("already has an end date", out)
+        self.assertEqual(self._tasks()["a"]["ended"], "2026-09-30")
+
+    def test_uncommitted_done_is_dated_today(self):
+        self._commit([task("a")], "2026-09-01")
+        self._write([task("a", "done")])
+        rc, _ = self._run("backfill-ended", str(self.jp))
+        self.assertEqual(rc, 0)
+        self.assertEqual(self._tasks()["a"]["ended"], roadmap.date.today().isoformat())
+
+    def test_outside_a_repository_is_an_error(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp.parent.mkdir()
+        data = [phase([{"id": "M1", "name": "m", "tasks": [task("a", "done")]}])]
+        jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        rc, out = self._run("backfill-ended", str(jp))
+        self.assertEqual(rc, 1)
+        self.assertIn("git", out)
+
+
 @unittest.skipUnless(shutil.which("git"), "git not installed")
 class Hooks(unittest.TestCase):
     """The hook entry points against real repositories: a bare origin, a

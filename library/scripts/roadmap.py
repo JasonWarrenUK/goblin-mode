@@ -24,6 +24,9 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
   claim      ID: record that someone has started a task [--assignee NAME
                                                          --reassign --date]
   release    ID: drop a claim                           [--unassign]
+  end        ID: record when a done task finished       [--date --force]
+  backfill-ended  date done tasks lacking `ended` from git history
+                                                        [--dry-run --json]
   hook       EVENT: Claude Code hook entry point (session-start,
              post-tool-use); reads the hook JSON on stdin, always exits 0
 
@@ -412,6 +415,20 @@ def _validate_phase(phase):
         if "started" in task and not _is_iso_date(task.get("started")):
             problems.append(
                 f"{tid}: started {task.get('started')!r} is not a YYYY-MM-DD date")
+        if "ended" in task:
+            ended = task.get("ended")
+            if not _is_iso_date(ended):
+                problems.append(
+                    f"{tid}: ended {ended!r} is not a YYYY-MM-DD date")
+            elif task.get("status") != "done":
+                problems.append(
+                    f"{tid}: ended {ended} on a task whose status is "
+                    f"{task.get('status')!r}, not done (an end date records "
+                    "finished work; remove it when a task is reopened)")
+            elif (_is_iso_date(task.get("started"))
+                  and ended < task["started"]):
+                problems.append(
+                    f"{tid}: ended {ended} is before started {task['started']}")
         for dep in task.get("dependsOn", []):
             if dep not in known:
                 problems.append(f"{tid}: dependsOn {dep!r} resolves to nothing")
@@ -1578,11 +1595,11 @@ def cmd_render(args) -> int:
 
 
 # ---------------------------------------------------------------------------
-# claim / release
+# claim / release / end
 # ---------------------------------------------------------------------------
 TASK_FIELD_ORDER = ["id", "description", "status", "dependsOn",
                     "softDependsOn", "softMilestone", "iterative", "notes",
-                    "assignee", "started", "pr"]
+                    "assignee", "started", "ended", "pr"]
 
 
 def _set_task_field(task, key, value):
@@ -1687,6 +1704,149 @@ def cmd_release(args) -> int:
     return 0
 
 
+def cmd_end(args) -> int:
+    path, data, index, code = _load_for_write(args)
+    if code is not None:
+        return code
+    task = index[0][args.id]
+    if task.get("status") != "done":
+        print(f"✗ {args.id} is {task.get('status')}, not done: only finished "
+              "work gets an end date")
+        return 1
+    if task.get("ended") and not args.force:
+        print(f"✗ {args.id} already ended {task['ended']}; pass --force to "
+              "overwrite it")
+        return 1
+    ended = args.date or date.today().isoformat()
+    if not _is_iso_date(ended):
+        print(f"✗ --date {ended!r} is not a YYYY-MM-DD date")
+        return 1
+    if _is_iso_date(task.get("started")) and ended < task["started"]:
+        print(f"✗ --date {ended} is before {args.id} started {task['started']}")
+        return 1
+    _set_task_field(task, "ended", ended)
+    _atomic_write(path, _canonical_text(data))
+    print(f"✓ ended {args.id} ({ended})")
+    return 0
+
+
+def ended_from_history(versions, today):
+    """{task id: (date, sha, basis)} for every task done in the last version.
+
+    `versions` is the roadmap's history oldest first, each a (sha, date,
+    {id: status}) triple. A task's end date is the date of the version where
+    it last became done: a later reopen resets the clock, and a task that was
+    done before it ever reached git is dated by the first version showing it
+    (basis `first-seen`). A task done in the final version only because of
+    working-tree edits (the sha is empty) is dated `today` (basis
+    `uncommitted`). Otherwise the basis is `transition`."""
+    became = {}
+    seen = set()
+    for sha, when, statuses in versions:
+        for tid, status in statuses.items():
+            if status != "done":
+                became.pop(tid, None)
+            elif tid not in became:
+                basis = ("uncommitted" if not sha
+                         else "transition" if tid in seen else "first-seen")
+                became[tid] = (when or today, sha, basis)
+        seen.update(statuses)
+    final = versions[-1][2] if versions else {}
+    return {tid: found for tid, found in became.items()
+            if final.get(tid) == "done"}
+
+
+def _roadmap_versions(path, phase_name):
+    """Oldest-first (sha, date, {id: status}) history of one phase from git,
+    ending with the working-tree file as ("", "", ...). None when the file
+    is not in a git repository."""
+    import subprocess
+
+    def git(*argv, cwd=None):
+        done = subprocess.run(["git", "-C", str(cwd or top_dir), *argv],
+                              capture_output=True, text=True)
+        return done.stdout if done.returncode == 0 else None
+
+    top_dir = path.parent
+    top = git("rev-parse", "--show-toplevel")
+    if top is None:
+        return None
+    top_dir = Path(top.strip())
+    rel = path.resolve().relative_to(top_dir.resolve()).as_posix()
+
+    def statuses(text):
+        try:
+            loaded = json.loads(text)
+        except ValueError:
+            return None
+        for ph in (loaded if isinstance(loaded, list) else [loaded]):
+            if isinstance(ph, dict) and ph.get("name") == phase_name:
+                return {t["id"]: t.get("status")
+                        for m in ph.get("milestones", [])
+                        for t in m.get("tasks", []) if "id" in t}
+        return None
+
+    versions = []
+    log = git("log", "--first-parent", "--reverse", "--format=%H %cs", "--", rel)
+    for line in (log or "").splitlines():
+        sha, when = line.split()
+        found = statuses(git("show", f"{sha}:{rel}") or "")
+        if found is not None:
+            versions.append((sha, when, found))
+    current = statuses(path.read_text())
+    if current is not None:
+        if versions and versions[-1][2] == current:
+            return versions
+        versions.append(("", "", current))
+    return versions
+
+
+def cmd_backfill_ended(args) -> int:
+    try:
+        path, data = load(args.path)
+        phase = active_phase(data, args.phase)
+    except RoadmapError as exc:
+        print(f"✗ {exc}")
+        return 2
+    if _canonical_text(data) != path.read_text() and not args.reformat:
+        print("✗ roadmaps.json is not in canonical form; re-run with "
+              "--reformat to accept a whole-file rewrite.")
+        return 1
+    versions = _roadmap_versions(path, phase.get("name"))
+    if versions is None:
+        print("✗ roadmaps.json is not inside a git repository; there is no "
+              "history to read dates from")
+        return 1
+    found = ended_from_history(versions, date.today().isoformat())
+    tasks = build_index(phase)[0]
+    rows = []
+    for tid, task in tasks.items():
+        if task.get("status") != "done" or task.get("ended") or tid not in found:
+            continue
+        when, sha, basis = found[tid]
+        rows.append({"id": tid, "ended": when, "commit": sha[:7],
+                     "basis": basis})
+    if not args.dry_run:
+        for row in rows:
+            _set_task_field(tasks[row["id"]], "ended", row["ended"])
+        if rows:
+            _atomic_write(path, _canonical_text(data))
+    if args.json:
+        print(json.dumps({"phase": phase.get("name"), "written": not args.dry_run,
+                          "tasks": rows}, indent="\t"))
+        return 0
+    verb = "would set" if args.dry_run else "set"
+    if not rows:
+        print(f"{phase.get('name')}: every done task already has an end date.")
+        return 0
+    print(f"{phase.get('name')}: {verb} ended on {len(rows)} task(s)")
+    for row in rows:
+        note = f" [{row['basis']}]" if row["basis"] != "transition" else ""
+        where = f" ({row['commit']})" if row["commit"] else ""
+        print(f"  {row['id']:8} {row['ended']}{where}{note}")
+    return 0
+
+
 def cmd_hook(args) -> int:
     """Claude Code hook entry point. A hook must never fail the session, so
     every error is swallowed and the exit code is always 0."""
@@ -1778,6 +1938,21 @@ def main(argv=None) -> int:
     sp.add_argument("--date", default=None,
                     help="start date YYYY-MM-DD (default today)")
 
+    sp = claim_common(sub.add_parser(
+        "end", help="record the date a done task finished"))
+    sp.add_argument("--date", default=None,
+                    help="end date YYYY-MM-DD (default today)")
+    sp.add_argument("--force", action="store_true",
+                    help="overwrite an existing end date")
+
+    sp = common(sub.add_parser(
+        "backfill-ended",
+        help="date done tasks that lack `ended` from git history"))
+    sp.add_argument("--dry-run", action="store_true", help="preview, no write")
+    sp.add_argument("--json", action="store_true")
+    sp.add_argument("--reformat", action="store_true",
+                    help="allow rewriting a non-canonically-formatted file")
+
     sp = claim_common(sub.add_parser("release", help="drop a claim"))
     sp.add_argument("--unassign", action="store_true",
                     help="also clear the assignee")
@@ -1797,6 +1972,8 @@ def main(argv=None) -> int:
         "render": cmd_render,
         "claim": cmd_claim,
         "release": cmd_release,
+        "end": cmd_end,
+        "backfill-ended": cmd_backfill_ended,
         "hook": cmd_hook,
     }[args.cmd](args)
 
