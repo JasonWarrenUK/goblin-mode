@@ -84,6 +84,34 @@ it; `claim` stamps today's date unless given another.
 - **Staleness:** a claim more than 14 days old on an unfinished task is
   stale. `roadmap-review` flags it; nothing releases it automatically.
 
+## Ended dates
+
+A done task carries an optional `ended` field: the ISO date (`"2026-10-02"`,
+no time, no timezone) on which its work finished, the counterpart of
+`started`. It records the past, never a plan: there is no target or due date
+field, and `validate` rejects `ended` on any task whose status is not
+`done`.
+
+- **Writing one:** `end ID [--date YYYY-MM-DD] [--force]` stamps a done task
+  (today by default) and refuses to overwrite one without `--force`.
+  `stamp-ended --base REF [--pr N]` stamps every done task that was not done
+  at the branch's merge-base with REF, plus any done task whose `pr` is N;
+  the PR-landing flow runs it on the branch before merge, so the date
+  arrives on the default branch with the work. `backfill-ended [--dry-run]`
+  dates every done task lacking one from the git history of `roadmaps.json`
+  (the commit where it last became done); `roadmap-maintain` runs it.
+- **How trustworthy the date is:** a status-change commit's date is when the
+  roadmap recorded the change, not necessarily when the work shipped. A
+  backfill basis of `first-seen` means the task was already done when the
+  roadmap first reached git (a lower bound), and `uncommitted` means it is
+  done only in the working tree (today).
+- **Reopening:** a task reset from `done` loses its `ended` line; `validate`
+  flags the stale date otherwise. Finishing it again stamps a new date.
+- **Checks:** `validate` also rejects a date that does not parse and an
+  `ended` before `started`.
+- **What it changes:** nothing computed. `recompute`, `ready` and the graph
+  ignore the field; `started` and every status value are unchanged.
+
 ## Graph conventions
 
 **Terminal milestone edges:** a milestone node `M{N}` is a SINK for its own
@@ -359,12 +387,15 @@ auto-reverted; absence still isn't evidence.
   another formatter) in a hook or CI should exclude the artefact glob from
   it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
   dashboard never fights the formatter.
-- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, started?, pr?`
+- Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, started?, ended?, pr?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred: a skill setting it must ask, never guess from description,
   git author, category or who's running the skill.
 - `started` is the claim date (see Claims), omit-when-empty; `claim` and
   `release` keep the field order.
+- `ended` is the finish date (see Ended dates), omit-when-empty, only valid
+  on a `done` task; `end`, `stamp-ended` and `backfill-ended` keep the field
+  order.
 - `pr` is an optional integer: the GitHub PR number that ships the task,
   recorded by `next-task-ship` at PR creation (worth setting by hand when
   shipping outside that skill). It lets a later run detect that a `done`
