@@ -1690,8 +1690,9 @@ class EndedFromHistory(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")
-class BackfillEnded(unittest.TestCase):
-    """backfill-ended against a real repository with dated commits."""
+class GitRoadmap(unittest.TestCase):
+    """A temporary repository holding .claude/roadmaps.json, with dated
+    commits. Helpers only; the test classes below add the cases."""
 
     def _git(self, *argv, when=None):
         env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
@@ -1726,6 +1727,11 @@ class BackfillEnded(unittest.TestCase):
     def _tasks(self):
         return {t["id"]: t for t in
                 json.loads(self.jp.read_text())[0]["milestones"][0]["tasks"]}
+
+
+@unittest.skipUnless(shutil.which("git"), "git not installed")
+class BackfillEnded(GitRoadmap):
+    """backfill-ended against a real repository with dated commits."""
 
     def test_dates_come_from_the_commit_where_each_task_became_done(self):
         self._commit([task("a"), task("b"), task("c", "done")], "2026-09-01")
@@ -1773,6 +1779,68 @@ class BackfillEnded(unittest.TestCase):
         rc, out = self._run("backfill-ended", str(jp))
         self.assertEqual(rc, 1)
         self.assertIn("git", out)
+
+
+@unittest.skipUnless(shutil.which("git"), "git not installed")
+class StampEnded(GitRoadmap):
+    """stamp-ended: the done tasks a branch finished, for pr-land."""
+
+    def setUp(self):
+        super().setUp()
+        self._commit([task("a"), task("b", "done"), task("c"), task("d")],
+                     "2026-09-01")
+        self._git("branch", "base")
+        self._git("checkout", "-q", "-b", "feat/x")
+
+    def _stamp(self, *extra):
+        return self._run("stamp-ended", str(self.jp), "--base", "base",
+                         "--date", "2026-10-02", *extra)
+
+    def test_stamps_only_what_the_branch_finished(self):
+        self._commit([task("a", "done"), task("b", "done"), task("c"), task("d")],
+                     "2026-09-05")
+        rc, out = self._stamp()
+        self.assertEqual(rc, 0)
+        self.assertIn("ended 1 task(s) on 2026-10-02: a", out)
+        tasks = self._tasks()
+        self.assertEqual(tasks["a"]["ended"], "2026-10-02")
+        self.assertNotIn("ended", tasks["b"])  # done before the branch
+        self.assertNotIn("ended", tasks["c"])
+
+    def test_pr_number_also_stamps_a_task_done_before_the_branch(self):
+        self._commit([task("a"), task("b", "done", pr=7), task("c"), task("d")],
+                     "2026-09-05")
+        rc, out = self._stamp("--pr", "7")
+        self.assertEqual(rc, 0)
+        self.assertEqual(self._tasks()["b"]["ended"], "2026-10-02")
+
+    def test_existing_ended_is_never_overwritten(self):
+        self._commit([task("a", "done", ended="2026-09-30"), task("b", "done"),
+                      task("c"), task("d")], "2026-09-05")
+        self._stamp()
+        self.assertEqual(self._tasks()["a"]["ended"], "2026-09-30")
+
+    def test_dry_run_and_json(self):
+        self._commit([task("a", "done"), task("b", "done"), task("c"), task("d")],
+                     "2026-09-05")
+        before = self.jp.read_text()
+        rc, out = self._stamp("--dry-run", "--json")
+        self.assertEqual(rc, 0)
+        report = json.loads(out)
+        self.assertEqual((report["tasks"], report["written"]), (["a"], False))
+        self.assertEqual(self.jp.read_text(), before)
+
+    def test_nothing_finished_writes_nothing(self):
+        before = self.jp.read_text()
+        rc, out = self._stamp()
+        self.assertEqual(rc, 0)
+        self.assertIn("ended 0 task(s)", out)
+        self.assertEqual(self.jp.read_text(), before)
+
+    def test_unknown_base_is_an_error(self):
+        rc, out = self._run("stamp-ended", str(self.jp), "--base", "nope")
+        self.assertEqual(rc, 1)
+        self.assertIn("merge-base", out)
 
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")
