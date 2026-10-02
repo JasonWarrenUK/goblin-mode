@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: hud
 disable-model-invocation: false # confusion about worktrees is exactly when it should appear; read-only, so no gate is needed
-allowed-tools: ["Bash(git worktree list:*)", "Bash(git -C:*)", "Bash(git branch --list:*)", "Bash(git rev-parse:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Read", "Glob"]
+allowed-tools: ["Bash(git worktree list:*)", "Bash(git -C * status --porcelain)", "Bash(git -C * rev-list --left-right --count *)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Read", "Glob"]
 argument-hint: "(no arguments: shows the map)"
 ---
 
