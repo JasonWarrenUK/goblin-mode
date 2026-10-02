@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: branch
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "EnterWorktree", "ExitWorktree", "Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(du:*)", "Bash(ls:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)"]
+allowed-tools: ["Read", "Glob", "EnterWorktree", "ExitWorktree", "Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(du:*)", "Bash(ls:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)"]
 arguments: ["action", "branch", "name"]
 argument-hint: "new <existing-branch>|<new-branch>:<base> [worktree name] | prune"
 ---
