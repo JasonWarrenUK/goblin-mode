@@ -446,7 +446,7 @@ that isn't open yet stays collapsed regardless of what it contains.
 | One known task to add | `roadmap:update-tasks` (`t` mode) |
 | Several tasks with an asserted dependency order | `roadmap:update-tasks` (`c` mode) |
 | New milestone needed | `roadmap:update-tasks` (`m` mode) |
-| Tasks need owners, or a dev's load needs handing over | `roadmap:update-devs` (`ready\|all` horizon, `devless\|<dev>\|all` scope) |
+| Tasks need owners, or a dev's load needs handing over | `roadmap:update-devs` (`ready\|open` horizon, `free\|taken\|all\|<dev>` scope, optional `<phase>:<tiers\|milestones\|focus>` slice) |
 | Work landed / statuses drifted | `roadmap:maintain` (add `reconcile` to check against code) |
 | Mark a task in progress, or stop working on one | `roadmap:maintain` (runs `claim` / `release`; the hooks usually offer the claim first) |
 | Priorities / freshness / health / dependency-graph review | `roadmap:review` (lens: `health`, `deps` or default full) |
