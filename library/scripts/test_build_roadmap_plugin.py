@@ -157,6 +157,12 @@ class BuildSafeguards(unittest.TestCase):
 		self.assertNotIn("Traceback", result.stderr)
 		self.assertFalse((self.root / "marketplace").exists())
 
+	def test_claim_skill_ships_namespaced(self) -> None:
+		plugin.build(self.root, self.out)
+		skill = (self.out / "skills" / "claim" / "SKILL.md").read_text()
+		self.assertIn("roadmap:update-devs", skill)
+		self.assertNotIn("roadmap-update-devs", skill)
+
 	def test_claim_hooks_ship_and_parse(self) -> None:
 		plugin.build(self.root, self.out)
 		hooks = json.loads((self.out / "hooks" / "hooks.json").read_text())["hooks"]
