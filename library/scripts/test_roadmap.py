@@ -1769,6 +1769,38 @@ class BackfillEnded(GitRoadmap):
         self.assertEqual(rc, 0)
         self.assertEqual(self._tasks()["a"]["ended"], roadmap.date.today().isoformat())
 
+    def _commit_done_before_started(self):
+        self._commit([task("a", started="2026-09-15")], "2026-09-01")
+        self._commit([task("a", "done", started="2026-09-15")], "2026-09-10")
+
+    def test_date_before_started_is_skipped_and_reported(self):
+        self._commit_done_before_started()
+        rc, out = self._run("backfill-ended", str(self.jp), "--json")
+        self.assertEqual(rc, 0)
+        report = json.loads(out)
+        self.assertEqual(report["tasks"], [])
+        self.assertEqual((report["skipped"][0]["id"], report["skipped"][0]["started"]),
+                         ("a", "2026-09-15"))
+        self.assertNotIn("ended", self._tasks()["a"])
+        self.assertEqual(self._run("validate", str(self.jp))[0], 0)
+
+    def test_skipped_rows_show_in_the_text_preview(self):
+        self._commit_done_before_started()
+        rc, out = self._run("backfill-ended", str(self.jp), "--dry-run")
+        self.assertEqual(rc, 0)
+        self.assertIn("skipped: before started 2026-09-15", out)
+        self.assertNotIn("already has an end date", out)
+
+    def test_uncommitted_done_before_a_future_started_is_skipped(self):
+        self._commit([task("a", started="2026-12-01")], "2026-09-01")
+        self._write([task("a", "done", started="2026-12-01")])
+        rc, out = self._run("backfill-ended", str(self.jp), "--json")
+        self.assertEqual(rc, 0)
+        report = json.loads(out)
+        self.assertEqual((report["tasks"], report["skipped"][0]["basis"]),
+                         ([], "uncommitted"))
+        self.assertNotIn("ended", self._tasks()["a"])
+
     def test_outside_a_repository_is_an_error(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
@@ -1841,6 +1873,54 @@ class StampEnded(GitRoadmap):
         rc, out = self._run("stamp-ended", str(self.jp), "--base", "nope")
         self.assertEqual(rc, 1)
         self.assertIn("merge-base", out)
+
+    def _rebase_onto(self, mutate_base):
+        """Rewrite `base` with `mutate_base`, then branch feat/y from it."""
+        self._git("checkout", "-q", "base")
+        mutate_base()
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "base", when="2026-09-02")
+        self._git("checkout", "-q", "-b", "feat/y")
+        self.jp.parent.mkdir(exist_ok=True)
+
+    def _assert_refuses_to_stamp(self):
+        self._commit([task("a", "done"), task("b", "done"), task("c"), task("d")],
+                     "2026-09-05")
+        before = self.jp.read_text()
+        rc, out = self._stamp()
+        self.assertEqual(rc, 1)
+        self.assertIn("cannot read phase", out)
+        self.assertEqual(self.jp.read_text(), before)
+
+    def test_renamed_phase_is_an_error_not_a_blanket_stamp(self):
+        data = [phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", "done"), task("b", "done"), task("c"), task("d")]}],
+            name="Launch")]
+        self.jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        self._git("add", ".")
+        self._git("commit", "-q", "-m", "rename phase", when="2026-09-05")
+        before = self.jp.read_text()
+        rc, out = self._stamp()
+        self.assertEqual(rc, 1)
+        self.assertIn("'Launch'", out)
+        self.assertEqual(self.jp.read_text(), before)
+
+    def test_unparseable_base_is_an_error(self):
+        self._rebase_onto(lambda: self.jp.write_text("{ not json"))
+        self._assert_refuses_to_stamp()
+
+    def test_missing_base_file_is_an_error(self):
+        self._rebase_onto(lambda: shutil.rmtree(self.jp.parent))
+        self._assert_refuses_to_stamp()
+
+    def test_task_new_to_a_readable_base_is_still_stamped(self):
+        self._commit([task("a"), task("b", "done"), task("c"), task("d"),
+                      task("e", "done")], "2026-09-05")
+        rc, _ = self._stamp()
+        self.assertEqual(rc, 0)
+        tasks = self._tasks()
+        self.assertEqual(tasks["e"]["ended"], "2026-10-02")
+        self.assertNotIn("ended", tasks["b"])
 
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")

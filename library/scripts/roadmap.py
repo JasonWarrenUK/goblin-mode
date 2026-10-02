@@ -1758,7 +1758,13 @@ def cmd_stamp_ended(args) -> int:
     if not base:
         print(f"✗ no merge-base between HEAD and {args.base}")
         return 1
-    before = _phase_statuses(git("show", f"{base}:{rel}") or "", phase.get("name")) or {}
+    before = _phase_statuses(git("show", f"{base}:{rel}") or "", phase.get("name"))
+    if before is None:
+        print(f"✗ cannot read phase {phase.get('name')!r} at the merge-base "
+              f"({base[:8]}): the file is missing or unparseable there, or the "
+              "phase was renamed; stamp tasks with `end ID` or run "
+              "`backfill-ended`")
+        return 1
     tasks = build_index(phase)[0]
     chosen = []
     for tid, task in tasks.items():
@@ -1886,13 +1892,16 @@ def cmd_backfill_ended(args) -> int:
         return 1
     found = ended_from_history(versions, date.today().isoformat())
     tasks = build_index(phase)[0]
-    rows = []
+    rows, skipped = [], []
     for tid, task in tasks.items():
         if task.get("status") != "done" or task.get("ended") or tid not in found:
             continue
         when, sha, basis = found[tid]
-        rows.append({"id": tid, "ended": when, "commit": sha[:7],
-                     "basis": basis})
+        row = {"id": tid, "ended": when, "commit": sha[:7], "basis": basis}
+        if _is_iso_date(task.get("started")) and when < task["started"]:
+            skipped.append({**row, "started": task["started"]})
+            continue
+        rows.append(row)
     if not args.dry_run:
         for row in rows:
             _set_task_field(tasks[row["id"]], "ended", row["ended"])
@@ -1900,10 +1909,10 @@ def cmd_backfill_ended(args) -> int:
             _atomic_write(path, _canonical_text(data))
     if args.json:
         print(json.dumps({"phase": phase.get("name"), "written": not args.dry_run,
-                          "tasks": rows}, indent="\t"))
+                          "tasks": rows, "skipped": skipped}, indent="\t"))
         return 0
     verb = "would set" if args.dry_run else "set"
-    if not rows:
+    if not rows and not skipped:
         print(f"{phase.get('name')}: every done task already has an end date.")
         return 0
     print(f"{phase.get('name')}: {verb} ended on {len(rows)} task(s)")
@@ -1911,6 +1920,10 @@ def cmd_backfill_ended(args) -> int:
         note = f" [{row['basis']}]" if row["basis"] != "transition" else ""
         where = f" ({row['commit']})" if row["commit"] else ""
         print(f"  {row['id']:8} {row['ended']}{where}{note}")
+    for row in skipped:
+        where = f" ({row['commit']})" if row["commit"] else ""
+        print(f"  {row['id']:8} {row['ended']}{where} "
+              f"[skipped: before started {row['started']}]")
     return 0
 
 

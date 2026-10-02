@@ -98,6 +98,7 @@ Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py backfill-ended --dry-run
 
 - `[first-seen]`: the task was already done when it first reached git, so the date is only a lower bound (when the roadmap was first committed), not when the work finished.
 - `[uncommitted]`: done only in the working tree, so the date is today.
+- `[skipped: before started {date}]`: the proposed date precedes the task's `started`, so writing it would fail `validate`. These rows are never written, whichever option is chosen; ask the user to correct `started` by hand or to give the date to set with `roadmap.py end <ID> --date <date>`.
 
 Nothing to propose: say so and move on. Otherwise ask with AskUserQuestion: **Apply all** / **Apply, skipping first-seen** / **Skip**. Apply by rerunning without `--dry-run`; for the skipping option, set the approved rows one at a time with `roadmap.py end <ID> --date <date>`. Dates from a status-change commit are the commit's date, so a task marked done in a later catch-up commit is dated to that commit, not the day the work shipped; say so when a row's commit message looks like a reconcile (`reconcile`, `mark ... done`).
 
