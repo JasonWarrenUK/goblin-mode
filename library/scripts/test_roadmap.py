@@ -1904,7 +1904,9 @@ class Hooks(unittest.TestCase):
 
     def test_session_start_nudges_until_the_branch_claims(self):
         self.git(self.repo, "checkout", "-q", "-b", "feat/x")
-        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+        nudge = self.hook("session-start", self.repo)
+        self.assertIn("claims no roadmap task", nudge)
+        self.assertIn("roadmap-claim skill", nudge)
         self.assertEqual(self.cli("claim", "b", str(self.repo / ".claude" / "roadmaps.json")).returncode, 0)
         self.assertEqual(self.hook("session-start", self.repo).strip(),
                          "Roadmap: branch `feat/x` claims b.")
