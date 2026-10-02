@@ -58,7 +58,7 @@ field, an ISO date (`"2026-09-25"`), with `assignee` saying who; it is never
 a status and never inferred. Skills and hooks ask which task and who is doing
 it; `claim` stamps today's date unless given another.
 
-- **Making one:** `claim ID [--assignee NAME]` refuses unless the task's
+- **Making one:** the `roadmap:claim` skill (`roadmap:claim [ID] [assignee|release]`) is the front door: it asks who, runs the CLI, commits the change and offers the push. Underneath, `claim ID [--assignee NAME]` refuses unless the task's
   effective status is `todo`, it isn't already claimed and any change of
   assignee is explicit (`--reassign`). `release ID [--unassign]` deletes it.
   Both write `roadmaps.json` only. A claim has no PHASE.md task-line
@@ -477,6 +477,7 @@ that isn't open yet stays collapsed regardless of what it contains.
 | One known task to add | `roadmap:update-tasks` (`t` mode) |
 | Several tasks with an asserted dependency order | `roadmap:update-tasks` (`c` mode) |
 | New milestone needed | `roadmap:update-tasks` (`m` mode) |
+| Starting or dropping work on a task | `roadmap:claim` (`[task id] [assignee\|release]`) |
 | Tasks need owners, or a dev's load needs handing over | `roadmap:update-devs` (`ready\|open` horizon, `free\|taken\|all\|<dev>` scope, optional `<phase>:<tiers\|milestones\|focus>` slice) |
 | Work landed / statuses drifted | `roadmap:maintain` (add `reconcile` to check against code) |
 | Mark a task in progress, or stop working on one | `roadmap:maintain` (runs `claim` / `release`; the hooks usually offer the claim first) |
