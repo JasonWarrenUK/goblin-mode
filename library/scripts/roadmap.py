@@ -16,11 +16,19 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
   graph      dependency graph                           [--json --mermaid
                                                          --direction --omit-done
                                                          --palette]
-  ready      actionable todo tasks with ordering signals [--json]
+  ready      actionable todo tasks with ordering signals [--json
+                                                         --milestones --tiers]
+  open       every task not done or out of scope        [--json
+                                                         --milestones --tiers]
   render     deterministic HTML artefact from template   [--out PATH]
   claim      ID: record that someone has started a task [--assignee NAME
                                                          --reassign --date]
   release    ID: drop a claim                           [--unassign]
+  end        ID: record when a done task finished       [--date --force]
+  backfill-ended  date done tasks lacking `ended` from git history
+                                                        [--dry-run --json]
+  stamp-ended date the done tasks a branch finished     [--base --pr --date
+                                                         --dry-run --json]
   hook       EVENT: Claude Code hook entry point (session-start,
              post-tool-use); reads the hook JSON on stdin, always exits 0
 
@@ -409,6 +417,20 @@ def _validate_phase(phase):
         if "started" in task and not _is_iso_date(task.get("started")):
             problems.append(
                 f"{tid}: started {task.get('started')!r} is not a YYYY-MM-DD date")
+        if "ended" in task:
+            ended = task.get("ended")
+            if not _is_iso_date(ended):
+                problems.append(
+                    f"{tid}: ended {ended!r} is not a YYYY-MM-DD date")
+            elif task.get("status") != "done":
+                problems.append(
+                    f"{tid}: ended {ended} on a task whose status is "
+                    f"{task.get('status')!r}, not done (an end date records "
+                    "finished work; remove it when a task is reopened)")
+            elif (_is_iso_date(task.get("started"))
+                  and ended < task["started"]):
+                problems.append(
+                    f"{tid}: ended {ended} is before started {task['started']}")
         for dep in task.get("dependsOn", []):
             if dep not in known:
                 problems.append(f"{tid}: dependsOn {dep!r} resolves to nothing")
@@ -958,17 +980,18 @@ def _topological_order(ids, order, edges):
 
 def _live_graph(phase, omit_done=False):
     """The graph mermaid_source() and choose_direction() both draw: full
-    build_graph() output plus the same set of node ids to skip (done tasks
-    and the milestones they empty out under omit_done, gates left
-    disconnected once those are gone). Kept in one place so the two never
-    compute a different notion of "the graph that actually renders"."""
+    build_graph() output plus the same set of node ids to skip (done and
+    out_of_scope tasks and the milestones they empty out under omit_done,
+    gates left disconnected once those are gone). Kept in one place so the
+    two never compute a different notion of "the graph that actually
+    renders"."""
     graph = build_graph(phase)
     skipped = set()
     if omit_done:
         milestone_live = {}
         for n in graph["nodes"]:
             if n["kind"] == "task":
-                live = n.get("status") != "done"
+                live = n.get("status") not in ("done", "out_of_scope")
                 milestone_live[n["milestone"]] = (
                     milestone_live.get(n["milestone"], False) or live)
                 if not live:
@@ -1195,11 +1218,53 @@ def cmd_graph(args) -> int:
 # ---------------------------------------------------------------------------
 # ready
 # ---------------------------------------------------------------------------
-def build_ready(phase):
+def resolve_within(phase, milestones=None, tiers=None):
+    """The milestone ids a `--milestones` / `--tiers` filter selects, or None
+    for the whole phase. `milestones` is a list of ids (`M2`); `tiers` is a
+    list of tier words (`core`, `secondary`, …) or the single word `focus`,
+    the one tier `tier_states()` calls underway. The two are mutually
+    exclusive. Raises RoadmapError on an unknown id or tier, on both being
+    given, and on `focus` when no tier is underway."""
+    if milestones and tiers:
+        raise RoadmapError("milestones and tiers are mutually exclusive")
+    entries = build_stats(phase)["milestones"]
+    if milestones:
+        known = {m["id"].lower(): m["id"] for m in entries}
+        unknown = [m for m in milestones if m.lower() not in known]
+        if unknown:
+            raise RoadmapError(
+                f"unknown milestone(s) {', '.join(unknown)}; "
+                f"{phase.get('name')} has {', '.join(m['id'] for m in entries)}")
+        return {known[m.lower()] for m in milestones}
+    if not tiers:
+        return None
+    states = tier_states(entries)
+    words = {tier_label(t).lower(): t for t in states}
+    if [t.lower() for t in tiers] == ["focus"]:
+        underway = [t for t, state in states.items() if state == "underway"]
+        if not underway:
+            raise RoadmapError(f"no tier is underway in {phase.get('name')}")
+        wanted = set(underway)
+    else:
+        unknown = [t for t in tiers if t.lower() not in words]
+        if unknown:
+            raise RoadmapError(
+                f"unknown tier(s) {', '.join(unknown)}; "
+                f"{phase.get('name')} has {', '.join(sorted(words, key=words.get))}")
+        wanted = {words[t.lower()] for t in tiers}
+    return {m["id"] for m in entries if m["tier"] in wanted}
+
+
+def build_ready(phase, within=None, horizon="ready"):
     """Actionable candidates: unclaimed tasks whose effective status is todo,
     annotated with ordering signals so a small model can choose between valid
     options instead of deriving them. Claimed tasks are listed apart under
-    `claimed` (someone is already on them), oldest claim first."""
+    `claimed` (someone is already on them), oldest claim first.
+
+    `within` (a set of milestone ids from resolve_within) narrows both lists
+    to those milestones. `horizon="open"` widens the candidates to every task
+    not done or out of scope, claimed ones included (each carries `status`,
+    `display` and `started`), and leaves `claimed` empty."""
     tasks, milestones, gates = build_index(phase)
     computed = recompute_all(tasks, milestones, gates)
     effective = {
@@ -1210,6 +1275,7 @@ def build_ready(phase):
     stats = build_stats(phase)
     milestone_pct = {m["id"]: m["donePct"] for m in stats["milestones"]}
     milestone_name = {m["id"]: m["name"] for m in stats["milestones"]}
+    milestone_tier_of = {m["id"]: m["tier"] for m in stats["milestones"]}
     task_milestone = {}
     for m in phase.get("milestones", []):
         for t in m.get("tasks", []):
@@ -1241,27 +1307,40 @@ def build_ready(phase):
     candidates = []
     claimed = []
     for tid, t in tasks.items():
-        if is_claimed(t) and effective.get(tid) not in ("done", "out_of_scope"):
-            mid = task_milestone.get(tid)
+        mid = task_milestone.get(tid)
+        if within is not None and mid not in within:
+            continue
+        tier = milestone_tier_of.get(mid, 0)
+        is_open = effective.get(tid) not in ("done", "out_of_scope")
+        if horizon == "ready" and is_claimed(t) and is_open:
             claimed.append({
                 "id": tid,
                 "description": t.get("description", ""),
                 "milestone": mid,
                 "milestoneName": milestone_name.get(mid, ""),
+                "tier": tier,
+                "tierLabel": tier_label(tier),
                 "status": effective.get(tid),
                 "display": display_status(t, effective.get(tid)),
                 "started": t["started"],
                 "assignee": t.get("assignee", ""),
             })
             continue
-        if effective.get(tid) != "todo":
+        if horizon == "open":
+            if not is_open:
+                continue
+        elif effective.get(tid) != "todo":
             continue
-        mid = task_milestone.get(tid)
         candidates.append({
             "id": tid,
             "description": t.get("description", ""),
             "milestone": mid,
             "milestoneName": milestone_name.get(mid, ""),
+            "tier": tier,
+            "tierLabel": tier_label(tier),
+            "status": effective.get(tid),
+            "display": display_status(t, effective.get(tid)),
+            "started": t.get("started", ""),
             "milestoneDonePct": milestone_pct.get(mid, 0),
             "directDependents": len(dependents.get(tid, ())),
             "transitiveUnblocks": len(transitive(tid)),
@@ -1329,10 +1408,18 @@ def ready_groups(candidates):
             "dev": {k: by_dev[k] for k in sorted(by_dev, key=dev_key)}}
 
 
-def cmd_ready(args) -> int:
+def _csv(value):
+    """`M2, M4` -> ['M2', 'M4']; None or empty -> None."""
+    items = [v.strip() for v in (value or "").split(",") if v.strip()]
+    return items or None
+
+
+def cmd_ready(args, horizon="ready") -> int:
     try:
         _path, data = load(args.path)
-        ready = build_ready(active_phase(data, args.phase))
+        phase = active_phase(data, args.phase)
+        within = resolve_within(phase, _csv(args.milestones), _csv(args.tiers))
+        ready = build_ready(phase, within=within, horizon=horizon)
     except RoadmapError as exc:
         print(f"✗ {exc}")
         return 2
@@ -1341,11 +1428,12 @@ def cmd_ready(args) -> int:
                  "groups": ready_groups(ready["candidates"])}
         print(json.dumps(ready, indent="\t"))
         return 0
+    noun = "open" if horizon == "open" else "unblocked"
     if not ready["candidates"]:
-        print(f"{ready['phase']}: no unblocked todo tasks.")
+        print(f"{ready['phase']}: no {noun} tasks.")
         _print_claimed(ready["claimed"])
         return 0
-    print(f"{ready['phase']}: {len(ready['candidates'])} unblocked task(s), "
+    print(f"{ready['phase']}: {len(ready['candidates'])} {noun} task(s), "
           "highest leverage first")
     for c in ready["candidates"]:
         sink = "  [completes milestone]" if c["isMilestoneSink"] else ""
@@ -1510,11 +1598,11 @@ def cmd_render(args) -> int:
 
 
 # ---------------------------------------------------------------------------
-# claim / release
+# claim / release / end
 # ---------------------------------------------------------------------------
 TASK_FIELD_ORDER = ["id", "description", "status", "dependsOn",
                     "softDependsOn", "softMilestone", "iterative", "notes",
-                    "assignee", "started", "pr"]
+                    "assignee", "started", "ended", "pr"]
 
 
 def _set_task_field(task, key, value):
@@ -1619,6 +1707,227 @@ def cmd_release(args) -> int:
     return 0
 
 
+def cmd_end(args) -> int:
+    path, data, index, code = _load_for_write(args)
+    if code is not None:
+        return code
+    task = index[0][args.id]
+    if task.get("status") != "done":
+        print(f"✗ {args.id} is {task.get('status')}, not done: only finished "
+              "work gets an end date")
+        return 1
+    if task.get("ended") and not args.force:
+        print(f"✗ {args.id} already ended {task['ended']}; pass --force to "
+              "overwrite it")
+        return 1
+    ended = args.date or date.today().isoformat()
+    if not _is_iso_date(ended):
+        print(f"✗ --date {ended!r} is not a YYYY-MM-DD date")
+        return 1
+    if _is_iso_date(task.get("started")) and ended < task["started"]:
+        print(f"✗ --date {ended} is before {args.id} started {task['started']}")
+        return 1
+    _set_task_field(task, "ended", ended)
+    _atomic_write(path, _canonical_text(data))
+    print(f"✓ ended {args.id} ({ended})")
+    return 0
+
+
+def cmd_stamp_ended(args) -> int:
+    """Stamp `ended` on the done tasks a branch finished: those that were not
+    done at its merge-base with --base, plus those whose `pr` is --pr. A task
+    that already has `ended` is never touched."""
+    try:
+        path, data = load(args.path)
+        phase = active_phase(data, args.phase)
+    except RoadmapError as exc:
+        print(f"✗ {exc}")
+        return 2
+    if _canonical_text(data) != path.read_text() and not args.reformat:
+        print("✗ roadmaps.json is not in canonical form; re-run with "
+              "--reformat to accept a whole-file rewrite.")
+        return 1
+    ended = args.date or date.today().isoformat()
+    if not _is_iso_date(ended):
+        print(f"✗ --date {ended!r} is not a YYYY-MM-DD date")
+        return 1
+    git, rel = _git_at_toplevel(path)
+    if git is None:
+        print("✗ roadmaps.json is not inside a git repository")
+        return 1
+    base = (git("merge-base", "HEAD", args.base) or "").strip()
+    if not base:
+        print(f"✗ no merge-base between HEAD and {args.base}")
+        return 1
+    before = _phase_statuses(git("show", f"{base}:{rel}") or "", phase.get("name"))
+    if before is None:
+        print(f"✗ cannot read phase {phase.get('name')!r} at the merge-base "
+              f"({base[:8]}): the file is missing or unparseable there, or the "
+              "phase was renamed; stamp tasks with `end ID` or run "
+              "`backfill-ended`")
+        return 1
+    tasks = build_index(phase)[0]
+    chosen = []
+    for tid, task in tasks.items():
+        if task.get("status") != "done" or task.get("ended"):
+            continue
+        finished_here = before.get(tid) not in ("done", "out_of_scope")
+        if finished_here or (args.pr is not None and task.get("pr") == args.pr):
+            if _is_iso_date(task.get("started")) and ended < task["started"]:
+                continue
+            chosen.append(tid)
+    if not args.dry_run:
+        for tid in chosen:
+            _set_task_field(tasks[tid], "ended", ended)
+        if chosen:
+            _atomic_write(path, _canonical_text(data))
+    if args.json:
+        print(json.dumps({"phase": phase.get("name"), "ended": ended,
+                          "written": not args.dry_run and bool(chosen),
+                          "tasks": chosen}))
+        return 0
+    verb = "would end" if args.dry_run else "ended"
+    print(f"{phase.get('name')}: {verb} {len(chosen)} task(s) on {ended}"
+          + (": " + ", ".join(chosen) if chosen else ""))
+    return 0
+
+
+def ended_from_history(versions, today):
+    """{task id: (date, sha, basis)} for every task done in the last version.
+
+    `versions` is the roadmap's history oldest first, each a (sha, date,
+    {id: status}) triple. A task's end date is the date of the version where
+    it last became done: a later reopen resets the clock, and a task that was
+    done before it ever reached git is dated by the first version showing it
+    (basis `first-seen`). A task done in the final version only because of
+    working-tree edits (the sha is empty) is dated `today` (basis
+    `uncommitted`). Otherwise the basis is `transition`."""
+    became = {}
+    seen = set()
+    for sha, when, statuses in versions:
+        for tid, status in statuses.items():
+            if status != "done":
+                became.pop(tid, None)
+            elif tid not in became:
+                basis = ("uncommitted" if not sha
+                         else "transition" if tid in seen else "first-seen")
+                became[tid] = (when or today, sha, basis)
+        seen.update(statuses)
+    final = versions[-1][2] if versions else {}
+    return {tid: found for tid, found in became.items()
+            if final.get(tid) == "done"}
+
+
+def _phase_statuses(text, phase_name):
+    """{task id: status} for the phase named `phase_name` in roadmaps.json
+    `text`, or None when the text does not parse or has no such phase."""
+    try:
+        loaded = json.loads(text)
+    except ValueError:
+        return None
+    for ph in (loaded if isinstance(loaded, list) else [loaded]):
+        if isinstance(ph, dict) and ph.get("name") == phase_name:
+            return {t["id"]: t.get("status")
+                    for m in ph.get("milestones", [])
+                    for t in m.get("tasks", []) if "id" in t}
+    return None
+
+
+def _git_at_toplevel(path):
+    """(git, rel): a runner for git commands from the repository root that
+    holds `path` (stdout, or None on failure), and `path` relative to that
+    root. (None, None) when `path` is not in a git repository."""
+    import subprocess
+    top_dir = [path.parent]
+
+    def git(*argv):
+        done = subprocess.run(["git", "-C", str(top_dir[0]), *argv],
+                              capture_output=True, text=True)
+        return done.stdout if done.returncode == 0 else None
+
+    top = git("rev-parse", "--show-toplevel")
+    if top is None:
+        return None, None
+    top_dir[0] = Path(top.strip())
+    return git, path.resolve().relative_to(top_dir[0].resolve()).as_posix()
+
+
+def _roadmap_versions(path, phase_name):
+    """Oldest-first (sha, date, {id: status}) history of one phase from git,
+    ending with the working-tree file as ("", "", ...). None when the file
+    is not in a git repository."""
+    git, rel = _git_at_toplevel(path)
+    if git is None:
+        return None
+
+    versions = []
+    log = git("log", "--first-parent", "--reverse", "--format=%H %cs", "--", rel)
+    for line in (log or "").splitlines():
+        sha, when = line.split()
+        found = _phase_statuses(git("show", f"{sha}:{rel}") or "", phase_name)
+        if found is not None:
+            versions.append((sha, when, found))
+    current = _phase_statuses(path.read_text(), phase_name)
+    if current is not None:
+        if versions and versions[-1][2] == current:
+            return versions
+        versions.append(("", "", current))
+    return versions
+
+
+def cmd_backfill_ended(args) -> int:
+    try:
+        path, data = load(args.path)
+        phase = active_phase(data, args.phase)
+    except RoadmapError as exc:
+        print(f"✗ {exc}")
+        return 2
+    if _canonical_text(data) != path.read_text() and not args.reformat:
+        print("✗ roadmaps.json is not in canonical form; re-run with "
+              "--reformat to accept a whole-file rewrite.")
+        return 1
+    versions = _roadmap_versions(path, phase.get("name"))
+    if versions is None:
+        print("✗ roadmaps.json is not inside a git repository; there is no "
+              "history to read dates from")
+        return 1
+    found = ended_from_history(versions, date.today().isoformat())
+    tasks = build_index(phase)[0]
+    rows, skipped = [], []
+    for tid, task in tasks.items():
+        if task.get("status") != "done" or task.get("ended") or tid not in found:
+            continue
+        when, sha, basis = found[tid]
+        row = {"id": tid, "ended": when, "commit": sha[:7], "basis": basis}
+        if _is_iso_date(task.get("started")) and when < task["started"]:
+            skipped.append({**row, "started": task["started"]})
+            continue
+        rows.append(row)
+    if not args.dry_run:
+        for row in rows:
+            _set_task_field(tasks[row["id"]], "ended", row["ended"])
+        if rows:
+            _atomic_write(path, _canonical_text(data))
+    if args.json:
+        print(json.dumps({"phase": phase.get("name"), "written": not args.dry_run,
+                          "tasks": rows, "skipped": skipped}, indent="\t"))
+        return 0
+    verb = "would set" if args.dry_run else "set"
+    if not rows and not skipped:
+        print(f"{phase.get('name')}: every done task already has an end date.")
+        return 0
+    print(f"{phase.get('name')}: {verb} ended on {len(rows)} task(s)")
+    for row in rows:
+        note = f" [{row['basis']}]" if row["basis"] != "transition" else ""
+        where = f" ({row['commit']})" if row["commit"] else ""
+        print(f"  {row['id']:8} {row['ended']}{where}{note}")
+    for row in skipped:
+        where = f" ({row['commit']})" if row["commit"] else ""
+        print(f"  {row['id']:8} {row['ended']}{where} "
+              f"[skipped: before started {row['started']}]")
+    return 0
+
+
 def cmd_hook(args) -> int:
     """Claude Code hook entry point. A hook must never fail the session, so
     every error is swallowed and the exit code is always 0."""
@@ -1669,13 +1978,26 @@ def main(argv=None) -> int:
                     help="complete Mermaid source incl. classDefs")
     sp.add_argument("--direction", choices=["LR", "TD"], default="LR")
     sp.add_argument("--omit-done", action="store_true",
-                    help="drop done tasks and fully-done milestones")
+                    help="drop done and out_of_scope tasks and the milestones "
+                         "they empty")
     sp.add_argument("--palette", choices=["light", "dark", "vars"],
                     default="light",
                     help="literal light/dark hexes, or CSS custom properties")
 
-    sp = common(sub.add_parser("ready", help="actionable todo candidates"))
-    sp.add_argument("--json", action="store_true")
+    def within_flags(sp):
+        sp.add_argument("--json", action="store_true")
+        group = sp.add_mutually_exclusive_group()
+        group.add_argument("--milestones", default=None,
+                           help="comma-separated milestone ids, e.g. M2,M4")
+        group.add_argument("--tiers", default=None,
+                           help="comma-separated tiers (core,secondary,…) "
+                                "or `focus` for the tier now underway")
+        return sp
+
+    within_flags(common(sub.add_parser(
+        "ready", help="actionable todo candidates")))
+    within_flags(common(sub.add_parser(
+        "open", help="every task not done or out of scope")))
 
     sp = common(sub.add_parser("render", help="write the HTML artefact"))
     sp.add_argument("--out", default=None, help="output path override")
@@ -1698,6 +2020,35 @@ def main(argv=None) -> int:
     sp.add_argument("--date", default=None,
                     help="start date YYYY-MM-DD (default today)")
 
+    sp = claim_common(sub.add_parser(
+        "end", help="record the date a done task finished"))
+    sp.add_argument("--date", default=None,
+                    help="end date YYYY-MM-DD (default today)")
+    sp.add_argument("--force", action="store_true",
+                    help="overwrite an existing end date")
+
+    sp = common(sub.add_parser(
+        "backfill-ended",
+        help="date done tasks that lack `ended` from git history"))
+    sp.add_argument("--dry-run", action="store_true", help="preview, no write")
+    sp.add_argument("--json", action="store_true")
+    sp.add_argument("--reformat", action="store_true",
+                    help="allow rewriting a non-canonically-formatted file")
+
+    sp = common(sub.add_parser(
+        "stamp-ended",
+        help="date the done tasks a branch finished, before it merges"))
+    sp.add_argument("--base", default="origin/main",
+                    help="ref to take the merge-base with (default origin/main)")
+    sp.add_argument("--pr", type=int, default=None,
+                    help="also stamp done tasks whose `pr` is this number")
+    sp.add_argument("--date", default=None,
+                    help="end date YYYY-MM-DD (default today)")
+    sp.add_argument("--dry-run", action="store_true", help="preview, no write")
+    sp.add_argument("--json", action="store_true")
+    sp.add_argument("--reformat", action="store_true",
+                    help="allow rewriting a non-canonically-formatted file")
+
     sp = claim_common(sub.add_parser("release", help="drop a claim"))
     sp.add_argument("--unassign", action="store_true",
                     help="also clear the assignee")
@@ -1713,9 +2064,13 @@ def main(argv=None) -> int:
         "stats": cmd_stats,
         "graph": cmd_graph,
         "ready": cmd_ready,
+        "open": lambda a: cmd_ready(a, horizon="open"),
         "render": cmd_render,
         "claim": cmd_claim,
         "release": cmd_release,
+        "end": cmd_end,
+        "backfill-ended": cmd_backfill_ended,
+        "stamp-ended": cmd_stamp_ended,
         "hook": cmd_hook,
     }[args.cmd](args)
 

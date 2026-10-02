@@ -45,9 +45,20 @@ A plugin's own bump commit is scoped to that plugin's subtree only (the rebuild 
 
 **Pushing restarts checks.** A push here can dismiss an existing approval or re-queue CI on a repo that has either; re-run Step 1's readiness check against the pushed commit before proceeding to Step 2, rather than trusting the state Step 1 read before this step existed.
 
+## Step 1.6: Stamp end dates
+
+Only when the repo has a rich roadmap (`python3 "$HOME"/.claude/library/scripts/roadmap.py detect` exits 0); otherwise skip silently. It runs on the PR's head branch, in the same checkout as Step 1.5, because the roadmap it edits is the branch's own and the date has to merge with the work. Never commit it to main afterwards: Step 3's rule stands.
+
+1. Preview: `python3 "$HOME"/.claude/library/scripts/roadmap.py stamp-ended --base origin/{default branch} --pr {number} --dry-run --json`. The set is every done task that was not done at the branch's merge-base with the default branch, plus any done task whose `pr` is this PR's number, minus tasks that already have `ended`. Using the default branch as the base, even for a stacked PR, makes the set span every layer this merge lands.
+2. Non-zero exit: the CLI prints a plain `✗` line, not JSON; relay it word for word. If it says `roadmaps.json` is not in canonical form, say that a write would reformat the whole file and rerun the preview with `--reformat` solely when the user agrees, keeping the flag on the write. On a refusal or any other failure (no merge-base with `origin/{default branch}`, a phase the merge-base cannot read, a bad `--date`, an unreadable roadmap on exit 2), skip this step, say in the Step 2 summary that no end dates were stamped and carry on; `roadmap-maintain` in Step 4 backfills them.
+3. Empty `tasks`: nothing to do, move on. Otherwise rerun without `--dry-run`, then `git commit -m "chore(roadmap): end {IDs}"` (the roadmap file only) and push.
+4. The date is today, which is the landing day. If the PR sits waiting past midnight, pass `--date` with the day the approval to merge is given.
+
+A task the PR finished but that is not marked `done` on the branch is not stamped; say so in the Step 2 summary so it is not mistaken for an oversight (`roadmap-maintain` fixes the status and backfills the date later). Like Step 1.5, this push restarts checks: re-run Step 1's readiness check against the pushed commit before Step 2.
+
 ## Step 2: Confirm and merge
 
-Show a one-line summary (title, head → base, review state, checks) and **await approval**; merging is irreversible in practice. For a stacked PR the summary must list every layer the merge will land (this PR plus all unmerged PRs below it): the approval covers the lot. If Step 1.5 bumped any plugin, list each one's new version and the commit that carries it, so the approval covers that too. Then, for an ordinary PR:
+Show a one-line summary (title, head → base, review state, checks) and **await approval**; merging is irreversible in practice. For a stacked PR the summary must list every layer the merge will land (this PR plus all unmerged PRs below it): the approval covers the lot. If Step 1.5 bumped any plugin, list each one's new version and the commit that carries it, so the approval covers that too. If Step 1.6 stamped end dates, list the task IDs and the date. Then, for an ordinary PR:
 
 ```bash
 gh pr merge {number} --merge --delete-branch
@@ -119,11 +130,11 @@ Steps 1 and 2 run from the landing worktree: it sits outside the branch's own wo
 
 ## Step 5: Roadmap sync
 
-If the repo has a rich roadmap (`python3 "$HOME"/.claude/library/scripts/roadmap.py detect` exits 0), offer to run the `roadmap-maintain` skill so the merged work's task lands as `done` and the projections refresh. Offer, don't assume; the PR may not map to a roadmap task.
+If the repo has a rich roadmap (`python3 "$HOME"/.claude/library/scripts/roadmap.py detect` exits 0), offer to run the `roadmap-maintain` skill so the merged work's task lands as `done` and the projections refresh; it also backfills any done task whose `ended` Step 1.6 missed. Offer, don't assume; the PR may not map to a roadmap task.
 
 ## Step 6: Report
 
-PR merged (URL), tag(s) created (root and any bumped plugin), branch/worktree state after cleanup, roadmap synced or skipped. If the changelog matters for this project, offer `/doc-changelog root md {tag}` for the root tag and, for each bumped plugin, `/doc-changelog plugin:{name} md {name}-v{X.Y.Z}`; `doc-changelog`'s scope and version arguments together scope each run to exactly one release. Also offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
+PR merged (URL), tag(s) created (root and any bumped plugin), branch/worktree state after cleanup, roadmap synced or skipped, and the task IDs given an end date by Step 1.6. If the changelog matters for this project, offer `/doc-changelog root md {tag}` for the root tag and, for each bumped plugin, `/doc-changelog plugin:{name} md {name}-v{X.Y.Z}`; `doc-changelog`'s scope and version arguments together scope each run to exactly one release. Also offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
 
 ## Red flags
 
