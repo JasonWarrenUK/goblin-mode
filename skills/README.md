@@ -76,6 +76,7 @@ Claude can load these automatically when relevant.
 | `/pr-review` | ᛟ opus | Review a pull request and post it as a GitHub review |
 | `/pr-review-dry_run` | ᛟ opus | Review a pull request's diff and print structured findings to the terminal. Holds the canonical revi… |
 | `/pr-update` | ᛊ sonnet | Update a PR description to account for commits made since it was last written |
+| `/roadmap-claim` | ᛊ sonnet | Claim a roadmap task when work on it starts, or release the claim when work stops: asks who is doing… |
 | `/roadmap-create-interview` | ᚠ fable | Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks. Read-only… |
 | `/roadmap-maintain` | ᛊ sonnet | Sync roadmap statuses after work lands: recompute from the dependency graph and refresh every projec… |
 | `/roadmap-review` | ᚠ fable | Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) a… |
