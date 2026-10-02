@@ -27,6 +27,8 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
   end        ID: record when a done task finished       [--date --force]
   backfill-ended  date done tasks lacking `ended` from git history
                                                         [--dry-run --json]
+  stamp-ended date the done tasks a branch finished     [--base --pr --date
+                                                         --dry-run --json]
   hook       EVENT: Claude Code hook entry point (session-start,
              post-tool-use); reads the hook JSON on stdin, always exits 0
 
@@ -1730,6 +1732,59 @@ def cmd_end(args) -> int:
     return 0
 
 
+def cmd_stamp_ended(args) -> int:
+    """Stamp `ended` on the done tasks a branch finished: those that were not
+    done at its merge-base with --base, plus those whose `pr` is --pr. A task
+    that already has `ended` is never touched."""
+    try:
+        path, data = load(args.path)
+        phase = active_phase(data, args.phase)
+    except RoadmapError as exc:
+        print(f"✗ {exc}")
+        return 2
+    if _canonical_text(data) != path.read_text() and not args.reformat:
+        print("✗ roadmaps.json is not in canonical form; re-run with "
+              "--reformat to accept a whole-file rewrite.")
+        return 1
+    ended = args.date or date.today().isoformat()
+    if not _is_iso_date(ended):
+        print(f"✗ --date {ended!r} is not a YYYY-MM-DD date")
+        return 1
+    git, rel = _git_at_toplevel(path)
+    if git is None:
+        print("✗ roadmaps.json is not inside a git repository")
+        return 1
+    base = (git("merge-base", "HEAD", args.base) or "").strip()
+    if not base:
+        print(f"✗ no merge-base between HEAD and {args.base}")
+        return 1
+    before = _phase_statuses(git("show", f"{base}:{rel}") or "", phase.get("name")) or {}
+    tasks = build_index(phase)[0]
+    chosen = []
+    for tid, task in tasks.items():
+        if task.get("status") != "done" or task.get("ended"):
+            continue
+        finished_here = before.get(tid) not in ("done", "out_of_scope")
+        if finished_here or (args.pr is not None and task.get("pr") == args.pr):
+            if _is_iso_date(task.get("started")) and ended < task["started"]:
+                continue
+            chosen.append(tid)
+    if not args.dry_run:
+        for tid in chosen:
+            _set_task_field(tasks[tid], "ended", ended)
+        if chosen:
+            _atomic_write(path, _canonical_text(data))
+    if args.json:
+        print(json.dumps({"phase": phase.get("name"), "ended": ended,
+                          "written": not args.dry_run and bool(chosen),
+                          "tasks": chosen}))
+        return 0
+    verb = "would end" if args.dry_run else "ended"
+    print(f"{phase.get('name')}: {verb} {len(chosen)} task(s) on {ended}"
+          + (": " + ", ".join(chosen) if chosen else ""))
+    return 0
+
+
 def ended_from_history(versions, today):
     """{task id: (date, sha, basis)} for every task done in the last version.
 
@@ -1756,44 +1811,56 @@ def ended_from_history(versions, today):
             if final.get(tid) == "done"}
 
 
+def _phase_statuses(text, phase_name):
+    """{task id: status} for the phase named `phase_name` in roadmaps.json
+    `text`, or None when the text does not parse or has no such phase."""
+    try:
+        loaded = json.loads(text)
+    except ValueError:
+        return None
+    for ph in (loaded if isinstance(loaded, list) else [loaded]):
+        if isinstance(ph, dict) and ph.get("name") == phase_name:
+            return {t["id"]: t.get("status")
+                    for m in ph.get("milestones", [])
+                    for t in m.get("tasks", []) if "id" in t}
+    return None
+
+
+def _git_at_toplevel(path):
+    """(git, rel): a runner for git commands from the repository root that
+    holds `path` (stdout, or None on failure), and `path` relative to that
+    root. (None, None) when `path` is not in a git repository."""
+    import subprocess
+    top_dir = [path.parent]
+
+    def git(*argv):
+        done = subprocess.run(["git", "-C", str(top_dir[0]), *argv],
+                              capture_output=True, text=True)
+        return done.stdout if done.returncode == 0 else None
+
+    top = git("rev-parse", "--show-toplevel")
+    if top is None:
+        return None, None
+    top_dir[0] = Path(top.strip())
+    return git, path.resolve().relative_to(top_dir[0].resolve()).as_posix()
+
+
 def _roadmap_versions(path, phase_name):
     """Oldest-first (sha, date, {id: status}) history of one phase from git,
     ending with the working-tree file as ("", "", ...). None when the file
     is not in a git repository."""
-    import subprocess
-
-    def git(*argv, cwd=None):
-        done = subprocess.run(["git", "-C", str(cwd or top_dir), *argv],
-                              capture_output=True, text=True)
-        return done.stdout if done.returncode == 0 else None
-
-    top_dir = path.parent
-    top = git("rev-parse", "--show-toplevel")
-    if top is None:
-        return None
-    top_dir = Path(top.strip())
-    rel = path.resolve().relative_to(top_dir.resolve()).as_posix()
-
-    def statuses(text):
-        try:
-            loaded = json.loads(text)
-        except ValueError:
-            return None
-        for ph in (loaded if isinstance(loaded, list) else [loaded]):
-            if isinstance(ph, dict) and ph.get("name") == phase_name:
-                return {t["id"]: t.get("status")
-                        for m in ph.get("milestones", [])
-                        for t in m.get("tasks", []) if "id" in t}
+    git, rel = _git_at_toplevel(path)
+    if git is None:
         return None
 
     versions = []
     log = git("log", "--first-parent", "--reverse", "--format=%H %cs", "--", rel)
     for line in (log or "").splitlines():
         sha, when = line.split()
-        found = statuses(git("show", f"{sha}:{rel}") or "")
+        found = _phase_statuses(git("show", f"{sha}:{rel}") or "", phase_name)
         if found is not None:
             versions.append((sha, when, found))
-    current = statuses(path.read_text())
+    current = _phase_statuses(path.read_text(), phase_name)
     if current is not None:
         if versions and versions[-1][2] == current:
             return versions
@@ -1953,6 +2020,20 @@ def main(argv=None) -> int:
     sp.add_argument("--reformat", action="store_true",
                     help="allow rewriting a non-canonically-formatted file")
 
+    sp = common(sub.add_parser(
+        "stamp-ended",
+        help="date the done tasks a branch finished, before it merges"))
+    sp.add_argument("--base", default="origin/main",
+                    help="ref to take the merge-base with (default origin/main)")
+    sp.add_argument("--pr", type=int, default=None,
+                    help="also stamp done tasks whose `pr` is this number")
+    sp.add_argument("--date", default=None,
+                    help="end date YYYY-MM-DD (default today)")
+    sp.add_argument("--dry-run", action="store_true", help="preview, no write")
+    sp.add_argument("--json", action="store_true")
+    sp.add_argument("--reformat", action="store_true",
+                    help="allow rewriting a non-canonically-formatted file")
+
     sp = claim_common(sub.add_parser("release", help="drop a claim"))
     sp.add_argument("--unassign", action="store_true",
                     help="also clear the assignee")
@@ -1974,6 +2055,7 @@ def main(argv=None) -> int:
         "release": cmd_release,
         "end": cmd_end,
         "backfill-ended": cmd_backfill_ended,
+        "stamp-ended": cmd_stamp_ended,
         "hook": cmd_hook,
     }[args.cmd](args)
 
