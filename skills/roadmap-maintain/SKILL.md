@@ -71,7 +71,7 @@ Read `.claude/roadmaps.json`, the active phase's PHASE file (its `path`), and `d
 
 ### 2. Apply the explicit status changes and edge removals requested
 
-If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first, preserving tab indentation, the conventions reference's task field order, and the `notes`/`iterative`/`assignee`/`started`/`softDependsOn`/`softMilestone` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here: this step edits status only.
+If the user is marking tasks `done` (or resetting them to `todo`/`blocked`), edit those `status` fields in `roadmaps.json` first, preserving tab indentation, the conventions reference's task field order, and the `notes`/`iterative`/`assignee`/`started`/`softDependsOn`/`softMilestone` values exactly. The recompute in step 3 sets every *derived* status; you only hand-edit terminal decisions (`done`, `out_of_scope`) and deliberate parked seeds. Never touch or infer `assignee` here: this step edits status only. A task reset from `done` to anything else must also lose its `ended` date (delete the line and fix the trailing comma): `validate` rejects an end date on a task that is not done. The end date of a task newly marked `done` is set in step 3b, not by hand.
 
 If the user says a task is **in progress** (someone has started it), claim it rather than editing its status: ask who is doing it (offer the task's current `assignee`; never infer one) and run `python3 "$HOME"/.claude/library/scripts/roadmap.py claim <ID> [--assignee <name>]`. If they say work on a task has **stopped**, run `... release <ID>` (add `--unassign` only if they want the assignee cleared too). A claim changes no status, has no PHASE file task-line annotation (the regenerated diagram in step 5 shows it) and never goes through step 3; `claim` refuses a task that isn't ready to start, so relay its message rather than forcing it.
 
@@ -89,6 +89,17 @@ Failure modes, all surfaced by exit 1 with a message; stop and report, never wor
 - **Non-canonical file formatting**: the file is not tab-indented as the conventions require; ask the user before re-running with `--reformat` (it rewrites the whole file, not just statuses).
 
 The rule it applies is in the conventions reference; you never compute it by hand.
+
+### 3b. Date the finished tasks
+
+Every `done` task should carry an `ended` date (an ISO date, set after `started`). `roadmap.py stamp-ended` stamps it when a branch lands; this step catches the rest: tasks marked done by hand, by an earlier reconcile or before the field existed.
+
+Run `python3 "$HOME"/.claude/library/scripts/roadmap.py backfill-ended --dry-run`. It reads the git history of `roadmaps.json` and proposes, per done task lacking `ended`, the date of the commit where the task last became done. Show the rows as `{ID}: {date} ({short sha})` and keep the flags visible:
+
+- `[first-seen]`: the task was already done when it first reached git, so the date is only a lower bound (when the roadmap was first committed), not when the work finished.
+- `[uncommitted]`: done only in the working tree, so the date is today.
+
+Nothing to propose: say so and move on. Otherwise ask with AskUserQuestion: **Apply all** / **Apply, skipping first-seen** / **Skip**. Apply by rerunning without `--dry-run`; for the skipping option, set the approved rows one at a time with `roadmap.py end <ID> --date <date>`. Dates from a status-change commit are the commit's date, so a task marked done in a later catch-up commit is dated to that commit, not the day the work shipped; say so when a row's commit message looks like a reconcile (`reconcile`, `mark ... done`).
 
 ### 4. Synchronise the PHASE file task lines
 
@@ -129,7 +140,7 @@ See step 4's note on running this check as a parallel read-only agent alongside 
 
 ### 7. Validate and report
 
-Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean. Then report each `{ID}: old → new` status change grouped by milestone, whether the diagram block was regenerated, whether the HTML artefact was refreshed and the overview count if it changed. On a reconcile run, also restate the Step 0 proposal outcome (what was approved and applied, what was left unconfirmed, any reverse drift) and the commit SHA to use as next time's "last reconciled at" marker.
+Run `python3 "$HOME"/.claude/library/scripts/roadmap.py validate`; it must report clean. Then report each `{ID}: old → new` status change grouped by milestone, whether the diagram block was regenerated, whether the HTML artefact was refreshed, the overview count if it changed and the end dates written in step 3b (count, and how many were first-seen or uncommitted). On a reconcile run, also restate the Step 0 proposal outcome (what was approved and applied, what was left unconfirmed, any reverse drift) and the commit SHA to use as next time's "last reconciled at" marker.
 
 ---
 
