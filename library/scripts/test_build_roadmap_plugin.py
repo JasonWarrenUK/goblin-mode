@@ -162,6 +162,10 @@ class BuildSafeguards(unittest.TestCase):
 		skill = (self.out / "skills" / "claim" / "SKILL.md").read_text()
 		self.assertIn("roadmap:update-devs", skill)
 		self.assertNotIn("roadmap-update-devs", skill)
+		# the hook nudge names the skill, so the build must namespace it there too
+		hooks = (self.out / "scripts" / "_roadmap_hooks.py").read_text()
+		self.assertIn("roadmap:claim skill", hooks)
+		self.assertNotIn("roadmap-claim skill", hooks)
 
 	def test_claim_hooks_ship_and_parse(self) -> None:
 		plugin.build(self.root, self.out)
