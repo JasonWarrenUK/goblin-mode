@@ -209,6 +209,8 @@ class BuildSafeguards(unittest.TestCase):
 		self.assertEqual(plugin.read_version(self.root), "0.4.0")
 
 	def test_build_without_changelog_still_succeeds(self) -> None:
+		# setUp copies the real changelog now that the repo ships one
+		(self.root / plugin.CHANGELOG_SOURCE).unlink(missing_ok=True)
 		self.assertFalse((self.root / plugin.CHANGELOG_SOURCE).exists())
 		plugin.build(self.root, self.out)
 		self.assertFalse((self.out / "CHANGELOG.md").exists())
