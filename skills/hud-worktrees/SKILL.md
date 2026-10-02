@@ -8,7 +8,7 @@ metadata:
   glyph: ᛊ
   family: hud
 disable-model-invocation: false # confusion about worktrees is exactly when it should appear; read-only, so no gate is needed
-allowed-tools: ["Bash(git worktree list:*)", "Bash(git -C * status --porcelain)", "Bash(git -C * rev-list --left-right --count *)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Read", "Glob"]
+allowed-tools: ["Bash(git worktree list:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Read", "Glob"]
 argument-hint: "(no arguments: shows the map)"
 ---
 
@@ -21,7 +21,7 @@ Worktrees go wrong in predictable ways: removing the one you're standing in, cre
 Gather first:
 
 1. `git worktree list --porcelain`: every worktree, its path, branch, HEAD.
-2. For each worktree: `git -C <path> status --porcelain` (dirty?) and `git -C <path> rev-list --left-right --count origin/main...HEAD` (ahead/behind, skip if no upstream). When the branch has an open PR whose base isn't main (`gh pr view <branch> --json baseRefName,number`), it's a stacked layer: count against `origin/<baseRefName>` instead and say so in the sentence; counting a stacked child against main folds the parent's commits into its ahead-count and misreads the layer.
+2. For each worktree: `~/.claude/library/scripts/worktree-state.sh <path> origin/main`, which prints `dirty` (changed and untracked files), `ahead` and `behind` as JSON; it exits 2 when the base does not resolve, so use `worktree-state.sh <path>` (its upstream, or null counts when it has none) for a branch with no remote base. Never call `git -C` directly: a permission rule loose enough for any path also lets `-c` options through. When the branch has an open PR whose base isn't main (`gh pr view <branch> --json baseRefName,number`), it's a stacked layer: count against `origin/<baseRefName>` instead and say so in the sentence; counting a stacked child against main folds the parent's commits into its ahead-count and misreads the layer.
 3. `pwd`: establish **which worktree you are standing in right now**. This drives every safety check below.
 
 Render as a table plus one plain-English sentence per worktree: what it is, what state it's in, whether it's safe to touch:
