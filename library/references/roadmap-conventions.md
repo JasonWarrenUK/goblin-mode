@@ -99,7 +99,11 @@ field, and `validate` rejects `ended` on any task whose status is not
   the PR-landing flow runs it on the branch before merge, so the date
   arrives on the default branch with the work. `backfill-ended [--dry-run]`
   dates every done task lacking one from the git history of `roadmaps.json`
-  (the commit where it last became done); `roadmap-maintain` runs it.
+  (the commit where it last became done); `roadmap-maintain` runs it. It
+  skips and reports a task whose date would precede its `started`.
+  `stamp-ended` exits 1 when the merge-base copy of the file is missing,
+  unparseable or has no phase of the active phase's name, rather than
+  treating every done task as finished by the branch.
 - **How trustworthy the date is:** a status-change commit's date is when the
   roadmap recorded the change, not necessarily when the work shipped. A
   backfill basis of `first-seen` means the task was already done when the
