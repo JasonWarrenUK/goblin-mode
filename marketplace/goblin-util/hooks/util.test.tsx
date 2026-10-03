@@ -8,10 +8,30 @@ const NOON = new Date(2026, 9, 7, 12, 0).getTime()
 type On = Parameters<typeof mock.clock>[0]
 
 /** The world beneath the plugin: a clock, a store, a home, a session and a git that answers one branch. */
+const ids = { current: 's1' }
+
+/** A pain file the test holds: null is a missing file. */
+const painFile = (on: On, initial: string | null) => {
+	const file = { text: initial, writes: [] as string[] }
+	on('fs.exists', async () => ({ value: file.text !== null }))
+	on('fs.read', async () => {
+		if (file.text === null) throw new Error('ENOENT')
+		return { value: file.text }
+	})
+	on('fs.write', async ($, e) => {
+		file.writes.push(e.path)
+		file.text = e.text
+		return { value: undefined }
+	})
+	return file
+}
+
 const world = (on: On, entries: Readonly<Record<string, unknown>> = {}) => {
+	ids.current = 's1'
 	// A store of the test's own, so what the plugin wrote can be read back directly.
 	const map = new Map<string, unknown>(Object.entries(entries))
-	const store = { map, sets: [] as { key: string; value: unknown }[], deletes: [] as string[] }
+	const clock = mock.clock(on, { now: NOON })
+	const store = { map, clock, sets: [] as { key: string; value: unknown }[], deletes: [] as string[] }
 	on('store.get', async ($, e) => ({ value: map.get(e.key) }))
 	on('store.keys', async () => ({ value: [...map.keys()] }))
 	on('store.set', async ($, e) => {
@@ -24,10 +44,12 @@ const world = (on: On, entries: Readonly<Record<string, unknown>> = {}) => {
 		store.deletes.push(e.key)
 		return { value: undefined }
 	})
-	mock.clock(on, { now: NOON })
 	mock.env(on, { HOME: '/home/j' })
 	on('session.start', async ($, e) => ({ cwd: e.cwd }))
-	on('session.id', async () => ({ value: 's1' }))
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	on('turn.complete', async () => ({ text: '' }))
+	on('ui.panes', async () => ({ value: [] }))
+	on('session.id', async () => ({ value: ids.current }))
 	on('session.cwd', async () => ({ value: '/code/app' }))
 	on('session.repo', async () => ({ value: { root: '/code/app', remote: null, internal: false, name: null } }))
 	on('process.run', async () => ({
@@ -58,21 +80,14 @@ test('helpers: slug, local date and ago', async () => {
 
 test('/pain with text appends an entry with the context pre-filled', async ($, on) => {
 	world(on)
-	let stored = '[]'
-	const writes: string[] = []
-	on('fs.read', async () => ({ value: stored }))
-	on('fs.write', async ($, e) => {
-		writes.push(e.path)
-		stored = e.text
-		return { value: undefined }
-	})
+	const file = painFile(on, null)
 	on('tool.call', { tool: 'Bash' }, async () => ({ result: { stdout: '', stderr: 'fatal: boom', interrupted: false }, isError: true }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.tool.call({ tool: 'Bash', command: 'git log' })
 	const first = await $.command.run({ ...RUN, command: 'pain', args: 'worktree isolation blocked a plain git log' })
 	expect(first.text).toBe('logged worktree-isolation-blocked-a-plain-git-log')
-	expect(writes[0]).toBe('/home/j/.claude/library/state/cc-pain-points.json')
-	const entries = JSON.parse(stored) as Record<string, unknown>[]
+	expect(file.writes[0]).toBe('/home/j/.claude/library/state/cc-pain-points.json')
+	const entries = JSON.parse(file.text ?? '') as Record<string, unknown>[]
 	expect(entries).toHaveLength(1)
 	expect(entries[0]).toMatchObject({
 		id: 'worktree-isolation-blocked-a-plain-git-log',
@@ -83,17 +98,22 @@ test('/pain with text appends an entry with the context pre-filled', async ($, o
 	expect(String(entries[0]?.sourceSession)).toMatch(/^app · feat\/search · last failed: Bash: /)
 	const again = await $.command.run({ ...RUN, command: 'pain', args: 'Worktree isolation blocked a plain git log' })
 	expect(again.text).toBe('already logged as worktree-isolation-blocked-a-plain-git-log')
-	expect(writes).toHaveLength(1)
+	expect(file.writes).toHaveLength(1)
+})
+
+test('a pain file that will not parse is never overwritten', async ($, on) => {
+	world(on)
+	const file = painFile(on, '[{"id": "kept"},')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	const run = await $.command.run({ ...RUN, command: 'pain', args: 'something else' })
+	expect(run.text).toBe('cc-pain-points.json will not parse; nothing written. fix the file first.')
+	expect(file.writes).toHaveLength(0)
+	expect(file.text).toBe('[{"id": "kept"},')
 })
 
 test('/pain alone opens a pane whose input logs and closes it', async ($, on) => {
 	world(on)
-	let stored = '[{"id":"thing","description":"thing","logged":"2026-10-01","sourceSession":"","resolvedIn":null,"resolvedNoted":null}]'
-	on('fs.read', async () => ({ value: stored }))
-	on('fs.write', async ($, e) => {
-		stored = e.text
-		return { value: undefined }
-	})
+	const file = painFile(on, '[{"id":"thing","description":"thing","logged":"2026-10-01","sourceSession":"","resolvedIn":null,"resolvedNoted":null}]')
 	const opened: string[] = []
 	const closed: string[] = []
 	const toasts: string[] = []
@@ -114,12 +134,15 @@ test('/pain alone opens a pane whose input logs and closes it', async ($, on) =>
 	expect(opened).toEqual(['pain'])
 	const ui = await $.ui.mount(PANE('pain'))
 	expect((await ui.find({ type: 'Text', text: /nothing has failed yet/ }))?.text).toMatch(/app · feat\/search/)
+	expect((await ui.find({ type: 'Input', key: 'pain-text' }))?.props.value).toBeUndefined()
 	await ui.input({ key: 'pain-text', text: 'thing' })
 	expect(toasts).toEqual(['already logged as thing'])
+	// a refusal keeps the box open with what was typed
+	expect(closed).toEqual([])
 	await ui.input({ key: 'pain-text', text: 'the status line ate my prompt' })
 	expect(toasts[1]).toBe('logged the-status-line-ate-my-prompt')
-	expect(closed).toEqual(['pain', 'pain'])
-	expect(JSON.parse(stored)).toHaveLength(2)
+	expect(closed).toEqual(['pain'])
+	expect(JSON.parse(file.text ?? '')).toHaveLength(2)
 })
 
 test('the fleet pane lists live rows, drops stale ones and messages a picked session', async ($, on) => {
@@ -170,12 +193,25 @@ test('the fleet pane lists live rows, drops stale ones and messages a picked ses
 
 test('the heartbeat writes this session and session.end removes it', async ($, on) => {
 	const store = world(on)
-	on('prompt.submit', async ($, e) => ({ text: e.text }))
+	on('prompt.submit', async () => ({ drop: 'not now' }))
 	on('session.end', async ($, e) => ({ sessionId: e.sessionId }))
+	on('tool.call', { tool: 'Read' }, async () => ({ result: { type: 'text', file: { filePath: 'x', content: '', numLines: 0, startLine: 1, totalLines: 0 } } }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	expect(store.sets[0]).toMatchObject({ key: 'fleet:s1', value: { id: 's1', repo: 'app', branch: 'feat/search', isWorking: false } })
+	// a dropped prompt is not a turn
 	await $.prompt.submit({ text: 'go', wait: false, origin: { kind: 'composer' } })
-	expect(store.sets[store.sets.length - 1]).toMatchObject({ key: 'fleet:s1', value: { isWorking: true } })
-	await $.session.end({ reason: 'prompt_input_exit', sessionId: 's1', resume: { id: 's1' } })
+	expect(store.map.get('fleet:s1')).toMatchObject({ isWorking: false })
+	await $.turn.start({ text: 'go', turnId: 't1' })
+	expect(store.map.get('fleet:s1')).toMatchObject({ isWorking: true })
+	// a tool event beats once the gap since the last beat has passed, with the tool in the row
+	await store.clock.advance(6_000)
+	await $.tool.call({ tool: 'Read', file_path: 'x' })
+	expect(store.map.get('fleet:s1')).toMatchObject({ lastTool: 'Read' })
+	// /clear ends the session under one id and the next beat writes under the new one
+	await $.session.end({ reason: 'clear', sessionId: 's1', resume: { id: 's1' } })
 	expect(store.deletes).toEqual(['fleet:s1'])
+	ids.current = 's2'
+	await $.turn.complete({ answer: '', durationMs: 10, isAborted: false, turnId: 't1', reason: 'answer' })
+	expect(store.map.has('fleet:s1')).toBe(false)
+	expect(store.map.get('fleet:s2')).toMatchObject({ id: 's2', isWorking: false, startedAt: NOON + 6_000 })
 })
