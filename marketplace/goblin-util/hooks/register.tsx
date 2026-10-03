@@ -278,14 +278,19 @@ export const register: Register = (on, options) => {
 		return ran
 	})
 
+	// Each pane command opens its pane, or closes it when it is already up: a
+	// pane is a tab beside any other, /diff included, and the same word takes
+	// it down again.
 	on('command.run', { command: 'pain' }, async ($, e) => {
 		if (e.args.trim()) return { text: await logPain($, e.args) }
-		await $.ui.open({ id: PAIN_PANE, title: 'pain', focus: true, closeOnEscape: true, rows: 7 })
+		if (await isPaneOpen($, PAIN_PANE)) await $.ui.close({ id: PAIN_PANE })
+		else await $.ui.open({ id: PAIN_PANE, title: 'pain', focus: true, closeOnEscape: true, rows: 7 })
 		return {}
 	})
 
 	on('command.run', { command: 'fleet' }, async $ => {
-		await $.ui.open({ id: FLEET_PANE, title: 'fleet', focus: true, closeOnEscape: true, rows: 12 })
+		if (await isPaneOpen($, FLEET_PANE)) await $.ui.close({ id: FLEET_PANE })
+		else await $.ui.open({ id: FLEET_PANE, title: 'fleet', focus: true, closeOnEscape: true, rows: 12 })
 		return {}
 	})
 
