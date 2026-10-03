@@ -1,0 +1,37 @@
+{
+	"name": "goblin-chrome",
+	"version": "0.1.0",
+	"description": "Goblin-mode's face inside Claude Code: a goblin in the band that reacts to the session, mode pills and hint lines in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours.",
+	"author": {
+		"name": "Jason Warren"
+	},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"keywords": ["goblin", "chrome", "mod", "terminal"],
+	"types": "./types/index.d.ts",
+	"userConfig": {
+		"enabled": {
+			"type": "boolean",
+			"title": "Chrome on",
+			"description": "The one switch for all of it. Off, every hook passes through and nothing draws.",
+			"default": true
+		},
+		"audio": {
+			"type": "boolean",
+			"title": "Cackle",
+			"description": "Play a sound when the commit-msg hook bounces a message.",
+			"default": false
+		},
+		"schedule": {
+			"type": "string",
+			"title": "Day schedule",
+			"description": "Comma-separated HH=state pairs for the goblin's day, 24h local. States: bed, caught, grumpy, functional, slump, second, perking, prime, feral.",
+			"default": "04=bed,06=caught,08=grumpy,11=functional,14=slump,16=second,19=perking,22=prime,01=feral"
+		},
+		"theme": {
+			"type": "string",
+			"title": "Theme family",
+			"description": "A theme family in .claude/themes to dress in. Empty picks the only family there, else the clod fallback.",
+			"default": ""
+		}
+	}
+}
