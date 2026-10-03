@@ -7,30 +7,34 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Heartbeat, LastError } from '../types'
+import type { Heartbeat, LastError, Self } from '../types'
 
 const PAIN_PANE = 'pain'
 const FLEET_PANE = 'fleet'
 const FLEET_PREFIX = 'fleet:'
+/** The least time between two heartbeats written for tool events. */
+const BEAT_GAP_MS = 5_000
 
 const selected = atom({ plugin: 'goblin-util', key: 'selected' } as const, null as string | null)
 const lastError = atom({ plugin: 'goblin-util', key: 'lastError' } as const, null as LastError | null)
 const branch = atom({ plugin: 'goblin-util', key: 'branch' } as const, '')
-const painDraft = atom({ plugin: 'goblin-util', key: 'painDraft' } as const, '')
+const self = atom({ plugin: 'goblin-util', key: 'self' } as const, {
+	sessionId: '',
+	startedAt: 0,
+	isWorking: false,
+	lastTool: '',
+	lastToolAt: 0,
+	beatAt: 0,
+} as Self)
 
 // Module-level because the validator holds `$` to top-level functions; set
-// by `register` from the options and by the hooks as the session goes.
+// by `register` from the options. Nothing a drawing depends on lives here.
 let heartbeatMs = 15_000
 let staleMs = 10 * 60_000
-let sessionId = ''
 let cwd = ''
 let repoName = ''
-let startedAt = 0
-let isWorking = false
-let lastTool = ''
-let lastToolAt = 0
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 const basename = (path: string): string => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? path
 
@@ -64,29 +68,40 @@ const painPath = async ($: EngineInterface): Promise<string> => {
 	return `${home}/.claude/library/state/cc-pain-points.json`
 }
 
-const readPain = async ($: EngineInterface, path: string): Promise<Record<string, unknown>[]> => {
-	try {
-		const parsed: unknown = JSON.parse(await $.fs.read(path))
-		return Array.isArray(parsed) ? parsed.filter(isRecord) : []
-	} catch {
-		return []
-	}
+/** The file's entries and its text as read, or null text when it is missing; throws on a file that will not parse. */
+const readPain = async ($: EngineInterface, path: string): Promise<{ entries: Record<string, unknown>[]; text: string | null }> => {
+	if (!(await $.fs.exists(path))) return { entries: [], text: null }
+	const text = await $.fs.read(path)
+	const parsed: unknown = JSON.parse(text)
+	if (!Array.isArray(parsed)) throw new Error('not a list')
+	return { entries: parsed.filter(isRecord), text }
 }
 
 /**
  * Append one pain point, unless an open entry already says the same thing.
- * Returns the one line the person sees.
+ * Returns the one line the person sees; only a line beginning `logged `
+ * means something was written.
  */
 const logPain = async ($: EngineInterface, description: string): Promise<string> => {
 	const text = description.trim()
 	if (!text) return 'nothing to log.'
-	const path = await painPath($)
-	const entries = await readPain($, path)
-	const open = entries.find(
+	let path: string
+	try {
+		path = await painPath($)
+	} catch {
+		return 'HOME is not set; nothing written.'
+	}
+	let first: Awaited<ReturnType<typeof readPain>>
+	try {
+		first = await readPain($, path)
+	} catch {
+		return 'cc-pain-points.json will not parse; nothing written. fix the file first.'
+	}
+	const open = first.entries.find(
 		e => e.resolvedIn === null && typeof e.description === 'string' && e.description.trim().toLowerCase() === text.toLowerCase(),
 	)
 	if (open) return `already logged as ${String(open.id)}`
-	const ids = new Set(entries.map(e => e.id))
+	const ids = new Set(first.entries.map(e => e.id))
 	const base = slug(text)
 	let id = base
 	for (let n = 2; ids.has(id); n++) id = `${base}-${n}`
@@ -94,7 +109,16 @@ const logPain = async ($: EngineInterface, description: string): Promise<string>
 	const source = [repoName, b, err ? `last failed: ${err.tool}: ${err.text}` : '']
 		.filter(part => part !== '')
 		.join(' · ')
-	entries.push({ id, description: text, logged: localDate(now), sourceSession: source, resolvedIn: null, resolvedNoted: null })
+	// Another session may have written since the first read: a whole-file write
+	// would drop its entry, so read again and give up when the file moved.
+	let again: Awaited<ReturnType<typeof readPain>>
+	try {
+		again = await readPain($, path)
+	} catch {
+		return 'cc-pain-points.json changed under me and will not parse; nothing written.'
+	}
+	if (again.text !== first.text) return 'cc-pain-points.json changed while I read it; try again.'
+	const entries = [...again.entries, { id, description: text, logged: localDate(now), sourceSession: source, resolvedIn: null, resolvedNoted: null }]
 	await $.fs.write(path, JSON.stringify(entries, null, '\t') + '\n')
 	return `logged ${id}`
 }
@@ -108,41 +132,67 @@ const refreshBranch = async ($: EngineInterface): Promise<void> => {
 	}
 }
 
-/** Write this session's row to the shared store. */
-const beat = async ($: EngineInterface): Promise<void> => {
+const isHeartbeat = (v: unknown): v is Heartbeat =>
+	isRecord(v) && typeof v.id === 'string' && typeof v.at === 'number' && typeof v.repo === 'string' && typeof v.branch === 'string'
+
+/**
+ * Write this session's row to the shared store, under the id the session
+ * has now (a /clear changes it with no session.start), and prune rows that
+ * went stale. `force` skips the gap that throttles tool-event beats.
+ */
+const beat = async ($: EngineInterface, force = true): Promise<void> => {
+	const now = await $.clock.now()
+	const me = await read($, self)
+	if (!force && now - me.beatAt < BEAT_GAP_MS) return
+	let sessionId = me.sessionId
+	let startedAt = me.startedAt
+	try {
+		sessionId = await $.session.id()
+	} catch {
+		// no id to write under
+	}
 	if (!sessionId) return
+	if (sessionId !== me.sessionId) startedAt = now
+	await update($, self, s => ({ ...s, sessionId, startedAt, beatAt: now }))
 	const row: Heartbeat = {
 		id: sessionId,
 		cwd,
 		repo: repoName,
 		branch: await read($, branch),
-		isWorking,
-		lastTool,
-		lastToolAt,
+		isWorking: me.isWorking,
+		lastTool: me.lastTool,
+		lastToolAt: me.lastToolAt,
 		startedAt,
-		at: await $.clock.now(),
+		at: now,
 	}
 	await $.store.set(FLEET_PREFIX + sessionId, row)
+	for (const key of await $.store.keys()) {
+		if (!key.startsWith(FLEET_PREFIX) || key === FLEET_PREFIX + sessionId) continue
+		const other = await $.store.get(key)
+		if (!isHeartbeat(other) || now - other.at > staleMs) await $.store.delete(key)
+	}
 }
 
-const isHeartbeat = (v: unknown): v is Heartbeat =>
-	isRecord(v) && typeof v.id === 'string' && typeof v.at === 'number' && typeof v.repo === 'string' && typeof v.branch === 'string'
-
-/** Every live row in the store, this session first, stale rows dropped on the way. */
+/** Every row in the store, this session first; never writes. */
 const fleet = async ($: EngineInterface): Promise<Heartbeat[]> => {
-	const now = await $.clock.now()
+	const me = await read($, self)
 	const rows: Heartbeat[] = []
 	for (const key of await $.store.keys()) {
 		if (!key.startsWith(FLEET_PREFIX)) continue
 		const row = await $.store.get(key)
-		if (!isHeartbeat(row)) continue
-		if (now - row.at > staleMs) {
-			await $.store.delete(key)
-			continue
-		}
-		rows.push(row)
+		if (isHeartbeat(row)) rows.push(row)
 	}
-	return rows.sort((a, b) => (a.id === sessionId ? -1 : b.id === sessionId ? 1 : a.repo.localeCompare(b.repo) || a.branch.localeCompare(b.branch)))
+	return rows.sort((a, b) =>
+		a.id === me.sessionId ? -1 : b.id === me.sessionId ? 1 : a.repo.localeCompare(b.repo) || a.branch.localeCompare(b.branch),
+	)
+}
+
+const isPaneOpen = async ($: EngineInterface, id: string): Promise<boolean> => {
+	try {
+		return (await $.ui.panes()).some(p => p.id === id)
+	} catch {
+		return false
+	}
 }
 
 export const register: Register = (on, options) => {
@@ -150,11 +200,8 @@ export const register: Register = (on, options) => {
 	staleMs = (typeof options.stale_minutes === 'number' ? options.stale_minutes : 10) * 60_000
 
 	on('session.start', async ($, e, next) => {
-		const now = await $.clock.now()
-		startedAt = now
 		cwd = e.cwd
 		try {
-			sessionId = await $.session.id()
 			const repo = await $.session.repo()
 			repoName = basename(repo?.root ?? e.cwd)
 		} catch {
@@ -166,8 +213,11 @@ export const register: Register = (on, options) => {
 			void beat($)
 		})
 		$.clock.every(10_000, () => {
-			$.ui.invalidate('ui.render')
+			void isPaneOpen($, FLEET_PANE).then(open => {
+				if (open) $.ui.invalidate('ui.render')
+			})
 		})
+		// One try each: a taken name must not cost the other command.
 		try {
 			await $.command.register({
 				name: 'pain',
@@ -175,56 +225,61 @@ export const register: Register = (on, options) => {
 				argumentHint: '[what happened]',
 				immediate: true,
 			})
+		} catch {
+			// the name is taken
+		}
+		try {
 			await $.command.register({
 				name: 'fleet',
 				description: 'Every Claude Code session on this machine, and a line to one of them',
 				immediate: true,
 			})
 		} catch {
-			// a name already taken; the pane still works through the other command
+			// the name is taken
 		}
 		return next(e)
 	})
 
 	on('session.end', async ($, e, next) => {
-		if (sessionId) await $.store.delete(FLEET_PREFIX + sessionId).catch(() => undefined)
+		await $.store.delete(FLEET_PREFIX + e.sessionId).catch(() => undefined)
 		return next(e)
 	})
 
-	on('prompt.submit', async ($, e, next) => {
-		isWorking = true
+	// A turn, not a submission: a prompt a hook drops starts nothing.
+	on('turn.start', async ($, e, next) => {
+		await update($, self, s => ({ ...s, isWorking: true }))
 		await beat($)
 		return next(e)
 	})
 
 	on('turn.complete', async ($, e, next) => {
 		if (e.agentId) return next(e)
-		isWorking = false
+		await update($, self, s => ({ ...s, isWorking: false }))
 		await beat($)
 		return next(e)
 	})
 
 	on('tool.call', async ($, e, next) => {
 		if (!e.agentId) {
-			lastTool = e.tool
-			lastToolAt = await $.clock.now()
+			const now = await $.clock.now()
+			await update($, self, s => ({ ...s, lastTool: e.tool, lastToolAt: now }))
 		}
 		const ran = await next(e)
 		if (e.agentId) return ran
 		if (ran.deny === undefined && ran.isError === true) {
 			const text = typeof ran.text === 'string' ? ran.text : ''
-			await update($, lastError, () => ({ tool: e.tool, text: text.replace(/\s+/g, ' ').trim().slice(0, 160), at: lastToolAt }))
+			const me = await read($, self)
+			await update($, lastError, () => ({ tool: e.tool, text: text.replace(/\s+/g, ' ').trim().slice(0, 160), at: me.lastToolAt }))
 		}
-		if (e.tool === 'EnterWorktree' || e.tool === 'ExitWorktree' || (e.tool === 'Bash' && /\bgit\b[^|;&]*\b(checkout|switch|worktree)\b/.test(e.command))) {
-			await refreshBranch($)
-			await beat($)
-		}
+		const movedBranch =
+			e.tool === 'EnterWorktree' || e.tool === 'ExitWorktree' || (e.tool === 'Bash' && /\bgit\b[^|;&]*\b(checkout|switch|worktree)\b/.test(e.command))
+		if (movedBranch) await refreshBranch($)
+		await beat($, movedBranch)
 		return ran
 	})
 
 	on('command.run', { command: 'pain' }, async ($, e) => {
 		if (e.args.trim()) return { text: await logPain($, e.args) }
-		await update($, painDraft, () => '')
 		await $.ui.open({ id: PAIN_PANE, title: 'pain', focus: true, closeOnEscape: true, rows: 7 })
 		return {}
 	})
@@ -251,13 +306,13 @@ export const register: Register = (on, options) => {
 					key="pain-text"
 					label="pain"
 					placeholder="what happened, in your own words"
-					value=""
 					submitLabel="log"
 					autoFocus
 					onSubmit={async value => {
 						const line = await logPain($, value)
 						$.ui.toast(line)
-						await $.ui.close({ id: PAIN_PANE })
+						// Only a write closes the box; a refusal keeps what was typed in view.
+						if (line.startsWith('logged ')) await $.ui.close({ id: PAIN_PANE })
 					}}
 				/>
 			</Box>
@@ -267,14 +322,14 @@ export const register: Register = (on, options) => {
 	on('ui.render', { component: 'Pane', requestId: FLEET_PANE }, async ($, e, next) => {
 		if (e.surface !== 'terminal') return next(e)
 		const { Box, Text, Input, Button } = $.ui.resolve(e)
-		const [rows, picked, now] = await Promise.all([fleet($), read($, selected), $.clock.now()])
-		const target = rows.find(r => r.id === picked && r.id !== sessionId)
+		const [rows, picked, me, now] = await Promise.all([fleet($), read($, selected), read($, self), $.clock.now()])
+		const target = rows.find(r => r.id === picked && r.id !== me.sessionId)
 		const width = Math.max(40, e.props.bodyColumns)
 		return (
 			<Box flexDirection="column" width={width}>
 				{rows.length <= 1 && <Text dimColor>only you.</Text>}
 				{rows.map((row, i) => {
-					const here = row.id === sessionId
+					const here = row.id === me.sessionId
 					const quiet = now - row.at > 60_000
 					const state = row.isWorking ? 'working' : `idle ${ago(now - Math.max(row.lastToolAt, row.startedAt))}`
 					const label = `${here ? '◀' : ' '} ${row.repo} ${row.branch || '(no branch)'} · ${quiet ? `quiet ${ago(now - row.at)}` : state}${row.lastTool ? ` · ${row.lastTool}` : ''}`
@@ -294,7 +349,6 @@ export const register: Register = (on, options) => {
 						key="fleet-msg"
 						label={`to ${target.repo}/${target.branch || target.id}`}
 						placeholder="one line, delivered as a message"
-						value=""
 						submitLabel="send"
 						onSubmit={async value => {
 							if (!value.trim()) return

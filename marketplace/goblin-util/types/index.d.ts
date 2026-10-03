@@ -19,13 +19,23 @@ export type Heartbeat = {
 	at: number
 }
 
+/** This session as the fleet sees it, held in state so a hot reload keeps it. */
+export type Self = {
+	sessionId: string
+	startedAt: number
+	isWorking: boolean
+	lastTool: string
+	lastToolAt: number
+	beatAt: number
+}
+
 declare module 'claude-code' {
 	interface PluginState {
 		'goblin-util': {
 			selected: string | null
 			lastError: LastError | null
 			branch: string
-			painDraft: string
+			self: Self
 		}
 	}
 }
