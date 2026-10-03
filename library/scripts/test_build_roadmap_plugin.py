@@ -175,6 +175,21 @@ class BuildSafeguards(unittest.TestCase):
 		self.assertEqual(sum(c.endswith("roadmap.py\" hook post-tool-use") for c in commands), 2)
 		self.assertTrue((self.out / "scripts" / "_roadmap_hooks.py").is_file())
 
+	def test_mod_ships_with_its_module_contract_and_tests(self) -> None:
+		plugin.build(self.root, self.out)
+		hooks = json.loads((self.out / "hooks" / "hooks.json").read_text())
+		self.assertEqual(hooks["modules"], ["./register.tsx"])
+		self.assertTrue((self.out / "hooks" / "register.tsx").is_file())
+		self.assertTrue((self.out / "hooks" / "pane.test.tsx").is_file())
+		manifest = json.loads((self.out / ".claude-plugin" / "plugin.json").read_text())
+		self.assertEqual(manifest["types"], "./types/index.d.ts")
+		self.assertTrue((self.out / "types" / "index.d.ts").is_file())
+		self.assertIn("start_command", manifest["userConfig"])
+		# the module reaches the CLI through $.plugin.root, never a config path
+		module = (self.out / "hooks" / "register.tsx").read_text()
+		self.assertNotIn("<plugin-root>", module)
+		self.assertNotIn("~/.claude", module)
+
 	def test_script_broken_by_a_rewrite_is_caught(self) -> None:
 		# ${CLAUDE_PLUGIN_ROOT} becomes <plugin-root> outside skills/ and hooks/,
 		# which turns this line into a syntax error

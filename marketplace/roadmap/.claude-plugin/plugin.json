@@ -6,5 +6,14 @@
 		"name": "Jason Warren"
 	},
 	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
-	"keywords": ["roadmap", "planning", "dependency-graph"]
+	"keywords": ["roadmap", "planning", "dependency-graph"],
+	"types": "./types/index.d.ts",
+	"userConfig": {
+		"start_command": {
+			"type": "string",
+			"title": "Start command",
+			"description": "What the pane's start button submits for a picked task, with {id} for the task id.",
+			"default": "/roadmap:claim {id}"
+		}
+	}
 }
