@@ -49,6 +49,8 @@ Requires `python3` (3.8+, stdlib only) on `PATH`.
 | Half-formed ideas to explore into tasks | `/roadmap:create-interview` |
 | Old single-file format detected         | `/roadmap:migrate` |
 
+The ready set as a pane, with claim buttons, is the sibling `roadmap-pane@goblin-mode` plugin.
+
 ---
 
 ## 3. Concepts

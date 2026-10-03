@@ -10,6 +10,7 @@ This config's mods live under `marketplace/<name>/` and are served from the repo
 |---|---|---|
 | [`goblin-chrome`](../../marketplace/goblin-chrome/README.md) | Goblin-mode's face in the terminal: a goblin in the band that reacts to the session, the footer pills and hint line in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours. Pure chrome; it changes nothing Claude does. | Band, `TurnDuration`, `SessionMode`, `PromptHint`, `AskUserQuestion`, toasts |
 | [`goblin-util`](../../marketplace/goblin-util/README.md) | `/pain` logs friction with Claude Code itself into `library/state/cc-pain-points.json` without a turn, the repo, branch and last failed tool pre-filled; `/fleet` lists every session on the machine from a shared heartbeat and sends one a message. | Two panes, toasts |
+| [`roadmap-pane`](../../marketplace/roadmap-pane/README.md) | `/ready` opens the roadmap's ready set in a pane with the claims in play and milestone progress; a digit picks, `c` claims after asking who, `r` refreshes, `/ready` again closes. Built beside the roadmap plugin from `library/sources/plugins/roadmap-pane/` with its own copy of the CLI, so it is enabled alone where the roadmap skills run from this config. | One pane, toasts |
 
 ## How a mod is laid out
 
