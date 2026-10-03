@@ -41,7 +41,17 @@ Requires `python3` (3.8+, stdlib only) on `PATH`.
 | Priorities, freshness or dependency-graph review                       | `/roadmap:review` |
 | Render the HTML dashboard                                              | `/roadmap:dashboard` |
 
-### 2d. One-Off Utilities
+### 2d. The Pane
+
+`/ready` opens a pane with the ready set in leverage order, the claims in play and each milestone's progress. It is a mod, so it runs inside Claude Code with no turn: a digit picks a row, `c` claims it after asking who (a name is never inferred or pre-filled), `s` submits the start command for it, `r` refreshes and Esc closes. The pane refreshes itself every two minutes while open and whenever a tool call touches `roadmaps.json` or runs the CLI.
+
+| Option | Default | What it does |
+|---|---|---|
+| `start_command` | `/roadmap:claim {id}` | What `s` submits for the picked task, `{id}` standing for the task id. A config with its own delivery skill sets it to that skill. |
+
+Needs Claude Code 2.1.287 or later and `python3`, and draws in the terminal only.
+
+### 2e. One-Off Utilities
 
 | Situation                               | Skill |
 |-----------------------------------------|-------|
