@@ -5,6 +5,10 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- The roadmap plugin gains a mod: `/ready` opens the ready set in a pane with claim and start buttons, refreshed from the CLI without a turn. The build script ships the module, its tests and its state contract from `library/sources/plugins/roadmap/mod/`.
+
 ## [6.4.0] - 2026-10-05
 
 ### Added
