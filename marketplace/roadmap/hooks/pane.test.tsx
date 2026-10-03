@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { parseSnapshot, startFor } from './register'
+import { parseSnapshot, reasonOf, startFor } from './register'
 
 const PLUGIN = 'roadmap'
 const NOON = new Date(2026, 9, 7, 12, 0).getTime()
@@ -18,18 +18,22 @@ const STATS = JSON.stringify({ phase: 'Phase 2', donePct: 42, milestones: [{ id:
 type On = Parameters<typeof mock.clock>[0]
 
 /** The world beneath the plugin: a clock, a store, and a python that answers the CLI by subcommand. */
-const world = (on: On, detectExit = 0) => {
+const world = (on: On, detectExit = 0, readyRefusal: string | null = null) => {
 	const calls: string[][] = []
 	const toasts: string[] = []
 	mock.clock(on, { now: NOON })
 	mock.store(on)
 	on('session.start', async ($, e) => ({ cwd: e.cwd }))
+	on('ui.panes', async () => ({ value: [] }))
 	on('process.run', async ($, e) => {
 		const argv = e.argv
 		calls.push([...argv])
+		// the CLI is run in the session's own working directory, read per call
+		expect(e.init?.cwd).toBeUndefined()
 		const sub = argv[2]
 		const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
-		if (sub === 'detect') return { value: { exitCode: detectExit, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+		if (sub === 'detect') return { value: { exitCode: detectExit, stdout: detectExit === 2 ? '✗ could not locate .claude/roadmaps.json above the current directory' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+		if (sub === 'ready' && readyRefusal !== null) return { value: { exitCode: 2, stdout: readyRefusal, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
 		if (sub === 'ready') return ok(READY)
 		if (sub === 'stats') return ok(STATS)
 		if (sub === 'claim') return ok(`claimed ${argv[3]}`)
@@ -63,6 +67,9 @@ test('the snapshot is read defensively from the two CLI documents', async () => 
 	expect(startFor('2SE.1', '/next-task-ship {id}')).toEqual({ command: 'next-task-ship', args: '2SE.1' })
 	expect(startFor('2SE.1', '/ready')).toEqual({ command: 'ready', args: '' })
 	expect(startFor('2SE.1', 'roadmap:claim {id} Jaz')).toEqual({ command: 'roadmap:claim', args: '2SE.1 Jaz' })
+	expect(reasonOf({ stdout: '✗ 2 active phases; pass --phase NAME\n', stderr: '' }, 'x')).toBe('✗ 2 active phases; pass --phase NAME')
+	expect(reasonOf({ stdout: '', stderr: 'Traceback (most recent call last):\n  File "x"\nKeyError: \'tasks\'\n' }, 'x')).toBe("KeyError: 'tasks'")
+	expect(reasonOf({ stdout: '', stderr: '' }, 'fallback')).toBe('fallback')
 })
 
 test('/ready refreshes from the CLI and draws the ready set in order', async ($, on) => {
@@ -93,7 +100,7 @@ test('a picked row offers claim and start; claim asks who and runs the CLI', asy
 	await ui.press({ key: 'claim' })
 	const input = await ui.find({ type: 'Input', key: 'assignee' })
 	expect(input?.props.label).toBe('who is doing 2SE.1')
-	expect(input?.props.value).toBe('')
+	expect(input?.props.value).toBeUndefined()
 	await ui.input({ key: 'assignee', text: '  ' })
 	expect(toasts).toEqual(['a claim needs a name.'])
 	await ui.input({ key: 'assignee', text: 'Jaz' })
@@ -115,14 +122,30 @@ test('start runs the configured command for the picked task', { options: { start
 	await ui.press({ key: 'row-2SE.4' })
 	await ui.press({ key: 'start' })
 	expect(ran).toEqual(['next-task-ship 2SE.4'])
-	expect(toasts).toEqual(['running /next-task-ship 2SE.4'])
+	expect(toasts).toEqual(['queued /next-task-ship 2SE.4'])
 })
 
-test('no roadmap and the old format each say so instead of a list', async ($, on) => {
+test('no roadmap says what the CLI said instead of a list', async ($, on) => {
 	world(on, 2)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'ready' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text' }))?.text).toBe('no roadmap above this directory')
+	expect((await ui.find({ type: 'Text' }))?.text).toBe('✗ could not locate .claude/roadmaps.json above the current directory')
 	expect(await ui.find({ type: 'Button' })).toBeUndefined()
+})
+
+test('the old single-file format points at migrate', async ($, on) => {
+	world(on, 3)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text' }))?.text).toBe('old single-file roadmap: run /roadmap:migrate first')
+})
+
+test("the CLI's own refusal reaches the pane", async ($, on) => {
+	world(on, 0, '✗ 2 active phases; pass --phase NAME\n')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text' }))?.text).toBe('✗ 2 active phases; pass --phase NAME')
 })
