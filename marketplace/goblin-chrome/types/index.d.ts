@@ -55,6 +55,8 @@ export type Vitals = {
 	tools: number
 	errors: number
 	turnMs: number
+	turnTools: number
+	turnErrors: number
 	bounces: number
 }
 

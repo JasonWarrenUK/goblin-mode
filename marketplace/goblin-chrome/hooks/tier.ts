@@ -19,8 +19,9 @@ export const tierOf = (model: string): Tier => {
 export const pinnedModel = (skillMarkdown: string): string | null => {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(skillMarkdown)
 	if (!fm || fm[1] === undefined) return null
-	const line = /^model:\s*([^\s#]+)/m.exec(fm[1])
-	return line?.[1] ?? null
+	const line = /^model:\s*["']?([^\s#"']+)/m.exec(fm[1])
+	const model = line?.[1] ?? null
+	return model === null || model === 'inherit' ? null : model
 }
 
 const STYLE: Record<Tier, { borderStyle: string; dim: boolean }> = {

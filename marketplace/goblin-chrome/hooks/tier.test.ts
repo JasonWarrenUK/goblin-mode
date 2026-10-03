@@ -16,6 +16,8 @@ describe('tiers', () => {
 		expect(pinnedModel('---\nname: x\nmodel: sonnet # was haiku\neffort: low\n---\nbody')).toBe('sonnet')
 		expect(pinnedModel('---\nname: x\n---\nmodel: opus')).toBeNull()
 		expect(pinnedModel('no frontmatter')).toBeNull()
+		expect(pinnedModel('---\nmodel: inherit\n---')).toBeNull()
+		expect(pinnedModel('---\nmodel: "opus"\n---')).toBe('opus')
 	})
 
 	test('each tier has its own frame and the runes follow the convention', async () => {

@@ -5,6 +5,25 @@
 
 import type { Palette } from '../types'
 
+export type Variant = 'light' | 'dark'
+
+/** The clod family's light variant, for a light terminal theme. */
+export const CLOD_LIGHT: Palette = {
+	family: 'clod',
+	ink: '#1E232B',
+	inkMuted: '#555D69',
+	surface: '#F7F3EA',
+	surfaceRaised: '#FFFFFF',
+	line: '#D8D1C3',
+	accent: '#7A540C',
+	accentInk: '#FFF8E6',
+	accent2: '#1C6E65',
+	ok: '#2E7D32',
+	warn: '#8A5A00',
+	danger: '#B3412F',
+	info: '#2F6FA8',
+}
+
 /** The clod family's dark variant, so the chrome draws before any file is read. */
 export const CLOD: Palette = {
 	family: 'clod',
@@ -37,31 +56,31 @@ const SWATCHES: Record<Exclude<keyof Palette, 'family'>, string> = {
 	info: 'info',
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
-/** A core theme file's dark variant as a Palette, or null when the file is not a core. */
-export const paletteFrom = (core: unknown): Palette | null => {
+/** A core theme file's variant as a Palette, or null when the file is not a core. */
+export const paletteFrom = (core: unknown, variant: Variant = 'dark'): Palette | null => {
 	if (!isRecord(core) || !isRecord(core.palette) || typeof core.family !== 'string') return null
 	const palette = core.palette
 	const out: Record<string, string> = { family: core.family }
 	for (const [key, swatch] of Object.entries(SWATCHES)) {
 		const entry = palette[swatch]
-		const dark = isRecord(entry) ? entry.dark : undefined
-		if (typeof dark !== 'string' || !/^#[0-9a-f]{6}$/i.test(dark)) return null
-		out[key] = dark
+		const hex = isRecord(entry) ? entry[variant] : undefined
+		if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex)) return null
+		out[key] = hex
 	}
 	return out as Palette
 }
 
-/** Core files in a themes directory: `<family>.json`, never a hyphenated target. */
-export const coreNames = (entries: readonly { name: string; kind: string }[]): string[] =>
+/** Core files in a themes directory: `<family>.json`, never a hyphenated target; a symlink counts. */
+export const coreNames = (entries: readonly { name: string; kind: string; isLink?: boolean }[]): string[] =>
 	entries
-		.filter(e => e.kind === 'file' && /^[a-z0-9]+\.json$/.test(e.name))
+		.filter(e => (e.kind === 'file' || e.isLink === true) && /^[a-z0-9]+\.json$/.test(e.name))
 		.map(e => e.name.slice(0, -5))
 		.sort()
 
 type Reader = {
-	list: (path: string) => Promise<readonly { name: string; kind: string }[]>
+	list: (path: string) => Promise<readonly { name: string; kind: string; isLink?: boolean }[]>
 	read: (path: string) => Promise<string>
 	home: () => Promise<string | undefined>
 }
@@ -71,10 +90,10 @@ type Reader = {
  * name, '' for none. Every failure falls through to the next source and the
  * last source is the baked-in clod, so this never throws.
  */
-export const loadPalette = async (reader: Reader, wanted: string): Promise<Palette> => {
+export const loadPalette = async (reader: Reader, wanted: string, variant: Variant = 'dark'): Promise<Palette> => {
 	const tryRead = async (path: string): Promise<Palette | null> => {
 		try {
-			return paletteFrom(JSON.parse(await reader.read(path)))
+			return paletteFrom(JSON.parse(await reader.read(path)), variant)
 		} catch {
 			return null
 		}
@@ -94,5 +113,5 @@ export const loadPalette = async (reader: Reader, wanted: string): Promise<Palet
 		const global = await tryRead(`${home}/.claude/library/themes/${wanted || 'clod'}.json`)
 		if (global) return global
 	}
-	return CLOD
+	return variant === 'light' ? CLOD_LIGHT : CLOD
 }
