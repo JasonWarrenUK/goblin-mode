@@ -39,7 +39,7 @@ export type Snapshot = {
 
 declare module 'claude-code' {
 	interface PluginState {
-		roadmap: {
+		'roadmap-pane': {
 			snapshot: Snapshot | null
 			selected: string | null
 			asking: string | null
