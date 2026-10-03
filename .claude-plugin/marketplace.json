@@ -29,6 +29,18 @@
 				"goblin",
 				"terminal"
 			]
+		},
+		{
+			"name": "goblin-util",
+			"source": "./marketplace/goblin-util",
+			"description": "Two mods: /pain logs friction with Claude Code itself without a turn, context pre-filled; /fleet shows every session on the machine and sends one a line.",
+			"category": "productivity",
+			"tags": [
+				"mod",
+				"fleet",
+				"sessions",
+				"pain-points"
+			]
 		}
 	]
 }
