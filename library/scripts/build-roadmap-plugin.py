@@ -65,6 +65,10 @@ FILES = {
 	"scripts/_roadmap_hooks.py": "library/scripts/_roadmap_hooks.py",
 	"templates/roadmap-artefact.html": "library/templates/roadmap-artefact.html",
 	"references/roadmap-conventions.md": "library/references/roadmap-conventions.md",
+	# the mod: the /ready pane, its tests and its $.state contract
+	"hooks/register.tsx": "library/sources/plugins/roadmap/mod/register.tsx",
+	"hooks/pane.test.tsx": "library/sources/plugins/roadmap/mod/pane.test.tsx",
+	"types/index.d.ts": "library/sources/plugins/roadmap/mod/index.d.ts",
 }
 
 def _plugin_json(version: str) -> str:
@@ -76,7 +80,16 @@ def _plugin_json(version: str) -> str:
 		"name": "Jason Warren"
 	}},
 	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
-	"keywords": ["roadmap", "planning", "dependency-graph"]
+	"keywords": ["roadmap", "planning", "dependency-graph"],
+	"types": "./types/index.d.ts",
+	"userConfig": {{
+		"start_command": {{
+			"type": "string",
+			"title": "Start command",
+			"description": "What the pane's start button submits for a picked task, with {{id}} for the task id.",
+			"default": "/roadmap:claim {{id}}"
+		}}
+	}}
 }}
 """.format(version=version)
 
@@ -84,6 +97,7 @@ def _plugin_json(version: str) -> str:
 # claim when work starts on a branch; python3 missing makes them a no-op
 CLAIM_HOOK = 'command -v python3 >/dev/null 2>&1 || exit 0; python3 \\"${CLAUDE_PLUGIN_ROOT}/scripts/roadmap.py\\" hook'
 HOOKS_JSON = """{
+	"modules": ["./register.tsx"],
 	"hooks": {
 		"SessionStart": [
 			{
