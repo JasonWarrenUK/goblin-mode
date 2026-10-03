@@ -5,6 +5,38 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-10-02
+
+### Breaking
+
+- `/roadmap-update-devs` arguments change with no aliases: the `all` horizon is now `open` and the `devless` scope is now `free`. Anything that calls the old forms needs updating.
+- `/hud-worktrees` is read-only. `new` and `clean` are gone; use `/branch-worktree new` and `/branch-worktree prune`.
+- The roadmap plugin moves to `roadmap-v2.0.0`, which is what carries the root series to a major version. The two argument changes above are the plugin's breaking surface.
+
+### Added
+
+- `roadmap.py ready` takes `--milestones` or `--tiers` (mutually exclusive; `--tiers focus` picks the tier now underway), and a new `open` subcommand lists every task not done or out of scope with the same filters.
+- `/roadmap-update-devs` arguments are all optional and default to `ready free current:project`. A third argument, `<phase>:<filter>`, narrows the list to a project, the focus tier, chosen tiers or chosen milestones. The resolved call is echoed before the interview starts.
+- Tasks record when they finished. A new optional `ended` field comes with `end ID`, `stamp-ended --base REF --pr N` and `backfill-ended`, and `validate` rejects an `ended` that is malformed, set on a task that is not done or earlier than `started`.
+- `/pr-land` stamps end dates onto the PR branch before the merge (Step 1.6), and `/roadmap-maintain` backfills missing dates from git history in a new step 3b, offering `first-seen` rows separately because their date is only a lower bound.
+- `/roadmap-claim` claims a roadmap task when work starts and releases it when work stops, asking who is doing it. The claim nudge and the other roadmap skills now point at it.
+- `/branch-worktree new` creates a worktree under `.claude/worktrees/` and moves the session into it; `/branch-worktree prune` clears merged worktrees, plus idle worktrees whose branch is still open (the branch stays), stray directories and heavy leftovers such as `.venv`.
+- `worktree-state.sh` reports a worktree's dirty count and ahead/behind as JSON for the read-only map.
+
+### Changed
+
+- The dependency diagram in the roadmap dashboard leaves out `out_of_scope` tasks as well as done ones, along with the milestones and tiers they leave empty.
+- Routine verification subagents in `/pr-handle_review` run on Sonnet.
+- The stacked-PR docs and skills use commands Claude can run without a terminal: `gh stack link <stack#> <pr>` to append a PR, `-m` on `gh stack add` and `--open` on submit.
+
+### Fixed
+
+- `stamp-ended` refuses to run when the merge-base copy of the roadmap has no phase of the active name, instead of stamping every done task as finished by the branch.
+- `backfill-ended` skips and reports a task whose date would precede its `started`, rather than writing a file that fails `validate`.
+- `/pr-land` never runs a bare `gh stack merge`, which merged every layer of a stack including those above the approved PR; Step 2 now always names the PR.
+- `/roadmap-claim` handles a `roadmaps.json` the CLI refuses to rewrite.
+- `worktree-state.sh` exits 2 when `git status` fails instead of reporting a modified worktree as clean.
+
 ## [5.0.0] - 2026-10-01
 
 ### Breaking
@@ -161,7 +193,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v5.0.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.0.0...HEAD
+[6.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v5.0.0...v6.0.0
 [5.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.1.0...v4.0.0
 [3.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.0.0...v3.1.0
