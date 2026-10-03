@@ -28,10 +28,20 @@ const painFile = (on: On, initial: string | null) => {
 
 const world = (on: On, entries: Readonly<Record<string, unknown>> = {}) => {
 	ids.current = 's1'
+	const panes = { open: [] as string[] }
+	on('ui.panes', async () => ({ value: panes.open.map(id => ({ id, title: id, isShown: true, isFocused: true, isPlaced: true })) }))
+	on('ui.open', async ($, e) => {
+		if (!panes.open.includes(e.id)) panes.open.push(e.id)
+		return { value: { isPlaced: true } }
+	})
+	on('ui.close', async ($, e) => {
+		panes.open = panes.open.filter(id => id !== e.id)
+		return { value: undefined }
+	})
 	// A store of the test's own, so what the plugin wrote can be read back directly.
 	const map = new Map<string, unknown>(Object.entries(entries))
 	const clock = mock.clock(on, { now: NOON })
-	const store = { map, clock, sets: [] as { key: string; value: unknown }[], deletes: [] as string[] }
+	const store = { map, clock, panes, sets: [] as { key: string; value: unknown }[], deletes: [] as string[] }
 	on('store.get', async ($, e) => ({ value: map.get(e.key) }))
 	on('store.keys', async () => ({ value: [...map.keys()] }))
 	on('store.set', async ($, e) => {
@@ -48,7 +58,6 @@ const world = (on: On, entries: Readonly<Record<string, unknown>> = {}) => {
 	on('session.start', async ($, e) => ({ cwd: e.cwd }))
 	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
 	on('turn.complete', async () => ({ text: '' }))
-	on('ui.panes', async () => ({ value: [] }))
 	on('session.id', async () => ({ value: ids.current }))
 	on('session.cwd', async () => ({ value: '/code/app' }))
 	on('session.repo', async () => ({ value: { root: '/code/app', remote: null, internal: false, name: null } }))
@@ -112,36 +121,26 @@ test('a pain file that will not parse is never overwritten', async ($, on) => {
 })
 
 test('/pain alone opens a pane whose input logs and closes it', async ($, on) => {
-	world(on)
+	const store = world(on)
 	const file = painFile(on, '[{"id":"thing","description":"thing","logged":"2026-10-01","sourceSession":"","resolvedIn":null,"resolvedNoted":null}]')
-	const opened: string[] = []
-	const closed: string[] = []
 	const toasts: string[] = []
-	on('ui.open', async ($, e) => {
-		opened.push(e.id)
-		return { value: { isPlaced: true } }
-	})
-	on('ui.close', async ($, e) => {
-		closed.push(e.id)
-		return { value: undefined }
-	})
 	on('ui.toast', async ($, e, next) => {
 		toasts.push(e.text)
 		return next(e)
 	})
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	expect(await $.command.run({ ...RUN, command: 'pain', args: '' })).toEqual({})
-	expect(opened).toEqual(['pain'])
+	expect(store.panes.open).toEqual(['pain'])
 	const ui = await $.ui.mount(PANE('pain'))
 	expect((await ui.find({ type: 'Text', text: /nothing has failed yet/ }))?.text).toMatch(/app · feat\/search/)
 	expect((await ui.find({ type: 'Input', key: 'pain-text' }))?.props.value).toBeUndefined()
 	await ui.input({ key: 'pain-text', text: 'thing' })
 	expect(toasts).toEqual(['already logged as thing'])
 	// a refusal keeps the box open with what was typed
-	expect(closed).toEqual([])
+	expect(store.panes.open).toEqual(['pain'])
 	await ui.input({ key: 'pain-text', text: 'the status line ate my prompt' })
 	expect(toasts[1]).toBe('logged the-status-line-ate-my-prompt')
-	expect(closed).toEqual(['pain'])
+	expect(store.panes.open).toEqual([])
 	expect(JSON.parse(file.text ?? '')).toHaveLength(2)
 })
 
@@ -189,6 +188,15 @@ test('the fleet pane lists live rows, drops stale ones and messages a picked ses
 	await ui.input({ key: 'fleet-msg', text: 'leave the main checkout alone' })
 	expect(sent).toEqual([{ to: expect.anything(), text: 'leave the main checkout alone' }])
 	expect(toasts).toEqual(['sent to chirpdb/fix/export'])
+})
+
+test('/fleet opens the pane and runs again to close it', async ($, on) => {
+	const store = world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'fleet', args: '' })
+	expect(store.panes.open).toEqual(['fleet'])
+	await $.command.run({ ...RUN, command: 'fleet', args: '' })
+	expect(store.panes.open).toEqual([])
 })
 
 test('the heartbeat writes this session and session.end removes it', async ($, on) => {
