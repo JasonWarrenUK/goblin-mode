@@ -124,13 +124,43 @@ test('a bounced commit message is counted and heckled', async ($, on) => {
 		result: { stdout: '', stderr: 'commit-msg: L1 em dash: fix the message and commit again', interrupted: false },
 		isError: true,
 	}))
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	on('turn.complete', async () => ({ text: '' }))
+	await $.turn.start({ text: 'commit it', turnId: 't1' })
 	await $.tool.call({ tool: 'Bash', command: 'git commit -m "add — thing"' })
 	expect(toasts.some(t => /bOuNcEd/.test(t))).toBe(true)
-	const ui = await $.ui.mount({
-		plugin: PLUGIN,
-		surface: 'terminal',
-		component: 'TurnDuration',
-		props: { word: 'Baked', durationMs: 3_000 },
-	})
-	expect((await ui.find({ type: 'Text' }))?.text).toBe('dOnE. 3s. tOoK 1 tHiNg. bIt mE oNcE.')
+	await $.turn.complete({ answer: 'done', durationMs: 3_000, isAborted: false, turnId: 't1', reason: 'answer' })
+	const line = async (durationMs: number) => {
+		const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs } })
+		return (await ui.find({ type: 'Text' }))?.text
+	}
+	expect(await line(3_000)).toBe('dOnE. 3s. tOoK 1 tHiNg. bIt mE oNcE.')
+	// an older row draws its duration alone, never the live counts
+	expect(await line(9_000)).toBe('dOnE. 9s.')
+})
+
+test('the goblin paces on its own clock without unmounting, and faces the way it walks', async ($, on) => {
+	world(on)
+	const ui = await $.ui.mount(BAND)
+	await ui.resize({ columns: 20, rows: 1, in: 'goblin' })
+	await ui.advance(1_200)
+	const texts = await ui.findAll({ type: 'Text', in: 'goblin' })
+	expect(texts[0]?.text).toBe('  ')
+	expect(texts[1]?.text).toBe('ᕕ( ᐛ )ᕗ')
+	await ui.advance(10_000)
+	const later = await ui.findAll({ type: 'Text', in: 'goblin' })
+	expect(later.map(t => t.text).join('')).toMatch(/^ *ᕗ\( ᐛ \)ᕕ$|^ *ᕕ\( ᐛ \)ᕗ$/)
+})
+
+test('a dropped prompt leaves the goblin idle; a turn makes it watch', async ($, on) => {
+	world(on)
+	on('prompt.submit', async () => ({ drop: 'not now' }))
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	await $.prompt.submit({ text: 'go', wait: false, origin: { kind: 'composer' } })
+	const idle = await $.ui.mount(BAND)
+	expect((await idle.find({ type: 'Client', key: 'goblin' }))?.props.props).toMatchObject({ mode: 'idle' })
+	await idle.unmount()
+	await $.turn.start({ text: 'go', turnId: 't2' })
+	const busy = await $.ui.mount(BAND)
+	expect((await busy.find({ type: 'Client', key: 'goblin' }))?.props.props).toMatchObject({ mode: 'working' })
 })

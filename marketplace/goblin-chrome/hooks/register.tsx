@@ -22,7 +22,7 @@ import {
 	type Expression,
 } from './goblin'
 import { goblinCase, pick, seconds } from './text'
-import { CLOD, loadPalette } from './theme'
+import { CLOD, loadPalette, type Variant } from './theme'
 import { DEFAULT_TIER, frameFor, pinnedModel, tierOf } from './tier'
 
 const PLUGIN = 'goblin-chrome'
@@ -42,6 +42,8 @@ const vitals = atom({ plugin: 'goblin-chrome', key: 'vitals' } as const, {
 	tools: 0,
 	errors: 0,
 	turnMs: 0,
+	turnTools: 0,
+	turnErrors: 0,
 	bounces: 0,
 } as Vitals)
 const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
@@ -124,7 +126,16 @@ export const register: Register = (on, options) => {
 
 	on('session.start', async ($, e, next) => {
 		const now = await $.clock.now()
+		lastYawnAt = now
+		servedTier = (await read($, frame)).served
 		await update($, idle, i => ({ ...i, sessionStartAt: now, lastTurnEndAt: now }))
+		let variant: Variant = 'dark'
+		try {
+			const row = (await $.config.list()).find(r => r.key === 'theme')
+			if (typeof row?.value === 'string' && /light/i.test(row.value)) variant = 'light'
+		} catch {
+			// no config to read; dark it is
+		}
 		const loaded = await loadPalette(
 			{
 				list: path => $.fs.list(path),
@@ -132,6 +143,7 @@ export const register: Register = (on, options) => {
 				home: () => $.env.get('HOME'),
 			},
 			wantedTheme,
+			variant,
 		)
 		await update($, palette, () => loaded)
 		await refreshFrame($)
@@ -158,14 +170,26 @@ export const register: Register = (on, options) => {
 
 	on('prompt.submit', async ($, e, next) => {
 		const now = await $.clock.now()
-		await update($, idle, i => ({ ...i, lastPromptAt: now, isWorking: true, draftSince: 0 }))
+		await update($, idle, i => ({ ...i, lastPromptAt: now, draftSince: 0 }))
+		return next(e)
+	})
+
+	// A turn, not a submission: a dropped prompt never starts one.
+	on('turn.start', async ($, e, next) => {
+		await update($, idle, i => (i.isWorking ? i : { ...i, isWorking: true }))
 		await update($, vitals, v => ({ ...v, tools: 0, errors: 0 }))
 		return next(e)
 	})
 
+	// One write when a draft begins, one when it empties; nothing per keystroke.
 	on('prompt.edit', async ($, e, next) => {
-		const now = await $.clock.now()
-		await update($, idle, i => (i.draftSince === 0 ? { ...i, draftSince: now } : i))
+		const i = await read($, idle)
+		const isEmpty = e.text.length - (e.end - e.start) + e.inputText.length === 0
+		if (isEmpty && i.draftSince !== 0) await update($, idle, cur => ({ ...cur, draftSince: 0 }))
+		else if (!isEmpty && i.draftSince === 0) {
+			const now = await $.clock.now()
+			await update($, idle, cur => ({ ...cur, draftSince: now }))
+		}
 		return next(e)
 	})
 
@@ -223,7 +247,7 @@ export const register: Register = (on, options) => {
 		}
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, lastTurnEndAt: now, isWorking: false }))
-		await update($, vitals, v => ({ ...v, turnMs: e.durationMs }))
+		await update($, vitals, v => ({ ...v, turnMs: e.durationMs, turnTools: v.tools, turnErrors: v.errors }))
 		if (pinnedTier !== null) {
 			pinnedTier = null
 			await refreshFrame($)
@@ -238,7 +262,7 @@ export const register: Register = (on, options) => {
 	})
 
 	on('command.run', { command: 'clear' }, async ($, e, next) => {
-		$.ui.toast(HECKLES.clear)
+		$.ui.toast(goblinCase(HECKLES.clear))
 		return next(e)
 	})
 
@@ -304,8 +328,11 @@ export const register: Register = (on, options) => {
 		const { Text } = $.ui.resolve(e)
 		const [p, v, d] = await Promise.all([read($, palette), read($, vitals), read($, day)])
 		const bits = [`done. ${seconds(e.props.durationMs)}.`]
-		if (v.tools > 0) bits.push(`took ${v.tools} thing${v.tools === 1 ? '' : 's'}.`)
-		if (v.errors > 0) bits.push(`bit me ${v.errors === 1 ? 'once' : `${v.errors} times`}.`)
+		// Only the row for the turn that just ended knows its counts; older rows keep the duration alone.
+		if (e.props.durationMs === v.turnMs) {
+			if (v.turnTools > 0) bits.push(`took ${v.turnTools} thing${v.turnTools === 1 ? '' : 's'}.`)
+			if (v.turnErrors > 0) bits.push(`bit me ${v.turnErrors === 1 ? 'once' : `${v.turnErrors} times`}.`)
+		}
 		return (
 			<Text color={accentOf(p, d)} dimColor>
 				{goblinCase(bits.join(' '))}

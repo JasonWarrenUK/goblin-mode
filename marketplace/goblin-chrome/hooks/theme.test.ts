@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { CLOD, coreNames, loadPalette, paletteFrom } from './theme'
+import { CLOD, CLOD_LIGHT, coreNames, loadPalette, paletteFrom } from './theme'
 
 const core = (family: string, accent = '#D9A441') => ({
 	family,
@@ -31,6 +31,8 @@ describe('palette parsing', () => {
 		delete short.palette.info
 		expect(paletteFrom(short)).toBeNull()
 		expect(paletteFrom(null)).toBeNull()
+		expect(paletteFrom([])).toBeNull()
+		expect(paletteFrom(core('ember'), 'light')).toMatchObject({ accent: '#666666', ink: '#111111' })
 	})
 
 	test('core names are the unhyphenated json files only', async () => {
@@ -40,9 +42,10 @@ describe('palette parsing', () => {
 				{ name: 'ember-html.json', kind: 'file' },
 				{ name: 'seen.json', kind: 'file' },
 				{ name: 'tidewater.json', kind: 'file' },
-				{ name: 'notes', kind: 'directory' },
+				{ name: 'notes', kind: 'dir' },
+				{ name: 'linked.json', kind: 'other', isLink: true },
 			]),
-		).toEqual(['ember', 'seen', 'tidewater'])
+		).toEqual(['ember', 'linked', 'seen', 'tidewater'])
 	})
 })
 
@@ -81,5 +84,6 @@ describe('resolution', () => {
 	test('no files anywhere gives the baked-in clod', async () => {
 		const bare = { list: async () => [], read: async () => { throw new Error('ENOENT') }, home: async () => undefined }
 		expect(await loadPalette(bare, '')).toEqual(CLOD)
+		expect(await loadPalette(bare, '', 'light')).toEqual(CLOD_LIGHT)
 	})
 })
