@@ -18,20 +18,37 @@ const snapshot = atom({ plugin: 'roadmap', key: 'snapshot' } as const, null as S
 const selected = atom({ plugin: 'roadmap', key: 'selected' } as const, null as string | null)
 const asking = atom({ plugin: 'roadmap', key: 'asking' } as const, null as string | null)
 
-// Module-level because the validator holds `$` to top-level functions.
+// Module-level because the validator holds `$` to top-level functions; only
+// the CLI path and the option live here, neither of which a drawing reads.
 let cli = ''
-let cwd = ''
 let startCommand = '/roadmap:claim {id}'
-let isOpen = false
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const str = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '')
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 
-const run = ($: EngineInterface, args: readonly string[]) =>
-	$.process.run(['python3', cli, ...args], { cwd, timeoutMs: 15_000 })
+// No cwd: the default is the session's working directory read per call, so a
+// move into a worktree takes the pane with it and the CLI finds that branch's
+// roadmaps.json by walking up from there.
+const run = ($: EngineInterface, args: readonly string[]) => $.process.run(['python3', cli, ...args], { timeoutMs: 15_000 })
 
 const firstLine = (text: string): string => text.trim().split('\n')[0] ?? ''
+
+const lastLine = (text: string): string => text.trim().split('\n').pop() ?? ''
+
+/** What the CLI said when it refused: its own `✗` line goes to stdout; a traceback's last line is the error. */
+export const reasonOf = (ran: { stdout: string; stderr: string }, fallback: string): string => {
+	if (/Traceback \(most recent call last\)/.test(ran.stderr)) return lastLine(ran.stderr) || fallback
+	return firstLine(ran.stdout) || firstLine(ran.stderr) || fallback
+}
+
+const isPaneOpen = async ($: EngineInterface): Promise<boolean> => {
+	try {
+		return (await $.ui.panes()).some(p => p.id === PANE)
+	} catch {
+		return false
+	}
+}
 
 /** Turn the CLI's two JSON documents into what the pane draws. */
 export const parseSnapshot = (readyText: string, statsText: string, at: number): Snapshot => {
@@ -68,10 +85,10 @@ const refresh = async ($: EngineInterface): Promise<void> => {
 	try {
 		const detect = await run($, ['detect'])
 		if (detect.exitCode === 3) return void (await update($, snapshot, () => failed('old single-file roadmap: run /roadmap:migrate first')))
-		if (detect.exitCode !== 0) return void (await update($, snapshot, () => failed('no roadmap above this directory')))
+		if (detect.exitCode !== 0) return void (await update($, snapshot, () => failed(reasonOf(detect, 'no roadmap above this directory'))))
 		const [ready, stats] = await Promise.all([run($, ['ready', '--json']), run($, ['stats', '--json'])])
 		if (ready.exitCode !== 0 || stats.exitCode !== 0) {
-			return void (await update($, snapshot, () => failed(firstLine(ready.stderr || stats.stderr) || 'the CLI refused')))
+			return void (await update($, snapshot, () => failed(reasonOf(ready.exitCode !== 0 ? ready : stats, 'the CLI refused'))))
 		}
 		const next = parseSnapshot(ready.stdout, stats.stdout, at)
 		await update($, snapshot, () => next)
@@ -92,7 +109,7 @@ const claim = async ($: EngineInterface, id: string, assignee: string): Promise<
 	if (!who) return 'a claim needs a name.'
 	try {
 		const ran = await run($, ['claim', id, '--assignee', who])
-		if (ran.exitCode !== 0) return firstLine(ran.stderr || ran.stdout) || `claim ${id} refused`
+		if (ran.exitCode !== 0) return reasonOf(ran, `claim ${id} refused`)
 		return `claimed ${id} for ${who}. commit roadmaps.json when you are ready.`
 	} catch {
 		return 'the CLI could not run'
@@ -103,7 +120,6 @@ export const register: Register = (on, options) => {
 	startCommand = typeof options.start_command === 'string' && options.start_command.includes('{id}') ? options.start_command : '/roadmap:claim {id}'
 
 	on('session.start', async ($, e, next) => {
-		cwd = e.cwd
 		cli = `${$.plugin.root}/scripts/roadmap.py`
 		try {
 			await $.command.register({
@@ -114,32 +130,29 @@ export const register: Register = (on, options) => {
 		} catch {
 			// the name is taken; nothing else to do
 		}
+		// Only while the pane is actually placed: an unplaced or closed pane spawns nothing.
 		$.clock.every(120_000, () => {
-			if (isOpen) void refresh($)
+			void isPaneOpen($).then(open => {
+				if (open) void refresh($)
+			})
 		})
 		return next(e)
 	})
 
 	on('command.run', { command: 'ready' }, async $ => {
-		isOpen = true
 		await refresh($)
 		await $.ui.open({ id: PANE, title: 'ready', focus: true, closeOnEscape: true, rows: 16 })
 		return {}
 	})
 
-	on('ui.close', { id: PANE }, async ($, e, next) => {
-		isOpen = false
-		return next(e)
-	})
-
 	// A change to the roadmap by any route redraws the pane while it is open.
 	on('tool.call', async ($, e, next) => {
 		const ran = await next(e)
-		if (!isOpen || e.agentId) return ran
+		if (e.agentId) return ran
 		const touched =
 			((e.tool === 'Edit' || e.tool === 'Write') && /roadmaps\.json$/.test(e.file_path)) ||
 			(e.tool === 'Bash' && /roadmap\.py|roadmaps\.json/.test(e.command))
-		if (touched) await refresh($)
+		if (touched && (await isPaneOpen($))) await refresh($)
 		return ran
 	})
 
@@ -187,7 +200,8 @@ export const register: Register = (on, options) => {
 							variant="primary"
 							onPress={async () => {
 								const { command, args } = startFor(current.id)
-								$.ui.toast(`running /${command} ${args}`.trim())
+								// A command runs once the session is idle, so mid-turn this waits its turn.
+								$.ui.toast(`queued /${command} ${args}`.trim())
 								try {
 									await $.command.run({ command, args })
 								} catch (error) {
@@ -203,7 +217,6 @@ export const register: Register = (on, options) => {
 						key="assignee"
 						label={`who is doing ${current.id}`}
 						placeholder="a name; never inferred, never pre-filled"
-						value=""
 						submitLabel="claim"
 						autoFocus
 						onSubmit={async value => {
