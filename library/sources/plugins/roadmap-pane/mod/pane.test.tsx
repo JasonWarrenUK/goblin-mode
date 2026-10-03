@@ -1,8 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { parseSnapshot, reasonOf, startFor } from './register'
+import { parseSnapshot, reasonOf } from './register'
 
-const PLUGIN = 'roadmap'
+const PLUGIN = 'roadmap-pane'
 const NOON = new Date(2026, 9, 7, 12, 0).getTime()
 
 const READY = JSON.stringify({
@@ -24,7 +24,12 @@ const world = (on: On, detectExit = 0, readyRefusal: string | null = null) => {
 	mock.clock(on, { now: NOON })
 	mock.store(on)
 	on('session.start', async ($, e) => ({ cwd: e.cwd }))
-	on('ui.panes', async () => ({ value: [] }))
+	const panes = { open: [] as string[] }
+	on('ui.panes', async () => ({ value: panes.open.map(id => ({ id, title: id, isShown: true, isFocused: true, isPlaced: true })) }))
+	on('ui.close', async ($, e) => {
+		panes.open = panes.open.filter(id => id !== e.id)
+		return { value: undefined }
+	})
 	on('process.run', async ($, e) => {
 		const argv = e.argv
 		calls.push([...argv])
@@ -39,12 +44,15 @@ const world = (on: On, detectExit = 0, readyRefusal: string | null = null) => {
 		if (sub === 'claim') return ok(`claimed ${argv[3]}`)
 		return { value: { exitCode: 1, stdout: '', stderr: 'unknown', isStdoutTruncated: false, isStderrTruncated: false } }
 	})
-	on('ui.open', async () => ({ value: { isPlaced: true } }))
+	on('ui.open', async ($, e) => {
+		if (!panes.open.includes(e.id)) panes.open.push(e.id)
+		return { value: { isPlaced: true } }
+	})
 	on('ui.toast', async ($, e) => {
 		toasts.push(e.text)
 		return { value: undefined }
 	})
-	return { calls, toasts }
+	return { calls, toasts, panes }
 }
 
 const RUN = { origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 }, args: '' } as const
@@ -64,9 +72,6 @@ test('the snapshot is read defensively from the two CLI documents', async () => 
 	expect(snap.milestones[1]).toEqual({ id: 'M2', name: 'Search', donePct: 40 })
 	expect(parseSnapshot('{"candidates": [{"id": 7}]}', '{}', NOON).candidates[0]?.id).toBe('7')
 	expect(() => parseSnapshot('[]', '{}', NOON)).toThrow('not an object')
-	expect(startFor('2SE.1', '/next-task-ship {id}')).toEqual({ command: 'next-task-ship', args: '2SE.1' })
-	expect(startFor('2SE.1', '/ready')).toEqual({ command: 'ready', args: '' })
-	expect(startFor('2SE.1', 'roadmap:claim {id} Jaz')).toEqual({ command: 'roadmap:claim', args: '2SE.1 Jaz' })
 	expect(reasonOf({ stdout: '✗ 2 active phases; pass --phase NAME\n', stderr: '' }, 'x')).toBe('✗ 2 active phases; pass --phase NAME')
 	expect(reasonOf({ stdout: '', stderr: 'Traceback (most recent call last):\n  File "x"\nKeyError: \'tasks\'\n' }, 'x')).toBe("KeyError: 'tasks'")
 	expect(reasonOf({ stdout: '', stderr: '' }, 'fallback')).toBe('fallback')
@@ -109,20 +114,18 @@ test('a picked row offers claim and start; claim asks who and runs the CLI', asy
 	expect(await ui.find({ type: 'Input' })).toBeUndefined()
 })
 
-test('start runs the configured command for the picked task', { options: { start_command: '/next-task-ship {id}' } }, async ($, on) => {
-	const { toasts } = world(on)
-	const ran: string[] = []
-	on('command.run', { command: 'next-task-ship' }, async ($, e) => {
-		ran.push(`${e.command} ${e.args}`)
-		return { text: 'shipping' }
-	})
+test('/ready opens the pane and runs again to close it', async ($, on) => {
+	const { calls, panes } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'ready' })
+	expect(panes.open).toEqual(['ready'])
+	const runs = calls.length
+	await $.command.run({ ...RUN, command: 'ready' })
+	expect(panes.open).toEqual([])
+	// closing runs no CLI
+	expect(calls).toHaveLength(runs)
 	const ui = await $.ui.mount(PANE)
-	await ui.press({ key: 'row-2SE.4' })
-	await ui.press({ key: 'start' })
-	expect(ran).toEqual(['next-task-ship 2SE.4'])
-	expect(toasts).toEqual(['queued /next-task-ship 2SE.4'])
+	expect(await ui.find({ key: 'start' })).toBeUndefined()
 })
 
 test('no roadmap says what the CLI said instead of a list', async ($, on) => {

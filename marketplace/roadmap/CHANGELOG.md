@@ -5,10 +5,6 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
-### Added
-
-- `/ready`, a mod: the ready set in a pane with the claims in play and milestone progress, refreshed from the CLI without a turn. A digit picks a row, `c` claims it after asking who, `s` submits the `start_command` option for it. Needs Claude Code 2.1.287 or later; draws in the terminal.
-
 ## [1.0.0] - 2026-09-30
 
 The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the render data the dashboard reads and the milestone state vocabulary. No behaviour changes from 0.2.0; from here, a change to any of those surfaces is a major bump.
