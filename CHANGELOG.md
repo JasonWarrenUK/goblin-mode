@@ -8,6 +8,7 @@ All notable changes to this project are documented here, newest first.
 ### Added
 
 - `goblin-chrome`, the first mod: goblin-mode's face inside the terminal. A goblin in the band that paces, sits, sleeps, startles and watches, with a context metre and a voice line; the turn's closing line, the footer pills and the hint tail in its register; a face above every question; frames by the model tier that served the request; a nine-state day on the local clock; colours from the project theme. One `enabled` switch. Served from the repo's marketplace as `goblin-chrome@goblin-mode`.
+- `goblin-util`, two mods: `/pain` appends a pain point to `library/state/cc-pain-points.json` without a turn, with the repo, branch and last failed tool call pre-filled, as a typed line or from a small pane; `/fleet` shows every session on the machine from a heartbeat in the plugin's shared store and sends a picked session a message. Served as `goblin-util@goblin-mode`.
 - `docs/reference/mods.md`: how a mod is laid out here, how to check one and the conventions the mods follow.
 
 ## [5.0.0] - 2026-10-01
