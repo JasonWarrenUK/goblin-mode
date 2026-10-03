@@ -1,0 +1,11 @@
+{
+	"name": "roadmap-pane",
+	"version": "0.1.0",
+	"description": "A mod: /ready opens the roadmap's ready set in a pane with the claims in play and milestone progress, and claims a task after asking who. Ships its own copy of the roadmap CLI, so it needs python3 and nothing else; enable the roadmap plugin beside it for the skills.",
+	"author": {
+		"name": "Jason Warren"
+	},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"keywords": ["roadmap", "mod", "pane", "terminal"],
+	"types": "./types/index.d.ts"
+}

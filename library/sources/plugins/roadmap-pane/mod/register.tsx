@@ -1,10 +1,11 @@
 // The roadmap pane: `/ready` opens the ready set the CLI computes, in
-// leverage order, with the claims in play and the milestones' progress. A
-// digit picks a row; `c` claims it after asking who (an assignee is never
-// inferred), `s` runs the configured start command for it as the person
-// would have typed it. The CLI is the
-// plugin's own scripts/roadmap.py, so a teammate needs python3 and nothing
-// else. Nothing here edits roadmaps.json except through `claim`.
+// leverage order, with the claims in play and the milestones' progress, and
+// runs again to close it. A digit picks a row; `c` claims it after asking
+// who (an assignee is never inferred), `r` refreshes. The CLI is this
+// plugin's own scripts/roadmap.py, built from the same source as the roadmap
+// plugin's, so the pane needs python3 and nothing else and a config that
+// runs the roadmap skills from its own files enables the pane alone.
+// Nothing here edits roadmaps.json except through `claim`.
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
@@ -14,14 +15,13 @@ import type { Candidate, Claimed, Milestone, Snapshot } from '../types'
 const PANE = 'ready'
 const ROWS = 9
 
-const snapshot = atom({ plugin: 'roadmap', key: 'snapshot' } as const, null as Snapshot | null)
-const selected = atom({ plugin: 'roadmap', key: 'selected' } as const, null as string | null)
-const asking = atom({ plugin: 'roadmap', key: 'asking' } as const, null as string | null)
+const snapshot = atom({ plugin: 'roadmap-pane', key: 'snapshot' } as const, null as Snapshot | null)
+const selected = atom({ plugin: 'roadmap-pane', key: 'selected' } as const, null as string | null)
+const asking = atom({ plugin: 'roadmap-pane', key: 'asking' } as const, null as string | null)
 
 // Module-level because the validator holds `$` to top-level functions; only
-// the CLI path and the option live here, neither of which a drawing reads.
+// the CLI path lives here, which no drawing reads.
 let cli = ''
-let startCommand = '/roadmap:claim {id}'
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const str = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '')
@@ -97,13 +97,6 @@ const refresh = async ($: EngineInterface): Promise<void> => {
 	}
 }
 
-/** The start command split for `$.command.run`: a leading slash dropped, `{id}` filled. */
-export const startFor = (id: string, template: string = startCommand): { command: string; args: string } => {
-	const text = template.replace(/\{id\}/g, id).trim().replace(/^\//, '')
-	const space = text.indexOf(' ')
-	return space === -1 ? { command: text, args: '' } : { command: text.slice(0, space), args: text.slice(space + 1).trim() }
-}
-
 const claim = async ($: EngineInterface, id: string, assignee: string): Promise<string> => {
 	const who = assignee.trim()
 	if (!who) return 'a claim needs a name.'
@@ -116,15 +109,13 @@ const claim = async ($: EngineInterface, id: string, assignee: string): Promise<
 	}
 }
 
-export const register: Register = (on, options) => {
-	startCommand = typeof options.start_command === 'string' && options.start_command.includes('{id}') ? options.start_command : '/roadmap:claim {id}'
-
+export const register: Register = on => {
 	on('session.start', async ($, e, next) => {
 		cli = `${$.plugin.root}/scripts/roadmap.py`
 		try {
 			await $.command.register({
 				name: 'ready',
-				description: 'The roadmap ready set in a pane: a digit picks, c claims, s starts',
+				description: 'The roadmap ready set in a pane, or closes it: a digit picks, c claims, r refreshes',
 				immediate: true,
 			})
 		} catch {
@@ -139,7 +130,13 @@ export const register: Register = (on, options) => {
 		return next(e)
 	})
 
+	// Open or close: the pane is a tab beside any other, /diff included, and
+	// the same command takes it down again.
 	on('command.run', { command: 'ready' }, async $ => {
+		if (await isPaneOpen($)) {
+			await $.ui.close({ id: PANE })
+			return {}
+		}
 		await refresh($)
 		await $.ui.open({ id: PANE, title: 'ready', focus: true, closeOnEscape: true, rows: 16 })
 		return {}
@@ -192,23 +189,7 @@ export const register: Register = (on, options) => {
 				))}
 				{current && ask === null && (
 					<Box flexDirection="row" columnGap={2}>
-						<Button key="claim" label="claim" hotkey="c" onPress={() => update($, asking, () => current.id)} />
-						<Button
-							key="start"
-							label="start"
-							hotkey="s"
-							variant="primary"
-							onPress={async () => {
-								const { command, args } = startFor(current.id)
-								// A command runs once the session is idle, so mid-turn this waits its turn.
-								$.ui.toast(`queued /${command} ${args}`.trim())
-								try {
-									await $.command.run({ command, args })
-								} catch (error) {
-									$.ui.toast(error instanceof Error ? error.message : `/${command} refused`)
-								}
-							}}
-						/>
+						<Button key="claim" label="claim" hotkey="c" variant="primary" onPress={() => update($, asking, () => current.id)} />
 						<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($)} />
 					</Box>
 				)}
@@ -230,7 +211,7 @@ export const register: Register = (on, options) => {
 						}}
 					/>
 				)}
-				<Text dimColor>a digit picks · c claim · s start · r refresh · esc closes</Text>
+				<Text dimColor>a digit picks · c claim · r refresh · esc or /ready closes</Text>
 			</Box>
 		)
 	})
