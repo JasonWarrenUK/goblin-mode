@@ -5,6 +5,11 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `goblin-chrome`, the first mod: goblin-mode's face inside the terminal. A goblin in the band that paces, sits, sleeps, startles and watches beside the tier's rune; the turn's closing line and the hint tail in its register; a face above every question; frames by the model tier that served the request; a nine-state day on the local clock; colours from the project theme. One `enabled` switch. Served from the repo's marketplace as `goblin-chrome@goblin-mode`.
+- `docs/reference/mods.md`: how a mod is laid out here, how to check one and the conventions the mods follow.
+
 ## [6.0.0] - 2026-10-02
 
 ### Breaking
