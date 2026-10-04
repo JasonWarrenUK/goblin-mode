@@ -3,15 +3,16 @@
 
 import type { Frame, Palette, Tier } from '../types'
 
-/** The runic glyph convention from clod-config-skill_conventions. Fable has no rune of its own and wears othala. */
-export const RUNE: Record<Tier, string> = { top: 'ᛟ', mid: 'ᛊ', small: 'ᚺ' }
+/** The runic glyph convention from clod-config-skill_conventions: fehu for Fable, othala for Opus. */
+export const RUNE: Record<Tier, string> = { top: 'ᛟ', mid: 'ᛊ', small: 'ᚺ', fable: 'ᚠ' }
 
 /** Which tier a model id or alias belongs to; unknown ids count as the middle. */
 export const tierOf = (model: string): Tier => {
 	const m = model.toLowerCase()
 	if (/haiku/.test(m)) return 'small'
 	if (/sonnet/.test(m)) return 'mid'
-	if (/opus|fable|mythos/.test(m)) return 'top'
+	if (/fable/.test(m)) return 'fable'
+	if (/opus|mythos/.test(m)) return 'top'
 	return 'mid'
 }
 
@@ -26,6 +27,7 @@ export const pinnedModel = (skillMarkdown: string): string | null => {
 
 const STYLE: Record<Tier, { borderStyle: string; dim: boolean }> = {
 	top: { borderStyle: 'double', dim: false },
+	fable: { borderStyle: 'double', dim: false },
 	mid: { borderStyle: 'round', dim: false },
 	small: { borderStyle: 'classic', dim: true },
 }

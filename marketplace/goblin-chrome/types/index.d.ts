@@ -3,7 +3,7 @@
 // and a plugin that lists goblin-chrome under `dependencies` can read the
 // frame and palette it publishes.
 
-export type Tier = 'top' | 'mid' | 'small'
+export type Tier = 'top' | 'mid' | 'small' | 'fable'
 
 export type DayState =
 	| 'bed'
