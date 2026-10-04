@@ -1,7 +1,7 @@
 {
 	"name": "goblin-chrome",
 	"version": "0.1.0",
-	"description": "Goblin-mode's face inside Claude Code: a goblin in the band that reacts to the session, mode pills and hint lines in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours.",
+	"description": "Goblin-mode's face inside Claude Code: a goblin in the band that reacts to the session, hint lines in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours.",
 	"author": {
 		"name": "Jason Warren"
 	},
