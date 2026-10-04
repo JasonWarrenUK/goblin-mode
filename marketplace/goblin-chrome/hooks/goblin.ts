@@ -79,5 +79,5 @@ export const HECKLES = {
 	compaction: 'memory wiped. going again.',
 	clear: 'fine.',
 	bounce: 'the hook bounced that message. told you.',
-	bounceAgain: (n: number) => `bounced again. that is ${n} today.`,
+	bounceAgain: (n: number) => `bounced again. that is ${n} so far.`,
 } as const
