@@ -1,4 +1,4 @@
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock, test, type Engine } from 'claude-code/testing'
 
 const PLUGIN = 'goblin-chrome'
 
@@ -163,4 +163,35 @@ test('a dropped prompt leaves the goblin idle; a turn makes it watch', async ($,
 	await $.turn.start({ text: 'go', turnId: 't2' })
 	const busy = await $.ui.mount(BAND)
 	expect((await busy.find({ type: 'Client', key: 'goblin' }))?.props.props).toMatchObject({ mode: 'working' })
+})
+
+/** Serve skill files from a map of path to text; a relative key matches under the working directory, never under the home, and anything else is a missing file. */
+const skillFiles = (on: Parameters<typeof mock.clock>[0], files: Record<string, string>) => {
+	on('fs.read', async (_$, e) => {
+		const hit = Object.keys(files).find(k => e.path === k || (!k.startsWith('/') && !e.path.startsWith('/home/j/') && e.path.endsWith(`/${k}`)))
+		const text = hit === undefined ? undefined : files[hit]
+		return text === undefined ? { deny: 'ENOENT' } : { value: text }
+	})
+	on('skill.prompt', async (_$, e) => ({ text: e.text }))
+}
+
+const borderAfterSkill = async ($: Engine) => {
+	await $.skill.prompt({ skill: 'x', text: '' })
+	const ui = await $.ui.mount(BAND)
+	return (await ui.find({ type: 'Box' }))?.props.borderStyle
+}
+
+test('a project skill pinning a smaller model draws the mismatch frame', async ($, on) => {
+	world(on)
+	skillFiles(on, { '.claude/skills/x/SKILL.md': '---\nname: x\nmodel: haiku\n---\nbody' })
+	expect(await borderAfterSkill($)).toBe('singleDouble')
+})
+
+test('a personal skill shadows a project skill of the same name', async ($, on) => {
+	world(on)
+	skillFiles(on, {
+		'/home/j/.claude/skills/x/SKILL.md': '---\nname: x\nmodel: opus\n---\nbody',
+		'.claude/skills/x/SKILL.md': '---\nname: x\nmodel: haiku\n---\nbody',
+	})
+	expect(await borderAfterSkill($)).toBe('double')
 })
