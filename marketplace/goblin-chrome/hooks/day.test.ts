@@ -55,10 +55,10 @@ describe('offsets', () => {
 describe('dayAt', () => {
 	const slots = parseSchedule(DEFAULT_SCHEDULE)
 
-	test('states follow the clock and carry their pill', async () => {
-		expect(dayAt(slots, at(2026, 10, 7, 9), 0)).toMatchObject({ state: 'grumpy', pill: 'uGh' })
-		expect(dayAt(slots, at(2026, 10, 7, 23), 0)).toMatchObject({ state: 'prime', pill: 'pRiMe' })
-		expect(dayAt(slots, at(2026, 10, 7, 2), 0)).toMatchObject({ state: 'feral', pill: 'fErAl' })
+	test('states follow the clock', async () => {
+		expect(dayAt(slots, at(2026, 10, 7, 9), 0)).toMatchObject({ state: 'grumpy' })
+		expect(dayAt(slots, at(2026, 10, 7, 23), 0)).toMatchObject({ state: 'prime' })
+		expect(dayAt(slots, at(2026, 10, 7, 2), 0)).toMatchObject({ state: 'feral' })
 	})
 
 	test('the fade runs over ten minutes from the previous state', async () => {

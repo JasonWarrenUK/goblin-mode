@@ -36,7 +36,6 @@ export type Day = {
 	state: DayState
 	from: DayState
 	blend: number
-	pill: string | null
 }
 
 export type Frame = {
@@ -49,9 +48,6 @@ export type Frame = {
 }
 
 export type Vitals = {
-	context: number
-	limit: number
-	limitKind: string
 	tools: number
 	errors: number
 	turnMs: number
@@ -66,6 +62,9 @@ export type Idle = {
 	sessionStartAt: number
 	isWorking: boolean
 	draftSince: number
+	/** What the goblin last said, shown in the band's dialogue range until `sayingUntil`. */
+	saying: string
+	sayingUntil: number
 }
 
 declare module 'claude-code' {

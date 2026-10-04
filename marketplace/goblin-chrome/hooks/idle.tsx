@@ -48,15 +48,15 @@ export const STEP: Record<IdleProps['pace'], number> = {
 }
 
 const SPRITES = {
-	right: 'ᕕ( ᐛ )ᕗ',
-	left: 'ᕗ( ᐛ )ᕕ',
-	sit: ' (´ᐛ ) ',
-	sleep: ['(-ᴗ-) z ', '(-ᴗ-) zZ', '(-ᴗ-)zZz'],
-	startle: '(⊙ᐛ⊙)! ',
-	watch: ['( ᐛ )  ', '( ᐖ )  '],
+	right: '(ಠ_ಠ)>',
+	left: '<(ಠ_ಠ)',
+	sit: '(ಠ‿ಠ)  ',
+	sleep: ['(-_-) z ', '(-_-) zZ', '(-_-)zZz'],
+	startle: '(ಠoಠ)! ',
+	watch: ['(ಠ_ಠ)  ', '(ಠ_ಠ)  ', '(-_-)  '],
 	poked: '(ಠ_ಠ)  ',
-	lie: '_(ᐛ_)_ ',
-	sway: ['ᕕ( ᐛ )ᕗ', ' ᕕ(ᐛ )ᕗ', 'ᕕ( ᐛ)ᕗ '],
+	lie: '_(-_-)_',
+	sway: ['(ಠ_ಠ)~', '~(ಠ_ಠ)'],
 } as const
 
 const WIDTH = 8
