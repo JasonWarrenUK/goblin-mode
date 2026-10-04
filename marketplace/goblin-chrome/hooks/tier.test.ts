@@ -4,11 +4,11 @@ import { CLOD } from './theme'
 import { frameFor, pinnedModel, RUNE, tierOf } from './tier'
 
 describe('tiers', () => {
-	test('model ids and aliases map to three tiers', async () => {
+	test('model ids and aliases map to four tiers', async () => {
 		expect(tierOf('claude-haiku-4-5-20251001')).toBe('small')
 		expect(tierOf('sonnet')).toBe('mid')
 		expect(tierOf('claude-opus-5-5')).toBe('top')
-		expect(tierOf('claude-fable-5-1')).toBe('top')
+		expect(tierOf('claude-fable-5-1')).toBe('fable')
 		expect(tierOf('something-new')).toBe('mid')
 	})
 
@@ -24,6 +24,7 @@ describe('tiers', () => {
 		expect(frameFor('top', null, CLOD)).toMatchObject({ borderStyle: 'double', borderDimColor: false, rune: RUNE.top })
 		expect(frameFor('mid', null, CLOD)).toMatchObject({ borderStyle: 'round', rune: 'ᛊ' })
 		expect(frameFor('small', null, CLOD)).toMatchObject({ borderStyle: 'classic', borderDimColor: true, rune: 'ᚺ' })
+		expect(frameFor('fable', null, CLOD)).toMatchObject({ borderStyle: 'double', borderDimColor: false, rune: 'ᚠ' })
 	})
 
 	test('a served model that differs from the pin draws the mismatch', async () => {
@@ -32,5 +33,10 @@ describe('tiers', () => {
 		expect(f.borderColor).toBe(CLOD.warn)
 		expect(f.rune).toBe('ᛊ→ᛟ')
 		expect(frameFor('mid', 'mid', CLOD).borderStyle).toBe('round')
+	})
+
+	test('a fable pin answered by opus, and the reverse, draw the mismatch', async () => {
+		expect(frameFor('top', 'fable', CLOD)).toMatchObject({ borderStyle: 'singleDouble', borderColor: CLOD.warn, rune: 'ᚠ→ᛟ' })
+		expect(frameFor('fable', 'top', CLOD)).toMatchObject({ borderStyle: 'singleDouble', rune: 'ᛟ→ᚠ' })
 	})
 })

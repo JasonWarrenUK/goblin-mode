@@ -27,7 +27,7 @@ Needs Claude Code 2.1.287 or later. Draws in the terminal; the hooks run everywh
 | Every question Claude asks | A face above the dialog, expression by context: expectant, nervous after a failed tool, folded arms for an interrogation, grinning late at night. |
 | Toasts | A subagent returning, a compaction, a `/clear` and the commit-msg hook bouncing a message. |
 
-Every box takes its frame from the model that served the current request: double line for the top tier, round for the middle, ASCII and dim for the small one and a mismatched `singleDouble` with both runes when a skill pinned one tier and another answered.
+Every box takes its frame from the model that served the current request: double line for the top tier (`ᛟ`) and for Fable (`ᚠ`), round for the middle, ASCII and dim for the small one and a mismatched `singleDouble` with both runes when a skill pinned one tier and another answered. The pin is read from `~/.claude/skills/` first, then `<project>/.claude/skills/`; plugin skills carry no pin.
 
 The day has nine states on the local clock, fading over ten minutes, shifted one row towards lively on a Friday from four, one towards tired on a Sunday and one towards tired once the session passes four hours. Colours come from the project's theme in `.claude/themes/`, the `clod` family when it has none.
 
