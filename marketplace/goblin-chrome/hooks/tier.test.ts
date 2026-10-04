@@ -24,7 +24,8 @@ describe('tiers', () => {
 		expect(frameFor('top', null, CLOD)).toMatchObject({ borderStyle: 'double', borderDimColor: false, rune: RUNE.top })
 		expect(frameFor('mid', null, CLOD)).toMatchObject({ borderStyle: 'round', rune: 'ᛊ' })
 		expect(frameFor('small', null, CLOD)).toMatchObject({ borderStyle: 'classic', borderDimColor: true, rune: 'ᚺ' })
-		expect(frameFor('fable', null, CLOD)).toMatchObject({ borderStyle: 'double', borderDimColor: false, rune: 'ᚠ' })
+		expect(frameFor('fable', null, CLOD)).toMatchObject({ borderStyle: 'double', borderColor: CLOD.accent2, borderDimColor: false, rune: 'ᚠ' })
+		expect(frameFor('top', null, CLOD).borderColor).toBe(CLOD.accent)
 	})
 
 	test('a served model that differs from the pin draws the mismatch', async () => {
