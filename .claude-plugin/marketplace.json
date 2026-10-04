@@ -12,7 +12,23 @@
 			"source": "./marketplace/roadmap",
 			"description": "Roadmaps as a dependency graph: JSON source of truth, mechanical status recompute, projected task lists, Mermaid diagrams, an HTML dashboard and the interview, review and next-task skills that drive it.",
 			"category": "productivity",
-			"tags": ["roadmap", "planning", "dependency-graph"]
+			"tags": [
+				"roadmap",
+				"planning",
+				"dependency-graph"
+			]
+		},
+		{
+			"name": "goblin-chrome",
+			"source": "./marketplace/goblin-chrome",
+			"description": "A mod: goblin-mode's face inside Claude Code. A goblin in the band that reacts to the session, hint lines in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours. Terminal only.",
+			"category": "productivity",
+			"tags": [
+				"mod",
+				"chrome",
+				"goblin",
+				"terminal"
+			]
 		}
 	]
 }
