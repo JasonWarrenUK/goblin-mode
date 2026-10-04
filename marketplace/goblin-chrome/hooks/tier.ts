@@ -37,7 +37,7 @@ export const frameFor = (served: Tier, pinned: Tier | null, palette: Palette): F
 	const style = STYLE[served]
 	return {
 		borderStyle: mismatch ? 'singleDouble' : style.borderStyle,
-		borderColor: mismatch ? palette.warn : served === 'small' ? palette.line : palette.accent,
+		borderColor: mismatch ? palette.warn : served === 'small' ? palette.line : served === 'fable' ? palette.accent2 : palette.accent,
 		borderDimColor: style.dim,
 		rune: mismatch ? `${RUNE[pinned]}→${RUNE[served]}` : RUNE[served],
 		served,
