@@ -74,10 +74,9 @@ export const pillFor = (mode: string): string => {
 
 // Module-level because the validator holds `$` to top-level functions: these
 // are the helpers every hook shares, and the variables they read are set by
-// `register` from the options and by the hooks as the session goes.
+// `register` from the options and by the hooks as the session goes. The tiers
+// the frame depends on live in the `frame` atom, which survives a hot reload.
 let schedule = parseSchedule('')
-let servedTier: Tier = DEFAULT_TIER
-let pinnedTier: Tier | null = null
 let lastYawnAt = 0
 
 const refreshDay = async ($: EngineInterface): Promise<void> => {
@@ -109,17 +108,18 @@ const refreshVitals = async ($: EngineInterface): Promise<void> => {
 	}
 }
 
-const refreshFrame = async ($: EngineInterface): Promise<void> => {
+/** Redraw the frame from the atom's own tiers, with `patch` replacing whichever it names. */
+const refreshFrame = async ($: EngineInterface, patch: { served?: Tier; pinned?: Tier | null } = {}): Promise<void> => {
 	const p = await read($, palette)
-	await update($, frame, () => frameFor(servedTier, pinnedTier, p))
+	await update($, frame, current =>
+		frameFor(patch.served ?? current.served, patch.pinned === undefined ? current.pinned : patch.pinned, p),
+	)
 }
 
 export const register: Register = (on, options) => {
 	if (options.enabled === false) return
 
 	schedule = parseSchedule(typeof options.schedule === 'string' ? options.schedule : '')
-	servedTier = DEFAULT_TIER
-	pinnedTier = null
 	lastYawnAt = 0
 	const wantedTheme = typeof options.theme === 'string' ? options.theme : ''
 	const audio = options.audio === true
@@ -127,7 +127,6 @@ export const register: Register = (on, options) => {
 	on('session.start', async ($, e, next) => {
 		const now = await $.clock.now()
 		lastYawnAt = now
-		servedTier = (await read($, frame)).served
 		await update($, idle, i => ({ ...i, sessionStartAt: now, lastTurnEndAt: now }))
 		let variant: Variant = 'dark'
 		try {
@@ -219,24 +218,24 @@ export const register: Register = (on, options) => {
 		const result = yield* next(e)
 		if (!e.agentId && result.usage?.model) {
 			const tier = tierOf(result.usage.model)
-			if (tier !== servedTier) {
-				servedTier = tier
-				await refreshFrame($)
-			}
+			if (tier !== (await read($, frame)).served) await refreshFrame($, { served: tier })
 		}
 		return result
 	})
 
 	on('skill.prompt', async ($, e, next) => {
+		let pinned: Tier | null = null
 		try {
+			// Personal shadows project, as Claude Code resolves a skill of the same name.
 			const home = await $.env.get('HOME')
-			const text = home ? await $.fs.read(`${home}/.claude/skills/${e.skill}/SKILL.md`) : ''
+			const personal = home ? await $.fs.read(`${home}/.claude/skills/${e.skill}/SKILL.md`).catch(() => '') : ''
+			const text = personal || (await $.fs.read(`.claude/skills/${e.skill}/SKILL.md`))
 			const model = pinnedModel(text)
-			pinnedTier = model ? tierOf(model) : null
+			pinned = model ? tierOf(model) : null
 		} catch {
-			pinnedTier = null
+			pinned = null
 		}
-		await refreshFrame($)
+		await refreshFrame($, { pinned })
 		return next(e)
 	})
 
@@ -248,10 +247,7 @@ export const register: Register = (on, options) => {
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, turnMs: e.durationMs, turnTools: v.tools, turnErrors: v.errors }))
-		if (pinnedTier !== null) {
-			pinnedTier = null
-			await refreshFrame($)
-		}
+		if ((await read($, frame)).pinned !== null) await refreshFrame($, { pinned: null })
 		await refreshVitals($)
 		return next(e)
 	})
