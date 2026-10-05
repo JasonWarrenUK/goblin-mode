@@ -5,6 +5,8 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.2.0] - 2026-10-05
+
 ### Added
 
 - `goblin-util`, two mods: `/pain` appends a pain point to `library/state/cc-pain-points.json` without a turn, with the repo, branch and last failed tool call pre-filled, as a typed line or from a small pane; `/fleet` shows every session on the machine from a heartbeat in the plugin's shared store and sends a picked session a message. One `enabled` switch. Served as `goblin-util@goblin-mode`.
@@ -204,7 +206,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.1.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.2.0...HEAD
+[6.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.1.0...v6.2.0
 [6.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.0.0...v6.1.0
 [6.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v5.0.0...v6.0.0
 [5.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v4.0.0...v5.0.0
