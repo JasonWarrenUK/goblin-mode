@@ -34,6 +34,8 @@ The engine writes its own declarations beside the manifest (`.claude-plugin/type
 | Its tests, in an environment like the one hooks run in (no fs, no network, no process) | `claude plugin test marketplace/<name>` |
 | Types, once a session has laid the engine's declarations | `tsc -p marketplace/<name>` |
 
+Bare `bun test` cannot run a mod's tests: `claude-code/testing` comes from the plugin runner, so bun fails with `Cannot find module` before a single test loads. That failure says nothing about the mod; use `claude plugin test`.
+
 Two rules the validator holds a module to that are easy to trip: `$` may be passed only to a function declared at the top of the file, never to a closure made inside `register`; and a `Client` element's `module` is a string literal path.
 
 ## Conventions
