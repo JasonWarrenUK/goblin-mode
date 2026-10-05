@@ -82,7 +82,7 @@ Existence checks for `new`, after `git fetch origin`: `git show-ref --verify --q
 Moves the session into a worktree that already exists. Creates no worktree and no branch, and needs no `git fetch`.
 
 1. Read `git worktree list --porcelain`. The main checkout is never a target.
-2. **Resolve `<target>`**, first hit wins: a path equal to a worktree path (absolute, or relative to the current directory); a worktree directory name (the last path segment); a branch name (with or without `refs/heads/`). Several hits at one level: list them and ask with AskUserQuestion. No hit: stop with the Step 0 reason.
+2. **Resolve `<target>`** (no target given: skip to step 3), first hit wins: a path equal to a worktree path (absolute, or relative to the current directory); a worktree directory name (the last path segment); a branch name (with or without `refs/heads/`). Several hits at one level: list them and ask with AskUserQuestion. No hit: stop with the Step 0 reason.
 3. **No target given:** AskUserQuestion over the worktrees under `<main checkout>/.claude/worktrees/`, each option showing name, branch and dirty or clean (`git -C <path> status --porcelain`). Leave out the worktree this session is standing in. None left: say so and point at `/branch-worktree new`.
 4. **Stop and explain when:**
    - the target is the worktree this session is already in
@@ -90,7 +90,7 @@ Moves the session into a worktree that already exists. Creates no worktree and n
    - the worktree lives outside `<main checkout>/.claude/worktrees/`; the same `EnterWorktree` limit as `new` step 2, so name the path and stop
 5. **Another live session:** `~/.claude/library/scripts/checkout-occupied.sh <path>` exiting 1 means another session is working there. Say so and ask before entering.
 6. **Move the session:** `EnterWorktree` with `path` set to the absolute worktree path, then confirm `pwd` and `git branch --show-current` exactly as `new` step 6 does.
-7. **Close with the reminder** from `new` step 7 only when `ls <path>` shows no `node_modules` or venv.
+7. **Close with the reminder** from `new` step 7 only when `ls -a <path>` shows no `node_modules`, `.venv` or `venv`.
 
 ---
 
