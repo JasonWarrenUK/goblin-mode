@@ -1,7 +1,7 @@
 ---
 name: "Branch: Worktree"
-description: "Move this session into a new worktree on a given branch (existing, or new from a base), or list and prune worktrees and their leftovers"
-when_to_use: "When the user wants this session working on a branch in its own worktree, or wants stale worktrees cleared away. For a read-only map of what worktrees exist, use hud-worktrees."
+description: "Move this session into a new worktree on a given branch (existing, or new from a base), move into a worktree that already exists, or list and prune worktrees and their leftovers"
+when_to_use: "When the user wants this session working on a branch in its own worktree, wants to switch into a worktree that already exists, or wants stale worktrees cleared away. For a read-only map of what worktrees exist, use hud-worktrees."
 model: sonnet
 effort: medium
 metadata:
@@ -10,12 +10,12 @@ metadata:
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "EnterWorktree", "ExitWorktree", "Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(du:*)", "Bash(ls:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)"]
 arguments: ["action", "branch", "name"]
-argument-hint: "new <existing-branch>|<new-branch>:<base> [worktree name] | prune"
+argument-hint: "new <existing-branch>|<new-branch>:<base> [worktree name] | use [worktree name|branch|path] | prune"
 ---
 
 # Branch: Worktree
 
-Two jobs: put this session into a worktree on the right branch, and clear away worktrees nobody needs. The map of what exists lives in `hud-worktrees`; this skill is where the changes happen.
+Three jobs: put this session into a new worktree on the right branch, move it into a worktree that already exists, and clear away worktrees nobody needs. The map of what exists lives in `hud-worktrees`; this skill is where the changes happen.
 
 **The session moves with `EnterWorktree`, never `cd`.** A `cd` changes only the shell. The session's working directory, CLAUDE.md, memory and plan files stay pointed at the old checkout, so every later edit and commit silently targets the wrong tree. Every move into a worktree in this skill is an `EnterWorktree` call with `path`; every move out is `ExitWorktree`.
 
@@ -23,7 +23,7 @@ Two jobs: put this session into a worktree on the right branch, and clear away w
 
 ## Step 0: Parse the arguments
 
-`$action` is required and is `new` or `prune`.
+`$action` is required and is `new`, `use` or `prune`.
 
 | Call | Meaning |
 |---|---|
@@ -31,6 +31,8 @@ Two jobs: put this session into a worktree on the right branch, and clear away w
 | `new <existing-branch> <name>` | the same, with a chosen worktree name |
 | `new <new-branch>:<base>` | create `<new-branch>` from `<base>` in a worktree |
 | `new <new-branch>:<base> <name>` | the same, with a chosen worktree name |
+| `use <target>` | move into a worktree that already exists; `<target>` is its name, its branch or its path (read from `$branch`) |
+| `use` | the same, choosing from the existing worktrees |
 | `prune` | list worktrees and offer to remove redundant ones |
 
 A branch name never contains `:` (git forbids it in ref names), so one `:` splits the new branch from its base. `<name>` defaults to the part of the branch after its last `/` (`feat/search-bar` gives `search-bar`; a branch with no `/` is used whole).
@@ -40,6 +42,8 @@ Hard stop on invalid input: print the one-line reason and the usage block, run n
 | Invalid call | Reason to print |
 |---|---|
 | `prune` followed by anything | `prune takes no arguments` |
+| `use` followed by more than one argument | `use takes one target` |
+| `use <target>` where nothing matches (see `use` step 2) | `no worktree matches <target>; to create one: /branch-worktree new <branch>` |
 | `new` with no branch | `new needs a branch` |
 | `new <branch>` where the branch exists nowhere (not local, not on origin) | `<branch> does not exist; to create it give a base: <branch>:<base>` |
 | `new <branch>:<base>` where `<branch>` already exists | `<branch> already exists; drop the :<base> to use it` |
@@ -48,10 +52,11 @@ Hard stop on invalid input: print the one-line reason and the usage block, run n
 
 ```text
 Usage: /branch-worktree new <existing-branch>|<new-branch>:<base> [worktree name]
+       /branch-worktree use [worktree name|branch|path]
        /branch-worktree prune
 ```
 
-Existence checks, after `git fetch origin`: `git show-ref --verify --quiet refs/heads/<b>` (local) and `refs/remotes/origin/<b>` (remote).
+Existence checks for `new`, after `git fetch origin`: `git show-ref --verify --quiet refs/heads/<b>` (local) and `refs/remotes/origin/<b>` (remote).
 
 ---
 
@@ -59,7 +64,7 @@ Existence checks, after `git fetch origin`: `git show-ref --verify --quiet refs/
 
 1. `git fetch origin`, then run the Step 0 existence checks.
 2. **Where the branch already lives.** Read `git worktree list --porcelain`.
-   - Checked out in a worktree under `<main checkout>/.claude/worktrees/`: skip creation, go straight to step 6 with that path.
+   - Checked out in a worktree under `<main checkout>/.claude/worktrees/`: skip creation and hand over to `use` with that path, saying `/branch-worktree use <name>` does this directly.
    - Checked out anywhere else (the main checkout, a sibling directory): stop. Git allows one checkout per branch, and `EnterWorktree` can only reach worktrees under `.claude/worktrees/` once the session is in a worktree. Name the path, and offer to switch that checkout to another branch first or to start a new branch from this one.
 3. **Choose the path.** `<main checkout>/.claude/worktrees/<name>`, where the main checkout is the parent of `git rev-parse --path-format=absolute --git-common-dir`, so the answer is the same from inside a worktree. If the directory exists already, stop: it either holds a different branch or is a leftover for `prune` to clear.
 4. **Check the directory is ignored:** `git check-ignore -q .claude/worktrees/<name>`. When it is not, say so and offer to append `.claude/worktrees/` to `.gitignore` (shared) or `.git/info/exclude` (local only); never edit either without approval.
@@ -69,6 +74,23 @@ Existence checks, after `git fetch origin`: `git show-ref --verify --quiet refs/
    - New branch: `git worktree add -b <branch> <path> origin/<base>` (the local `<base>` when it has no remote counterpart)
 6. **Move the session:** call `EnterWorktree` with `path` set to the absolute worktree path. Then confirm both facts in one line: `pwd` and `git branch --show-current` match what was asked for. If either does not, say so plainly and stop; do not paper over it with a `cd`.
 7. **Close with the reminder:** a fresh worktree has no installed dependencies (`node_modules`, a venv) and no generated files, so run the project's install and any codegen before trusting a test run there.
+
+---
+
+## Action: `use`
+
+Moves the session into a worktree that already exists. Creates no worktree and no branch, and needs no `git fetch`.
+
+1. Read `git worktree list --porcelain`. The main checkout is never a target.
+2. **Resolve `<target>`** (no target given: skip to step 3), first hit wins: a path equal to a worktree path (absolute, or relative to the current directory); a worktree directory name (the last path segment); a branch name (with or without `refs/heads/`). Several hits at one level: list them and ask with AskUserQuestion. No hit: stop with the Step 0 reason.
+3. **No target given:** AskUserQuestion over the worktrees under `<main checkout>/.claude/worktrees/`, each option showing name, branch and dirty or clean (`git -C <path> status --porcelain`). Leave out the worktree this session is standing in. None left: say so and point at `/branch-worktree new`.
+4. **Stop and explain when:**
+   - the target is the worktree this session is already in
+   - the worktree is `prunable` (its directory is gone); point at `/branch-worktree prune`
+   - the worktree lives outside `<main checkout>/.claude/worktrees/`; the same `EnterWorktree` limit as `new` step 2, so name the path and stop
+5. **Another live session:** `~/.claude/library/scripts/checkout-occupied.sh <path>` exiting 1 means another session is working there. Say so and ask before entering.
+6. **Move the session:** `EnterWorktree` with `path` set to the absolute worktree path, then confirm `pwd` and `git branch --show-current` exactly as `new` step 6 does.
+7. **Close with the reminder** from `new` step 7 only when `ls -a <path>` shows no `node_modules`, `.venv` or `venv`.
 
 ---
 
@@ -98,6 +120,6 @@ Existence checks, after `git fetch origin`: `git show-ref --verify --quiet refs/
 
 ## Red flags
 
-**Never:** `cd` into a worktree to "move" the session; `cd` into a worktree to run checks while pruning; drop a candidate because a stray `cd` of your own put the shell there; use `git worktree remove --force` or `git branch -D` to get past a refusal (the refusal is information); remove a worktree you are standing in or one another session is using; offer a worktree whose branch is the base of an open PR as tier 1 (it can only be tier 2); delete the branch of a tier 2 worktree; offer a tier 2 row without listing its ignored files; create a second branch because the intended name was taken (use the existing one, or stop); edit `.gitignore` or `.git/info/exclude` without approval; delete anything under `.claude/worktrees/` that was not shown in the approved list.
+**Never:** create a worktree or a branch from `use`; `cd` into a worktree to "move" the session; `cd` into a worktree to run checks while pruning; drop a candidate because a stray `cd` of your own put the shell there; use `git worktree remove --force` or `git branch -D` to get past a refusal (the refusal is information); remove a worktree you are standing in or one another session is using; offer a worktree whose branch is the base of an open PR as tier 1 (it can only be tier 2); delete the branch of a tier 2 worktree; offer a tier 2 row without listing its ignored files; create a second branch because the intended name was taken (use the existing one, or stop); edit `.gitignore` or `.git/info/exclude` without approval; delete anything under `.claude/worktrees/` that was not shown in the approved list.
 
 <raw-arguments value="$ARGUMENTS" />
