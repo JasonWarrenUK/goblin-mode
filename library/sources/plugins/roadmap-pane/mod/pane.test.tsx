@@ -89,11 +89,12 @@ test('/ready refreshes from the CLI and draws the ready set in order', async ($,
 	expect(rows.map(r => r.props.label)).toEqual([
 		'  2SE.1  index the search · unblocks 3 · M2 40%',
 		'  2SE.4  close out the facets · unblocks 0 · M2 40% · completes it · Jaz',
+		'refresh',
 	])
 	expect(await ui.find({ type: 'Text', text: /claimed 2SE\.2 by Max since 2026-10-01/ })).toBeDefined()
 })
 
-test('a picked row offers claim and start; claim asks who and runs the CLI', async ($, on) => {
+test('a picked row offers claim; claim asks who and runs the CLI', async ($, on) => {
 	const { calls, toasts } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'ready' })
@@ -109,9 +110,39 @@ test('a picked row offers claim and start; claim asks who and runs the CLI', asy
 	await ui.input({ key: 'assignee', text: '  ' })
 	expect(toasts).toEqual(['a claim needs a name.'])
 	await ui.input({ key: 'assignee', text: 'Jaz' })
-	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee Jaz')).toBe(true)
+	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=Jaz')).toBe(true)
 	expect(toasts[1]).toBe('claimed 2SE.1 for Jaz. commit roadmaps.json when you are ready.')
 	expect(await ui.find({ type: 'Input' })).toBeUndefined()
+})
+
+test('a name that starts with a dash is bound to --assignee, not read as an option', async ($, on) => {
+	const { calls } = world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'row-2SE.1' })
+	await ui.press({ key: 'claim' })
+	await ui.input({ key: 'assignee', text: '-J' })
+	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=-J')).toBe(true)
+	await ui.press({ key: 'row-2SE.1' })
+	await ui.press({ key: 'claim' })
+	await ui.input({ key: 'assignee', text: '--reassign' })
+	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=--reassign')).toBe(true)
+})
+
+test('refresh is offered before a row is picked, and hidden while the assignee input is open', async ($, on) => {
+	const { calls } = world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	expect(await ui.find({ key: 'claim' })).toBeUndefined()
+	expect(await ui.find({ key: 'refresh' })).toBeDefined()
+	const before = calls.length
+	await ui.press({ key: 'refresh' })
+	expect(calls.slice(before).map(c => c[2])).toEqual(['detect', 'ready', 'stats'])
+	await ui.press({ key: 'row-2SE.1' })
+	await ui.press({ key: 'claim' })
+	expect(await ui.find({ key: 'refresh' })).toBeUndefined()
 })
 
 test('/ready opens the pane and runs again to close it', async ($, on) => {
@@ -142,7 +173,7 @@ test('the old single-file format points at migrate', async ($, on) => {
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'ready' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text' }))?.text).toBe('old single-file roadmap: run /roadmap:migrate first')
+	expect((await ui.find({ type: 'Text' }))?.text).toBe('old single-file roadmap: run the migrate skill (/roadmap:migrate or /roadmap-migrate) first')
 })
 
 test("the CLI's own refusal reaches the pane", async ($, on) => {
