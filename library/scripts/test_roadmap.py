@@ -732,6 +732,24 @@ class Ready(unittest.TestCase):
         self.assertEqual(by_id["y"]["unblocksNow"], 0)
         self.assertEqual(by_id["y"]["unblocksPartly"], 2)
 
+    def test_soft_milestone_member_does_not_unblock_milestone_dependents(self):
+        ph = phase([
+            {"id": "M1", "name": "m1", "tasks": [
+                task("a"),
+                {**task("s"), "softMilestone": True}]},
+            {"id": "M2", "name": "m2", "tasks": [
+                task("n", "blocked", ["M1"]),
+                task("k", "blocked", ["n"]),
+                task("direct", "blocked", ["s", "M1"])]}])  # lists s itself: still counted
+        by_id = {c["id"]: c for c in roadmap.build_ready(ph)["candidates"]}
+        s = by_id["s"]
+        self.assertEqual((s["unblocksNow"], s["unblocksPartly"], s["unblocksLater"]),
+                         (0, 1, 0))                      # direct only
+        self.assertEqual(s["transitiveUnblocks"], 1)
+        a = by_id["a"]
+        self.assertEqual((a["unblocksNow"], a["unblocksPartly"], a["unblocksLater"]),
+                         (1, 1, 1))                      # n now, direct partly, k later
+
     def test_unblock_via_milestone_membership_counts_as_now(self):
         ph = phase([
             {"id": "M1", "name": "m1", "tasks": [task("last")]},
