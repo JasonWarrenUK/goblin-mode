@@ -144,7 +144,7 @@ test('/pain alone opens a pane whose input logs and closes it', async ($, on) =>
 	expect(JSON.parse(file.text ?? '')).toHaveLength(2)
 })
 
-test('the fleet pane lists live rows, drops stale ones and messages a picked session', async ($, on) => {
+test('session start prunes a stale row; the fleet pane lists the rest and messages a picked session', async ($, on) => {
 	const row = (id: string, repo: string, branch: string, at: number, isWorking = false) => ({
 		id,
 		cwd: `/code/${repo}`,
@@ -186,7 +186,7 @@ test('the fleet pane lists live rows, drops stale ones and messages a picked ses
 	await ui.press({ key: 'row-s2' })
 	expect((await ui.find({ type: 'Input', key: 'fleet-msg' }))?.props.label).toBe('to chirpdb/fix/export')
 	await ui.input({ key: 'fleet-msg', text: 'leave the main checkout alone' })
-	expect(sent).toEqual([{ to: expect.anything(), text: 'leave the main checkout alone' }])
+	expect(sent).toEqual([{ to: expect.stringContaining('s2'), text: 'leave the main checkout alone' }])
 	expect(toasts).toEqual(['sent to chirpdb/fix/export'])
 })
 
