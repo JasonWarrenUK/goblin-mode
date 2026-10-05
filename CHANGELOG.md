@@ -5,6 +5,8 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-10-04
+
 ### Added
 
 - `goblin-chrome`, the first mod: goblin-mode's face inside the terminal. A goblin in the band that paces, sits, sleeps, startles and watches beside the tier's rune; the turn's closing line and the hint tail in its register; a face above every question; frames by the model tier that served the request; a nine-state day on the local clock; colours from the project theme. One `enabled` switch. Served from the repo's marketplace as `goblin-chrome@goblin-mode`.
@@ -198,7 +200,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.0.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.1.0...HEAD
+[6.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.0.0...v6.1.0
 [6.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v5.0.0...v6.0.0
 [5.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v3.1.0...v4.0.0
