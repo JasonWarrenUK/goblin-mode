@@ -5,6 +5,10 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `goblin-util`, two mods: `/pain` appends a pain point to `library/state/cc-pain-points.json` without a turn, with the repo, branch and last failed tool call pre-filled, as a typed line or from a small pane; `/fleet` shows every session on the machine from a heartbeat in the plugin's shared store and sends a picked session a message. One `enabled` switch. Served as `goblin-util@goblin-mode`.
+
 ## [6.1.0] - 2026-10-04
 
 ### Added

@@ -4,7 +4,7 @@ Durable personal usage data, not project config. Files here are gitignored (see 
 
 ## `cc-pain-points.json`
 
-Logged friction with Claude Code itself (the CLI/harness, not any project it's working in): bugs hit, missing features, annoying limitations. Written by `hud-cc_pain`, read by `hud-cc_releases` to decide which changelog fixes actually clear the "you'd recognise this" bar before surfacing them.
+Logged friction with Claude Code itself (the CLI/harness, not any project it's working in): bugs hit, missing features, annoying limitations. Written by `track-cc_pain` and by the `goblin-util` mod's `/pain` command, read by `hud-cc_releases` to decide which changelog fixes actually clear the "you'd recognise this" bar before surfacing them.
 
 Schema, one entry per pain point:
 
