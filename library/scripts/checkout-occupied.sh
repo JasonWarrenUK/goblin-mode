@@ -9,9 +9,8 @@
 # The calling session is left out: any session whose pid is an ancestor of
 # this script is the caller.
 #
-# The recorded cwd is where the session started. A session that started in the
-# main checkout and moved its work into a worktree still counts against the
-# main checkout: over-cautious on purpose.
+# The recorded cwd follows the session: a session that moved into a worktree
+# with EnterWorktree is recorded against that worktree.
 #
 # usage: checkout-occupied.sh [path]   (default: the current directory)
 # env:   CLAUDE_SESSIONS_DIR overrides the sessions directory (tests use it)
