@@ -62,6 +62,21 @@ Defaults: ready free current:project
 
 Before doing anything else, echo the resolved form so a defaulted argument is never a surprise: `→ ready free MVP:focus` (the phase name once Step 1 has resolved it).
 
+**Output layout.** Every block this skill prints is a markdown heading plus plain text or a markdown table, never a `text` fence. The headings nest as follows; the step templates below show each block's content.
+
+```md
+# Roadmap: Assign Devs        ← printed once, above the echo
+## Preparation
+### Roster
+### Working Set
+### Reply Grammar
+## Batch 2 of 5 · M2: Search (40% Done) · 4 Tasks   ← one per batch
+## Proposal
+## Result
+```
+
+Title Case on headings and column headers; the data (`todo`, `none`, task descriptions) is printed as found.
+
 ---
 
 ## Step 1: Locate the roadmap and check the format
@@ -85,7 +100,7 @@ The interview opens here, before any task is shown.
    ```
 
 3. Build the roster from the answer. The user's spelling is canonical. Where a roster name matches an existing assignee case-insensitively but the spelling differs (`jaz` in the roadmap, `Jaz` in the answer), say so and offer to normalise every occurrence to the roster spelling as part of this run's write; `roadmap:next-suggest` filters on the string, so two spellings split one dev's tasks in two.
-4. Give each roster member a short handle for the reply grammar: the shortest unique case-insensitive prefix of the name (`j` for Jaz and `m` for Max; `ja` and `jo` for Jaz and Jo). Print the roster with handles once.
+4. Give each roster member a short handle for the reply grammar: the shortest unique case-insensitive prefix of the name (`j` for Jaz and `m` for Max; `ja` and `jo` for Jaz and Jo). Print the roster with handles once, under `### Roster` (inside `## Preparation`), as one plain line: `Jason (jas), Jaz (jaz)`.
 5. An existing assignee the user left off the roster stays on their tasks untouched. Mention each such name once; the user may have left the team member out on purpose.
 
 **Named-dev scope check.** When `$scope` is a dev's name and no task in the phase carries it (case-insensitive), say `No task in {phase} is assigned to {name}.`, list the assignees that do exist and stop.
@@ -103,13 +118,15 @@ Filter by `$scope` (`free`: empty `assignee`; `taken`: non-empty; `all`: no filt
 
 Compute the **load table**, which the interview reprints as it changes: for each roster member, the count of unfinished tasks they hold across the whole phase, split into in progress (claimed), ready and not-yet-ready, plus one row for unassigned.
 
-```text
-Working set: {N} tasks ({horizon}, {scope}) in {phase} · {filter}
+```md
+### Working Set
+{N} tasks ({horizon}, {scope}) in {phase} · {filter}
 
-Load now        in progress   ready   later   total
-  Jaz (j)                 1       2       4       7
-  Max (m)                 0       0       1       1
-  unassigned              0       6      11      17
+| Load Now   | In Progress | Ready | Later | Total |
+|------------|------------:|------:|------:|------:|
+| Jaz (j)    |           1 |     2 |     4 |     7 |
+| Max (m)    |           0 |     0 |     1 |     1 |
+| Unassigned |           0 |     6 |    11 |    17 |
 ```
 
 ---
@@ -120,22 +137,25 @@ Split the working set into batches by milestone, in milestone order. A milestone
 
 Show one batch at a time, numbered from 1 within the batch:
 
-```text
-Batch 2 of 5 · M2: Search ({milestoneDonePct}% done) · 4 tasks
+```md
+## Batch 2 of 5 · M2: Search ({milestoneDonePct}% Done) · 4 Tasks
 
- #  ID      Status   Now   Upstream owners   Task
- 1  2SE.1   todo     none  none              {full description}
- 2  2SE.2   blocked  none  2SE.1 (none)      {full description}
- 3  2SE.4   blocked  Max   2SE.2 (none)      {full description}
- 4  2TI.3   todo     none  1IN.2 (Jaz)       {full description}
+| # | ID    | Status  | Now  | Upstream Owners | Task                 |
+|--:|-------|---------|------|-----------------|----------------------|
+| 1 | 2SE.1 | todo    | none | none            | {full description}   |
+| 2 | 2SE.2 | blocked | none | 2SE.1 (none)    | {full description}   |
+| 3 | 2SE.4 | blocked | Max  | 2SE.2 (none)    | {full description}   |
+| 4 | 2TI.3 | todo    | none | 1IN.2 (Jaz)     | {full description}   |
 
 Assign: "<rows> <dev>" clauses split by ";". Example: 1-2 j; 4 m
 ```
 
+A run with a single batch drops the `Batch 1 of 1 ·` prefix: `## M5: Filtering & Search (0% Done) · 1 Task`.
+
 - **Status** reads `in progress` for a claimed task (one with a `started` date) that is `todo` or `blocked`; a paused, deferred or finished status shows as itself.
 - **Now** is the current assignee. **Upstream owners** lists the task's direct `dependsOn` tasks with their assignee in brackets; assignments made earlier in this run show up here, and milestone and gate dependencies are omitted. It is a fact about the graph and never a recommendation.
-- Full descriptions always; wrap long ones and never truncate.
-- Print the grammar reference below in full with the first batch, then only the one-line reminder shown above.
+- Full descriptions always, never truncated; the table wraps them inside the Task cell.
+- Print the grammar reference below in full once, under `### Reply Grammar` in `## Preparation` (after the Working Set, before the first batch). Batches then carry only the one-line reminder shown above.
 
 **Reply grammar**
 
@@ -159,25 +179,34 @@ After each batch, confirm in one line what was recorded (`2SE.1, 2SE.2 → Jaz �
 
 ## Step 5: Prepare the proposal (do not edit yet)
 
-```text
+```md
+## Proposal
 Assignee changes: {N} tasks in {phase}
 
-New assignments
-  2SE.1   none → Jaz   {description}
-  2TI.3   none → Max   {description}
+### New Assignments
+| ID    | Change      | Task          |
+|-------|-------------|---------------|
+| 2SE.1 | none → Jaz  | {description} |
+| 2TI.3 | none → Max  | {description} |
 
-Reassignments
-  2SE.4   Max → Jaz    {description}
+### Reassignments
+| ID    | Change      | Task          |
+|-------|-------------|---------------|
+| 2SE.4 | Max → Jaz   | {description} |
 
-Cleared
-  3UI.2   Jaz → none   {description}
+### Cleared
+| ID    | Change      | Task          |
+|-------|-------------|---------------|
+| 3UI.2 | Jaz → none  | {description} |
 
 Spelling normalised: "jaz" → "Jaz" on {n} tasks
 
-Load            before   after
-  Jaz (j)            7      10
-  Max (m)            1       1
-  unassigned        17      14
+### Load
+| Dev        | Before | After |
+|------------|-------:|------:|
+| Jaz (j)    |      7 |    10 |
+| Max (m)    |      1 |     1 |
+| Unassigned |     17 |    14 |
 
 Still unassigned in this working set: {n}
 ```
@@ -203,7 +232,7 @@ Edit `roadmaps.json` only. Assignee has no projection in the PHASE file or `ROAD
 
 Run `roadmap.py validate`; it must report clean, and a discrepancy that was present before Step 6 is reported as pre-existing. If an HTML dashboard exists (`docs/artefacts/roadmap-*.html`), refresh it with `roadmap.py render`, since its dev chips come from this field.
 
-Report: the count of tasks changed; the final load table; how many tasks in the working set are still unassigned; any roster member who ended with nothing. Close with the one next action that fits, for example `/roadmap:next-suggest Jaz` to pull that dev's highest-leverage ready task.
+Print the report under `## Result`: the count of tasks changed; the final load table (same columns as the Working Set table); how many tasks in the working set are still unassigned; any roster member who ended with nothing. Close with the one next action that fits, for example `/roadmap:next-suggest Jaz` to pull that dev's highest-leverage ready task.
 
 ---
 
