@@ -27,7 +27,7 @@ Replaces the former git-branch-merge / git-branch-rebase / git-branch-squash tri
    - **0**: integration done. For `squash` the branch's changes are staged as one unit: write a single descriptive commit message (conventional commits) and commit.
    - **2**: state error (dirty tree, detached HEAD, wrong branch, fetch failure). Report the script's message and stop; fix only what the user asks you to fix.
    - **3**: conflicts, left in place. List them, then resolve with judgement about whose change is *right*: our branch's intent wins for the work this branch is about; the incoming side (usually main) wins elsewhere, since its conflicting change typically carries a fix this branch predates. Never resolve by discarding our changes wholesale, and never by discarding main's either. Then `git commit` (merge) or `git rebase --continue` after each (rebase/squash).
-4. Run the project's tests to verify the integration.
+4. Run the project's tests to verify the integration. A mod under `marketplace/<name>/` whose `hooks/` holds `*.test.ts(x)` is tested with `claude plugin test marketplace/<name>`, never bare `bun test`: the runner supplies `claude-code/testing`, so bare bun fails to load it whatever the code does. Check the mod's README for its test command before running anything.
 5. **Only when tests pass**, push: `git push` after a merge; `git push --force-with-lease` after a rebase or squash. Never plain `--force`.
 
 ## Red flags
