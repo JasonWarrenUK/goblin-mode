@@ -37,7 +37,7 @@ Group the table in two sections, both always shown: **deliberate worktrees** (th
 
 Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch's PR has merged (or, un-PR'd, is merged to main; candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere. An abandoned machine-made worktree (clean, branch merged or never pushed) is a first-class cleanup candidate here. When several worktrees form a stack (each branch the PR base of the next), say so plainly: "these three are one stack, bottom to top", since removing or rebasing them out of order is the trap.
 
-Stop here; the map is the output. When the Suggestions line names something to act on, point at the skill that does it: `/branch-worktree new <branch>` to work on a branch in a worktree and `/branch-worktree prune` to clear redundant ones.
+Stop here; the map is the output. When the Suggestions line names something to act on, point at the skill that does it: `/branch-worktree new <branch>` to work on a branch in a new worktree, `/branch-worktree use <worktree>` to move into one that exists and `/branch-worktree prune` to clear redundant ones.
 
 ## Red flags
 
