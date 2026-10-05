@@ -713,6 +713,33 @@ class Ready(unittest.TestCase):
         self.assertEqual(ids[0], "a")  # highest leverage first
         self.assertTrue(by_id["d"]["isMilestoneSink"])
 
+    def test_unblock_split_now_partly_later(self):
+        ph = phase([
+            {"id": "M1", "name": "m1", "tasks": [
+                task("x"),                              # candidate under test
+                task("y"),                              # a second prerequisite, still open
+                task("only", "blocked", ["x"]),         # waits on x alone: now
+                task("both", "blocked", ["x", "y"]),    # also waits on y: partly
+                task("deep", "blocked", ["only"]),      # one hop further: later
+                task("gone", "done", ["x"])]},          # closed: counted nowhere
+            {"id": "M2", "name": "m2", "tasks": [
+                task("viaM", "blocked", ["M1"])]}])     # waits on all of M1, so a direct dependent: partly
+        by_id = {c["id"]: c for c in roadmap.build_ready(ph)["candidates"]}
+        x = by_id["x"]
+        self.assertEqual(x["unblocksNow"], 1)           # only
+        self.assertEqual(x["unblocksPartly"], 2)        # both, viaM
+        self.assertEqual(x["unblocksLater"], 1)         # deep
+        self.assertEqual(by_id["y"]["unblocksNow"], 0)
+        self.assertEqual(by_id["y"]["unblocksPartly"], 2)
+
+    def test_unblock_via_milestone_membership_counts_as_now(self):
+        ph = phase([
+            {"id": "M1", "name": "m1", "tasks": [task("last")]},
+            {"id": "M2", "name": "m2", "tasks": [task("next", "blocked", ["M1"])]}])
+        c = roadmap.build_ready(ph)["candidates"][0]
+        self.assertEqual((c["unblocksNow"], c["unblocksPartly"], c["unblocksLater"]),
+                         (1, 0, 0))
+
     def test_assignee_projected_when_set_and_empty_when_absent(self):
         ph = phase([{"id": "M1", "name": "m1", "tasks": [
             task("a", assignee="jason"),

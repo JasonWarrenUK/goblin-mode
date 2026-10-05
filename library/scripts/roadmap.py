@@ -1304,6 +1304,24 @@ def build_ready(phase, within=None, horizon="ready"):
                     frontier.append(d)
         return seen
 
+    def unblock_split(tid):
+        """(now, partly, later) counts of open tasks downstream of `tid`.
+
+        now: direct dependents that become todo the moment `tid` is done
+        (found by recomputing with `tid` marked done, so gates and milestone
+        membership behave as everywhere else). partly: the other direct
+        dependents, which still wait on something else. later: transitive
+        dependents that are not direct. Closed tasks count nowhere."""
+        def is_open(other):
+            return effective.get(other) not in ("done", "out_of_scope")
+        direct = {d for d in dependents.get(tid, ()) if is_open(d)}
+        after = recompute_all({**tasks, tid: {**tasks[tid], "status": "done"}},
+                              milestones, gates)
+        now = {d for d in direct
+               if not is_held(tasks[d]) and after.get(d) == "todo"}
+        later = {d for d in transitive(tid) if is_open(d)} - direct
+        return len(now), len(direct) - len(now), len(later)
+
     candidates = []
     claimed = []
     for tid, t in tasks.items():
@@ -1331,6 +1349,7 @@ def build_ready(phase, within=None, horizon="ready"):
                 continue
         elif effective.get(tid) != "todo":
             continue
+        unblocks_now, unblocks_partly, unblocks_later = unblock_split(tid)
         candidates.append({
             "id": tid,
             "description": t.get("description", ""),
@@ -1344,6 +1363,9 @@ def build_ready(phase, within=None, horizon="ready"):
             "milestoneDonePct": milestone_pct.get(mid, 0),
             "directDependents": len(dependents.get(tid, ())),
             "transitiveUnblocks": len(transitive(tid)),
+            "unblocksNow": unblocks_now,
+            "unblocksPartly": unblocks_partly,
+            "unblocksLater": unblocks_later,
             "isMilestoneSink": (tid in sinks.get(mid, [])
                                 and not t.get("softMilestone")),
             "notes": t.get("notes", ""),
