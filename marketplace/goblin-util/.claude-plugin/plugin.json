@@ -1,0 +1,35 @@
+{
+	"name": "goblin-util",
+	"version": "0.1.0",
+	"description": "Two mods for the machine you run Claude Code on: /pain logs friction with the tool itself without a turn, and /fleet shows every session on the machine and lets you message one.",
+	"author": {
+		"name": "Jason Warren"
+	},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"keywords": ["mod", "fleet", "sessions", "pain-points"],
+	"types": "./types/index.d.ts",
+	"userConfig": {
+		"enabled": {
+			"type": "boolean",
+			"title": "Util on",
+			"description": "The one switch for all of it. Off, the heartbeat stops, /pain and /fleet are not registered and nothing is written to the shared store.",
+			"default": true
+		},
+		"heartbeat_seconds": {
+			"type": "number",
+			"title": "Fleet heartbeat",
+			"description": "How often this session writes its row to the shared store, in seconds.",
+			"default": 15,
+			"min": 5,
+			"max": 120
+		},
+		"stale_minutes": {
+			"type": "number",
+			"title": "Fleet forgets after",
+			"description": "A session that has not written for this many minutes is dropped from the fleet.",
+			"default": 10,
+			"min": 1,
+			"max": 1440
+		}
+	}
+}
