@@ -806,7 +806,7 @@ const readyHtml = !DATA.ready.candidates.length
    (paused/deferred wins over a claim) stays in its Milestones group. */
 const claimLi = c => `
 	<li>
-		<span class="tid">${esc(c.id)}</span>${devChip(c.assignee)}
+		<span class="pills"><span class="tid">${esc(c.id)}</span>${devChip(c.assignee)}</span>
 		<span class="tasktext">${esc(c.description)}</span>
 		<span class="signal">since ${esc(c.started)}${c.status === "todo" ? "" : ` · ${esc(c.status)}`}</span>
 	</li>`;

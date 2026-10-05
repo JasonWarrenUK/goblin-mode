@@ -1283,7 +1283,8 @@ def build_ready(phase, within=None, horizon="ready"):
 
     # Reverse reachability: completing X unblocks everything downstream of it,
     # following task->task edges and milestone membership (a sink completing
-    # its milestone reaches tasks that depend on the milestone).
+    # its milestone reaches tasks that depend on the milestone). A soft member
+    # never gates its milestone, so completing it unblocks nothing that way.
     dependents = {tid: set() for tid in tasks}
     for tid, t in tasks.items():
         for dep in t.get("dependsOn", []):
@@ -1291,7 +1292,7 @@ def build_ready(phase, within=None, horizon="ready"):
                 dependents[dep].add(tid)
             elif dep in milestones:
                 for member in milestones[dep]:
-                    if member in dependents:
+                    if member in dependents and not tasks[member].get("softMilestone"):
                         dependents[member].add(tid)
 
     def transitive(tid):
