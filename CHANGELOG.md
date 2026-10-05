@@ -5,6 +5,15 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.3.0] - 2026-10-05
+
+### Changed
+
+- Next Up cards on the roadmap dashboard share one three-row layout: milestone and task labels, then the description, then three counts for what finishing the task frees. `▶` counts tasks ready the moment it is done, `◐` counts tasks that still wait on something else and `↓` counts tasks further downstream. A legend explains the icons, the dev label no longer repeats under its own heading and faint dividers separate each dev's group.
+- `/roadmap-update-devs` prints its sections under headings and its lists as bordered tables, with the task description in the last column so it wraps inside its cell. The reply grammar prints once, before the first batch.
+- `roadmap.py ready` reports `unblocksNow`, `unblocksPartly` and `unblocksLater` for each candidate. A soft milestone member no longer counts as unblocking its milestone's dependents, so `transitiveUnblocks` drops for those tasks and they rank lower in `next-task-suggest`, `next-task-group` and `roadmap-claim`.
+- `clod-config-skill_conventions` gains a "Terminal output templates" section: when a skill's output should use headings and tables.
+
 ## [6.2.0] - 2026-10-05
 
 ### Added
@@ -206,7 +215,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.2.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.3.0...HEAD
+[6.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.2.0...v6.3.0
 [6.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.1.0...v6.2.0
 [6.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.0.0...v6.1.0
 [6.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v5.0.0...v6.0.0
