@@ -5,6 +5,18 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.4.0] - 2026-10-05
+
+### Added
+
+- `/branch-worktree use [worktree name|branch|path]` moves the session into a worktree that already exists. It matches an exact path first, then a directory name, then a branch; when one level matches several worktrees it asks which you mean. With no target it offers the worktrees under `.claude/worktrees/`, each shown with its branch and whether it is dirty. It stops on the worktree you are already in, a prunable one or any outside `.claude/worktrees/`. Before entering a worktree that another live session is working in, it asks. It never creates a worktree or a branch.
+
+### Changed
+
+- `/branch-worktree new` hands over to `use` when the branch is already checked out in a worktree under `.claude/worktrees/`, instead of jumping to its own final steps.
+- `/hud-worktrees` names `/branch-worktree use` alongside `new` and `prune` in its suggestions.
+- The header of `checkout-occupied.sh` now says a session that moved into a worktree with `EnterWorktree` is recorded against that worktree. The script itself is unchanged.
+
 ## [6.3.0] - 2026-10-05
 
 ### Changed
@@ -215,7 +227,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.3.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.0...HEAD
+[6.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.3.0...v6.4.0
 [6.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.2.0...v6.3.0
 [6.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.1.0...v6.2.0
 [6.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.0.0...v6.1.0
