@@ -9,6 +9,12 @@
 	"keywords": ["mod", "fleet", "sessions", "pain-points"],
 	"types": "./types/index.d.ts",
 	"userConfig": {
+		"enabled": {
+			"type": "boolean",
+			"title": "Util on",
+			"description": "The one switch for all of it. Off, the heartbeat stops, /pain and /fleet are not registered and nothing is written to the shared store.",
+			"default": true
+		},
 		"heartbeat_seconds": {
 			"type": "number",
 			"title": "Fleet heartbeat",

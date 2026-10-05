@@ -197,6 +197,8 @@ const isPaneOpen = async ($: EngineInterface, id: string): Promise<boolean> => {
 
 export const register: Register = (on, options) => {
 	heartbeatMs = (typeof options.heartbeat_seconds === 'number' ? options.heartbeat_seconds : 15) * 1000
+	if (options.enabled === false) return
+
 	staleMs = (typeof options.stale_minutes === 'number' ? options.stale_minutes : 10) * 60_000
 
 	on('session.start', async ($, e, next) => {

@@ -190,6 +190,13 @@ test('the fleet pane lists live rows, drops stale ones and messages a picked ses
 	expect(toasts).toEqual(['sent to chirpdb/fix/export'])
 })
 
+test('enabled false registers nothing: no heartbeat, no store writes', { options: { enabled: false } }, async ($, on) => {
+	const store = world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	expect(store.sets).toEqual([])
+	expect(store.map.size).toBe(0)
+})
+
 test('/fleet opens the pane and runs again to close it', async ($, on) => {
 	const store = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })

@@ -47,6 +47,7 @@ A row that has not written for a minute reads `quiet`; one past the stale limit 
 
 | Option | Default | What it does |
 |---|---|---|
+| `enabled` | true | The one switch for all of it. Off, the heartbeat stops and `/pain` and `/fleet` are not registered. |
 | `heartbeat_seconds` | 15 | How often this session writes its row. |
 | `stale_minutes` | 10 | A session silent for this long is forgotten. |
 
