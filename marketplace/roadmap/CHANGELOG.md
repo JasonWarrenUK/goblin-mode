@@ -5,6 +5,14 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-05
+
+### Changed
+
+- Next Up cards on the dashboard share one three-row layout: milestone and task labels, then the description, then three counts for what finishing the task frees. `▶` counts tasks ready the moment it is done, `◐` counts tasks that still wait on something else and `↓` counts tasks further downstream. A legend explains the icons, the dev label no longer repeats under its own heading and faint dividers separate each dev's group.
+- `/roadmap-update-devs` prints its sections under headings and its lists as bordered tables, with the task description in the last column so it wraps inside its cell. The reply grammar prints once, before the first batch.
+- `roadmap.py ready` reports `unblocksNow`, `unblocksPartly` and `unblocksLater` for each candidate. A soft milestone member no longer counts as unblocking its milestone's dependents, so `transitiveUnblocks` drops for those tasks and they rank lower in the ready set.
+
 ## [2.0.0] - 2026-10-02
 
 ### Breaking
@@ -86,7 +94,8 @@ The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the rend
 - The dashboard's Overview grid no longer collapses a tiered phase's milestones into a single narrow column.
 - Three skills are synced to the conventions reference.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.0.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.1.0...HEAD
+[2.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.0.0...roadmap-v2.1.0
 [2.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v1.0.0...roadmap-v2.0.0
 [1.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v0.2.0...roadmap-v1.0.0
 [0.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v0.1.0...roadmap-v0.2.0
