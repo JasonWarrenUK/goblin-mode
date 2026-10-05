@@ -42,6 +42,15 @@ metadata:
 
 Knowledge skills (`user-invocable: false`) set neither `model` nor `effort`: both fields override the session absolutely while the skill is active, so an inline reference skill would hijack the very turn that triggered it.
 
+## Terminal output templates
+
+What a skill prints is part of the skill. Claude Code draws markdown tables with borders and renders markdown headings bold, so a template written as markdown reads better than one frozen in a `text` fence, at about the same token cost (pipes replace the space padding).
+
+- Records with 2+ fields across 2+ rows: a markdown table. Put long free text (descriptions) in the last column so the table wraps it inside the cell; a raw monospace line wraps back to column 0 when the diff pane is open.
+- One-value lines, prompts, echoes and usage lines: plain text, never a table.
+- Section titles: markdown headings in Title Case, nested to match the flow (`#` once per run, `##` per stage, `###` per block). No bold-label pseudo-headings such as `Roster:`.
+- Keep a `text` fence only for output that must stay verbatim monospace (usage blocks, code, diagrams).
+
 ## Model-tag conventions (old: recognise, don't write)
 
 Retired forms that tagged the model inside `description` as `"{{ X }} …"`: Greek triples (`𝚫𝚫𝚫` haiku, `ƔƔƔ` sonnet, `𝛀𝛀𝛀` opus) and before that runic pairs (`ᚻᛕ` haiku, `ᛇᚤ` sonnet, `ᛜᚹ` opus, `ᚨᛔ` fable). On sight, migrate the skill to the metadata convention above.
