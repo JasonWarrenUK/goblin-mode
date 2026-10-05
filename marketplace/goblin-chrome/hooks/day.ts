@@ -84,7 +84,6 @@ export const dayAt = (slots: readonly Slot[], date: Date, sessionAgeMs: number):
 		state,
 		from: shift(before.state, delta),
 		blend: Math.min(1, since / FADE_MINUTES),
-		pill: STYLE[state].pill,
 	}
 }
 
@@ -93,8 +92,6 @@ export type Pace = 'lie' | 'sway' | 'slow' | 'normal' | 'sit' | 'fast' | 'grin' 
 export type DayStyle = {
 	/** Fraction towards white (positive) or black (negative) applied to the accent. */
 	shade: number
-	/** A label added to the footer's mode pills, or none. */
-	pill: string | null
 	/** What the hint line says when nothing more specific applies. */
 	hints: readonly string[]
 	/** How the idle goblin carries itself. */
@@ -104,13 +101,13 @@ export type DayStyle = {
 }
 
 export const STYLE: Record<DayState, DayStyle> = {
-	bed: { shade: -0.55, pill: 'nO', hints: ['no.', 'go to bed', 'bed.'], pace: 'lie', yawnMs: null },
-	caught: { shade: -0.3, pill: 'uGh', hints: ['...', 'what time is it', 'hm.'], pace: 'sway', yawnMs: 240_000 },
-	grumpy: { shade: -0.15, pill: 'uGh', hints: ['what.', 'say it', 'hm'], pace: 'slow', yawnMs: null },
-	functional: { shade: 0, pill: null, hints: ['say the thing', 'go on', 'well?'], pace: 'normal', yawnMs: null },
-	slump: { shade: -0.1, pill: 'mEh', hints: ['sure', 'later', '*yawn*'], pace: 'sit', yawnMs: 300_000 },
-	second: { shade: 0.05, pill: null, hints: ['right then', 'quicker', 'go on, say it'], pace: 'fast', yawnMs: null },
-	perking: { shade: 0.1, pill: null, hints: ['oh good', 'tell me', 'yes?'], pace: 'grin', yawnMs: null },
-	prime: { shade: 0.2, pill: 'pRiMe', hints: ['say the thing. properly.', 'you took your time', 'and?'], pace: 'lively', yawnMs: null },
-	feral: { shade: 0.25, pill: 'fErAl', hints: ['heh', 'say it. SAY IT.', 'what could go wrong'], pace: 'feral', yawnMs: 180_000 },
+	bed: { shade: -0.55, hints: ['no.', 'go to bed', 'bed.'], pace: 'lie', yawnMs: null },
+	caught: { shade: -0.3, hints: ['...', 'what time is it', 'hm.'], pace: 'sway', yawnMs: 240_000 },
+	grumpy: { shade: -0.15, hints: ['what.', 'say it', 'hm'], pace: 'slow', yawnMs: null },
+	functional: { shade: 0, hints: ['say the thing', 'go on', 'well?'], pace: 'normal', yawnMs: null },
+	slump: { shade: -0.1, hints: ['sure', 'later', '*yawn*'], pace: 'sit', yawnMs: 300_000 },
+	second: { shade: 0.05, hints: ['right then', 'quicker', 'go on, say it'], pace: 'fast', yawnMs: null },
+	perking: { shade: 0.1, hints: ['oh good', 'tell me', 'yes?'], pace: 'grin', yawnMs: null },
+	prime: { shade: 0.2, hints: ['say the thing. properly.', 'you took your time', 'and?'], pace: 'lively', yawnMs: null },
+	feral: { shade: 0.25, hints: ['heh', 'say it. SAY IT.', 'what could go wrong'], pace: 'feral', yawnMs: 180_000 },
 }

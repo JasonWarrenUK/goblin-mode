@@ -1,7 +1,7 @@
 // goblin-chrome: the hooks module. Every drawing reads the same state: the
 // palette (38), the day (37), the frame by tier (36), the vitals (18) and
-// the idle clock (28). The hint and the pills (27) and the question mask and
-// heckles (29) read it too. One switch in the options turns the lot off.
+// the idle clock (28). The hint (27) and the question mask and heckles (29)
+// read it too. One switch in the options turns the lot off.
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement } from 'claude-code'
@@ -14,16 +14,12 @@ import {
 	FACE_COLUMNS,
 	FACE_ROWS,
 	HECKLES,
-	meterCells,
-	METER_COLUMNS,
-	moodOf,
 	POKE_LINES,
-	voiceLine,
 	type Expression,
 } from './goblin'
 import { goblinCase, pick, seconds } from './text'
 import { CLOD, loadPalette, type Variant } from './theme'
-import { DEFAULT_TIER, frameFor, pinnedModel, tierOf } from './tier'
+import { bandRule, DEFAULT_TIER, frameFor, glyphsFor, pinnedModel, tierOf } from './tier'
 
 const PLUGIN = 'goblin-chrome'
 
@@ -32,13 +28,9 @@ const day = atom({ plugin: 'goblin-chrome', key: 'day' } as const, {
 	state: 'functional',
 	from: 'functional',
 	blend: 1,
-	pill: null,
 } as Day)
 const frame = atom({ plugin: 'goblin-chrome', key: 'frame' } as const, frameFor(DEFAULT_TIER, null, CLOD))
 const vitals = atom({ plugin: 'goblin-chrome', key: 'vitals' } as const, {
-	context: 0,
-	limit: 0,
-	limitKind: '',
 	tools: 0,
 	errors: 0,
 	turnMs: 0,
@@ -52,33 +44,33 @@ const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
 	sessionStartAt: 0,
 	isWorking: false,
 	draftSince: 0,
+	saying: '',
+	sayingUntil: 0,
 } as Idle)
 
 /** The accent as the day colours it: faded from the previous state's shade over ten minutes. */
 const accentOf = (p: Palette, d: Day): string =>
 	mix(shade(p.accent, STYLE[d.from].shade), shade(p.accent, STYLE[d.state].shade), d.blend)
 
-const MODE_PILLS: readonly [RegExp, string][] = [
-	[/plan/i, 'sChEmInG'],
-	[/accept/i, 'lEt It CoOk'],
-	[/auto/i, 'uNsUpErViSeD'],
-	[/bypass/i, 'nO rUlEs'],
-	[/focus/i, 'hYpErFoCuS'],
-	[/memory/i, 'fOrGeTtInG'],
-]
-
-export const pillFor = (mode: string): string => {
-	for (const [re, pill] of MODE_PILLS) if (re.test(mode)) return pill
-	return goblinCase(mode)
-}
-
 // Module-level because the validator holds `$` to top-level functions: these
 // are the helpers every hook shares, and the variables they read are set by
-// `register` from the options and by the hooks as the session goes.
+// `register` from the options and by the hooks as the session goes. The tiers
+// the frame depends on live in the `frame` atom, which survives a hot reload.
 let schedule = parseSchedule('')
-let servedTier: Tier = DEFAULT_TIER
-let pinnedTier: Tier | null = null
 let lastYawnAt = 0
+
+/** How long a line stays in the band's dialogue range. */
+const SAY_MS = 6_000
+
+/** The goblin speaks: the line shows in the band's dialogue range for a few seconds, then clears itself. */
+const say = async ($: EngineInterface, line: string): Promise<void> => {
+	const now = await $.clock.now()
+	const until = now + SAY_MS
+	await update($, idle, i => ({ ...i, saying: goblinCase(line), sayingUntil: until }))
+	$.clock.after(SAY_MS, () => {
+		void update($, idle, i => (i.sayingUntil === until ? { ...i, saying: '', sayingUntil: 0 } : i))
+	})
+}
 
 const refreshDay = async ($: EngineInterface): Promise<void> => {
 	const now = await $.clock.now()
@@ -88,38 +80,22 @@ const refreshDay = async ($: EngineInterface): Promise<void> => {
 	const style = STYLE[next.state]
 	if (style.yawnMs !== null && now - lastYawnAt > style.yawnMs && !i.isWorking) {
 		lastYawnAt = now
-		$.ui.toast(goblinCase('yawn.'))
+		await say($, 'yawn.')
 	}
 }
 
-const refreshVitals = async ($: EngineInterface): Promise<void> => {
-	try {
-		const usage = await $.session.usage()
-		let worst: { kind: string; percentUsed: number } | null = null
-		for (const l of usage.rateLimits) if (worst === null || l.percentUsed > worst.percentUsed) worst = l
-		const limit = worst
-		await update($, vitals, v => ({
-			...v,
-			context: usage.context.percent ?? v.context,
-			limit: limit?.percentUsed ?? 0,
-			limitKind: limit?.kind ?? '',
-		}))
-	} catch {
-		// headless, or no reading yet
-	}
-}
-
-const refreshFrame = async ($: EngineInterface): Promise<void> => {
+/** Redraw the frame from the atom's own tiers, with `patch` replacing whichever it names. */
+const refreshFrame = async ($: EngineInterface, patch: { served?: Tier; pinned?: Tier | null } = {}): Promise<void> => {
 	const p = await read($, palette)
-	await update($, frame, () => frameFor(servedTier, pinnedTier, p))
+	await update($, frame, current =>
+		frameFor(patch.served ?? current.served, patch.pinned === undefined ? current.pinned : patch.pinned, p),
+	)
 }
 
 export const register: Register = (on, options) => {
 	if (options.enabled === false) return
 
 	schedule = parseSchedule(typeof options.schedule === 'string' ? options.schedule : '')
-	servedTier = DEFAULT_TIER
-	pinnedTier = null
 	lastYawnAt = 0
 	const wantedTheme = typeof options.theme === 'string' ? options.theme : ''
 	const audio = options.audio === true
@@ -127,7 +103,6 @@ export const register: Register = (on, options) => {
 	on('session.start', async ($, e, next) => {
 		const now = await $.clock.now()
 		lastYawnAt = now
-		servedTier = (await read($, frame)).served
 		await update($, idle, i => ({ ...i, sessionStartAt: now, lastTurnEndAt: now }))
 		let variant: Variant = 'dark'
 		try {
@@ -148,12 +123,10 @@ export const register: Register = (on, options) => {
 		await update($, palette, () => loaded)
 		await refreshFrame($)
 		await refreshDay($)
-		await refreshVitals($)
 		$.clock.every(60_000, () => {
 			void refreshDay($)
 		})
 		$.clock.every(30_000, () => {
-			void refreshVitals($)
 			void update($, idle, i => ({ ...i }))
 		})
 		return next(e)
@@ -208,7 +181,7 @@ export const register: Register = (on, options) => {
 				const v = await read($, vitals)
 				const bounces = v.bounces + 1
 				await update($, vitals, cur => ({ ...cur, bounces }))
-				$.ui.toast(goblinCase(bounces === 1 ? HECKLES.bounce : HECKLES.bounceAgain(bounces)))
+				await say($, bounces === 1 ? HECKLES.bounce : HECKLES.bounceAgain(bounces))
 				if (audio) void $.audio.play({ asset: 'fx/cackle.wav' }).catch(() => undefined)
 			}
 		}
@@ -219,50 +192,46 @@ export const register: Register = (on, options) => {
 		const result = yield* next(e)
 		if (!e.agentId && result.usage?.model) {
 			const tier = tierOf(result.usage.model)
-			if (tier !== servedTier) {
-				servedTier = tier
-				await refreshFrame($)
-			}
+			if (tier !== (await read($, frame)).served) await refreshFrame($, { served: tier })
 		}
 		return result
 	})
 
 	on('skill.prompt', async ($, e, next) => {
+		let pinned: Tier | null = null
 		try {
+			// Personal shadows project, as Claude Code resolves a skill of the same name.
 			const home = await $.env.get('HOME')
-			const text = home ? await $.fs.read(`${home}/.claude/skills/${e.skill}/SKILL.md`) : ''
+			const personal = home ? await $.fs.read(`${home}/.claude/skills/${e.skill}/SKILL.md`).catch(() => '') : ''
+			const text = personal || (await $.fs.read(`.claude/skills/${e.skill}/SKILL.md`))
 			const model = pinnedModel(text)
-			pinnedTier = model ? tierOf(model) : null
+			pinned = model ? tierOf(model) : null
 		} catch {
-			pinnedTier = null
+			pinned = null
 		}
-		await refreshFrame($)
+		await refreshFrame($, { pinned })
 		return next(e)
 	})
 
 	on('turn.complete', async ($, e, next) => {
 		if (e.agentId) {
-			$.ui.toast(goblinCase(HECKLES.minionBack(e.durationMs)))
+			await say($, HECKLES.minionBack(e.durationMs))
 			return next(e)
 		}
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, turnMs: e.durationMs, turnTools: v.tools, turnErrors: v.errors }))
-		if (pinnedTier !== null) {
-			pinnedTier = null
-			await refreshFrame($)
-		}
-		await refreshVitals($)
+		if ((await read($, frame)).pinned !== null) await refreshFrame($, { pinned: null })
 		return next(e)
 	})
 
 	on('session.compact', async ($, e, next) => {
-		if (!e.agentId) $.ui.toast(goblinCase(HECKLES.compaction))
+		if (!e.agentId) await say($, HECKLES.compaction)
 		return next(e)
 	})
 
 	on('command.run', { command: 'clear' }, async ($, e, next) => {
-		$.ui.toast(goblinCase(HECKLES.clear))
+		await say($, HECKLES.clear)
 		return next(e)
 	})
 
@@ -270,52 +239,81 @@ export const register: Register = (on, options) => {
 		const data = e.data as { poke?: unknown } | null
 		if (data && data.poke === true) {
 			const now = await $.clock.now()
-			$.ui.toast(goblinCase(pick(POKE_LINES, Math.floor(now / 1000))))
+			await say($, pick(POKE_LINES, Math.floor(now / 1000)))
 			return {}
 		}
 		return next(e)
 	})
 
-	// The band (18 and 28): the idle goblin, the vitals metre and the voice line,
-	// framed by tier and coloured by the day.
+	// The band (18 and 28): three ranges split by dividers, the tier's rune, the
+	// idle goblin and the goblin's dialogue, framed by tier and coloured by the day.
 	on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
 		if (e.props.hasSurvey || e.surface !== 'terminal') return next(e)
-		const { Box, Text, Client, Raster } = $.ui.resolve(e)
-		const [p, d, f, v, i] = await Promise.all([read($, palette), read($, day), read($, frame), read($, vitals), read($, idle)])
+		const { Box, Text, Client } = $.ui.resolve(e)
+		const [p, d, f, i] = await Promise.all([read($, palette), read($, day), read($, frame), read($, idle)])
 		const now = await $.clock.now()
-		const mood = moodOf(v)
 		const accent = accentOf(p, d)
 		const since = Math.max(i.lastTurnEndAt, i.lastPromptAt, i.sessionStartAt)
 		const idleMs = i.isWorking || since === 0 ? 0 : Math.max(0, now - since)
-		const goblinWidth = Math.max(10, Math.min(24, e.props.bodyColumns - METER_COLUMNS - 48))
 		const framed = e.props.maxRows >= 5
+		// The frame is drawn by hand so the dividers join the rules with tees: three ranges, each
+		// padded by a cell either side, so the rune sits centred in a range as wide as itself plus
+		// two (a mismatch such as `ᛊ→ᛟ` widens it). The room left for the goblin and its dialogue is
+		// the band less that range, the dividers, the other paddings and, when framed, the two outer
+		// edges. The dialogue takes under half, up to a long heckle's length.
+		const g = glyphsFor(f.borderStyle)
+		const runeRange = Array.from(f.rune).length + 2
+		const room = Math.max(0, e.props.bodyColumns - (framed ? 2 : 0) - 2 - runeRange - 4)
+		const sayingWidth = Math.min(42, Math.max(14, Math.floor(room * 0.45)))
+		const goblinWidth = Math.max(10, room - sayingWidth)
+		const ranges = [runeRange, goblinWidth + 2, sayingWidth + 2]
+		const saying = now < i.sayingUntil ? i.saying : ''
+		const bar = (
+			<Text color={f.borderColor} dimColor={f.borderDimColor}>
+				{g.vertical}
+			</Text>
+		)
 		return (
-			<Box
-				flexDirection="row"
-				columnGap={1}
-				width={e.props.bodyColumns}
-				{...(framed ? { borderStyle: f.borderStyle, borderColor: f.borderColor, borderDimColor: f.borderDimColor, paddingX: 1 } : {})}
-			>
-				<Client
-					key="goblin"
-					module="./idle.tsx"
-					width={goblinWidth}
-					props={{
-						mode: e.props.isWorking || i.isWorking ? 'working' : 'idle',
-						idleMs,
-						pace: STYLE[d.state].pace,
-						startleAt: i.lastPromptAt,
-						colour: accent,
-						dim: p.inkMuted,
-					}}
-				/>
-				<Raster key="meter" columns={METER_COLUMNS} rows={1} cells={meterCells(v.context, p)} />
-				<Text color={mood === 'frantic' ? p.danger : mood === 'agitated' ? p.warn : p.inkMuted} wrap="truncate-end">
-					{goblinCase(voiceLine(v, mood))}
-				</Text>
+			<Box flexDirection="column" width={e.props.bodyColumns}>
 				{framed && (
-					<Text color={f.borderColor} dimColor={f.borderDimColor}>
-						{f.rune}
+					<Text color={f.borderColor} dimColor={f.borderDimColor} wrap="truncate-end">
+						{bandRule(f.borderStyle, 'top', ranges)}
+					</Text>
+				)}
+				<Box flexDirection="row" width={e.props.bodyColumns}>
+					{framed && bar}
+					<Box width={ranges[0]} paddingX={1}>
+						<Text color={f.borderColor} dimColor={f.borderDimColor}>
+							{f.rune}
+						</Text>
+					</Box>
+					{bar}
+					<Box width={ranges[1]} paddingX={1}>
+						<Client
+							key="goblin"
+							module="./idle.tsx"
+							width={goblinWidth}
+							props={{
+								mode: e.props.isWorking || i.isWorking ? 'working' : 'idle',
+								idleMs,
+								pace: STYLE[d.state].pace,
+								startleAt: i.lastPromptAt,
+								colour: accent,
+								dim: p.inkMuted,
+							}}
+						/>
+					</Box>
+					{bar}
+					<Box width={ranges[2]} paddingX={1}>
+						<Text color={accent} wrap="truncate-end">
+							{saying}
+						</Text>
+					</Box>
+					{framed && bar}
+				</Box>
+				{framed && (
+					<Text color={f.borderColor} dimColor={f.borderDimColor} wrap="truncate-end">
+						{bandRule(f.borderStyle, 'bottom', ranges)}
 					</Text>
 				)}
 			</Box>
@@ -340,14 +338,6 @@ export const register: Register = (on, options) => {
 		)
 	})
 
-	// The footer pills (27).
-	on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
-		const d = await read($, day)
-		const modes = e.props.modes.map(pillFor)
-		if (d.pill) modes.push(d.pill)
-		return next({ ...e, props: { ...e.props, modes } })
-	})
-
 	// The hint under the prompt (27): the engine's line stays live, the tail is ours.
 	on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
 		const [d, i] = await Promise.all([read($, day), read($, idle)])
@@ -361,7 +351,7 @@ export const register: Register = (on, options) => {
 		else if (i.lastPromptAt === 0) line = 'say the thing'
 		else if (!e.props.isWorking && idleMs > 2 * 60_000) line = 'still there?'
 		else line = pick(STYLE[d.state].hints, Math.floor(now / 60_000))
-		return next({ ...e, props: { ...e.props, tail: ` · ${goblinCase(line)}` } })
+		return next({ ...e, props: { ...e.props, tail: goblinCase(line) } })
 	})
 
 	// The question mask (29): a face above the engine's own dialog, kept once.

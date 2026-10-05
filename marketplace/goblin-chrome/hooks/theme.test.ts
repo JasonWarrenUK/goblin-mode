@@ -81,6 +81,17 @@ describe('resolution', () => {
 		expect(fallen).toEqual(CLOD)
 	})
 
+	test('a wanted family missing everywhere falls to the global clod file, not the baked one', async () => {
+		const clodPath = '/home/j/.claude/library/themes/clod.json'
+		const original = files[clodPath]
+		files[clodPath] = core('clod', '#123456')
+		try {
+			expect((await loadPalette(reader(['ember.json']), 'nope')).accent).toBe('#123456')
+		} finally {
+			files[clodPath] = original
+		}
+	})
+
 	test('no files anywhere gives the baked-in clod', async () => {
 		const bare = { list: async () => [], read: async () => { throw new Error('ENOENT') }, home: async () => undefined }
 		expect(await loadPalette(bare, '')).toEqual(CLOD)
