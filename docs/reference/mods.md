@@ -9,6 +9,7 @@ This config's mods live under `marketplace/<name>/` and are served from the repo
 | Mod | What it does | Draws |
 |---|---|---|
 | [`goblin-chrome`](../../marketplace/goblin-chrome/README.md) | Goblin-mode's face in the terminal: a goblin in the band that reacts to the session, the hint line in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours. Pure chrome; it changes nothing Claude does. | Band, `TurnDuration`, `PromptHint`, `AskUserQuestion` |
+| [`goblin-util`](../../marketplace/goblin-util/README.md) | `/pain` logs friction with Claude Code itself into `library/state/cc-pain-points.json` without a turn, the repo, branch and last failed tool pre-filled; `/fleet` lists every session on the machine from a shared heartbeat and sends one a message. | Two panes, toasts |
 
 ## How a mod is laid out
 
