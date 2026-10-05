@@ -110,8 +110,10 @@ export const loadPalette = async (reader: Reader, wanted: string, variant: Varia
 	}
 	const home = await reader.home().catch(() => undefined)
 	if (home) {
-		const global = await tryRead(`${home}/.claude/library/themes/${wanted || 'clod'}.json`)
-		if (global) return global
+		for (const name of new Set([wanted || 'clod', 'clod'])) {
+			const global = await tryRead(`${home}/.claude/library/themes/${name}.json`)
+			if (global) return global
+		}
 	}
 	return variant === 'light' ? CLOD_LIGHT : CLOD
 }

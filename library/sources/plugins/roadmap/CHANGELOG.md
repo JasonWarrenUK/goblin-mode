@@ -5,6 +5,30 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-02
+
+### Breaking
+
+- `/roadmap-update-devs` arguments change with no aliases: the `all` horizon is now `open` and the `devless` scope is now `free`. Anything that calls the old forms needs updating.
+
+### Added
+
+- `roadmap.py ready` takes `--milestones` or `--tiers` (mutually exclusive; `--tiers focus` picks the tier now underway), and a new `open` subcommand lists every task not done or out of scope with the same filters.
+- `/roadmap-update-devs` arguments are all optional and default to `ready free current:project`. A third argument, `<phase>:<filter>`, narrows the list to a project, the focus tier, chosen tiers or chosen milestones. The resolved call is echoed before the interview starts.
+- Tasks record when they finished. A new optional `ended` field comes with `end ID`, `stamp-ended --base REF --pr N` and `backfill-ended`, and `validate` rejects an `ended` that is malformed, set on a task that is not done or earlier than `started`.
+- `/roadmap-maintain` backfills missing `ended` dates from git history in a new step 3b, offering `first-seen` rows separately because their date is only a lower bound.
+- `/roadmap-claim` claims a roadmap task when work starts and releases it when work stops, asking who is doing it. The claim nudge and the other roadmap skills now point at it.
+
+### Changed
+
+- The dependency diagram in the dashboard leaves out `out_of_scope` tasks as well as done ones, along with the milestones and tiers they leave empty.
+
+### Fixed
+
+- `stamp-ended` refuses to run when the merge-base copy of the roadmap has no phase of the active name, instead of stamping every done task as finished by the branch.
+- `backfill-ended` skips and reports a task whose date would precede its `started`, rather than writing a file that fails `validate`.
+- `/roadmap-claim` handles a `roadmaps.json` the CLI refuses to rewrite.
+
 ## [1.0.0] - 2026-09-30
 
 The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the render data the dashboard reads and the milestone state vocabulary. No behaviour changes from 0.2.0; from here, a change to any of those surfaces is a major bump.
@@ -62,7 +86,8 @@ The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the rend
 - The dashboard's Overview grid no longer collapses a tiered phase's milestones into a single narrow column.
 - Three skills are synced to the conventions reference.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v1.0.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.0.0...HEAD
+[2.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v1.0.0...roadmap-v2.0.0
 [1.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v0.2.0...roadmap-v1.0.0
 [0.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v0.1.0...roadmap-v0.2.0
 [0.1.0]: https://github.com/JasonWarrenUK/goblin-mode/releases/tag/roadmap-v0.1.0
