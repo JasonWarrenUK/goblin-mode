@@ -375,11 +375,17 @@ li.oos { text-decoration: line-through; color: var(--muted); }
    laid out as two more keys in the same row. */
 #tier-keys:not([hidden]) { display: contents; }
 
-.nextup li:not(.nextup-devgroup) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; padding: 0.3rem 0; }
+/* Every task is the same three rows: pills, description, leverage counts. */
+.nextup li:not(.nextup-devgroup) { display: flex; flex-direction: column; align-items: stretch; gap: 0.35rem; padding: 0.55rem 0; }
+.nextup .pills { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.nextup .leverage { display: flex; justify-content: space-between; gap: 1rem; }
+.nextup .pills .signal, .nextup .leverage .signal { margin-left: 0; }
+.nextup-legend { margin: 0 0 0.8rem; }
 /* li.nextup-devgroup, not .nextup-devgroup: .group li (display:flex) would
    otherwise outrank it and lay a heading out beside its own list */
 .nextup li.nextup-devgroup { display: block; padding: 0; margin-top: 1rem; }
 .nextup li.nextup-devgroup:first-child { margin-top: 0; }
+.nextup li.nextup-devgroup + li.nextup-devgroup { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); padding-top: 1rem; }
 .nextup-devgroup h4 { margin: 0 0 0.4rem; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .signal { color: var(--muted); font-size: 0.78rem; font-family: "IBM Plex Mono", monospace; margin-left: auto; }
 
@@ -494,7 +500,10 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 
 		<section id="nextup">
 			<h2><span class="dot"></span>Next Up</h2>
-			<div class="card"><ul class="nextup group" id="ready" style="list-style:none;margin:0;padding:0"></ul></div>
+			<div class="card">
+				<p class="legend nextup-legend"><span title="Tasks that become ready the moment this one is done">▶ ready when done</span><span title="Tasks that depend on this one but also wait on other prerequisites">◐ also waits on others</span><span title="Tasks further downstream, not counted in the other two">↓ further downstream</span></p>
+				<ul class="nextup group" id="ready" style="list-style:none;margin:0;padding:0"></ul>
+			</div>
 		</section>
 	</main>
 </div>
@@ -763,12 +772,21 @@ wrap.addEventListener("pointerup", () => { drag = null; });
    one distinct assignee, so a solo project (or a phase where only one dev's
    work happens to be unblocked right now) stays flat rather than gaining a
    pointless single-group heading. */
-const candidateLi = c => `
+/* The dev chip shows only on an ungrouped list: under a dev's group header it
+   would repeat the header. */
+const candidateLi = (c, showDev = false) => `
 	<li>
-		<span class="tid">${esc(c.id)}</span>${devChip(c.assignee)}
+		<span class="pills">
+			<span class="chip" style="--chip-fg:var(--color-milestone);--chip-bg:var(--color-milestone-bg)">${esc(c.milestone)}: ${esc(c.milestoneName)}</span>
+			<span class="tid">${esc(c.id)}</span>${showDev ? devChip(c.assignee) : ""}
+			${c.isMilestoneSink ? `<span class="signal">completes milestone</span>` : ""}
+		</span>
 		<span class="tasktext">${esc(c.description)}</span>
-		<span class="deps"><span class="chip" style="--chip-fg:var(--color-milestone);--chip-bg:var(--color-milestone-bg)">${esc(c.milestone)}: ${esc(c.milestoneName)}</span></span>
-		<span class="signal">unblocks ${c.transitiveUnblocks}${c.isMilestoneSink ? " · completes milestone" : ""}</span>
+		<span class="leverage">
+			<span class="signal" title="Ready when this is done">▶ ${c.unblocksNow}</span>
+			<span class="signal" title="Also waits on other prerequisites">◐ ${c.unblocksPartly}</span>
+			<span class="signal" title="Further downstream">↓ ${c.unblocksLater}</span>
+		</span>
 	</li>`;
 const readyAssignees = new Set(DATA.ready.candidates.map(c => c.assignee).filter(Boolean));
 const readyHtml = !DATA.ready.candidates.length
@@ -776,13 +794,13 @@ const readyHtml = !DATA.ready.candidates.length
 	: readyAssignees.size > 1
 	? [...readyAssignees].sort().map(dev => `
 		<li class="nextup-devgroup"><h4>${devChip(dev)}</h4>
-			<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => c.assignee === dev).map(candidateLi).join("")}</ul>
+			<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => c.assignee === dev).map(c => candidateLi(c)).join("")}</ul>
 		</li>`).join("") +
 		(DATA.ready.candidates.some(c => !c.assignee)
 			? `<li class="nextup-devgroup"><h4>Unassigned</h4>
-				<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => !c.assignee).map(candidateLi).join("")}</ul>
+				<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => !c.assignee).map(c => candidateLi(c)).join("")}</ul>
 			</li>` : "")
-	: DATA.ready.candidates.map(candidateLi).join("");
+	: DATA.ready.candidates.map(c => candidateLi(c, true)).join("");
 /* Claims in play lead, since someone is already on them; the ready set then
    gets its own heading so the two lists never read as one. A parked claim
    (paused/deferred wins over a claim) stays in its Milestones group. */
