@@ -39,7 +39,7 @@ Every session on this machine writes a heartbeat row to the plugin's shared stor
 | Enter in the input | Sends the line to that session as a message, the same delivery as the SendMessage tool. The toast says whether it landed. |
 | Esc | Closes the pane. |
 
-A row that has not written for a minute reads `quiet`; one past the stale limit is dropped from the store by whichever session draws the pane next. A session that ends cleanly removes its own row.
+A row that has not written for a minute reads `quiet`. Opening `/fleet` never writes: a row past the stale limit is dropped by the next heartbeat any running session writes, within `heartbeat_seconds` (15 by default). A session that ends cleanly removes its own row.
 
 ---
 
