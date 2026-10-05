@@ -1,28 +1,11 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { rasterColour, shade } from './colour'
-import { FACE_COLUMNS, faceCells } from './goblin'
+import { FACE_COLUMNS, FACE_ROWS, faceCells } from './goblin'
 import { CLOD } from './theme'
 
-const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-
-// The environment has no atob, as it has no Buffer (see `base64` in text.ts).
-const unpack = (cells: string): Uint32Array => {
-	const bytes: number[] = []
-	let bits = 0
-	let held = 0
-	for (const ch of cells) {
-		const value = B64.indexOf(ch)
-		if (value < 0) break
-		held = (held << 6) | value
-		bits += 6
-		if (bits >= 8) {
-			bits -= 8
-			bytes.push((held >> bits) & 255)
-		}
-	}
-	return new Uint32Array(Uint8Array.from(bytes).buffer)
-}
+const unpack = (cells: string): Uint32Array =>
+	new Uint32Array(Uint8Array.from(atob(cells), c => c.charCodeAt(0)).buffer)
 
 /** The foreground word of the first cell showing `glyph`. */
 const foregroundOf = (cells: string, glyph: string): number | undefined => {
@@ -47,7 +30,7 @@ describe('faceCells', () => {
 		expect(foregroundOf(cells, 'v')).toBe(rasterColour(shade(CLOD.accent, 0.2)))
 	})
 
-	test('the grid is as wide as the face', async () => {
-		expect(unpack(faceCells('grin', CLOD)).length).toBe(FACE_COLUMNS * 3 * 3)
+	test("the grid is the face's columns by rows", async () => {
+		expect(unpack(faceCells('grin', CLOD)).length).toBe(FACE_COLUMNS * FACE_ROWS * 3)
 	})
 })
