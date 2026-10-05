@@ -26,4 +26,4 @@ if (( ${#leaking} )); then
 fi
 
 python3 "$build" || { print -u2 "pre-commit: roadmap plugin build failed; commit aborted"; exit 1 }
-git add -- "$repo_root/marketplace/roadmap"
+git add -- "$repo_root/marketplace/roadmap" "$repo_root/marketplace/roadmap-pane"
