@@ -18,6 +18,7 @@ const BEAT_GAP_MS = 5_000
 const selected = atom({ plugin: 'goblin-util', key: 'selected' } as const, null as string | null)
 const lastError = atom({ plugin: 'goblin-util', key: 'lastError' } as const, null as LastError | null)
 const branch = atom({ plugin: 'goblin-util', key: 'branch' } as const, '')
+const repoName = atom({ plugin: 'goblin-util', key: 'repoName' } as const, '')
 const self = atom({ plugin: 'goblin-util', key: 'self' } as const, {
 	sessionId: '',
 	startedAt: 0,
@@ -28,11 +29,11 @@ const self = atom({ plugin: 'goblin-util', key: 'self' } as const, {
 } as Self)
 
 // Module-level because the validator holds `$` to top-level functions; set
-// by `register` from the options. Nothing a drawing depends on lives here.
+// by `register` from the options. `cwd` is read only by the heartbeat, never
+// drawn.
 let heartbeatMs = 15_000
 let staleMs = 10 * 60_000
 let cwd = ''
-let repoName = ''
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -105,8 +106,8 @@ const logPain = async ($: EngineInterface, description: string): Promise<string>
 	const base = slug(text)
 	let id = base
 	for (let n = 2; ids.has(id); n++) id = `${base}-${n}`
-	const [err, b, now] = await Promise.all([read($, lastError), read($, branch), $.clock.now()])
-	const source = [repoName, b, err ? `last failed: ${err.tool}: ${err.text}` : '']
+	const [err, b, repo, now] = await Promise.all([read($, lastError), read($, branch), read($, repoName), $.clock.now()])
+	const source = [repo, b, err ? `last failed: ${err.tool}: ${err.text}` : '']
 		.filter(part => part !== '')
 		.join(' · ')
 	// Another session may have written since the first read: a whole-file write
@@ -157,7 +158,7 @@ const beat = async ($: EngineInterface, force = true): Promise<void> => {
 	const row: Heartbeat = {
 		id: sessionId,
 		cwd,
-		repo: repoName,
+		repo: await read($, repoName),
 		branch: await read($, branch),
 		isWorking: me.isWorking,
 		lastTool: me.lastTool,
@@ -196,18 +197,18 @@ const isPaneOpen = async ($: EngineInterface, id: string): Promise<boolean> => {
 }
 
 export const register: Register = (on, options) => {
-	heartbeatMs = (typeof options.heartbeat_seconds === 'number' ? options.heartbeat_seconds : 15) * 1000
 	if (options.enabled === false) return
 
+	heartbeatMs = (typeof options.heartbeat_seconds === 'number' ? options.heartbeat_seconds : 15) * 1000
 	staleMs = (typeof options.stale_minutes === 'number' ? options.stale_minutes : 10) * 60_000
 
 	on('session.start', async ($, e, next) => {
 		cwd = e.cwd
 		try {
 			const repo = await $.session.repo()
-			repoName = basename(repo?.root ?? e.cwd)
+			await update($, repoName, () => basename(repo?.root ?? e.cwd))
 		} catch {
-			repoName = basename(e.cwd)
+			await update($, repoName, () => basename(e.cwd))
 		}
 		await refreshBranch($)
 		await beat($)
@@ -299,8 +300,8 @@ export const register: Register = (on, options) => {
 	on('ui.render', { component: 'Pane', requestId: PAIN_PANE }, async ($, e, next) => {
 		if (e.surface !== 'terminal') return next(e)
 		const { Box, Text, Input } = $.ui.resolve(e)
-		const [err, b, now] = await Promise.all([read($, lastError), read($, branch), $.clock.now()])
-		const context = [repoName, b, err ? `last failed ${ago(now - err.at)} ago: ${err.tool}: ${err.text}` : 'nothing has failed yet']
+		const [err, b, repo, now] = await Promise.all([read($, lastError), read($, branch), read($, repoName), $.clock.now()])
+		const context = [repo, b, err ? `last failed ${ago(now - err.at)} ago: ${err.tool}: ${err.text}` : 'nothing has failed yet']
 			.filter(part => part !== '')
 			.join(' · ')
 		return (

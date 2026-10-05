@@ -35,6 +35,7 @@ declare module 'claude-code' {
 			selected: string | null
 			lastError: LastError | null
 			branch: string
+			repoName: string
 			self: Self
 		}
 	}
