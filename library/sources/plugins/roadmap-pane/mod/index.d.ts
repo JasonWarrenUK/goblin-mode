@@ -1,4 +1,4 @@
-// The state contract for the roadmap plugin's mod: the pane draws from a
+// The state contract for the roadmap-pane plugin's mod: the pane draws from a
 // snapshot the CLI produced, the row the person picked and the task that is
 // waiting for an assignee.
 
