@@ -902,6 +902,49 @@ class ReadyFilterCli(unittest.TestCase):
         self.assertIn("M9", out)
 
 
+class MilestoneEdgeReduction(unittest.TestCase):
+    def edges(self, ph, kind="milestone-complete"):
+        return {(e["from"], e["to"]) for e in roadmap.build_graph(ph)["edges"]
+                if e["kind"] == kind}
+
+    def shape(self, soft_sink=False):
+        # The CHIRPdb 6HD.5 shape: sink s in M6, sole dependant x in M4,
+        # M4 gating g in M6.
+        extra = {"softMilestone": True} if soft_sink else {}
+        return phase([
+            {"id": "M4", "name": "m4", "tasks": [task("x", "blocked", ["s"])]},
+            {"id": "M6", "name": "m6", "tasks": [
+                task("s", **extra), task("g", "blocked", ["M4"])]}])
+
+    def test_sink_already_reaching_its_milestone_loses_the_edge(self):
+        done = self.edges(self.shape())
+        self.assertNotIn(("s", "M6"), done)
+        self.assertIn(("g", "M6"), done)       # milestone keeps an inbound edge
+        self.assertIn(("x", "M4"), done)
+
+    def test_task_edges_are_never_reduced(self):
+        ph = phase([{"id": "M1", "name": "m1", "tasks": [
+            task("a"), task("b", "blocked", ["a"]),
+            task("c", "blocked", ["a", "b"])]}])
+        self.assertEqual(self.edges(ph, "task"),
+                         {("a", "b"), ("a", "c"), ("b", "c")})
+
+    def test_soft_sink_keeps_its_dotted_edge(self):
+        self.assertIn(("s", "M6"), self.edges(self.shape(soft_sink=True)))
+
+    def test_soft_path_does_not_count(self):
+        ph = phase([
+            {"id": "M4", "name": "m4", "tasks": [task("x", soft=["s"])]},
+            {"id": "M6", "name": "m6", "tasks": [
+                task("s"), task("g", "blocked", ["M4"])]}])
+        self.assertIn(("s", "M6"), self.edges(ph))
+
+    def test_unrelated_sinks_keep_their_edges(self):
+        ph = phase([{"id": "M1", "name": "m1", "tasks": [
+            task("a"), task("b")]}])
+        self.assertEqual(self.edges(ph), {("a", "M1"), ("b", "M1")})
+
+
 class Mermaid(unittest.TestCase):
     def setUp(self):
         self.ph = phase([

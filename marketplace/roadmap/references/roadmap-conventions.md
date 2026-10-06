@@ -124,6 +124,12 @@ tasks and a SOURCE for anything depending on the whole milestone:
 
 - each sink task (nothing else in the milestone depends on it) gets
   `{sink} --> M{N}`; the node reads "these tasks complete the milestone"
+- exception (transitive reduction): a hard sink edge is dropped when `M{N}`
+  is already reachable from the sink through other hard edges, e.g.
+  `6HD.5 --> 4PD.3 --> M4 --> 6HD.3 --> M6` makes `6HD.5 --> M6` redundant.
+  Only milestone-complete edges are reduced; `dependsOn` task edges and
+  soft (dotted) edges stay as authored, and a milestone always keeps at
+  least one inbound edge because the surviving path ends in one
 - a task listing `M{N}` in `dependsOn` gets `M{N} --> {task}`
 - never emit an entry edge `M{N} --> {firstTask}`
 
