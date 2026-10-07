@@ -5,6 +5,12 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-07
+
+### Fixed
+
+- The goblin's face above each question has a visible head on dark terminals. Its outline now uses the theme's main text colour instead of the divider colour, which sat too close to the dark surface. The eyes, mouth and fang keep their accent colour.
+
 ## [0.1.0] - 2026-10-04
 
 ### Added
@@ -20,5 +26,6 @@ All notable changes to this plugin are documented here, newest first.
 - Four options: `enabled` (the one switch), `audio` (a cackle when the commit-msg hook bounces a message), `schedule` and `theme`.
 - Types for the `$.state` contract (`palette`, `day`, `frame`, `vitals`, `idle`), readable by a plugin that lists this one under `dependencies`.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/goblin-chrome-v0.1.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/goblin-chrome-v0.1.1...HEAD
+[0.1.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/goblin-chrome-v0.1.0...goblin-chrome-v0.1.1
 [0.1.0]: https://github.com/JasonWarrenUK/goblin-mode/releases/tag/goblin-chrome-v0.1.0

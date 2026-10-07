@@ -924,7 +924,41 @@ def build_graph(phase):
                 edge["soft"] = True
             edges.append(edge)
 
-    return {"phase": phase.get("name"), "nodes": nodes, "edges": edges}
+    return {"phase": phase.get("name"), "nodes": nodes,
+            "edges": _reduce_milestone_edges(edges)}
+
+
+def _reduce_milestone_edges(edges):
+    """Drop each hard milestone-complete edge whose milestone is already
+    reachable from its sink through the other hard edges (a transitive
+    reduction). Task edges come from authored dependsOn and are never
+    touched; soft edges neither count as paths nor get dropped."""
+    out = {}
+    for e in edges:
+        if not e.get("soft"):
+            out.setdefault(e["from"], []).append(e["to"])
+
+    def reaches(source, target, skip):
+        seen, stack = set(), [source]
+        while stack:
+            node = stack.pop()
+            for nxt in out.get(node, []):
+                if (node, nxt) == skip or nxt in seen:
+                    continue
+                if nxt == target:
+                    return True
+                seen.add(nxt)
+                stack.append(nxt)
+        return False
+
+    kept = []
+    for e in edges:
+        if e["kind"] == "milestone-complete" and not e.get("soft"):
+            if reaches(e["from"], e["to"], (e["from"], e["to"])):
+                out[e["from"]].remove(e["to"])
+                continue
+        kept.append(e)
+    return kept
 
 
 def _mermaid_label(text, reserve=0):
