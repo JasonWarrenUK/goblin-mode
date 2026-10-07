@@ -9,6 +9,13 @@ All notable changes to this project are documented here, newest first.
 
 - `roadmap-pane`, a mod built beside the roadmap plugin from `library/sources/plugins/roadmap-pane/`: `/ready` opens the ready set in a pane with the claims in play and milestone progress, claims a picked task after asking who, and closes on a second `/ready`. It ships its own copy of the CLI, so a config that runs the roadmap skills from its own files enables the pane alone. Served as `roadmap-pane@goblin-mode`.
 
+## [6.4.1] - 2026-10-07
+
+### Fixed
+
+- The goblin's face above each question has a visible head on dark terminals. Its outline now uses the theme's main text colour instead of the divider colour, which sat too close to the dark surface. The eyes, mouth and fang keep their accent colour. This ships as goblin-chrome 0.1.1.
+- `roadmap.py` drops a milestone's terminal edge when other hard edges already reach that milestone. Task edges and soft edges are untouched, and a milestone always keeps at least one inbound edge.
+
 ## [6.4.0] - 2026-10-05
 
 ### Added
@@ -231,7 +238,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.1...HEAD
+[6.4.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.0...v6.4.1
 [6.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.3.0...v6.4.0
 [6.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.2.0...v6.3.0
 [6.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.1.0...v6.2.0

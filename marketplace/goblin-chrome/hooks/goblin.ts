@@ -19,12 +19,12 @@ const FACES: Record<Expression, readonly [string, string, string]> = {
 export const FACE_COLUMNS = 7
 export const FACE_ROWS = 3
 
-/** The face's cells: the frame in the palette's line, the features in its accent. */
+/** The face's cells: the outline in the palette's ink, the features in its accent. */
 export const faceCells = (expression: Expression, palette: Palette, tint: number = 0): string => {
-	const line = rasterColour(palette.line)
+	const outline = rasterColour(palette.ink)
 	const feature = rasterColour(shade(palette.accent, tint))
 	const rows = FACES[expression].map(row =>
-		Array.from(row).map((ch): Cell => [ch, /[│╭╮╰╯─╱╲]/.test(ch) ? line : feature]),
+		Array.from(row).map((ch): Cell => [ch, /[│╭╮╰╯─╱╲]/.test(ch) ? outline : feature]),
 	)
 	return packCells(rows, FACE_COLUMNS, RASTER_DEFAULT)
 }
