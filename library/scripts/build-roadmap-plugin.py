@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""build-roadmap-plugin.py: assembles the shareable `roadmap` plugin.
+"""build-roadmap-plugin.py: assembles the shareable `roadmap` plugin and
+its sibling `roadmap-pane`, the mod.
 
 The roadmap skills live in skills/* and library/* as the source of truth for
 this config. Teammates on other projects get them as a Claude Code plugin
@@ -16,8 +17,14 @@ that no longer compiles after the rewrites, shipped JSON that doesn't parse
 and helper modules a shipped script imports but the plugin doesn't ship all
 fail the build with one line per problem.
 
+The pane ships as its own plugin so a config that runs the roadmap skills
+from ~/.claude/skills can enable the pane alone: marketplace/roadmap-pane/
+holds the mod and its own copy of the CLI, built from the same sources, and
+no skills. Teammates enable both.
+
 usage: build-roadmap-plugin.py [--check | --sources]
-	--check     exit 1 if marketplace/roadmap/ would change, without writing
+	--check     exit 1 if marketplace/roadmap/ or marketplace/roadmap-pane/
+	            would change, without writing
 	--sources   print every source path the build reads, one per line (the
 	            pre-commit hook uses this to decide whether to rebuild)
 """
@@ -32,7 +39,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = REPO_ROOT / "marketplace" / "roadmap"
+PANE_OUT_DIR = REPO_ROOT / "marketplace" / "roadmap-pane"
 PLUGIN_NAME = "roadmap"
+PANE_PLUGIN_NAME = "roadmap-pane"
 # copied verbatim: edit the layout there, never in marketplace/roadmap/
 README_SOURCE = "library/sources/plugins/roadmap/readme.md"
 # one bare X.Y.Z line, bumped by safe-version-next.sh --plugin roadmap; read
@@ -66,6 +75,39 @@ FILES = {
 	"templates/roadmap-artefact.html": "library/templates/roadmap-artefact.html",
 	"references/roadmap-conventions.md": "library/references/roadmap-conventions.md",
 }
+
+# The pane plugin: the mod, its tests, its $.state contract and its own copy of
+# the CLI (every helper roadmap.py imports, or validate_code refuses the build)
+PANE_README_SOURCE = "library/sources/plugins/roadmap-pane/readme.md"
+PANE_VERSION_SOURCE = "library/sources/plugins/roadmap-pane/version"
+PANE_CHANGELOG_SOURCE = "library/sources/plugins/roadmap-pane/CHANGELOG.md"
+PANE_FILES = {
+	"hooks/register.tsx": "library/sources/plugins/roadmap-pane/mod/register.tsx",
+	"hooks/pane.test.tsx": "library/sources/plugins/roadmap-pane/mod/pane.test.tsx",
+	"types/index.d.ts": "library/sources/plugins/roadmap-pane/mod/index.d.ts",
+	"scripts/roadmap.py": "library/scripts/roadmap.py",
+	"scripts/_roadmap_core.py": "library/scripts/_roadmap_core.py",
+	"scripts/_roadmap_hooks.py": "library/scripts/_roadmap_hooks.py",
+}
+PANE_HOOKS_JSON = """{
+	"modules": ["./register.tsx"]
+}
+"""
+
+
+def _pane_plugin_json(version: str) -> str:
+	return """{{
+	"name": "roadmap-pane",
+	"version": "{version}",
+	"description": "A mod: /ready opens the roadmap's ready set in a pane with the claims in play and milestone progress, and claims a task after asking who. Ships its own copy of the roadmap CLI, so it needs python3 and nothing else; enable the roadmap plugin beside it for the skills.",
+	"author": {{
+		"name": "Jason Warren"
+	}},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"keywords": ["roadmap", "mod", "pane", "terminal"],
+	"types": "./types/index.d.ts"
+}}
+""".format(version=version)
 
 def _plugin_json(version: str) -> str:
 	return """{{
@@ -233,7 +275,11 @@ def skill_rewrites() -> list[tuple[str, str]]:
 	]
 
 
-def transform(text: str, source: str) -> str:
+def transform(text: str, source: str, rename_skills: bool = True) -> str:
+	"""`rename_skills` is off for the pane's mod: it ships no skills, so a skill
+	named there points at whichever install the reader runs (the config's own
+	`/roadmap-migrate` or the plugin's `/roadmap:migrate`), and rewriting to
+	one form doubles the pointer that names both."""
 	for rel, old, new in DECOUPLINGS:
 		if rel != source:
 			continue
@@ -241,7 +287,7 @@ def transform(text: str, source: str) -> str:
 		if count != 1:
 			raise BuildError([f"{rel}: decoupling matched {count} times, expected 1: {old.strip()[:70]!r}"])
 		text = text.replace(old, new)
-	for pattern, replacement in PATH_REWRITES + skill_rewrites():
+	for pattern, replacement in PATH_REWRITES + (skill_rewrites() if rename_skills else []):
 		text = re.sub(pattern, replacement, text)
 	if not source.startswith("skills/"):
 		text = re.sub(*UNRESOLVED_ROOT, text)
@@ -254,18 +300,22 @@ def source_paths() -> list[str]:
 	Includes CHANGELOG_SOURCE even though it's optional: the pre-commit hook
 	uses this list to decide whether to rebuild, and a changelog edit must
 	trigger a rebuild the same as any other source once the file exists."""
-	return [
+	return list(dict.fromkeys([
 		*(f"skills/{src}/SKILL.md" for src in SKILLS),
 		*FILES.values(),
 		README_SOURCE,
 		VERSION_SOURCE,
 		CHANGELOG_SOURCE,
+		*PANE_FILES.values(),
+		PANE_README_SOURCE,
+		PANE_VERSION_SOURCE,
+		PANE_CHANGELOG_SOURCE,
 		"library/scripts/build-roadmap-plugin.py",
-	]
+	]))
 
 
 # source_paths() entries the build reads if present, never required
-OPTIONAL_SOURCES = {CHANGELOG_SOURCE}
+OPTIONAL_SOURCES = {CHANGELOG_SOURCE, PANE_CHANGELOG_SOURCE}
 
 
 def check_sources(root: Path) -> None:
@@ -299,13 +349,13 @@ LOCAL_IMPORT = re.compile(r"^\s*(?:from\s+(_roadmap\w*)\s+import|import\s+(_road
 BARE_SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
 
-def read_version(root: Path) -> str:
+def read_version(root: Path, source: str = VERSION_SOURCE) -> str:
 	"""The plugin's own version, bumped by safe-version-next.sh --plugin
-	roadmap and tagged as roadmap-vX.Y.Z; never `v`-prefixed here, since
+	<name> and tagged as <name>-vX.Y.Z; never `v`-prefixed here, since
 	plugin.json's "version" field is bare semver, unlike a git tag."""
-	text = (root / VERSION_SOURCE).read_text().strip()
+	text = (root / source).read_text().strip()
 	if not BARE_SEMVER.match(text):
-		raise BuildError([f"{VERSION_SOURCE}: {text!r} is not a bare X.Y.Z version"])
+		raise BuildError([f"{source}: {text!r} is not a bare X.Y.Z version"])
 	return text
 
 
@@ -393,6 +443,25 @@ def build(root: Path, out: Path) -> None:
 	validate(root, out)
 
 
+def build_pane(root: Path, out: Path) -> None:
+	"""The pane plugin: the mod and its own CLI, no skills."""
+	check_sources(root)
+	for dest, source in PANE_FILES.items():
+		target = out / dest
+		target.parent.mkdir(parents=True, exist_ok=True)
+		# the mod names both skill forms itself; the CLI scripts still take the plugin form
+		target.write_text(transform((root / source).read_text(), source, rename_skills=dest.startswith("scripts/")))
+	(out / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+	(out / ".claude-plugin" / "plugin.json").write_text(_pane_plugin_json(read_version(root, PANE_VERSION_SOURCE)))
+	(out / "hooks" / "hooks.json").write_text(PANE_HOOKS_JSON)
+	shutil.copyfile(root / PANE_README_SOURCE, out / "README.md")
+	if (root / PANE_CHANGELOG_SOURCE).is_file():
+		shutil.copyfile(root / PANE_CHANGELOG_SOURCE, out / "CHANGELOG.md")
+	for script in (out / "scripts").iterdir():
+		script.chmod(0o755)
+	validate(root, out)
+
+
 def snapshot(root: Path) -> dict[str, bytes]:
 	if not root.exists():
 		return {}
@@ -411,23 +480,29 @@ def main() -> None:
 		return
 	check = "--check" in args
 	with tempfile.TemporaryDirectory() as tmp:
-		staged = Path(tmp) / "roadmap"
+		products = [
+			("marketplace/roadmap", build, Path(tmp) / "roadmap", OUT_DIR),
+			("marketplace/roadmap-pane", build_pane, Path(tmp) / "roadmap-pane", PANE_OUT_DIR),
+		]
 		try:
-			build(REPO_ROOT, staged)
+			for _, builder, staged, _ in products:
+				builder(REPO_ROOT, staged)
 		except BuildError as error:
 			print(f"build-roadmap-plugin: {len(error.problems)} problem(s), nothing written:", file=sys.stderr)
 			for problem in error.problems:
 				print(f"  {problem}", file=sys.stderr)
 			sys.exit(1)
-		if snapshot(staged) == snapshot(OUT_DIR):
-			print("marketplace/roadmap: up to date")
+		stale = [(label, staged, out) for label, _, staged, out in products if snapshot(staged) != snapshot(out)]
+		if not stale:
+			print("marketplace/roadmap and marketplace/roadmap-pane: up to date")
 			return
 		if check:
-			sys.exit("marketplace/roadmap: stale; run library/scripts/build-roadmap-plugin.py")
-		if OUT_DIR.exists():
-			shutil.rmtree(OUT_DIR)
-		shutil.copytree(staged, OUT_DIR)
-		print("marketplace/roadmap: rebuilt")
+			sys.exit(", ".join(label for label, _, _ in stale) + ": stale; run library/scripts/build-roadmap-plugin.py")
+		for label, staged, out in stale:
+			if out.exists():
+				shutil.rmtree(out)
+			shutil.copytree(staged, out)
+			print(f"{label}: rebuilt")
 
 
 if __name__ == "__main__":

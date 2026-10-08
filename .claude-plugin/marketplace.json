@@ -41,6 +41,18 @@
 				"sessions",
 				"pain-points"
 			]
+		},
+		{
+			"name": "roadmap-pane",
+			"source": "./marketplace/roadmap-pane",
+			"description": "A mod: /ready opens the roadmap's ready set in a pane with the claims in play and milestone progress, and claims a task after asking who. Ships its own copy of the roadmap CLI; enable the roadmap plugin beside it for the skills.",
+			"category": "productivity",
+			"tags": [
+				"roadmap",
+				"mod",
+				"pane",
+				"terminal"
+			]
 		}
 	]
 }
