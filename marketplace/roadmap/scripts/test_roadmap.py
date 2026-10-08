@@ -410,7 +410,7 @@ class MilestoneState(unittest.TestCase):
     def test_member_deferred_never_fires_while_actionable_work_remains(self):
         # Five todo tasks are still live work to pick up, not a shelved
         # milestone: hiding them behind "deferred" would contradict
-        # next-task-group's own ready-set, which still lists them.
+        # roadmap:next-group's own ready-set, which still lists them.
         by_status = {"todo": 5, "deferred": 1}
         self.assertEqual(
             roadmap.milestone_state(by_status, 0, total=6), "todo")
@@ -2108,7 +2108,7 @@ class Hooks(unittest.TestCase):
         self.git(self.repo, "checkout", "-q", "-b", "feat/x")
         nudge = self.hook("session-start", self.repo)
         self.assertIn("claims no roadmap task", nudge)
-        self.assertIn("roadmap-claim skill", nudge)
+        self.assertIn("roadmap:claim skill", nudge)
         self.assertEqual(self.cli("claim", "b", str(self.repo / ".claude" / "roadmaps.json")).returncode, 0)
         self.assertEqual(self.hook("session-start", self.repo).strip(),
                          "Roadmap: branch `feat/x` claims b.")

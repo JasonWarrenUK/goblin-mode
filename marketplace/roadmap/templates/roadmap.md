@@ -1,8 +1,5 @@
 # [Project Name]: [Roadmap Name]
 
-> For a worked example of a complete roadmap in this format, see
-> [`library/docs/examples/mvp.md`](../examples/mvp.md).
-
 |          | Status | Next Up | Blocked |
 | -------- | ------ | ------- | ------- |
 | **[Cat]** | [current state] | [next task ID] | [blocked task ID] |
