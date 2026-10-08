@@ -5,6 +5,18 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-08
+
+### Changed
+
+- `/roadmap-claim` passes the assignee as `--assignee="{name}"`, so a name that starts with a dash is recorded as a name instead of read as an option.
+- The refusal for an old single-file `roadmaps.json` reads `run the roadmap migrate skill first` and names no slash command.
+- The readme points to `roadmap-pane@goblin-mode` for the ready set as a pane with claim buttons.
+
+### Fixed
+
+- `roadmap.py` drops a milestone's terminal edge when other hard edges already reach that milestone. Task edges and soft edges are untouched, and a milestone always keeps at least one inbound edge. The conventions reference documents the exception.
+
 ## [2.1.0] - 2026-10-05
 
 ### Changed
@@ -94,7 +106,8 @@ The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the rend
 - The dashboard's Overview grid no longer collapses a tiered phase's milestones into a single narrow column.
 - Three skills are synced to the conventions reference.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.1.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.2.0...HEAD
+[2.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.1.0...roadmap-v2.2.0
 [2.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.0.0...roadmap-v2.1.0
 [2.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v1.0.0...roadmap-v2.0.0
 [1.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v0.2.0...roadmap-v1.0.0
