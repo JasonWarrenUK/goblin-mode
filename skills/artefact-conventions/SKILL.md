@@ -78,7 +78,7 @@ public.
 ## Step 2b: Brief interview for a project's first artefact
 
 Run a short, round-based interview, same discipline as
-`import-scaffold_artefact` Step 3 and `roadmap-create-interview`: **2-4
+`import-scaffold_artefact` Step 3 and `roadmap:create-interview`: **2-4
 questions per round**, never a long list at once, and end each round with
 *"Anything else, or shall I go ahead?"*. Skip any question the content
 itself already answers (a pipeline-metrics doc doesn't need to ask if this
@@ -165,6 +165,6 @@ Load both.
 
 Show the draft (or its key structural decisions, for a long artefact) before
 writing, following the same approval convention `artefact-audit` and
-`artefact-roadmap` already use. Write to the Step 1 path. Report the file
+`roadmap:dashboard` already use. Write to the Step 1 path. Report the file
 path, the aesthetic decision (reused or newly interviewed), and anything
 notable in how the honesty rule was expressed.
