@@ -4,6 +4,11 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Changed
+
+- The pane is redrawn: a framed header with the phase bar and one row per release tier, each tier in its own theme hue with a progress chip per milestone; two-line task rows with the id, a truncated description and the leverage signals beneath; claims in a separate "In play" section.
+- No roadmap, an old-format roadmap and a CLI refusal each draw a framed card that says what happened and names the skill that fixes it, with a refresh key.
+
 ## [0.1.0] - 2026-10-08
 
 ### Added
