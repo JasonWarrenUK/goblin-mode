@@ -87,7 +87,7 @@ def active_phase(data, selector=None):
     if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
         raise RoadmapError(
             "roadmaps.json is an old-format pointer registry, not a phase array; "
-            "run roadmap:migrate first")
+            "run the roadmap migrate skill first")
     phases = data if isinstance(data, list) else [data]
     live = [p for p in phases if not p.get("archived")]
     if not live:

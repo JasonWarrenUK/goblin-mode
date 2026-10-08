@@ -23,7 +23,7 @@ Opens a pane with the ready set in leverage order, the claims in play and each m
 | Key | Does |
 |---|---|
 | `1` to `9` | Picks a row. |
-| `c` | Claims the picked task: asks who is doing it (a name is never inferred or pre-filled), then runs `claim <id> --assignee <name>`. The change is in `roadmaps.json`; commit it when you are ready. |
+| `c` | Claims the picked task: asks who is doing it (a name is never inferred or pre-filled), then runs `claim <id> --assignee=<name>`. The change is in `roadmaps.json`; commit it when you are ready. |
 | `r` | Refreshes from the CLI. |
 | Esc, or `/ready` | Closes the pane. |
 

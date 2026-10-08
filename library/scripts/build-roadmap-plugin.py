@@ -275,7 +275,11 @@ def skill_rewrites() -> list[tuple[str, str]]:
 	]
 
 
-def transform(text: str, source: str) -> str:
+def transform(text: str, source: str, rename_skills: bool = True) -> str:
+	"""`rename_skills` is off for the pane's mod: it ships no skills, so a skill
+	named there points at whichever install the reader runs (the config's own
+	`/roadmap-migrate` or the plugin's `/roadmap:migrate`), and rewriting to
+	one form doubles the pointer that names both."""
 	for rel, old, new in DECOUPLINGS:
 		if rel != source:
 			continue
@@ -283,7 +287,7 @@ def transform(text: str, source: str) -> str:
 		if count != 1:
 			raise BuildError([f"{rel}: decoupling matched {count} times, expected 1: {old.strip()[:70]!r}"])
 		text = text.replace(old, new)
-	for pattern, replacement in PATH_REWRITES + skill_rewrites():
+	for pattern, replacement in PATH_REWRITES + (skill_rewrites() if rename_skills else []):
 		text = re.sub(pattern, replacement, text)
 	if not source.startswith("skills/"):
 		text = re.sub(*UNRESOLVED_ROOT, text)
@@ -445,7 +449,8 @@ def build_pane(root: Path, out: Path) -> None:
 	for dest, source in PANE_FILES.items():
 		target = out / dest
 		target.parent.mkdir(parents=True, exist_ok=True)
-		target.write_text(transform((root / source).read_text(), source))
+		# the mod names both skill forms itself; the CLI scripts still take the plugin form
+		target.write_text(transform((root / source).read_text(), source, rename_skills=dest.startswith("scripts/")))
 	(out / ".claude-plugin").mkdir(parents=True, exist_ok=True)
 	(out / ".claude-plugin" / "plugin.json").write_text(_pane_plugin_json(read_version(root, PANE_VERSION_SOURCE)))
 	(out / "hooks" / "hooks.json").write_text(PANE_HOOKS_JSON)

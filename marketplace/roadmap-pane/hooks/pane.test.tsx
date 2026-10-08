@@ -173,7 +173,7 @@ test('the old single-file format points at migrate', async ($, on) => {
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'ready' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text' }))?.text).toBe('old single-file roadmap: run the migrate skill (/roadmap:migrate or /roadmap:migrate) first')
+	expect((await ui.find({ type: 'Text' }))?.text).toBe('old single-file roadmap: run the migrate skill (/roadmap:migrate or /roadmap-migrate) first')
 })
 
 test("the CLI's own refusal reaches the pane", async ($, on) => {
