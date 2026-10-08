@@ -6,20 +6,22 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement } from 'claude-code'
 
-import type { Day, Frame, Idle, Palette, Tier, Vitals } from '../types'
+import type { Day, Frame, Idle, Palette, Run, Tier, Vitals } from '../types'
 import { mix, shade } from './colour'
 import { dayAt, parseSchedule, STYLE } from './day'
+import { readSkill } from './frontmatter'
 import {
 	faceCells,
 	FACE_COLUMNS,
 	FACE_ROWS,
 	HECKLES,
 	POKE_LINES,
+	propFor,
 	type Expression,
 } from './goblin'
 import { goblinCase, pick, seconds } from './text'
 import { CLOD, loadPalette, type Variant } from './theme'
-import { bandRule, DEFAULT_TIER, frameFor, glyphsFor, pinnedModel, tierOf } from './tier'
+import { bandRule, DEFAULT_TIER, frameFor, glyphsFor, tierOf } from './tier'
 
 const PLUGIN = 'goblin-chrome'
 
@@ -47,6 +49,9 @@ const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
 	saying: '',
 	sayingUntil: 0,
 } as Idle)
+const NO_RUN: Run = { skill: null, family: null, spinner: [] }
+const run = atom({ plugin: 'goblin-chrome', key: 'run' } as const, NO_RUN)
+
 
 /** The accent as the day colours it: faded from the previous state's shade over ten minutes. */
 const accentOf = (p: Palette, d: Day): string =>
@@ -136,6 +141,7 @@ export const register: Register = (on, options) => {
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, sessionStartAt: now, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, tools: 0, errors: 0 }))
+		await update($, run, () => NO_RUN)
 		await refreshFrame($)
 		await refreshDay($)
 		return next(e)
@@ -197,18 +203,26 @@ export const register: Register = (on, options) => {
 		return result
 	})
 
+	// The skill's frontmatter sets the frame's pin, the prop in the goblin's
+	// hand, both until the turn completes. Plugin skills
+	// live elsewhere and read as nothing set.
 	on('skill.prompt', async ($, e, next) => {
 		let pinned: Tier | null = null
+		let family: string | null = null
+		let spinner: readonly string[] = []
 		try {
 			// Personal shadows project, as Claude Code resolves a skill of the same name.
 			const home = await $.env.get('HOME')
 			const personal = home ? await $.fs.read(`${home}/.claude/skills/${e.skill}/SKILL.md`).catch(() => '') : ''
 			const text = personal || (await $.fs.read(`.claude/skills/${e.skill}/SKILL.md`))
-			const model = pinnedModel(text)
-			pinned = model ? tierOf(model) : null
+			const fm = readSkill(text)
+			pinned = fm.model ? tierOf(fm.model) : null
+			family = fm.family
+			spinner = fm.spinner
 		} catch {
 			pinned = null
 		}
+		await update($, run, r => ({ ...r, skill: e.skill, family, spinner }))
 		await refreshFrame($, { pinned })
 		return next(e)
 	})
@@ -221,6 +235,8 @@ export const register: Register = (on, options) => {
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, turnMs: e.durationMs, turnTools: v.tools, turnErrors: v.errors }))
+		// The run ends with the turn: the pin and the prop.
+		await update($, run, () => NO_RUN)
 		if ((await read($, frame)).pinned !== null) await refreshFrame($, { pinned: null })
 		return next(e)
 	})
@@ -250,7 +266,7 @@ export const register: Register = (on, options) => {
 	on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
 		if (e.props.hasSurvey || e.surface !== 'terminal') return next(e)
 		const { Box, Text, Client } = $.ui.resolve(e)
-		const [p, d, f, i] = await Promise.all([read($, palette), read($, day), read($, frame), read($, idle)])
+		const [p, d, f, i, r] = await Promise.all([read($, palette), read($, day), read($, frame), read($, idle), read($, run)])
 		const now = await $.clock.now()
 		const accent = accentOf(p, d)
 		const since = Math.max(i.lastTurnEndAt, i.lastPromptAt, i.sessionStartAt)
@@ -300,6 +316,7 @@ export const register: Register = (on, options) => {
 								startleAt: i.lastPromptAt,
 								colour: accent,
 								dim: p.inkMuted,
+								prop: propFor(r.family),
 							}}
 						/>
 					</Box>
