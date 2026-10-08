@@ -7,7 +7,7 @@ claude plugin marketplace add JasonWarrenUK/goblin-mode
 claude plugin install roadmap@goblin-mode
 ```
 
-Requires `python3` (3.8+, stdlib only) on `PATH`.
+Requires `python3` (3.8+, stdlib only) on `PATH`. The `/ready` pane needs Claude Code 2.1.287 or later and draws in the terminal; the skills work on any version.
 
 ---
 
@@ -44,7 +44,18 @@ Requires `python3` (3.8+, stdlib only) on `PATH`.
 | Half-formed ideas to explore into tasks | `/roadmap:create-interview` |
 | Old single-file format detected         | `/roadmap:migrate` |
 
-The ready set as a pane, with claim buttons, is the sibling `roadmap-pane@goblin-mode` plugin.
+### 2e. `/ready`: The Ready Set as a Pane
+
+Opens a pane with the ready set in leverage order, the claims in play and each milestone's progress by release tier, read from the `.claude/roadmaps.json` above the session's working directory. Running `/ready` again closes it. It runs inside Claude Code with no turn, so it works while Claude is busy.
+
+| Key | Does |
+|---|---|
+| `1` to `9` | Picks a row. |
+| `c` | Claims the picked task: asks who is doing it (a name is never inferred or pre-filled), then runs `claim <id> --assignee=<name>`. The change is in `roadmaps.json`; commit it when you are ready. |
+| `r` | Refreshes from the CLI. |
+| Esc, or `/ready` | Closes the pane. |
+
+The pane refreshes itself every two minutes while open and whenever a tool call touches `roadmaps.json` or runs the CLI. It is a tab beside any other pane, `/diff` included: Ctrl+X Tab moves the keyboard between panes, and only one shows at a time. In a fullscreen terminal of 110 columns or more it docks beside the transcript; narrower, it sits above the prompt. Without a roadmap it says so and names `/roadmap:create`.
 
 ---
 
@@ -78,4 +89,6 @@ The hooks need `python3` too; without it they stay silent.
 
 | File                | Path |
 |---------------------|------|
-| Roadmap Conventions | `references/roadmap-conventions.md`. |
+| Roadmap Conventions | `references/roadmap-conventions.md` |
+| The CLI every skill and the pane run | `scripts/roadmap.py`; `python3 -m unittest test_roadmap` in that directory runs its tests |
+| The pane's code | `hooks/register.tsx`; `claude plugin test <plugin-root>` runs its tests |

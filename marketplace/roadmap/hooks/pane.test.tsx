@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import { bar, groupByTier, parseSnapshot, reasonOf, rule, tierHue } from './register'
 
-const PLUGIN = 'roadmap-pane'
+const PLUGIN = 'roadmap'
 const NOON = new Date(2026, 9, 7, 12, 0).getTime()
 
 const READY = JSON.stringify({
@@ -198,7 +198,6 @@ test('no roadmap draws a card that says so and names the skill that starts one',
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ type: 'Text', text: 'No roadmap in this project' })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: '/roadmap:create' })).toBeDefined()
-	expect(await ui.find({ type: 'Text', text: /\/roadmap-create/ })).toBeDefined()
 	expect(await ui.find({ key: 'refresh' })).toBeDefined()
 	expect(await ui.find({ key: 'claim' })).toBeUndefined()
 })

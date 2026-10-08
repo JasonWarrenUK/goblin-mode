@@ -10,12 +10,14 @@
 		{
 			"name": "roadmap",
 			"source": "./marketplace/roadmap",
-			"description": "Roadmaps as a dependency graph: JSON source of truth, mechanical status recompute, projected task lists, Mermaid diagrams, an HTML dashboard and the interview, review and next-task skills that drive it.",
+			"description": "Roadmaps as a dependency graph: JSON source of truth, mechanical status recompute, projected task lists, Mermaid diagrams, an HTML dashboard, the interview, review and next-task skills that drive it, and /ready, a pane that shows the ready set and claims a task.",
 			"category": "productivity",
 			"tags": [
 				"roadmap",
 				"planning",
-				"dependency-graph"
+				"dependency-graph",
+				"mod",
+				"pane"
 			]
 		},
 		{
@@ -40,18 +42,6 @@
 				"fleet",
 				"sessions",
 				"pain-points"
-			]
-		},
-		{
-			"name": "roadmap-pane",
-			"source": "./marketplace/roadmap-pane",
-			"description": "A mod: /ready opens the roadmap's ready set in a pane with the claims in play and milestone progress, and claims a task after asking who. Ships its own copy of the roadmap CLI; enable the roadmap plugin beside it for the skills.",
-			"category": "productivity",
-			"tags": [
-				"roadmap",
-				"mod",
-				"pane",
-				"terminal"
 			]
 		}
 	]

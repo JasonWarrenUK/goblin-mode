@@ -1,4 +1,4 @@
-// The state contract for the roadmap-pane plugin's mod: the pane draws from a
+// The state contract for the roadmap plugin's pane mod: the pane draws from a
 // snapshot the CLI produced, the row the person picked and the task that is
 // waiting for an assignee.
 
@@ -50,7 +50,7 @@ export type Snapshot = {
 
 declare module 'claude-code' {
 	interface PluginState {
-		'roadmap-pane': {
+		'roadmap': {
 			snapshot: Snapshot | null
 			selected: string | null
 			asking: string | null
