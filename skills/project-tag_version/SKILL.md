@@ -5,7 +5,7 @@ when_to_use: "When a merge to main has landed and the release should be tagged, 
 model: sonnet
 effort: low
 metadata:
-  glyph: ᚺ
+  glyph: ᛊ
   family: project
 disable-model-invocation: true
 allowed-tools: ["Bash(svu:*)", "Bash(git:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)"]
