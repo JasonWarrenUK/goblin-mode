@@ -5,9 +5,20 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.5.0] - 2026-10-08
+
 ### Added
 
-- `roadmap-pane`, a mod built beside the roadmap plugin from `library/sources/plugins/roadmap-pane/`: `/ready` opens the ready set in a pane with the claims in play and milestone progress, claims a picked task after asking who, and closes on a second `/ready`. It ships its own copy of the CLI, so a config that runs the roadmap skills from its own files enables the pane alone. Served as `roadmap-pane@goblin-mode`.
+- `roadmap-pane`, a mod built beside the roadmap plugin from `library/sources/plugins/roadmap-pane/`: `/ready` opens the ready set in a pane with the claims in play and milestone progress, claims a picked task after asking who and closes on a second `/ready`. It ships its own copy of the CLI, so a config that runs the roadmap skills from its own files enables the pane alone. Served as `roadmap-pane@goblin-mode`; this is its first release, 0.1.0.
+
+### Changed
+
+- The CLI's refusal for an old single-file `roadmaps.json` says `run the roadmap migrate skill first` and names no slash command, since the pane can run without the roadmap plugin installed. The pane's own hint names both `/roadmap:migrate` and `/roadmap-migrate`.
+- The roadmap plugin moves to 2.2.0; its own changelog lists the changes.
+
+### Fixed
+
+- `/roadmap-claim` and the pane pass the assignee as `--assignee=<name>`, so a name that starts with a dash is recorded as a name instead of read as an option.
 
 ## [6.4.1] - 2026-10-07
 
@@ -238,7 +249,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.1...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.5.0...HEAD
+[6.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.1...v6.5.0
 [6.4.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.0...v6.4.1
 [6.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.3.0...v6.4.0
 [6.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.2.0...v6.3.0
