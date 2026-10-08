@@ -5,6 +5,19 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-08
+
+### Added
+
+- The goblin holds a prop while a skill runs, chosen by the skill's `metadata.family`: a parcel for `pr`, a lens for `clod-lens`, a quill for `doc` and one for every family in the config. It carries the prop in the hand it walks with and keeps it through its blink.
+- Spinner words from a skill's `metadata.goblin-spinner`: while the skill runs, the spinner shows one of them a minute, dressed like the house verbs (`••• dElEtInG eViDeNcE •••`). A subagent's spinner keeps the engine's word.
+- A minion parade: each subagent out stands beside the goblin in the band, wearing the face its agent file sets under `goblin-minion`, until its own turn completes. Three are shown and the rest are a count. The goblin remarks when one goes out, as it already did when one came back.
+- `run` in the `$.state` contract: the skill in flight, its family, its spinner words and the minions out.
+
+### Changed
+
+- The skill's frontmatter is read once per run by `hooks/frontmatter.ts`, which replaces the model-only regex in `hooks/tier.ts` for the hooks module; `pinnedModel` stays exported.
+
 ## [0.1.1] - 2026-10-07
 
 ### Fixed
@@ -26,6 +39,7 @@ All notable changes to this plugin are documented here, newest first.
 - Four options: `enabled` (the one switch), `audio` (a cackle when the commit-msg hook bounces a message), `schedule` and `theme`.
 - Types for the `$.state` contract (`palette`, `day`, `frame`, `vitals`, `idle`), readable by a plugin that lists this one under `dependencies`.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/goblin-chrome-v0.1.1...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/goblin-chrome-v0.2.0...HEAD
+[0.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/goblin-chrome-v0.1.1...goblin-chrome-v0.2.0
 [0.1.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/goblin-chrome-v0.1.0...goblin-chrome-v0.1.1
 [0.1.0]: https://github.com/JasonWarrenUK/goblin-mode/releases/tag/goblin-chrome-v0.1.0
