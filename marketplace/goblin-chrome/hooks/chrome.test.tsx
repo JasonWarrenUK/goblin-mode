@@ -210,6 +210,57 @@ test('a project skill pinning a smaller model draws the mismatch frame', async (
 
 const PR_LAND = '---\nname: pr-land\nmodel: opus\nmetadata:\n  glyph: ᛟ\n  family: pr\n  goblin-spinner: merging|deleting evidence|tagging\n---\nbody'
 
+const SPINNER = {
+	plugin: PLUGIN,
+	surface: 'terminal',
+	component: 'Spinner',
+	requestId: 'main',
+	props: { word: 'Baked', message: null, suffix: '…', mode: 'thinking' },
+} as const
+
+/** The spinner's word as drawn: the engine's own row, beneath ours. */
+const spinnerWord = async ($: Engine, requestId = 'main') => {
+	const ui = await $.ui.mount({ ...SPINNER, requestId })
+	const word = (await ui.find({ type: 'Text' }))?.text
+	await ui.unmount()
+	return word
+}
+
+test('a skill with spinner words takes over the spinner for the turn, one word a minute, dressed like the house verbs', async ($, on) => {
+	const clock = world(on)
+	skillFiles(on, { '.claude/skills/pr-land/SKILL.md': PR_LAND })
+	on('ui.render', { component: 'Spinner' }, async ($, e) => {
+		const { Text } = $.ui.resolve(e)
+		return Text({ children: [e.props.word] })
+	})
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	on('turn.complete', async () => ({ text: '' }))
+	expect(await spinnerWord($)).toBe('Baked')
+	await $.turn.start({ text: '/pr-land', turnId: 't1' })
+	await $.skill.prompt({ skill: 'pr-land', text: '' })
+	const first = await spinnerWord($)
+	expect(first).toMatch(/^••• [a-zA-Z ]+ •••$/)
+	expect(first).toMatch(/[A-Z]/)
+	await clock.advance(60_000)
+	const second = await spinnerWord($)
+	expect(second).not.toBe(first)
+	// a subagent's spinner keeps the engine's word
+	expect(await spinnerWord($, 'agent-1')).toBe('Baked')
+	await $.turn.complete({ answer: 'done', durationMs: 3_000, isAborted: false, turnId: 't1', reason: 'answer' })
+	expect(await spinnerWord($)).toBe('Baked')
+})
+
+test('a skill without spinner words leaves the spinner alone', async ($, on) => {
+	world(on)
+	skillFiles(on, { '.claude/skills/x/SKILL.md': '---\nname: x\nmetadata:\n  family: pr\n---\nbody' })
+	on('ui.render', { component: 'Spinner' }, async ($, e) => {
+		const { Text } = $.ui.resolve(e)
+		return Text({ children: [e.props.word] })
+	})
+	await $.skill.prompt({ skill: 'x', text: '' })
+	expect(await spinnerWord($)).toBe('Baked')
+})
+
 /** The idle goblin's props as the band hands them over. */
 const goblinProps = async ($: Engine) => {
 	const ui = await $.ui.mount(BAND)

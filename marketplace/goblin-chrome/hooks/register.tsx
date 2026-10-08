@@ -52,6 +52,8 @@ const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
 const NO_RUN: Run = { skill: null, family: null, spinner: [] }
 const run = atom({ plugin: 'goblin-chrome', key: 'run' } as const, NO_RUN)
 
+/** How the spinner dresses a skill's word, matching the house `spinnerVerbs`. */
+const spinnerWord = (word: string): string => `••• ${goblinCase(word)} •••`
 
 /** The accent as the day colours it: faded from the previous state's shade over ten minutes. */
 const accentOf = (p: Palette, d: Day): string =>
@@ -204,7 +206,7 @@ export const register: Register = (on, options) => {
 	})
 
 	// The skill's frontmatter sets the frame's pin, the prop in the goblin's
-	// hand, both until the turn completes. Plugin skills
+	// hand and the spinner's words, all until the turn completes. Plugin skills
 	// live elsewhere and read as nothing set.
 	on('skill.prompt', async ($, e, next) => {
 		let pinned: Tier | null = null
@@ -235,10 +237,20 @@ export const register: Register = (on, options) => {
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, turnMs: e.durationMs, turnTools: v.tools, turnErrors: v.errors }))
-		// The run ends with the turn: the pin and the prop.
+		// The run ends with the turn: the pin, the prop, the spinner's words.
 		await update($, run, () => NO_RUN)
 		if ((await read($, frame)).pinned !== null) await refreshFrame($, { pinned: null })
 		return next(e)
+	})
+
+	// The spinner's word while a skill with `goblin-spinner` runs (one word a
+	// minute, in the house dress); a subagent's spinner keeps the engine's.
+	on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
+		if (e.requestId !== 'main' && e.requestId !== '') return next(e)
+		const r = await read($, run)
+		if (r.spinner.length === 0) return next(e)
+		const now = await $.clock.now()
+		return next({ ...e, props: { ...e.props, word: spinnerWord(pick(r.spinner, Math.floor(now / 60_000))) } })
 	})
 
 	on('session.compact', async ($, e, next) => {
