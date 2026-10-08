@@ -143,6 +143,7 @@ class BuildSafeguards(unittest.TestCase):
 		)
 		self.assertIn("skills/roadmap-maintain/SKILL.md", result.stdout.splitlines())
 		self.assertIn(plugin.README_SOURCE, result.stdout.splitlines())
+		self.assertIn(plugin.PANE_README_SOURCE, result.stdout.splitlines())
 
 	def test_cli_reports_problems_and_writes_nothing(self) -> None:
 		# The script finds its repo from its own location, so a copy runs against the fixture
@@ -174,6 +175,47 @@ class BuildSafeguards(unittest.TestCase):
 		self.assertTrue(any(c.endswith("roadmap.py\" hook session-start") for c in commands))
 		self.assertEqual(sum(c.endswith("roadmap.py\" hook post-tool-use") for c in commands), 2)
 		self.assertTrue((self.out / "scripts" / "_roadmap_hooks.py").is_file())
+
+	def test_roadmap_plugin_ships_no_mod(self) -> None:
+		plugin.build(self.root, self.out)
+		hooks = json.loads((self.out / "hooks" / "hooks.json").read_text())
+		self.assertNotIn("modules", hooks)
+		self.assertFalse((self.out / "hooks" / "register.tsx").exists())
+		manifest = json.loads((self.out / ".claude-plugin" / "plugin.json").read_text())
+		self.assertNotIn("types", manifest)
+
+	def test_pane_plugin_ships_the_mod_its_contract_its_tests_and_the_cli(self) -> None:
+		out = self.out.parent / "pane"
+		plugin.build_pane(self.root, out)
+		hooks = json.loads((out / "hooks" / "hooks.json").read_text())
+		self.assertEqual(hooks, {"modules": ["./register.tsx"]})
+		for rel in ("hooks/register.tsx", "hooks/pane.test.tsx", "types/index.d.ts", "scripts/roadmap.py",
+		            "scripts/_roadmap_core.py", "scripts/_roadmap_hooks.py", "README.md"):
+			self.assertTrue((out / rel).is_file(), rel)
+		manifest = json.loads((out / ".claude-plugin" / "plugin.json").read_text())
+		self.assertEqual(manifest["name"], "roadmap-pane")
+		self.assertEqual(manifest["types"], "./types/index.d.ts")
+		self.assertNotIn("userConfig", manifest)
+		self.assertFalse((out / "skills").exists())
+		# the module reaches the CLI through $.plugin.root, never a config path
+		module = (out / "hooks" / "register.tsx").read_text()
+		self.assertNotIn("<plugin-root>", module)
+		self.assertNotIn("~/.claude", module)
+
+	def test_pane_keeps_both_skill_forms_and_names_no_skill_in_its_cli(self) -> None:
+		out = self.out.parent / "pane"
+		plugin.build_pane(self.root, out)
+		module = (out / "hooks" / "register.tsx").read_text()
+		for config_form, plugin_form in (("/roadmap-migrate", "/roadmap:migrate"), ("/roadmap-review", "/roadmap:review")):
+			self.assertIn(f"{plugin_form} or {config_form}", module)
+		core = (out / "scripts" / "_roadmap_core.py").read_text()
+		self.assertIn("run the roadmap migrate skill first", core)
+
+	def test_pane_version_must_be_bare_semver(self) -> None:
+		(self.root / plugin.PANE_VERSION_SOURCE).write_text("v0.1.0\n")
+		with self.assertRaises(plugin.BuildError) as caught:
+			plugin.build_pane(self.root, self.out.parent / "pane")
+		self.assertTrue(any(plugin.PANE_VERSION_SOURCE in p for p in caught.exception.problems))
 
 	def test_script_broken_by_a_rewrite_is_caught(self) -> None:
 		# ${CLAUDE_PLUGIN_ROOT} becomes <plugin-root> outside skills/ and hooks/,

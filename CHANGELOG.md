@@ -5,6 +5,10 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `roadmap-pane`, a mod built beside the roadmap plugin from `library/sources/plugins/roadmap-pane/`: `/ready` opens the ready set in a pane with the claims in play and milestone progress, claims a picked task after asking who, and closes on a second `/ready`. It ships its own copy of the CLI, so a config that runs the roadmap skills from its own files enables the pane alone. Served as `roadmap-pane@goblin-mode`.
+
 ## [6.4.1] - 2026-10-07
 
 ### Fixed
