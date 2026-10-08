@@ -208,6 +208,35 @@ test('a project skill pinning a smaller model draws the mismatch frame', async (
 	expect(await borderAfterSkill($)).toBe('╓')
 })
 
+const PR_LAND = '---\nname: pr-land\nmodel: opus\nmetadata:\n  glyph: ᛟ\n  family: pr\n  goblin-spinner: merging|deleting evidence|tagging\n---\nbody'
+
+/** The idle goblin's props as the band hands them over. */
+const goblinProps = async ($: Engine) => {
+	const ui = await $.ui.mount(BAND)
+	const props = (await ui.find({ type: 'Client', key: 'goblin' }))?.props.props as Record<string, unknown> | undefined
+	await ui.unmount()
+	return props
+}
+
+test("the goblin holds the family's prop while the skill runs and drops it when the turn completes", async ($, on) => {
+	world(on)
+	skillFiles(on, { '.claude/skills/pr-land/SKILL.md': PR_LAND })
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	on('turn.complete', async () => ({ text: '' }))
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+	await $.turn.start({ text: '/pr-land', turnId: 't1' })
+	await $.skill.prompt({ skill: 'pr-land', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '[#]', mode: 'working' })
+	// the watching goblin is drawn with the parcel in hand
+	const ui = await $.ui.mount(BAND)
+	await ui.resize({ columns: 30, rows: 1, in: 'goblin' })
+	await ui.advance(150)
+	expect((await ui.findAll({ type: 'Text', in: 'goblin' })).map(t => t.text).join('')).toMatch(/\(ಠ_ಠ\)\[#\]$/)
+	await ui.unmount()
+	await $.turn.complete({ answer: 'done', durationMs: 3_000, isAborted: false, turnId: 't1', reason: 'answer' })
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+})
+
 test('a personal skill shadows a project skill of the same name', async ($, on) => {
 	world(on)
 	skillFiles(on, {

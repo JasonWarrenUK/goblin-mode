@@ -67,6 +67,16 @@ export type Idle = {
 	sayingUntil: number
 }
 
+/** The turn's run: the skill in flight and its frontmatter. Cleared when the main turn completes. */
+export type Run = {
+	/** The skill whose prompt was last expanded this turn, or null between runs. */
+	skill: string | null
+	/** The skill's `metadata.family`, which picks the prop the goblin holds. */
+	family: string | null
+	/** The skill's `metadata.goblin-spinner` words, shown in the spinner one per minute. */
+	spinner: readonly string[]
+}
+
 declare module 'claude-code' {
 	interface PluginState {
 		'goblin-chrome': {
@@ -75,6 +85,7 @@ declare module 'claude-code' {
 			frame: Frame
 			vitals: Vitals
 			idle: Idle
+			run: Run
 		}
 	}
 }

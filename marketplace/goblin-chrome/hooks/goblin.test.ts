@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { rasterColour, shade } from './colour'
-import { FACE_COLUMNS, FACE_ROWS, faceCells } from './goblin'
+import { FACE_COLUMNS, FACE_ROWS, faceCells, propFor, PROPS } from './goblin'
 import { CLOD } from './theme'
 
 const unpack = (cells: string): Uint32Array =>
@@ -32,5 +32,37 @@ describe('faceCells', () => {
 
 	test("the grid is the face's columns by rows", async () => {
 		expect(unpack(faceCells('grin', CLOD)).length).toBe(FACE_COLUMNS * FACE_ROWS * 3)
+	})
+})
+
+/** Glyphs some terminals draw two cells wide: shade and block elements, geometric shapes, East Asian ranges. */
+const WIDE = /[▀-▟■-◿☀-➿　-鿿＀-￯]/
+
+describe('props', () => {
+	test('every family prop is one to three cells of single-width BMP text, so the band can measure it', async () => {
+		for (const [family, prop] of Object.entries(PROPS)) {
+			const chars = Array.from(prop)
+			expect(chars.length, family).toBeGreaterThanOrEqual(1)
+			expect(chars.length, family).toBeLessThanOrEqual(3)
+			for (const ch of chars) {
+				expect((ch.codePointAt(0) ?? 0) <= 0xffff, `${family}: ${ch}`).toBe(true)
+				expect(WIDE.test(ch), `${family}: ${ch}`).toBe(false)
+				expect(/\s/.test(ch), `${family}: ${ch}`).toBe(false)
+			}
+		}
+	})
+
+	test('every family in the config has a prop, and no two families share one', async () => {
+		const families = [
+			'artefact', 'asset', 'branch', 'clod-approach', 'clod-config', 'clod-lens', 'clod-role', 'clod-stack', 'commit', 'do', 'doc',
+			'dossier', 'hud', 'import', 'next-task', 'pr', 'project', 'red', 'skill-creator', 'theme', 'track',
+		]
+		for (const family of families) expect(propFor(family), family).not.toBe('')
+		expect(new Set(Object.values(PROPS)).size).toBe(Object.keys(PROPS).length)
+	})
+
+	test('an unknown or missing family walks empty-handed', async () => {
+		expect(propFor('nonsense')).toBe('')
+		expect(propFor(null)).toBe('')
 	})
 })
