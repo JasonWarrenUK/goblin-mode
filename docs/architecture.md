@@ -55,9 +55,9 @@ git-branch-review skill  ──runs──→  branch-facts.sh  ──emits──
                                                           re-derive them from raw git output
 ```
 
-Concrete pairs: `branch-facts.sh` → `git-branch-review`, `deps-dump.sh` → `project-investigate-deps`, `git-doc-history.sh` → the `doc-*` update skills, `roadmap.py` → the whole `roadmap-*` family, `config_permit.py` → `config-permit`, `validate_audit_findings.py` → `artefact-audit`. Full list at [Library → scripts](reference/library.md#scripts-the-deterministic-halves).
+Concrete pairs: `branch-facts.sh` → `git-branch-review`, `deps-dump.sh` → `project-investigate-deps`, `git-doc-history.sh` → the `doc-*` update skills, `roadmap.py` → the whole `roadmap:*` family (in the roadmap plugin), `config_permit.py` → `config-permit`, `validate_audit_findings.py` → `artefact-audit`. Full list at [Library → scripts](reference/library.md#scripts-the-deterministic-halves).
 
-The benefit compounds: a script is testable in isolation (`test_roadmap.py` exists precisely because `roadmap.py` is complex enough to warrant it), its output is the same for the same input (so regenerated artefacts diff cleanly instead of drifting on each run), and the model spends its reasoning budget on the part that actually needs judgement.
+The benefit compounds: a script is testable in isolation (the roadmap plugin's `test_roadmap.py` exists precisely because `roadmap.py` is complex enough to warrant it), its output is the same for the same input (so regenerated artefacts diff cleanly instead of drifting on each run), and the model spends its reasoning budget on the part that actually needs judgement.
 
 ## The two agent loops
 

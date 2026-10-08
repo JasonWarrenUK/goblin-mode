@@ -4,13 +4,13 @@
 
 Mods are plugins whose code runs inside Claude Code: TypeScript event handlers the engine calls on a tool call, a prompt, a turn or a part of the interface being drawn. They can draw panes, bands and toasts and redraw what Claude Code draws itself, which no settings hook, skill or MCP server can. They need Claude Code 2.1.287 or later, and they draw only in the terminal and the desktop Code tab; in a cloud session or `claude -p` the hooks run and nothing draws. Anthropic's reference: [mods overview](https://code.claude.com/docs/en/plugins/mods/overview).
 
-This config's mods live under `marketplace/<name>/` and are served from the repo's own marketplace (`.claude-plugin/marketplace.json`), the same way as the roadmap plugin.
+This config's mods live under `marketplace/<name>/` and are served from the repo's own marketplace (`.claude-plugin/marketplace.json`). Every plugin there is hand-maintained: the directory is the source of truth, nothing generates it. Since the installed copy comes from the GitHub clone under `plugins/marketplaces/goblin-mode/`, an edit is live only after it is pushed and the marketplace updates; to run the working tree instead, start a session with `claude --plugin-dir ~/.claude/marketplace/<name>`.
 
 | Mod | What it does | Draws |
 |---|---|---|
 | [`goblin-chrome`](../../marketplace/goblin-chrome/README.md) | Goblin-mode's face in the terminal: a goblin in the band that reacts to the session, the hint line in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours. Pure chrome; it changes nothing Claude does. | Band, `TurnDuration`, `PromptHint`, `AskUserQuestion` |
 | [`goblin-util`](../../marketplace/goblin-util/README.md) | `/pain` logs friction with Claude Code itself into `library/state/cc-pain-points.json` without a turn, the repo, branch and last failed tool pre-filled; `/fleet` lists every session on the machine from a shared heartbeat and sends one a message. | Two panes, toasts |
-| [`roadmap-pane`](../../marketplace/roadmap-pane/README.md) | `/ready` opens the roadmap's ready set in a pane with the claims in play and milestone progress; a digit picks, `c` claims after asking who, `r` refreshes, `/ready` again closes. Built beside the roadmap plugin from `library/sources/plugins/roadmap-pane/` with its own copy of the CLI, so it is enabled alone where the roadmap skills run from this config. | One pane, toasts |
+| [`roadmap`](../../marketplace/roadmap/README.md) | `/ready` opens the roadmap's ready set in a pane with the claims in play and milestone progress by release tier; a digit picks, `c` claims after asking who, `r` refreshes, `/ready` again closes. The mod ships inside the roadmap plugin beside its skills and CLI, so one install gives both. | One pane, toasts |
 
 ## How a mod is laid out
 
