@@ -5,6 +5,8 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-08
+
 ### Added
 
 - `/ready`, a mod that was the separate `roadmap-pane` plugin: the ready set in a pane with the claims in play and milestone progress by release tier, refreshed from the plugin's CLI without a turn. A digit picks a row, `c` claims it after asking who and `r` refreshes; `/ready` again closes it. The pane follows the session's working directory, so a move into a worktree reads and claims against that worktree's `roadmaps.json`. Without a roadmap, with an old-format one or when the CLI refuses, it draws a card that says what happened and names the skill that fixes it. Needs Claude Code 2.1.287 or later and draws in the terminal.
@@ -114,7 +116,8 @@ The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the rend
 - The dashboard's Overview grid no longer collapses a tiered phase's milestones into a single narrow column.
 - Three skills are synced to the conventions reference.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.2.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.3.0...HEAD
+[2.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.2.0...roadmap-v2.3.0
 [2.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.1.0...roadmap-v2.2.0
 [2.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.0.0...roadmap-v2.1.0
 [2.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v1.0.0...roadmap-v2.0.0
