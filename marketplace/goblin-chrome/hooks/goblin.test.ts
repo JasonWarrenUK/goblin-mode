@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { rasterColour, shade } from './colour'
-import { FACE_COLUMNS, FACE_ROWS, faceCells, propFor, PROPS } from './goblin'
+import { DEFAULT_MINION, FACE_COLUMNS, FACE_ROWS, faceCells, propFor, PROPS } from './goblin'
 import { CLOD } from './theme'
 
 const unpack = (cells: string): Uint32Array =>
@@ -64,5 +64,10 @@ describe('props', () => {
 	test('an unknown or missing family walks empty-handed', async () => {
 		expect(propFor('nonsense')).toBe('')
 		expect(propFor(null)).toBe('')
+	})
+
+	test('the default minion face is band-safe', async () => {
+		expect(Array.from(DEFAULT_MINION).length).toBeLessThanOrEqual(5)
+		expect(WIDE.test(DEFAULT_MINION)).toBe(false)
 	})
 })

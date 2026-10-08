@@ -64,6 +64,9 @@ export const PROPS: Record<string, string> = {
 /** The prop for a family, or empty when the family has none. */
 export const propFor = (family: string | null): string => (family === null ? '' : (PROPS[family] ?? ''))
 
+/** The face a subagent wears in the parade when its agent file sets none. */
+export const DEFAULT_MINION = 'o.o'
+
 export const POKE_LINES = [
 	'ow.',
 	'what.',
@@ -75,6 +78,7 @@ export const POKE_LINES = [
 
 export const HECKLES = {
 	minionBack: (ms: number) => `minion back. took ${Math.round(ms / 1000)}s. unimpressed.`,
+	minionOut: (n: number) => (n === 1 ? 'minion out. watching.' : `${n} minions out. watching.`),
 	compaction: 'memory wiped. going again.',
 	clear: 'fine.',
 	bounce: 'the hook bounced that message. told you.',

@@ -9,8 +9,9 @@ import type { EngineInterface, Register, RenderElement } from 'claude-code'
 import type { Day, Frame, Idle, Palette, Run, Tier, Vitals } from '../types'
 import { mix, shade } from './colour'
 import { dayAt, parseSchedule, STYLE } from './day'
-import { readSkill } from './frontmatter'
+import { readMinionFace, readSkill } from './frontmatter'
 import {
+	DEFAULT_MINION,
 	faceCells,
 	FACE_COLUMNS,
 	FACE_ROWS,
@@ -49,7 +50,7 @@ const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
 	saying: '',
 	sayingUntil: 0,
 } as Idle)
-const NO_RUN: Run = { skill: null, family: null, spinner: [] }
+const NO_RUN: Run = { skill: null, family: null, spinner: [], minions: [] }
 const run = atom({ plugin: 'goblin-chrome', key: 'run' } as const, NO_RUN)
 
 /** How the spinner dresses a skill's word, matching the house `spinnerVerbs`. */
@@ -229,15 +230,39 @@ export const register: Register = (on, options) => {
 		return next(e)
 	})
 
+	// A subagent out is a minion in the band, wearing its agent file's face,
+	// until its own turn completes. Personal agents shadow project ones.
+	on('agent.spawn', async ($, e, next) => {
+		const ran = await next(e)
+		const agentId = (ran as { agentId?: unknown }).agentId
+		if (typeof agentId !== 'string') return ran
+		let face = DEFAULT_MINION
+		try {
+			const home = await $.env.get('HOME')
+			const personal = home ? await $.fs.read(`${home}/.claude/agents/${e.subagentType}.md`).catch(() => '') : ''
+			const text = personal || (await $.fs.read(`.claude/agents/${e.subagentType}.md`))
+			face = readMinionFace(text) ?? DEFAULT_MINION
+		} catch {
+			face = DEFAULT_MINION
+		}
+		const r = await read($, run)
+		const minions = [...r.minions.filter(m => m.agentId !== agentId), { agentId, type: e.subagentType, face }]
+		await update($, run, cur => ({ ...cur, minions }))
+		await say($, HECKLES.minionOut(minions.length))
+		return ran
+	})
+
 	on('turn.complete', async ($, e, next) => {
 		if (e.agentId) {
+			const agentId = e.agentId
+			await update($, run, r => ({ ...r, minions: r.minions.filter(m => m.agentId !== agentId) }))
 			await say($, HECKLES.minionBack(e.durationMs))
 			return next(e)
 		}
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, turnMs: e.durationMs, turnTools: v.tools, turnErrors: v.errors }))
-		// The run ends with the turn: the pin, the prop, the spinner's words.
+		// The run ends with the turn: the pin, the prop, the spinner's words and any minion still out.
 		await update($, run, () => NO_RUN)
 		if ((await read($, frame)).pinned !== null) await refreshFrame($, { pinned: null })
 		return next(e)
@@ -329,6 +354,8 @@ export const register: Register = (on, options) => {
 								colour: accent,
 								dim: p.inkMuted,
 								prop: propFor(r.family),
+								minions: r.minions.map(m => m.face),
+								minionColour: p.accent2,
 							}}
 						/>
 					</Box>
