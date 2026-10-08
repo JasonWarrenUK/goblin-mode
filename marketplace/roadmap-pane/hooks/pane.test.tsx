@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { parseSnapshot, reasonOf } from './register'
+import { bar, groupByTier, parseSnapshot, reasonOf, rule, tierHue } from './register'
 
 const PLUGIN = 'roadmap-pane'
 const NOON = new Date(2026, 9, 7, 12, 0).getTime()
@@ -8,12 +8,22 @@ const NOON = new Date(2026, 9, 7, 12, 0).getTime()
 const READY = JSON.stringify({
 	phase: 'Phase 2',
 	candidates: [
-		{ id: '2SE.1', description: 'index the search', milestone: 'M2', milestoneName: 'Search', milestoneDonePct: 40, transitiveUnblocks: 3, isMilestoneSink: false, assignee: '' },
-		{ id: '2SE.4', description: 'close out the facets', milestone: 'M2', milestoneName: 'Search', milestoneDonePct: 40, transitiveUnblocks: 0, isMilestoneSink: true, assignee: 'Jaz' },
+		{ id: '2SE.1', description: 'index the search', milestone: 'M2', milestoneName: 'Search', milestoneDonePct: 40, tier: 0, tierLabel: 'Core', transitiveUnblocks: 3, isMilestoneSink: false, assignee: '' },
+		{ id: '2SE.4', description: 'close out the facets', milestone: 'M2', milestoneName: 'Search', milestoneDonePct: 40, tier: 0, tierLabel: 'Core', transitiveUnblocks: 0, isMilestoneSink: true, assignee: 'Jaz' },
 	],
 	claimed: [{ id: '2SE.2', description: 'the ranking', assignee: 'Max', started: '2026-10-01' }],
 })
-const STATS = JSON.stringify({ phase: 'Phase 2', donePct: 42, milestones: [{ id: 'M1', name: 'Core', donePct: 100 }, { id: 'M2', name: 'Search', donePct: 40 }] })
+const STATS = JSON.stringify({
+	phase: 'Phase 2',
+	donePct: 42,
+	inScope: 12,
+	byStatus: { done: 5 },
+	milestones: [
+		{ id: 'M1', name: 'Core', donePct: 100, tier: 0, tierLabel: 'Core', state: 'done' },
+		{ id: 'M2', name: 'Search', donePct: 40, tier: 0, tierLabel: 'Core', state: 'inProgress' },
+		{ id: 'M3', name: 'Export (Secondary)', donePct: 0, tier: 1, tierLabel: 'Secondary', state: 'deferred' },
+	],
+})
 
 type On = Parameters<typeof mock.clock>[0]
 
@@ -67,9 +77,10 @@ const PANE = {
 
 test('the snapshot is read defensively from the two CLI documents', async () => {
 	const snap = parseSnapshot(READY, STATS, NOON)
-	expect(snap).toMatchObject({ ok: true, phase: 'Phase 2', donePct: 42, at: NOON })
+	expect(snap).toMatchObject({ ok: true, problem: 'none', phase: 'Phase 2', donePct: 42, doneCount: 5, inScope: 12, at: NOON })
 	expect(snap.candidates.map(c => c.id)).toEqual(['2SE.1', '2SE.4'])
-	expect(snap.milestones[1]).toEqual({ id: 'M2', name: 'Search', donePct: 40 })
+	expect(snap.milestones[1]).toEqual({ id: 'M2', name: 'Search', donePct: 40, tier: 0, tierLabel: 'Core', state: 'inProgress' })
+	expect(snap.milestones[2]?.tier).toBe(1)
 	expect(parseSnapshot('{"candidates": [{"id": 7}]}', '{}', NOON).candidates[0]?.id).toBe('7')
 	expect(() => parseSnapshot('[]', '{}', NOON)).toThrow('not an object')
 	expect(reasonOf({ stdout: '✗ 2 active phases; pass --phase NAME\n', stderr: '' }, 'x')).toBe('✗ 2 active phases; pass --phase NAME')
@@ -77,21 +88,41 @@ test('the snapshot is read defensively from the two CLI documents', async () => 
 	expect(reasonOf({ stdout: '', stderr: '' }, 'fallback')).toBe('fallback')
 })
 
-test('/ready refreshes from the CLI and draws the ready set in order', async ($, on) => {
+test('the drawing helpers are pure', () => {
+	expect(bar(0, 5)).toBe('░░░░░')
+	expect(bar(60, 5)).toBe('███░░')
+	expect(bar(100, 5)).toBe('█████')
+	expect(bar(250, 5)).toBe('█████')
+	expect(rule('Ready now · 2', 24)).toBe('── Ready now · 2 ───────')
+	expect(rule('x', 3)).toBe('── x ──')
+	expect(tierHue(0)).not.toBe(tierHue(1))
+	expect(tierHue(4)).toBe(tierHue(0))
+	const groups = groupByTier(parseSnapshot(READY, STATS, NOON).milestones)
+	expect(groups.map(g => [g.tier, g.label, g.milestones.map(m => m.id)])).toEqual([
+		[0, 'Core', ['M1', 'M2']],
+		[1, 'Secondary', ['M3']],
+	])
+})
+
+test('/ready refreshes from the CLI and draws the header, the ready set in order and the claims', async ($, on) => {
 	const { calls } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	expect(await $.command.run({ ...RUN, command: 'ready' })).toEqual({})
 	expect(calls.map(c => c[2])).toEqual(['detect', 'ready', 'stats'])
 	expect(calls[0]?.[1]).toEndWith('/scripts/roadmap.py')
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text' }))?.text).toBe('Phase 2 · 42% done · M1 100%  M2 40%')
+	expect(await ui.find({ type: 'Text', text: 'Phase 2' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '42%' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '5/12 tasks' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: /Core/ })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: /Secondary/ })).toBeDefined()
 	const rows = await ui.findAll({ type: 'Button' })
-	expect(rows.map(r => r.props.label)).toEqual([
-		'  2SE.1  index the search · unblocks 3 · M2 40%',
-		'  2SE.4  close out the facets · unblocks 0 · M2 40% · completes it · Jaz',
-		'refresh',
-	])
-	expect(await ui.find({ type: 'Text', text: /claimed 2SE\.2 by Max since 2026-10-01/ })).toBeDefined()
+	expect(rows.map(r => r.props.label)).toEqual(['2SE.1', '2SE.4', 'refresh'])
+	expect(await ui.find({ type: 'Text', text: 'index the search' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: 'unblocks 3' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: 'completes it' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '● Jaz' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: 'since 2026-10-01' })).toBeDefined()
 })
 
 test('a picked row offers claim; claim asks who and runs the CLI', async ($, on) => {
@@ -100,8 +131,9 @@ test('a picked row offers claim; claim asks who and runs the CLI', async ($, on)
 	await $.command.run({ ...RUN, command: 'ready' })
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ key: 'claim' })).toBeUndefined()
+	expect(await ui.find({ type: 'Text', text: '▶' })).toBeUndefined()
 	await ui.press({ key: 'row-2SE.1' })
-	expect((await ui.find({ key: 'row-2SE.1' }))?.props.label).toStartWith('▶ 2SE.1')
+	expect(await ui.find({ type: 'Text', text: '▶' })).toBeDefined()
 	expect(await ui.find({ key: 'claim' })).toBeDefined()
 	await ui.press({ key: 'claim' })
 	const input = await ui.find({ type: 'Input', key: 'assignee' })
@@ -159,13 +191,16 @@ test('/ready opens the pane and runs again to close it', async ($, on) => {
 	expect(await ui.find({ key: 'start' })).toBeUndefined()
 })
 
-test('no roadmap says what the CLI said instead of a list', async ($, on) => {
+test('no roadmap draws a card that says so and names the skill that starts one', async ($, on) => {
 	world(on, 2)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'ready' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text' }))?.text).toBe('✗ could not locate .claude/roadmaps.json above the current directory')
-	expect(await ui.find({ type: 'Button' })).toBeUndefined()
+	expect(await ui.find({ type: 'Text', text: 'No roadmap in this project' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '/roadmap:create' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: /\/roadmap-create/ })).toBeDefined()
+	expect(await ui.find({ key: 'refresh' })).toBeDefined()
+	expect(await ui.find({ key: 'claim' })).toBeUndefined()
 })
 
 test('the old single-file format points at migrate', async ($, on) => {
@@ -173,7 +208,8 @@ test('the old single-file format points at migrate', async ($, on) => {
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'ready' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text' }))?.text).toBe('old single-file roadmap: run the migrate skill (/roadmap:migrate or /roadmap-migrate) first')
+	expect(await ui.find({ type: 'Text', text: 'Old roadmap format' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '/roadmap:migrate' })).toBeDefined()
 })
 
 test("the CLI's own refusal reaches the pane", async ($, on) => {
@@ -181,5 +217,6 @@ test("the CLI's own refusal reaches the pane", async ($, on) => {
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'ready' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text' }))?.text).toBe('✗ 2 active phases; pass --phase NAME')
+	expect(await ui.find({ type: 'Text', text: 'The roadmap would not load' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '✗ 2 active phases; pass --phase NAME' })).toBeDefined()
 })
