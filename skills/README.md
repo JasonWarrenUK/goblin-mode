@@ -42,9 +42,6 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/project-tag_version` | ᚺ sonnet | Tag the release after a merge to main, computing the next semver tag with svu |
 | `/red-branch` | ᛟ opus | Adversarial review of a branch diff written as the colleague trying to get it rejected, aimed at one… |
 | `/red-doc` | ᛟ opus | Adversarial review of a document written as the colleague trying to kill it, aimed at one or two nam… |
-| `/roadmap-create` | ᚠ fable | Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHA… |
-| `/roadmap-migrate` | ᛊ sonnet | Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json… |
-| `/roadmap-update-devs` | ᛊ sonnet | Interview-led assignment of roadmap tasks to devs: collect the team roster, walk the chosen tasks in… |
 | `/skill-creator` | ᛟ opus | Create new skills, modify and improve existing skills, and measure skill performance. Use when users… |
 | `/theme-factory` | ᛟ opus | Create, update, extend, print or display a project theme family: a core palette plus per-target file… |
 | `/theme-target` | ᛊ sonnet | Define a new theme target type (a consumer of colour/type tokens the theme system doesn't cover yet)… |
@@ -58,7 +55,6 @@ Claude can load these automatically when relevant.
 | Skill | Model | Description |
 |-------|-------|-------------|
 | `/artefact-conventions` |  | Jason's structural and epistemic-honesty conventions for every artefact Claude creates |
-| `/artefact-roadmap` | ᛊ sonnet | Generate the HTML roadmap dashboard deterministically via roadmap.py render. |
 | `/branch-rename` | ᛊ sonnet | Check the current branch name against convention (type/short-description) and rename it if it drifte… |
 | `/clod-config-skill_conventions` |  | Jason's placement, invocation and metadata conventions for creating or editing skills |
 | `/commit-batch` | ᛊ sonnet | Split uncommitted changes into granular commits. |
@@ -70,17 +66,10 @@ Claude can load these automatically when relevant.
 | `/hud-profiles` | ᛊ sonnet | Show the profiles stored in the dossier and persona stores |
 | `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
 | `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language: where each one is, what state it is in and whethe… |
-| `/next-task-group` | ᛊ sonnet | Show every currently unblocked roadmap task as one table per milestone, topic or dev, with similar t… |
-| `/next-task-suggest` | ᛊ sonnet | Suggest the next logical task from the roadmap's pre-vetted ready-set, driven by its leverage signal… |
 | `/pr-create` | ᛟ opus | Create a pull request to main, or a stacked PR onto a parent branch: wordy or shiny (with screenshot… |
 | `/pr-review` | ᛟ opus | Review a pull request and post it as a GitHub review |
 | `/pr-review-dry_run` | ᛟ opus | Review a pull request's diff and print structured findings to the terminal. Holds the canonical revi… |
 | `/pr-update` | ᛊ sonnet | Update a PR description to account for commits made since it was last written |
-| `/roadmap-claim` | ᛊ sonnet | Claim a roadmap task when work on it starts, or release the claim when work stops: asks who is doing… |
-| `/roadmap-create-interview` | ᚠ fable | Interview the user to turn half-formed ideas into a reviewed batch of roadmap-ready tasks. Read-only… |
-| `/roadmap-maintain` | ᛊ sonnet | Sync roadmap statuses after work lands: recompute from the dependency graph and refresh every projec… |
-| `/roadmap-review` | ᚠ fable | Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) a… |
-| `/roadmap-update-tasks` | ᛟ opus | Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, depend… |
 | `/track-cc_pain` |  | Silently log friction with Claude Code itself (bugs, missing features, annoying limitations) for hud… |
 
 ---
