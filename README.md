@@ -45,7 +45,7 @@ These counts are written by `gen-skills-index.py`, not hand-maintained: the skil
 | [`library/`](library/) | Shared references, templates, scripts, and config examples used by skills. See [Library reference](docs/reference/library.md). |
 | [`output-styles/`](output-styles/) | Persona layer; `british-dev-goblin.md` is set at user level in `settings.json` with `keep-coding-instructions: true`, so it sits on top of Claude Code's built-in engineering instructions rather than replacing them. Voice only: the rules live in `CLAUDE.md` §3. |
 | [`docs/`](docs/) | This wiki: architecture, per-subsystem reference, guides and design history. |
-| [`marketplace/`](marketplace/) | Plugins served from the repo's own marketplace: the roadmap plugin (built from its sources by a script) and the mods, code that runs inside Claude Code and draws in the terminal. See [Mods reference](docs/reference/mods.md). |
+| [`marketplace/`](marketplace/) | Plugins served from the repo's own marketplace: the roadmap plugin (skills, CLI and the `/ready` pane; hand-maintained, the only copy of the roadmap system) and the mods, code that runs inside Claude Code and draws in the terminal. See [Mods reference](docs/reference/mods.md). |
 
 For the full picture (how the layers fit together, what each costs to load and the deterministic-half pattern behind several skills) see **[Architecture](docs/architecture.md)**.
 

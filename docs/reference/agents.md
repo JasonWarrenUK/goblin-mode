@@ -20,7 +20,7 @@ See [Skills vs Agents](skills.md#skills-vs-agents) for how the two systems divid
 | `task-sync` | Sonnet | Keeps the task tracker (see [Task Trackers](task-trackers/README.md) for supported sources) consistent with git/branch state. | "sync tasks" or as a subagent |
 | `session-closer` | Haiku | End-of-session wrap-up: summarises accomplishments, notes uncommitted work, updates task status, writes a handoff note. | "I'm done for today" / "wrap up" or `SessionEnd` |
 
-Roadmap maintenance is a skill-family job, not an agent one: `roadmap-maintain`, `roadmap-create`, `roadmap-update-tasks` and `roadmap-review` (see the `roadmap` plugin) cover what the retired `roadmap-maintainer` agent used to do, with a conventions doc and gated status recompute this agent never had.
+Roadmap maintenance is a skill-family job, not an agent one: `roadmap:maintain`, `roadmap:create`, `roadmap:update-tasks` and `roadmap:review` (the `roadmap` plugin, enabled in `settings.json`) cover what the retired `roadmap-maintainer` agent used to do, with a conventions doc and gated status recompute this agent never had.
 
 ## The two loops
 

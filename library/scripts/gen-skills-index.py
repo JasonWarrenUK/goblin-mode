@@ -78,7 +78,7 @@ def classify(name: str, fm: dict) -> str:
 	if fm.get("disable-model-invocation") is True:
 		return "command"
 	# disable-model-invocation: false, or the flag is absent entirely
-	# (e.g. roadmap-create-interview) — both mean "the model can invoke it".
+	# both mean "the model can invoke it".
 	return "model-invocable"
 
 

@@ -6,7 +6,7 @@
 
 ## `references/`: agent-loaded background reading
 
-Skills point here instead of restating shared rules, so lineages of related skills (roadmap-\*, stud-\*) can't drift against each other.
+Skills point here instead of restating shared rules, so lineages of related skills (stud-\*, asset-\*) can't drift against each other.
 
 | File | Used by |
 |---|---|
@@ -14,7 +14,6 @@ Skills point here instead of restating shared rules, so lineages of related skil
 | `asset-tools.md` | The `asset-*` family: verified flags and config shapes for shot-scraper, VHS, freeze, pdftoppm, Playwright and the toolkit scripts |
 | `reasonable-colors-reference.md` | `theme-factory`: one optional seed palette for a new theme (24 hues × 6 shades with a known contrast table); no longer enforced anywhere |
 | `react-to-svelte5.md` | `import-scaffold_artefact`: mapping React/JSX patterns to Svelte 5 idioms |
-| `roadmap-conventions.md` | The roadmap skill family (`roadmap-create`, `-create-interview`, `-maintain`, `-update-tasks`, `-migrate`, `artefact-roadmap`): shared format rules; the executable half is `scripts/roadmap.py` |
 | `stud/conventions.md` | `do-stud`, `clod-approach-stud`: the mechanical *how* of scaffold banners (`&` new, `!` edited), shared so the two stud lineages can't drift |
 | `stud/worked-example.md` | A complete worked stud scaffold, for the same pair of skills |
 | `review-reaction-signals.md` | `pr-handle_review`: the GitHub reaction vocabulary Jason uses to signal verdicts on review threads, and how it interacts with the skill's independent-verification promise |
@@ -28,7 +27,6 @@ Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 | `ADR.md` | `doc-adr` |
 | `api-reference.md`, `technical-overview.md`, `feature-spec.md` | `doc-readme` / `doc-update_misc`, ad hoc |
 | `readme-root.md`, `readme-sub.md` | `doc-readme`: root vs. directory-level READMEs get different section sets |
-| `roadmap.md`, `roadmap-artefact.html` | `roadmap-create` (prose) / `artefact-roadmap` (the HTML dashboard shell, rendered by `roadmap.py render`) |
 | `work-record.md` | Session/agent work-record entries (e.g. `session-closer`) |
 | `pr-description.md` | `pr-create` and `pr-update` share this template so the two can't drift on PR body structure |
 
@@ -37,8 +35,6 @@ Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 | File | Purpose |
 |---|---|
 | `skill-frontmatter.yaml` | The canonical frontmatter shape for a new skill: `name`, `description`, `when_to_use` (flagged with a `CLOD TRIGGER` comment), invocability flags, `model`, `effort`, `allowed-tools`/`disallowed-tools`. This sweep brought every existing skill up to what this template already prescribed. |
-| `roadmaps.jsonc` | Expected shape of a project's `.claude/roadmaps.json` registry |
-| `mvp.md` | A complete worked roadmap example, deep into development: the canonical reference for `roadmap-create`'s output |
 
 ## `scripts/`: the deterministic halves
 
@@ -53,14 +49,12 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `pr-facts.sh` | `pr-update` | PR metadata, current body, watermark and every commit since it in one dump |
 | `pr-wall.sh` | `hud-pr_wall` | Buckets open PRs by relationship to the user (GraphQL search) and cross-references local clones |
 | `safe-version-next.sh` | `project-tag_version`, `pr-land` | `svu next` with a programmatic guard: never crosses 0.x → 1.x automatically |
-| `roadmap.py` + `_roadmap_core.py` + `_roadmap_hooks.py` | The whole roadmap-\* family; the roadmap plugin's hooks | Single CLI for the rich phase-array roadmap system: ID assignment, status computation, claims (`claim`/`release`), dependency graph integrity and HTML rendering; also the claim hooks' entry point (`hook`) |
 | `config_permit.py` | `config-permit` | Deterministic half of permission-granting: the skill's `allowed-tools` is scoped to only this one script |
 | `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data: fails fast on a malformed finding instead of rendering it wrong |
 | `slop-scan.py` | `red-doc` (report mode); `hooks/commit-msg`, `pr-create`, `pr-update`, `doc-readme`, `doc-changelog` (`--strict`) | Mechanical prose scan: house-rule breaches plus rhetorical-tell candidates; `--strict` is the gate mode (house rules only, code masked, exit 1 on a hit) |
 | `md-lint.py` | `pr-create`, `pr-update`; `hooks/pr-body-lint.sh` (`--hook`) | Markdown typography gate for GitHub-rendered bodies: setext headings from a stray `---`, text swallowed by an HTML block, backticks in `<summary>`, doubled rules; exit 1 on a hit, or 2 in hook mode to block the `gh pr` call |
 | `prose-metrics.py` | `hud-prose_health` | House-rule breaches per day in Claude's own terminal output, from the session transcripts; `--record` keeps the trend in `state/prose-metrics.json` |
 | `prose-health.py` | `hud-prose_health` | PASS/WARN/FAIL per layer of the prose-gating suite (settings, style, hook, skills, frontmatter, tree scan, tests, index, output trend) |
-| `test_roadmap.py` | none | Fixture tests for `roadmap.py` + `_roadmap_core.py` |
 | `test_slop_scan.py`, `test_prose_metrics.py`, `test_commit_msg_hook.py` | none | Tests for the two scanners above and for `hooks/commit-msg`; `prose-health.py` runs all three |
 | `test_md_lint.py` | none | Tests for `md-lint.py`: every rule, the clean PR template and hook-mode body extraction |
 

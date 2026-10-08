@@ -87,7 +87,5 @@ __pycache__/
 /library/state/commit-msg-log.jsonl
 /state
 
-# Plugin build sources; the bare `plugins` rule above targets the runtime dir
-!/library/sources/plugins/
 /settings.json.orig
 marketplace/*/.claude-plugin/types/
