@@ -7,6 +7,7 @@ when_to_use: "Before creating or editing a skill: where it should live, who invo
 disable-model-invocation: false # Claude must be able to load the conventions at the moment it's creating or editing a skill; read-only guidance needs no gate
 metadata:
   family: clod-config
+  goblin-spinner: minding the frontmatter|placing skills|checking glyphs
 ---
 
 # Skill creation conventions
@@ -31,7 +32,10 @@ effort: high         # explicit on every command skill; omit on knowledge skills
 metadata:
   glyph: ᛟ           # mirrors the model: field; omit when model is omitted
   family: pr         # the skill's family prefix (pr, roadmap, doc, clod-lens, …)
+  goblin-spinner: merging|deleting evidence|tagging   # a few verbs (3 or 4), bar-separated
 ```
+
+`goblin-spinner` is read by the goblin-chrome mod: while the skill runs, the spinner shows one of its words a minute, in the house dress (`••• mErGiNg •••`). Lowercase present participles in the goblin's register, 3 or 4 of them, no colons. `family` also picks the prop the goblin holds for the run; a family without one in the mod's `PROPS` table walks empty-handed. Agent files take a top-level `goblin-minion: o.O` for the face their subagent wears in the band, one to five single-width characters.
 
 | Glyph | Rune | Model |
 |---|---|---|

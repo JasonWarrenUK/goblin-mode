@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᚠ
   family: next-task
+  goblin-spinner: running the loop|shipping|picking the next task
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(python3:*)", "Bash(node:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
 argument-hint: "[assignee] [focus area] [loop [N]] (all optional; assignee/focus area forwarded to roadmap:next-suggest)"

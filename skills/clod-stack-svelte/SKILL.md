@@ -5,6 +5,7 @@ when_to_use: "When writing or reviewing Svelte 5 / SvelteKit code: runes ($state
 user-invocable: false
 metadata:
   family: clod-stack
+  goblin-spinner: wiring runes|composing components|loading data
 paths:
   - "**/*.svelte"
   - "**/+page.*"

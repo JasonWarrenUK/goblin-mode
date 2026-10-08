@@ -7,6 +7,7 @@ effort: low
 metadata:
   glyph: ᛊ
   family: commit
+  goblin-spinner: writing the message|staging|committing
 disable-model-invocation: false
 allowed-tools: ["Bash(git:*)"]
 arguments: ["hint"]

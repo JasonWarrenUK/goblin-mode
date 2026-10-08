@@ -5,6 +5,7 @@ when_to_use: "When building or debugging a terminal UI with @opentui/core: rende
 user-invocable: false
 metadata:
   family: clod-stack
+  goblin-spinner: laying out renderables|stretching yoga|drawing terminals
 allowed-tools: ["Read", "Glob", "Grep"]
 ---
 

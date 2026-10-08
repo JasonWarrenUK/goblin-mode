@@ -5,6 +5,7 @@ when_to_use: "When writing or reviewing tests, or deciding what's worth testing 
 user-invocable: false
 metadata:
   family: clod-role
+  goblin-spinner: writing tests|hunting gaps|breaking things on purpose
 # No paths gate: the "should I test this at all?" moment happens while writing
 # source, when no test file exists yet to match a glob
 allowed-tools:

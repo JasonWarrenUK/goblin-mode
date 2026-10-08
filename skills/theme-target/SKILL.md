@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛊ
   family: theme
+  goblin-spinner: defining a target|templating|wiring the theme
 disable-model-invocation: true
 allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "AskUserQuestion"]
 argument-hint: "<target-name> [consumer: tool, library or file format]"

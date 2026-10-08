@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: pr
+  goblin-spinner: reading the review|verifying claims|replying to threads
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3:*)", "Agent"]
 arguments: ["pr", "mode"]

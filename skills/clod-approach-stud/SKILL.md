@@ -5,6 +5,7 @@ when_to_use: ">=1 of the following are true: (a) spans several functions/files; 
 user-invocable: false
 metadata:
   family: clod-approach
+  goblin-spinner: studding|faking data|wiring stubs
 # No model/effort override: fires inside an ongoing build, so it inherits the
 # session the user chose for that work
 allowed-tools:

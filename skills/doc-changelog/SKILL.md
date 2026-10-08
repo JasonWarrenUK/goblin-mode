@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛊ
   family: doc
+  goblin-spinner: reading the commits|writing history|projecting the changelog
 disable-model-invocation: false # programmatic (built from commits), and its trigger moment follows pr-land; approval gates the write
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)"]
 arguments: ["scope", "targets", "version"]

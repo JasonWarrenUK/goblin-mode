@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: pr
+  goblin-spinner: reading the diff|drafting findings|printing verdicts
 disable-model-invocation: false # required so pr-review can call it
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Read", "Glob", "Grep"]
 disallowed-tools: ["Edit", "Write", "NotebookEdit"] # reviews, never fixes

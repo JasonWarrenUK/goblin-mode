@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛊ
   family: artefact
+  goblin-spinner: showing newbies round|drawing the map|pointing at things
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(open:*)", "Bash(mkdir:*)", "Write"]
 argument-hint: "[focus of analysis (optional)]"
