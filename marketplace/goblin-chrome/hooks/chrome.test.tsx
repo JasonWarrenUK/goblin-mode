@@ -288,6 +288,47 @@ test("the goblin holds the family's prop while the skill runs and drops it when 
 	expect(await goblinProps($)).toMatchObject({ prop: '' })
 })
 
+const SPAWN = {
+	tool_use_id: 'tu1',
+	prompt: 'look around',
+	description: 'explore',
+	provider: { plugin: 'engine', tier: 'core' },
+	parentModel: 'claude-opus-5-5',
+	background: true,
+	fork: false,
+} as const
+
+test('each subagent out is a minion beside the goblin, wearing its agent file face, until its turn completes', async ($, on) => {
+	world(on)
+	skillFiles(on, { '/home/j/.claude/agents/scope-guard.md': '---\nname: scope-guard\ngoblin-minion: o.O\n---\nbody' })
+	let n = 0
+	on('agent.spawn', async () => ({ model: 'claude-sonnet-5-5', agentId: `a${++n}` }))
+	on('turn.complete', async () => ({ text: '' }))
+	expect(await goblinProps($)).toMatchObject({ minions: [] })
+	await $.agent.spawn({ ...SPAWN, subagentType: 'scope-guard' })
+	await $.agent.spawn({ ...SPAWN, subagentType: 'Explore' })
+	expect(await goblinProps($)).toMatchObject({ minions: ['o.O', 'o.o'] })
+	const band = await $.ui.mount(BAND)
+	expect(await spoken(band)).toMatch(/2 mInIoNs oUt/)
+	await band.unmount()
+	// the first one home leaves the parade; the second stays
+	await $.turn.complete({ answer: 'found it', durationMs: 41_000, isAborted: false, turnId: 't-a1', reason: 'answer', agentId: 'a1' })
+	expect(await goblinProps($)).toMatchObject({ minions: ['o.o'] })
+	const after = await $.ui.mount(BAND)
+	expect(await spoken(after)).toMatch(/mInIoN bAcK/)
+	await after.unmount()
+	// the main turn ending clears any minion still out
+	await $.turn.complete({ answer: 'done', durationMs: 60_000, isAborted: false, turnId: 't1', reason: 'answer' })
+	expect(await goblinProps($)).toMatchObject({ minions: [] })
+})
+
+test('a refused spawn adds no minion', async ($, on) => {
+	world(on)
+	on('agent.spawn', async () => ({ deny: 'no' }))
+	await $.agent.spawn({ ...SPAWN, subagentType: 'Explore' }).catch(() => undefined)
+	expect(await goblinProps($)).toMatchObject({ minions: [] })
+})
+
 test('a personal skill shadows a project skill of the same name', async ($, on) => {
 	world(on)
 	skillFiles(on, {

@@ -67,7 +67,17 @@ export type Idle = {
 	sayingUntil: number
 }
 
-/** The turn's run: the skill in flight and its frontmatter. Cleared when the main turn completes. */
+/** A subagent out on an errand, standing in the band until its turn completes. */
+export type Minion = {
+	/** The subagent's id, as `agent.spawn` handed it back and `turn.complete` carries it. */
+	agentId: string
+	/** The resolved agent type (`Explore`, `scope-guard`). */
+	type: string
+	/** The face it wears: the agent file's `goblin-minion`, else the default. */
+	face: string
+}
+
+/** The turn's run: the skill in flight and its frontmatter, and the minions out. Cleared when the main turn completes. */
 export type Run = {
 	/** The skill whose prompt was last expanded this turn, or null between runs. */
 	skill: string | null
@@ -75,6 +85,7 @@ export type Run = {
 	family: string | null
 	/** The skill's `metadata.goblin-spinner` words, shown in the spinner one per minute. */
 	spinner: readonly string[]
+	minions: readonly Minion[]
 }
 
 declare module 'claude-code' {

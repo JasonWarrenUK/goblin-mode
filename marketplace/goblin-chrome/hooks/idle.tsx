@@ -1,8 +1,8 @@
 // The idle goblin (28): a Client surface module that animates in the band.
 // It paces while nothing happens, sits after five minutes, sleeps after ten,
 // startles when a prompt goes in, watches while Claude works, and can be
-// poked with the pointer. While a skill runs it holds that family's prop.
-// No `$` here: the hooks
+// poked with the pointer. While a skill runs it holds that family's prop,
+// and each subagent out stands beside it as a minion. No `$` here: the hooks
 // module hands it props and reads its posts.
 //
 // Every change of state happens on the frame clock or on a pointer event,
@@ -20,6 +20,9 @@ export type IdleProps = {
 	dim: string
 	/** The object held while a skill runs, by its family; empty for none. */
 	prop: string
+	/** The faces of the subagents out, oldest first. */
+	minions: readonly string[]
+	minionColour: string
 }
 
 type Pose = 'pace' | 'sit' | 'sleep' | 'startle' | 'watch' | 'poked' | 'lie'
@@ -65,6 +68,9 @@ const SPRITES = {
 /** The cells a sprite takes without a prop; every sprite above pads to it. */
 const WIDTH = 8
 
+/** How many minions stand in the band before the rest are a count. */
+export const MINIONS_SHOWN = 3
+
 const cells = (text: string): number => Array.from(text).length
 
 const MIRROR: Record<string, string> = { '<': '>', '>': '<', '[': ']', ']': '[', '(': ')', ')': '(', '/': '\\', '\\': '/' }
@@ -76,8 +82,19 @@ export const mirrorProp = (prop: string): string =>
 		.map(ch => MIRROR[ch] ?? ch)
 		.join('')
 
-/** The cells the goblin needs: its sprite width plus the prop. */
-export const footprint = (props: Pick<IdleProps, 'prop'>): { sprite: number } => ({ sprite: WIDTH + cells(props.prop) })
+/** The parade's text: up to `MINIONS_SHOWN` faces a space apart, then `+n` for the rest; empty when none are out. */
+export const paradeText = (minions: readonly string[]): string => {
+	if (minions.length === 0) return ''
+	const shown = minions.slice(0, MINIONS_SHOWN).join(' ')
+	const rest = minions.length - MINIONS_SHOWN
+	return rest > 0 ? `${shown} +${rest}` : shown
+}
+
+/** The cells the goblin needs: its sprite width plus the prop, and the parade with its gap. */
+export const footprint = (props: Pick<IdleProps, 'prop' | 'minions'>): { sprite: number; parade: number } => {
+	const parade = paradeText(props.minions)
+	return { sprite: WIDTH + cells(props.prop), parade: parade === '' ? 0 : cells(parade) + 1 }
+}
 
 const poseFor = (props: IdleProps, state: State, now: number): Pose => {
 	if (state.pokedUntil > now) return 'poked'
@@ -93,8 +110,11 @@ const poseFor = (props: IdleProps, state: State, now: number): Pose => {
 export const stepsAt = (now: number, stepMs: number): boolean =>
 	now > 0 && Math.floor(now / stepMs) !== Math.floor((now - TICK_MS) / stepMs)
 
-/** The cells the goblin can pace across: the room less its own footprint. */
-const roomFor = (props: Pick<IdleProps, 'prop'>, columns: number): number => Math.max(0, columns - footprint(props).sprite)
+/** The cells the goblin can pace across: the room less the parade and its own footprint. */
+const roomFor = (props: Pick<IdleProps, 'prop' | 'minions'>, columns: number): number => {
+	const f = footprint(props)
+	return Math.max(0, columns - f.parade - f.sprite)
+}
 
 /** One tick of the clock: the next state from the last, the props as last drawn and the room. */
 export const advance = (state: State, props: IdleProps, columns: number): State => {
@@ -172,10 +192,12 @@ const Goblin: ClientModule<IdleProps, State> = (props, surface) => {
 	const pose = poseFor(props, state, now)
 	const beat = Math.floor(now / 600)
 	const sprite = spriteFor(pose, props, state.dir, beat)
+	const parade = paradeText(props.minions)
 	const room = roomFor(props, surface.columns)
 	const left = pose === 'pace' ? Math.min(state.x, room) : pose === 'watch' ? room : 0
 	return (
 		<Box flexDirection="row" width={surface.columns || footprint(props).sprite}>
+			{parade !== '' && <Text color={props.minionColour}>{`${parade} `}</Text>}
 			{left > 0 && <Text>{' '.repeat(left)}</Text>}
 			<Text color={pose === 'sleep' || pose === 'lie' ? props.dim : props.colour} bold={pose === 'startle' || pose === 'poked'}>
 				{sprite}
