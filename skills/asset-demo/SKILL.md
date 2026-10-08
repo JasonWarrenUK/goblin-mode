@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: asset
+  goblin-spinner: recording the tape|rehearsing|cutting the gif
 disable-model-invocation: true
 allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion"]
 argument-hint: "[cli|web] [what the demo should show, in plain words] [name]"

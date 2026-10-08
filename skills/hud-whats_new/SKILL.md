@@ -7,6 +7,7 @@ effort: low
 metadata:
   glyph: ᛊ
   family: hud
+  goblin-spinner: listing what changed|spotting the new bits|summarising
 disable-model-invocation: false # useful as an automatic wrap-up after a unit of work lands
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git log:*)", "Bash(git diff:*)", "Bash(git status:*)"]
 arguments: ["since"]

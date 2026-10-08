@@ -7,6 +7,7 @@ effort: low
 metadata:
   glyph: ᛊ
   family: hud
+  goblin-spinner: reading profiles|listing the people|opening the store
 disable-model-invocation: false # read-only viewer, no gate needed
 disallowed-tools: ["Edit", "Write", "NotebookEdit"]
 allowed-tools: ["Bash(python3 \"$HOME\"/.claude/library/scripts/profiles.py:*)"]

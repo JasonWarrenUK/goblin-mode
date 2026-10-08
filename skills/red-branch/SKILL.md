@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: red
+  goblin-spinner: sharpening knives|hunting flaws|writing the rejection
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3 \"$HOME\"/.claude/library/scripts/red-personas.py:*)"]
 argument-hint: "<base branch> [persona] [persona] [-- what else would get this rejected]"

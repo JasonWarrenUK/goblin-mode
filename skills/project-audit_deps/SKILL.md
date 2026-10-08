@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛊ
   family: project
+  goblin-spinner: auditing dependencies|reading lockfiles|counting versions
 disable-model-invocation: true
 # Forked into a read-only Explore agent: a self-contained investigation whose
 # large read/web footprint stays out of the main context. $ARGUMENTS carries

@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: theme
+  goblin-spinner: mixing colours|checking contrast|emitting tokens
 disable-model-invocation: true
 allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion", "Artifact"]
 argument-hint: "print|display [all|<target>|<family>] | <target>|<family> [new] [from <family>]"

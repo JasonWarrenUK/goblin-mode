@@ -5,6 +5,7 @@ when_to_use: "When writing or debugging a shell script that uses gum (choose, co
 user-invocable: false
 metadata:
   family: clod-stack
+  goblin-spinner: styling the shell|spinning gum|prompting prettily
 # No paths gate: gum calls live inside ordinary .sh/.zsh files and shell
 # aliases, so file identity is an unreliable proxy for relevance
 allowed-tools:

@@ -4,6 +4,7 @@ description: "Silently log friction with Claude Code itself (bugs, missing featu
 when_to_use: "The moment Claude Code (the CLI/harness, not any project it's working in) visibly blocks, crashes on or annoys Jason and his reaction shows it bothered him: a curse, a workaround, a retried command, 'this is annoying', an explicit 'log this'. Not for project bugs, only for the tool itself."
 metadata:
   family: track
+  goblin-spinner: logging the pain|noting friction|filing a grievance
 disable-model-invocation: false # its whole value is firing at the moment of friction, unprompted; the write is append-only, low-stakes, reversible, and needs no gate
 allowed-tools: ["Read", "Edit", "Write"]
 ---
