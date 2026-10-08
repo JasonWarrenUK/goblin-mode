@@ -84,7 +84,7 @@ const refresh = async ($: EngineInterface): Promise<void> => {
 	const failed = (reason: string): Snapshot => ({ ok: false, reason, phase: '', donePct: 0, milestones: [], candidates: [], claimed: [], at })
 	try {
 		const detect = await run($, ['detect'])
-		if (detect.exitCode === 3) return void (await update($, snapshot, () => failed('old single-file roadmap: run the migrate skill (/roadmap:migrate or /roadmap:migrate) first')))
+		if (detect.exitCode === 3) return void (await update($, snapshot, () => failed('old single-file roadmap: run the migrate skill (/roadmap:migrate or /roadmap-migrate) first')))
 		if (detect.exitCode !== 0) return void (await update($, snapshot, () => failed(reasonOf(detect, 'no roadmap above this directory'))))
 		const [ready, stats] = await Promise.all([run($, ['ready', '--json']), run($, ['stats', '--json'])])
 		if (ready.exitCode !== 0 || stats.exitCode !== 0) {
@@ -167,7 +167,7 @@ export const register: Register = on => {
 				<Text bold>
 					{snap.phase || 'roadmap'} · {snap.donePct}% done{progress ? ` · ${progress}` : ''}
 				</Text>
-				{rows.length === 0 && <Text dimColor>nothing is ready. a blocker or a gate holds everything; the review skill (/roadmap:review or /roadmap:review) names it.</Text>}
+				{rows.length === 0 && <Text dimColor>nothing is ready. a blocker or a gate holds everything; the review skill (/roadmap:review or /roadmap-review) names it.</Text>}
 				{rows.map((c, i) => (
 					<Button
 						key={`row-${c.id}`}

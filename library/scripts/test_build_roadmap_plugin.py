@@ -202,6 +202,15 @@ class BuildSafeguards(unittest.TestCase):
 		self.assertNotIn("<plugin-root>", module)
 		self.assertNotIn("~/.claude", module)
 
+	def test_pane_keeps_both_skill_forms_and_names_no_skill_in_its_cli(self) -> None:
+		out = self.out.parent / "pane"
+		plugin.build_pane(self.root, out)
+		module = (out / "hooks" / "register.tsx").read_text()
+		for config_form, plugin_form in (("/roadmap-migrate", "/roadmap:migrate"), ("/roadmap-review", "/roadmap:review")):
+			self.assertIn(f"{plugin_form} or {config_form}", module)
+		core = (out / "scripts" / "_roadmap_core.py").read_text()
+		self.assertIn("run the roadmap migrate skill first", core)
+
 	def test_pane_version_must_be_bare_semver(self) -> None:
 		(self.root / plugin.PANE_VERSION_SOURCE).write_text("v0.1.0\n")
 		with self.assertRaises(plugin.BuildError) as caught:
