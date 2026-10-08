@@ -5,6 +5,14 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `/ready`, a mod that was the separate `roadmap-pane` plugin: the ready set in a pane with the claims in play and milestone progress by release tier, refreshed from the plugin's CLI without a turn. A digit picks a row, `c` claims it after asking who and `r` refreshes; `/ready` again closes it. The pane follows the session's working directory, so a move into a worktree reads and claims against that worktree's `roadmaps.json`. Without a roadmap, with an old-format one or when the CLI refuses, it draws a card that says what happened and names the skill that fixes it. Needs Claude Code 2.1.287 or later and draws in the terminal.
+
+### Changed
+
+- The plugin is hand-maintained under `marketplace/roadmap/` instead of being built from skills in the goblin-mode config, so there is one copy of every skill. The CLI's tests, the prose roadmap template and an example roadmap ship with it.
+
 ## [2.2.0] - 2026-10-08
 
 ### Changed

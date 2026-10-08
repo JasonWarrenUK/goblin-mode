@@ -1,11 +1,10 @@
 // The roadmap pane: `/ready` opens the ready set the CLI computes, in
 // leverage order, with the claims in play and the milestones' progress, and
 // runs again to close it. A digit picks a row; `c` claims it after asking
-// who (an assignee is never inferred), `r` refreshes. The CLI is this
-// plugin's own scripts/roadmap.py, built from the same source as the roadmap
-// plugin's, so the pane needs python3 and nothing else and a config that
-// runs the roadmap skills from its own files enables the pane alone.
-// Nothing here edits roadmaps.json except through `claim`.
+// who (an assignee is never inferred), `r` refreshes. The CLI is the
+// plugin's own scripts/roadmap.py, the same file the skills run, so the pane
+// needs python3 and nothing else. Nothing here edits roadmaps.json except
+// through `claim`.
 //
 // Colours are the engine's theme keys, never raw values: the pane follows
 // whichever theme the person runs. A release tier takes one hue everywhere it
@@ -21,9 +20,9 @@ const ROWS = 9
 const BAR_CELLS = 5
 const TIER_LABEL_WIDTH = 11
 
-const snapshot = atom({ plugin: 'roadmap-pane', key: 'snapshot' } as const, null as Snapshot | null)
-const selected = atom({ plugin: 'roadmap-pane', key: 'selected' } as const, null as string | null)
-const asking = atom({ plugin: 'roadmap-pane', key: 'asking' } as const, null as string | null)
+const snapshot = atom({ plugin: 'roadmap', key: 'snapshot' } as const, null as Snapshot | null)
+const selected = atom({ plugin: 'roadmap', key: 'selected' } as const, null as string | null)
+const asking = atom({ plugin: 'roadmap', key: 'asking' } as const, null as string | null)
 
 // Module-level because the validator holds `$` to top-level functions; only
 // the CLI path lives here, which no drawing reads.
@@ -188,7 +187,7 @@ const step = (ui: Ui, n: number, what: string, pointer: string) => {
 			<Text color="claude" bold>
 				{command}
 			</Text>
-			<Text dimColor>or {alt}</Text>
+			{alt && <Text dimColor>or {alt}</Text>}
 		</Box>
 	)
 }
@@ -203,20 +202,20 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 					glyph: '◈',
 					title: 'Old roadmap format',
 					lead: 'This roadmap is a single file. The pane reads the phase-array format.',
-					steps: [step(ui, 1, 'Convert it', '/roadmap:migrate or /roadmap-migrate'), step(ui, 2, 'Reopen', '/ready or press r')],
+					steps: [step(ui, 1, 'Convert it', '/roadmap:migrate'), step(ui, 2, 'Reopen', '/ready or press r')],
 				}
 			: snap.problem === 'broken'
 				? {
 						glyph: '✗',
 						title: 'The roadmap would not load',
 						lead: snap.reason,
-						steps: [step(ui, 1, 'Check it', '/roadmap:maintain or /roadmap-maintain'), step(ui, 2, 'Then', 'r or refresh')],
+						steps: [step(ui, 1, 'Check it', '/roadmap:maintain'), step(ui, 2, 'Then', 'r or refresh')],
 					}
 				: {
 						glyph: '◇',
 						title: 'No roadmap in this project',
 						lead: 'Nothing at .claude/roadmaps.json above this directory.',
-						steps: [step(ui, 1, 'Start one', '/roadmap:create or /roadmap-create'), step(ui, 2, 'Reopen', '/ready or press r')],
+						steps: [step(ui, 1, 'Start one', '/roadmap:create'), step(ui, 2, 'Reopen', '/ready or press r')],
 					}
 	return (
 		<Box flexDirection="column" width={width} rowGap={1}>
@@ -415,7 +414,7 @@ export const register: Register = on => {
 				{header(ui, snap, inner)}
 				<Box flexDirection="column" paddingX={1}>
 					<Text color="subtle">{rule(`Ready now · ${snap.candidates.length}`, inner)}</Text>
-					{rows.length === 0 && <Text dimColor>nothing is ready. a blocker or a gate holds everything; the review skill (/roadmap:review or /roadmap-review) names it.</Text>}
+					{rows.length === 0 && <Text dimColor>nothing is ready. a blocker or a gate holds everything; /roadmap:review names it.</Text>}
 					<Box flexDirection="column" rowGap={1}>
 						{rows.map((c, i) => taskRow($, ui, c, i, picked, inner))}
 					</Box>
