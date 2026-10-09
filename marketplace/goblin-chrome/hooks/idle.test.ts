@@ -42,6 +42,7 @@ describe('the parade', () => {
 	test('the footprint counts the sprite with its prop and the parade with its gap', async () => {
 		expect(footprint({ prop: '', minions: [] })).toEqual({ sprite: 8, parade: 0 })
 		expect(footprint({ prop: '[#]', minions: [] })).toEqual({ sprite: 11, parade: 0 })
+		expect(footprint({ prop: '[三]', minions: [] })).toEqual({ sprite: 12, parade: 0 })
 		expect(footprint({ prop: '', minions: ['o.o', 'o.O'] })).toEqual({ sprite: 8, parade: 8 })
 	})
 })

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { rasterColour, shade } from './colour'
-import { DEFAULT_MINION, FACE_COLUMNS, FACE_ROWS, faceCells, propFor, PROPS } from './goblin'
+import { DEFAULT_MINION, FACE_COLUMNS, FACE_ROWS, faceCells, PROP_MAX_CELLS, propFor, PROPS } from './goblin'
+import { cells } from './text'
 import { CLOD } from './theme'
 
 const unpack = (cells: string): Uint32Array =>
@@ -35,21 +36,18 @@ describe('faceCells', () => {
 	})
 })
 
-/** Glyphs some terminals draw two cells wide: shade and block elements, geometric shapes, East Asian ranges. */
-const WIDE = /[▀-▟■-◿☀-➿　-鿿＀-￯]/
-
 describe('props', () => {
-	test('every family prop is one to three cells of single-width BMP text, so the band can measure it', async () => {
+	test('every family prop fits the cap in terminal cells and is BMP text without spaces, so the band can measure it', async () => {
 		for (const [family, prop] of Object.entries(PROPS)) {
-			const chars = Array.from(prop)
-			expect(chars.length, family).toBeGreaterThanOrEqual(1)
-			expect(chars.length, family).toBeLessThanOrEqual(3)
-			for (const ch of chars) {
+			expect(cells(prop), family).toBeGreaterThanOrEqual(1)
+			expect(cells(prop), family).toBeLessThanOrEqual(PROP_MAX_CELLS)
+			for (const ch of Array.from(prop)) {
 				expect((ch.codePointAt(0) ?? 0) <= 0xffff, `${family}: ${ch}`).toBe(true)
-				expect(WIDE.test(ch), `${family}: ${ch}`).toBe(false)
 				expect(/\s/.test(ch), `${family}: ${ch}`).toBe(false)
 			}
 		}
+		// the one wide glyph in the table is measured as two cells
+		expect(cells(PROPS['clod-stack']!)).toBe(4)
 	})
 
 	test('every family in the config has a prop, and no two families share one', async () => {
@@ -67,7 +65,6 @@ describe('props', () => {
 	})
 
 	test('the default minion face is band-safe', async () => {
-		expect(Array.from(DEFAULT_MINION).length).toBeLessThanOrEqual(5)
-		expect(WIDE.test(DEFAULT_MINION)).toBe(false)
+		expect(cells(DEFAULT_MINION)).toBeLessThanOrEqual(5)
 	})
 })

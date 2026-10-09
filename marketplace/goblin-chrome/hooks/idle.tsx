@@ -11,6 +11,8 @@
 
 import type { ClientModule } from 'claude-code'
 
+import { cells } from './text'
+
 export type IdleProps = {
 	mode: 'idle' | 'working'
 	idleMs: number
@@ -70,8 +72,6 @@ const WIDTH = 8
 
 /** How many minions stand in the band before the rest are a count. */
 export const MINIONS_SHOWN = 3
-
-const cells = (text: string): number => Array.from(text).length
 
 const MIRROR: Record<string, string> = { '<': '>', '>': '<', '[': ']', ']': '[', '(': ')', ')': '(', '/': '\\', '\\': '/' }
 
