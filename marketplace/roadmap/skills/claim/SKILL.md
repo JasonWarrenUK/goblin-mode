@@ -1,7 +1,7 @@
 ---
 name: "Roadmap: Claim"
 description: "Claim a roadmap task when work on it starts, or release the claim when work stops: asks who is doing it, runs the CLI, commits the change"
-when_to_use: "When the user says they are starting, taking or working on a roadmap task (\"claim 2SE.1\", \"I'm picking up the search task\"), or wants to drop one (\"release 2SE.1\", \"I'm not doing that any more\"), or a roadmap hook nudge asks whether the branch is roadmap work. Never for setting an assignee without a start (roadmap:update-devs) or for marking work done (roadmap:maintain)."
+when_to_use: "When the user says they are starting, taking or working on a roadmap task (\"claim 2SE.1\", \"I'm picking up the search task\"), or wants to drop one (\"release 2SE.1\", \"I'm not doing that any more\"), or a roadmap hook nudge asks whether the branch is roadmap work. Never for setting an assignee without a start (roadmap:update-devs, or `roadmap.py assign`) or for marking work done (roadmap:maintain)."
 model: sonnet
 effort: low
 metadata:

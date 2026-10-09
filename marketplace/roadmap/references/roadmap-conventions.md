@@ -24,6 +24,7 @@ python3 <plugin-root>/scripts/roadmap.py <subcommand> [PATH] [--phase NAME]
 | `ready` | actionable todo candidates with leverage signals; `--json` adds `groups` (candidate ids per milestone and per topic, in display order) | `--json` | 0 · 2 |
 | `render` | deterministic HTML artefact from `templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
 | `claim ID` | record that someone has started a task (see Claims) | `--assignee NAME --reassign --date YYYY-MM-DD` | 0 · 1 refusal · 2 |
+| `assign ID` | set or clear an assignee without claiming (see Claims) | `--assignee NAME` or `--unassign` (exactly one) | 0 · 1 refusal · 2 |
 | `release ID` | drop a claim | `--unassign` | 0 · 1 not claimed · 2 |
 | `hook EVENT` | Claude Code hook entry point (`session-start`, `post-tool-use`); reads the hook JSON on stdin | | always 0 |
 
@@ -61,7 +62,11 @@ it; `claim` stamps today's date unless given another.
 - **Making one:** the `roadmap:claim` skill (`roadmap:claim [ID] [assignee|release]`) is the front door: it asks who, runs the CLI, commits the change and offers the push. Underneath, `claim ID [--assignee NAME]` refuses unless the task's
   effective status is `todo`, it isn't already claimed and any change of
   assignee is explicit (`--reassign`). `release ID [--unassign]` deletes it.
-  Both write `roadmaps.json` only. A claim has no PHASE.md task-line
+  `assign ID (--assignee NAME | --unassign)` sets or clears the assignee alone,
+  on any task including a claimed one, and never touches `started`. The
+  `/ready` pane's claim passes `--reassign` itself, because the name is typed
+  there on purpose; the `roadmap:claim` skill still asks first.
+  All of these write `roadmaps.json` only. A claim has no PHASE.md task-line
   annotation and no overview line; the PHASE.md diagram shows it, like the
   dashboard, once `roadmap:maintain` regenerates the diagram.
 - **What views show:** a claimed task that is `todo` or `blocked` shows as
