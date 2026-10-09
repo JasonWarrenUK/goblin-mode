@@ -288,7 +288,7 @@ test("the goblin holds the family's prop while the skill runs and drops it when 
 	const ui = await $.ui.mount(BAND)
 	await ui.resize({ columns: 30, rows: 1, in: 'goblin' })
 	await ui.advance(150)
-	expect((await ui.findAll({ type: 'Text', in: 'goblin' })).map(t => t.text).join('')).toMatch(/\(ಠ_ಠ\)\[#\]$/)
+	expect((await ui.findAll({ type: 'Text', in: 'goblin' })).map(t => t.text).join('')).toMatch(/\(ಠ_ಠ\)\[#\] {2}$/)
 	await ui.unmount()
 	await $.turn.complete({ answer: 'done', durationMs: 3_000, isAborted: false, turnId: 't1', reason: 'answer' })
 	expect(await goblinProps($)).toMatchObject({ prop: '' })
