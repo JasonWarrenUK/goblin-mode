@@ -47,7 +47,7 @@ When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/
 | `model` | top level | Pins the frame's tier; a different model answering draws the mismatch frame. |
 | `metadata.family` | under `metadata:` | Picks the prop the goblin holds, from the `PROPS` table in `hooks/goblin.ts`: a parcel for `pr`, a lens for `clod-lens`, a pen for `clod-approach`. A family without a prop walks empty-handed. |
 | `metadata.goblin-spinner` | under `metadata:` | Bar-separated spinner words, `merging\|deleting evidence\|tagging`, shown one a minute. |
-| `goblin-minion` | top level of an agent file | The face the subagent wears in the parade, one to five single-width characters; `o.o` when unset. Agent files are read from `~/.claude/agents/` then `<project>/.claude/agents/`. |
+| `goblin-minion` | top level of an agent file | The face the subagent wears in the parade, one to five terminal cells, a wide glyph counting two; `o.o` when unset. Quote a face that starts with a YAML indicator (`>`, `@`, `\|`, `*`, `&`, `!`) or reads as a number: `'>.<'`, `'0.0'`. Agent files are read from `~/.claude/agents/` then `<project>/.claude/agents/`. |
 
 A prop is up to four terminal cells of BMP text, so the band's arithmetic holds; the sprite grows by the prop's width and the pacing room shrinks to match. Widths are measured as a terminal draws them: a CJK ideograph such as the one in `[三]` counts two cells, while ambiguous-width glyphs (box drawing, shades, arrows, geometric shapes) count one, as the band's own frame already assumes. A minion face that would not fit the rule (wider than five cells, a space, an emoji) is ignored for the default.
 
