@@ -45,11 +45,11 @@ When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/
 | Field | Where | What it does |
 |---|---|---|
 | `model` | top level | Pins the frame's tier; a different model answering draws the mismatch frame. |
-| `metadata.family` | under `metadata:` | Picks the prop the goblin holds, from the `PROPS` table in `hooks/goblin.ts`: a parcel for `pr`, a lens for `clod-lens`, a quill for `doc`. A family without a prop walks empty-handed. |
+| `metadata.family` | under `metadata:` | Picks the prop the goblin holds, from the `PROPS` table in `hooks/goblin.ts`: a parcel for `pr`, a lens for `clod-lens`, a pen for `clod-approach`. A family without a prop walks empty-handed. |
 | `metadata.goblin-spinner` | under `metadata:` | Bar-separated spinner words, `merging\|deleting evidence\|tagging`, shown one a minute. |
 | `goblin-minion` | top level of an agent file | The face the subagent wears in the parade, one to five single-width characters; `o.o` when unset. Agent files are read from `~/.claude/agents/` then `<project>/.claude/agents/`. |
 
-A prop is one to three cells of single-width text, so the band's arithmetic holds; the sprite grows by the prop's width and the pacing room shrinks to match. A minion face that would not fit the rule (wider than five cells, a space, an emoji) is ignored for the default.
+A prop is up to four terminal cells of BMP text, so the band's arithmetic holds; the sprite grows by the prop's width and the pacing room shrinks to match. Widths are measured as a terminal draws them: a CJK ideograph such as the one in `[三]` counts two cells, while ambiguous-width glyphs (box drawing, shades, arrows, geometric shapes) count one, as the band's own frame already assumes. A minion face that would not fit the rule (wider than five cells, a space, an emoji) is ignored for the default.
 
 The day has nine states on the local clock, fading over ten minutes, shifted one row towards lively on a Friday from four, one towards tired on a Sunday and one towards tired once the session passes four hours. Colours come from the project's theme in `.claude/themes/`, the `clod` family when it has none.
 

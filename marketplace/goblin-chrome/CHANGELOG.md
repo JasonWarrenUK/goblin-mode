@@ -9,7 +9,7 @@ All notable changes to this plugin are documented here, newest first.
 
 ### Added
 
-- The goblin holds a prop while a skill runs, chosen by the skill's `metadata.family`: a parcel for `pr`, a lens for `clod-lens`, a quill for `doc` and one for every family in the config. It carries the prop in the hand it walks with and keeps it through its blink.
+- The goblin holds a prop while a skill runs, chosen by the skill's `metadata.family`: a parcel for `pr`, a lens for `clod-lens`, a pen for `clod-approach` and one for every family in the config. It carries the prop in the hand it walks with and keeps it through its blink. Props are measured as a terminal draws them, a CJK ideograph counting two cells.
 - Spinner words from a skill's `metadata.goblin-spinner`: while the skill runs, the spinner shows one of them a minute, dressed like the house verbs (`••• dElEtInG eViDeNcE •••`). A subagent's spinner keeps the engine's word.
 - A minion parade: each subagent out stands beside the goblin in the band, wearing the face its agent file sets under `goblin-minion`, until its own turn completes. Three are shown and the rest are a count. The goblin remarks when one goes out, as it already did when one came back.
 - `run` in the `$.state` contract: the skill in flight, its family, its spinner words and the minions out.
