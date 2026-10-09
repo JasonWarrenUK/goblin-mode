@@ -75,6 +75,7 @@ Other top-level artefacts this wiki links out to rather than duplicates:
 This documentation has drifted from reality twice now: first for months (README claimed 66 skills against an actual 45, pointed at directories that no longer existed, listed a hook that had been deleted), then again more subtly (the root README's counts stayed hand-maintained even after the fix, drifting to 26/15/15 against an actual 19/14/19). Two things make a third recurrence less likely:
 
 - **Generated content stays generated.** `skills/README.md` and the root README's "What's In Here" counts table are both rebuilt by `python3 ~/.claude/library/scripts/gen-skills-index.py`, not hand-maintained; the root README block sits between HTML markers the script rewrites in place. Run `gen-skills-index.py --check` to verify both are current without writing; it exits 1 (independently) if either has drifted.
+- **Frontmatter is linted, not trusted.** `python3 ~/.claude/library/scripts/skill-lint.py` checks every skill's `metadata.glyph` against its `model` and exits 1 on drift, so a rune that stops mirroring its model is caught at the next run rather than noticed in the terminal months later.
 - **Reference pages describe current state only.** Anything speculative or historical lives under [Design history](design-history/agent-workflow-design.md), [Audits](#audits) or [Archive](archive/), clearly labelled, rather than blended into the reference pages as if it were still true.
 
 ---

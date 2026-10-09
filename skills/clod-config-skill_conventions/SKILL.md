@@ -44,6 +44,8 @@ metadata:
 | `ᛟ` | othala | opus |
 | `ᚠ` | fehu | fable |
 
+`python3 ~/.claude/library/scripts/skill-lint.py` checks every skill's glyph against its model and exits 1 on drift; run it after editing either field, alongside `gen-skills-index.py`.
+
 Knowledge skills (`user-invocable: false`) set neither `model` nor `effort`: both fields override the session absolutely while the skill is active, so an inline reference skill would hijack the very turn that triggered it.
 
 ## Terminal output templates
