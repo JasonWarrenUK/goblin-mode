@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: branch
+  goblin-spinner: inspecting the branch|poking the tests|judging readiness
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Bash(git:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
 disallowed-tools: ["Edit", "Write", "NotebookEdit"] # assesses readiness, never fixes

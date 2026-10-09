@@ -10,6 +10,7 @@ effort: medium
 metadata:
   glyph: ᛊ
   family: do
+  goblin-spinner: interviewing|planning|studding the skeleton
 allowed-tools:
   - "Read"
   - "Glob"

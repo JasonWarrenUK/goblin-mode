@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛊ
   family: branch
+  goblin-spinner: digging a worktree|moving house|checking out
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "EnterWorktree", "ExitWorktree", "Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(du:*)", "Bash(ls:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)"]
 arguments: ["action", "branch", "name"]

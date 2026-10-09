@@ -5,6 +5,7 @@ when_to_use: "When choosing a data store or storage pattern for new data, or rev
 user-invocable: false
 metadata:
   family: clod-role
+  goblin-spinner: sorting the data|choosing a store|drawing joins
 # No paths gate: "which database?" conversations happen before any schema or
 # migration file exists; the skill's core moment has no matching files
 allowed-tools:

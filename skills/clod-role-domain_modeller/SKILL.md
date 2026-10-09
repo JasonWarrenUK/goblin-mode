@@ -5,6 +5,7 @@ when_to_use: "Before writing code for a new feature that introduces new entities
 user-invocable: false
 metadata:
   family: clod-role
+  goblin-spinner: naming entities|drawing boundaries|modelling
 allowed-tools:
   - Read
   - Glob

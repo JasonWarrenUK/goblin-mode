@@ -7,6 +7,7 @@ effort: low
 metadata:
   glyph: ᛊ
   family: asset
+  goblin-spinner: freezing the code|picking a frame|polishing the still
 disable-model-invocation: true
 allowed-tools: ["Read", "Write", "Glob", "Grep", "Bash"]
 argument-hint: "<file [lines a-b] | run: <command>> [svg] [theme family]"

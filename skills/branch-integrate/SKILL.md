@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛊ
   family: branch
+  goblin-spinner: merging|rebasing|untangling
 disable-model-invocation: true
 allowed-tools: ["Bash(git:*)", "Bash(~/.claude/library/scripts/git-integrate.sh:*)", "Read", "Glob", "Grep", "Edit"]
 arguments: ["strategy", "target"]

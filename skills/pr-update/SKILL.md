@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛊ
   family: pr
+  goblin-spinner: rereading the pr|updating the description|catching up
 disable-model-invocation: false # invocable by Claude so it can offer a refresh when new commits leave the description stale; its approval step still gates the write
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/pr-facts.sh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Bash(~/.claude/library/scripts/md-lint.py:*)", "Read", "Glob", "Grep"]
 arguments: ["pr"]

@@ -1,9 +1,20 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { mix, parseHex, rasterColour, RASTER_DEFAULT, shade } from './colour'
-import { base64, goblinCase, packCells, pick, seconds } from './text'
+import { base64, cells, goblinCase, packCells, pick, seconds } from './text'
 
 describe('text', () => {
+	test('cells count a wide ideograph as two and an ambiguous glyph as one', async () => {
+		expect(cells('')).toBe(0)
+		expect(cells('(ಠ_ಠ)>')).toBe(6)
+		expect(cells('[三]')).toBe(4)
+		expect(cells('░▒▓')).toBe(3)
+		expect(cells('==▷')).toBe(3)
+		expect(cells('•‿•')).toBe(3)
+		expect(cells('ﾃ')).toBe(1)
+		expect(cells('テ')).toBe(2)
+	})
+
 	test('goblin case alternates letters only', async () => {
 		expect(goblinCase('done. 42s. took 7 things.')).toBe('dOnE. 42s. tOoK 7 tHiNgS.')
 		expect(goblinCase('')).toBe('')

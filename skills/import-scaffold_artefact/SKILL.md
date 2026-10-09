@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛊ
   family: import
+  goblin-spinner: unpacking the artefact|scaffolding|converting to svelte
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(bun:*)", "Bash(bunx:*)", "Bash(npm:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(open:*)", "Bash(find:*)"]
 argument-hint: '[artefact path (.html/.jsx, optional)] ["react" to opt into React/Next]'

@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛊ
   family: artefact
+  goblin-spinner: wiring up toys|adding sliders|making it fiddleable
 disable-model-invocation: true
 allowed-tools: ["Read", "Write", "Bash(open:*)"]
 argument-hint: "[topic or thing to explore]"

@@ -6,6 +6,7 @@ when_to_use: "When the ask is small and well-understood and you want the smalles
 effort: medium
 metadata:
   family: do
+  goblin-spinner: doing the least|cutting the change|finding the smallest thing
 disable-model-invocation: true
 argument-hint: "[desired outcome]"
 # Reads pre-approved only: the task domain is unbounded, so any broader grant

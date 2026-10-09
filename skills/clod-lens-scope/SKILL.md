@@ -5,6 +5,7 @@ when_to_use: "When a plan is quietly growing beyond the original ask, or the use
 user-invocable: false
 metadata:
   family: clod-lens
+  goblin-spinner: shrinking it|asking what is smallest|cutting scope
 allowed-tools:
   - Read
 ---

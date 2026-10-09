@@ -7,6 +7,7 @@ effort: low
 metadata:
   glyph: ᛊ
   family: commit
+  goblin-spinner: sorting the commits|splitting hunks|grouping changes
 disable-model-invocation: false
 allowed-tools: ["Bash(git:*)"]
 arguments: ["hints"]

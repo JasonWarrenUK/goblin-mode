@@ -5,6 +5,7 @@ when_to_use: "When designing or reviewing a user-facing feature: dark patterns, 
 user-invocable: false
 metadata:
   family: clod-lens
+  goblin-spinner: squinting at your morals|checking consent|minding the dark patterns
 allowed-tools:
   - Read
 ---

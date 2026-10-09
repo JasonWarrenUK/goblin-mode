@@ -11,6 +11,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: skill-creator
+  goblin-spinner: forging a skill|writing frontmatter|running evals
 allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Agent", "AskUserQuestion", "TodoWrite"]
 argument-hint: "[what the skill should do, optional]"
 ---

@@ -208,6 +208,144 @@ test('a project skill pinning a smaller model draws the mismatch frame', async (
 	expect(await borderAfterSkill($)).toBe('╓')
 })
 
+const PR_LAND = '---\nname: pr-land\nmodel: opus\nmetadata:\n  glyph: ᛟ\n  family: pr\n  goblin-spinner: merging|deleting evidence|tagging\n---\nbody'
+
+/** The main loop's spinner id as a live session draws it: the session's own UUID, never a fixed word. */
+const MAIN_LOOP = '4f7f27db-de9c-47fb-a784-47fbea7cf901'
+
+const SPINNER = {
+	plugin: PLUGIN,
+	surface: 'terminal',
+	component: 'Spinner',
+	requestId: MAIN_LOOP,
+	props: { word: 'Baked', message: null, suffix: '…', mode: 'thinking' },
+} as const
+
+/** The spinner's word as drawn: the engine's own row, beneath ours. */
+const spinnerWord = async ($: Engine, requestId: string = MAIN_LOOP) => {
+	const ui = await $.ui.mount({ ...SPINNER, requestId })
+	const word = (await ui.find({ type: 'Text' }))?.text
+	await ui.unmount()
+	return word
+}
+
+test('a skill with spinner words takes over the spinner for the turn, one word a minute, dressed like the house verbs', async ($, on) => {
+	const clock = world(on)
+	skillFiles(on, { '.claude/skills/pr-land/SKILL.md': PR_LAND })
+	on('ui.render', { component: 'Spinner' }, async ($, e) => {
+		const { Text } = $.ui.resolve(e)
+		return Text({ children: [e.props.word] })
+	})
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	on('turn.complete', async () => ({ text: '' }))
+	on('agent.spawn', async () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
+	expect(await spinnerWord($)).toBe('Baked')
+	await $.turn.start({ text: '/pr-land', turnId: 't1' })
+	await $.skill.prompt({ skill: 'pr-land', text: '' })
+	const first = await spinnerWord($)
+	expect(first).toMatch(/^••• [a-zA-Z ]+ •••$/)
+	expect(first).toMatch(/[A-Z]/)
+	await clock.advance(60_000)
+	const second = await spinnerWord($)
+	expect(second).not.toBe(first)
+	// a subagent's spinner (its id is the agent id) keeps the engine's word; the main loop's keeps ours
+	await $.agent.spawn({ ...SPAWN, subagentType: 'Explore' })
+	expect(await spinnerWord($, 'agent-1')).toBe('Baked')
+	expect(await spinnerWord($)).toMatch(/^••• /)
+	await $.turn.complete({ answer: 'done', durationMs: 3_000, isAborted: false, turnId: 't1', reason: 'answer' })
+	expect(await spinnerWord($)).toBe('Baked')
+})
+
+test('a skill without spinner words leaves the spinner alone', async ($, on) => {
+	world(on)
+	skillFiles(on, { '.claude/skills/x/SKILL.md': '---\nname: x\nmetadata:\n  family: pr\n---\nbody' })
+	on('ui.render', { component: 'Spinner' }, async ($, e) => {
+		const { Text } = $.ui.resolve(e)
+		return Text({ children: [e.props.word] })
+	})
+	await $.skill.prompt({ skill: 'x', text: '' })
+	expect(await spinnerWord($)).toBe('Baked')
+})
+
+/** The idle goblin's props as the band hands them over. */
+const goblinProps = async ($: Engine) => {
+	const ui = await $.ui.mount(BAND)
+	const props = (await ui.find({ type: 'Client', key: 'goblin' }))?.props.props as Record<string, unknown> | undefined
+	await ui.unmount()
+	return props
+}
+
+test("the goblin holds the family's prop while the skill runs and drops it when the turn completes", async ($, on) => {
+	world(on)
+	skillFiles(on, { '.claude/skills/pr-land/SKILL.md': PR_LAND })
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	on('turn.complete', async () => ({ text: '' }))
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+	await $.turn.start({ text: '/pr-land', turnId: 't1' })
+	await $.skill.prompt({ skill: 'pr-land', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '[#]', mode: 'working' })
+	// the watching goblin is drawn with the parcel in hand
+	const ui = await $.ui.mount(BAND)
+	await ui.resize({ columns: 30, rows: 1, in: 'goblin' })
+	await ui.advance(150)
+	expect((await ui.findAll({ type: 'Text', in: 'goblin' })).map(t => t.text).join('')).toMatch(/\(ಠ_ಠ\)\[#\] {2}$/)
+	await ui.unmount()
+	await $.turn.complete({ answer: 'done', durationMs: 3_000, isAborted: false, turnId: 't1', reason: 'answer' })
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+})
+
+const SPAWN = {
+	tool_use_id: 'tu1',
+	prompt: 'look around',
+	description: 'explore',
+	provider: { plugin: 'engine', tier: 'core' },
+	parentModel: 'claude-opus-5-5',
+	background: true,
+	fork: false,
+} as const
+
+test('each subagent out is a minion beside the goblin, wearing its agent file face, until its turn completes', async ($, on) => {
+	world(on)
+	skillFiles(on, { '/home/j/.claude/agents/scope-guard.md': '---\nname: scope-guard\ngoblin-minion: o.O\n---\nbody' })
+	let n = 0
+	on('agent.spawn', async () => ({ model: 'claude-sonnet-5-5', agentId: `a${++n}` }))
+	on('turn.complete', async () => ({ text: '' }))
+	on('classic.SessionStart', async () => ({}))
+	expect(await goblinProps($)).toMatchObject({ minions: [] })
+	await $.agent.spawn({ ...SPAWN, subagentType: 'scope-guard' })
+	await $.agent.spawn({ ...SPAWN, subagentType: 'Explore' })
+	expect(await goblinProps($)).toMatchObject({ minions: ['o.O', 'o.o'] })
+	const band = await $.ui.mount(BAND)
+	expect(await spoken(band)).toMatch(/2 mInIoNs oUt/)
+	await band.unmount()
+	// the first one home leaves the parade; the second stays
+	await $.turn.complete({ answer: 'found it', durationMs: 41_000, isAborted: false, turnId: 't-a1', reason: 'answer', agentId: 'a1' })
+	expect(await goblinProps($)).toMatchObject({ minions: ['o.o'] })
+	const after = await $.ui.mount(BAND)
+	expect(await spoken(after)).toMatch(/mInIoN bAcK/)
+	await after.unmount()
+	// the main turn ending leaves the minion still out; only its own turn, or a fresh session, ends it
+	await $.turn.complete({ answer: 'done', durationMs: 60_000, isAborted: false, turnId: 't1', reason: 'answer' })
+	expect(await goblinProps($)).toMatchObject({ minions: ['o.o'] })
+	await $.classic.SessionStart({ source: 'clear' })
+	expect(await goblinProps($)).toMatchObject({ minions: [] })
+})
+
+test('subagents spawned together all join the parade', async ($, on) => {
+	world(on)
+	let n = 0
+	on('agent.spawn', async () => ({ model: 'claude-sonnet-5-5', agentId: `p${++n}` }))
+	await Promise.all(['Explore', 'Plan', 'scope-guard'].map(subagentType => $.agent.spawn({ ...SPAWN, subagentType })))
+	expect(await goblinProps($)).toMatchObject({ minions: ['o.o', 'o.o', 'o.o'] })
+})
+
+test('a refused spawn adds no minion', async ($, on) => {
+	world(on)
+	on('agent.spawn', async () => ({ deny: 'no' }))
+	await $.agent.spawn({ ...SPAWN, subagentType: 'Explore' }).catch(() => undefined)
+	expect(await goblinProps($)).toMatchObject({ minions: [] })
+})
+
 test('a personal skill shadows a project skill of the same name', async ($, on) => {
 	world(on)
 	skillFiles(on, {

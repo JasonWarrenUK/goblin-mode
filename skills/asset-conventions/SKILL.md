@@ -5,6 +5,7 @@ when_to_use: "Loaded by every asset-* skill before it captures, renders or frame
 user-invocable: false
 metadata:
   family: asset
+  goblin-spinner: checking the gate|minding the assets|tidying the shelf
 allowed-tools: ["Read", "Glob", "Grep", "Bash"]
 ---
 
