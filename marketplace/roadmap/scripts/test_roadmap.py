@@ -1695,6 +1695,79 @@ class ClaimCommand(unittest.TestCase):
         self.assertTrue(any("run roadmap.py claim" in p for p in problems))
 
 
+class AssignCommand(unittest.TestCase):
+    _project = ClaimCommand._project
+    _task = ClaimCommand._task
+    _run = ClaimCommand._run
+
+    def test_assign_writes_assignee_in_field_order_without_started(self):
+        jp = self._project([task("a", notes="n", pr=12)])
+        rc, out = self._run("assign", "a", str(jp), "--assignee", "Jaz")
+        self.assertEqual(rc, 0)
+        self.assertIn("assigned a to Jaz", out)
+        self.assertEqual(list(self._task(jp, "a")),
+                         ["id", "description", "status", "dependsOn", "notes",
+                          "assignee", "pr"])
+
+    def test_assign_replaces_and_reports_the_previous_assignee(self):
+        jp = self._project([task("a", assignee="Jaz")])
+        rc, out = self._run("assign", "a", str(jp), "--assignee", "Max")
+        self.assertEqual(rc, 0)
+        self.assertIn("(was Jaz)", out)
+        self.assertEqual(self._task(jp, "a")["assignee"], "Max")
+
+    def test_same_name_keeps_its_spelling_and_does_not_rewrite(self):
+        jp = self._project([task("a", assignee="Jaz")])
+        before = jp.read_text()
+        rc, out = self._run("assign", "a", str(jp), "--assignee", "jaz")
+        self.assertEqual(rc, 0)
+        self.assertIn("already assigned to Jaz", out)
+        self.assertEqual(jp.read_text(), before)
+
+    def test_unassign_removes_the_key_and_is_a_no_op_without_one(self):
+        jp = self._project([task("a", assignee="Jaz"), task("b")])
+        before = jp.read_text()
+        self.assertEqual(self._run("assign", "a", str(jp), "--unassign")[0], 0)
+        self.assertNotIn("assignee", self._task(jp, "a"))
+        after = jp.read_text()
+        rc, out = self._run("assign", "b", str(jp), "--unassign")
+        self.assertEqual(rc, 0)
+        self.assertIn("has no assignee", out)
+        self.assertEqual(jp.read_text(), after)
+        self.assertNotEqual(after, before)
+
+    def test_assign_works_on_a_claimed_task_and_leaves_started(self):
+        jp = self._project([task("a", assignee="Jaz", started="2026-09-01")])
+        self.assertEqual(self._run("assign", "a", str(jp), "--assignee", "Max")[0], 0)
+        self.assertEqual(self._task(jp, "a")["assignee"], "Max")
+        self.assertEqual(self._task(jp, "a")["started"], "2026-09-01")
+
+    def test_assign_then_unassign_is_byte_identical(self):
+        jp = self._project([task("a", notes="n", pr=12)])
+        before = jp.read_text()
+        self._run("assign", "a", str(jp), "--assignee", "Jaz")
+        self._run("assign", "a", str(jp), "--unassign")
+        self.assertEqual(jp.read_text(), before)
+
+    def test_assign_refusals_leave_the_file_alone(self):
+        jp = self._project([task("a")])
+        before = jp.read_text()
+        for argv, needle in [
+                (["assign", "a", "--assignee", "  "], "needs a name"),
+                (["assign", "zz", "--assignee", "Max"], "no task")]:
+            rc, out = self._run(argv[0], argv[1], str(jp), *argv[2:])
+            self.assertEqual(rc, 1, argv)
+            self.assertIn(needle, out, argv)
+        self.assertEqual(jp.read_text(), before)
+
+    def test_assign_needs_exactly_one_of_assignee_or_unassign(self):
+        jp = self._project([task("a")])
+        for extra in ([], ["--assignee", "Max", "--unassign"]):
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+                roadmap.main(["assign", "a", str(jp), *extra])
+            self.assertEqual(caught.exception.code, 2)
+
+
 class EndedField(unittest.TestCase):
     def _problems(self, **fields):
         ph = phase([{"id": "M1", "name": "m", "tasks": [task("a", **fields)]}])

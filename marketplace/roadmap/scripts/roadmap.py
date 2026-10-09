@@ -23,6 +23,8 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
   render     deterministic HTML artefact from template   [--out PATH]
   claim      ID: record that someone has started a task [--assignee NAME
                                                          --reassign --date]
+  assign     ID: set or clear an assignee, no claim     [--assignee NAME
+                                                         | --unassign]
   release    ID: drop a claim                           [--unassign]
   end        ID: record when a done task finished       [--date --force]
   backfill-ended  date done tasks lacking `ended` from git history
@@ -1748,6 +1750,34 @@ def cmd_claim(args) -> int:
     return 0
 
 
+def cmd_assign(args) -> int:
+    path, data, index, code = _load_for_write(args)
+    if code is not None:
+        return code
+    task = index[0][args.id]
+    current = task.get("assignee", "")
+    if args.unassign:
+        if not current:
+            print(f"✓ {args.id} has no assignee")
+            return 0
+        del task["assignee"]
+        _atomic_write(path, _canonical_text(data))
+        print(f"✓ cleared {args.id}'s assignee (was {current})")
+        return 0
+    name = args.assignee.strip()
+    if not name:
+        print("✗ --assignee needs a name")
+        return 1
+    if current and current.strip().lower() == name.lower():
+        print(f"✓ {args.id} already assigned to {current}")
+        return 0
+    _set_task_field(task, "assignee", name)
+    _atomic_write(path, _canonical_text(data))
+    was = f" (was {current})" if current else ""
+    print(f"✓ assigned {args.id} to {name}{was}")
+    return 0
+
+
 def cmd_release(args) -> int:
     path, data, index, code = _load_for_write(args)
     if code is not None:
@@ -2078,6 +2108,14 @@ def main(argv=None) -> int:
                     help="start date YYYY-MM-DD (default today)")
 
     sp = claim_common(sub.add_parser(
+        "assign", help="set or clear who will do a task, without starting it"))
+    who = sp.add_mutually_exclusive_group(required=True)
+    who.add_argument("--assignee", default=None,
+                     help="who will do it (asked for, never inferred)")
+    who.add_argument("--unassign", action="store_true",
+                     help="clear the assignee")
+
+    sp = claim_common(sub.add_parser(
         "end", help="record the date a done task finished"))
     sp.add_argument("--date", default=None,
                     help="end date YYYY-MM-DD (default today)")
@@ -2124,6 +2162,7 @@ def main(argv=None) -> int:
         "open": lambda a: cmd_ready(a, horizon="open"),
         "render": cmd_render,
         "claim": cmd_claim,
+        "assign": cmd_assign,
         "release": cmd_release,
         "end": cmd_end,
         "backfill-ended": cmd_backfill_ended,
