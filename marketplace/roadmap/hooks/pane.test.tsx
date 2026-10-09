@@ -28,7 +28,7 @@ const STATS = JSON.stringify({
 type On = Parameters<typeof mock.clock>[0]
 
 /** The world beneath the plugin: a clock, a store, and a python that answers the CLI by subcommand. */
-const world = (on: On, detectExit = 0, readyRefusal: string | null = null) => {
+const world = (on: On, detectExit = 0, readyRefusal: string | null = null, ready = READY) => {
 	const calls: string[][] = []
 	const toasts: string[] = []
 	mock.clock(on, { now: NOON })
@@ -49,9 +49,10 @@ const world = (on: On, detectExit = 0, readyRefusal: string | null = null) => {
 		const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
 		if (sub === 'detect') return { value: { exitCode: detectExit, stdout: detectExit === 2 ? '✗ could not locate .claude/roadmaps.json above the current directory' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
 		if (sub === 'ready' && readyRefusal !== null) return { value: { exitCode: 2, stdout: readyRefusal, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
-		if (sub === 'ready') return ok(READY)
+		if (sub === 'ready') return ok(ready)
 		if (sub === 'stats') return ok(STATS)
 		if (sub === 'claim') return ok(`claimed ${argv[3]}`)
+		if (sub === 'assign') return ok(`assigned ${argv[3]}`)
 		return { value: { exitCode: 1, stdout: '', stderr: 'unknown', isStdoutTruncated: false, isStderrTruncated: false } }
 	})
 	on('ui.open', async ($, e) => {
@@ -117,7 +118,7 @@ test('/ready refreshes from the CLI and draws the header, the ready set in order
 	expect(await ui.find({ type: 'Text', text: /Core/ })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: /Secondary/ })).toBeDefined()
 	const rows = await ui.findAll({ type: 'Button' })
-	expect(rows.map(r => r.props.label)).toEqual(['2SE.1', '2SE.4', 'refresh'])
+	expect(rows.map(r => r.props.label)).toEqual(['2SE.1', '2SE.4', '2SE.2', 'refresh'])
 	expect(await ui.find({ type: 'Text', text: 'index the search' })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: 'unblocks 3' })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: 'completes it' })).toBeDefined()
@@ -142,9 +143,76 @@ test('a picked row offers claim; claim asks who and runs the CLI', async ($, on)
 	await ui.input({ key: 'assignee', text: '  ' })
 	expect(toasts).toEqual(['a claim needs a name.'])
 	await ui.input({ key: 'assignee', text: 'Jaz' })
-	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=Jaz')).toBe(true)
+	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=Jaz --reassign')).toBe(true)
 	expect(toasts[1]).toBe('claimed 2SE.1 for Jaz. commit roadmaps.json when you are ready.')
 	expect(await ui.find({ type: 'Input' })).toBeUndefined()
+})
+
+test('claiming a row that already has an assignee replaces it', async ($, on) => {
+	const { calls } = world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'row-2SE.4' })
+	await ui.press({ key: 'claim' })
+	await ui.input({ key: 'assignee', text: 'Max' })
+	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.4 --assignee=Max --reassign')).toBe(true)
+})
+
+test('assign asks who and sets the assignee without claiming', async ($, on) => {
+	const { calls, toasts } = world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	expect(await ui.find({ key: 'assign' })).toBeUndefined()
+	await ui.press({ key: 'row-2SE.1' })
+	await ui.press({ key: 'assign' })
+	const input = await ui.find({ type: 'Input', key: 'assignee' })
+	expect(input?.props.label).toBe('who will do 2SE.1')
+	await ui.input({ key: 'assignee', text: 'Jaz' })
+	expect(calls.some(c => c.slice(2).join(' ') === 'assign 2SE.1 --assignee=Jaz')).toBe(true)
+	expect(calls.some(c => c[2] === 'claim')).toBe(false)
+	expect(toasts).toEqual(['assigned 2SE.1 to Jaz. commit roadmaps.json when you are ready.'])
+	expect(await ui.find({ type: 'Input' })).toBeUndefined()
+})
+
+test('a blank assign clears the assignee', async ($, on) => {
+	const { calls, toasts } = world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'row-2SE.4' })
+	await ui.press({ key: 'assign' })
+	await ui.input({ key: 'assignee', text: '  ' })
+	expect(calls.some(c => c.slice(2).join(' ') === 'assign 2SE.4 --unassign')).toBe(true)
+	expect(toasts).toEqual(["cleared 2SE.4's assignee. commit roadmaps.json when you are ready."])
+})
+
+test('a claim in play can be picked and reassigned, but not claimed again', async ($, on) => {
+	const { calls } = world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'claimed-row-2SE.2' })
+	expect(await ui.find({ key: 'claim' })).toBeUndefined()
+	expect(await ui.find({ key: 'assign' })).toBeDefined()
+	await ui.press({ key: 'assign' })
+	await ui.input({ key: 'assignee', text: 'Dan' })
+	expect(calls.some(c => c.slice(2).join(' ') === 'assign 2SE.2 --assignee=Dan')).toBe(true)
+})
+
+test('a claim past the ninth has no hotkey but can still be picked and reassigned', async ($, on) => {
+	const claimed = Array.from({ length: 10 }, (_, i) => ({ id: `9X.${i + 1}`, description: `claim ${i + 1}`, assignee: 'Max', started: '2026-10-01' }))
+	const { calls } = world(on, 0, null, JSON.stringify({ ...JSON.parse(READY), claimed }))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'claimed-row-9X.10' })
+	expect(await ui.find({ type: 'Text', text: '▶' })).toBeDefined()
+	expect(await ui.find({ key: 'assign' })).toBeDefined()
+	await ui.press({ key: 'assign' })
+	await ui.input({ key: 'assignee', text: 'Dan' })
+	expect(calls.some(c => c.slice(2).join(' ') === 'assign 9X.10 --assignee=Dan')).toBe(true)
 })
 
 test('a name that starts with a dash is bound to --assignee, not read as an option', async ($, on) => {
@@ -155,11 +223,11 @@ test('a name that starts with a dash is bound to --assignee, not read as an opti
 	await ui.press({ key: 'row-2SE.1' })
 	await ui.press({ key: 'claim' })
 	await ui.input({ key: 'assignee', text: '-J' })
-	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=-J')).toBe(true)
+	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=-J --reassign')).toBe(true)
 	await ui.press({ key: 'row-2SE.1' })
 	await ui.press({ key: 'claim' })
 	await ui.input({ key: 'assignee', text: '--reassign' })
-	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=--reassign')).toBe(true)
+	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=--reassign --reassign')).toBe(true)
 })
 
 test('refresh is offered before a row is picked, and hidden while the assignee input is open', async ($, on) => {
