@@ -57,6 +57,8 @@ describe('readMinionFace', () => {
 
 	test('refuses a face the band cannot measure: too wide, blank, with a space or beyond the BMP', async () => {
 		expect(readMinionFace('---\ngoblin-minion: o.o.o.o\n---')).toBeNull()
+		expect(readMinionFace('---\ngoblin-minion: 三三三\n---')).toBeNull()
+		expect(readMinionFace('---\ngoblin-minion: [三]\n---')).toBe('[三]')
 		expect(readMinionFace('---\ngoblin-minion:\n---')).toBeNull()
 		expect(readMinionFace('---\ngoblin-minion: o o\n---')).toBeNull()
 		expect(readMinionFace('---\ngoblin-minion: 👺\n---')).toBeNull()

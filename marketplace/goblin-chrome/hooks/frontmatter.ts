@@ -3,6 +3,8 @@
 // `goblin-minion`) and the scalars nested under `metadata:` (`family`,
 // `goblin-spinner`). Comments after a space-hash are dropped, quotes stripped.
 
+import { cells } from './text'
+
 export type SkillFrontmatter = {
 	/** The `model:` line, or null when absent or `inherit`. */
 	model: string | null
@@ -75,21 +77,20 @@ export const readSkill = (markdown: string): SkillFrontmatter => {
 	}
 }
 
-/** Widest a minion's face may be, in cells. */
+/** Widest a minion's face may be, in terminal cells. */
 export const MINION_MAX_WIDTH = 5
 
 /**
  * The `goblin-minion:` face of an agent file, or null when absent or unusable.
- * A face is one to five cells of single-width BMP text, so the band's
- * arithmetic holds; anything else (an emoji, a blank) is refused.
+ * A face is one to five terminal cells of BMP text, a wide glyph counting
+ * two, so the band's arithmetic holds; an emoji or a blank is refused.
  */
 export const readMinionFace = (markdown: string): string | null => {
 	const block = frontmatterBlock(markdown)
 	if (block === null) return null
 	const face = topLevel(block, 'goblin-minion')
 	if (face === null) return null
-	const chars = Array.from(face)
-	if (chars.length > MINION_MAX_WIDTH) return null
-	if (chars.some(ch => (ch.codePointAt(0) ?? 0) > 0xffff || /\s/.test(ch))) return null
+	if (cells(face) > MINION_MAX_WIDTH) return null
+	if (Array.from(face).some(ch => (ch.codePointAt(0) ?? 0) > 0xffff || /\s/.test(ch))) return null
 	return face
 }
