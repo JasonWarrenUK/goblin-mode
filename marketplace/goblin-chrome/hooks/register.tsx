@@ -233,9 +233,7 @@ export const register: Register = (on, options) => {
 	// A subagent out is a minion in the band, wearing its agent file's face,
 	// until its own turn completes. Personal agents shadow project ones.
 	on('agent.spawn', async ($, e, next) => {
-		const ran = await next(e)
-		const agentId = (ran as { agentId?: unknown }).agentId
-		if (typeof agentId !== 'string') return ran
+		// The face is read before the spawn resolves, so nothing awaits between the subagent starting and its minion being added.
 		let face = DEFAULT_MINION
 		try {
 			const home = await $.env.get('HOME')
@@ -245,6 +243,9 @@ export const register: Register = (on, options) => {
 		} catch {
 			face = DEFAULT_MINION
 		}
+		const ran = await next(e)
+		const agentId = (ran as { agentId?: unknown }).agentId
+		if (typeof agentId !== 'string') return ran
 		const type = e.subagentType
 		// Spawns arrive together, so the list is built from the state at write time, never from an earlier read.
 		await update($, run, cur => ({ ...cur, minions: [...cur.minions.filter(m => m.agentId !== agentId), { agentId, type, face }] }))
