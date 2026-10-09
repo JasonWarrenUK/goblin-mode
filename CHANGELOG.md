@@ -5,6 +5,33 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.6.0] - 2026-10-09
+
+### Breaking
+
+- The `roadmap-pane@goblin-mode` plugin is gone. `/ready` now ships inside the roadmap plugin (2.3.0), so anyone who enabled the pane alone must enable `roadmap` instead.
+- The config's own roadmap skills are retired: the eleven `roadmap-*` skills, `next-task-suggest`, `next-task-group` and `artefact-roadmap`. The roadmap plugin is the only copy, so invoke the `roadmap:` forms (`/roadmap:claim`, `/roadmap:maintain` and so on).
+- `skills/` and `library/` no longer carry the roadmap CLI, its conventions reference or its artefact template. They live in `marketplace/roadmap/`.
+
+### Added
+
+- The goblin holds a prop while a skill runs, chosen by the skill's `metadata.family`: a parcel for `pr`, a lens for `clod-lens`, a pen for `clod-approach`. Props are measured in terminal cells, so wide characters keep the band aligned. Ships as goblin-chrome 0.2.0.
+- Spinner words from a skill's `metadata.goblin-spinner`: the spinner shows one of them a minute while the skill runs. Every skill now carries three or four.
+- A minion parade: each subagent out stands beside the goblin wearing the face its agent file sets under `goblin-minion`, until its own turn completes. Three are shown and the rest are a count. Every agent now carries a face.
+- `python3 library/scripts/skill-lint.py` checks that each skill's glyph mirrors its model and exits 1 on a mismatch, a glyph without a model or a model without a glyph.
+- `doc-changelog` gains a `pkg:NAME` scope that reads `.github/release-packages.json`, and `pr-land` offers it for every tag a landing produces.
+
+### Changed
+
+- The `/ready` pane draws a framed header, one row per release tier with a progress chip per milestone, two-line task cards and a separate claims section. Each failure state draws a card that names the skill that fixes it.
+- The roadmap plugin is hand-maintained under `marketplace/roadmap/` and moves to 2.3.0; its own changelog lists the changes.
+
+### Fixed
+
+- `project-tag_version` carried Haiku's rune on a Sonnet skill. It now carries Sonnet's.
+- A subagent's spinner is told apart from the main loop's by its agent id, and every minion stays in the parade however the subagents spawn.
+- Agent faces that YAML reads as syntax or a number (`'>.<'`, `'@.@'`, `'0.0'`) are quoted, so the frontmatter check passes.
+
 ## [6.5.0] - 2026-10-08
 
 ### Added
@@ -249,7 +276,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.5.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.6.0...HEAD
+[6.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.5.0...v6.6.0
 [6.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.1...v6.5.0
 [6.4.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.0...v6.4.1
 [6.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.3.0...v6.4.0
