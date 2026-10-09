@@ -32,7 +32,13 @@ export type Milestone = {
 }
 
 /** Why the pane has no roadmap to draw: none above the directory, the old single-file format, or a CLI that refused or could not run. */
-export type Problem = 'none' | 'missing' | 'legacy' | 'broken'
+/** The name the pane is waiting for: whose task, and whether the answer claims it or only assigns it. */
+export type Asking = {
+	id: string
+	mode: 'claim' | 'assign'
+}
+
+export type Problem ='none' | 'missing' | 'legacy' | 'broken'
 
 export type Snapshot = {
 	ok: boolean
@@ -53,7 +59,7 @@ declare module 'claude-code' {
 		'roadmap': {
 			snapshot: Snapshot | null
 			selected: string | null
-			asking: string | null
+			asking: Asking | null
 		}
 	}
 }
