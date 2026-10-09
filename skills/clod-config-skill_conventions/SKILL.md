@@ -35,7 +35,7 @@ metadata:
   goblin-spinner: merging|deleting evidence|tagging   # a few verbs (3 or 4), bar-separated
 ```
 
-`goblin-spinner` is read by the goblin-chrome mod: while the skill runs, the spinner shows one of its words a minute, in the house dress (`••• mErGiNg •••`). Lowercase present participles in the goblin's register, 3 or 4 of them, no colons. `family` also picks the prop the goblin holds for the run; a family without one in the mod's `PROPS` table walks empty-handed. Agent files take a top-level `goblin-minion: o.O` for the face their subagent wears in the band, one to five single-width characters.
+`goblin-spinner` is read by the goblin-chrome mod: while the skill runs, the spinner shows one of its words a minute, in the house dress (`••• mErGiNg •••`). Lowercase present participles in the goblin's register, 3 or 4 of them, no colons. `family` also picks the prop the goblin holds for the run; a family without one in the mod's `PROPS` table walks empty-handed. Agent files take a top-level `goblin-minion: o.O` for the face their subagent wears in the band, one to five terminal cells, a wide glyph counting two. Quote a face that starts with a YAML indicator (`>`, `@`, `|`, `*`, `&`, `!`) or reads as a number: `'>.<'`, `'0.0'`.
 
 | Glyph | Rune | Model |
 |---|---|---|
