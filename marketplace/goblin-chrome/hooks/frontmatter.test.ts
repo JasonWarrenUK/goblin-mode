@@ -60,6 +60,12 @@ describe('readMinionFace', () => {
 		expect(readMinionFace('---\nname: x\ngoblin-minion: "ಠ.ಠ"\n---')).toBe('ಠ.ಠ')
 	})
 
+	test('reads the quoted faces YAML needs for a leading indicator or a number-shaped value', async () => {
+		expect(readMinionFace("---\ngoblin-minion: '>.<'\n---")).toBe('>.<')
+		expect(readMinionFace("---\ngoblin-minion: '@.@'\n---")).toBe('@.@')
+		expect(readMinionFace("---\ngoblin-minion: '0.0'\n---")).toBe('0.0')
+	})
+
 	test('refuses a face the band cannot measure: too wide, blank, with a space or beyond the BMP', async () => {
 		expect(readMinionFace('---\ngoblin-minion: o.o.o.o\n---')).toBeNull()
 		expect(readMinionFace('---\ngoblin-minion: 三三三\n---')).toBeNull()
