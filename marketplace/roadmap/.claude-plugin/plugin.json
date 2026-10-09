@@ -1,6 +1,6 @@
 {
 	"name": "roadmap",
-	"version": "2.3.0",
+	"version": "2.4.0",
 	"description": "Roadmaps as a dependency graph: JSON source of truth, mechanical status recompute, projected task lists, Mermaid diagrams, an HTML dashboard, the interview, review and next-task skills that drive it, and /ready, a pane that shows the ready set and claims a task.",
 	"author": {
 		"name": "Jason Warren"
