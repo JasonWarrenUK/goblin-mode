@@ -67,7 +67,7 @@ const SPRITES = {
 	sway: ['(ಠ_ಠ)~', '~(ಠ_ಠ)'],
 } as const
 
-/** The cells a sprite takes without a prop; every sprite above pads to it. */
+/** The cells the widest sprite (sleep) takes without a prop; the others draw within it. */
 const WIDTH = 8
 
 /** How many minions stand in the band before the rest are a count. */
