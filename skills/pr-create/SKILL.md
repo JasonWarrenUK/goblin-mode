@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛟ
   family: pr
+  goblin-spinner: writing the pr|describing changes|opening the request
 disable-model-invocation: false # invocable so next-task-ship (Step 6) and branch-qa_review's Ready offer can call it; its own approval step gates PR creation
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Bash(~/.claude/library/scripts/md-lint.py:*)", "Read", "Glob", "Grep"]
 argument-hint: "[shiny|wordy] [draft] [base <branch>] [screenshot files or issue numbers...]"

@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛟ
   family: doc
+  goblin-spinner: writing the readme|explaining things|drawing tables
 disable-model-invocation: false # programmatic (derives from repo facts), so Claude can offer a refresh when structure drifts; approval gates the write
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(~/.claude/library/scripts/git-doc-history.sh:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)"]
 arguments: ["mode", "target"]

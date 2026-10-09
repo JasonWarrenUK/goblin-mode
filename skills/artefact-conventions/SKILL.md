@@ -5,6 +5,7 @@ when_to_use: "Before writing any artefact (a claude.ai/Cowork Artifact, a Claude
 disable-model-invocation: false # the trigger moment (about to write an artefact) is one Claude recognises before the user does; the per-project interview (Step 2b) is its own approval gate before anything gets written
 metadata:
   family: artefact
+  goblin-spinner: minding the rules|checking the honesty|straightening frames
 allowed-tools: ["Read", "Glob", "Grep", "Write", "AskUserQuestion"]
 ---
 

@@ -5,6 +5,7 @@ when_to_use: "When a git operation needs judgement beyond a single command: reso
 user-invocable: false
 metadata:
   family: clod-role
+  goblin-spinner: tending the branches|minding the history|resolving conflicts
 allowed-tools:
   - Read
   - "Bash(git:*)"

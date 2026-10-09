@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: pr
+  goblin-spinner: reviewing|posting the verdict|reading the diff
 disable-model-invocation: false # invocable so next-task-ship's Step 7 self-review can call it; it posts to GitHub, so never invoke without an explicit ask or that orchestration
 allowed-tools: ["Bash(git:*)", "Bash(gh:*)", "Bash(node:*)", "Bash(jq:*)"]
 disallowed-tools: ["Edit", "Write", "NotebookEdit"] # reviews and posts, never fixes

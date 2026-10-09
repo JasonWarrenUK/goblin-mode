@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᚠ
   family: artefact
+  goblin-spinner: reading everything|citing sources|hoarding footnotes
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Agent", "AskUserQuestion", "WebFetch", "WebSearch", "Artifact", "Bash(open:*)", "Bash(mkdir:*)", "Bash(find:*)", "Bash(git:*)", "Bash(grep:*)", "Bash(ls:*)"]
 argument-hint: '"<focus>" <target> <format> [source | "src1,src2"]'

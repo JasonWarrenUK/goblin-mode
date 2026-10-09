@@ -5,6 +5,7 @@ when_to_use: "When writing or reviewing Cypher queries, designing a graph schema
 user-invocable: false
 metadata:
   family: clod-stack
+  goblin-spinner: traversing the graph|matching nodes|writing cypher
 # No paths gate: Cypher mostly lives inside .ts strings, not .cypher files, so
 # file identity is an unreliable proxy for relevance
 allowed-tools:

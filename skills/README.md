@@ -39,7 +39,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/pr-handle_review` | ᛟ opus | Work through a PR's change requests: verify each independently, fix what holds up, reply to every th… |
 | `/pr-land` | ᛟ opus | Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up |
 | `/project-audit_deps` | ᛊ sonnet | Investigate this repo's dependencies in detail |
-| `/project-tag_version` | ᚺ sonnet | Tag the release after a merge to main, computing the next semver tag with svu |
+| `/project-tag_version` | ᛊ sonnet | Tag the release after a merge to main, computing the next semver tag with svu |
 | `/red-branch` | ᛟ opus | Adversarial review of a branch diff written as the colleague trying to get it rejected, aimed at one… |
 | `/red-doc` | ᛟ opus | Adversarial review of a document written as the colleague trying to kill it, aimed at one or two nam… |
 | `/skill-creator` | ᛟ opus | Create new skills, modify and improve existing skills, and measure skill performance. Use when users… |

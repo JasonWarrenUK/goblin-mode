@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: red
+  goblin-spinner: reading to kill|poking holes|drafting objections
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(python3:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(wc:*)", "Bash(python3 \"$HOME\"/.claude/library/scripts/red-personas.py:*)"]
 argument-hint: "<target> [persona] [persona] [-- what else would kill it]"

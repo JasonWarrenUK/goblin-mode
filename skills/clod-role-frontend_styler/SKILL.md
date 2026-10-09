@@ -5,6 +5,7 @@ when_to_use: "When a layout is broken, styles are inconsistent across components
 user-invocable: false
 metadata:
   family: clod-role
+  goblin-spinner: fiddling with css|nudging pixels|aligning things
 paths:
   - "**/*.svelte"
   - "**/*.css"

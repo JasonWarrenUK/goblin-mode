@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛊ
   family: hud
+  goblin-spinner: mapping worktrees|counting trees|checking state
 disable-model-invocation: false # confusion about worktrees is exactly when it should appear; read-only, so no gate is needed
 allowed-tools: ["Bash(git worktree list:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Read", "Glob"]
 argument-hint: "(no arguments: shows the map)"

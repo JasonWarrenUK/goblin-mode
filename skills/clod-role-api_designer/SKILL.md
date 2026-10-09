@@ -5,6 +5,7 @@ when_to_use: "When designing or reviewing an API endpoint, request/response cont
 user-invocable: false
 metadata:
   family: clod-role
+  goblin-spinner: shaping endpoints|typing the boundary|validating inputs
 # No paths gate: API design conversations start before route files exist, and
 # paths would suppress exactly that trigger
 allowed-tools:

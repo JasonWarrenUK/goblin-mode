@@ -6,20 +6,23 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement } from 'claude-code'
 
-import type { Day, Frame, Idle, Palette, Tier, Vitals } from '../types'
+import type { Day, Frame, Idle, Palette, Run, Tier, Vitals } from '../types'
 import { mix, shade } from './colour'
 import { dayAt, parseSchedule, STYLE } from './day'
+import { readMinionFace, readSkill } from './frontmatter'
 import {
+	DEFAULT_MINION,
 	faceCells,
 	FACE_COLUMNS,
 	FACE_ROWS,
 	HECKLES,
 	POKE_LINES,
+	propFor,
 	type Expression,
 } from './goblin'
 import { goblinCase, pick, seconds } from './text'
 import { CLOD, loadPalette, type Variant } from './theme'
-import { bandRule, DEFAULT_TIER, frameFor, glyphsFor, pinnedModel, tierOf } from './tier'
+import { bandRule, DEFAULT_TIER, frameFor, glyphsFor, tierOf } from './tier'
 
 const PLUGIN = 'goblin-chrome'
 
@@ -47,6 +50,11 @@ const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
 	saying: '',
 	sayingUntil: 0,
 } as Idle)
+const NO_RUN: Run = { skill: null, family: null, spinner: [], minions: [] }
+const run = atom({ plugin: 'goblin-chrome', key: 'run' } as const, NO_RUN)
+
+/** How the spinner dresses a skill's word, matching the house `spinnerVerbs`. */
+const spinnerWord = (word: string): string => `••• ${goblinCase(word)} •••`
 
 /** The accent as the day colours it: faded from the previous state's shade over ten minutes. */
 const accentOf = (p: Palette, d: Day): string =>
@@ -136,6 +144,7 @@ export const register: Register = (on, options) => {
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, sessionStartAt: now, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, tools: 0, errors: 0 }))
+		await update($, run, () => NO_RUN)
 		await refreshFrame($)
 		await refreshDay($)
 		return next(e)
@@ -197,32 +206,79 @@ export const register: Register = (on, options) => {
 		return result
 	})
 
+	// The skill's frontmatter sets the frame's pin, the prop in the goblin's
+	// hand and the spinner's words, all until the turn completes. Plugin skills
+	// live elsewhere and read as nothing set.
 	on('skill.prompt', async ($, e, next) => {
 		let pinned: Tier | null = null
+		let family: string | null = null
+		let spinner: readonly string[] = []
 		try {
 			// Personal shadows project, as Claude Code resolves a skill of the same name.
 			const home = await $.env.get('HOME')
 			const personal = home ? await $.fs.read(`${home}/.claude/skills/${e.skill}/SKILL.md`).catch(() => '') : ''
 			const text = personal || (await $.fs.read(`.claude/skills/${e.skill}/SKILL.md`))
-			const model = pinnedModel(text)
-			pinned = model ? tierOf(model) : null
+			const fm = readSkill(text)
+			pinned = fm.model ? tierOf(fm.model) : null
+			family = fm.family
+			spinner = fm.spinner
 		} catch {
 			pinned = null
 		}
+		await update($, run, r => ({ ...r, skill: e.skill, family, spinner }))
 		await refreshFrame($, { pinned })
 		return next(e)
 	})
 
+	// A subagent out is a minion in the band, wearing its agent file's face,
+	// until its own turn completes. Personal agents shadow project ones.
+	on('agent.spawn', async ($, e, next) => {
+		// The face is read before the spawn resolves, so nothing awaits between the subagent starting and its minion being added.
+		let face = DEFAULT_MINION
+		try {
+			const home = await $.env.get('HOME')
+			const personal = home ? await $.fs.read(`${home}/.claude/agents/${e.subagentType}.md`).catch(() => '') : ''
+			const text = personal || (await $.fs.read(`.claude/agents/${e.subagentType}.md`))
+			face = readMinionFace(text) ?? DEFAULT_MINION
+		} catch {
+			face = DEFAULT_MINION
+		}
+		const ran = await next(e)
+		const agentId = (ran as { agentId?: unknown }).agentId
+		if (typeof agentId !== 'string') return ran
+		const type = e.subagentType
+		// Spawns arrive together, so the list is built from the state at write time, never from an earlier read.
+		await update($, run, cur => ({ ...cur, minions: [...cur.minions.filter(m => m.agentId !== agentId), { agentId, type, face }] }))
+		await say($, HECKLES.minionOut((await read($, run)).minions.length))
+		return ran
+	})
+
 	on('turn.complete', async ($, e, next) => {
 		if (e.agentId) {
+			const agentId = e.agentId
+			await update($, run, r => ({ ...r, minions: r.minions.filter(m => m.agentId !== agentId) }))
 			await say($, HECKLES.minionBack(e.durationMs))
 			return next(e)
 		}
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, turnMs: e.durationMs, turnTools: v.tools, turnErrors: v.errors }))
+		// The skill's run ends with the turn: the pin, the prop and the spinner's words. A minion
+		// still out stays until its own turn completes, or the session starts over.
+		await update($, run, r => ({ ...NO_RUN, minions: r.minions }))
 		if ((await read($, frame)).pinned !== null) await refreshFrame($, { pinned: null })
 		return next(e)
+	})
+
+	// The spinner's word while a skill with `goblin-spinner` runs (one word a
+	// minute, in the house dress). A spinner's requestId is its agent id; the
+	// main loop's is the session id (measured in a live session), so a subagent
+	// is told by matching a minion out, and its spinner keeps the engine's.
+	on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
+		const r = await read($, run)
+		if (r.spinner.length === 0 || r.minions.some(m => m.agentId === e.requestId)) return next(e)
+		const now = await $.clock.now()
+		return next({ ...e, props: { ...e.props, word: spinnerWord(pick(r.spinner, Math.floor(now / 60_000))) } })
 	})
 
 	on('session.compact', async ($, e, next) => {
@@ -250,7 +306,7 @@ export const register: Register = (on, options) => {
 	on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
 		if (e.props.hasSurvey || e.surface !== 'terminal') return next(e)
 		const { Box, Text, Client } = $.ui.resolve(e)
-		const [p, d, f, i] = await Promise.all([read($, palette), read($, day), read($, frame), read($, idle)])
+		const [p, d, f, i, r] = await Promise.all([read($, palette), read($, day), read($, frame), read($, idle), read($, run)])
 		const now = await $.clock.now()
 		const accent = accentOf(p, d)
 		const since = Math.max(i.lastTurnEndAt, i.lastPromptAt, i.sessionStartAt)
@@ -300,6 +356,9 @@ export const register: Register = (on, options) => {
 								startleAt: i.lastPromptAt,
 								colour: accent,
 								dim: p.inkMuted,
+								prop: propFor(r.family),
+								minions: r.minions.map(m => m.face),
+								minionColour: p.accent2,
 							}}
 						/>
 					</Box>

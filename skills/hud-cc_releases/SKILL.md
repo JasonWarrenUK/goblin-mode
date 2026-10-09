@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛊ
   family: hud
+  goblin-spinner: reading release notes|filtering the noise|summarising
 disable-model-invocation: false # read-only viewer, no gate needed
 disallowed-tools: ["Edit", "Write", "NotebookEdit"]
 allowed-tools: ["Bash(curl:*)", "Bash(awk:*)", "Bash(grep:*)", "Bash(npm view:*)", "Bash(claude --version)", "Read", "AskUserQuestion", "Skill(track-cc_pain)"]

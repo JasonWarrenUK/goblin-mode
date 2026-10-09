@@ -5,6 +5,7 @@ when_to_use: "When designing a user-facing flow and it's worth pausing to ask ho
 user-invocable: false
 metadata:
   family: clod-lens
+  goblin-spinner: imagining users|walking in their shoes|questioning assumptions
 allowed-tools:
   - Read
 ---

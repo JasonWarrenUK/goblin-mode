@@ -4,6 +4,7 @@ description: "Record a durable fact about a person Jason works with, in their ow
 when_to_use: "Whenever Jason says something durable about a named person he works with: their role, expertise, preferences, what they care about, how they review or respond, how to work with them. Also when he introduces someone new, or asks for something about a person to be noted."
 metadata:
   family: dossier
+  goblin-spinner: taking notes|filing the fact|updating the dossier
 # No model or effort on purpose. This skill fires inline, mid-turn, inside
 # whatever the session was already doing; both fields override the session
 # absolutely while a skill is active, so setting either would downgrade the

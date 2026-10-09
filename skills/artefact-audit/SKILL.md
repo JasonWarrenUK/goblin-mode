@@ -7,6 +7,7 @@ effort: high
 metadata:
   glyph: ᛊ
   family: artefact
+  goblin-spinner: auditing|grouping the damage|colouring verdicts
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(open:*)", "Bash(mkdir:*)", "Bash(python3:*)"]
 argument-hint: "[label for in-hand findings | path to a findings JSON]"

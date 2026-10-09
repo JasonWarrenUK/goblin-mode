@@ -7,6 +7,7 @@ effort: medium
 metadata:
   glyph: ᛟ
   family: pr
+  goblin-spinner: merging|deleting evidence|tagging|cleaning up
 disable-model-invocation: true
 allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(python3:*)"]
 arguments: ["pr"]

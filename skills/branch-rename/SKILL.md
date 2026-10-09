@@ -7,6 +7,7 @@ effort: low
 metadata:
   glyph: ᛊ
   family: branch
+  goblin-spinner: renaming|reading the convention|correcting drift
 disable-model-invocation: false # invocable by Claude so it can flag a drifted branch name before PR creation; the rename still awaits approval
 allowed-tools: ["Bash(git:*)", "Bash(gh pr list:*)", "Bash(~/.claude/library/scripts/branch-facts.sh:*)"]
 arguments: ["desired-name"]

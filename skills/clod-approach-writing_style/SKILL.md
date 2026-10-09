@@ -5,6 +5,7 @@ when_to_use: "Any request involving writing, drafting, editing or composing text
 user-invocable: false
 metadata:
   family: clod-approach
+  goblin-spinner: cutting em dashes|hunting couplets|trimming adverbs
 allowed-tools: ["Read"]
 ---
 

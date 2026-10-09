@@ -7,6 +7,7 @@ effort: low
 metadata:
   glyph: ᛊ
   family: hud
+  goblin-spinner: checking the gates|grading prose|counting hits
 disable-model-invocation: true
 allowed-tools: ["Bash(~/.claude/library/scripts/prose-health.py:*)", "Bash(~/.claude/library/scripts/prose-metrics.py:*)", "Read"]
 arguments: ["scope"]

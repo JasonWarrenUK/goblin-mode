@@ -29,6 +29,46 @@ export const faceCells = (expression: Expression, palette: Palette, tint: number
 	return packCells(rows, FACE_COLUMNS, RASTER_DEFAULT)
 }
 
+/**
+ * What the goblin holds while a skill of each family runs: a text object of
+ * up to `PROP_MAX_CELLS` terminal cells, every glyph in the BMP, measured
+ * by `cells` so a wide ideograph counts two. Ambiguous-width glyphs (box
+ * drawing, shades, arrows, geometric shapes) draw one cell in the terminals
+ * the band's own frame already relies on. Chosen by hand on 2026-10-09.
+ */
+export const PROPS: Record<string, string> = {
+	artefact: '[~]', // a page
+	asset: '══#', // a brush
+	branch: '─<', // a forked stick
+	'clod-approach': '==▷', // a pen
+	'clod-config': '(*)', // a cog
+	'clod-lens': '─O', // a lens
+	'clod-role': '[^]', // a hat, in hand
+	'clod-stack': '[三]', // a stack, three lines on a card
+	commit: '[⇓]', // a commit going down
+	do: '░▒▓', // a ramp
+	doc: '§¶•', // marks of the page
+	dossier: '•‿•', // a face
+	hud: '[▤]', // a screen
+	import: '[<]', // an in-tray
+	'next-task': '[>]', // a ticket
+	pr: '[#]', // a parcel
+	project: '[✓]', // a clipboard tick
+	red: '[!]', // a red flag
+	'skill-creator': '─*', // a wand
+	theme: '[%]', // a swatch
+	track: '[:]', // tally marks
+}
+
+/** Widest a prop may be, in terminal cells. */
+export const PROP_MAX_CELLS = 4
+
+/** The prop for a family, or empty when the family has none. */
+export const propFor = (family: string | null): string => (family === null ? '' : (PROPS[family] ?? ''))
+
+/** The face a subagent wears in the parade when its agent file sets none. */
+export const DEFAULT_MINION = 'o.o'
+
 export const POKE_LINES = [
 	'ow.',
 	'what.',
@@ -40,6 +80,7 @@ export const POKE_LINES = [
 
 export const HECKLES = {
 	minionBack: (ms: number) => `minion back. took ${Math.round(ms / 1000)}s. unimpressed.`,
+	minionOut: (n: number) => (n === 1 ? 'minion out. watching.' : `${n} minions out. watching.`),
 	compaction: 'memory wiped. going again.',
 	clear: 'fine.',
 	bounce: 'the hook bounced that message. told you.',
