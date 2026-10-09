@@ -21,6 +21,8 @@ The post-approval sequence as one skill: verify the PR is genuinely ready, merge
 
 **The 0.x → 1.x boundary is never crossed by this skill, under any circumstances.** Tagging v1.0.0 (or `{plugin}-v1.0.0`) declares that surface's API stable and only a human does that. The guard is programmatic: every tag this skill creates, root or plugin, always comes from `safe-version-next.sh` (bare for root, `--plugin {name} --dir {source}` for a plugin), which emits a 0.x minor bump when svu proposes 1.0.0 and passes every other bump through (2.x, 3.x major bumps are fine). Never call `svu next` directly here, and never hand-compute a tag or a `plugin.json` version.
 
+The same line holds where CI does the tagging. A repo with `.github/release-packages.json` runs several tag series at once (one per `packages[]` entry, each with its own `prefix` such as `api/v`), and its CI tags each of them on push to main. **Nobody creates or suggests a 1.x tag in a manifest series by hand.** Only the repo's Declare Stable workflow, a manual dispatch by a signer listed in the manifest's `signers[]`, moves a package to 1.0.0; this skill neither runs that workflow nor recommends it.
+
 ## Step 1: Verify readiness
 
 Resolve the PR from `$ARGUMENTS`, then `gh pr view --json state,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,headRefName,baseRefName,title`.
@@ -94,7 +96,7 @@ The path is built from the repo name and PR number because shell variables don't
 git grep -lE 'git tag|svu|semantic-release|release-please|tag-action' origin/main -- .github/workflows
 ```
 
-Read each hit (`git show origin/main:{path}`) to confirm it runs on a push to the default branch and pushes a tag for this series.
+Read each hit (`git show origin/main:{path}`) to confirm it runs on a push to the default branch and pushes a tag for this series. A repo with `.github/release-packages.json` on the default branch tags one series per `packages[]` entry, so one landing may produce several tags; read the manifest (`git show origin/main:.github/release-packages.json`) so the prefixes are known before the run finishes.
 
 **A tagging workflow exists: defer to it and create no tag.** Find its run for the merge commit and wait for it:
 
@@ -104,7 +106,7 @@ gh run watch {databaseId} --exit-status
 git fetch origin --tags && git tag --points-at {mergeSha}
 ```
 
-Report the tag CI created, or that CI found nothing to release. A failed or missing run gets reported as it stands and tagging stops there: a hand-made tag on a repo whose CI tags is how tag and changelog drift apart. If the CI tag crossed 0.x → 1.x, say so plainly in the report.
+Report **every** tag that `git tag --points-at {mergeSha}` returns, one line each, not just the first: a manifest repo tags each touched package separately (`api/v0.2.0` and `db/v0.1.1` from one merge, say). An empty list means CI found nothing to release; say so. A failed or missing run gets reported as it stands and tagging stops there: a hand-made tag on a repo whose CI tags is how tag and changelog drift apart. If any CI tag crossed 0.x → 1.x, say so plainly in the report; in a manifest series that can only have come from the Declare Stable workflow, never from this landing, so an unexpected 1.0.0 is worth a sentence to the user.
 
 **No tagging workflow: tag from the landing worktree.**
 
@@ -134,10 +136,10 @@ If the repo has a rich roadmap (`python3 "$HOME"/.claude/marketplace/roadmap/scr
 
 ## Step 6: Report
 
-PR merged (URL), tag(s) created (root and any bumped plugin), branch/worktree state after cleanup, roadmap synced or skipped, and the task IDs given an end date by Step 1.6. If the changelog matters for this project, offer `/doc-changelog root md {tag}` for the root tag and, for each bumped plugin, `/doc-changelog plugin:{name} md {name}-v{X.Y.Z}`; `doc-changelog`'s scope and version arguments together scope each run to exactly one release. Also offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
+PR merged (URL), every tag created (root, any bumped plugin and each tag CI returned in Step 3), branch/worktree state after cleanup, roadmap synced or skipped, and the task IDs given an end date by Step 1.6. If the changelog matters for this project, offer `/doc-changelog root md {tag}` for the root tag and, for each bumped plugin, `/doc-changelog plugin:{name} md {name}-v{X.Y.Z}`. On a manifest repo, offer `/doc-changelog pkg:{name} md {tag}` for each Step 3 tag whose prefix matches a `packages[]` entry's `prefix` (`api/v0.2.0` pairs with the entry whose prefix is `api/v`, so `pkg:api`); a tag matching no entry is reported but gets no offer. `doc-changelog`'s scope and version arguments together scope each run to exactly one release. Also offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
 
 ## Red flags
 
-**Never:** cross 0.x → 1.x on any tag series, root or plugin (the guard script is the only tag source); squash or rebase-merge; merge with failing or pending checks "because they'll pass"; run `git checkout`, `git switch` or a bare `git pull` in the main checkout; create a tag on a repo whose CI tags; remove a worktree from inside it; use `git branch -D`; tag before the merge has actually landed on main; run plain `gh pr merge` on a stacked PR, or run `gh stack merge` with no PR number, with a stack number, or with `--yes` alone (use `gh stack merge {number} --merge`); delete a branch that is still the base of an open PR; hand-edit a plugin's `version` field or its build output instead of running `safe-version-next.sh` and the plugin's own build script.
+**Never:** cross 0.x → 1.x on any tag series, root or plugin (the guard script is the only tag source); create or suggest a 1.x tag in a `release-packages.json` series (only the Declare Stable workflow, dispatched by a listed signer, does that); squash or rebase-merge; merge with failing or pending checks "because they'll pass"; run `git checkout`, `git switch` or a bare `git pull` in the main checkout; create a tag on a repo whose CI tags; remove a worktree from inside it; use `git branch -D`; tag before the merge has actually landed on main; run plain `gh pr merge` on a stacked PR, or run `gh stack merge` with no PR number, with a stack number, or with `--yes` alone (use `gh stack merge {number} --merge`); delete a branch that is still the base of an open PR; hand-edit a plugin's `version` field or its build output instead of running `safe-version-next.sh` and the plugin's own build script.
 
 <raw-arguments value="$ARGUMENTS" />
