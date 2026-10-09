@@ -29,6 +29,11 @@ describe('readSkill', () => {
 		expect(readSkill('---\nmodel: inherit\nmetadata:\n  glyph: ᛊ\n---')).toEqual({ model: null, family: null, spinner: [] })
 	})
 
+	test('a quoted model and a trailing comment both read as the bare value', async () => {
+		expect(readSkill('---\nmodel: "opus"\n---').model).toBe('opus')
+		expect(readSkill('---\nmodel: sonnet # was haiku\n---').model).toBe('sonnet')
+	})
+
 	test('metadata keys are only read under metadata, and the block ends at the next unindented line', async () => {
 		const block = 'metadata:\n  family: pr\nother:\n  family: nope'
 		expect(metadataKey(block, 'family')).toBe('pr')

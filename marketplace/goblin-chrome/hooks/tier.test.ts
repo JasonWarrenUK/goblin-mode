@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { CLOD } from './theme'
-import { bandRule, frameFor, GLYPHS, glyphsFor, pinnedModel, RUNE, tierOf } from './tier'
+import { bandRule, frameFor, GLYPHS, glyphsFor, RUNE, tierOf } from './tier'
 
 describe('band rules', () => {
 	test('each border style joins the dividers to the rules with its own tees', async () => {
@@ -41,14 +41,6 @@ describe('tiers', () => {
 		expect(tierOf('claude-opus-5-5')).toBe('top')
 		expect(tierOf('claude-fable-5-1')).toBe('fable')
 		expect(tierOf('something-new')).toBe('mid')
-	})
-
-	test('a skill frontmatter model line is read, comments and all', async () => {
-		expect(pinnedModel('---\nname: x\nmodel: sonnet # was haiku\neffort: low\n---\nbody')).toBe('sonnet')
-		expect(pinnedModel('---\nname: x\n---\nmodel: opus')).toBeNull()
-		expect(pinnedModel('no frontmatter')).toBeNull()
-		expect(pinnedModel('---\nmodel: inherit\n---')).toBeNull()
-		expect(pinnedModel('---\nmodel: "opus"\n---')).toBe('opus')
 	})
 
 	test('each tier has its own frame and the runes follow the convention', async () => {
