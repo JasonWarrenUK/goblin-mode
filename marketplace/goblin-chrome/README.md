@@ -40,7 +40,7 @@ A skill that pinned one model while another answered draws `singleDouble` in `wa
 
 ### 2.1. What it reads from skills and agents
 
-When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. Plugin skills live elsewhere and read as nothing set. Everything read lasts until the turn completes.
+When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. Plugin skills live elsewhere and read as nothing set. What is read from a skill lasts until the turn completes; a minion lasts until its own turn completes or the session starts over.
 
 | Field | Where | What it does |
 |---|---|---|

@@ -245,10 +245,10 @@ export const register: Register = (on, options) => {
 		} catch {
 			face = DEFAULT_MINION
 		}
-		const r = await read($, run)
-		const minions = [...r.minions.filter(m => m.agentId !== agentId), { agentId, type: e.subagentType, face }]
-		await update($, run, cur => ({ ...cur, minions }))
-		await say($, HECKLES.minionOut(minions.length))
+		const type = e.subagentType
+		// Spawns arrive together, so the list is built from the state at write time, never from an earlier read.
+		await update($, run, cur => ({ ...cur, minions: [...cur.minions.filter(m => m.agentId !== agentId), { agentId, type, face }] }))
+		await say($, HECKLES.minionOut((await read($, run)).minions.length))
 		return ran
 	})
 
@@ -262,8 +262,9 @@ export const register: Register = (on, options) => {
 		const now = await $.clock.now()
 		await update($, idle, i => ({ ...i, lastTurnEndAt: now, isWorking: false }))
 		await update($, vitals, v => ({ ...v, turnMs: e.durationMs, turnTools: v.tools, turnErrors: v.errors }))
-		// The run ends with the turn: the pin, the prop, the spinner's words and any minion still out.
-		await update($, run, () => NO_RUN)
+		// The skill's run ends with the turn: the pin, the prop and the spinner's words. A minion
+		// still out stays until its own turn completes, or the session starts over.
+		await update($, run, r => ({ ...NO_RUN, minions: r.minions }))
 		if ((await read($, frame)).pinned !== null) await refreshFrame($, { pinned: null })
 		return next(e)
 	})

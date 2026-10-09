@@ -77,7 +77,7 @@ export type Minion = {
 	face: string
 }
 
-/** The turn's run: the skill in flight and its frontmatter, and the minions out. Cleared when the main turn completes. */
+/** The turn's run: the skill in flight and its frontmatter, and the minions out. The skill fields clear when the main turn completes; a minion clears when its own turn completes, and all clear when a session starts over. */
 export type Run = {
 	/** The skill whose prompt was last expanded this turn, or null between runs. */
 	skill: string | null

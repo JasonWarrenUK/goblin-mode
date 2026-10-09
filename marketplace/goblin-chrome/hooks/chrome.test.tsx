@@ -304,6 +304,7 @@ test('each subagent out is a minion beside the goblin, wearing its agent file fa
 	let n = 0
 	on('agent.spawn', async () => ({ model: 'claude-sonnet-5-5', agentId: `a${++n}` }))
 	on('turn.complete', async () => ({ text: '' }))
+	on('classic.SessionStart', async () => ({}))
 	expect(await goblinProps($)).toMatchObject({ minions: [] })
 	await $.agent.spawn({ ...SPAWN, subagentType: 'scope-guard' })
 	await $.agent.spawn({ ...SPAWN, subagentType: 'Explore' })
@@ -317,9 +318,19 @@ test('each subagent out is a minion beside the goblin, wearing its agent file fa
 	const after = await $.ui.mount(BAND)
 	expect(await spoken(after)).toMatch(/mInIoN bAcK/)
 	await after.unmount()
-	// the main turn ending clears any minion still out
+	// the main turn ending leaves the minion still out; only its own turn, or a fresh session, ends it
 	await $.turn.complete({ answer: 'done', durationMs: 60_000, isAborted: false, turnId: 't1', reason: 'answer' })
+	expect(await goblinProps($)).toMatchObject({ minions: ['o.o'] })
+	await $.classic.SessionStart({ source: 'clear' })
 	expect(await goblinProps($)).toMatchObject({ minions: [] })
+})
+
+test('subagents spawned together all join the parade', async ($, on) => {
+	world(on)
+	let n = 0
+	on('agent.spawn', async () => ({ model: 'claude-sonnet-5-5', agentId: `p${++n}` }))
+	await Promise.all(['Explore', 'Plan', 'scope-guard'].map(subagentType => $.agent.spawn({ ...SPAWN, subagentType })))
+	expect(await goblinProps($)).toMatchObject({ minions: ['o.o', 'o.o', 'o.o'] })
 })
 
 test('a refused spawn adds no minion', async ($, on) => {
