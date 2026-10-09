@@ -436,7 +436,7 @@ export const register: Register = on => {
 		const inner = width - 5
 		const rows = snap.candidates.slice(0, ROWS)
 		const pickedReady = rows.find(c => c.id === picked) ?? null
-		const pickedInPlay = pickedReady ? null : (snap.claimed.slice(0, IN_PLAY_KEYS.length).find(c => c.id === picked) ?? null)
+		const pickedInPlay = pickedReady ? null : (snap.claimed.find(c => c.id === picked) ?? null)
 		const current = pickedReady ?? pickedInPlay
 		// a task already in play is past claiming; it can only change hands
 		const claimable = pickedReady !== null
