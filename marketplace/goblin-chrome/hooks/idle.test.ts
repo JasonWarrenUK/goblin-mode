@@ -18,8 +18,8 @@ describe('props in hand', () => {
 	})
 
 	test('the watching goblin holds the prop through its blink; the sitting one keeps it; sleep and startle drop it', async () => {
-		expect(spriteFor('watch', { pace: 'normal', prop: '─O' }, 1, 0)).toBe('(ಠ_ಠ)─O')
-		expect(spriteFor('watch', { pace: 'normal', prop: '─O' }, 1, 2)).toBe('(-_-)─O')
+		expect(spriteFor('watch', { pace: 'normal', prop: '─O' }, 1, 0)).toBe('(ಠ_ಠ)─O  ')
+		expect(spriteFor('watch', { pace: 'normal', prop: '─O' }, 1, 2)).toBe('(-_-)─O  ')
 		expect(spriteFor('sit', { pace: 'normal', prop: '[~]' }, 1, 0)).toBe('(ಠ‿ಠ)[~]')
 		expect(spriteFor('sleep', { pace: 'normal', prop: '[~]' }, 1, 0)).toBe('(-_-) z ')
 		expect(spriteFor('startle', { pace: 'normal', prop: '[~]' }, 1, 0)).toBe('(ಠoಠ)! ')

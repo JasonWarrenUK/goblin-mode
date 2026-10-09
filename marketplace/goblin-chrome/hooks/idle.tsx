@@ -156,7 +156,7 @@ export const spriteFor = (pose: Pose, props: Pick<IdleProps, 'pace' | 'prop'>, d
 			return SPRITES.lie
 		case 'watch': {
 			const face = beat % 3 === 2 ? BLINK : FACE
-			return `${face}${props.prop}`
+			return `${face}${props.prop}  `
 		}
 		case 'pace':
 			if (props.pace === 'sway') return SPRITES.sway[beat % SPRITES.sway.length] ?? SPRITES.sway[0]
