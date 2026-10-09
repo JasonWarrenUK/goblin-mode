@@ -28,7 +28,7 @@ const STATS = JSON.stringify({
 type On = Parameters<typeof mock.clock>[0]
 
 /** The world beneath the plugin: a clock, a store, and a python that answers the CLI by subcommand. */
-const world = (on: On, detectExit = 0, readyRefusal: string | null = null) => {
+const world = (on: On, detectExit = 0, readyRefusal: string | null = null, ready = READY) => {
 	const calls: string[][] = []
 	const toasts: string[] = []
 	mock.clock(on, { now: NOON })
@@ -49,7 +49,7 @@ const world = (on: On, detectExit = 0, readyRefusal: string | null = null) => {
 		const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
 		if (sub === 'detect') return { value: { exitCode: detectExit, stdout: detectExit === 2 ? '✗ could not locate .claude/roadmaps.json above the current directory' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
 		if (sub === 'ready' && readyRefusal !== null) return { value: { exitCode: 2, stdout: readyRefusal, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
-		if (sub === 'ready') return ok(READY)
+		if (sub === 'ready') return ok(ready)
 		if (sub === 'stats') return ok(STATS)
 		if (sub === 'claim') return ok(`claimed ${argv[3]}`)
 		if (sub === 'assign') return ok(`assigned ${argv[3]}`)
@@ -199,6 +199,20 @@ test('a claim in play can be picked and reassigned, but not claimed again', asyn
 	await ui.press({ key: 'assign' })
 	await ui.input({ key: 'assignee', text: 'Dan' })
 	expect(calls.some(c => c.slice(2).join(' ') === 'assign 2SE.2 --assignee=Dan')).toBe(true)
+})
+
+test('a claim past the ninth has no hotkey but can still be picked and reassigned', async ($, on) => {
+	const claimed = Array.from({ length: 10 }, (_, i) => ({ id: `9X.${i + 1}`, description: `claim ${i + 1}`, assignee: 'Max', started: '2026-10-01' }))
+	const { calls } = world(on, 0, null, JSON.stringify({ ...JSON.parse(READY), claimed }))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'claimed-row-9X.10' })
+	expect(await ui.find({ type: 'Text', text: '▶' })).toBeDefined()
+	expect(await ui.find({ key: 'assign' })).toBeDefined()
+	await ui.press({ key: 'assign' })
+	await ui.input({ key: 'assignee', text: 'Dan' })
+	expect(calls.some(c => c.slice(2).join(' ') === 'assign 9X.10 --assignee=Dan')).toBe(true)
 })
 
 test('a name that starts with a dash is bound to --assignee, not read as an option', async ($, on) => {
