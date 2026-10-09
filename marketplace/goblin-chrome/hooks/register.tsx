@@ -270,11 +270,12 @@ export const register: Register = (on, options) => {
 	})
 
 	// The spinner's word while a skill with `goblin-spinner` runs (one word a
-	// minute, in the house dress); a subagent's spinner keeps the engine's.
+	// minute, in the house dress). A spinner's requestId is its agent id; the
+	// main loop's is the session id (measured in a live session), so a subagent
+	// is told by matching a minion out, and its spinner keeps the engine's.
 	on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
-		if (e.requestId !== 'main' && e.requestId !== '') return next(e)
 		const r = await read($, run)
-		if (r.spinner.length === 0) return next(e)
+		if (r.spinner.length === 0 || r.minions.some(m => m.agentId === e.requestId)) return next(e)
 		const now = await $.clock.now()
 		return next({ ...e, props: { ...e.props, word: spinnerWord(pick(r.spinner, Math.floor(now / 60_000))) } })
 	})

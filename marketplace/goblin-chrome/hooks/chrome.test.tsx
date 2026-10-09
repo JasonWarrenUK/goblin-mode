@@ -210,16 +210,19 @@ test('a project skill pinning a smaller model draws the mismatch frame', async (
 
 const PR_LAND = '---\nname: pr-land\nmodel: opus\nmetadata:\n  glyph: ᛟ\n  family: pr\n  goblin-spinner: merging|deleting evidence|tagging\n---\nbody'
 
+/** The main loop's spinner id as a live session draws it: the session's own UUID, never a fixed word. */
+const MAIN_LOOP = '4f7f27db-de9c-47fb-a784-47fbea7cf901'
+
 const SPINNER = {
 	plugin: PLUGIN,
 	surface: 'terminal',
 	component: 'Spinner',
-	requestId: 'main',
+	requestId: MAIN_LOOP,
 	props: { word: 'Baked', message: null, suffix: '…', mode: 'thinking' },
 } as const
 
 /** The spinner's word as drawn: the engine's own row, beneath ours. */
-const spinnerWord = async ($: Engine, requestId = 'main') => {
+const spinnerWord = async ($: Engine, requestId: string = MAIN_LOOP) => {
 	const ui = await $.ui.mount({ ...SPINNER, requestId })
 	const word = (await ui.find({ type: 'Text' }))?.text
 	await ui.unmount()
@@ -235,6 +238,7 @@ test('a skill with spinner words takes over the spinner for the turn, one word a
 	})
 	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
 	on('turn.complete', async () => ({ text: '' }))
+	on('agent.spawn', async () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
 	expect(await spinnerWord($)).toBe('Baked')
 	await $.turn.start({ text: '/pr-land', turnId: 't1' })
 	await $.skill.prompt({ skill: 'pr-land', text: '' })
@@ -244,8 +248,10 @@ test('a skill with spinner words takes over the spinner for the turn, one word a
 	await clock.advance(60_000)
 	const second = await spinnerWord($)
 	expect(second).not.toBe(first)
-	// a subagent's spinner keeps the engine's word
+	// a subagent's spinner (its id is the agent id) keeps the engine's word; the main loop's keeps ours
+	await $.agent.spawn({ ...SPAWN, subagentType: 'Explore' })
 	expect(await spinnerWord($, 'agent-1')).toBe('Baked')
+	expect(await spinnerWord($)).toMatch(/^••• /)
 	await $.turn.complete({ answer: 'done', durationMs: 3_000, isAborted: false, turnId: 't1', reason: 'answer' })
 	expect(await spinnerWord($)).toBe('Baked')
 })
