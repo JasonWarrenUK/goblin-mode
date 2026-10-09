@@ -1,10 +1,12 @@
 // The roadmap pane: `/ready` opens the ready set the CLI computes, in
 // leverage order, with the claims in play and the milestones' progress, and
-// runs again to close it. A digit picks a row; `c` claims it after asking
-// who (an assignee is never inferred), `r` refreshes. The CLI is the
-// plugin's own scripts/roadmap.py, the same file the skills run, so the pane
-// needs python3 and nothing else. Nothing here edits roadmaps.json except
-// through `claim`.
+// runs again to close it. A digit picks a ready row and a letter picks a claim
+// in play; `c` claims a ready row after asking who (replacing any assignee it
+// already had), `a` assigns or, left blank, clears an assignee without
+// starting anything, `r` refreshes. An assignee is never inferred. The CLI is
+// the plugin's own scripts/roadmap.py, the same file the skills run, so the
+// pane needs python3 and nothing else. Nothing here edits roadmaps.json except
+// through `claim` and `assign`.
 //
 // Colours are the engine's theme keys, never raw values: the pane follows
 // whichever theme the person runs. A release tier takes one hue everywhere it
@@ -13,16 +15,18 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Candidate, Claimed, Milestone, Problem, Snapshot } from '../types'
+import type { Asking, Candidate, Claimed, Milestone, Problem, Snapshot } from '../types'
 
 const PANE = 'ready'
 const ROWS = 9
+// Hotkeys for the claims in play; digits belong to the ready rows and c, a, r to the actions.
+const IN_PLAY_KEYS = 'qwetyuiop'
 const BAR_CELLS = 5
 const TIER_LABEL_WIDTH = 11
 
 const snapshot = atom({ plugin: 'roadmap', key: 'snapshot' } as const, null as Snapshot | null)
 const selected = atom({ plugin: 'roadmap', key: 'selected' } as const, null as string | null)
-const asking = atom({ plugin: 'roadmap', key: 'asking' } as const, null as string | null)
+const asking = atom({ plugin: 'roadmap', key: 'asking' } as const, null as Asking | null)
 
 // Module-level because the validator holds `$` to top-level functions; only
 // the CLI path lives here, which no drawing reads.
@@ -166,9 +170,22 @@ const claim = async ($: EngineInterface, id: string, assignee: string): Promise<
 	const who = assignee.trim()
 	if (!who) return 'a claim needs a name.'
 	try {
-		const ran = await run($, ['claim', id, `--assignee=${who}`])
+		// The person typed the name on purpose, so a different assignee gives way to it.
+		const ran = await run($, ['claim', id, `--assignee=${who}`, '--reassign'])
 		if (ran.exitCode !== 0) return reasonOf(ran, `claim ${id} refused`)
 		return `claimed ${id} for ${who}. commit roadmaps.json when you are ready.`
+	} catch {
+		return 'the CLI could not run'
+	}
+}
+
+/** Sets who will do a task without starting it; a blank name clears the assignee. */
+const assign = async ($: EngineInterface, id: string, assignee: string): Promise<string> => {
+	const who = assignee.trim()
+	try {
+		const ran = await run($, who ? ['assign', id, `--assignee=${who}`] : ['assign', id, '--unassign'])
+		if (ran.exitCode !== 0) return reasonOf(ran, `assign ${id} refused`)
+		return `${who ? `assigned ${id} to ${who}` : `cleared ${id}'s assignee`}. commit roadmaps.json when you are ready.`
 	} catch {
 		return 'the CLI could not run'
 	}
@@ -335,13 +352,23 @@ const taskRow = ($: EngineInterface, ui: Ui, c: Candidate, i: number, picked: st
 	)
 }
 
-/** Claims in play: who holds which task, and since when. */
-const claimedRows = (ui: Ui, claimed: readonly Claimed[], inner: number) => {
-	const { Box, Text } = ui
-	return claimed.map(c => (
+/** Claims in play: who holds which task, and since when. The first nine take a letter hotkey so an assignee can be handed over. */
+const claimedRows = ($: EngineInterface, ui: Ui, claimed: readonly Claimed[], picked: string | null, inner: number) => {
+	const { Box, Text, Button } = ui
+	return claimed.map((c, i) => (
 		<Box key={`claimed-${c.id}`} flexDirection="row" columnGap={1}>
-			<Text color="warning">●</Text>
-			<Text bold>{c.id}</Text>
+			<Text color="warning">{picked === c.id ? '▶' : '●'}</Text>
+			<Button
+				key={`claimed-row-${c.id}`}
+				plain
+				hotkey={IN_PLAY_KEYS[i]}
+				dimColor={picked !== null && picked !== c.id}
+				label={c.id}
+				onPress={async () => {
+					await update($, selected, () => c.id)
+					await update($, asking, () => null)
+				}}
+			/>
 			<Text color="warning">{c.assignee || 'someone'}</Text>
 			<Text dimColor>since {c.started || '?'}</Text>
 			<Box width={Math.max(8, inner - c.id.length - (c.assignee || 'someone').length - (c.started || '?').length - 14)}>
@@ -359,7 +386,7 @@ export const register: Register = on => {
 		try {
 			await $.command.register({
 				name: 'ready',
-				description: 'The roadmap ready set in a pane, or closes it: a digit picks, c claims, r refreshes',
+				description: 'The roadmap ready set in a pane, or closes it: a digit picks, c claims, a assigns, r refreshes',
 				immediate: true,
 			})
 		} catch {
@@ -408,7 +435,12 @@ export const register: Register = on => {
 		// the header's frame and padding take four columns; every line inside it shares the measure
 		const inner = width - 5
 		const rows = snap.candidates.slice(0, ROWS)
-		const current = rows.find(c => c.id === picked) ?? null
+		const pickedReady = rows.find(c => c.id === picked) ?? null
+		const pickedInPlay = pickedReady ? null : (snap.claimed.find(c => c.id === picked) ?? null)
+		const current = pickedReady ?? pickedInPlay
+		// a task already in play is past claiming; it can only change hands
+		const claimable = pickedReady !== null
+		const asked = current && ask?.id === current.id ? ask : null
 		return (
 			<Box flexDirection="column" width={width} rowGap={1}>
 				{header(ui, snap, inner)}
@@ -423,35 +455,38 @@ export const register: Register = on => {
 				{snap.claimed.length > 0 && (
 					<Box flexDirection="column" paddingX={1}>
 						<Text color="subtle">{rule(`In play · ${snap.claimed.length}`, inner)}</Text>
-						{claimedRows(ui, snap.claimed, inner)}
+						{claimedRows($, ui, snap.claimed, picked, inner)}
 					</Box>
 				)}
 				<Box flexDirection="column" paddingX={1}>
 					{ask === null && (
 						<Box flexDirection="row" columnGap={2}>
-							{current && <Button key="claim" label="claim" hotkey="c" variant="primary" onPress={() => update($, asking, () => current.id)} />}
+							{current && claimable && (
+								<Button key="claim" label="claim" hotkey="c" variant="primary" onPress={() => update($, asking, () => ({ id: current.id, mode: 'claim' }))} />
+							)}
+							{current && <Button key="assign" label="assign" hotkey="a" onPress={() => update($, asking, () => ({ id: current.id, mode: 'assign' }))} />}
 							<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($)} />
 						</Box>
 					)}
-					{current && ask === current.id && (
+					{current && asked && (
 						<Input
 							key="assignee"
-							label={`who is doing ${current.id}`}
-							placeholder="a name; never inferred, never pre-filled"
-							submitLabel="claim"
+							label={asked.mode === 'claim' ? `who is doing ${current.id}` : `who will do ${current.id}`}
+							placeholder={asked.mode === 'claim' ? 'a name; never inferred, never pre-filled' : 'a name, or blank to clear; never inferred'}
+							submitLabel={asked.mode}
 							autoFocus
 							onSubmit={async value => {
-								if (!value.trim()) {
+								if (asked.mode === 'claim' && !value.trim()) {
 									$.ui.toast('a claim needs a name.')
 									return
 								}
-								$.ui.toast(await claim($, current.id, value))
+								$.ui.toast(asked.mode === 'claim' ? await claim($, current.id, value) : await assign($, current.id, value))
 								await update($, asking, () => null)
 								await refresh($)
 							}}
 						/>
 					)}
-					<Text dimColor>1-9 pick · c claim · r refresh · esc or /ready closes</Text>
+					<Text dimColor>1-9 pick · q-p in play · c claim · a assign · r refresh · esc or /ready closes</Text>
 				</Box>
 			</Box>
 		)

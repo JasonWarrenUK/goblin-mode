@@ -50,8 +50,10 @@ Opens a pane with the ready set in leverage order, the claims in play and each m
 
 | Key | Does |
 |---|---|
-| `1` to `9` | Picks a row. |
-| `c` | Claims the picked task: asks who is doing it (a name is never inferred or pre-filled), then runs `claim <id> --assignee=<name>`. The change is in `roadmaps.json`; commit it when you are ready. |
+| `1` to `9` | Picks a ready row. |
+| `q w e t y u i o p` | Picks a claim in play, in the order listed. |
+| `c` | Claims the picked ready task: asks who is doing it (a name is never inferred or pre-filled), then runs `claim <id> --assignee=<name> --reassign`, so a name typed here replaces any assignee the task already had. The change is in `roadmaps.json`; commit it when you are ready. |
+| `a` | Assigns the picked task without starting it, ready or in play: asks who will do it, then runs `assign <id> --assignee=<name>`. Submitting a blank name clears the assignee (`assign <id> --unassign`). |
 | `r` | Refreshes from the CLI. |
 | Esc, or `/ready` | Closes the pane. |
 
@@ -70,6 +72,7 @@ You rarely claim by hand. When a branch appears (from a git command or a worktre
 | To                              | Run |
 |---------------------------------|-----|
 | Claim by hand (no skill)        | `python3 <plugin-root>/scripts/roadmap.py claim <ID> [--assignee NAME]` |
+| Assign without claiming         | `python3 <plugin-root>/scripts/roadmap.py assign <ID> (--assignee NAME \| --unassign)` |
 | Drop a claim (no skill)         | `python3 <plugin-root>/scripts/roadmap.py release <ID> [--unassign]` |
 | Stop the question on one branch | `git config branch.<name>.roadmapClaim none` |
 
