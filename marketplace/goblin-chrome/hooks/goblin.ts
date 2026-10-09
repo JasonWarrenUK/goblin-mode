@@ -55,7 +55,6 @@ export const PROPS: Record<string, string> = {
 	pr: '[#]', // a parcel
 	project: '[✓]', // a clipboard tick
 	red: '[!]', // a red flag
-	roadmap: '[+]', // a folded map
 	'skill-creator': '─*', // a wand
 	theme: '[%]', // a swatch
 	track: '[:]', // tally marks
