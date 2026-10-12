@@ -30,6 +30,7 @@ from _roadmap_core import (
     is_claimed,
     milestone_sinks,
     recompute_all,
+    unmet_blockers,
 )
 
 
@@ -1693,6 +1694,127 @@ class ClaimCommand(unittest.TestCase):
         problems = roadmap._validate_phase(ph)
         self.assertTrue(any("started 'soon'" in p for p in problems))
         self.assertTrue(any("run roadmap.py claim" in p for p in problems))
+
+
+class StackedClaim(unittest.TestCase):
+    """claim takes a blocked task when every unmet blocker is already claimed."""
+
+    def _project(self, milestones, gates=None):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp.parent.mkdir()
+        data = [phase(milestones, gates)]
+        jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        return jp
+
+    def _flat(self, tasks, gates=None):
+        return self._project([{"id": "M1", "name": "m", "tasks": tasks}], gates)
+
+    def _started(self, jp, tid):
+        for m in json.loads(jp.read_text())[0]["milestones"]:
+            for t in m["tasks"]:
+                if t["id"] == tid:
+                    return t.get("started")
+
+    _run = ClaimCommand._run
+
+    def test_claims_a_blocked_task_whose_only_blocker_is_claimed(self):
+        jp = self._flat([task("a", started="2026-10-01"), task("b", "blocked", ["a"])])
+        rc, out = self._run("claim", "b", str(jp), "--date", "2026-10-02")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("stacked on a", out)
+        self.assertEqual(self._started(jp, "b"), "2026-10-02")
+
+    def test_refuses_and_names_the_unclaimed_blockers(self):
+        jp = self._flat([task("a", started="2026-10-01"), task("c"),
+                         task("b", "blocked", ["a", "c"])])
+        before = jp.read_text()
+        rc, out = self._run("claim", "b", str(jp))
+        self.assertEqual(rc, 1)
+        self.assertIn("not claimed: c", out)
+        self.assertNotIn("not claimed: a", out)
+        self.assertEqual(jp.read_text(), before)
+
+    def test_a_milestone_blocker_needs_each_unfinished_member_claimed(self):
+        members = [task("m1", started="2026-10-01"), task("m2", "done"), task("m3")]
+        jp = self._project([
+            {"id": "M1", "name": "one", "tasks": members},
+            {"id": "M2", "name": "two", "tasks": [task("b", "blocked", ["M1"])]}])
+        rc, out = self._run("claim", "b", str(jp))
+        self.assertEqual(rc, 1)
+        self.assertIn("not claimed: m3", out)
+        self.assertNotIn("m2", out)
+        members[2]["started"] = "2026-10-01"
+        jp = self._project([
+            {"id": "M1", "name": "one", "tasks": members},
+            {"id": "M2", "name": "two", "tasks": [task("b", "blocked", ["M1"])]}])
+        self.assertEqual(self._run("claim", "b", str(jp))[0], 0)
+
+    def test_a_gate_in_dependson_keeps_the_task_unclaimable(self):
+        gate = {"id": "G1", "name": "g", "status": "blocked", "blocks": ["b"]}
+        jp = self._flat([task("a", started="2026-10-01"),
+                         task("b", "blocked", ["a", "G1"])], [gate])
+        rc, out = self._run("claim", "b", str(jp))
+        self.assertEqual(rc, 1)
+        self.assertIn("gate G1", out)
+
+    def test_a_gate_that_lists_the_task_in_blocks_keeps_it_unclaimable(self):
+        gate = {"id": "G1", "name": "g", "status": "blocked", "blocks": ["b"]}
+        jp = self._flat([task("a", started="2026-10-01"),
+                         task("b", "blocked", ["a"])], [gate])
+        rc, out = self._run("claim", "b", str(jp))
+        self.assertEqual(rc, 1)
+        self.assertIn("gate G1", out)
+
+    def test_a_done_gate_still_in_dependson_keeps_the_task_unclaimable(self):
+        gate = {"id": "G1", "name": "g", "status": "done", "blocks": ["b"]}
+        jp = self._flat([task("a", started="2026-10-01"),
+                         task("b", "blocked", ["a", "G1"])], [gate])
+        rc, out = self._run("claim", "b", str(jp))
+        self.assertEqual(rc, 1)
+        self.assertIn("gate G1", out)
+
+    def test_a_done_gate_does_not_hold_the_task(self):
+        gate = {"id": "G1", "name": "g", "status": "done", "blocks": ["b"]}
+        jp = self._flat([task("a", started="2026-10-01"),
+                         task("b", "blocked", ["a"])], [gate])
+        self.assertEqual(self._run("claim", "b", str(jp))[0], 0)
+
+    def test_a_paused_blocker_or_held_task_still_refuses(self):
+        jp = self._flat([task("a", "paused", ["z"], started="2026-10-01"),
+                         task("z", "paused", started="2026-10-01"),
+                         task("b", "blocked", ["a"]),
+                         task("h", "paused")])
+        for tid in ("b", "h"):
+            rc, out = self._run("claim", tid, str(jp))
+            self.assertEqual(rc, 1, tid)
+            self.assertNotIn("stacked", out)
+
+    def test_every_other_refusal_still_applies_to_a_stacked_claim(self):
+        jp = self._flat([task("a", started="2026-10-01"),
+                         task("b", "blocked", ["a"], assignee="Jaz"),
+                         task("c", "blocked", ["a"], started="2026-10-03")])
+        for argv, needle in [(["claim", "b", "--assignee", "Max"], "--reassign"),
+                             (["claim", "c"], "already claimed")]:
+            rc, out = self._run(argv[0], argv[1], str(jp), *argv[2:])
+            self.assertEqual(rc, 1, argv)
+            self.assertIn(needle, out, argv)
+
+    def test_a_stacked_claim_releases_byte_identically(self):
+        jp = self._flat([task("a", started="2026-10-01"), task("b", "blocked", ["a"])])
+        before = jp.read_text()
+        self.assertEqual(self._run("claim", "b", str(jp))[0], 0)
+        self.assertEqual(self._run("release", "b", str(jp))[0], 0)
+        self.assertEqual(jp.read_text(), before)
+
+    def test_unmet_blockers_in_depends_order(self):
+        tasks, milestones, gates = build_index(phase(
+            [{"id": "M1", "name": "m", "tasks": [
+                task("a", "done"), task("c"), task("b", "blocked", ["a", "c", "G1"])]}],
+            [{"id": "G1", "name": "g", "status": "blocked", "blocks": []}]))
+        self.assertEqual(unmet_blockers("b", tasks, milestones, gates),
+                         [("task", "c"), ("gate", "G1")])
 
 
 class AssignCommand(unittest.TestCase):
