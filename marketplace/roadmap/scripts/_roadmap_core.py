@@ -203,6 +203,41 @@ def is_claimed(task):
     return bool(task.get("started"))
 
 
+def unmet_blockers(task_id, tasks, milestones, gates):
+    """The unfinished things holding a task, as [(kind, id)] in dependsOn order.
+
+    kind is "task" or "gate". Each dependsOn task that is not done/out_of_scope;
+    for a milestone in dependsOn, each member task not done/out_of_scope (a
+    softMilestone member never gates, as in imposed_status); and every gate
+    whose status is not done, whether the task names it in dependsOn or the
+    gate lists the task in its `blocks`.
+    """
+    task = tasks[task_id]
+    unmet = []
+
+    def add(kind, ident):
+        if (kind, ident) not in unmet:
+            unmet.append((kind, ident))
+
+    def unfinished(tid):
+        return tasks[tid].get("status") not in TERMINAL
+
+    for dep in task.get("dependsOn", []):
+        if dep in tasks:
+            if unfinished(dep):
+                add("task", dep)
+        elif dep in milestones:
+            for tid in milestones[dep]:
+                if tid in tasks and not tasks[tid].get("softMilestone") and unfinished(tid):
+                    add("task", tid)
+        elif dep in gates and gates[dep].get("status") != "done":
+            add("gate", dep)
+    for gid, gate in gates.items():
+        if task_id in gate.get("blocks", []) and gate.get("status") != "done":
+            add("gate", gid)
+    return unmet
+
+
 def display_status(task, status):
     """The status a view shows for a task whose status is `status`.
 
