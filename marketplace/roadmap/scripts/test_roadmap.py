@@ -1767,6 +1767,14 @@ class StackedClaim(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("gate G1", out)
 
+    def test_a_done_gate_still_in_dependson_keeps_the_task_unclaimable(self):
+        gate = {"id": "G1", "name": "g", "status": "done", "blocks": ["b"]}
+        jp = self._flat([task("a", started="2026-10-01"),
+                         task("b", "blocked", ["a", "G1"])], [gate])
+        rc, out = self._run("claim", "b", str(jp))
+        self.assertEqual(rc, 1)
+        self.assertIn("gate G1", out)
+
     def test_a_done_gate_does_not_hold_the_task(self):
         gate = {"id": "G1", "name": "g", "status": "done", "blocks": ["b"]}
         jp = self._flat([task("a", started="2026-10-01"),
@@ -1777,7 +1785,7 @@ class StackedClaim(unittest.TestCase):
         jp = self._flat([task("a", "paused", ["z"], started="2026-10-01"),
                          task("z", "paused", started="2026-10-01"),
                          task("b", "blocked", ["a"]),
-                         task("h", "paused", started=None)])
+                         task("h", "paused")])
         for tid in ("b", "h"):
             rc, out = self._run("claim", tid, str(jp))
             self.assertEqual(rc, 1, tid)
