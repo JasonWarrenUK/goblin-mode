@@ -5,6 +5,10 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Changed
+
+- `claim` takes a blocked task when the work is stacked on the work that unblocks it: every unmet blocker (an unfinished `dependsOn` task, an unfinished member of a milestone in `dependsOn`) already carries `started` in the roadmap file being edited. A gate still in `dependsOn` always refuses, as does a gate that is not done and lists the task in `blocks`. The refusal names the blockers that are not claimed. CHIRPdb's Jira sync is stricter, since it also checks that the claim sits on the same branch or an ancestor, so a blocker claimed on `main` alone passes `claim` but not the sync.
+
 ## [2.3.0] - 2026-10-08
 
 ### Added

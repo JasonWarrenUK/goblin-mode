@@ -65,7 +65,7 @@ The pane refreshes itself every two minutes while open and whenever a tool call 
 
 ### 3a. Claims
 
-A claim says someone has started a task. The task gains a `started` date, and views show it as in progress while it is todo or blocked (a paused, deferred or finished status wins); its status stays computed, so a claim never changes one.
+A claim says someone has started a task. The task gains a `started` date, and views show it as in progress while it is todo or blocked (a paused, deferred or finished status wins); its status stays computed, so a claim never changes one. A blocked task can be claimed when every task or milestone member blocking it is already claimed in the same file (work stacked on the work that unblocks it); a gate always refuses.
 
 You rarely claim by hand. When a branch appears (from a git command or a worktree, or one you made just before) or a session starts on a branch that claims nothing, the plugin has Claude ask one question: which ready task this is, who is doing it and whether to push the branch so the team sees the claim. Nothing is written until you answer. To claim or drop a task yourself, run `/roadmap:claim`: it lists the ready tasks when you give no ID, asks who is doing it and commits the change.
 

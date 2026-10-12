@@ -61,7 +61,19 @@ it; `claim` stamps today's date unless given another.
 
 - **Making one:** the `roadmap:claim` skill (`roadmap:claim [ID] [assignee|release]`) is the front door: it asks who, runs the CLI, commits the change and offers the push. Underneath, `claim ID [--assignee NAME]` refuses unless the task's
   effective status is `todo`, it isn't already claimed and any change of
-  assignee is explicit (`--reassign`). `release ID [--unassign]` deletes it.
+  assignee is explicit (`--reassign`). A `blocked` task is claimable too when
+  the work is stacked on the work that unblocks it: every unmet blocker
+  already carries `started` in the roadmap file being edited (a stacked
+  branch inherits its parent branch's claims in that file). Unmet blockers
+  are each unfinished `dependsOn` task, each unfinished member of a milestone
+  in `dependsOn`, every gate `dependsOn` names (whatever its status, since
+  a gate resolves by losing its edge) and every gate that is not `done` whose
+  `blocks` lists the task. A gate can never be claimed, so a task a
+  gate still holds stays unclaimable; the refusal names the blockers that are
+  not claimed. The Jira sync in CHIRPdb is stricter: it also requires the
+  blocker's claim to sit on the same branch or an ancestor branch, so a
+  blocker claimed on `main` alone passes this check but not the sync's.
+  `release ID [--unassign]` deletes it.
   `assign ID (--assignee NAME | --unassign)` sets or clears the assignee alone,
   on any task including a claimed one, and never touches `started`. The
   `/ready` pane's claim passes `--reassign` itself, because the name is typed
