@@ -89,3 +89,4 @@ __pycache__/
 
 /settings.json.orig
 marketplace/*/.claude-plugin/types/
+/feedback/drafts
