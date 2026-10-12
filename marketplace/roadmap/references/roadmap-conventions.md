@@ -66,8 +66,9 @@ it; `claim` stamps today's date unless given another.
   already carries `started` in the roadmap file being edited (a stacked
   branch inherits its parent branch's claims in that file). Unmet blockers
   are each unfinished `dependsOn` task, each unfinished member of a milestone
-  in `dependsOn`, and every gate that is not `done`, whether `dependsOn` names
-  it or its `blocks` lists the task. A gate can never be claimed, so a task a
+  in `dependsOn`, every gate `dependsOn` names (whatever its status, since
+  a gate resolves by losing its edge) and every gate that is not `done` whose
+  `blocks` lists the task. A gate can never be claimed, so a task a
   gate still holds stays unclaimable; the refusal names the blockers that are
   not claimed. The Jira sync in CHIRPdb is stricter: it also requires the
   blocker's claim to sit on the same branch or an ancestor branch, so a
