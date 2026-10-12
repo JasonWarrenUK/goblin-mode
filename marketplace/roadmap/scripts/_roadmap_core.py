@@ -208,9 +208,9 @@ def unmet_blockers(task_id, tasks, milestones, gates):
 
     kind is "task" or "gate". Each dependsOn task that is not done/out_of_scope;
     for a milestone in dependsOn, each member task not done/out_of_scope (a
-    softMilestone member never gates, as in imposed_status); and every gate
-    whose status is not done, whether the task names it in dependsOn or the
-    gate lists the task in its `blocks`.
+    softMilestone member never gates, as in imposed_status); every gate in
+    dependsOn, whatever its status (imposed_status blocks on it regardless);
+    and every gate not done that lists the task in its `blocks`.
     """
     task = tasks[task_id]
     unmet = []
@@ -230,7 +230,9 @@ def unmet_blockers(task_id, tasks, milestones, gates):
             for tid in milestones[dep]:
                 if tid in tasks and not tasks[tid].get("softMilestone") and unfinished(tid):
                     add("task", tid)
-        elif dep in gates and gates[dep].get("status") != "done":
+        elif dep in gates:
+            # imposed_status ignores a gate's status: one still in dependsOn
+            # blocks, so it is unmet whatever its status says.
             add("gate", dep)
     for gid, gate in gates.items():
         if task_id in gate.get("blocks", []) and gate.get("status") != "done":
