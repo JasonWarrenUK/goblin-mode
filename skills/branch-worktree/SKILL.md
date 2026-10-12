@@ -9,7 +9,7 @@ metadata:
   family: branch
   goblin-spinner: digging a worktree|moving house|checking out
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "EnterWorktree", "ExitWorktree", "Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(du:*)", "Bash(ls:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)"]
+allowed-tools: ["Read", "Glob", "EnterWorktree", "ExitWorktree", "Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(du:*)", "Bash(ls:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)", "Bash(~/.claude/library/scripts/worktree-bootstrap.sh:*)"]
 arguments: ["action", "branch", "name"]
 argument-hint: "new <existing-branch>|<new-branch>:<base> [worktree name] | use [worktree name|branch|path] | prune"
 ---
@@ -36,7 +36,7 @@ Three jobs: put this session into a new worktree on the right branch, move it in
 | `use` | the same, choosing from the existing worktrees |
 | `prune` | list worktrees and offer to remove redundant ones |
 
-A branch name never contains `:` (git forbids it in ref names), so one `:` splits the new branch from its base. `<name>` defaults to the part of the branch after its last `/` (`feat/search-bar` gives `search-bar`; a branch with no `/` is used whole).
+A branch name never contains `:` (git forbids it in ref names), so one `:` splits the new branch from its base. `<name>` defaults to the part of the branch after its last `/` (`feat/search-bar` gives `search-bar`; a branch with no `/` is used whole). When no name is given, use that default without asking.
 
 Hard stop on invalid input: print the one-line reason and the usage block, run nothing.
 
@@ -69,12 +69,13 @@ Existence checks for `new`, after `git fetch origin`: `git show-ref --verify --q
    - Checked out anywhere else (the main checkout, a sibling directory): stop. Git allows one checkout per branch, and `EnterWorktree` can only reach worktrees under `.claude/worktrees/` once the session is in a worktree. Name the path, and offer to switch that checkout to another branch first or to start a new branch from this one.
 3. **Choose the path.** `<main checkout>/.claude/worktrees/<name>`, where the main checkout is the parent of `git rev-parse --path-format=absolute --git-common-dir`, so the answer is the same from inside a worktree. If the directory exists already, stop: it either holds a different branch or is a leftover for `prune` to clear.
 4. **Check the directory is ignored:** `git check-ignore -q .claude/worktrees/<name>`. When it is not, say so and offer to append `.claude/worktrees/` to `.gitignore` (shared) or `.git/info/exclude` (local only); never edit either without approval.
-5. **Show the command and await approval:**
+5. **Print the command, then run it.** Valid arguments are the approval; do not ask:
    - Existing local branch: `git worktree add <path> <branch>`
    - Existing only on origin: `git worktree add --track -b <branch> <path> origin/<branch>`
    - New branch: `git worktree add -b <branch> <path> origin/<base>` (the local `<base>` when it has no remote counterpart)
 6. **Move the session:** call `EnterWorktree` with `path` set to the absolute worktree path. Then confirm both facts in one line: `pwd` and `git branch --show-current` match what was asked for. If either does not, say so plainly and stop; do not paper over it with a `cd`.
-7. **Close with the reminder:** a fresh worktree has no installed dependencies (`node_modules`, a venv) and no generated files, so run the project's install and any codegen before trusting a test run there.
+7. **Bootstrap, without asking:** run `~/.claude/library/scripts/worktree-bootstrap.sh <path>`. It symlinks the main checkout's git-ignored `.env*` files and installs dependencies for every tracked lockfile. Relay its lines. Exit 1 means a step failed: name it and carry on, do not retry. Generated files (codegen) are not covered; mention them only if the project's docs call for them.
+8. **Close in one line:** the worktree is ready. A roadmap claim or push is not part of this skill; the roadmap hook's nudge keeps its own approval gate.
 
 ---
 
@@ -91,7 +92,7 @@ Moves the session into a worktree that already exists. Creates no worktree and n
    - the worktree lives outside `<main checkout>/.claude/worktrees/`; the same `EnterWorktree` limit as `new` step 2, so name the path and stop
 5. **Another live session:** `~/.claude/library/scripts/checkout-occupied.sh <path>` exiting 1 means another session is working there. Say so and ask before entering.
 6. **Move the session:** `EnterWorktree` with `path` set to the absolute worktree path, then confirm `pwd` and `git branch --show-current` exactly as `new` step 6 does.
-7. **Close with the reminder** from `new` step 7 only when `ls -a <path>` shows no `node_modules`, `.venv` or `venv`.
+7. **Bootstrap** as `new` step 7 does, only when `ls -a <path>` shows no `node_modules`, `.venv` or `venv`.
 
 ---
 
