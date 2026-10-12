@@ -69,6 +69,7 @@ from _roadmap_core import (
     load,
     milestone_sinks,
     recompute_all,
+    unmet_blockers,
 )
 
 # ---------------------------------------------------------------------------
@@ -1723,10 +1724,27 @@ def cmd_claim(args) -> int:
         return 1
     computed = recompute_all(tasks, milestones, gates)
     effective = task.get("status") if is_held(task) else computed.get(args.id)
+    stacked_on = []
     if effective != "todo":
-        print(f"✗ {args.id} is {effective}, not todo: only a task that is ready "
-              "to start can be claimed")
-        return 1
+        # A task held only by dependencies can still be claimed when the work
+        # is stacked on the work that unblocks it: every unmet blocker carries
+        # `started` in this file. A gate can never be claimed, so it refuses.
+        unclaimed = []
+        unmet = []
+        if effective == "blocked" and not is_held(task):
+            unmet = unmet_blockers(args.id, tasks, milestones, gates)
+            stacked_on = [ident for kind, ident in unmet
+                          if kind == "task" and is_claimed(tasks[ident])]
+            unclaimed = [f"gate {ident}" if kind == "gate" else ident
+                         for kind, ident in unmet
+                         if kind == "gate" or not is_claimed(tasks[ident])]
+        if not unmet or unclaimed:
+            hint = ("only a task that is ready to start can be claimed"
+                    if not unclaimed else
+                    "it can be claimed once every blocker is claimed (a gate "
+                    "cannot be); not claimed: " + ", ".join(unclaimed))
+            print(f"✗ {args.id} is {effective}, not todo: {hint}")
+            return 1
     started = args.date or date.today().isoformat()
     if not _is_iso_date(started):
         print(f"✗ --date {started!r} is not a YYYY-MM-DD date")
@@ -1746,7 +1764,8 @@ def cmd_claim(args) -> int:
     _set_task_field(task, "started", started)
     _atomic_write(path, _canonical_text(data))
     who = f", assignee {task['assignee']}" if task.get("assignee") else ""
-    print(f"✓ claimed {args.id} (started {started}{who})")
+    stacked = f", stacked on {', '.join(stacked_on)}" if stacked_on else ""
+    print(f"✓ claimed {args.id} (started {started}{who}{stacked})")
     return 0
 
 
