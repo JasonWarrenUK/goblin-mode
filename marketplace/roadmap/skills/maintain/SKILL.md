@@ -81,7 +81,7 @@ If Step 0 ran, this is also where its **approved** edits land: set `status: done
 
 ### 3. Recompute every derived status (delegated to the script)
 
-Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py recompute --render`. It applies the fixed-point recompute under the precedence rule `deferred > paused > blocked > todo`, **writes the corrected statuses back** atomically, and refreshes the HTML artefact when one exists. The refreshed artefact renders every collapsible section closed by default (template convention); never hand-add `open` attributes to it. It prints each `{ID}: old -> new` change; capture that list, since it drives the projection sync below.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py recompute --render`. It applies the fixed-point recompute under the precedence rule `deferred > paused > blocked > todo`, **writes the corrected statuses back** atomically, and refreshes the HTML artefact when one exists (at the phase's `artefact` path when `roadmaps.json` sets one, else the default `docs/artefacts/roadmap-{slug}.html`; the same resolver `render` uses). The refreshed artefact renders every collapsible section closed by default (template convention); never hand-add `open` attributes to it. It prints each `{ID}: old -> new` change; capture that list, since it drives the projection sync below.
 
 Failure modes, all surfaced by exit 1 with a message; stop and report, never work around:
 
