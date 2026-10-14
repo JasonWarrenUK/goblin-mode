@@ -1721,6 +1721,23 @@ class ArtefactPath(unittest.TestCase):
         self.assertEqual(self._run(["render", str(jp)])[0], 0)
         self.assertTrue((root / "docs" / "artefacts" / "roadmap-t1c.html").exists())
 
+    def test_config_case_only_change_is_not_an_old_dashboard(self):
+        # On a case-insensitive filesystem (macOS default) the slug file and a
+        # case variant of it are one file; the note must not tell the user to
+        # delete their live dashboard.
+        root, jp = self._project(self._data())
+        self.assertEqual(self._run(["render", str(jp)])[0], 0)
+        old = root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html"
+        upper = old.with_name("roadmap-Tranche-1C-Post-DSG.html")
+        if not upper.exists():
+            self.skipTest("case-sensitive filesystem; nothing to collide")
+        rc, out = self._run(["config", "artefact",
+                             "docs/artefacts/roadmap-Tranche-1C-Post-DSG.html",
+                             str(jp)])
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("old path", out)
+        self.assertNotIn("no artefact at", out)
+
     def test_config_clear_removes_key_with_path_in_either_position(self):
         root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
         rc, out = self._run(["config", "artefact", "--clear", str(jp)])

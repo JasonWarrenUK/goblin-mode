@@ -1759,7 +1759,10 @@ def cmd_config(args) -> int:
     after = _render_path(path, phase)
     verb = "cleared artefact on" if args.clear else "set artefact on"
     print(f"{verb} '{name}'; the dashboard path is now {after}")
-    if before and before != after and before.exists():
+    # On a case-insensitive filesystem a case-only change leaves one file
+    # under two names, so the "old" dashboard is the live one: no note.
+    if (before and before != after and before.exists()
+            and not (after.exists() and os.path.samefile(before, after))):
         print(f"note: a dashboard still exists at the old path {before}; "
               "nothing refreshes it any more, so delete it")
     if not after.exists():
