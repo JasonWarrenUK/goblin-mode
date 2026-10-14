@@ -1758,6 +1758,12 @@ class ArtefactPath(unittest.TestCase):
         rc, _ = self._run(["config", "artefact", "x.html", str(jp), "--clear"])
         self.assertEqual(rc, 2)
         self.assertNotIn("artefact", json.loads(jp.read_text())[0])
+        # a value with no roadmap path is a mistyped set, not the roadmap path
+        with contextlib.chdir(root):
+            rc, out = self._run(["config", "artefact", "docs/x.html", "--clear"])
+        self.assertEqual(rc, 2)
+        self.assertIn("--clear", out)
+        self.assertNotIn("not found", out)
 
     def test_config_phase_reaches_an_archived_phase(self):
         archived = self._phase(

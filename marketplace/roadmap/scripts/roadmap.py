@@ -1721,9 +1721,12 @@ PHASE_FIELD_ORDER = ["name", "path", "project", ARTEFACT_KEY, "archived",
 
 
 def cmd_config(args) -> int:
-    if args.clear and args.value and not args.path:
+    if (args.clear and args.value and not args.path
+            and not args.value.lower().endswith(".html")):
         # `config artefact --clear ROADMAP.json`: both positionals are
-        # optional, so argparse has read the roadmap path as the value
+        # optional, so argparse has read the roadmap path as the value.
+        # A value that looks like a dashboard path is a mistyped set, left
+        # for the guard below rather than read as the roadmap path.
         args.path, args.value = args.value, None
     if args.clear == bool(args.value):
         print("✗ give a value to set, or --clear to remove the key")
