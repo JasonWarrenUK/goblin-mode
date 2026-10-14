@@ -35,6 +35,7 @@ Requires `python3` (3.8+, stdlib only) on `PATH`. The `/ready` pane needs Claude
 | Work landed / statuses drifted (add `reconcile` to check against code) | `/roadmap:maintain` |
 | Priorities, freshness or dependency-graph review                       | `/roadmap:review` |
 | Render the HTML dashboard                                              | `/roadmap:dashboard` |
+| Write the dashboard somewhere other than the default path              | `/roadmap:configure artefact <path> [phase]` |
 
 ### 2d. One-Off Utilities
 

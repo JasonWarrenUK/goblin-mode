@@ -3,6 +3,7 @@
 		"name": "Example Phase",
 		"path": "docs/roadmaps/EXAMPLE.md",
 		"project": "Example Project",
+		"artefact": "docs/artefacts/roadmap-example.html",
 		"archived": false,
 		"externalGates": [
 			{

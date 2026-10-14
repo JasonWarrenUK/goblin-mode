@@ -76,6 +76,37 @@ def load(explicit=None):
     return path, data
 
 
+def _phases(data):
+    """The phase list behind `data` (a phase array or one phase), rejecting the
+    old simple-format pointer registry (`{"roadmaps": [...]}`), which is not a
+    phase array — callers should run `roadmap.py detect` / migrate."""
+    if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
+        raise RoadmapError(
+            "roadmaps.json is an old-format pointer registry, not a phase array; "
+            "run the roadmap migrate skill first")
+    return data if isinstance(data, list) else [data]
+
+
+def named_phase(data, name):
+    """The phase called `name`, archived or not.
+
+    For the commands that act on one phase a person named explicitly (render,
+    config), where an archived phase is a legitimate target: its dashboard can
+    still be re-rendered or re-homed. Everything that reads the current work
+    goes through active_phase instead.
+    """
+    phases = _phases(data)
+    matches = [p for p in phases if p.get("name") == name]
+    if not matches:
+        names = ", ".join(repr(p.get("name")) for p in phases)
+        raise RoadmapError(f"no phase named {name!r} (phases: {names})")
+    chosen = matches[-1]
+    if not chosen.get("milestones"):
+        raise RoadmapError(
+            f"phase {name!r} has no 'milestones' array: not a rich-format roadmap")
+    return chosen
+
+
 def active_phase(data, selector=None):
     """The single non-archived phase. `data` may be a phase array or one phase.
 
@@ -84,11 +115,7 @@ def active_phase(data, selector=None):
     migrate. When more than one non-archived phase exists this raises rather
     than silently picking one; pass `selector` (a phase name) to disambiguate.
     """
-    if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
-        raise RoadmapError(
-            "roadmaps.json is an old-format pointer registry, not a phase array; "
-            "run the roadmap migrate skill first")
-    phases = data if isinstance(data, list) else [data]
+    phases = _phases(data)
     live = [p for p in phases if not p.get("archived")]
     if not live:
         raise RoadmapError("no active (non-archived) phase found")
