@@ -5,6 +5,29 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.9.0] - 2026-10-14
+
+### Added
+
+- Roadmap plugin 2.6.0: a phase chooses where its dashboard is written, through an `artefact` key set by `roadmap:configure`. Details in the plugin's changelog.
+
+## [6.8.0] - 2026-10-12
+
+### Breaking
+
+- `branch-worktree new` no longer pauses for approval before creating a worktree; valid arguments are the approval.
+
+### Added
+
+- `branch-worktree new` runs `git worktree add` directly, uses the derived name when none is given and bootstraps the worktree: `worktree-bootstrap.sh` symlinks the main checkout's git-ignored `.env*` files at matching paths, then installs dependencies for each tracked lockfile (bun, poetry, uv, pnpm, npm). The session-start hook warns only when JS dependencies are missing and points at the script.
+- Roadmap plugin 2.5.0: `claim` takes a blocked task when every unmet blocker is already claimed.
+
+## [6.7.0] - 2026-10-09
+
+### Added
+
+- Roadmap plugin 2.4.0: `roadmap.py assign` sets or clears an assignee without claiming, and the `/ready` pane can replace an assignee, assign without claiming and act on a claim past the ninth row.
+
 ## [6.6.0] - 2026-10-09
 
 ### Breaking
@@ -276,7 +299,10 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.6.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.9.0...HEAD
+[6.9.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.8.0...v6.9.0
+[6.8.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.7.0...v6.8.0
+[6.7.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.6.0...v6.7.0
 [6.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.5.0...v6.6.0
 [6.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.1...v6.5.0
 [6.4.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.4.0...v6.4.1
