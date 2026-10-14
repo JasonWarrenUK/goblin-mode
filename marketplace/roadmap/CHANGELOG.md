@@ -5,6 +5,19 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-10-14
+
+### Added
+
+- A phase's `artefact` key names where its HTML dashboard is written, as a path relative to the project root. `render` and `recompute --render` share one resolver: `--out`, then the key, then `docs/artefacts/roadmap-{slug}.html`. Without the key every existing roadmap behaves as before.
+- `roadmap.py config artefact PATH [--phase NAME]` writes the key in field order without touching anything else, and `--clear` removes it. An absolute path, a `..` segment or a non-`.html` suffix is refused; `validate` reports a hand-edited one as a discrepancy and `render` refuses to write it.
+- `roadmap:configure artefact <path>|clear [phase]` runs `config` and then one `render`, so the file exists at the new path before the skill reports.
+- `render --phase` and `config --phase` accept an archived phase, so its dashboard can be regenerated or re-homed. `ready`, `recompute` and `claim` still see active phases only.
+
+### Fixed
+
+- `recompute --render` wrote to the slug path even when a project's dashboard lived elsewhere, and reported no artefact.
+
 ## [2.5.0] - 2026-10-12
 
 ### Changed
@@ -132,7 +145,10 @@ The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the rend
 - The dashboard's Overview grid no longer collapses a tiered phase's milestones into a single narrow column.
 - Three skills are synced to the conventions reference.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.3.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.6.0...HEAD
+[2.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.5.0...roadmap-v2.6.0
+[2.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.4.0...roadmap-v2.5.0
+[2.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.3.0...roadmap-v2.4.0
 [2.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.2.0...roadmap-v2.3.0
 [2.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.1.0...roadmap-v2.2.0
 [2.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.0.0...roadmap-v2.1.0
