@@ -103,7 +103,7 @@ def named_phase(data, name):
     chosen = matches[-1]
     if not chosen.get("milestones"):
         raise RoadmapError(
-            f"phase {name!r} has no 'milestones' array — not a rich-format roadmap")
+            f"phase {name!r} has no 'milestones' array: not a rich-format roadmap")
     return chosen
 
 
