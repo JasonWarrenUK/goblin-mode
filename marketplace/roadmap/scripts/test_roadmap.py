@@ -1600,6 +1600,221 @@ class ClaimViews(unittest.TestCase):
         self.assertEqual(kinds["c"]["display"], "todo")
 
 
+class ArtefactPath(unittest.TestCase):
+    """The per-phase `artefact` key: where render and recompute --render
+    write the dashboard, and the `config artefact` command that sets it."""
+
+    def _project(self, data):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name).resolve()  # the CLI prints resolved paths
+        (root / ".claude").mkdir()
+        jp = root / ".claude" / "roadmaps.json"
+        jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        return root, jp
+
+    @staticmethod
+    def _phase(name, milestones, **extra):
+        """A phase dict in canonical field order, so a config write's insertion
+        point can be asserted against the whole key sequence."""
+        p = {"name": name, "path": "docs/roadmaps/TEST.md"}
+        for key in ("project", "artefact", "archived"):
+            if key in extra:
+                p[key] = extra[key]
+        p["externalGates"] = []
+        p["milestones"] = milestones
+        return p
+
+    def _data(self, **extra):
+        return [self._phase("Tranche 1C: Post-DSG", [{"id": "M1", "name": "m", "tasks": [
+            task("a", "done"), task("b", "todo", ["a"])]}], **extra)]
+
+    def _run(self, argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = roadmap.main(argv)
+        return rc, out.getvalue()
+
+    def test_render_honours_artefact_key(self):
+        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        rc, out = self._run(["render", str(jp)])
+        self.assertEqual(rc, 0)
+        self.assertTrue((root / "docs" / "artefacts" / "roadmap-t1c.html").exists())
+        self.assertFalse(
+            (root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html").exists())
+
+    def test_render_out_flag_beats_artefact_key(self):
+        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        rc, _ = self._run(["render", str(jp), "--out", str(root / "elsewhere.html")])
+        self.assertEqual(rc, 0)
+        self.assertTrue((root / "elsewhere.html").exists())
+        self.assertFalse((root / "docs" / "artefacts" / "roadmap-t1c.html").exists())
+
+    def test_recompute_render_refreshes_artefact_key_path(self):
+        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        custom = root / "docs" / "artefacts" / "roadmap-t1c.html"
+        custom.parent.mkdir(parents=True)
+        custom.write_text("stale")
+        rc, out = self._run(["recompute", str(jp), "--render"])
+        self.assertEqual(rc, 0)
+        self.assertIn(f"refreshed artefact: {custom}", out)
+        self.assertIn("roadmap-data", custom.read_text())
+        self.assertFalse(
+            (root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html").exists())
+
+    def test_recompute_render_notes_missing_artefact_at_key_path(self):
+        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        rc, out = self._run(["recompute", str(jp), "--render"])
+        self.assertEqual(rc, 0)
+        self.assertIn("no artefact at", out)
+        self.assertIn("roadmap-t1c.html", out)
+
+    def test_render_phase_accepts_an_archived_phase(self):
+        archived = self._phase(
+            "Tranche 1B: Pre-DSG",
+            [{"id": "M1", "name": "m", "tasks": [task("a", "done")]}],
+            artefact="docs/artefacts/roadmap-t1b.html", archived=True)
+        root, jp = self._project([archived, *self._data()])
+        rc, _ = self._run(["render", str(jp), "--phase", "Tranche 1B: Pre-DSG"])
+        self.assertEqual(rc, 0)
+        self.assertTrue((root / "docs" / "artefacts" / "roadmap-t1b.html").exists())
+        # without --phase the active phase is still the one rendered
+        rc, out = self._run(["render", str(jp)])
+        self.assertEqual(rc, 0)
+        self.assertIn("roadmap-tranche-1c-post-dsg.html", out)
+        # and the current-work commands still refuse an archived name
+        rc, out = self._run(["ready", str(jp), "--phase", "Tranche 1B: Pre-DSG"])
+        self.assertEqual(rc, 2)
+        self.assertIn("no active phase named", out)
+
+    def test_render_phase_unknown_name_lists_phases(self):
+        _root, jp = self._project(self._data())
+        rc, out = self._run(["render", str(jp), "--phase", "Nope"])
+        self.assertEqual(rc, 2)
+        self.assertIn("no phase named 'Nope'", out)
+        self.assertIn("Tranche 1C: Post-DSG", out)
+
+    def test_config_sets_key_in_field_order_and_writes_canonically(self):
+        root, jp = self._project(self._data(project="CHIRPdb", archived=False))
+        rc, out = self._run(["config", "artefact", "docs/artefacts/roadmap-t1c.html",
+                             str(jp)])
+        self.assertEqual(rc, 0, out)
+        text = jp.read_text()
+        after = json.loads(text)
+        self.assertEqual(after[0]["artefact"], "docs/artefacts/roadmap-t1c.html")
+        self.assertEqual(list(after[0]),
+                         ["name", "path", "project", "artefact", "archived",
+                          "externalGates", "milestones"])
+        self.assertEqual(text, roadmap._canonical_text(after))
+        self.assertIn("roadmap-t1c.html", out)
+        self.assertIn("no artefact at", out)  # nothing rendered yet
+        self.assertIn('render --phase "Tranche 1C: Post-DSG"', out)
+
+    def test_config_notes_a_dashboard_left_at_the_old_path(self):
+        root, jp = self._project(self._data())
+        self.assertEqual(self._run(["render", str(jp)])[0], 0)
+        old = root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html"
+        self.assertTrue(old.exists())
+        rc, out = self._run(["config", "artefact", "docs/artefacts/roadmap-t1c.html",
+                             str(jp)])
+        self.assertEqual(rc, 0)
+        self.assertIn(f"old path {old}", out)
+        self.assertEqual(self._run(["render", str(jp)])[0], 0)
+        self.assertTrue((root / "docs" / "artefacts" / "roadmap-t1c.html").exists())
+
+    def test_config_case_only_change_is_not_an_old_dashboard(self):
+        # On a case-insensitive filesystem (macOS default) the slug file and a
+        # case variant of it are one file; the note must not tell the user to
+        # delete their live dashboard.
+        root, jp = self._project(self._data())
+        self.assertEqual(self._run(["render", str(jp)])[0], 0)
+        old = root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html"
+        upper = old.with_name("roadmap-Tranche-1C-Post-DSG.html")
+        if not upper.exists():
+            self.skipTest("case-sensitive filesystem; nothing to collide")
+        rc, out = self._run(["config", "artefact",
+                             "docs/artefacts/roadmap-Tranche-1C-Post-DSG.html",
+                             str(jp)])
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("old path", out)
+        self.assertNotIn("no artefact at", out)
+
+    def test_config_clear_removes_key_with_path_in_either_position(self):
+        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        rc, out = self._run(["config", "artefact", "--clear", str(jp)])
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("artefact", json.loads(jp.read_text())[0])
+        self.assertIn("roadmap-tranche-1c-post-dsg.html", out)
+        # clearing an absent key is a no-op, not an error
+        rc, out = self._run(["config", "artefact", str(jp), "--clear"])
+        self.assertEqual(rc, 0)
+        self.assertIn("nothing to clear", out)
+
+    def test_config_needs_a_value_or_clear_not_both(self):
+        root, jp = self._project(self._data())
+        with contextlib.chdir(root):  # no value, roadmap found from the cwd
+            rc, out = self._run(["config", "artefact"])
+        self.assertEqual(rc, 2)
+        self.assertIn("--clear", out)
+        rc, _ = self._run(["config", "artefact", "x.html", str(jp), "--clear"])
+        self.assertEqual(rc, 2)
+        self.assertNotIn("artefact", json.loads(jp.read_text())[0])
+        # a value with no roadmap path is a mistyped set, not the roadmap path
+        with contextlib.chdir(root):
+            rc, out = self._run(["config", "artefact", "docs/x.html", "--clear"])
+        self.assertEqual(rc, 2)
+        self.assertIn("--clear", out)
+        self.assertNotIn("not found", out)
+
+    def test_config_phase_reaches_an_archived_phase(self):
+        archived = self._phase(
+            "Tranche 1B: Pre-DSG",
+            [{"id": "M1", "name": "m", "tasks": [task("a", "done")]}],
+            archived=True)
+        _root, jp = self._project([archived, *self._data()])
+        rc, out = self._run(["config", "artefact", "docs/artefacts/roadmap-t1b.html",
+                             str(jp), "--phase", "Tranche 1B: Pre-DSG"])
+        self.assertEqual(rc, 0, out)
+        after = json.loads(jp.read_text())
+        self.assertEqual(after[0]["artefact"], "docs/artefacts/roadmap-t1b.html")
+        self.assertEqual(list(after[0])[:4], ["name", "path", "artefact", "archived"])
+        self.assertNotIn("artefact", after[1])
+
+    def test_config_refuses_bad_paths(self):
+        _root, jp = self._project(self._data())
+        for bad, why in [("/tmp/roadmap.html", "absolute"),
+                         ("../roadmap.html", "leaves the project root"),
+                         ("docs/roadmap.md", "does not end in .html")]:
+            rc, out = self._run(["config", "artefact", bad, str(jp)])
+            self.assertEqual(rc, 1, bad)
+            self.assertIn(why, out)
+        self.assertNotIn("artefact", json.loads(jp.read_text())[0])
+
+    def test_config_refuses_to_reformat(self):
+        _root, jp = self._project(self._data())
+        jp.write_text(json.dumps(json.loads(jp.read_text()), indent=2) + "\n")
+        rc, out = self._run(["config", "artefact", "docs/a.html", str(jp)])
+        self.assertEqual(rc, 1)
+        self.assertIn("--reformat", out)
+        rc, _ = self._run(["config", "artefact", "docs/a.html", str(jp), "--reformat"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(jp.read_text())[0]["artefact"], "docs/a.html")
+
+    def test_validate_reports_a_hand_edited_bad_artefact(self):
+        _root, jp = self._project(self._data(artefact="../escape.html"))
+        rc, out = self._run(["validate", str(jp)])
+        self.assertEqual(rc, 1)
+        self.assertIn("leaves the project root", out)
+        self.assertIn("does not end in .html", self._run(
+            ["validate", str(self._project(self._data(artefact="docs/x.htm"))[1])])[1])
+        rc, out = self._run(["validate", str(self._project(self._data(artefact=""))[1])])
+        self.assertEqual(rc, 1)
+        self.assertIn("is not a path", out)
+        # and render refuses rather than writing outside the project
+        rc, out = self._run(["render", str(jp)])
+        self.assertEqual(rc, 2)
+        self.assertIn("leaves the project root", out)
+
+
 class ClaimCommand(unittest.TestCase):
     def _project(self, tasks):
         tmp = tempfile.TemporaryDirectory()

@@ -21,6 +21,9 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
   open       every task not done or out of scope        [--json
                                                          --milestones --tiers]
   render     deterministic HTML artefact from template   [--out PATH]
+  config     KEY VALUE: set a per-phase option; `artefact` is where render
+             writes the dashboard, relative to the project root
+                                                        [--clear --reformat]
   claim      ID: record that someone has started a task [--assignee NAME
                                                          --reassign --date]
   assign     ID: set or clear an assignee, no claim     [--assignee NAME
@@ -68,6 +71,7 @@ from _roadmap_core import (
     is_held,
     load,
     milestone_sinks,
+    named_phase,
     recompute_all,
     unmet_blockers,
 )
@@ -410,6 +414,8 @@ def _validate_phase(phase):
         if not m.get("tasks"):
             problems.append(f"{m['id']}: milestone has no tasks")
 
+    problems.extend(_artefact_problems(phase))
+
     known = set(tasks) | set(milestones) | set(gates)
     gate_expected_blocks = {gid: set() for gid in gates}
     for tid, task in tasks.items():
@@ -585,7 +591,11 @@ def cmd_recompute(args) -> int:
         print("no status changes.")
 
     if args.render and not args.check:
-        out = _default_render_path(path, phase)
+        try:
+            out = _render_path(path, phase)
+        except RoadmapError as exc:
+            print(f"✗ {exc}")
+            return 1
         if out.exists():
             _render_to(path, data, phase, out)
             print(f"refreshed artefact: {out}")
@@ -1531,6 +1541,52 @@ def _default_render_path(json_path, phase):
             / f"roadmap-{_slug(phase.get('name'))}.html")
 
 
+ARTEFACT_KEY = "artefact"
+
+
+def _artefact_problems(phase):
+    """Discrepancies in a phase's optional `artefact` key: the dashboard path
+    that render and recompute --render write, relative to the project root.
+    Absent is fine (the slug default applies); present means a non-empty
+    relative .html path that stays inside the project."""
+    if ARTEFACT_KEY not in phase:
+        return []
+    value = phase.get(ARTEFACT_KEY)
+    if not isinstance(value, str) or not value.strip():
+        return [f"artefact: {value!r} is not a path"]
+    problems = []
+    if Path(value).is_absolute():
+        problems.append(
+            f"artefact: {value!r} is absolute; give a path relative to the "
+            "project root")
+    if ".." in Path(value).parts:
+        problems.append(f"artefact: {value!r} leaves the project root")
+    if not value.lower().endswith(".html"):
+        problems.append(f"artefact: {value!r} does not end in .html")
+    return problems
+
+
+def _render_path(json_path, phase, override=None):
+    """Where a phase's dashboard goes: `--out` > the phase's `artefact` key
+    (relative to the project root) > docs/artefacts/roadmap-{slug}.html.
+    The one resolver, so render and recompute --render cannot disagree."""
+    if override:
+        return Path(override)
+    problems = _artefact_problems(phase)
+    if problems:
+        raise RoadmapError("; ".join(problems))
+    custom = phase.get(ARTEFACT_KEY)
+    if custom:
+        return project_root(json_path) / custom
+    return _default_render_path(json_path, phase)
+
+
+def _phase_for(data, selector=None):
+    """The phase a render or config acts on: the one named by --phase, archived
+    or not, else the single active phase."""
+    return named_phase(data, selector) if selector else active_phase(data)
+
+
 def _assert_header_comment_clean(template_html, template):
     """Guard against a stray comment-close in the template's header comment.
 
@@ -1647,13 +1703,74 @@ def _render_to(json_path, data, phase, out):
 def cmd_render(args) -> int:
     try:
         path, data = load(args.path)
-        phase = active_phase(data, args.phase)
-        out = Path(args.out) if args.out else _default_render_path(path, phase)
+        phase = _phase_for(data, args.phase)
+        out = _render_path(path, phase, args.out)
         _render_to(path, data, phase, out)
     except RoadmapError as exc:
         print(f"✗ {exc}")
         return 2
     print(f"wrote {out}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# config
+# ---------------------------------------------------------------------------
+PHASE_FIELD_ORDER = ["name", "path", "project", ARTEFACT_KEY, "archived",
+                     "externalGates", "milestones"]
+
+
+def cmd_config(args) -> int:
+    if (args.clear and args.value and not args.path
+            and not args.value.lower().endswith(".html")):
+        # `config artefact --clear ROADMAP.json`: both positionals are
+        # optional, so argparse has read the roadmap path as the value.
+        # A value that looks like a dashboard path is a mistyped set, left
+        # for the guard below rather than read as the roadmap path.
+        args.path, args.value = args.value, None
+    if args.clear == bool(args.value):
+        print("✗ give a value to set, or --clear to remove the key")
+        return 2
+    try:
+        path, data = load(args.path)
+        phase = _phase_for(data, args.phase)
+    except RoadmapError as exc:
+        print(f"✗ {exc}")
+        return 2
+    if _canonical_text(data) != path.read_text() and not args.reformat:
+        print("✗ roadmaps.json is not in canonical form (tab-indented, "
+              "ensure_ascii off, trailing newline); a write would reformat "
+              "the whole file. Re-run with --reformat to accept that.")
+        return 1
+    name = phase.get("name")
+    before = (None if _artefact_problems(phase)
+              else _render_path(path, phase))
+    if args.clear:
+        if ARTEFACT_KEY not in phase:
+            print(f"no artefact key on '{name}'; nothing to clear")
+            return 0
+        del phase[ARTEFACT_KEY]
+    else:
+        problems = _artefact_problems({ARTEFACT_KEY: args.value})
+        if problems:
+            print(f"✗ refusing to set artefact on '{name}':")
+            for p in problems:
+                print(f"  - {p}")
+            return 1
+        _set_phase_field(phase, ARTEFACT_KEY, args.value)
+    _atomic_write(path, _canonical_text(data))
+    after = _render_path(path, phase)
+    verb = "cleared artefact on" if args.clear else "set artefact on"
+    print(f"{verb} '{name}'; the dashboard path is now {after}")
+    # On a case-insensitive filesystem a case-only change leaves one file
+    # under two names, so the "old" dashboard is the live one: no note.
+    if (before and before != after and before.exists()
+            and not (after.exists() and os.path.samefile(before, after))):
+        print(f"note: a dashboard still exists at the old path {before}; "
+              "nothing refreshes it any more, so delete it")
+    if not after.exists():
+        print(f"note: no artefact at {after} yet; run `roadmap.py render"
+              f" --phase \"{name}\"` to create it")
     return 0
 
 
@@ -1665,22 +1782,30 @@ TASK_FIELD_ORDER = ["id", "description", "status", "dependsOn",
                     "assignee", "started", "ended", "pr"]
 
 
-def _set_task_field(task, key, value):
-    """Set `key` in place, or insert it where the canonical field order puts
+def _set_field(obj, key, value, order):
+    """Set `key` in place, or insert it where the canonical field `order` puts
     it, leaving every other field exactly where it already is."""
-    if key in task:
-        task[key] = value
+    if key in obj:
+        obj[key] = value
         return
-    rank = TASK_FIELD_ORDER.index(key)
-    items = list(task.items())
+    rank = order.index(key)
+    items = list(obj.items())
     at = len(items)
     for i, (k, _v) in enumerate(items):
-        if k in TASK_FIELD_ORDER and TASK_FIELD_ORDER.index(k) > rank:
+        if k in order and order.index(k) > rank:
             at = i
             break
     items.insert(at, (key, value))
-    task.clear()
-    task.update(items)
+    obj.clear()
+    obj.update(items)
+
+
+def _set_task_field(task, key, value):
+    _set_field(task, key, value, TASK_FIELD_ORDER)
+
+
+def _set_phase_field(phase, key, value):
+    _set_field(phase, key, value, PHASE_FIELD_ORDER)
 
 
 def _load_for_write(args):
@@ -2108,6 +2233,19 @@ def main(argv=None) -> int:
     sp = common(sub.add_parser("render", help="write the HTML artefact"))
     sp.add_argument("--out", default=None, help="output path override")
 
+    sp = sub.add_parser(
+        "config", help="set a per-phase option in roadmaps.json")
+    sp.add_argument("key", choices=[ARTEFACT_KEY],
+                    help="artefact: where render writes the dashboard, "
+                         "relative to the project root")
+    sp.add_argument("value", nargs="?", default=None,
+                    help="the value to set (omit with --clear)")
+    common(sp)
+    sp.add_argument("--clear", action="store_true",
+                    help="remove the key, restoring the default")
+    sp.add_argument("--reformat", action="store_true",
+                    help="allow rewriting a non-canonically-formatted file")
+
     def claim_common(sp):
         # the task id comes first so `claim 2RT.17 path` never reads the id
         # as the path
@@ -2180,6 +2318,7 @@ def main(argv=None) -> int:
         "ready": cmd_ready,
         "open": lambda a: cmd_ready(a, horizon="open"),
         "render": cmd_render,
+        "config": cmd_config,
         "claim": cmd_claim,
         "assign": cmd_assign,
         "release": cmd_release,

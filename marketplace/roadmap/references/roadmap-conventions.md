@@ -22,7 +22,8 @@ python3 <plugin-root>/scripts/roadmap.py <subcommand> [PATH] [--phase NAME]
 | `stats` | status counts; done fractions count in-scope tasks only (see Task counts) | `--json` | 0 · 2 |
 | `graph` | dependency graph | `--json` (default), `--mermaid --direction LR\|TD --omit-done --palette light\|dark\|vars` | 0 · 2 |
 | `ready` | actionable todo candidates with leverage signals; `--json` adds `groups` (candidate ids per milestone and per topic, in display order) | `--json` | 0 · 2 |
-| `render` | deterministic HTML artefact from `templates/roadmap-artefact.html` | `--out PATH` | 0 · 2 |
+| `render` | deterministic HTML artefact from `templates/roadmap-artefact.html`; `--phase` may name an archived phase here | `--out PATH` | 0 · 2 |
+| `config KEY VALUE` | set a per-phase option in `roadmaps.json`, inserted in field order with nothing else touched; the one key is `artefact`, the dashboard path relative to the project root; `--phase` may name an archived phase | `--clear` (remove the key) `--reformat` | 0 · 1 refusal (bad path, non-canonical file) · 2 |
 | `claim ID` | record that someone has started a task (see Claims) | `--assignee NAME --reassign --date YYYY-MM-DD` | 0 · 1 refusal · 2 |
 | `assign ID` | set or clear an assignee without claiming (see Claims) | `--assignee NAME` or `--unassign` (exactly one) | 0 · 1 refusal · 2 |
 | `release ID` | drop a claim | `--unassign` | 0 · 1 not claimed · 2 |
@@ -410,11 +411,19 @@ auto-reverted; absence still isn't evidence.
 
 - `roadmaps.json`: tab indentation, `ensure_ascii` off, trailing newline
   (`recompute` refuses to write non-canonical files without `--reformat`)
-- `docs/artefacts/roadmap-*.html`: `render`'s own canonical form (tabs,
-  single-line JSON payload), not a formatter's. A repo running Prettier (or
-  another formatter) in a hook or CI should exclude the artefact glob from
-  it, the same way `.claude/roadmaps.json` is excluded, so regenerating the
-  dashboard never fights the formatter.
+- `docs/artefacts/roadmap-*.html` (or the phase's `artefact` path): `render`'s
+  own canonical form (tabs, single-line JSON payload), not a formatter's. A
+  repo running Prettier (or another formatter) in a hook or CI should exclude
+  the artefact glob from it, the same way `.claude/roadmaps.json` is excluded,
+  so regenerating the dashboard never fights the formatter.
+- Dashboard path resolution, one resolver shared by `render` and
+  `recompute --render`: `--out PATH` > the phase's `artefact` key, relative to
+  the project root > `docs/artefacts/roadmap-{slug}.html`, the slug being the
+  phase name lower-cased with runs of non-alphanumerics collapsed to `-`. A
+  project that ignores `docs/artefacts/` in `.gitignore` and wants a custom
+  path checked in un-ignores that file itself; the plugin never edits
+  `.gitignore`. Moving the path leaves the old file where it was (`config`
+  says so); deleting it is the project's job too.
 - Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, started?, ended?, pr?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred: a skill setting it must ask, never guess from description,
@@ -443,12 +452,19 @@ auto-reverted; absence still isn't evidence.
   can span several milestones): treat that as an open question, not a rule
   to invent on the spot, until a real need forces the decision.
 - Gate field order: `id, name, status, imposes?, blocks[], notes?`
-- Phase field order: `name, path, project?, archived?, externalGates, milestones`
+- Phase field order: `name, path, project?, artefact?, archived?, externalGates, milestones`
 - `project` is optional free text naming the project the phase belongs to
   (distinct from `name`, which names the phase/roadmap, e.g. "MVP"). The
   artefact's `<h1>` reads `{project}: {phase}`; when `project` is absent the
   artefact falls back to the project root directory name (`render`'s
   `_project_name()`), so no migration is needed for existing roadmaps.
+- `artefact` is optional: where this phase's dashboard is written, as a path
+  relative to the project root like `path` (e.g.
+  `docs/artefacts/roadmap-t1c.html`). Absent, the slug default applies.
+  Set and cleared by `roadmap.py config artefact` (the `roadmap:configure`
+  skill), never by hand: `validate` reports an absolute path, a `..` segment
+  or a non-`.html` suffix as a discrepancy, and `render` refuses to write
+  such a path.
 - British spelling in all descriptions, notes and prose projections
 - PHASE.md task lines: `- [ ] **{ID}**: {description}` with annotations: none
   when `dependsOn` empty; `_(depends on {IDs})_` when all deps done;
@@ -492,7 +508,7 @@ that isn't open yet stays collapsed regardless of what it contains.
 | `.claude/roadmaps.json` | source of truth | `recompute` (statuses only) |
 | `docs/roadmaps/{PHASE}.md` | task-list projection + Mermaid diagram | skill prose + `graph --mermaid --direction LR` for the diagram block |
 | `docs/reports/ROADMAP_OVERVIEW.md` | prose overview | skill prose; header counts from `stats` |
-| `docs/artefacts/roadmap-{slug}.html` | interactive dashboard | `render` (fully deterministic; `recompute --render` refreshes it) |
+| `docs/artefacts/roadmap-{slug}.html`, or the phase's `artefact` path | interactive dashboard | `render` (fully deterministic; `recompute --render` refreshes it) |
 
 ## Which skill when
 
