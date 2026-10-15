@@ -165,5 +165,62 @@ class AddTests(unittest.TestCase):
 		self.assertFalse(self.path.exists())
 
 
+class GuardTests(unittest.TestCase):
+	"""The guard runs git against a throwaway repo with a main branch and a feature branch."""
+
+	def setUp(self):
+		import subprocess
+		self.tmp = tempfile.TemporaryDirectory()
+		self.repo = Path(self.tmp.name)
+		self.git = lambda *a: subprocess.run(["git", "-C", str(self.repo), *a], check=True, capture_output=True, text=True)
+		self.git("init", "-q", "-b", "main")
+		self.git("config", "user.email", "t@example.com"); self.git("config", "user.name", "t")
+		(self.repo / "README.md").write_text("x")
+		self.git("add", "."); self.git("commit", "-q", "-m", "init")
+		self.git("checkout", "-q", "-b", "feat/x")
+		self.export = self.repo / "docs" / "artefacts" / "task" / "observations.json"
+		self.export.parent.mkdir(parents=True)
+
+	def tearDown(self):
+		self.tmp.cleanup()
+
+	def guard(self):
+		import io, sys
+		payload = json.dumps({"cwd": str(self.repo), "tool_input": {"command": "gh pr create --title x"}})
+		stdin = sys.stdin
+		sys.stdin = io.StringIO(payload)
+		try:
+			return run(["guard"])
+		finally:
+			sys.stdin = stdin
+
+	def test_open_entry_on_branch_blocks(self):
+		self.export.write_text(json.dumps({"exported": "2026-10-15T10:00:00Z", "artifact": "u", "entries": [entry(where="Queue", title="Toolbar moved", source="check", principle=4)]}))
+		code, _, err = self.guard()
+		self.assertEqual(code, 2)
+		self.assertIn("docs/artefacts/task/observations.json: 1 open; 1 unwaived principles findings", err)
+		self.assertIn("#1 minor Queue: Toolbar moved [principle 4]", err)
+
+	def test_closed_export_passes_and_committed_counts(self):
+		self.export.write_text(json.dumps({"exported": "2026-10-15T10:00:00Z", "artifact": "u", "entries": [entry(status="fixed", resolution="done")]}))
+		self.git("add", "."); self.git("commit", "-q", "-m", "pass")
+		code, _, err = self.guard()
+		self.assertEqual((code, err), (0, ""))
+
+	def test_not_a_repo_fails_open(self):
+		import io, sys
+		other = tempfile.TemporaryDirectory()
+		try:
+			stdin = sys.stdin
+			sys.stdin = io.StringIO(json.dumps({"cwd": other.name}))
+			try:
+				code, _, _ = run(["guard"])
+			finally:
+				sys.stdin = stdin
+			self.assertEqual(code, 0)
+		finally:
+			other.cleanup()
+
+
 if __name__ == "__main__":
 	unittest.main()

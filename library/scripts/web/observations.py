@@ -19,6 +19,12 @@ usage:
 	  principles findings. exit 0 when nothing blocks sign-off, 1 when
 	  something does (open entries, unwaived check findings or an export
 	  older than --max-age), 2 unreadable
+  observations.py guard
+      PreToolUse payload on stdin (backs hooks/web-signoff-guard.sh). Finds
+      every docs/artefacts/*/observations.json the branch at payload.cwd
+      changed against main (or master), tracked or not, and runs status on
+      each. exit 2 with the blocking lines on stderr when any blocks, else
+      0. Not a git repo, no exports, no base branch: exit 0 (fail-open).
   observations.py add <export.json> --entry JSON [--entry JSON ...]
 	  Append entries (a principles finding, a failed capture) to an
 	  export file that has no live store: design mode. Assigns seq,
@@ -230,6 +236,58 @@ def cmd_add(args: argparse.Namespace) -> int:
 	return 0
 
 
+def changed_exports(cwd: Path) -> list[Path]:
+	"""Export files this branch changed against the base branch, plus untracked ones."""
+	import subprocess
+
+	def git(*args: str) -> str | None:
+		try:
+			done = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, timeout=10)
+		except (OSError, subprocess.TimeoutExpired):
+			return None
+		return done.stdout if done.returncode == 0 else None
+
+	if git("rev-parse", "--is-inside-work-tree") is None:
+		return []
+	pattern = "docs/artefacts/*/observations.json"
+	base = None
+	for candidate in ("main", "master"):
+		found = git("merge-base", "HEAD", candidate)
+		if found:
+			base = found.strip()
+			break
+	names = set()
+	if base:
+		names.update((git("diff", "--name-only", base, "--", pattern) or "").split())
+	names.update((git("ls-files", "--others", "--exclude-standard", "--", pattern) or "").split())
+	return sorted(cwd / n for n in names if n)
+
+
+def cmd_guard(args: argparse.Namespace) -> int:
+	try:
+		payload = json.load(sys.stdin)
+	except (json.JSONDecodeError, ValueError):
+		return 0
+	cwd = Path(payload.get("cwd") or ".")
+	blocking = []
+	for path in changed_exports(cwd):
+		export = read_export(path)
+		if export is None:
+			continue
+		summary = summarise(export, None)
+		if summary["blocks"]:
+			rel = path.relative_to(cwd) if path.is_relative_to(cwd) else path
+			blocking.append(f"{rel}: {'; '.join(summary['blocks'])}")
+			for e in summary["open"]:
+				tag = f" [principle {e['principle']}]" if e["source"] == "check" else ""
+				blocking.append(f"  #{e['seq']} {e['severity']} {e['where']}: {e['title']}{tag}")
+	if blocking:
+		print("web-signoff-guard: the review is not closed; fix or waive before the PR", file=sys.stderr)
+		print("\n".join(blocking), file=sys.stderr)
+		return 2
+	return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
 	parser = argparse.ArgumentParser(description="observation store: export, status, add")
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -243,6 +301,8 @@ def build_parser() -> argparse.ArgumentParser:
 	p.add_argument("--json", action="store_true")
 	p.add_argument("--max-age", type=float, default=None, help="hours; older exports block")
 	p.set_defaults(func=cmd_status)
+	p = sub.add_parser("guard")
+	p.set_defaults(func=cmd_guard)
 	p = sub.add_parser("add")
 	p.add_argument("export")
 	p.add_argument("--entry", action="append", required=True, help="JSON object; repeatable")

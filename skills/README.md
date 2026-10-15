@@ -45,6 +45,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/skill-creator` | ᛟ opus | Create new skills, modify and improve existing skills, and measure skill performance. Use when users… |
 | `/theme-factory` | ᛟ opus | Create, update, extend, print or display a project theme family: a core palette plus per-target file… |
 | `/theme-target` | ᛊ sonnet | Define a new theme target type (a consumer of colour/type tokens the theme system doesn't cover yet)… |
+| `/web-check` | ᛊ sonnet | Run the principles check in wireframe, pass or signoff mode: the mechanical half by script, the judg… |
 | `/web-design` | ᛟ opus | Design a new interface from a scope document, a roadmap task or an interview: inventory, layout, a w… |
 | `/web-review` | ᛟ opus | Review an existing interface: collate its assets, publish an observation logger built for it, run pa… |
 
