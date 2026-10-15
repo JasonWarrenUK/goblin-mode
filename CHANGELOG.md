@@ -5,6 +5,12 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.10.0] - 2026-10-15
+
+### Added
+
+- Roadmap plugin 2.7.0: every write to `roadmaps.json` records the minimum plugin version in a `min_plugin` stamp on each live phase, and dashboards record the version that rendered them. A plugin older than the stamp refuses to write over a roadmap or dashboard a newer plugin produced. Plugins before 2.7.0 ignore the stamp, so the guard protects only from this release onward. Details in the plugin's changelog.
+
 ## [6.9.0] - 2026-10-14
 
 ### Added
@@ -299,7 +305,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.9.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.10.0...HEAD
+[6.10.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.9.0...v6.10.0
 [6.9.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.8.0...v6.9.0
 [6.8.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.7.0...v6.8.0
 [6.7.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.6.0...v6.7.0
