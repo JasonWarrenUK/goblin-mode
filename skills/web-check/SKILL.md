@@ -19,7 +19,7 @@ Load `web-conventions` first. The principles and their mechanical or judgement s
 
 ## Step 1: Mode and inputs
 
-The first word of `$ARGUMENTS` is the mode; the rest are paths. Find what is not given from the task's directories (`docs/scope/`, `docs/artefacts/<slug>/`, `docs/assets/shots/`) and say what was used.
+The first word of `$ARGUMENTS` is the mode; the rest are paths. Find what is not given from the task's directories (`docs/scope/`, `docs/artefacts/<slug>/`, `docs/assets/walkthrough/`) and say what was used.
 
 | Mode | Needs | Mechanical subcommands |
 |---|---|---|

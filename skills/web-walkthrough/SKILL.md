@@ -44,11 +44,11 @@ Show the YAML and the unplanned states (discovered, not in the inventory) and st
 
 ## Step 4: Capture
 
-Invoke `asset-shot` with `docs/assets/walkthrough.yml no frame` (a walkthrough is evidence, not a README mockup; add framing only when Jason asks). Captures land in `docs/assets/shots/` under the naming rule. Run the quality gate from `asset-conventions` on every PNG.
+Invoke `asset-shot` with `docs/assets/walkthrough.yml no frame` (a walkthrough is evidence, not a README mockup; add framing only when Jason asks). Captures land in `docs/assets/walkthrough/` under the naming rule, apart from the README's `docs/assets/shots/`. Run the quality gate from `asset-conventions` on every PNG.
 
 ## Step 5: Record
 
-1. `check.py coverage docs/assets/shots --routes <slugs> --devices <names> --json`: a missing capture is a finding under principle 8.
+1. `check.py coverage docs/assets/walkthrough --routes <slugs> --devices <names> --json`: a missing capture is a finding under principle 8.
 2. Every state with a non-empty `toolbarMoved` is a finding under principle 4: `where` the route and the trigger's name, detail the controls that moved and by how much.
 3. Every capture that failed the quality gate twice is an entry with `source: walkthrough`, severity `major`, the file name in `whereDetail`.
 

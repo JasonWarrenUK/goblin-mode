@@ -73,6 +73,7 @@ class CliTests(unittest.TestCase):
 			self.assertEqual(code, 0)
 			self.assertTrue(out.exists())
 			self.assertEqual(json.loads(stdout)["entries"], 1)
+			self.assertIn('output: "docs/assets/walkthrough/home.png"', out.read_text())
 
 	def test_bad_routes(self):
 		code, _, err = run(["--base", "http://x", "--routes", "[]", "--devices", '{"d":1}'])

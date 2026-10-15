@@ -90,7 +90,7 @@ Runs at three moments: after a wireframe is approved, at the end of each observa
 
 ### The sign-off walkthrough
 
-After sign-off, `web-walkthrough` captures every route on every intended device in every open state into `docs/assets/shots/`, named as below, through `asset-shot`.
+After sign-off, `web-walkthrough` captures every route on every intended device in every open state into `docs/assets/walkthrough/`, named as below, through `asset-shot`.
 
 ## Capture naming
 
@@ -101,7 +101,7 @@ After sign-off, `web-walkthrough` captures every route on every intended device 
 - **Specifier** appears only when several captures share prefix and route: the open state or scroll position (`filters-open`, `records-open`, `900`).
 - Lowercase, hyphenated, no spaces.
 
-`asset-conventions` carries the same rule for every `asset-*` skill, so a walkthrough's captures and a README's screenshots share one directory without collision.
+`asset-conventions` carries the same rule for every `asset-*` skill, so a walkthrough's captures and a README's screenshots share one naming rule and keep separate directories (`docs/assets/walkthrough/` and `docs/assets/shots/`): the same route on one device gets the same name in both, so a shared directory would overwrite.
 
 ## Shelving an artefact
 
