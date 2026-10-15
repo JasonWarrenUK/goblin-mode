@@ -542,7 +542,7 @@ def _refuse_if_stamped_newer(data):
     """Raise when any phase was last written by a newer plugin than this one."""
     for phase in _phases(data):
         stamp = phase.get(STAMP_KEY)
-        if newer_than_running(stamp):
+        if newer_than_running(stamp, PLUGIN_VERSION):
             raise RoadmapError(
                 f"phase {phase.get('name')!r} was written by roadmap plugin "
                 f"{stamp}; this is {PLUGIN_VERSION}. Update the plugin before "
@@ -558,7 +558,9 @@ def _write_roadmap(path, data):
         for phase in _phases(data):
             if phase.get("archived"):
                 continue
-            if newer_than_running(stamp, phase.get(STAMP_KEY)) or STAMP_KEY not in phase:
+            held = phase.get(STAMP_KEY)
+            # A missing or unparsable stamp is repaired; only a lower one is raised.
+            if stamp_for(held) is None or newer_than_running(stamp, held):
                 _set_phase_field(phase, STAMP_KEY, stamp)
     _atomic_write(path, _canonical_text(data))
 
@@ -573,7 +575,7 @@ def _refuse_if_artefact_newer(out):
     except (OSError, UnicodeDecodeError):
         return
     found = _ARTEFACT_VERSION_RE.search(existing)
-    if found and newer_than_running(found.group(1)):
+    if found and newer_than_running(found.group(1), PLUGIN_VERSION):
         raise RoadmapError(
             f"{out} was rendered by roadmap plugin {found.group(1)}; this is "
             f"{PLUGIN_VERSION}. Update the plugin before rendering over it.")

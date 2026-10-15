@@ -70,10 +70,10 @@ def stamp_for(version):
     return f"{parsed[0]}.{parsed[1]}.0" if parsed else None
 
 
-def newer_than_running(stamp, running=None):
-    """True when `stamp` names a plugin version newer than the running one.
-    An unreadable running version or stamp never blocks."""
-    have = parse_version(running or PLUGIN_VERSION)
+def newer_than_running(stamp, running):
+    """True when `stamp` names a plugin version newer than `running`. An
+    unreadable running version or stamp never blocks."""
+    have = parse_version(running)
     want = parse_version(stamp)
     return bool(have and want and want > have)
 
