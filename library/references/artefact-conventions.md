@@ -94,6 +94,17 @@ way `site/assets/site.css` does:
 That comment block is the point: a future read of this file should be able
 to reconstruct the palette decision without re-deriving it.
 
+**Exception: a page that proposes the product's own interface.** A wireframe
+or mock drawn to be approved as a build spec (`web-design`, principle 6 of
+the web design principles) uses the product's own tokens, copied from its CSS
+and cited in the mapping-notes comment, because the picture must look like
+the product it proposes. The theme is for internal docs and shareables, not
+for pictures of the product. Masthead, honesty rule and technical hygiene
+still apply; the annotations (callout badges, the explain list) take a mono
+face so they never read as part of the mock. A product that ships one colour
+scheme is drawn in that one, and the page says so instead of inventing a
+second.
+
 ### One hue per skill family (for artefacts about skills)
 
 When an artefact documents a specific skill, its palette is keyed to that

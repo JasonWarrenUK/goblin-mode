@@ -1,0 +1,1081 @@
+<!--
+  Observation logger: a published page with a shared store, from the web-conventions library.
+
+  What it is: Jason records what he notices while walking an interface (where,
+  severity, areas, a note, a screenshot); the session reads the entries back
+  with ArtifactData, fixes, and writes a status and a resolution to each one.
+  Shelved from the CHIRPdb 2RT.25 review (October 2026), where three passes
+  closed the loop. An example of the kind of thing, not a template.
+
+  Before publishing for a new task, resolve every ADAPT: comment below
+  (grep for "ADAPT:"); the store contract (fields, statuses, export) is in
+  web-conventions SKILL.md and must not drift from it.
+
+  Runtime capabilities: db (the store), assets (screenshots). Publish with
+  both declared; the page degrades to read-only without them.
+-->
+<title>Observation Log</title> <!-- ADAPT: "<Product> Review Log" -->
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/*
+  Mapping notes. ADAPT: these tokens came from the source project's artefact
+  aesthetic (IBM Plex Sans for reading, IBM Plex Mono for labels, a warm
+  off-white ground and a teal accent). Replace the :root blocks with the new
+  project's artefact aesthetic per artefact-conventions Step 2, keeping the
+  role names. The severity scale maps onto chip roles so the logger reads
+  with the project's other artefacts:
+    blocker  = --open (rust): the tool cannot be used this way
+    major    = --secondary (amber): a reviewer would stumble every time
+    minor    = --tertiary (grey): noticed, not in the way
+    nit      = --decided (neutral outline): polish
+    praise   = --verified (green): keep this, say why
+  Status is the honesty marking: open (outline), fixed (green fill),
+  declined (grey fill, with a reason). Every entry carries one.
+  Authored for the Artifact publish pathway, so no in-page theme toggle: the
+  host supplies one. Both token states follow the three-state contract in
+  library/references/artefact-conventions.md.
+  Layout: a sticky capture column beside a scrolling list; one column on a
+  phone. Capture is the job, so it stays on screen.
+*/
+:root {
+	--ground:        #fbfaf7;
+	--surface:       #ffffff;
+	--surface-sunk:  #f2f1ec;
+	--rule:          #ddddd6;
+	--rule-strong:   #c3c4bc;
+	--ink:           #171c21;
+	--ink-soft:      #4a5157;
+	--ink-faint:     #71787e;
+	--accent:        #0b6e6e;
+	--accent-bg:     #e2f0ee;
+	--accent-ink:    #ffffff;
+
+	--secondary:     #8a6d1f;
+	--secondary-bg:  #f6efdc;
+	--tertiary:      #6b6f76;
+	--tertiary-bg:   #eceded;
+	--verified:      #1f6b4a;
+	--verified-bg:   #e4f0ea;
+	--decided:       #4a5157;
+	--decided-bg:    transparent;
+	--open:          #a1471f;
+	--open-bg:       #f8e6dc;
+
+	--measure: 70ch;
+	--mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+	--sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--ground:        #12161a;
+		--surface:       #181d22;
+		--surface-sunk:  #1e242a;
+		--rule:          #2b3238;
+		--rule-strong:   #3d454c;
+		--ink:           #e8e9e6;
+		--ink-soft:      #b3b8bc;
+		--ink-faint:     #868c92;
+		--accent:        #4fb3ad;
+		--accent-bg:     #15302f;
+		--accent-ink:    #0e1a19;
+		--secondary:     #d0ab5a;
+		--secondary-bg:  #2c2517;
+		--tertiary:      #979da3;
+		--tertiary-bg:   #23282d;
+		--verified:      #64b98d;
+		--verified-bg:   #162a21;
+		--decided:       #b3b8bc;
+		--decided-bg:    transparent;
+		--open:          #e08a5c;
+		--open-bg:       #32201a;
+		color-scheme: dark;
+	}
+}
+:root[data-theme="dark"] {
+	--ground:        #12161a;
+	--surface:       #181d22;
+	--surface-sunk:  #1e242a;
+	--rule:          #2b3238;
+	--rule-strong:   #3d454c;
+	--ink:           #e8e9e6;
+	--ink-soft:      #b3b8bc;
+	--ink-faint:     #868c92;
+	--accent:        #4fb3ad;
+	--accent-bg:     #15302f;
+	--accent-ink:    #0e1a19;
+	--secondary:     #d0ab5a;
+	--secondary-bg:  #2c2517;
+	--tertiary:      #979da3;
+	--tertiary-bg:   #23282d;
+	--verified:      #64b98d;
+	--verified-bg:   #162a21;
+	--decided:       #b3b8bc;
+	--decided-bg:    transparent;
+	--open:          #e08a5c;
+	--open-bg:       #32201a;
+	color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+	margin: 0;
+	background: var(--ground);
+	color: var(--ink);
+	font-family: var(--sans);
+	font-size: 15px;
+	line-height: 1.55;
+	-webkit-font-smoothing: antialiased;
+	padding-left: max(16px, env(safe-area-inset-left, 0px));
+	padding-right: max(16px, env(safe-area-inset-right, 0px));
+	padding-block: 2rem 5rem;
+}
+.shell { max-width: 1180px; margin: 0 auto; }
+a { color: var(--accent); }
+code { font-family: var(--mono); font-size: 0.86em; }
+
+/* Masthead */
+.masthead {
+	display: flex; flex-direction: column; gap: 0.75rem;
+	padding-bottom: 1.4rem; border-bottom: 2px solid var(--ink);
+}
+.eyebrow {
+	font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em;
+	text-transform: uppercase; color: var(--accent); margin: 0;
+	display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem;
+}
+h1 {
+	font-family: var(--mono); font-weight: 500; letter-spacing: -0.02em;
+	font-size: clamp(1.6rem, 4vw, 2.3rem); line-height: 1.1; margin: 0; text-wrap: balance;
+}
+.standfirst { max-width: var(--measure); font-size: 1rem; color: var(--ink-soft); margin: 0; }
+.meta-strip {
+	display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem;
+	font-family: var(--mono); font-size: 0.76rem; color: var(--ink-soft);
+	font-variant-numeric: tabular-nums; margin: 0; padding: 0; list-style: none;
+}
+.meta-strip b { color: var(--ink); font-weight: 500; }
+.meta-strip a { text-decoration: none; border-bottom: 1px solid var(--rule-strong); }
+
+/* Banner for a view that cannot save */
+.banner {
+	margin-top: 1rem; padding: 0.6rem 0.9rem; border-radius: 4px;
+	background: var(--open-bg); color: var(--open); font-size: 0.9rem;
+	border: 1px solid var(--open);
+}
+
+/* Two columns */
+.work {
+	display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+	gap: 2rem; margin-top: 1.6rem; align-items: start;
+}
+@media (max-width: 860px) {
+	.work { grid-template-columns: minmax(0, 1fr); }
+	.capture { position: static !important; }
+}
+
+/* Capture form */
+.capture {
+	position: sticky; top: calc(1rem + env(safe-area-inset-top, 0px));
+	background: var(--surface); border: 1px solid var(--rule); border-radius: 6px;
+	padding: 1.1rem 1.2rem 1.2rem; display: flex; flex-direction: column; gap: 0.85rem;
+}
+.capture h2 {
+	font-family: var(--mono); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.12em;
+	text-transform: uppercase; color: var(--accent); margin: 0;
+	display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+}
+.capture h2 .editing { color: var(--secondary); font-size: 0.7rem; letter-spacing: 0.08em; }
+.field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+label, .field > span.lbl {
+	font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+	text-transform: uppercase; color: var(--ink-faint);
+}
+input[type="text"], textarea, select {
+	font: inherit; font-size: 0.95rem; color: var(--ink); background: var(--ground);
+	border: 1px solid var(--rule-strong); border-radius: 4px; padding: 0.45rem 0.6rem;
+	width: 100%; min-width: 0;
+}
+textarea { min-height: 6.5rem; resize: vertical; line-height: 1.5; }
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible {
+	outline: 2px solid var(--accent); outline-offset: 1px;
+}
+.where-row { display: grid; grid-template-columns: 1fr; gap: 0.4rem; }
+.where-row input[type="text"] { font-family: var(--mono); font-size: 0.85rem; }
+
+.segmented { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.segmented button {
+	font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+	padding: 0.25rem 0.6rem; border-radius: 3px; border: 1px solid var(--rule-strong);
+	background: var(--surface); color: var(--ink-soft); cursor: pointer; line-height: 1.5;
+}
+.segmented button[aria-pressed="true"] { border-color: currentColor; font-weight: 500; }
+.segmented[data-kind="severity"] button[aria-pressed="true"][data-value="blocker"] { color: var(--open); background: var(--open-bg); }
+.segmented[data-kind="severity"] button[aria-pressed="true"][data-value="major"] { color: var(--secondary); background: var(--secondary-bg); }
+.segmented[data-kind="severity"] button[aria-pressed="true"][data-value="minor"] { color: var(--tertiary); background: var(--tertiary-bg); }
+.segmented[data-kind="severity"] button[aria-pressed="true"][data-value="nit"] { color: var(--decided); background: var(--decided-bg); }
+.segmented[data-kind="severity"] button[aria-pressed="true"][data-value="praise"] { color: var(--verified); background: var(--verified-bg); }
+.segmented[data-kind="area"] button[aria-pressed="true"] { color: var(--accent); background: var(--accent-bg); }
+
+.shot { display: flex; flex-direction: column; gap: 0.4rem; }
+.shot input[type="file"] { font-size: 0.85rem; color: var(--ink-soft); }
+.shot img { max-width: 100%; max-height: 160px; object-fit: contain; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface-sunk); }
+.shot .note { font-size: 0.8rem; color: var(--ink-faint); }
+
+.actions { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.btn {
+	font: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer;
+	padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--accent);
+	background: var(--accent); color: var(--accent-ink);
+}
+.btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+.btn.quiet { background: transparent; color: var(--ink-soft); border-color: var(--rule-strong); }
+.hint { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-faint); }
+.form-status { font-size: 0.85rem; color: var(--ink-soft); min-height: 1.2em; }
+.form-status.err { color: var(--open); }
+
+/* List */
+.list-head {
+	display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center;
+	padding-bottom: 0.8rem; border-bottom: 1px solid var(--rule); margin-bottom: 0.4rem;
+}
+.list-head h2 {
+	font-family: var(--mono); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.12em;
+	text-transform: uppercase; color: var(--accent); margin: 0; margin-right: auto;
+}
+.totals { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.controls {
+	display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center;
+	padding: 0.6rem 0; border-bottom: 1px solid var(--rule);
+}
+.ctl {
+	display: inline-flex; align-items: center; gap: 0.4rem;
+	font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em;
+	text-transform: uppercase; color: var(--ink-faint);
+}
+.controls select { width: auto; font-size: 0.82rem; padding: 0.25rem 0.5rem; }
+.filters { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin-left: auto; }
+.filters input[type="text"] { width: 9rem; font-size: 0.85rem; padding: 0.3rem 0.55rem; }
+.chip.count b { font-weight: 500; margin-right: 0.35em; font-variant-numeric: tabular-nums; }
+
+.empty {
+	padding: 2.5rem 1rem; text-align: center; color: var(--ink-faint);
+	border: 1px dashed var(--rule-strong); border-radius: 6px; margin-top: 1rem;
+}
+.empty b { color: var(--ink-soft); font-weight: 500; }
+
+.entries { display: flex; flex-direction: column; }
+summary { list-style: none; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+
+/* Status group: the top level. Open and declined start open, fixed closed. */
+details.status-group { border: 1px solid var(--rule); border-radius: 6px; margin-top: 0.9rem; background: var(--surface); overflow: hidden; }
+details.status-group > summary {
+	display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.8rem;
+	padding: 0.7rem 0.9rem; background: var(--surface-sunk);
+}
+details.status-group > summary::before {
+	content: "▸"; font-family: var(--mono); color: var(--ink-faint); width: 1em; flex: none;
+}
+details.status-group[open] > summary::before { content: "▾"; }
+details.status-group > summary .chip { font-size: 0.72rem; padding: 0.15rem 0.6rem; }
+.status-body { padding: 0 0.9rem 0.4rem; }
+.status-body > details.group:last-child { border-bottom: 0; }
+
+/* Group: one band per key, closed by default */
+details.group { border-bottom: 1px solid var(--rule); }
+details.group > summary {
+	display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; padding: 0.8rem 0;
+}
+details.group > summary::before {
+	content: "▸"; font-family: var(--mono); color: var(--ink-faint); width: 1em; flex: none;
+}
+details.group[open] > summary::before { content: "▾"; }
+.group-name { font-weight: 500; font-size: 1rem; }
+.group-n { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.group-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+.group-body { padding: 0 0 0.6rem 1.4em; }
+@media (max-width: 480px) { .group-body { padding-left: 0.4em; } }
+
+/* Entry: one row per observation, closed by default */
+details.entry { border-top: 1px solid var(--rule); }
+details.entry > summary {
+	display: grid; grid-template-columns: 3.4rem minmax(0, 1fr);
+	gap: 0.15rem 0.6rem; padding: 0.55rem 0; align-items: baseline;
+}
+.e-seq {
+	font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint);
+	font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.e-seq::before { content: "▸ "; }
+details.entry[open] .e-seq::before { content: "▾ "; }
+.e-line { display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; align-items: center; min-width: 0; }
+.e-shot { color: var(--ink-faint); display: inline-flex; vertical-align: middle; }
+.e-shot svg { width: 0.95em; height: 0.95em; }
+.e-where { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-soft); }
+.e-where b { font-weight: 500; color: var(--ink); }
+.e-title { grid-column: 2; font-weight: 500; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+details.entry[data-status="fixed"] .e-title { color: var(--ink-faint); text-decoration: line-through; text-decoration-color: var(--rule-strong); }
+.e-body {
+	padding: 0.2rem 0 0.9rem calc(3.4rem + 0.6rem);
+	display: flex; flex-direction: column; gap: 0.45rem; min-width: 0;
+}
+@media (max-width: 480px) {
+	details.entry > summary { grid-template-columns: minmax(0, 1fr); }
+	.e-title { grid-column: 1; }
+	.e-body { padding-left: 0; }
+}
+.e-time { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.chip {
+	display: inline-block; font-family: var(--mono); font-size: 0.64rem;
+	letter-spacing: 0.06em; text-transform: uppercase; padding: 0.08rem 0.45rem;
+	border-radius: 3px; border: 1px solid currentColor; line-height: 1.5; white-space: nowrap;
+}
+.chip.blocker { color: var(--open); background: var(--open-bg); }
+.chip.major { color: var(--secondary); background: var(--secondary-bg); }
+.chip.minor { color: var(--tertiary); background: var(--tertiary-bg); }
+.chip.nit { color: var(--decided); background: var(--decided-bg); }
+.chip.praise { color: var(--verified); background: var(--verified-bg); }
+.chip.area { color: var(--accent); background: var(--accent-bg); }
+.chip.status-open { color: var(--ink-soft); background: transparent; }
+.chip.status-fixed { color: var(--verified-bg); background: var(--verified); border-color: var(--verified); }
+.chip.status-declined { color: var(--tertiary-bg); background: var(--tertiary); border-color: var(--tertiary); }
+.chip.status-waived { color: var(--secondary-bg); background: var(--secondary); border-color: var(--secondary); }
+.e-body .detail { margin: 0; white-space: pre-wrap; color: var(--ink-soft); max-width: var(--measure); }
+.e-body .resolution { margin: 0; font-size: 0.88rem; color: var(--ink-soft); padding-left: 0.7rem; border-left: 2px solid var(--rule-strong); max-width: var(--measure); }
+.e-body .resolution b { font-family: var(--mono); font-weight: 500; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.e-body img.thumb {
+	max-width: 100%; max-height: 320px; object-fit: contain; display: block;
+	border: 1px solid var(--rule); border-radius: 3px; background: var(--surface-sunk);
+}
+.row-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.row-actions select { width: auto; font-size: 0.78rem; padding: 0.15rem 0.4rem; }
+.row-actions button {
+	font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+	padding: 0.2rem 0.55rem; border-radius: 3px; border: 1px solid var(--rule-strong);
+	background: transparent; color: var(--ink-soft); cursor: pointer;
+}
+.row-actions button.danger-armed { color: var(--open); border-color: var(--open); background: var(--open-bg); }
+
+/* Legend and sources */
+.legend {
+	display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: center;
+	margin-top: 1.2rem; font-size: 0.82rem; color: var(--ink-soft);
+}
+details.sources { margin-top: 2.5rem; border-top: 1px solid var(--rule); padding-top: 0.8rem; }
+details.sources summary {
+	cursor: pointer; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em;
+	text-transform: uppercase; color: var(--ink-faint); list-style: none;
+}
+details.sources summary::-webkit-details-marker { display: none; }
+details.sources summary::before { content: "▸ "; }
+details.sources[open] summary::before { content: "▾ "; }
+details.sources ul { font-size: 0.86rem; color: var(--ink-soft); margin: 0.6rem 0 0; padding-left: 1.2rem; }
+details.sources li { margin-bottom: 0.25rem; }
+</style>
+
+<div class="shell">
+	<header class="masthead">
+		<p class="eyebrow"><span>Product</span><span>Task</span><span>Branch</span></p> <!-- ADAPT: product name, task id, branch -->
+		<h1>Observation Log</h1> <!-- ADAPT: "<Product> Review Log" -->
+		<p class="standfirst">One entry per thing noticed while walking the review tool. Where it was, what it is, how much it matters. Entries are read back from here into the review's fix list.</p>
+		<ul class="meta-strip">
+			<!-- ADAPT: one link per thing under review (the app, its API docs); drop what the project lacks -->
+			<li>App <a href="http://localhost:0000" target="_blank" rel="noopener">localhost:0000</a></li>
+			<li>Entries <b id="count-total">0</b></li>
+			<li>Open <b id="count-open">0</b></li>
+			<li>Blockers <b id="count-blocker">0</b></li>
+		</ul>
+		<div class="banner" id="banner" hidden></div>
+	</header>
+
+	<div class="work">
+		<form class="capture" id="capture" autocomplete="off">
+			<h2><span>Record</span><span class="editing" id="editing-label" hidden></span></h2>
+
+			<div class="field where-row">
+				<label for="where-select">Where</label>
+				<!-- ADAPT: one option per route or region from the inventory, in reading order;
+				     "Route: region" for a page with sections; keep Global and Other -->
+				<select id="where-select">
+					<option value="Sign-in">Sign-in page</option>
+					<option value="Home" selected>Home</option>
+					<option value="Record: summary">Record: summary</option>
+					<option value="Record: details">Record: details</option>
+					<option value="Record: whole page">Record: whole page</option>
+					<option value="Global">Global (nav, layout, every page)</option>
+					<option value="Other">Other</option>
+				</select>
+				<input type="text" id="where-detail" placeholder="Narrower: a control, a row, a state (optional)">
+			</div>
+
+			<div class="field">
+				<span class="lbl" id="sev-label">Severity</span>
+				<div class="segmented" data-kind="severity" role="group" aria-labelledby="sev-label" id="severity">
+					<button type="button" data-value="blocker" aria-pressed="false">Blocker</button>
+					<button type="button" data-value="major" aria-pressed="false">Major</button>
+					<button type="button" data-value="minor" aria-pressed="true">Minor</button>
+					<button type="button" data-value="nit" aria-pressed="false">Nit</button>
+					<button type="button" data-value="praise" aria-pressed="false">Praise</button>
+				</div>
+			</div>
+
+			<div class="field">
+				<span class="lbl" id="area-label">Areas (pick any)</span>
+				<div class="segmented" data-kind="area" data-multi="true" role="group" aria-labelledby="area-label" id="area">
+					<button type="button" data-value="layout" aria-pressed="true">Layout</button>
+					<button type="button" data-value="copy" aria-pressed="false">Copy</button>
+					<button type="button" data-value="colour-type" aria-pressed="false">Colour &amp; type</button>
+					<button type="button" data-value="interaction" aria-pressed="false">Interaction</button>
+					<button type="button" data-value="navigation" aria-pressed="false">Navigation</button>
+					<button type="button" data-value="feedback" aria-pressed="false">Feedback &amp; states</button>
+					<button type="button" data-value="accessibility" aria-pressed="false">Accessibility</button>
+					<button type="button" data-value="performance" aria-pressed="false">Performance</button>
+					<button type="button" data-value="data" aria-pressed="false">Data shown</button>
+				</div>
+			</div>
+
+			<div class="field">
+				<label for="note">Observation</label>
+				<textarea id="note" required placeholder="First line: what you saw. Further lines, if you want them: what you expected, what would be better."></textarea>
+			</div>
+
+			<div class="field shot" id="shot-field">
+				<label for="shot">Screenshot</label>
+				<input type="file" id="shot" accept="image/*">
+				<img id="shot-preview" alt="" hidden>
+				<span class="note" id="shot-note" hidden></span>
+			</div>
+
+			<div class="actions">
+				<button type="submit" class="btn" id="submit">Record</button>
+				<button type="button" class="btn quiet" id="cancel-edit" hidden>Cancel edit</button>
+				<span class="hint">⌘↵ records</span>
+			</div>
+			<div class="form-status" id="form-status" aria-live="polite"></div>
+		</form>
+
+		<section class="list" aria-labelledby="list-title">
+			<div class="list-head">
+				<h2 id="list-title">Entries</h2>
+				<div class="totals" id="totals" aria-label="Shown entries by severity"></div>
+			</div>
+			<div class="controls">
+				<label class="ctl"><span>Group</span>
+					<select id="g-by">
+						<option value="where" selected>Where</option>
+						<option value="area">Area</option>
+						<option value="severity">Severity</option>
+						<option value="status">Status</option>
+						<option value="none">No grouping</option>
+					</select>
+				</label>
+				<label class="ctl"><span>Sort</span>
+					<select id="s-by">
+						<option value="detail-severity" selected>Narrower where, then severity</option>
+						<option value="where-detail">Where, then narrower where</option>
+						<option value="severity-where">Severity, then where</option>
+						<option value="newest">Newest first</option>
+						<option value="oldest">Oldest first</option>
+					</select>
+				</label>
+				<div class="filters">
+					<select id="f-severity" aria-label="Filter by severity">
+						<option value="">Any severity</option>
+						<option value="blocker">Blocker</option>
+						<option value="major">Major</option>
+						<option value="minor">Minor</option>
+						<option value="nit">Nit</option>
+						<option value="praise">Praise</option>
+					</select>
+					<select id="f-status" aria-label="Filter by status">
+						<option value="" selected>Any status</option>
+						<option value="open">Open</option>
+						<option value="fixed">Fixed</option>
+						<option value="declined">Declined</option>
+						<option value="waived">Waived</option>
+					</select>
+					<input type="text" id="f-text" placeholder="Find" aria-label="Find in entries">
+				</div>
+			</div>
+			<div class="empty" id="empty"><b>No entries yet.</b><br>Open the tool, notice something, put it in the form. Where and severity stay set between entries, so a run of related notes is fast.</div>
+			<div class="entries" id="entries"></div>
+			<div class="legend">
+				<span>Status:</span>
+				<span class="chip status-open">open</span><span>still to act on</span>
+				<span class="chip status-fixed">fixed</span><span>changed on this branch</span>
+				<span class="chip status-declined">declined</span><span>left as is, with a reason</span>
+				<span class="chip status-waived">waived</span><span>a principles finding let through, with Jason's reason</span>
+			</div>
+		</section>
+	</div>
+
+	<details class="sources">
+		<summary>Sources</summary>
+		<ul>
+			<li>Entries live in this artifact's shared store, collection <code>observations</code>, one document each. Status and resolution are written back from the review branch, and the collection is exported to <code>docs/artefacts/&lt;task&gt;/observations.json</code> at the end of every pass.</li>
+			<!-- ADAPT: what is under review, how it is served, and the routes with the date they were read -->
+			<li>The app under review is <code>&lt;path&gt;</code> on branch <code>&lt;branch&gt;</code>, served by <code>&lt;command&gt;</code>.</li>
+			<li>Routes: <code>/sign-in</code>, <code>/</code> (home), <code>/records/[id]</code>, read from <code>&lt;routes dir&gt;</code> on &lt;date&gt;.</li>
+		</ul>
+	</details>
+</div>
+
+<script>
+(function () {
+	var COLLECTION = "observations";
+	var state = {
+		db: null,
+		assets: null,
+		entries: [],
+		editingId: null,
+		editingVersionShot: null,
+		pendingShot: null,
+		armedDelete: null
+	};
+	var $ = function (id) { return document.getElementById(id); };
+	var form = $("capture");
+	var whereSelect = $("where-select");
+	var whereDetail = $("where-detail");
+	var noteInput = $("note");
+	function splitNote(text) {
+		var lines = text.replace(/\r\n/g, "\n").split("\n");
+		var title = (lines.shift() || "").trim();
+		return { title: title, detail: lines.join("\n").trim() };
+	}
+	function joinNote(entry) {
+		return (entry.title || "") + (entry.detail ? "\n" + entry.detail : "");
+	}
+	var shotInput = $("shot");
+	var shotPreview = $("shot-preview");
+	var shotNote = $("shot-note");
+	var submitBtn = $("submit");
+	var cancelEditBtn = $("cancel-edit");
+	var formStatus = $("form-status");
+	var entriesEl = $("entries");
+	var emptyEl = $("empty");
+	var banner = $("banner");
+
+	function segValue(id) {
+		var pressed = document.querySelector("#" + id + " button[aria-pressed='true']");
+		return pressed ? pressed.dataset.value : "";
+	}
+	function segValues(id) {
+		return Array.prototype.map.call(
+			document.querySelectorAll("#" + id + " button[aria-pressed='true']"),
+			function (b) { return b.dataset.value; }
+		);
+	}
+	function setSeg(id, value) {
+		document.querySelectorAll("#" + id + " button").forEach(function (b) {
+			b.setAttribute("aria-pressed", String(b.dataset.value === value));
+		});
+	}
+	function setSegs(id, values) {
+		document.querySelectorAll("#" + id + " button").forEach(function (b) {
+			b.setAttribute("aria-pressed", String(values.indexOf(b.dataset.value) !== -1));
+		});
+	}
+	function entryAreas(entry) {
+		if (Array.isArray(entry.areas)) return entry.areas;
+		return entry.area ? [entry.area] : [];
+	}
+	document.querySelectorAll(".segmented").forEach(function (group) {
+		group.addEventListener("click", function (e) {
+			var b = e.target.closest("button[data-value]");
+			if (!b) return;
+			if (group.dataset.multi) {
+				b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+			} else {
+				setSeg(group.id, b.dataset.value);
+			}
+			saveDraft();
+		});
+	});
+
+	/* Draft: per-viewer convenience only, never the record. */
+	var DRAFT_KEY = "ux-log-draft";
+	function saveDraft() {
+		if (state.editingId) return;
+		try {
+			localStorage.setItem(DRAFT_KEY, JSON.stringify({
+				where: whereSelect.value, whereDetail: whereDetail.value,
+				severity: segValue("severity"), areas: segValues("area"),
+				note: noteInput.value
+			}));
+		} catch (e) { /* storage blocked: the draft is simply not kept */ }
+	}
+	function loadDraft() {
+		try {
+			var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+			if (!d) return;
+			if (d.where) whereSelect.value = d.where;
+			whereDetail.value = d.whereDetail || "";
+			if (d.severity) setSeg("severity", d.severity);
+			if (Array.isArray(d.areas)) setSegs("area", d.areas);
+			else if (d.area) setSegs("area", [d.area]);
+			noteInput.value = d.note || "";
+		} catch (e) { /* unreadable draft: start clean */ }
+	}
+	[whereSelect, whereDetail, noteInput].forEach(function (el) {
+		el.addEventListener("input", saveDraft);
+		el.addEventListener("change", saveDraft);
+	});
+
+	/* Screenshot preview */
+	shotInput.addEventListener("change", function () {
+		var f = shotInput.files && shotInput.files[0];
+		state.pendingShot = f || null;
+		if (f) {
+			shotPreview.src = URL.createObjectURL(f);
+			shotPreview.hidden = false;
+			shotNote.textContent = f.name + " (" + Math.round(f.size / 1024) + " KB)";
+			shotNote.hidden = false;
+		} else {
+			clearShot();
+		}
+	});
+	function clearShot() {
+		state.pendingShot = null;
+		shotInput.value = "";
+		shotPreview.removeAttribute("src");
+		shotPreview.hidden = true;
+		shotNote.hidden = true;
+	}
+
+	function setStatus(msg, isError) {
+		formStatus.textContent = msg || "";
+		formStatus.classList.toggle("err", !!isError);
+	}
+
+	function nextSeq() {
+		var max = 0;
+		state.entries.forEach(function (e) { if (typeof e.seq === "number" && e.seq > max) max = e.seq; });
+		return max + 1;
+	}
+
+	/* Record or save */
+	form.addEventListener("submit", async function (e) {
+		e.preventDefault();
+		if (!state.db) { setStatus("Nothing saved: this view has no store.", true); return; }
+		var note = splitNote(noteInput.value);
+		var title = note.title;
+		if (!title) { setStatus("The observation is empty.", true); noteInput.focus(); return; }
+		submitBtn.disabled = true;
+		setStatus(state.pendingShot ? "Uploading screenshot…" : "Saving…");
+		try {
+			var screenshot = null;
+			if (state.pendingShot) {
+				if (!state.assets) throw new Error("Screenshots cannot be stored from this view.");
+				var up = await state.assets.upload(state.pendingShot);
+				screenshot = up.id;
+			}
+			var now = new Date().toISOString();
+			var areas = segValues("area");
+			var body = {
+				where: whereSelect.value,
+				whereDetail: whereDetail.value.trim(),
+				severity: segValue("severity"),
+				areas: areas,
+				area: areas[0] || "",
+				title: title,
+				detail: note.detail,
+				updatedAt: now
+			};
+			if (screenshot) body.screenshot = screenshot;
+			if (state.editingId) {
+				await state.db.collection(COLLECTION).doc(state.editingId).update(body);
+				setStatus("Saved #" + (state.editingSeq || "") + ".");
+				leaveEdit();
+			} else {
+				body.status = "open";
+				body.resolution = "";
+				body.source = "jason";
+				body.createdAt = now;
+				body.seq = nextSeq();
+				await state.db.collection(COLLECTION).add(body);
+				setStatus("Recorded #" + body.seq + ".");
+				noteInput.value = "";
+				clearShot();
+				saveDraft();
+				noteInput.focus();
+			}
+		} catch (err) {
+			var code = err && err.code ? err.code + ": " : "";
+			setStatus("Not saved. " + code + (err && err.message ? err.message : String(err)), true);
+		} finally {
+			submitBtn.disabled = false;
+		}
+	});
+	document.addEventListener("keydown", function (e) {
+		if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && form.contains(document.activeElement)) {
+			e.preventDefault();
+			form.requestSubmit();
+		}
+		if (e.key === "Escape" && state.editingId) leaveEdit();
+	});
+
+	/* Edit mode: the capture form becomes the editor for one entry. */
+	function enterEdit(entry) {
+		state.editingId = entry.id;
+		state.editingSeq = entry.seq;
+		$("editing-label").textContent = "Editing #" + entry.seq;
+		$("editing-label").hidden = false;
+		cancelEditBtn.hidden = false;
+		submitBtn.textContent = "Save";
+		whereSelect.value = entry.where || "Other";
+		whereDetail.value = entry.whereDetail || "";
+		setSeg("severity", entry.severity || "minor");
+		setSegs("area", entryAreas(entry));
+		noteInput.value = joinNote(entry);
+		clearShot();
+		if (entry.screenshot) {
+			shotNote.textContent = "Keeps the existing screenshot unless you choose another.";
+			shotNote.hidden = false;
+		}
+		noteInput.focus();
+		form.scrollIntoView({ block: "start", behavior: "smooth" });
+	}
+	function leaveEdit() {
+		state.editingId = null;
+		state.editingSeq = null;
+		$("editing-label").hidden = true;
+		cancelEditBtn.hidden = true;
+		submitBtn.textContent = "Record";
+		noteInput.value = "";
+		clearShot();
+		loadDraft();
+	}
+	cancelEditBtn.addEventListener("click", leaveEdit);
+
+	/* List */
+	var filters = { severity: $("f-severity"), status: $("f-status"), text: $("f-text") };
+	var groupBy = $("g-by"), sortBy = $("s-by");
+	Object.keys(filters).forEach(function (k) {
+		filters[k].addEventListener("input", render);
+		filters[k].addEventListener("change", render);
+	});
+	var VIEW_KEY = "ux-log-view";
+	function saveView() {
+		try { localStorage.setItem(VIEW_KEY, JSON.stringify({ group: groupBy.value, sort: sortBy.value })); } catch (e) { /* not kept */ }
+	}
+	function loadView() {
+		try {
+			var v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
+			if (!v) return;
+			if (v.group) groupBy.value = v.group;
+			if (v.sort) sortBy.value = v.sort;
+		} catch (e) { /* start with the defaults */ }
+	}
+	[groupBy, sortBy].forEach(function (s) { s.addEventListener("change", function () { saveView(); render(); }); });
+
+	var SEV_ORDER = ["blocker", "major", "minor", "nit", "praise"];
+	var STATUS_ORDER = ["open", "fixed", "declined", "waived"];
+	var TOP_ORDER = ["open", "waived", "declined", "fixed"];
+	state.topOpen = { open: true, waived: true, declined: true, fixed: false };
+	var WHERE_ORDER = [], WHERE_LABEL = {};
+	Array.prototype.forEach.call(whereSelect.options, function (o) { WHERE_ORDER.push(o.value); WHERE_LABEL[o.value] = o.textContent; });
+	function rankIn(list, v) { var i = list.indexOf(v); return i === -1 ? list.length : i; }
+	function sevRank(s) { return rankIn(SEV_ORDER, s || "minor"); }
+	function cmpText(a, b) {
+		a = a || ""; b = b || "";
+		if (!a && b) return 1;
+		if (a && !b) return -1;
+		return a.localeCompare(b, "en-GB", { numeric: true, sensitivity: "base" });
+	}
+	function cmpSeq(a, b) { return (a.seq || 0) - (b.seq || 0); }
+	var SORTS = {
+		"detail-severity": function (a, b) { return cmpText(a.whereDetail, b.whereDetail) || sevRank(a.severity) - sevRank(b.severity) || cmpSeq(a, b); },
+		"where-detail": function (a, b) { return rankIn(WHERE_ORDER, a.where) - rankIn(WHERE_ORDER, b.where) || cmpText(a.whereDetail, b.whereDetail) || cmpSeq(a, b); },
+		"severity-where": function (a, b) { return sevRank(a.severity) - sevRank(b.severity) || rankIn(WHERE_ORDER, a.where) - rankIn(WHERE_ORDER, b.where) || cmpText(a.whereDetail, b.whereDetail) || cmpSeq(a, b); },
+		"newest": function (a, b) { return cmpText(b.createdAt, a.createdAt) || cmpSeq(b, a); },
+		"oldest": function (a, b) { return cmpText(a.createdAt, b.createdAt) || cmpSeq(a, b); }
+	};
+	var GROUPINGS = {
+		where: {
+			keys: function (e) { return [e.where || "Other"]; },
+			rank: function (k) { return rankIn(WHERE_ORDER, k); },
+			label: function (k) { return WHERE_LABEL[k] || k; }
+		},
+		area: {
+			keys: function (e) { var a = entryAreas(e); return a.length ? a : ["none"]; },
+			rank: function (k) { return rankIn(Object.keys(AREA), k); },
+			label: function (k) { return AREA[k] || "No area"; }
+		},
+		severity: {
+			keys: function (e) { return [e.severity || "minor"]; },
+			rank: sevRank,
+			label: function (k) { return k.charAt(0).toUpperCase() + k.slice(1); }
+		},
+		status: {
+			keys: function (e) { return [e.status || "open"]; },
+			rank: function (k) { return rankIn(STATUS_ORDER, k); },
+			label: function (k) { return k.charAt(0).toUpperCase() + k.slice(1); }
+		}
+	};
+
+	function sevChips(list) {
+		var frag = document.createDocumentFragment();
+		SEV_ORDER.forEach(function (s) {
+			var n = list.filter(function (e) { return (e.severity || "minor") === s; }).length;
+			if (!n) return;
+			var c = el("span", "chip count " + s);
+			c.appendChild(el("b", null, String(n)));
+			c.appendChild(document.createTextNode(s));
+			frag.appendChild(c);
+		});
+		return frag;
+	}
+	function openState() {
+		var s = { groups: {}, entries: {} };
+		entriesEl.querySelectorAll("details.group[open]").forEach(function (d) { s.groups[d.dataset.key] = true; });
+		entriesEl.querySelectorAll("details.entry[open]").forEach(function (d) { s.entries[d.dataset.id] = true; });
+		return s;
+	}
+	var SHOT_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5.2 3l1-1.5h3.6l1 1.5h2.7A1.5 1.5 0 0115 4.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 11.5v-7A1.5 1.5 0 012.5 3h2.7zM8 5.5a3 3 0 100 6 3 3 0 000-6zm0 1.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>';
+
+	function fmtTime(iso) {
+		if (!iso) return "at an unknown time";
+		var d = new Date(iso);
+		if (isNaN(d)) return "at an unknown time";
+		return d.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+	}
+	function el(tag, cls, text) {
+		var n = document.createElement(tag);
+		if (cls) n.className = cls;
+		if (text != null) n.textContent = text;
+		return n;
+	}
+	function label(value, map) { return map[value] || value || ""; }
+	var AREA = {
+		"layout": "Layout", "copy": "Copy", "colour-type": "Colour & type", "interaction": "Interaction",
+		"navigation": "Navigation", "feedback": "Feedback & states", "accessibility": "Accessibility",
+		"performance": "Performance", "data": "Data shown"
+	};
+
+	function render() {
+		var sev = filters.severity.value, st = filters.status.value, q = filters.text.value.trim().toLowerCase();
+		var shown = state.entries.filter(function (e) {
+			if (sev && e.severity !== sev) return false;
+			if (st && (e.status || "open") !== st) return false;
+			if (q) {
+				var hay = [e.title, e.detail, e.where, e.whereDetail, e.resolution].join(" ").toLowerCase();
+				if (hay.indexOf(q) === -1) return false;
+			}
+			return true;
+		});
+		$("count-total").textContent = String(state.entries.length);
+		$("count-open").textContent = String(state.entries.filter(function (e) { return (e.status || "open") === "open"; }).length);
+		$("count-blocker").textContent = String(state.entries.filter(function (e) { return e.severity === "blocker" && (e.status || "open") === "open"; }).length);
+		var totals = $("totals");
+		totals.textContent = "";
+		totals.appendChild(sevChips(shown));
+
+		var was = openState();
+		entriesEl.textContent = "";
+		if (!state.entries.length) {
+			emptyEl.hidden = false;
+			emptyEl.innerHTML = "<b>No entries yet.</b><br>Open the tool, notice something, put it in the form. Where and severity stay set between entries, so a run of related notes is fast.";
+			return;
+		}
+		if (!shown.length) {
+			emptyEl.hidden = false;
+			emptyEl.innerHTML = "<b>Nothing matches these filters.</b><br>" + state.entries.length + " entries in total.";
+			return;
+		}
+		emptyEl.hidden = true;
+
+		/* Two levels: status on top (open first, then declined, then fixed),
+		   the chosen grouping within each. Fixed starts closed; the other two
+		   start open. A status group the viewer has toggled keeps that state. */
+		TOP_ORDER.forEach(function (status) {
+			var members = shown.filter(function (e) { return (e.status || "open") === status; });
+			if (!members.length) return;
+			var d = el("details", "status-group");
+			d.dataset.status = status;
+			d.open = state.topOpen[status];
+			d.addEventListener("toggle", function () { state.topOpen[status] = d.open; });
+			var sum = el("summary");
+			sum.appendChild(el("span", "chip status-" + status, status));
+			sum.appendChild(el("span", "group-n", members.length + (members.length === 1 ? " entry" : " entries")));
+			var gc = el("span", "group-chips");
+			gc.appendChild(sevChips(members));
+			sum.appendChild(gc);
+			d.appendChild(sum);
+			var body = el("div", "status-body");
+			renderGroups(members, body, was, status + ":");
+			d.appendChild(body);
+			entriesEl.appendChild(d);
+		});
+	}
+
+	function renderGroups(list, container, was, prefix) {
+		var sorter = SORTS[sortBy.value] || SORTS["detail-severity"];
+		var grouping = GROUPINGS[groupBy.value];
+		if (!grouping) {
+			list.slice().sort(sorter).forEach(function (e) { container.appendChild(renderEntry(e, was.entries[e.id])); });
+			return;
+		}
+		var buckets = {};
+		list.forEach(function (e) {
+			grouping.keys(e).forEach(function (k) { (buckets[k] = buckets[k] || []).push(e); });
+		});
+		Object.keys(buckets).sort(function (a, b) { return grouping.rank(a) - grouping.rank(b) || cmpText(a, b); }).forEach(function (k) {
+			var members = buckets[k].slice().sort(sorter);
+			var d = el("details", "group");
+			d.dataset.key = prefix + k;
+			if (was.groups[prefix + k]) d.open = true;
+			var sum = el("summary");
+			sum.appendChild(el("span", "group-name", grouping.label(k)));
+			sum.appendChild(el("span", "group-n", members.length + (members.length === 1 ? " entry" : " entries")));
+			var gc = el("span", "group-chips");
+			gc.appendChild(sevChips(members));
+			sum.appendChild(gc);
+			d.appendChild(sum);
+			var body = el("div", "group-body");
+			members.forEach(function (e) { body.appendChild(renderEntry(e, was.entries[e.id])); });
+			d.appendChild(body);
+			container.appendChild(d);
+		});
+	}
+
+	function renderEntry(e, open) {
+		var d = el("details", "entry");
+		d.dataset.status = e.status || "open";
+		d.dataset.id = e.id;
+		if (open) d.open = true;
+
+		var sum = el("summary");
+		sum.appendChild(el("span", "e-seq", "#" + (e.seq != null ? e.seq : "·")));
+		var line = el("span", "e-line");
+		if (e.screenshot) {
+			var ic = el("span", "e-shot");
+			ic.innerHTML = SHOT_ICON;
+			ic.setAttribute("role", "img");
+			ic.setAttribute("aria-label", "Has a screenshot");
+			line.appendChild(ic);
+		}
+		line.appendChild(el("span", "chip " + (e.severity || "minor"), e.severity || "minor"));
+		entryAreas(e).forEach(function (a) { line.appendChild(el("span", "chip area", label(a, AREA))); });
+		line.appendChild(el("span", "chip status-" + (e.status || "open"), e.status || "open"));
+		if (e.source === "check" && e.principle) line.appendChild(el("span", "chip area", "principle " + e.principle));
+		if (e.source === "walkthrough") line.appendChild(el("span", "chip area", "walkthrough"));
+		var w = el("span", "e-where");
+		w.appendChild(el("b", null, WHERE_LABEL[e.where] || e.where || ""));
+		if (e.whereDetail) w.appendChild(document.createTextNode(" · " + e.whereDetail));
+		line.appendChild(w);
+		sum.appendChild(line);
+		sum.appendChild(el("p", "e-title", e.title || ""));
+		d.appendChild(sum);
+
+		var body = el("div", "e-body");
+		if (e.detail) body.appendChild(el("p", "detail", e.detail));
+		if (e.resolution) {
+			var r = el("p", "resolution");
+			r.appendChild(el("b", null, (e.status === "declined" ? "Why not" : e.status === "waived" ? "Waived because" : "Resolution") + " "));
+			r.appendChild(document.createTextNode(e.resolution));
+			body.appendChild(r);
+		}
+		if (e.screenshot) {
+			var img = el("img", "thumb");
+			img.src = "/_blob/" + e.screenshot;
+			img.alt = "Screenshot for entry " + (e.seq != null ? e.seq : "");
+			img.loading = "lazy";
+			body.appendChild(img);
+		}
+		var t = el("time", "e-time", "Recorded " + fmtTime(e.createdAt));
+		if (e.createdAt) t.setAttribute("datetime", e.createdAt);
+		body.appendChild(t);
+
+		var actions = el("div", "row-actions");
+		var statusSel = document.createElement("select");
+		statusSel.setAttribute("aria-label", "Status of entry " + e.seq);
+		STATUS_ORDER.forEach(function (s) {
+			var o = document.createElement("option");
+			o.value = s; o.textContent = s; o.selected = (e.status || "open") === s;
+			statusSel.appendChild(o);
+		});
+		statusSel.addEventListener("change", function () { setEntryStatus(e, statusSel.value); });
+		actions.appendChild(statusSel);
+		var editBtn = el("button", null, "Edit");
+		editBtn.type = "button";
+		editBtn.addEventListener("click", function () { enterEdit(e); });
+		actions.appendChild(editBtn);
+		var delBtn = el("button", null, state.armedDelete === e.id ? "Confirm delete" : "Delete");
+		delBtn.type = "button";
+		if (state.armedDelete === e.id) delBtn.classList.add("danger-armed");
+		delBtn.addEventListener("click", function () { deleteEntry(e); });
+		actions.appendChild(delBtn);
+		body.appendChild(actions);
+
+		d.appendChild(body);
+		return d;
+	}
+
+	async function setEntryStatus(e, status) {
+		if (!state.db) return;
+		try {
+			await state.db.collection(COLLECTION).doc(e.id).update({ status: status, updatedAt: new Date().toISOString() });
+		} catch (err) {
+			setStatus("Status not saved for #" + e.seq + ": " + (err && err.message ? err.message : String(err)), true);
+		}
+	}
+	async function deleteEntry(e) {
+		if (state.armedDelete !== e.id) {
+			state.armedDelete = e.id;
+			render();
+			setTimeout(function () { if (state.armedDelete === e.id) { state.armedDelete = null; render(); } }, 4000);
+			return;
+		}
+		state.armedDelete = null;
+		if (!state.db) return;
+		try {
+			await state.db.collection(COLLECTION).doc(e.id).delete();
+			if (state.editingId === e.id) leaveEdit();
+			setStatus("Deleted #" + e.seq + ".");
+		} catch (err) {
+			setStatus("Not deleted: " + (err && err.message ? err.message : String(err)), true);
+			render();
+		}
+	}
+
+	/* Store */
+	function showBanner(msg) { banner.textContent = msg; banner.hidden = false; }
+
+	async function boot() {
+		loadDraft();
+		loadView();
+		render();
+		var use = window.claude && window.claude.use;
+		if (!use) {
+			showBanner("This view has no store, so nothing typed here is kept. Open the published artifact to record entries.");
+			submitBtn.disabled = true;
+			$("shot-field").hidden = true;
+			return;
+		}
+		var results = await Promise.all([window.claude.use("db"), window.claude.use("assets")]);
+		state.db = results[0];
+		state.assets = results[1];
+		if (!state.db) {
+			showBanner("The store did not open for this view, so nothing typed here is kept. Sign in as the artifact's owner and reload.");
+			submitBtn.disabled = true;
+		}
+		if (!state.assets) $("shot-field").hidden = true;
+		if (!state.db) return;
+		state.db.collection(COLLECTION).orderBy("createdAt", "desc").limit(1000).onSnapshot(function (snap) {
+			state.entries = snap.docs.filter(function (d) { return d.exists; }).map(function (d) {
+				var body = d.data() || {};
+				var e = {};
+				Object.keys(body).forEach(function (k) { e[k] = body[k]; });
+				e.id = d.id;
+				return e;
+			});
+			render();
+		}, function (err) {
+			showBanner("Live updates stopped (" + (err && err.code ? err.code : "unknown") + "). Reload the page to resume.");
+		});
+	}
+	boot();
+})();
+</script>

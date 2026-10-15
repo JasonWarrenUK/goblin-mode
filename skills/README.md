@@ -45,6 +45,10 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/skill-creator` | ᛟ opus | Create new skills, modify and improve existing skills, and measure skill performance. Use when users… |
 | `/theme-factory` | ᛟ opus | Create, update, extend, print or display a project theme family: a core palette plus per-target file… |
 | `/theme-target` | ᛊ sonnet | Define a new theme target type (a consumer of colour/type tokens the theme system doesn't cover yet)… |
+| `/web-check` | ᛊ sonnet | Run the principles check in wireframe, pass or signoff mode: the mechanical half by script, the judg… |
+| `/web-design` | ᛟ opus | Design a new interface from a scope document, a roadmap task or an interview: inventory, layout, a w… |
+| `/web-review` | ᛟ opus | Review an existing interface: collate its assets, publish an observation logger built for it, run pa… |
+| `/web-walkthrough` | ᛊ sonnet | The sign-off walkthrough: discover every open state, plan every route on every intended device, capt… |
 
 ---
 
@@ -96,3 +100,4 @@ Ambient knowledge roles (`user-invocable: false`), loaded by Claude when relevan
 | `clod-stack-gum` | Gum (charmbracelet/gum) reference: interactive shell prompts, styled output, spinners, logging and l… | When writing or debugging a shell script that uses gum (choose, confirm, filter, input, write, spin, style, format, join… |
 | `clod-stack-opentui` | OpenTUI terminal UI library reference: @opentui/core, terminal UIs, renderables, Yoga layouts, Zig-n… | When building or debugging a terminal UI with @opentui/core: renderable composition, Yoga layout issues or anything touc… |
 | `clod-stack-svelte` | Svelte 5 and SvelteKit: runes reactivity, component composition, routing, data loading, form handlin… | When writing or reviewing Svelte 5 / SvelteKit code: runes ($state, $derived, $effect), routing and data loading. Auto-l… |
+| `web-conventions` | Shared ground for the web-* family: how every design task starts, what it produces, where each produ… | Loaded by every web-* skill before it collates, draws, records or captures anything; also when an interface review or a… |
