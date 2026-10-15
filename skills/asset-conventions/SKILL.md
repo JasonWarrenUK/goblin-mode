@@ -22,6 +22,7 @@ docs/assets/
 	shots/                    raw captures, named by the capture rule below
 	shots/framed/             framed versions, same names
 	walkthrough/              raw sign-off captures (web-walkthrough), same naming rule
+	walkthrough/framed/       framed versions, when asked for, same names
 	demo/
 		<name>.tape             VHS source
 		<name>.storyboard.yml   shot-scraper video source
