@@ -424,6 +424,14 @@ auto-reverted; absence still isn't evidence.
   path checked in un-ignores that file itself; the plugin never edits
   `.gitignore`. Moving the path leaves the old file where it was (`config`
   says so); deleting it is the project's job too.
+- Version stamp: every write to `roadmaps.json` sets `min_plugin` (a
+  `major.minor.0` string, after `artefact` in field order) on each non-archived
+  phase, and `render` embeds `pluginVersion` in the dashboard payload. A plugin
+  older than a phase's `min_plugin`, or than the dashboard it would overwrite,
+  refuses with exit 2 and writes nothing. Reads (`validate`, `ready`,
+  `recompute --check`) still work. The stamp moves only on a newer minor
+  release, so patch releases never touch the file. Plugins before 2.7.0 ignore
+  the key, so the guard protects only from the first release that wrote it.
 - Task field order: `id, description, status, dependsOn, softDependsOn?, softMilestone?, iterative?, notes?, assignee?, started?, ended?, pr?`
 - `assignee` is free-text (no roster/validation), omit-when-empty like `notes`.
   Never inferred: a skill setting it must ask, never guess from description,
