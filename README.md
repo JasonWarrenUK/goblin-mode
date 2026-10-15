@@ -71,6 +71,4 @@ The full guide is at [docs/guides/building-your-own.md](docs/guides/building-you
 
 ## Licence
 
-[zlib](LICENSE). Use it, change it and redistribute it for anything; don't claim you wrote the original, and mark altered versions as altered. Each plugin under `marketplace/` carries its own copy, because an install copies only the plugin's directory.
-
-Third-party material keeps its own terms: `skills/skill-creator/` is adapted from Anthropic's skill-creator, under the Apache 2.0 licence in its `LICENSE.txt`, and `library/references/reasonable-colors-reference.md` summarises [Reasonable Colors](https://www.reasonable.work/colors/).
+The plugins under `marketplace/` are zlib-licensed, each with its own `LICENSE`: use them, change them and redistribute them for anything; don't claim you wrote the originals, and mark altered versions as altered. Nothing else in this repo carries a licence.
