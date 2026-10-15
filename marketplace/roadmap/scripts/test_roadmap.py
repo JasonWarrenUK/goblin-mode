@@ -30,8 +30,11 @@ from _roadmap_core import (
     is_claimed,
     milestone_sinks,
     recompute_all,
+    stamp_for,
     unmet_blockers,
 )
+
+STAMPED = stamp_for(roadmap.PLUGIN_VERSION)
 
 
 def task(tid, status="todo", depends=None, soft=None, **extra):
@@ -1702,8 +1705,8 @@ class ArtefactPath(unittest.TestCase):
         after = json.loads(text)
         self.assertEqual(after[0]["artefact"], "docs/artefacts/roadmap-t1c.html")
         self.assertEqual(list(after[0]),
-                         ["name", "path", "project", "artefact", "archived",
-                          "externalGates", "milestones"])
+                         ["name", "path", "project", "artefact", "min_plugin",
+                          "archived", "externalGates", "milestones"])
         self.assertEqual(text, roadmap._canonical_text(after))
         self.assertIn("roadmap-t1c.html", out)
         self.assertIn("no artefact at", out)  # nothing rendered yet
@@ -1821,7 +1824,8 @@ class ClaimCommand(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         jp = Path(tmp.name) / ".claude" / "roadmaps.json"
         jp.parent.mkdir()
-        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}])]
+        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}],
+                     min_plugin=STAMPED)]
         jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
         return jp
 
@@ -1919,7 +1923,7 @@ class StackedClaim(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         jp = Path(tmp.name) / ".claude" / "roadmaps.json"
         jp.parent.mkdir()
-        data = [phase(milestones, gates)]
+        data = [phase(milestones, gates, min_plugin=STAMPED)]
         jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
         return jp
 
@@ -2137,7 +2141,8 @@ class EndCommand(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         jp = Path(tmp.name) / ".claude" / "roadmaps.json"
         jp.parent.mkdir()
-        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}])]
+        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}],
+                     min_plugin=STAMPED)]
         jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
         return jp
 
@@ -2235,7 +2240,8 @@ class GitRoadmap(unittest.TestCase):
                        capture_output=True, env=env)
 
     def _write(self, tasks):
-        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}])]
+        data = [phase([{"id": "M1", "name": "m", "tasks": tasks}],
+                     min_plugin=STAMPED)]
         self.jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
 
     def _commit(self, tasks, when, message="roadmap"):
@@ -2582,6 +2588,117 @@ class Hooks(unittest.TestCase):
     def test_bad_input_never_fails_the_hook(self):
         done = self.cli("hook", "post-tool-use", stdin="not json")
         self.assertEqual((done.returncode, done.stdout, done.stderr), (0, "", ""))
+
+
+class VersionStamp(unittest.TestCase):
+    """`min_plugin` on a phase and `pluginVersion` in a dashboard: a plugin
+    older than either refuses to write over what a newer one produced."""
+
+    RUNNING = "2.7.0"
+
+    def setUp(self):
+        self.addCleanup(setattr, roadmap, "PLUGIN_VERSION", roadmap.PLUGIN_VERSION)
+        roadmap.PLUGIN_VERSION = self.RUNNING
+
+    def _project(self, stored="blocked", started=None, **extra):
+        """`stored` is b's status on disk; "blocked" makes recompute write.
+        `started` claims b, which `release` needs before it will write."""
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name).resolve()
+        (root / ".claude").mkdir()
+        jp = root / ".claude" / "roadmaps.json"
+        data = [phase([{"id": "M1", "name": "m", "tasks": [
+            task("a", "done"), task("b", stored, ["a"],
+                                                  **({"started": started} if started else {}))]}],
+                       **extra)]
+        jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+        return root, jp
+
+    def _run(self, *argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = roadmap.main(list(argv))
+        return rc, out.getvalue()
+
+    def test_a_write_stamps_the_live_phase_with_the_running_version(self):
+        _root, jp = self._project()
+        self.assertEqual(self._run("recompute", str(jp))[0], 0)
+        self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], self.RUNNING)
+
+    def test_the_stamp_sits_before_the_milestones(self):
+        _root, jp = self._project()
+        self._run("recompute", str(jp))
+        keys = list(json.loads(jp.read_text())[0])
+        self.assertLess(keys.index("min_plugin"), keys.index("externalGates"))
+
+    def test_an_older_plugin_refuses_to_write_and_leaves_the_file_alone(self):
+        _root, jp = self._project(min_plugin="2.8.0")
+        before = jp.read_text()
+        rc, out = self._run("recompute", str(jp))
+        self.assertEqual(rc, 2)
+        self.assertIn("2.8.0", out)
+        self.assertEqual(jp.read_text(), before)
+
+    def test_every_write_command_honours_the_stamp(self):
+        # Each command is given a project where nothing else would refuse it,
+        # so exit 2 can only be the stamp (other refusals exit 1).
+        for argv, started in ((["claim", "b"], None),
+                              (["release", "b"], "2026-10-01"),
+                              (["end", "a"], None)):
+            with self.subTest(argv=argv):
+                _root, jp = self._project(started=started, min_plugin="2.8.0")
+                before = jp.read_text()
+                rc, _out = self._run(argv[0], argv[1], str(jp))
+                self.assertEqual(rc, 2)
+                self.assertEqual(jp.read_text(), before)
+
+    def test_render_refuses_a_file_stamped_by_a_newer_plugin(self):
+        root, jp = self._project(min_plugin="2.8.0")
+        rc, _out = self._run("render", str(jp))
+        self.assertEqual(rc, 2)
+        self.assertFalse((root / "docs" / "artefacts").exists())
+
+    def test_render_refuses_to_overwrite_a_newer_dashboard(self):
+        root, jp = self._project()
+        out = root / "dash.html"
+        out.write_text('{"pluginVersion": "2.8.0"}')
+        rc, _msg = self._run("render", str(jp), "--out", str(out))
+        self.assertEqual(rc, 2)
+        self.assertEqual(out.read_text(), '{"pluginVersion": "2.8.0"}')
+
+    def test_render_overwrites_an_older_or_unstamped_dashboard(self):
+        root, jp = self._project()
+        for existing in ('{"pluginVersion": "2.6.0"}', "<html>pre-2.7</html>"):
+            with self.subTest(existing=existing):
+                out = root / "dash.html"
+                out.write_text(existing)
+                self.assertEqual(self._run("render", str(jp), "--out", str(out))[0], 0)
+                self.assertIn('"pluginVersion": "2.7.0"', out.read_text())
+
+    def test_reads_still_work_on_a_newer_file(self):
+        _root, jp = self._project(stored="todo", min_plugin="2.8.0")
+        self.assertEqual(self._run("validate", str(jp))[0], 0)
+        self.assertEqual(self._run("recompute", "--check", str(jp))[0], 0)
+
+    def test_a_patch_release_leaves_the_stamp_alone(self):
+        _root, jp = self._project(min_plugin="2.7.0")
+        roadmap.PLUGIN_VERSION = "2.7.3"
+        self.assertEqual(self._run("recompute", str(jp))[0], 0)
+        self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], "2.7.0")
+
+    def test_a_newer_minor_raises_the_stamp(self):
+        _root, jp = self._project(min_plugin="2.7.0")
+        roadmap.PLUGIN_VERSION = "2.9.1"
+        self.assertEqual(self._run("recompute", str(jp))[0], 0)
+        self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], "2.9.0")
+
+    def test_an_unreadable_stamp_never_blocks_and_is_repaired(self):
+        for stamp in ("banana", "2.7", ""):
+            with self.subTest(stamp=stamp):
+                _root, jp = self._project(min_plugin=stamp)
+                self.assertEqual(self._run("recompute", str(jp))[0], 0)
+                self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], self.RUNNING)
 
 
 if __name__ == "__main__":

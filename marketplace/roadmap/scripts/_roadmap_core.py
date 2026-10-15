@@ -37,6 +37,47 @@ class RoadmapError(Exception):
     """Raised when the roadmap cannot be located or parsed (caller → exit 2)."""
 
 
+# A phase's `min_plugin` records the minimum plugin version (major.minor.0) that
+# can write the file: the newest minor release that has written it.
+# A plugin older than that refuses to write, so a stale install cannot quietly
+# undo or duplicate what a newer one produced. Plugins before 2.7.0 ignore it.
+STAMP_KEY = "min_plugin"
+
+
+def _read_plugin_version():
+    try:
+        manifest = Path(__file__).resolve().parent.parent / ".claude-plugin" / "plugin.json"
+        return json.loads(manifest.read_text()).get("version")
+    except (OSError, ValueError):
+        return None
+
+
+PLUGIN_VERSION = _read_plugin_version()
+
+
+def parse_version(text):
+    """(major, minor, patch) from 'X.Y.Z', or None when it is not that shape."""
+    parts = str(text).split(".")
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        return None
+    return tuple(int(p) for p in parts)
+
+
+def stamp_for(version):
+    """The minimum-plugin stamp a write by `version` leaves: its major.minor
+    with patch 0, so patch releases never churn the roadmap file."""
+    parsed = parse_version(version)
+    return f"{parsed[0]}.{parsed[1]}.0" if parsed else None
+
+
+def newer_than_running(stamp, running):
+    """True when `stamp` names a plugin version newer than `running`. An
+    unreadable running version or stamp never blocks."""
+    have = parse_version(running)
+    want = parse_version(stamp)
+    return bool(have and want and want > have)
+
+
 def resolve_roadmap_path(explicit=None) -> Path:
     """Locate `.claude/roadmaps.json` with two-tier resolution.
 
