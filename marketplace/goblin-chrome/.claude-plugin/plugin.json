@@ -6,6 +6,7 @@
 		"name": "Jason Warren"
 	},
 	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"license": "Zlib",
 	"keywords": ["goblin", "chrome", "mod", "terminal"],
 	"types": "./types/index.d.ts",
 	"userConfig": {
