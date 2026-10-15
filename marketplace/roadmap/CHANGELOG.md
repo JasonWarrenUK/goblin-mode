@@ -5,6 +5,17 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-10-15
+
+### Added
+
+- Every write to `roadmaps.json` stamps each non-archived phase with `min_plugin` (`major.minor.0`), and `render` embeds `pluginVersion` in the dashboard. A plugin older than a phase's stamp refuses to write (exit 2, file untouched), and `render` refuses to overwrite a dashboard from a newer plugin. Reads still work on a newer file. The stamp moves only on a newer minor release.
+
+### Changed
+
+- Plugins before 2.7.0 ignore `min_plugin` and `pluginVersion`, so the guard protects only plugins from this release onward. A project with contributors on 2.6.0 or earlier needs a repo-side check for stray dashboard files until they update.
+- A first write after upgrading adds one `min_plugin` line to each live phase; the 2.7.0 diff of `roadmaps.json` shows nothing else.
+
 ## [2.6.0] - 2026-10-14
 
 ### Added

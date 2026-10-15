@@ -61,6 +61,8 @@ from pathlib import Path
 from _roadmap_core import (
     IMPOSABLE_STATUSES,
     IN_PROGRESS,
+    PLUGIN_VERSION,
+    STAMP_KEY,
     VALID_STATUSES,
     RoadmapError,
     active_phase,
@@ -69,10 +71,13 @@ from _roadmap_core import (
     find_cycles,
     is_claimed,
     is_held,
+    _phases,
     load,
     milestone_sinks,
     named_phase,
+    newer_than_running,
     recompute_all,
+    stamp_for,
     unmet_blockers,
 )
 
@@ -533,6 +538,49 @@ def _atomic_write(path, text):
         raise
 
 
+def _refuse_if_stamped_newer(data):
+    """Raise when any phase was last written by a newer plugin than this one."""
+    for phase in _phases(data):
+        stamp = phase.get(STAMP_KEY)
+        if newer_than_running(stamp, PLUGIN_VERSION):
+            raise RoadmapError(
+                f"phase {phase.get('name')!r} was written by roadmap plugin "
+                f"{stamp}; this is {PLUGIN_VERSION}. Update the plugin before "
+                "writing, so nothing a newer version produced is undone.")
+
+
+def _write_roadmap(path, data):
+    """Write roadmaps.json after the version check, stamping each live phase
+    with the running plugin's major.minor. The one writer for the roadmap file."""
+    _refuse_if_stamped_newer(data)
+    stamp = stamp_for(PLUGIN_VERSION)
+    if stamp:
+        for phase in _phases(data):
+            if phase.get("archived"):
+                continue
+            held = phase.get(STAMP_KEY)
+            # A missing or unparsable stamp is repaired; only a lower one is raised.
+            if stamp_for(held) is None or newer_than_running(stamp, held):
+                _set_phase_field(phase, STAMP_KEY, stamp)
+    _atomic_write(path, _canonical_text(data))
+
+
+_ARTEFACT_VERSION_RE = re.compile(r'"pluginVersion": "([^"]*)"')
+
+
+def _refuse_if_artefact_newer(out):
+    """Raise when the dashboard already at `out` came from a newer plugin."""
+    try:
+        existing = Path(out).read_text()
+    except (OSError, UnicodeDecodeError):
+        return
+    found = _ARTEFACT_VERSION_RE.search(existing)
+    if found and newer_than_running(found.group(1), PLUGIN_VERSION):
+        raise RoadmapError(
+            f"{out} was rendered by roadmap plugin {found.group(1)}; this is "
+            f"{PLUGIN_VERSION}. Update the plugin before rendering over it.")
+
+
 def cmd_recompute(args) -> int:
     try:
         path, data = load(args.path)
@@ -580,7 +628,7 @@ def cmd_recompute(args) -> int:
             return 1
         for tid, _old, new in changes:
             tasks[tid]["status"] = new
-        _atomic_write(path, _canonical_text(data))
+        _write_roadmap(path, data)
 
     if changes:
         verb = "would change" if args.check else "changed"
@@ -1640,6 +1688,7 @@ def _dep_kinds(phase):
 
 
 def _render_to(json_path, data, phase, out):
+    _refuse_if_stamped_newer(data)
     template = _template_path()
     if not template.exists():
         raise RoadmapError(f"render template missing at {template}")
@@ -1668,6 +1717,7 @@ def _render_to(json_path, data, phase, out):
         "project": _project_name(json_path, phase),
         "phase": phase.get("name"),
         "generated": datetime.now().isoformat(timespec="seconds"),
+        "pluginVersion": PLUGIN_VERSION,
         "stats": stats,
         "overview": overview_layout(phase, stats, ready),
         "tasks": tasks,
@@ -1696,6 +1746,7 @@ def _render_to(json_path, data, phase, out):
     html = (template_html
             .replace("%%TITLE%%", str(phase.get("name") or "Roadmap"))
             .replace("%%DATA%%", payload))
+    _refuse_if_artefact_newer(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write(out, html)
 
@@ -1716,8 +1767,8 @@ def cmd_render(args) -> int:
 # ---------------------------------------------------------------------------
 # config
 # ---------------------------------------------------------------------------
-PHASE_FIELD_ORDER = ["name", "path", "project", ARTEFACT_KEY, "archived",
-                     "externalGates", "milestones"]
+PHASE_FIELD_ORDER = ["name", "path", "project", ARTEFACT_KEY, STAMP_KEY,
+                     "archived", "externalGates", "milestones"]
 
 
 def cmd_config(args) -> int:
@@ -1758,7 +1809,7 @@ def cmd_config(args) -> int:
                 print(f"  - {p}")
             return 1
         _set_phase_field(phase, ARTEFACT_KEY, args.value)
-    _atomic_write(path, _canonical_text(data))
+    _write_roadmap(path, data)
     after = _render_path(path, phase)
     verb = "cleared artefact on" if args.clear else "set artefact on"
     print(f"{verb} '{name}'; the dashboard path is now {after}")
@@ -1887,7 +1938,7 @@ def cmd_claim(args) -> int:
         if not current or current.strip().lower() != name.lower():
             _set_task_field(task, "assignee", name)
     _set_task_field(task, "started", started)
-    _atomic_write(path, _canonical_text(data))
+    _write_roadmap(path, data)
     who = f", assignee {task['assignee']}" if task.get("assignee") else ""
     stacked = f", stacked on {', '.join(stacked_on)}" if stacked_on else ""
     print(f"✓ claimed {args.id} (started {started}{who}{stacked})")
@@ -1905,7 +1956,7 @@ def cmd_assign(args) -> int:
             print(f"✓ {args.id} has no assignee")
             return 0
         del task["assignee"]
-        _atomic_write(path, _canonical_text(data))
+        _write_roadmap(path, data)
         print(f"✓ cleared {args.id}'s assignee (was {current})")
         return 0
     name = args.assignee.strip()
@@ -1916,7 +1967,7 @@ def cmd_assign(args) -> int:
         print(f"✓ {args.id} already assigned to {current}")
         return 0
     _set_task_field(task, "assignee", name)
-    _atomic_write(path, _canonical_text(data))
+    _write_roadmap(path, data)
     was = f" (was {current})" if current else ""
     print(f"✓ assigned {args.id} to {name}{was}")
     return 0
@@ -1933,7 +1984,7 @@ def cmd_release(args) -> int:
     del task["started"]
     if args.unassign:
         task.pop("assignee", None)
-    _atomic_write(path, _canonical_text(data))
+    _write_roadmap(path, data)
     print(f"✓ released {args.id}" + (" and cleared its assignee" if args.unassign else ""))
     return 0
 
@@ -1959,7 +2010,7 @@ def cmd_end(args) -> int:
         print(f"✗ --date {ended} is before {args.id} started {task['started']}")
         return 1
     _set_task_field(task, "ended", ended)
-    _atomic_write(path, _canonical_text(data))
+    _write_roadmap(path, data)
     print(f"✓ ended {args.id} ({ended})")
     return 0
 
@@ -2011,7 +2062,7 @@ def cmd_stamp_ended(args) -> int:
         for tid in chosen:
             _set_task_field(tasks[tid], "ended", ended)
         if chosen:
-            _atomic_write(path, _canonical_text(data))
+            _write_roadmap(path, data)
     if args.json:
         print(json.dumps({"phase": phase.get("name"), "ended": ended,
                           "written": not args.dry_run and bool(chosen),
@@ -2138,7 +2189,7 @@ def cmd_backfill_ended(args) -> int:
         for row in rows:
             _set_task_field(tasks[row["id"]], "ended", row["ended"])
         if rows:
-            _atomic_write(path, _canonical_text(data))
+            _write_roadmap(path, data)
     if args.json:
         print(json.dumps({"phase": phase.get("name"), "written": not args.dry_run,
                           "tasks": rows, "skipped": skipped}, indent="\t"))
@@ -2309,7 +2360,7 @@ def main(argv=None) -> int:
     sp.add_argument("event", choices=["session-start", "post-tool-use"])
 
     args = parser.parse_args(argv)
-    return {
+    commands = {
         "detect": cmd_detect,
         "validate": cmd_validate,
         "recompute": cmd_recompute,
@@ -2326,7 +2377,12 @@ def main(argv=None) -> int:
         "backfill-ended": cmd_backfill_ended,
         "stamp-ended": cmd_stamp_ended,
         "hook": cmd_hook,
-    }[args.cmd](args)
+    }
+    try:
+        return commands[args.cmd](args)
+    except RoadmapError as exc:
+        print(f"✗ {exc}")
+        return 2
 
 
 if __name__ == "__main__":
