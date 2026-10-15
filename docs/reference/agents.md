@@ -6,7 +6,7 @@ Agents (`agents/*.md`) are autonomous multi-step workflows Claude delegates to. 
 
 See [Skills vs Agents](skills.md#skills-vs-agents) for how the two systems divide responsibility.
 
-## The nine agents
+## The ten agents
 
 | Agent | Model | Purpose | Invoke with |
 |---|---|---|---|
@@ -17,6 +17,7 @@ See [Skills vs Agents](skills.md#skills-vs-agents) for how the two systems divid
 | `scope-guard` | Sonnet | Proactively monitors scope during planning and implementation: plan step count, branch diff vs. stated task, drift. | "Is this getting too big?" / "Check scope" |
 | `test-gap-scanner` | Sonnet | Identifies undertested code via risk-based prioritisation (impact × complexity × change frequency) against the branch diff. | "What should I test?" or as a subagent of `ship-checker` |
 | `ship-checker` | Opus | Multi-dimensional pre-ship check: branch readiness, test gaps, doc staleness, breaking changes, task-tracker state, into one ready/not-ready verdict. | "Am I ready to ship?" / "check this branch" |
+| `web-principles` | Opus | The judgement half of the web principles check: reads `skills/web-conventions/principles.md` against a wireframe, a pass's changes or every route at sign-off and returns findings in the observation store contract plus amendment proposals; never writes, never waives. | Spawned by `web-check`; "check this against the web principles" |
 | `task-sync` | Sonnet | Keeps the task tracker (see [Task Trackers](task-trackers/README.md) for supported sources) consistent with git/branch state. | "sync tasks" or as a subagent |
 | `session-closer` | Haiku | End-of-session wrap-up: summarises accomplishments, notes uncommitted work, updates task status, writes a handoff note. | "I'm done for today" / "wrap up" or `SessionEnd` |
 

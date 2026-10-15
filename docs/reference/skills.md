@@ -44,6 +44,16 @@ The 15 role skills sort into five directory-prefix families, each with a distinc
 
 Most `role-expert-*` and `role-linguist-*` skills also carry a `paths:` glob (e.g. `**/*.svelte`) that auto-triggers them when a matching file is touched, on top of keyword triggering.
 
+## Command skill families with a conventions skill
+
+Three command families share one knowledge skill that every member loads first, so the shared ground is written once:
+
+| Family | Conventions skill | Members |
+|---|---|---|
+| `asset-*` | `asset-conventions`: output layout, project type detection, theme resolution, the capture naming rule, the quality gate | `asset-shot`, `asset-demo`, `asset-still`, `asset-card`, `asset-pdf` |
+| `artefact-*` | `artefact-conventions`: location, aesthetic reuse or interview, the shared design rules | `artefact-audit`, `artefact-intro`, `artefact-playground`, `artefact-research` |
+| `web-*` | `web-conventions`: how every design task starts (collate, gaps, rounds), what it produces, the observation store contract, shelving; carries `principles.md` and the dev util artefact library as sidecars | `web-design` (scope, roadmap task or interview into a wireframe), `web-review` (passes over a logger), `web-check` (the principles check, three modes), `web-walkthrough` (sign-off capture) |
+
 ## `when_to_use` vs `description`
 
 Every skill's frontmatter carries both a `description` (what it does) and a `when_to_use` (the concrete trigger moment); the canonical shape is `library/configs/examples/skill-frontmatter.yaml`. Splitting the two serves both readers: `description` answers "what is this" for a human scanning the index; `when_to_use` gives the model (and a human deciding whether to invoke a command skill) a concrete trigger to pattern-match against, in the same spirit as the `argument-hint` field already used across command skills.

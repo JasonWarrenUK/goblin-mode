@@ -29,6 +29,7 @@ Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 | `readme-root.md`, `readme-sub.md` | `doc-readme`: root vs. directory-level READMEs get different section sets |
 | `work-record.md` | Session/agent work-record entries (e.g. `session-closer`) |
 | `pr-description.md` | `pr-create` and `pr-update` share this template so the two can't drift on PR body structure |
+| `web-scope.md` | `web-design`: the scope document its interview writes and its scope mode reads (audience, devices, copy brief, inventory, layout decisions, numbered requirements, assumptions) |
 
 ## `configs/examples/`: canonical shape references
 
@@ -59,6 +60,11 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `test_slop_scan.py`, `test_prose_metrics.py`, `test_commit_msg_hook.py` | none | Tests for the two scanners above and for `hooks/commit-msg`; `prose-health.py` runs all three |
 | `test_skill_lint.py` | none | Tests for `skill-lint.py`: a glyph that mirrors its model, drifts, is missing or has no model, and the quoting and comment forms of both fields |
 | `test_md_lint.py` | none | Tests for `md-lint.py`: every rule, the clean PR template and hook-mode body extraction |
+| `web/observations.py` | `web-review`, `web-check`, `web-walkthrough`; `hooks/web-signoff-guard.sh` (`guard`) | The observation store's repo side: `export` assembles the ArtifactData documents into `docs/artefacts/<task>/observations.json` and validates the store contract; `status` says what blocks sign-off; `add` appends findings where no live store exists; `guard` reads the PreToolUse payload and exits 2 on an open export, blocking `gh pr create` |
+| `web/check.py` | `web-check`, `web-walkthrough` | The mechanical half of the principles check, one subcommand per principle: export hygiene (7), capture coverage under the naming rule (8), class-name collisions with the UI library (9), wireframe tokens and callout pairing (6), the copy brief (10); `--json` prints findings as store entries |
+| `web/walkthrough-plan.py` | `web-walkthrough` | Routes × devices × open states into `docs/assets/walkthrough.yml` under the capture naming rule; discovered states the inventory did not name are kept and marked unplanned |
+| `web/open-states.ts` | `web-walkthrough` | Playwright (Node) discovery of every openable state per route and device (`details`, `aria-expanded`, `aria-haspopup`, hidden `aria-controls` targets) with the JS that reopens each under shot-scraper, and whether the toolbar the trigger sits in moved when it opened: principle 4's test. Own `package.json`, Playwright pinned to the asset toolkit's version |
+| `web/test_observations.py`, `web/test_check.py`, `web/test_walkthrough_plan.py` | none | Tests for the three Python scripts above; `fixtures/toolbar.html` is the page `open-states.ts` is run against by hand |
 
 `gen-skills-index.py` also lives here (see [Skills](skills.md#regenerating-the-index)).
 
