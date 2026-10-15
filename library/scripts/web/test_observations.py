@@ -184,9 +184,9 @@ class GuardTests(unittest.TestCase):
 	def tearDown(self):
 		self.tmp.cleanup()
 
-	def guard(self):
+	def guard(self, cwd=None):
 		import io, sys
-		payload = json.dumps({"cwd": str(self.repo), "tool_input": {"command": "gh pr create --title x"}})
+		payload = json.dumps({"cwd": str(cwd or self.repo), "tool_input": {"command": "gh pr create --title x"}})
 		stdin = sys.stdin
 		sys.stdin = io.StringIO(payload)
 		try:
@@ -206,6 +206,17 @@ class GuardTests(unittest.TestCase):
 		self.git("add", "."); self.git("commit", "-q", "-m", "pass")
 		code, _, err = self.guard()
 		self.assertEqual((code, err), (0, ""))
+
+	def test_subdirectory_cwd_still_blocks(self):
+		"""git prints repo-root paths and resolves pathspecs from cwd: a session in app/ must still see the export."""
+		(self.repo / "app").mkdir()
+		self.export.write_text(json.dumps({"exported": "2026-10-15T10:00:00Z", "artifact": "u", "entries": [entry()]}))
+		code, _, err = self.guard(cwd=self.repo / "app")
+		self.assertEqual(code, 2, "untracked export, session in a subdirectory")
+		self.assertIn("docs/artefacts/task/observations.json: 1 open", err)
+		self.git("add", "."); self.git("commit", "-q", "-m", "add")
+		code, _, err = self.guard(cwd=self.repo / "app")
+		self.assertEqual(code, 2, "committed export, session in a subdirectory")
 
 	def test_not_a_repo_fails_open(self):
 		import io, sys

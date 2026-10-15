@@ -247,8 +247,10 @@ def changed_exports(cwd: Path) -> list[Path]:
 			return None
 		return done.stdout if done.returncode == 0 else None
 
-	if git("rev-parse", "--is-inside-work-tree") is None:
+	top = git("rev-parse", "--show-toplevel")
+	if top is None:
 		return []
+	cwd = Path(top.strip())
 	pattern = "docs/artefacts/*/observations.json"
 	base = None
 	for candidate in ("main", "master"):
@@ -276,7 +278,7 @@ def cmd_guard(args: argparse.Namespace) -> int:
 			continue
 		summary = summarise(export, None)
 		if summary["blocks"]:
-			rel = path.relative_to(cwd) if path.is_relative_to(cwd) else path
+			rel = path.relative_to(cwd) if cwd in path.parents else path
 			blocking.append(f"{rel}: {'; '.join(summary['blocks'])}")
 			for e in summary["open"]:
 				tag = f" [principle {e['principle']}]" if e["source"] == "check" else ""
