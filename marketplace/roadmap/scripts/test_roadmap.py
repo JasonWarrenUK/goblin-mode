@@ -18,7 +18,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-import unittest.mock
 from pathlib import Path
 
 import roadmap
@@ -2600,19 +2599,19 @@ class VersionStamp(unittest.TestCase):
     def setUp(self):
         self.addCleanup(setattr, roadmap, "PLUGIN_VERSION", roadmap.PLUGIN_VERSION)
         roadmap.PLUGIN_VERSION = self.RUNNING
-        patcher = unittest.mock.patch("_roadmap_core.PLUGIN_VERSION", self.RUNNING)
-        patcher.start()
-        self.addCleanup(patcher.stop)
 
-    def _project(self, stored="blocked", **extra):
-        """`stored` is b's status on disk; "blocked" makes recompute write."""
+    def _project(self, stored="blocked", started=None, **extra):
+        """`stored` is b's status on disk; "blocked" makes recompute write.
+        `started` claims b, which `release` needs before it will write."""
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name).resolve()
         (root / ".claude").mkdir()
         jp = root / ".claude" / "roadmaps.json"
         data = [phase([{"id": "M1", "name": "m", "tasks": [
-            task("a", "done"), task("b", stored, ["a"])]}], **extra)]
+            task("a", "done"), task("b", stored, ["a"],
+                                                  **({"started": started} if started else {}))]}],
+                       **extra)]
         jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
         return root, jp
 
@@ -2642,12 +2641,16 @@ class VersionStamp(unittest.TestCase):
         self.assertEqual(jp.read_text(), before)
 
     def test_every_write_command_honours_the_stamp(self):
-        for argv in (["claim", "b"], ["release", "b"], ["end", "a"]):
+        # Each command is given a project where nothing else would refuse it,
+        # so exit 2 can only be the stamp (other refusals exit 1).
+        for argv, started in ((["claim", "b"], None),
+                              (["release", "b"], "2026-10-01"),
+                              (["end", "a"], None)):
             with self.subTest(argv=argv):
-                _root, jp = self._project(min_plugin="2.8.0")
+                _root, jp = self._project(started=started, min_plugin="2.8.0")
                 before = jp.read_text()
                 rc, _out = self._run(argv[0], argv[1], str(jp))
-                self.assertNotEqual(rc, 0)
+                self.assertEqual(rc, 2)
                 self.assertEqual(jp.read_text(), before)
 
     def test_render_refuses_a_file_stamped_by_a_newer_plugin(self):
@@ -2681,22 +2684,21 @@ class VersionStamp(unittest.TestCase):
     def test_a_patch_release_leaves_the_stamp_alone(self):
         _root, jp = self._project(min_plugin="2.7.0")
         roadmap.PLUGIN_VERSION = "2.7.3"
-        with unittest.mock.patch("_roadmap_core.PLUGIN_VERSION", "2.7.3"):
-            self.assertEqual(self._run("recompute", str(jp))[0], 0)
+        self.assertEqual(self._run("recompute", str(jp))[0], 0)
         self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], "2.7.0")
 
     def test_a_newer_minor_raises_the_stamp(self):
         _root, jp = self._project(min_plugin="2.7.0")
         roadmap.PLUGIN_VERSION = "2.9.1"
-        with unittest.mock.patch("_roadmap_core.PLUGIN_VERSION", "2.9.1"):
-            self.assertEqual(self._run("recompute", str(jp))[0], 0)
+        self.assertEqual(self._run("recompute", str(jp))[0], 0)
         self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], "2.9.0")
 
-    def test_an_unreadable_stamp_never_blocks(self):
+    def test_an_unreadable_stamp_never_blocks_and_is_repaired(self):
         for stamp in ("banana", "2.7", ""):
             with self.subTest(stamp=stamp):
                 _root, jp = self._project(min_plugin=stamp)
                 self.assertEqual(self._run("recompute", str(jp))[0], 0)
+                self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], self.RUNNING)
 
 
 if __name__ == "__main__":
