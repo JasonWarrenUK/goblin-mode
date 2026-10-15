@@ -66,3 +66,11 @@ The full guide is at [docs/guides/building-your-own.md](docs/guides/building-you
 | [Skills](docs/reference/skills.md) · [Agents](docs/reference/agents.md) · [Hooks](docs/reference/hooks.md) · [Library](docs/reference/library.md) · [Configuration](docs/reference/configuration.md) | Per-subsystem reference |
 | [Building Your Own](docs/guides/building-your-own.md) | Transferable process for building your own setup |
 | [Glossary](docs/glossary.md) | Vocabulary specific to this config |
+
+---
+
+## Licence
+
+[zlib](LICENSE). Use it, change it and redistribute it for anything; don't claim you wrote the original, and mark altered versions as altered. Each plugin under `marketplace/` carries its own copy, because an install copies only the plugin's directory.
+
+Third-party material keeps its own terms: `skills/skill-creator/` is adapted from Anthropic's skill-creator, under the Apache 2.0 licence in its `LICENSE.txt`, and `library/references/reasonable-colors-reference.md` summarises [Reasonable Colors](https://www.reasonable.work/colors/).

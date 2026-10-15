@@ -6,6 +6,7 @@
 		"name": "Jason Warren"
 	},
 	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"license": "Zlib",
 	"keywords": ["mod", "fleet", "sessions", "pain-points"],
 	"types": "./types/index.d.ts",
 	"userConfig": {
