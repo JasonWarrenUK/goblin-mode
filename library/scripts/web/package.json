@@ -1,0 +1,16 @@
+{
+	"name": "clod-web-toolkit",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"open-states": "node --experimental-strip-types open-states.ts",
+		"browsers": "npx playwright install chromium"
+	},
+	"dependencies": {
+		"playwright": "1.62.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22",
+		"typescript": "^5"
+	}
+}

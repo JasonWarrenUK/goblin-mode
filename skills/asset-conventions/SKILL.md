@@ -17,8 +17,9 @@ Shared ground for `asset-shot`, `asset-demo`, `asset-still`, `asset-card` and `a
 
 ```
 docs/assets/
-	shots.yml                 shot-scraper batch config (committed, re-runnable)
-	shots/                    raw captures: <route-slug>[-<viewport>].png
+	shots.yml                 shot-scraper batch config for README shots (committed, re-runnable)
+	walkthrough.yml           the sign-off walkthrough's config (web-walkthrough), same format
+	shots/                    raw captures, named by the capture rule below
 	shots/framed/             framed versions, same names
 	demo/
 		<name>.tape             VHS source
@@ -35,7 +36,19 @@ docs/assets/
 		<doc-slug>/framed/      framed previews
 ```
 
-Sources (`shots.yml`, tapes, storyboards, flows, `card.json`) are committed; renders are committed too unless the project's `.gitignore` says otherwise. Filenames are lowercase slugs, hyphenated.
+Sources (`shots.yml`, `walkthrough.yml`, tapes, storyboards, flows, `card.json`) are committed; renders are committed too unless the project's `.gitignore` says otherwise. Filenames are lowercase slugs, hyphenated.
+
+## Capture naming
+
+Every screenshot, README mockup or walkthrough capture alike, is named
+
+`<(device||viewport)?>-<route>-<specifier?>.<filetype>`
+
+- **Device or viewport** appears only when more than one is captured in the run: a device name (`phone`, `desktop`) when the project's scope names devices, a width (`390`, `1440`) when it names widths or when `asset-shot` adds a mobile viewport.
+- **Route** is always present: the slug of the capture subject. A served app's URL path (`/` becomes `home`, `/documents/42` becomes `document`, `/invite/[secret]` becomes `invite`); the file stem for a static page or a single artefact.
+- **Specifier** appears only when several captures share prefix and route: an open state (`filters-open`), a scroll position (`900`) or `full` for the full-page companion of a viewport crop.
+
+`web-conventions` carries the same rule, so a walkthrough's captures and a README's shots share one directory without collision. `check.py coverage` in `library/scripts/web/` parses it.
 
 ## Project type detection
 
