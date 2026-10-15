@@ -13,7 +13,7 @@ All notable changes to this project are documented here, newest first.
 
 ### Changed
 
-- ⚠️ Breaking change for older plugins: plugins before 2.7.0 ignore `min_plugin` and `pluginVersion`, so the guard protects only plugins from this release onward. A project with contributors on 2.6.0 or earlier needs a repo-side check for stray dashboard files until they update.
+- Plugins before 2.7.0 ignore `min_plugin` and `pluginVersion`, so the guard protects only plugins from this release onward. A project with contributors on 2.6.0 or earlier needs a repo-side check for stray dashboard files until they update.
 - A first write after upgrading adds one `min_plugin` line to each live phase; the 2.7.0 diff of `roadmaps.json` shows nothing else.
 
 ## [2.6.0] - 2026-10-14
