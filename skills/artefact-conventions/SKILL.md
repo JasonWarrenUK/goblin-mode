@@ -152,7 +152,7 @@ favicon, CSP self-containment and runtime capabilities stay owned by those.
 Load both.
 
 - [ ] Masthead present (or deliberately compressed for a short narrative piece)
-- [ ] Palette routes through theme tokens via semantic aliases only
+- [ ] Palette routes through theme tokens via semantic aliases only (exception: a wireframe or mock of the product's own interface uses the product's tokens; see the reference's Palette section)
 - [ ] If the artefact documents a skill, its hue is keyed to that skill's `metadata.family`, reusing an established family mapping where one exists; a cross-family index takes no hue of its own
 - [ ] Three-state theming contract present, or single-look justified explicitly
 - [ ] Toggle control present (light/system/dark, masthead-anchored, persisted) on every pathway except an `Artifact` publish, which relies on the host's own control

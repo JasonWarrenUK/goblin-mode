@@ -1,0 +1,40 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Fixture: a toolbar that moves</title>
+<style>
+	.item { border: 1px solid #999; padding: 8px; margin: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+	.row-actions { display: flex; gap: 6px; }
+	.note { width: 100%; }
+	.fixed .row-actions { order: -1; width: 100%; }
+</style>
+<h1>Items</h1>
+<div class="item" id="item-1">
+	<span>Item one</span>
+	<div class="row-actions">
+		<button type="button" aria-expanded="false" aria-controls="note-1" id="note-btn-1">Note</button>
+		<button type="button">Edit</button>
+		<button type="button">Delete</button>
+	</div>
+	<textarea id="note-1" class="note" hidden></textarea>
+</div>
+<div class="item fixed" id="item-2">
+	<span>Item two</span>
+	<div class="row-actions">
+		<button type="button" aria-expanded="false" aria-controls="note-2" id="note-btn-2">Note</button>
+		<button type="button">Edit</button>
+	</div>
+	<textarea id="note-2" class="note" hidden></textarea>
+</div>
+<details id="more"><summary>More about items</summary><p>Hidden until opened.</p></details>
+<script>
+	for (const btn of document.querySelectorAll('[aria-controls]')) {
+		btn.addEventListener('click', () => {
+			const target = document.getElementById(btn.getAttribute('aria-controls'));
+			const open = btn.getAttribute('aria-expanded') !== 'true';
+			btn.setAttribute('aria-expanded', String(open));
+			target.hidden = !open;
+			// item one inserts the note before the toolbar, so the buttons drop
+			if (open && btn.id === 'note-btn-1') target.parentNode.insertBefore(target, btn.parentNode);
+		});
+	}
+</script>
