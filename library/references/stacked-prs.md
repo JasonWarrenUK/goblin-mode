@@ -126,11 +126,17 @@ pre-rebase state.
 
 ## Interaction with this config's conventions
 
-- **Merge commits**: `pr-land` and `doc-changelog` assume `gh stack merge --merge`
-  leaves one merge commit per layer on `main`, bottom-up. The docs say only that
-  the stack merges "in a single operation, ordered from the bottom up", so treat
-  that as unverified and check `git log --first-parent` after the first real
-  stacked landing.
+- **Merge commits**: `gh stack merge {top-pr} --merge` leaves **one merge commit
+  for the whole stack**, titled for the top PR, not one per layer. Verified on
+  the-work, 2026-10-15: a two-layer stack (#48 below #49) landed as a single
+  commit `6566e9e` with two parents (the old `main` tip and the top layer's
+  head). The lower layer's commits are reachable through that second parent, so
+  the granular history survives, but `git log --first-parent` shows one line
+  for the stack and the lower PR is merged only as far as GitHub's UI is
+  concerned. Consequences: `doc-changelog` cannot build one entry per layer from
+  first-parent history (read `git log --no-merges previousTag..tag`, or the
+  stack's PR titles, instead), and the `pr` fields on the lower layers' roadmap
+  tasks still point at the right PR.
 - **One landing, one tag**: a multi-layer merge is a single landing event;
   `pr-land` tags once afterwards, not once per layer.
 - **Roadmap linkage**: a task's optional `pr` field in `roadmaps.json`
