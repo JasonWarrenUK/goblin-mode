@@ -102,17 +102,26 @@ def cmd_export(args: argparse.Namespace) -> int:
 
 # principle 8
 
-def parse_capture(name: str, devices: list[str]) -> tuple[str | None, str, str | None]:
-	"""(device, route, specifier) from a capture file stem under the naming rule."""
-	parts = name.split("-")
+def parse_capture(name: str, devices: list[str], routes: list[str]) -> tuple[str | None, str | None, str | None]:
+	"""(device, route, specifier) from a capture file stem under the naming rule.
+
+	Routes may contain hyphens, so the declared routes decide where the route
+	ends: the longest one the remainder equals or starts with (followed by a
+	hyphen). Route is None when no declared route matches.
+	"""
+	rest = name
 	device = None
-	if len(devices) > 1 and parts and parts[0] in devices:
-		device = parts.pop(0)
-	if not parts:
-		return device, "", None
-	route = parts.pop(0)
-	specifier = "-".join(parts) or None
-	return device, route, specifier
+	if len(devices) > 1:
+		for candidate in devices:
+			if rest.startswith(candidate + "-"):
+				device, rest = candidate, rest[len(candidate) + 1:]
+				break
+	for route in sorted(routes, key=len, reverse=True):
+		if rest == route:
+			return device, route, None
+		if rest.startswith(route + "-"):
+			return device, route, rest[len(route) + 1:]
+	return device, None, None
 
 
 def cmd_coverage(args: argparse.Namespace) -> int:
@@ -130,8 +139,8 @@ def cmd_coverage(args: argparse.Namespace) -> int:
 	for path in sorted(shots.iterdir()):
 		if not path.is_file() or path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
 			continue
-		device, route, _ = parse_capture(path.stem, devices)
-		if route not in routes or (len(devices) > 1 and device is None):
+		device, route, _ = parse_capture(path.stem, devices, routes)
+		if route is None or (len(devices) > 1 and device is None):
 			unknown.append(path.name)
 			continue
 		seen[(device, route)] = seen.get((device, route), 0) + 1
@@ -276,15 +285,19 @@ def cmd_brief(args: argparse.Namespace) -> int:
 	return emit(findings, args.json)
 
 
+# SUPPRESS: a subparser default would overwrite a leading --json
+JSON_OPTS = dict(action="store_true", default=argparse.SUPPRESS, help="print findings as store entries")
+
+
 def build_parser() -> argparse.ArgumentParser:
 	parser = argparse.ArgumentParser(description="mechanical principles checks")
-	parser.add_argument("--json", action="store_true", help="print findings as store entries")
+	parser.add_argument("--json", action="store_true", help="print findings as store entries (before or after the subcommand)")
 	sub = parser.add_subparsers(dest="command", required=True)
-	p = sub.add_parser("export"); p.add_argument("export"); p.add_argument("--max-age", type=float, default=None); p.set_defaults(func=cmd_export)
-	p = sub.add_parser("coverage"); p.add_argument("shots_dir"); p.add_argument("--routes", required=True); p.add_argument("--devices", required=True); p.set_defaults(func=cmd_coverage)
-	p = sub.add_parser("classes"); p.add_argument("--source", required=True); p.add_argument("--library", required=True); p.add_argument("--product", default=None); p.set_defaults(func=cmd_classes)
-	p = sub.add_parser("tokens"); p.add_argument("wireframe"); p.add_argument("--product", required=True); p.set_defaults(func=cmd_tokens)
-	p = sub.add_parser("brief"); p.add_argument("scope"); p.set_defaults(func=cmd_brief)
+	p = sub.add_parser("export"); p.add_argument("--json", **JSON_OPTS); p.add_argument("export"); p.add_argument("--max-age", type=float, default=None); p.set_defaults(func=cmd_export)
+	p = sub.add_parser("coverage"); p.add_argument("--json", **JSON_OPTS); p.add_argument("shots_dir"); p.add_argument("--routes", required=True); p.add_argument("--devices", required=True); p.set_defaults(func=cmd_coverage)
+	p = sub.add_parser("classes"); p.add_argument("--json", **JSON_OPTS); p.add_argument("--source", required=True); p.add_argument("--library", required=True); p.add_argument("--product", default=None); p.set_defaults(func=cmd_classes)
+	p = sub.add_parser("tokens"); p.add_argument("--json", **JSON_OPTS); p.add_argument("wireframe"); p.add_argument("--product", required=True); p.set_defaults(func=cmd_tokens)
+	p = sub.add_parser("brief"); p.add_argument("--json", **JSON_OPTS); p.add_argument("scope"); p.set_defaults(func=cmd_brief)
 	return parser
 
 
