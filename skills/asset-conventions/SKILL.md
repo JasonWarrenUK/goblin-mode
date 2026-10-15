@@ -21,6 +21,7 @@ docs/assets/
 	walkthrough.yml           the sign-off walkthrough's config (web-walkthrough), same format
 	shots/                    raw captures, named by the capture rule below
 	shots/framed/             framed versions, same names
+	walkthrough/              raw sign-off captures (web-walkthrough), same naming rule
 	demo/
 		<name>.tape             VHS source
 		<name>.storyboard.yml   shot-scraper video source
@@ -48,7 +49,7 @@ Every screenshot, README mockup or walkthrough capture alike, is named
 - **Route** is always present: the slug of the capture subject. A served app's URL path (`/` becomes `home`, `/documents/42` becomes `document`, `/invite/[secret]` becomes `invite`); the file stem for a static page or a single artefact.
 - **Specifier** appears only when several captures share prefix and route: an open state (`filters-open`), a scroll position (`900`) or `full` for the full-page companion of a viewport crop.
 
-`web-conventions` carries the same rule, so a walkthrough's captures and a README's shots share one directory without collision. `check.py coverage` in `library/scripts/web/` parses it.
+`web-conventions` carries the same rule, so a walkthrough's captures and a README's shots share one naming rule and keep separate directories (`walkthrough/` and `shots/`). `check.py coverage` in `library/scripts/web/` parses it.
 
 ## Project type detection
 

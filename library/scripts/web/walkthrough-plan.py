@@ -13,7 +13,7 @@ usage:
   walkthrough-plan.py --base URL-or-dir --routes '{"home":"/"}' \\
       --devices '{"phone":390,"desktop":1440}' [--states states.json] \\
       [--planned planned.json] [--out docs/assets/walkthrough.yml] \\
-      [--shots-dir docs/assets/shots] [--wait 800] [--json]
+      [--shots-dir docs/assets/walkthrough] [--wait 800] [--json]
 
 planned.json: [{"route": "document", "specifier": "filters-open",
                 "javascript": "document.querySelector('#filters').click()"}]
@@ -100,7 +100,7 @@ def main(argv: list[str]) -> int:
 	parser.add_argument("--states", default=None, help="open-states.ts output")
 	parser.add_argument("--planned", default=None, help="inventory open states JSON")
 	parser.add_argument("--out", default=None)
-	parser.add_argument("--shots-dir", default="docs/assets/shots")
+	parser.add_argument("--shots-dir", default="docs/assets/walkthrough")
 	parser.add_argument("--wait", type=int, default=800)
 	parser.add_argument("--json", action="store_true", help="print the summary as JSON")
 	args = parser.parse_args(argv)
