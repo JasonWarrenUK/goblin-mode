@@ -78,6 +78,28 @@ class CoverageTests(Temp):
 		code, _, _ = run(["coverage", str(shots), "--routes", "home,record", "--devices", "desktop"])
 		self.assertEqual(code, 0)
 
+	def test_hyphenated_routes(self):
+		shots = self.root / "shots"
+		for name in ["phone-review-queue.png", "desktop-review-queue.png", "phone-review-filters-open.png", "desktop-review.png", "phone-review.png"]:
+			self.write(f"shots/{name}")
+		code, out, _ = run(["--json", "coverage", str(shots), "--routes", "review,review-queue", "--devices", "phone,desktop"])
+		self.assertEqual((code, json.loads(out)), (0, []))
+		self.assertEqual(check.parse_capture("review-queue-filters-open", ["desktop"], ["review", "review-queue"]), (None, "review-queue", "filters-open"))
+		self.assertEqual(check.parse_capture("phone-review-filters-open", ["phone", "desktop"], ["review", "review-queue"]), ("phone", "review", "filters-open"))
+
+	def test_hyphenated_route_single_device(self):
+		shots = self.root / "shots"
+		self.write("shots/review-queue.png"); self.write("shots/review-queue-filters-open.png")
+		code, out, _ = run(["coverage", str(shots), "--routes", "review-queue", "--devices", "desktop"])
+		self.assertEqual((code, out.strip()), (0, "no findings"))
+
+	def test_json_after_subcommand(self):
+		shots = self.root / "shots"; shots.mkdir()
+		args = ["coverage", str(shots), "--routes", "home", "--devices", "phone"]
+		leading, trailing = run(["--json", *args]), run([*args, "--json"])
+		self.assertEqual(leading[0], 1)
+		self.assertEqual(json.loads(leading[1]), json.loads(trailing[1]))
+
 	def test_not_a_directory(self):
 		code, _, err = run(["coverage", str(self.root / "nope"), "--routes", "a", "--devices", "b"])
 		self.assertEqual(code, 2)
