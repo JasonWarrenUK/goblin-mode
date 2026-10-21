@@ -341,6 +341,21 @@ test('s asks which subgroups lead; the names reorder the rows and their digits, 
 	expect(saved.groupOrder).toEqual([])
 })
 
+test('picking a row closes the order field, as it closes the assignee field', async ($, on) => {
+	world(on)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'ready' })
+	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'order' })
+	expect(await ui.find({ type: 'Input', key: 'first' })).toBeDefined()
+	await ui.press({ key: 'row-2SE.1' })
+	expect(await ui.find({ type: 'Input', key: 'first' })).toBeUndefined()
+	expect(await ui.find({ key: 'claim' })).toBeDefined()
+	await ui.press({ key: 'order' })
+	await ui.press({ key: 'claimed-row-2SE.2' })
+	expect(await ui.find({ type: 'Input', key: 'first' })).toBeUndefined()
+})
+
 test('a grouping kept on this machine is read at the start of the session', async ($, on) => {
 	const candidates = [candidate('1J.1', 'Jason', 'M1', 0), candidate('1Z.1', 'Jaz', 'M1', 0)]
 	world(on, 0, null, JSON.stringify({ ...JSON.parse(READY), candidates }), { groupBy: 'dev', groupOrder: ['Jaz'] })

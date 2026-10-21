@@ -447,6 +447,7 @@ const taskRow = ($: EngineInterface, ui: Ui, c: Candidate, i: number, picked: st
 					onPress={async () => {
 						await update($, selected, () => c.id)
 						await update($, asking, () => null)
+						await update($, ordering, () => false)
 					}}
 				/>
 				<Box width={Math.max(10, inner - lead)}>
@@ -485,6 +486,7 @@ const claimedRows = ($: EngineInterface, ui: Ui, claimed: readonly Claimed[], pi
 				onPress={async () => {
 					await update($, selected, () => c.id)
 					await update($, asking, () => null)
+					await update($, ordering, () => false)
 				}}
 			/>
 			<Text color="warning">{c.assignee || 'someone'}</Text>
