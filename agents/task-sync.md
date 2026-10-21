@@ -1,7 +1,7 @@
 ---
 name: task-sync
 description: "Use this agent to keep task tracker state consistent with git/codebase state. Adapts to whatever task source the project uses (see docs/reference/task-trackers/). Detects branch checkouts, PR creation and merges, then updates matching tasks accordingly. Invoke with \"sync tasks\" or use as a subagent from session-orchestrator, ship-checker, or session-closer."
-model: sonnet
+model: haiku
 color: blue
 goblin-minion: ~.~
 ---
