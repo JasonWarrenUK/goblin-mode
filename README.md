@@ -66,3 +66,9 @@ The full guide is at [docs/guides/building-your-own.md](docs/guides/building-you
 | [Skills](docs/reference/skills.md) · [Agents](docs/reference/agents.md) · [Hooks](docs/reference/hooks.md) · [Library](docs/reference/library.md) · [Configuration](docs/reference/configuration.md) | Per-subsystem reference |
 | [Building Your Own](docs/guides/building-your-own.md) | Transferable process for building your own setup |
 | [Glossary](docs/glossary.md) | Vocabulary specific to this config |
+
+---
+
+## Licence
+
+The plugins under `marketplace/` are zlib-licensed, each with its own `LICENSE`: use them, change them and redistribute them for anything; don't claim you wrote the originals, and mark altered versions as altered. Nothing else in this repo carries a licence.
