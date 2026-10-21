@@ -30,6 +30,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/asset-still` | ᛊ sonnet | Render a styled image of a code snippet or a command's output with freeze, using the project's freez… |
 | `/branch-integrate` | ᛊ sonnet | Integrate a target branch into the current one by merge, rebase or squash |
 | `/branch-qa_review` | ᛟ opus | Assess branch readiness for PR submission: full review methodology plus the checks only a local chec… |
+| `/branch-stack` | ᛊ sonnet | Read, link, extend, sync and tidy a GitHub stack without opening or landing a PR: status, link an ex… |
 | `/branch-worktree` | ᛊ sonnet | Move this session into a new worktree on a given branch (existing, or new from a base), move into a… |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |

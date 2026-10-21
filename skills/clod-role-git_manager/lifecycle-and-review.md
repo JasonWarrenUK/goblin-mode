@@ -34,7 +34,7 @@ mechanics, the `gh stack` CLI and the caveats live in
 
 ```bash
 gh stack init feat/base-feature                      # or start the stack before branching
-gh stack add -m "feat: dependent work" feat/add-dependent-feature  # next layer (-m: no editor)
+gh stack add feat/add-dependent-feature              # next layer; commit the work on it (add -m dies on a clean tree)
 gh stack submit --auto --open                        # one PR per layer, correct bases (drafts without --open)
 
 # after fixing something on the base layer

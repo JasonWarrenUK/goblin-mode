@@ -9,7 +9,7 @@ metadata:
   family: branch
   goblin-spinner: digging a worktree|moving house|checking out
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "EnterWorktree", "ExitWorktree", "Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(du:*)", "Bash(ls:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)", "Bash(~/.claude/library/scripts/worktree-bootstrap.sh:*)"]
+allowed-tools: ["Read", "Glob", "EnterWorktree", "ExitWorktree", "Bash(git:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(du:*)", "Bash(ls:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)", "Bash(~/.claude/library/scripts/worktree-bootstrap.sh:*)", "Bash(~/.claude/library/scripts/stack-status.py:*)"]
 arguments: ["action", "branch", "name"]
 argument-hint: "new <existing-branch>|<new-branch>:<base> [worktree name] | use [worktree name|branch|path] | prune"
 ---
@@ -67,6 +67,7 @@ Existence checks for `new`, after `git fetch origin`: `git show-ref --verify --q
 2. **Where the branch already lives.** Read `git worktree list --porcelain`.
    - Checked out in a worktree under `<main checkout>/.claude/worktrees/`: skip creation and hand over to `use` with that path, saying `/branch-worktree use <name>` does this directly.
    - Checked out anywhere else (the main checkout, a sibling directory): stop. Git allows one checkout per branch, and `EnterWorktree` can only reach worktrees under `.claude/worktrees/` once the session is in a worktree. Name the path, and offer to switch that checkout to another branch first or to start a new branch from this one.
+   - **A layer of a stack lives in the stack's worktree.** For an existing branch, `~/.claude/library/scripts/stack-status.py <branch>`; when its verdict is `linked` and another layer of that stack (`github_stack.entries`) is checked out in a worktree under `.claude/worktrees/`, do not add a second one: hand over to `use` with that worktree and say that `gh stack checkout <pr#>` then `gh stack up`/`down` reach the layer inside it (one worktree per stack: `~/.claude/library/references/stacked-prs.md`, "Worktrees"). When no layer has a worktree yet, carry on and name the new worktree for the stack (`stack-<number>`) rather than the layer, since every layer will share it.
 3. **Choose the path.** `<main checkout>/.claude/worktrees/<name>`, where the main checkout is the parent of `git rev-parse --path-format=absolute --git-common-dir`, so the answer is the same from inside a worktree. If the directory exists already, stop: it either holds a different branch or is a leftover for `prune` to clear.
 4. **Check the directory is ignored:** `git check-ignore -q .claude/worktrees/<name>`. When it is not, say so and offer to append `.claude/worktrees/` to `.gitignore` (shared) or `.git/info/exclude` (local only); never edit either without approval.
 5. **Print the command, then run it.** Valid arguments are the approval; do not ask:

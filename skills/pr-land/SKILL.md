@@ -9,7 +9,7 @@ metadata:
   family: pr
   goblin-spinner: merging|deleting evidence|tagging|cleaning up
 disable-model-invocation: true
-allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(python3:*)"]
+allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/stack-status.py:*)", "Bash(python3:*)"]
 arguments: ["pr"]
 argument-hint: "[PR number | URL]"
 ---
@@ -30,7 +30,7 @@ Resolve the PR from `$ARGUMENTS`, then `gh pr view --json state,reviewDecision,m
 
 Proceed only when: state `OPEN`, every entry in `statusCheckRollup` has finished and passed, and `mergeable` isn't `CONFLICTING`. Both halves of the rollup are default-deny, so an enum value this text doesn't name still blocks. A check run whose `status` isn't `COMPLETED` (`QUEUED`, `IN_PROGRESS`, `PENDING`, `WAITING`, `REQUESTED`) counts as not passed, as does a status context whose `state` isn't `SUCCESS` (`PENDING` and `EXPECTED` are the non-terminal ones); a `conclusion` or `state` of `FAILURE`, `ERROR`, `CANCELLED`, `TIMED_OUT` or `ACTION_REQUIRED` fails outright. A completed check run passes on a `conclusion` of `SUCCESS`, `NEUTRAL` or `SKIPPED`; a status context passes only on `state` `SUCCESS`. `reviewDecision` must additionally be `APPROVED` unless the repo lives under `github.com/jasonwarrenuk/` (personal repos have no reviewer, so that value never appears; check the resolved owner, not the local remote string). Anything short of that: report exactly what's unmet and stop. This skill lands ready PRs; it doesn't chase approvals (`pr-handle_review`) or fix branches.
 
-**Stack detection** (see `~/.claude/library/references/stacked-prs.md`): the PR is part of a stack when `baseRefName` isn't the default branch, or `gh pr list --base {headRefName} --state open` shows a child PR targeting it. A stacked merge is bottom-up and contiguous: merging this PR also merges **every unmerged PR below it**, so extend the readiness check to each of those layers too, and note any open children above (they survive the merge and retarget automatically). A layer whose `statusCheckRollup` is empty has had no CI and does not pass: a workflow that only runs on pull requests into `main` never reaches the upper layers.
+**Stack detection** (see `~/.claude/library/references/stacked-prs.md`): run `~/.claude/library/scripts/stack-status.py {number}` and read its verdict, never the base branch alone. `linked`: the PR is a layer of a GitHub stack and Step 2 uses `gh stack merge`. `chained-unlinked`: the bases form a chain GitHub does not know; stop and offer `/branch-stack link <bottom> ... <top>` first, because `gh stack merge` cannot land an unlinked chain and `gh pr merge` would land the layer without retargeting its children. `independent`: an ordinary merge. A stacked merge is bottom-up and contiguous: merging this PR also merges **every unmerged PR below it** (the row's `chain` field lists them), so extend the readiness check to each of those layers too, and note any open children above (they survive the merge and retarget automatically). A layer whose `statusCheckRollup` is empty has had no CI and does not pass: a workflow that only runs on pull requests into `main` never reaches the upper layers.
 
 ## Step 1.5: Bump any touched plugin
 
@@ -77,7 +77,7 @@ Do not run plain `gh pr merge` on a stack (the docs say the legacy merge endpoin
 
 Merge commit, never squash or rebase: the branch's atomic commits are the history. `--delete-branch` removes the remote branch and, where the local branch isn't checked out elsewhere, the local one too.
 
-If child PRs remain open above the merge point, run `gh stack sync --prune` from a checkout of the stack so the surviving local branches rebase onto the new `main` and stale refs go.
+If child PRs remain open above the merge point, run `gh stack sync --prune` from a checkout of the stack so the surviving local branches rebase onto the new `main` and stale refs go; `/branch-stack sync` is that command with its checks. Once every layer has landed, the stack's entry in local tracking is stale: `/branch-stack tidy`.
 
 ## Step 3: Tag the version
 
