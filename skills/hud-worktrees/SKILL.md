@@ -9,7 +9,7 @@ metadata:
   family: hud
   goblin-spinner: mapping worktrees|counting trees|checking state
 disable-model-invocation: false # confusion about worktrees is exactly when it should appear; read-only, so no gate is needed
-allowed-tools: ["Bash(git worktree list:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Read", "Glob"]
+allowed-tools: ["Bash(git worktree list:*)", "Bash(~/.claude/library/scripts/worktree-state.sh:*)", "Bash(~/.claude/library/scripts/stack-status.py:*)", "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Read", "Glob"]
 argument-hint: "(no arguments: shows the map)"
 ---
 
@@ -22,8 +22,9 @@ Worktrees go wrong in predictable ways: removing the one you're standing in, cre
 Gather first:
 
 1. `git worktree list --porcelain`: every worktree, its path, branch, HEAD.
-2. For each worktree: `~/.claude/library/scripts/worktree-state.sh <path> origin/main`, which prints `dirty` (changed and untracked files), `ahead` and `behind` as JSON; it exits 2 when the base does not resolve, so use `worktree-state.sh <path>` (its upstream, or null counts when it has none) for a branch with no remote base. Never call `git -C` directly: a permission rule loose enough for any path also lets `-c` options through. When the branch has an open PR whose base isn't main (`gh pr view <branch> --json baseRefName,number`), it's a stacked layer: count against `origin/<baseRefName>` instead and say so in the sentence; counting a stacked child against main folds the parent's commits into its ahead-count and misreads the layer.
-3. `pwd`: establish **which worktree you are standing in right now**. This drives every safety check below.
+2. For each worktree: `~/.claude/library/scripts/worktree-state.sh <path> origin/main`, which prints `dirty` (changed and untracked files), `ahead` and `behind` as JSON; it exits 2 when the base does not resolve, so use `worktree-state.sh <path>` (its upstream, or null counts when it has none) for a branch with no remote base. Never call `git -C` directly: a permission rule loose enough for any path also lets `-c` options through.
+3. Once, for every open PR: `python3 ~/.claude/library/scripts/stack-status.py --open`. A worktree whose branch's row is `linked` or `chained-unlinked` holds a layer: count it against `origin/<base>` instead of main and say so in the sentence (counting a child against main folds the parent's commits into its ahead-count), and carry the stack number and layer position into the table. `chained-unlinked` is its own finding: the bases form a chain GitHub does not hold as a stack, and `/branch-stack link` is the fix.
+4. `pwd`: establish **which worktree you are standing in right now**. This drives every safety check below.
 
 Render as a table plus one plain-English sentence per worktree: what it is, what state it's in, whether it's safe to touch:
 
@@ -36,7 +37,7 @@ Render as a table plus one plain-English sentence per worktree: what it is, what
 
 Group the table in two sections, both always shown: **deliberate worktrees** (the main checkout plus paths following the project's worktree convention, e.g. the sibling `../<repo>-worktrees/<branch>` layout) first, then **machine-made worktrees** (session- or tool-created: paths under temp directories or `.claude`, or generated names following no human convention). When provenance is unclear, treat it as deliberate.
 
-Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch's PR has merged (or, un-PR'd, is merged to main; candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere. An abandoned machine-made worktree (clean, branch merged or never pushed) is a first-class cleanup candidate here. When several worktrees form a stack (each branch the PR base of the next), say so plainly: "these three are one stack, bottom to top", since removing or rebasing them out of order is the trap.
+Then a **Suggestions** line naming anything that deserves attention: a worktree whose branch's PR has merged (or, un-PR'd, is merged to main; candidate for cleanup), a dirty worktree untouched for weeks, a branch checked out in a worktree that someone might try to check out elsewhere. An abandoned machine-made worktree (clean, branch merged or never pushed) is a first-class cleanup candidate here. When several worktrees hold layers of one stack, say so plainly: "these three are layers of stack #191, bottom to top, in three worktrees", and that a stack wants one worktree (`gh stack up`/`down` move between layers; a layer checked out elsewhere breaks `gh stack sync`): the spare worktrees are cleanup candidates once their branches are back in the stack's own worktree.
 
 Stop here; the map is the output. When the Suggestions line names something to act on, point at the skill that does it: `/branch-worktree new <branch>` to work on a branch in a new worktree, `/branch-worktree use <worktree>` to move into one that exists and `/branch-worktree prune` to clear redundant ones.
 
