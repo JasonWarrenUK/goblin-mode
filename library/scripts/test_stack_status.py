@@ -54,7 +54,7 @@ def stack(number: int, layers: list[tuple[int, str, str]]) -> dict:
 
 def pr(number: int, head: str, base: str = "main") -> dict:
 	return {"number": number, "headRefName": head, "baseRefName": base, "title": "PR %d" % number,
-			"state": "OPEN", "isDraft": False}
+			"state": "OPEN", "isDraft": False, "isCrossRepository": False}
 
 
 class StackStatus(unittest.TestCase):
@@ -179,6 +179,25 @@ class StackStatus(unittest.TestCase):
 		self.assertEqual([r["verdict"] for r in rows], ["independent", "independent"])
 		self.assertEqual([r["chain"] for r in rows], [[10], [11]])
 		self.assertIn("ordinary PR on release/1.x", self.table("feat/a", fixture=fixture))
+
+	def test_fork_pr_from_trunk_is_independent(self) -> None:
+		fork = dict(pr(12, "main"), isCrossRepository=True)
+		fixture = {"open_prs": [pr(10, "feat/a"), fork],
+				   "graphql": {"pr10": {"number": 10, "stack": None}, "pr12": {"number": 12, "stack": None}}}
+		row = self.status("--open", fixture=fixture)["rows"][1]
+		self.assertEqual(row["verdict"], "independent")
+		self.assertEqual(row["children"], [])
+		self.assertEqual(row["chain"], [12])
+		self.assertIn("main (#12) is an ordinary PR on main", self.table("--open", fixture=fixture))
+
+	def test_fork_pr_on_a_layer_is_not_its_child(self) -> None:
+		fork = dict(pr(12, "contrib", "feat/a"), isCrossRepository=True)
+		fixture = {"open_prs": [pr(10, "feat/a"), fork],
+				   "graphql": {"pr10": {"number": 10, "stack": None}, "pr12": {"number": 12, "stack": None}}}
+		rows = self.status("--open", fixture=fixture)["rows"]
+		self.assertEqual([r["verdict"] for r in rows], ["independent", "independent"])
+		self.assertEqual(rows[0]["children"], [])
+		self.assertEqual(rows[1]["chain"], [12])
 
 	def test_link_hint_climbs_the_whole_chain(self) -> None:
 		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a"), pr(12, "feat/c", "feat/b")],

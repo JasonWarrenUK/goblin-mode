@@ -35,7 +35,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-OPEN_PR_FIELDS = "number,headRefName,baseRefName,title,state,isDraft"
+OPEN_PR_FIELDS = "number,headRefName,baseRefName,title,state,isDraft,isCrossRepository"
 STACK_QUERY = """
 query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
@@ -200,6 +200,8 @@ def verdict_for(branch: str | None, pr: dict | None, stack: dict | None, default
 		return "no-pr"
 	if stack:
 		return "linked"
+	if pr["isCrossRepository"]:
+		return "independent"
 	base = pr["baseRefName"]
 	if (base != default and base in prs_by_head) or prs_by_base.get(pr["headRefName"]):
 		return "chained-unlinked"
@@ -236,9 +238,11 @@ def climb(pr: dict, prs_by_base: dict[str, list[dict]]) -> tuple[list[dict], lis
 def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 	default = default_branch(cwd)
 	prs = open_prs(cwd)
-	prs_by_head = {pr["headRefName"]: pr for pr in prs}
+	# a fork's head branch name says nothing about this repository's branches, and a stack lives in one repository
+	same_repo = [pr for pr in prs if not pr["isCrossRepository"]]
+	prs_by_head = {pr["headRefName"]: pr for pr in same_repo}
 	prs_by_base: dict[str, list[dict]] = {}
-	for pr in prs:
+	for pr in same_repo:
 		prs_by_base.setdefault(pr["baseRefName"], []).append(pr)
 	tracking = local_tracking(cwd)
 	tracked_in: dict[str, list[dict]] = {}
@@ -266,8 +270,9 @@ def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 		github_number = stack["number"] if stack else None
 		# the single-stack shape stays for consumers: the entry GitHub agrees with, else the first
 		tracked = next((e for e in entries if e["stack"] == github_number), entries[0] if entries else None)
-		above, fork = climb(pr, prs_by_base) if pr else ([], [])
-		chain = [p["number"] for p in chain_of(pr, prs_by_head, default)] if pr else []
+		foreign = bool(pr and pr["isCrossRepository"])
+		above, fork = climb(pr, prs_by_base) if pr and not foreign else ([], [])
+		chain = [p["number"] for p in chain_of(pr, prs_by_head, default)] if pr and not foreign else [pr["number"]] if pr else []
 		rows.append({
 			"branch": branch,
 			"pr": pr["number"] if pr else None,
@@ -276,7 +281,7 @@ def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 			"draft": pr["isDraft"] if pr else None,
 			"github_stack": stack,
 			"chain": chain,
-			"children": [p["number"] for p in prs_by_base.get(branch or "", [])],
+			"children": [] if foreign else [p["number"] for p in prs_by_base.get(branch or "", [])],
 			"link_order": chain + [p["number"] for p in above],
 			"fork": [p["number"] for p in fork],
 			"tracked_locally": tracked,
