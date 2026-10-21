@@ -35,6 +35,8 @@ STUB_GH = textwrap.dedent("""\
 			sys.exit(1)
 		print(json.dumps(pr)); sys.exit(0)
 	if args[:2] == ["api", "graphql"]:
+		if "-F" in args:
+			sys.exit(1)  # -F coerces an all-digit owner or repo name to an integer; the script must send -f
 		print(json.dumps({"data": {"repository": fixture.get("graphql", {})}})); sys.exit(0)
 	sys.exit(1)
 	""")
@@ -165,6 +167,93 @@ class StackStatus(unittest.TestCase):
 		rows = self.status("--open", fixture=fixture)["rows"]
 		self.assertEqual([r["pr"] for r in rows], [10, 11])
 		self.assertEqual([r["verdict"] for r in rows], ["chained-unlinked", "chained-unlinked"])
+
+	def table(self, *args: str, fixture: dict) -> str:
+		self.fixture.write_text(json.dumps(fixture))
+		return self.run_script(*args).stdout
+
+	def test_base_no_open_pr_owns_is_independent(self) -> None:
+		fixture = {"open_prs": [pr(10, "feat/a", "release/1.x"), pr(11, "feat/b", "feat/gone")],
+				   "graphql": {"pr10": {"number": 10, "stack": None}, "pr11": {"number": 11, "stack": None}}}
+		rows = self.status("--open", fixture=fixture)["rows"]
+		self.assertEqual([r["verdict"] for r in rows], ["independent", "independent"])
+		self.assertEqual([r["chain"] for r in rows], [[10], [11]])
+		self.assertIn("ordinary PR on release/1.x", self.table("feat/a", fixture=fixture))
+
+	def test_link_hint_climbs_the_whole_chain(self) -> None:
+		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a"), pr(12, "feat/c", "feat/b")],
+				   "graphql": {"pr10": {"number": 10, "stack": None}, "pr11": {"number": 11, "stack": None}}}
+		row = self.status("feat/a", fixture=fixture)["rows"][0]
+		self.assertEqual(row["link_order"], [10, 11, 12])
+		self.assertEqual(row["fork"], [])
+		self.assertIn("`gh stack link 10 11 12`", self.table("feat/a", fixture=fixture))
+		self.assertIn("`gh stack link 10 11 12`", self.table("feat/b", fixture=fixture))
+
+	def test_link_hint_names_each_path_of_a_fork(self) -> None:
+		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a"), pr(12, "feat/c", "feat/a")],
+				   "graphql": {"pr10": {"number": 10, "stack": None}, "pr11": {"number": 11, "stack": None}}}
+		row = self.status("feat/a", fixture=fixture)["rows"][0]
+		self.assertEqual(row["fork"], [11, 12])
+		table = self.table("feat/a", fixture=fixture)
+		self.assertNotIn("link 10 11 12", table)
+		self.assertIn("`gh stack link 10 11`", table)
+		self.assertIn("`gh stack link 10 12`", table)
+		self.assertIn("`gh stack link 10 11`", self.table("feat/b", fixture=fixture))
+
+	def test_unsynced_merged_stack_is_stale(self) -> None:
+		self.write_tracking([{"number": 3, "trunk": {"branch": "main"}, "branches": [
+			{"branch": "old/x", "pullRequest": {"number": 1}},
+			{"branch": "old/y", "pullRequest": {"number": 2, "merged": True}}]}])
+		fixture = {"open_prs": [pr(10, "feat/a")],
+				   "graphql": {"pr10": {"number": 10, "stack": None}, "st1": {"state": "MERGED"}}}
+		result = self.status("feat/a", fixture=fixture)
+		self.assertTrue(result["local_tracking"][0]["stale"])
+		self.assertIn("`gh stack unstack 3 --local`", self.table("feat/a", fixture=fixture))
+
+	def test_closed_unsubmitted_or_open_layers_keep_a_stack_live(self) -> None:
+		cases = {
+			"merged plus closed": ([{"number": 1}, {"number": 2}], {"st1": {"state": "MERGED"}, "st2": {"state": "CLOSED"}}),
+			"merged plus no PR yet": ([{"number": 1}, None], {"st1": {"state": "MERGED"}}),
+			"merged plus unknown state": ([{"number": 1}, {"number": 2}], {"st1": {"state": "MERGED"}}),
+			"merged plus open": ([{"number": 1}, {"number": 10}], {"st1": {"state": "MERGED"}}),
+		}
+		for label, (pulls, graphql) in cases.items():
+			with self.subTest(label):
+				self.write_tracking([{"number": 3, "trunk": {"branch": "main"}, "branches": [
+					{"branch": "old/%d" % i, "pullRequest": p} for i, p in enumerate(pulls)]}])
+				fixture = {"open_prs": [pr(10, "feat/a")],
+						   "graphql": dict(graphql, pr10={"number": 10, "stack": None})}
+				self.assertFalse(self.status("feat/a", fixture=fixture)["local_tracking"][0]["stale"])
+
+	def test_stale_is_judged_for_a_branch_without_a_pr(self) -> None:
+		self.write_tracking([{"number": 3, "trunk": {"branch": "main"}, "branches": [
+			{"branch": "old/x", "pullRequest": {"number": 1}}]}])
+		fixture = {"open_prs": [], "graphql": {"st1": {"state": "MERGED"}}}
+		result = self.status("feat/b", fixture=fixture)
+		self.assertEqual(result["rows"][0]["verdict"], "no-pr")
+		self.assertTrue(result["local_tracking"][0]["stale"])
+
+	def test_branch_in_two_tracked_stacks_shows_both(self) -> None:
+		self.write_tracking([
+			{"number": 5, "trunk": {"branch": "main"}, "branches": [
+				{"branch": "feat/a", "pullRequest": {"number": 10}}, {"branch": "feat/b", "pullRequest": {"number": 11}}]},
+			{"number": 9, "trunk": {"branch": "main"}, "branches": [
+				{"branch": "feat/a", "pullRequest": {"number": 10}}]}])
+		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a")],
+				   "graphql": {"pr10": {"number": 10, "stack": stack(9, [(10, "feat/a", "OPEN")])}}}
+		row = self.status("feat/a", fixture=fixture)["rows"][0]
+		self.assertEqual([e["stack"] for e in row["tracked_in"]], [5, 9])
+		self.assertEqual(row["tracked_locally"], {"stack": 9, "branch_exists": True})
+		table = self.table("feat/a", fixture=fixture)
+		self.assertIn("in 2 stacks: #5, #9", table)
+		self.assertIn("tracked in 2 local stacks (#5, #9)", table)
+
+	def test_tracked_layer_reads_in_stack(self) -> None:
+		self.write_tracking([{"number": 7, "trunk": {"branch": "main"}, "branches": [
+			{"branch": "feat/a", "pullRequest": {"number": 10}}, {"branch": "feat/b", "pullRequest": {"number": 11}}]}])
+		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a")],
+				   "graphql": {"pr11": {"number": 11, "stack": stack(7, [(10, "feat/a", "OPEN"), (11, "feat/b", "OPEN")])}}}
+		self.assertIn("is in stack #7, layer 2 of 2 and tracked here", self.table("feat/b", fixture=fixture))
 
 	def test_outside_a_repository_exits_2(self) -> None:
 		self.fixture.write_text(json.dumps({"open_prs": []}))
