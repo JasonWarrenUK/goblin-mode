@@ -2,185 +2,16 @@
 
 | Prop    | Value |
 |---------|-------|
-| Updated | 2026-10-20 |
+| Updated | 2026-10-21 |
 
-<!-- toc:start -->
-## Table of Contents
+Reference detail lives in `~/.claude/library/references/`:
 
-- [1. Technical Profile](#1-technical-profile)
-  - [1a. Scales: Preference & Proficiency](#1a-scales-preference-proficiency)
-    - [1a1. Preference](#1a1-preference)
-    - [1a2. Proficiency](#1a2-proficiency)
-  - [1b. Domains](#1b-domains)
-    - [1b1. Languages](#1b1-languages)
-  - [1.2. Frontend](#12-frontend)
-  - [1.3. Backend](#13-backend)
-  - [1.4. TUI](#14-tui)
-  - [1.5. Databases](#15-databases)
-  - [1.6. Testing](#16-testing)
-  - [1.7. Tooling](#17-tooling)
-  - [1.8 Packages & Apps](#18-packages-apps)
-    - [1.8.1. System Apps](#181-system-apps)
-    - [1.8.2. JS/TS Ecosystem](#182-jsts-ecosystem)
-    - [1.8.3. Other Ecosystems](#183-other-ecosystems)
-- [2. Shell Scripting](#2-shell-scripting)
-- [3. Communication](#3-communication)
-  - [3.1. Golden Rules](#31-golden-rules)
-  - [3.2. Spelling (Non-Negotiable)](#32-spelling-non-negotiable)
-  - [3.3. Guidelines](#33-guidelines)
-- [4. Agent Skills](#4-agent-skills)
-  - [4.1. Skill Creation](#41-skill-creation)
-- [5. Verification](#5-verification)
-- [6. Claude Code Behaviour](#6-claude-code-behaviour)
-  - [6.1. Task Tracker Integration](#61-task-tracker-integration)
-  - [6.2. Plans](#62-plans)
-  - [6.3. Asking vs Proceeding](#63-asking-vs-proceeding)
-  - [6.4. Verification](#64-verification)
-- [7. Code Conventions](#7-code-conventions)
-  - [7.1. Paradigm](#71-paradigm)
-  - [7.2. Naming](#72-naming)
-    - [7.2.1. Variables & Functions](#721-variables-functions)
-    - [7.2.2. Files](#722-files)
-  - [7.3. TypeScript Standards](#73-typescript-standards)
-  - [7.4. Code Style](#74-code-style)
-  - [7.5. Colour and Theme](#75-colour-and-theme)
-  - [7.6. Testing](#76-testing)
-- [8. Git Workflow](#8-git-workflow)
-  - [8.1. Commit Style](#81-commit-style)
-  - [8.2. Versioning with svu](#82-versioning-with-svu)
-  - [8.3. Commit Granularity](#83-commit-granularity)
-  - [8.4. PR & Commit Style](#84-pr-commit-style)
-  - [8.5. Breaking Change Detection](#85-breaking-change-detection)
-  - [8.6. Branch Naming](#86-branch-naming)
-  - [8.7. Git Worktrees](#87-git-worktrees)
-  - [8.8. Pull Requests](#88-pull-requests)
-- [9. Security Defaults](#9-security-defaults)
-- [10. Database](#10-database)
-  - [10.1. SQL](#101-sql)
-- [11. Documentation](#11-documentation)
-- [12. Project Overrides](#12-project-overrides)
-<!-- toc:end -->
+- `technical-profile.md`: languages, frontend, backend, TUI, databases, test runners, tooling, packages, preference and proficiency scales
+- `workflow-details.md`: colour and theme usage rules, test file layout, svu versioning, worktrees, pull requests
 
 ## 1. Technical Profile
 
-Options are listed in order of preference & proficiency
-
-### 1a. Scales: Preference & Proficiency
-
-#### 1a1. Preference
-
-| Value | Definition |
-|-------|------------|
-|   1   | "Love using" or "Learning this is a high priority" |
-|   2   | "Like using" or "Want to learn" |
-|   3   | "No strong feelings" |
-|   4   | "Dislike using" or "Not that interested in learning" |
-|   5   | "Hate using" or "Actively don't want to learn" |
-
-#### 1a2. Proficiency
-
-| Value | Definition |
-|-------|------------|
-|   1   | Proficient with advanced features |
-|   2   | Proficient with base features |
-|   3   | Actively learning or limited experience |
-|   4   | Have dabbled slightly |
-|   5   | No experience |
-
-### 1b. Domains
-
-#### 1b1. Languages
-
-| Priority | Status     | Language |
-|----------|------------|----------|
-|    1     | Preferred  | TypeScript |
-|    2     | Proficient | JavaScript |
-|    3     | Proficient |  Python  |
-|    4     |  Learning  |    Go    |
-|    5     |  Dabbled   | GDScript |
-|    6     |  Dabbled   |    C#    |
-
-### 1.2. Frontend
-
-| #   | Status        | Front End | Full Stack |
-|-----|---------------|-----------|------------|
-|  1  |   Preferred   | Svelte 5  | SvelteKit 2 |
-|  2  | When Required |   React   |  Next.js   |
-
-### 1.3. Backend
-
-| #   | Status        | Runtime | Server |
-|-----|---------------|---------|--------|
-|  1  |   Preferred   |   Bun   | undecided |
-|  2  |  Proficient   | Python  | FastAPI (Poetry, poethepoet, pytest) |
-|  3  |  Interested   |  Deno   |  Oak   |
-|  4  | When Required |  Node   | Express |
-
-### 1.4. TUI
-
-This is ordered by *familiarity*, not preference
-
-| #   | Language | Libraries |
-|-----|----------|-----------|
-|  1  |    Go    | Charm (bubbletea, bubbles, lipgloss etc) |
-|  2  |    TS    |  OpenTUI  |
-|  3  |  Python  |  Textual  |
-
-### 1.5. Databases
-
-One db tech stack per paradigm
-
-| Paradigm   | Stack                | Notes |
-|------------|----------------------|-------|
-| Relational | PostgreSQL, Supabase | RLS expertise; pgvector for embeddings |
-|   Graph    |        Neo4j         | Preferred data model |
-|   Object   |       MongoDB        | Limited experience: Auth.js adapter and mongodb-memory-server integration tests in Urheimat |
-
-### 1.6. Testing
-
-No stated preference between runners. In use across current projects:
-
-| Runner | Where |
-|--------|-------|
-| Vitest | SvelteKit projects; vitest-browser-svelte + Playwright for component tests and mongodb-memory-server for real-database integration tests (Urheimat) |
-| bun:test | Framework-free engine code (The Tongue, Grumble) |
-| pytest | FastAPI (CHIRPdb) |
-| go test | Wyrd |
-| GUT (headless) | Godot: unit tests for the sim layer plus one journey test per phase |
-| Jest | Older React work only |
-
-Practices already in use: save fixtures captured per tagged release and loaded under a version policy (The Work); pipeline evals against a hand-labelled gold set (CHIRPdb); deterministic seeds threaded through every sim so a run reproduces exactly.
-
-### 1.7. Tooling
-
-| Role       | Tool |
-|------------|------|
-| Versioning | git, Github, svu |
-|    IDE     | Zed  |
-| Deployment | Vercel, Deno Deploy, Github Pages; Docker Compose behind a Cloudflare tunnel for long-running services |
-| Containers | Colima (Docker Desktop replaced June 2026) |
-
-### 1.8 Packages & Apps
-
-#### 1.8.1. System Apps
-
-| #   | Tool |
-|-----|------|
-|  1  | Homebrew |
-
-#### 1.8.2. JS/TS Ecosystem
-
-Primarily determined by project context, but for tiebreaks use the following preference order:
-
-| #   | Tool |
-|-----|------|
-|  1  | bun  |
-|  2  | deno |
-|  3  | npm, pnpm |
-
-#### 1.8.3. Other Ecosystems
-
-Python: Poetry with poethepoet as the task runner is what production work uses; the roadmap plugin's scripts stay stdlib-only. No favoured package manager decided beyond that.
+TypeScript first, then JavaScript, Python, Go. Svelte 5 and SvelteKit 2 for frontend (React and Next.js when required). Bun first for runtime and packages, then Deno, then npm or pnpm. PostgreSQL and Supabase for relational data, Neo4j for graph. Python work uses FastAPI with Poetry and poethepoet. Load `technical-profile.md` for anything beyond these defaults.
 
 ---
 
@@ -240,10 +71,7 @@ When quoting a banned form (a rule that names it, a scan hit, an error message),
 - All skills live in `~/.claude/skills/` as `SKILL.md` files
 - Command skills have `disable-model-invocation: true`; knowledge skills have `user-invocable: false`.
 - Exception: a command skill may set `disable-model-invocation: false` when its trigger moment is one Claude sees before the user does (stale PR description, post-merge status drift) **and** it contains its own approval gate before anything irreversible. The gate is the safety net; without one, keep it `true`.
-
-### 4.1. Skill Creation
-
-See the `clod-config-skill_conventions` skill for placement rules and the model-tag frontmatter convention (new runic and old Greek-letter forms).
+- Placement rules and the model-tag frontmatter convention: `clod-config-skill_conventions` skill
 
 ---
 
@@ -257,7 +85,7 @@ Verify before answering, always. A checkable fact gets checked before it is stat
 
 ### 6.1. Task Tracker Integration
 
-This config is tracker-agnostic: it makes no assumption about which project-management tool (if any) a given project uses. See `docs/reference/task-trackers/` for the shared status-transition convention (In Progress → In Review → Done, never automatic) and tool-specific detail for Linear, GitHub Issues and git-native.
+Tracker-agnostic. Status convention (In Progress, In Review, Done, never automatic) and per-tool detail: `docs/reference/task-trackers/`.
 
 ### 6.2. Plans
 
@@ -293,19 +121,7 @@ Pragmatic over ideological. OOP when it fits, functional when it fits. Clear str
 
 ### 7.2. Naming
 
-#### 7.2.1. Variables & Functions
-
-```typescript
-// ✅ Clear, semantic names
-const authenticatedUserId = await getAuthenticatedUser();
-const monthlyRevenue = calculateMonthlyRevenue(transactions);
-
-// ❌ Cryptic abbreviations
-const authUsrId = await getAuth();
-const revM = calcMR(txs);
-```
-
-#### 7.2.2. Files
+Clear, semantic names (`authenticatedUserId`, `calculateMonthlyRevenue`), never cryptic abbreviations (`authUsrId`, `calcMR`).
 
 | Format           | Convention |
 |------------------|------------|
@@ -330,25 +146,11 @@ const revM = calcMR(txs);
 
 ### 7.5. Colour and Theme
 
-Colour, type and shape for anything rendered (HTML artefacts, app styling, terminal GIFs, code stills, social cards, framed screenshots) come from a **project theme** in `.claude/themes/`, created and maintained by `/theme-factory`. Format, resolution order and quality gates: `library/references/theme-conventions.md`.
-
-**Usage rules:**
-
-- Components and artefacts reference semantic aliases only (`--ink`, `--surface`, `--accent`, `--danger`); the theme's `html` target file emits them, light and dark, via `library/scripts/theme/emit.ts`
-- No inline hex values in components or skills; a missing colour is a theme change, not a local constant
-- Every theme ships its own verified contrast table (AA 4.5:1 body, 3:1 large) and passes an originality gate; only the user can lift an originality warning
-- No theme in the project yet: run `/theme-factory "html"` (or the target you need) before styling; the global `clod` family is the fallback until then
-
-**Seed palettes** (optional starting points for a new theme, none mandatory): the project's own CSS, an image, mood words or a reference palette such as `library/references/reasonable-colors-reference.md`.
+Anything rendered takes colour, type and shape from a project theme in `.claude/themes/` (built by `/theme-factory`); no inline hex values. Usage rules, seed palettes and the fallback: `workflow-details.md`.
 
 ### 7.6. Testing
 
-Always assume that creating tests for new features is in-scope *unless* context clearly indicates otherwise
-
-- **File naming:** `module-name.test.ts` alongside source
-- **Fixtures pattern:** Test data in `tests/fixtures/<module>.ts` as named exports
-- **Import style:** `import * as fixtures from '../fixtures/<module>'`
-- Integration tests for critical paths preferred over exhaustive unit coverage
+Assume tests for new features are in scope unless context clearly says otherwise. Integration tests for critical paths over exhaustive unit coverage. File naming and fixtures pattern: `workflow-details.md`.
 
 ---
 
@@ -364,20 +166,16 @@ Detailed commit bodies when context needed. Good git history is documentation.
 
 ### 8.2. Versioning with `svu`
 
-See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `safe-version-next.sh`, never bare `svu next`: it wraps `svu current`/`svu next` and refuses to cross 0.x → 1.x itself (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Once a project deliberately tags `1.0.0`, the guard becomes a no-op and later major bumps pass through normally.
-
----
+Tags come from `safe-version-next.sh`, never bare `svu next`. See the `project-tag_version` skill.
 
 ### 8.3. Commit Granularity
 
-- Commit frequently with clear, granular changes
-- Each commit should be a single logical unit
-- More atomic commits = better history
-- When splitting changes into commits, default to granular thematic splits (one logical change per commit) and confirm grouping before committing
+- Commit frequently; each commit is a single logical unit
+- Default to granular thematic splits and confirm grouping before committing
 
 ### 8.4. PR & Commit Style
 
-- PR descriptions should be humble-factual, not apologetic or permission-seeking
+PR descriptions are humble-factual, not apologetic or permission-seeking.
 
 ### 8.5. Breaking Change Detection
 
@@ -403,13 +201,11 @@ Branches represent minimal tangible improvements. When in doubt, go smaller.
 
 ### 8.7. Git Worktrees
 
-When working with git worktrees: (1) always check which branch already exists before creating a new one, (2) never try to remove a worktree while your shell is inside it, (3) use the correct existing branch name rather than creating duplicates, (4) after removing a worktree, cd to the main repo directory.
+Check which branch already exists before creating one; never remove a worktree while your shell is inside it. Full rules: `workflow-details.md`.
 
 ### 8.8. Pull Requests
 
-Handled by the `pr-create` and `pr-update` skills, both filling the shared template at `library/templates/pr-description.md`. Review feedback is worked through with `pr-handle_review` (verify independently, fix, reply); approved PRs land with `pr-land` (merge commit, tag, roadmap sync, cleanup).
-
-Dependent work stacks: when a branch builds on another branch whose PR is still open, it branches from that branch and opens a stacked PR (GitHub stacks, `gh stack`), never from main. Mechanics and caveats: `library/references/stacked-prs.md`.
+Handled by the `pr-create`, `pr-update`, `pr-handle_review` and `pr-land` skills (template: `library/templates/pr-description.md`). Stacked PRs: `library/references/stacked-prs.md`.
 
 ---
 
@@ -426,26 +222,12 @@ Dependent work stacks: when a branch builds on another branch whose PR is still 
 
 ## 10. Database
 
-### 10.1. SQL
-
-When running SQL against the database, prefer writing to a .sql file and executing it rather than using inline shell commands with escaped quotes.
-
----
+Write SQL to a `.sql` file and execute it rather than inline shell with escaped quotes.
 
 ## 11. Documentation
 
-- **Mermaid diagrams** for architecture and data flow
-- **Inline comments** sparingly; code should explain itself
-- **ADRs** for significant technical choices
-- Headers: `##` main, `###` subsections
-- Code blocks: always specify language
-
----
+Mermaid for architecture and data flow, ADRs for significant choices, inline comments sparingly, always specify a language on code blocks.
 
 ## 12. Project Overrides
 
-Project-level configs take precedence:
-
-- `.claude/CLAUDE.md` or `CLAUDE.md` in project root
-- Nested configs for subsystems (e.g., `frontend/CLAUDE.md`)
-- Project settings override everything here
+`.claude/CLAUDE.md` or `CLAUDE.md` in the project root, and nested configs, take precedence over everything here.
