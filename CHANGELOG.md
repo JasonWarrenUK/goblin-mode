@@ -5,9 +5,23 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.12.0] - 2026-10-21
+
+### Added
+
+- `branch-stack` skill: read, link, extend, sync and tidy a GitHub stack without opening or landing a PR. Actions are `status`, `link`, `add`, `sync` and `tidy`; opening a layer stays with `pr-create` and landing one with `pr-land`.
+- `stack-status.py` reports a verdict for each branch (`linked`, `chained-unlinked`, `independent` or `no-pr`), read from GitHub's stack field, the PR bases and local `gh-stack` tracking. Fork PRs are kept out of stack chains and local branch data.
+
 ### Changed
 
+- `pr-create`, `pr-land`, `next-task-ship`, `branch-worktree`, `hud-worktrees` and `clod-role-git_manager` detect a stack with `stack-status.py` instead of guessing from a PR's base branch.
+- `library/references/stacked-prs.md` covers the rebase model, stale local tracking and one worktree per stack.
 - `CLAUDE.md` §1 brought up to date with the git record: Python moves from Learning to Proficient, GDScript is listed as Dabbled, FastAPI joins the backend table, pgvector and the MongoDB work are noted, the testing section lists the runners and practices actually in use, and deployment gains Docker Compose, Cloudflare tunnel and Colima.
+- `CLAUDE.md` keeps its section numbers but moves reference detail (§1, plus the long tails of 7.5, 7.6, 8.2, 8.7 and 8.8) into `library/references/`.
+- `project-context-loader` and `task-sync` agents run on haiku.
+- The repo is licensed under zlib, with the licence scoped to the marketplace plugins.
+- `.gitignore` is an allowlist: root entries are ignored unless named. `scratch/`, `output/`, `.claude/` and `settings.local.jsonc` are no longer tracked.
+- The customisation guide moved to `docs/guides/` and the wiki index drops its dead links.
 
 ## [6.11.0] - 2026-10-15
 
@@ -324,7 +338,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.11.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.12.0...HEAD
+[6.12.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.11.0...v6.12.0
 [6.11.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.10.0...v6.11.0
 [6.10.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.9.0...v6.10.0
 [6.9.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.8.0...v6.9.0
