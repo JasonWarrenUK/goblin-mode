@@ -154,6 +154,10 @@ test('the ready set splits into subgroups that keep leverage order, led by the n
 		['Core', ['C', 'E']],
 		['Secondary', ['A', 'B', 'D']],
 	])
+	// a tier is named by its label, not its index: `secondary` leads, `1` matches nothing
+	expect(ids(subgroup(set, 'tier', ['secondary'])).map(g => g[0])).toEqual(['Secondary', 'Core'])
+	expect(ids(subgroup(set, 'tier', ['SECONDARY'])).map(g => g[0])).toEqual(['Secondary', 'Core'])
+	expect(ids(subgroup(set, 'tier', ['1'])).map(g => g[0])).toEqual(['Core', 'Secondary'])
 	expect(ids(subgroup(set, 'none', []))).toEqual([['', ['A', 'B', 'C', 'D', 'E']]])
 })
 

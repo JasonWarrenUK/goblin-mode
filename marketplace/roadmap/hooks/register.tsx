@@ -116,7 +116,7 @@ export type Subgroup = { key: string; label: string; members: Candidate[] }
 /**
  * The ready set split by `by`, each subgroup in leverage order. The subgroups
  * named in `first` lead in that order (matched case-insensitively on the
- * key); the rest follow in natural order: devs alphabetically with the
+ * key, or on the label for a tier, whose key is only its index); the rest follow in natural order: devs alphabetically with the
  * unassigned last, milestones by number, tiers lowest first. Grouping by
  * nothing gives one unlabelled subgroup.
  */
@@ -145,7 +145,7 @@ export const subgroup = (candidates: readonly Candidate[], by: GroupBy, first: r
 	}
 	const wanted = first.map(s => s.toLowerCase())
 	const rank = (g: Subgroup): number => {
-		const i = wanted.indexOf(g.key.toLowerCase())
+		const i = wanted.indexOf((by === 'tier' ? g.label : g.key).toLowerCase())
 		return i === -1 ? wanted.length : i
 	}
 	return [...groups.values()].sort((a, b) => rank(a) - rank(b) || natural(a, b))
