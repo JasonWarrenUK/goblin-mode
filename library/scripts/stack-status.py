@@ -265,12 +265,12 @@ def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 	rows = []
 	for branch, pr in resolved:
 		stack = stacks.get(pr["number"]) if pr else None
+		foreign = bool(pr and pr["isCrossRepository"])
 		entries = [{"stack": s["number"], "branch_exists": branch not in s["missing_branches"]}
-				   for s in tracked_in.get(branch, [])] if branch else []
+				   for s in tracked_in.get(branch, [])] if branch and not foreign else []
 		github_number = stack["number"] if stack else None
 		# the single-stack shape stays for consumers: the entry GitHub agrees with, else the first
 		tracked = next((e for e in entries if e["stack"] == github_number), entries[0] if entries else None)
-		foreign = bool(pr and pr["isCrossRepository"])
 		above, fork = climb(pr, prs_by_base) if pr and not foreign else ([], [])
 		chain = [p["number"] for p in chain_of(pr, prs_by_head, default)] if pr and not foreign else [pr["number"]] if pr else []
 		rows.append({
@@ -286,7 +286,7 @@ def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 			"fork": [p["number"] for p in fork],
 			"tracked_locally": tracked,
 			"tracked_in": entries,
-			"worktree": trees.get(branch) if branch else None,
+			"worktree": trees.get(branch) if branch and not foreign else None,
 			"verdict": verdict_for(branch, pr, stack, default, prs_by_head, prs_by_base),
 		})
 	return {"default_branch": default, "rows": rows, "local_tracking": tracking}

@@ -188,6 +188,8 @@ class StackStatus(unittest.TestCase):
 		self.assertEqual(row["verdict"], "independent")
 		self.assertEqual(row["children"], [])
 		self.assertEqual(row["chain"], [12])
+		self.assertIsNone(row["worktree"])
+		self.assertEqual(row["tracked_in"], [])
 		self.assertIn("main (#12) is an ordinary PR on main", self.table("--open", fixture=fixture))
 
 	def test_fork_pr_on_a_layer_is_not_its_child(self) -> None:
