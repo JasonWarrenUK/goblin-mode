@@ -116,9 +116,10 @@ export type Subgroup = { key: string; label: string; members: Candidate[] }
 /**
  * The ready set split by `by`, each subgroup in leverage order. The subgroups
  * named in `first` lead in that order (matched case-insensitively on the
- * key, or on the label for a tier, whose key is only its index); the rest follow in natural order: devs alphabetically with the
- * unassigned last, milestones by number, tiers lowest first. Grouping by
- * nothing gives one unlabelled subgroup.
+ * key, or on the label for a tier, whose key is only its index); the rest
+ * follow in natural order: devs alphabetically with the unassigned last,
+ * milestones by number, tiers lowest first. Grouping by nothing gives one
+ * unlabelled subgroup.
  */
 export const subgroup = (candidates: readonly Candidate[], by: GroupBy, first: readonly string[]): Subgroup[] => {
 	if (by === 'none') return [{ key: '', label: '', members: [...candidates] }]
