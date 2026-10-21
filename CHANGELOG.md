@@ -5,6 +5,10 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Changed
+
+- `CLAUDE.md` §1 brought up to date with the git record: Python moves from Learning to Proficient, GDScript is listed as Dabbled, FastAPI joins the backend table, pgvector and the MongoDB work are noted, the testing section lists the runners and practices actually in use, and deployment gains Docker Compose, Cloudflare tunnel and Colima.
+
 ## [6.11.0] - 2026-10-15
 
 ### Added

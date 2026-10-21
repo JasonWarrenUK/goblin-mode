@@ -2,7 +2,7 @@
 
 | Prop    | Value |
 |---------|-------|
-| Updated | 2026-09-10 |
+| Updated | 2026-10-20 |
 
 <!-- toc:start -->
 ## Table of Contents
@@ -95,9 +95,10 @@ Options are listed in order of preference & proficiency
 |----------|------------|----------|
 |    1     | Preferred  | TypeScript |
 |    2     | Proficient | JavaScript |
-|    3     |  Learning  |  Python  |
+|    3     | Proficient |  Python  |
 |    4     |  Learning  |    Go    |
-|    5     |  Dabbled   |    C#    |
+|    5     |  Dabbled   | GDScript |
+|    6     |  Dabbled   |    C#    |
 
 ### 1.2. Frontend
 
@@ -111,8 +112,9 @@ Options are listed in order of preference & proficiency
 | #   | Status        | Runtime | Server |
 |-----|---------------|---------|--------|
 |  1  |   Preferred   |   Bun   | undecided |
-|  2  |  Interested   |  Deno   |  Oak   |
-|  3  | When Required |  Node   | Express |
+|  2  |  Proficient   | Python  | FastAPI (Poetry, poethepoet, pytest) |
+|  3  |  Interested   |  Deno   |  Oak   |
+|  4  | When Required |  Node   | Express |
 
 ### 1.4. TUI
 
@@ -130,13 +132,24 @@ One db tech stack per paradigm
 
 | Paradigm   | Stack                | Notes |
 |------------|----------------------|-------|
-| Relational | PostgreSQL, Supabase | RLS expertise |
+| Relational | PostgreSQL, Supabase | RLS expertise; pgvector for embeddings |
 |   Graph    |        Neo4j         | Preferred data model |
-|   Object   |       MongoDB        | Limited experience |
+|   Object   |       MongoDB        | Limited experience: Auth.js adapter and mongodb-memory-server integration tests in Urheimat |
 
 ### 1.6. Testing
 
-No preference, limited knowledge. Libraries used so far: Vitest, Jest
+No stated preference between runners. In use across current projects:
+
+| Runner | Where |
+|--------|-------|
+| Vitest | SvelteKit projects; vitest-browser-svelte + Playwright for component tests and mongodb-memory-server for real-database integration tests (Urheimat) |
+| bun:test | Framework-free engine code (The Tongue, Grumble) |
+| pytest | FastAPI (CHIRPdb) |
+| go test | Wyrd |
+| GUT (headless) | Godot: unit tests for the sim layer plus one journey test per phase |
+| Jest | Older React work only |
+
+Practices already in use: save fixtures captured per tagged release and loaded under a version policy (The Work); pipeline evals against a hand-labelled gold set (CHIRPdb); deterministic seeds threaded through every sim so a run reproduces exactly.
 
 ### 1.7. Tooling
 
@@ -144,7 +157,8 @@ No preference, limited knowledge. Libraries used so far: Vitest, Jest
 |------------|------|
 | Versioning | git, Github, svu |
 |    IDE     | Zed  |
-| Deployment | Vercel, Deno Deploy, Github Pages |
+| Deployment | Vercel, Deno Deploy, Github Pages; Docker Compose behind a Cloudflare tunnel for long-running services |
+| Containers | Colima (Docker Desktop replaced June 2026) |
 
 ### 1.8 Packages & Apps
 
@@ -166,7 +180,7 @@ Primarily determined by project context, but for tiebreaks use the following pre
 
 #### 1.8.3. Other Ecosystems
 
-Undecided on favoured python package manager
+Python: Poetry with poethepoet as the task runner is what production work uses; the roadmap plugin's scripts stay stdlib-only. No favoured package manager decided beyond that.
 
 ---
 
