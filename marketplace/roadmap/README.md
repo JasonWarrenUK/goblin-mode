@@ -47,16 +47,22 @@ Requires `python3` (3.8+, stdlib only) on `PATH`. The `/ready` pane needs Claude
 
 ### 2e. `/ready`: The Ready Set as a Pane
 
-Opens a pane with the ready set in leverage order, the claims in play and each milestone's progress by release tier, read from the `.claude/roadmaps.json` above the session's working directory. Running `/ready` again closes it. It runs inside Claude Code with no turn, so it works while Claude is busy.
+Opens a pane with the whole ready set, the claims in play and each milestone's progress by release tier, read from the `.claude/roadmaps.json` above the session's working directory. Running `/ready` again closes it. It runs inside Claude Code with no turn, so it works while Claude is busy.
+
+The ready set is split into subgroups, by dev unless you change it, each subgroup in leverage order. Every ready task draws; when the list outgrows the pane the body scrolls (the arrow keys while the pane has the keyboard, or the wheel). The digits follow the drawn order, so the subgroups you put first take `1` upwards.
 
 | Key | Does |
 |---|---|
-| `1` to `9` | Picks a ready row. |
+| `1` to `9` | Picks one of the first nine ready rows. Rows past the ninth have no digit; Tab reaches them. |
 | `q w e t y u i o p` | Picks a claim in play, in the order listed. |
 | `c` | Claims the picked ready task: asks who is doing it (a name is never inferred or pre-filled), then runs `claim <id> --assignee=<name> --reassign`, so a name typed here replaces any assignee the task already had. The change is in `roadmaps.json`; commit it when you are ready. |
 | `a` | Assigns the picked task without starting it, ready or in play: asks who will do it, then runs `assign <id> --assignee=<name>`. Submitting a blank name clears the assignee (`assign <id> --unassign`). |
+| `g` | Cycles what the ready set is grouped by: dev, milestone, tier, nothing. |
+| `s` | Asks which subgroups lead, as a comma-separated list of names or ids (`Jason, unassigned`; `M8`; `secondary`), matched without regard to case. The rest follow in natural order: devs alphabetically with the unassigned last, milestones by number, tiers lowest first. A blank answer restores the natural order. |
 | `r` | Refreshes from the CLI. |
 | Esc, or `/ready` | Closes the pane. |
+
+The grouping and the order are kept in the plugin's own store on your machine, never in the roadmap, so each dev's pane remembers their own: Jaz's can lead with Jaz while Jason's leads with Jason, from the same `roadmaps.json`.
 
 The pane refreshes itself every two minutes while open and whenever a tool call touches `roadmaps.json` or runs the CLI. It is a tab beside any other pane, `/diff` included: Ctrl+X Tab moves the keyboard between panes, and only one shows at a time. In a fullscreen terminal of 110 columns or more it docks beside the transcript; narrower, it sits above the prompt. Without a roadmap it says so and names `/roadmap:create`.
 
