@@ -35,6 +35,7 @@ Discursive material: the *why*, and how to build your own version of this.
 | Page | Covers |
 |---|---|
 | [Building Your Own](guides/building-your-own.md) | The transferable process: start with friction, layer configuration, use model tiers, grow organically |
+| [Claude Code Customisation Guide](guides/claude-code-guide.md) | Claude Code's customisation features in dependency order, for developers new to configuring it; written April 2026 |
 
 ## Design history
 
@@ -52,14 +53,6 @@ Point-in-time review records, kept for provenance after the review completes.
 |---|---|
 | [Skills Frontmatter Audit: August 2026](audits/skills-frontmatter-audit-2026-08.md) | Full per-skill frontmatter review (2026-08-13 to 2026-08-14): model tiers, `when_to_use`, invocation flags, the metadata convention migration |
 
-## Archive
-
-Stale content kept for reference, explicitly not current.
-
-| Page | Covers |
-|---|---|
-| [Iris Development Tracker](archive/iris-development-tracker.md) | Task tracker for the Iris project, last touched January 2026 |
-
 ## Reference material outside this wiki
 
 Other top-level artefacts this wiki links out to rather than duplicates:
@@ -68,7 +61,6 @@ Other top-level artefacts this wiki links out to rather than duplicates:
 - [`skills/README.md`](../skills/README.md): the generated skill index.
 - [`output-styles/british-dev-goblin.md`](../output-styles/british-dev-goblin.md): the persona (stance, voice, how it argues and teaches); rules live in `CLAUDE.md` §3.
 - [`docs/glossary.md`](glossary.md): vocabulary specific to this config.
-- [`docs/personal/`](personal/): portfolio evidence, kept separate from the technical wiki.
 
 ## Keeping this wiki honest
 
@@ -76,7 +68,7 @@ This documentation has drifted from reality twice now: first for months (README 
 
 - **Generated content stays generated.** `skills/README.md` and the root README's "What's In Here" counts table are both rebuilt by `python3 ~/.claude/library/scripts/gen-skills-index.py`, not hand-maintained; the root README block sits between HTML markers the script rewrites in place. Run `gen-skills-index.py --check` to verify both are current without writing; it exits 1 (independently) if either has drifted.
 - **Frontmatter is linted, not trusted.** `python3 ~/.claude/library/scripts/skill-lint.py` checks every skill's `metadata.glyph` against its `model` and exits 1 on drift, so a rune that stops mirroring its model is caught at the next run rather than noticed in the terminal months later.
-- **Reference pages describe current state only.** Anything speculative or historical lives under [Design history](design-history/agent-workflow-design.md), [Audits](#audits) or [Archive](archive/), clearly labelled, rather than blended into the reference pages as if it were still true.
+- **Reference pages describe current state only.** Anything speculative or historical lives under [Design history](design-history/agent-workflow-design.md) or [Audits](#audits), clearly labelled, rather than blended into the reference pages as if it were still true. Personal material (portfolio evidence, archived trackers) sits in `docs/personal/` and `docs/archive/`, both gitignored.
 
 ---
 [Glossary](glossary.md) · [Architecture](architecture.md)
