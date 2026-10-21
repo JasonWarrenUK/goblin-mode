@@ -57,7 +57,7 @@ Usage: /branch-stack status [branch|pr ...]
 
 ## Action: `status`
 
-1. `python3 ~/.claude/library/scripts/stack-status.py <targets>` (no targets: the current branch). Relay its three sections as they come: the table, the tracked stacks, the next steps.
+1. `~/.claude/library/scripts/stack-status.py <targets>` (no targets: the current branch). Relay its three sections as they come: the table, the tracked stacks, the next steps.
 2. Stop. The map is the output; a "Next" line that names a command is an offer, not an instruction, and the user picks the action.
 
 ---
@@ -66,8 +66,8 @@ Usage: /branch-stack status [branch|pr ...]
 
 For PRs that already exist and are chained by base (`chained-unlinked`), or an unlinked PR to append to a stack.
 
-1. `stack-status.py <every target>`. Stop and say so when any target is `no-pr` (open its PR first: `pr-create base <parent>`), or is `linked` to a stack other than the one named by a leading stack number (one PR sits in one stack; `tidy` or `gh stack unstack` first is the user's call).
-2. Order check: each target's base must be the previous target's branch (the first target's base is the trunk, or the top of the named stack). Out of order: print the chain the bases describe and stop; `link` never reorders.
+1. `stack-status.py <every target>`. Stop and say so when any target is `no-pr` (open its PR first: `pr-create base <parent>`; `gh stack link` could push a bare branch and open the PR itself, but with an auto-generated title and none of `pr-create`'s approved body), or is `linked` to a stack other than the one named by a leading stack number (one PR sits in one stack; `tidy` or `gh stack unstack` first is the user's call).
+2. Order check: each target's base must be the previous target's branch (the first target's base is the trunk, or the top of the named stack). Out of order: print the chain the bases describe and stop. This check is the protection, since `link` corrects the base of an existing PR that sits in the wrong place (GitHub's `gh-stack` docs say so; v0.1.0's `--help` is silent, so it is treated as true) and would retarget a live PR from a mis-ordered list. The same goes for the bottom target's base: `link` defaults it to the repo's default branch and this skill passes no `--base`, so a bottom PR based on any other trunk stops here with that said.
 3. Show the command and ask: `gh stack link <targets>`. The approval covers one command.
 4. Run it, then `stack-status.py <targets>` again and relay the table. `link` writes no local tracking, so the rows say "not tracked here"; that is expected, and `gh stack checkout <pr#>` is the step before any `sync`.
 
@@ -79,7 +79,7 @@ A new layer on top of the stack the current branch belongs to.
 
 1. `stack-status.py`. The current branch must be `linked` and tracked here with its branch present; otherwise print the row's "Next" line (`gh stack checkout <pr#>`, or `link` first) and stop.
 2. `git status --porcelain` must be empty, and `~/.claude/library/scripts/checkout-occupied.sh` must exit 0 (another live session in this worktree means stop and say so).
-3. `gh stack top` (the new layer goes on the top, never mid-stack), then `gh stack add -m "<branch>" <branch>`. The `-m` is what keeps the command out of an editor; `add -A`/`-u` without `-m` opens one and is never run.
+3. `gh stack top` (the new layer goes on the top, never mid-stack), then `gh stack add <branch>`. A branch name keeps the command out of an editor. `-m` creates a commit, so on the clean tree step 2 guarantees it dies with `nothing to commit`; `add -A`/`-u` without `-m` opens an editor and is never run.
 4. Close in two lines: the branch exists on top of stack #N and is checked out; commits go here, and `pr-create base <top-layer-branch>` opens its PR when ready.
 
 ---
@@ -94,13 +94,13 @@ A new layer on top of the stack the current branch belongs to.
 4. Ask. The approval names the layers and that they will be force-pushed. Then one of:
    - `sync`: `gh stack sync`
    - `sync upstack`: `gh stack rebase --upstack`, then `gh stack push`
-5. **Outcomes.** Exit 0: `stack-status.py --open` and relay the table. Exit 3 (rebase conflict): `gh stack` has restored every branch; print the files it names and the two ways on, `gh stack rebase` then resolve, `git add`, `gh stack rebase --continue`, or `gh stack rebase --abort`; do not resolve conflicts here without being asked. Exit 6 (branch in more than one stack) or the `belongs to multiple stacks` message: `tidy`. Exit 8 (stack locked): another process is mid-command; wait, never delete the lock.
+5. **Outcomes.** Read the output as well as the exit code. Exit 0 with `Sync aborted` in the output: local and remote had diverged and nothing moved; say so, print the two chains it shows and stop, since the user decides which side wins. Exit 0 ending `Stack synced` or `Branches synced`: `stack-status.py --open` and relay the table (`Branches synced` means the branches were pushed but GitHub holds no stack object for them). Exit 3 (rebase conflict): `gh stack` has restored every branch; print the files it names and the two ways on, `gh stack rebase` then resolve, `git add`, `gh stack rebase --continue`, or `gh stack rebase --abort`; do not resolve conflicts here without being asked. The `belongs to multiple stacks` message (exit 6 from `view`, exit 2 from `sync` on v0.1.0, so match the text): the checked-out branch is usually the trunk of several stacks; `gh stack checkout <a branch unique to this stack>` and run again, and offer `tidy` only when one of them is stale. Exit 8 (stack locked): another process is mid-command; wait, never delete the lock.
 
 ---
 
 ## Action: `tidy`
 
-1. `stack-status.py --open`. The "Local Tracking" section marks a stack stale when every PR in it has merged; a stack whose branches are all missing locally but whose PRs are open is **not** stale (its branches come back with `gh stack checkout`).
+1. `stack-status.py --open`. The "Local Tracking" section marks a stack stale when GitHub reports every PR in it `MERGED` (the tracking file's own flag lags until a `sync`, so the script asks GitHub). A stack with a closed PR, a layer with no PR yet or a state GitHub would not return is **not** stale, and neither is one whose branches are all missing locally but whose PRs are open (its branches come back with `gh stack checkout`).
 2. No stale stack: say so and stop.
 3. One AskUserQuestion (multi-select) over the stale stacks, each option naming the stack number and its branches.
 4. For each approved: `gh stack unstack <n> --local`. `--local` is not optional here: without it the command also unstacks the merged PRs on GitHub, which changes nothing useful and asks GitHub to rewrite closed history.
