@@ -1,25 +1,31 @@
-# Ignore everything by default
-!/.gitignore
+# Allowlist: ignore every root entry, then re-include the parts that make up the
+# public repo. Anything Claude Code drops at the root (caches, daemon state,
+# session data) is ignored without needing its own rule.
+/*
 
 # === INCLUDE ===
-# Docs
+!/.gitignore
 !/README.md
 !/CLAUDE.md
+!/CHANGELOG.md
 !/keybindings.json
+!/assets/
 
 # My customisations
-!/agents/**
-!/docs/**
+!/agents/
+!/docs/
 docs/personal/
 docs/archive/
+docs/artefacts/
 
-!/hooks/**
+!/hooks/
 hooks/post-commit
 
-!/output-styles/**
-!/skills/**
+!/output-styles/
+!/skills/
 skills/synced/
-!/library/**
+!/library/
+library/references/stud.7z
 
 # Person dossiers stay local; the schema that documents them does not
 /library/profiles/dossier/*
@@ -35,58 +41,16 @@ library/scripts/**/node_modules/
 library/scripts/**/bun.lock
 
 # The published site is tracked; its editing guidance is local only
-!/site/**
+!/site/
 /site/CLAUDE.md
 /site/.vercel/
 
-# macOS
-.DS_Store
-
-chrome
-cache
-debug
-file-history
-
-
-paste-cache
-plans
-plugins
-projects
-shell-snapshots
-statsig
-tasks
-todos
-history.jsonl
-stats-cache.json
-usage-data
-statusline-command.sh
-session-env/
-sessions/
-backups
-skills/.DS_Store
-telemetry
-mcp-needs-auth-cache.json
-gh-pr-status-cache.json
-/image-cache/
-__pycache__/
-/.last-cleanup
-/daemon
-/daemon.lock
-/daemon.status.json
-/jobs
-/agent-memory/roadmap-maintainer
-/policy-limits.json
-/uploads/25920271-3ad6-493d-9fe4-7d29872ed730
-/library/references/stud.7z
-/.codex
-/AGENTS.md
-/settings-glm.json
-/settings.json
-/docs/artefacts
-/settings.json.doctor-backup
-/library/state/commit-msg-log.jsonl
-/state
-
-/settings.json.orig
+# The marketplace and its manifest; generated type stubs stay local
+!/marketplace/
+!/.claude-plugin/
 marketplace/*/.claude-plugin/types/
-/feedback/drafts
+
+# === EXCLUDE INSIDE INCLUDED DIRS ===
+.DS_Store
+__pycache__/
+.pytest_cache/
