@@ -1,12 +1,18 @@
-// The roadmap pane: `/ready` opens the ready set the CLI computes, in
+// The roadmap pane: `/ready` opens the whole ready set the CLI computes, in
 // leverage order, with the claims in play and the milestones' progress, and
-// runs again to close it. A digit picks a ready row and a letter picks a claim
-// in play; `c` claims a ready row after asking who (replacing any assignee it
-// already had), `a` assigns or, left blank, clears an assignee without
-// starting anything, `r` refreshes. An assignee is never inferred. The CLI is
-// the plugin's own scripts/roadmap.py, the same file the skills run, so the
-// pane needs python3 and nothing else. Nothing here edits roadmaps.json except
-// through `claim` and `assign`.
+// runs again to close it. The ready set is split into subgroups (by dev unless
+// this person chose otherwise), the body scrolls when it outgrows the pane,
+// and the first nine rows take a digit; the rest are reached with Tab. A
+// letter picks a claim in play; `c` claims a ready row after asking who
+// (replacing any assignee it already had), `a` assigns or, left blank, clears
+// an assignee without starting anything, `g` cycles what the set is grouped
+// by, `s` asks which subgroups lead, `r` refreshes. An assignee is never
+// inferred. The CLI is the plugin's own scripts/roadmap.py, the same file the
+// skills run, so the pane needs python3 and nothing else. Nothing here edits
+// roadmaps.json except through `claim` and `assign`.
+//
+// The grouping lives in the plugin's store, a file of this machine's, so each
+// dev keeps their own without anything in the roadmap saying so.
 //
 // Colours are the engine's theme keys, never raw values: the pane follows
 // whichever theme the person runs. A release tier takes one hue everywhere it
@@ -15,18 +21,24 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Asking, Candidate, Claimed, Milestone, Problem, Snapshot } from '../types'
+import type { Asking, Candidate, Claimed, GroupBy, Grouping, Milestone, Problem, Snapshot } from '../types'
 
 const PANE = 'ready'
-const ROWS = 9
-// Hotkeys for the claims in play; digits belong to the ready rows and c, a, r to the actions.
+// Only the first nine ready rows take a digit; the rest are reached with Tab.
+const DIGITS = 9
+// Hotkeys for the claims in play; digits belong to the ready rows and c, a, g, s, r to the actions.
 const IN_PLAY_KEYS = 'qwetyuiop'
 const BAR_CELLS = 5
 const TIER_LABEL_WIDTH = 11
+const GROUP_BYS: readonly GroupBy[] = ['dev', 'milestone', 'tier', 'none']
+const DEFAULT_GROUPING: Grouping = { by: 'dev', first: [] }
+const UNASSIGNED = 'unassigned'
 
 const snapshot = atom({ plugin: 'roadmap', key: 'snapshot' } as const, null as Snapshot | null)
 const selected = atom({ plugin: 'roadmap', key: 'selected' } as const, null as string | null)
 const asking = atom({ plugin: 'roadmap', key: 'asking' } as const, null as Asking | null)
+const grouping = atom({ plugin: 'roadmap', key: 'grouping' } as const, null as Grouping | null)
+const ordering = atom({ plugin: 'roadmap', key: 'ordering' } as const, false)
 
 // Module-level because the validator holds `$` to top-level functions; only
 // the CLI path lives here, which no drawing reads.
@@ -73,10 +85,91 @@ export const bar = (pct: number, cells: number): string => {
 	return '█'.repeat(filled) + '░'.repeat(cells - filled)
 }
 
-/** A labelled rule that fills `columns`: `── Ready now ─────────`. */
-export const rule = (label: string, columns: number): string => {
-	const head = `── ${label} `
-	return head + '─'.repeat(Math.max(2, columns - head.length))
+/** The dashes that finish a labelled rule across `columns`: `── Ready now ─────────`, with the label drawn apart so it can be bright. */
+export const ruleTail = (label: string, columns: number): string => '─'.repeat(Math.max(2, columns - label.length - 4))
+
+const isGroupBy = (v: unknown): v is GroupBy => typeof v === 'string' && (GROUP_BYS as readonly string[]).includes(v)
+
+/** The grouping the store holds, read defensively; anything unset or odd falls back to grouping by dev in natural order. */
+export const parseGrouping = (by: unknown, first: unknown): Grouping => ({
+	by: isGroupBy(by) ? by : DEFAULT_GROUPING.by,
+	first: Array.isArray(first) ? first.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map(s => s.trim()) : [],
+})
+
+/** The next key in the cycle after `by`. */
+export const nextGroupBy = (by: GroupBy): GroupBy => GROUP_BYS[(GROUP_BYS.indexOf(by) + 1) % GROUP_BYS.length] ?? 'dev'
+
+/** The names typed into the order field: comma-separated, trimmed, blanks dropped. */
+export const parseFirst = (text: string): string[] =>
+	text
+		.split(',')
+		.map(s => s.trim())
+		.filter(s => s !== '')
+
+const milestoneNumber = (id: string): number => {
+	const n = Number.parseInt(id.replace(/^\D+/, ''), 10)
+	return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER
+}
+
+export type Subgroup = { key: string; label: string; members: Candidate[] }
+
+/**
+ * The ready set split by `by`, each subgroup in leverage order. The subgroups
+ * named in `first` lead in that order (matched case-insensitively on the
+ * key, or on the label for a tier, whose key is only its index); the rest
+ * follow in natural order: devs alphabetically with the unassigned last,
+ * milestones by number, tiers lowest first. Grouping by nothing gives one
+ * unlabelled subgroup.
+ */
+export const subgroup = (candidates: readonly Candidate[], by: GroupBy, first: readonly string[]): Subgroup[] => {
+	if (by === 'none') return [{ key: '', label: '', members: [...candidates] }]
+	const groups = new Map<string, Subgroup>()
+	for (const c of candidates) {
+		const { key, label } =
+			by === 'dev'
+				? { key: c.assignee.trim() || UNASSIGNED, label: c.assignee.trim() || UNASSIGNED }
+				: by === 'milestone'
+					? { key: c.milestone, label: c.milestoneName ? `${c.milestone} ${c.milestoneName}` : c.milestone }
+					: { key: String(c.tier), label: c.tierLabel || TIER_NAMES[c.tier] || `Tier ${c.tier + 1}` }
+		const group = groups.get(key) ?? { key, label, members: [] }
+		group.members.push(c)
+		groups.set(key, group)
+	}
+	const natural = (a: Subgroup, b: Subgroup): number => {
+		if (by === 'dev') {
+			if (a.key === UNASSIGNED) return 1
+			if (b.key === UNASSIGNED) return -1
+			return a.key.localeCompare(b.key, undefined, { sensitivity: 'base' })
+		}
+		if (by === 'milestone') return milestoneNumber(a.key) - milestoneNumber(b.key) || a.key.localeCompare(b.key)
+		return Number(a.key) - Number(b.key)
+	}
+	const wanted = first.map(s => s.toLowerCase())
+	const rank = (g: Subgroup): number => {
+		const i = wanted.indexOf((by === 'tier' ? g.label : g.key).toLowerCase())
+		return i === -1 ? wanted.length : i
+	}
+	return [...groups.values()].sort((a, b) => rank(a) - rank(b) || natural(a, b))
+}
+
+/** The grouping this machine remembers, into the pane's state; absent, the default. */
+const loadGrouping = async ($: EngineInterface): Promise<void> => {
+	try {
+		const [by, first] = await Promise.all([$.store.get('groupBy'), $.store.get('groupOrder')])
+		await update($, grouping, () => parseGrouping(by, first))
+	} catch {
+		await update($, grouping, () => DEFAULT_GROUPING)
+	}
+}
+
+/** Remembers a grouping on this machine and draws it. */
+const saveGrouping = async ($: EngineInterface, next: Grouping): Promise<void> => {
+	await update($, grouping, () => next)
+	try {
+		await Promise.all([$.store.set('groupBy', next.by), $.store.set('groupOrder', next.first)])
+	} catch {
+		$.ui.toast('the grouping could not be saved; it holds for this session')
+	}
 }
 
 /** Milestones grouped by release tier, lowest tier first, each group in roadmap order. */
@@ -308,7 +401,33 @@ const header = (ui: Ui, snap: Snapshot, inner: number) => {
 	)
 }
 
-/** One ready task: hotkey and id on the first line with the description, the leverage signals beneath. */
+/** A section heading: dim rule either side, the label at full strength so it reads. */
+const heading = (ui: Ui, label: string, inner: number) => {
+	const { Box, Text } = ui
+	return (
+		<Box flexDirection="row" columnGap={1}>
+			<Text dimColor>──</Text>
+			<Text bold>{label}</Text>
+			<Text dimColor>{ruleTail(label, inner)}</Text>
+		</Box>
+	)
+}
+
+/** A subgroup's heading inside the ready set: who or what it is, and how many rows it holds. */
+const subheading = (ui: Ui, group: Subgroup, by: GroupBy) => {
+	const { Box, Text } = ui
+	const colour = by === 'dev' ? (group.key === UNASSIGNED ? undefined : 'warning') : tierHue(group.members[0]?.tier ?? 0)
+	return (
+		<Box key={`sub-${group.key}`} flexDirection="row" columnGap={1} paddingLeft={1}>
+			<Text color={colour} bold>
+				{group.label}
+			</Text>
+			<Text dimColor>· {group.members.length}</Text>
+		</Box>
+	)
+}
+
+/** One ready task: hotkey (the first nine) and id on the first line with the description, the leverage signals beneath. */
 const taskRow = ($: EngineInterface, ui: Ui, c: Candidate, i: number, picked: string | null, inner: number) => {
 	const { Box, Text, Button } = ui
 	const hue = tierHue(c.tier)
@@ -323,12 +442,13 @@ const taskRow = ($: EngineInterface, ui: Ui, c: Candidate, i: number, picked: st
 				<Button
 					key={`row-${c.id}`}
 					plain
-					hotkey={String(i + 1)}
+					hotkey={i < DIGITS ? String(i + 1) : undefined}
 					dimColor={picked !== null && !isPicked}
 					label={c.id}
 					onPress={async () => {
 						await update($, selected, () => c.id)
 						await update($, asking, () => null)
+						await update($, ordering, () => false)
 					}}
 				/>
 				<Box width={Math.max(10, inner - lead)}>
@@ -367,6 +487,7 @@ const claimedRows = ($: EngineInterface, ui: Ui, claimed: readonly Claimed[], pi
 				onPress={async () => {
 					await update($, selected, () => c.id)
 					await update($, asking, () => null)
+					await update($, ordering, () => false)
 				}}
 			/>
 			<Text color="warning">{c.assignee || 'someone'}</Text>
@@ -383,10 +504,11 @@ const claimedRows = ($: EngineInterface, ui: Ui, claimed: readonly Claimed[], pi
 export const register: Register = on => {
 	on('session.start', async ($, e, next) => {
 		cli = `${$.plugin.root}/scripts/roadmap.py`
+		await loadGrouping($)
 		try {
 			await $.command.register({
 				name: 'ready',
-				description: 'The roadmap ready set in a pane, or closes it: a digit picks, c claims, a assigns, r refreshes',
+				description: 'The roadmap ready set in a pane, or closes it: a digit picks, c claims, a assigns, g groups, s orders, r refreshes',
 				immediate: true,
 			})
 		} catch {
@@ -409,7 +531,8 @@ export const register: Register = on => {
 			return {}
 		}
 		await refresh($)
-		await $.ui.open({ id: PANE, title: 'ready', focus: true, closeOnEscape: true, rows: 16 })
+		// the whole ready set draws, so ask for the room; the body scrolls past what the layout spares
+		await $.ui.open({ id: PANE, title: 'ready', focus: true, closeOnEscape: true, rows: 28 })
 		return {}
 	})
 
@@ -428,45 +551,69 @@ export const register: Register = on => {
 		if (e.surface !== 'terminal') return next(e)
 		const ui = $.ui.resolve(e)
 		const { Box, Text, Button, Input } = ui
-		const [snap, picked, ask] = await Promise.all([read($, snapshot), read($, selected), read($, asking)])
+		const [snap, picked, ask, kept, isOrdering] = await Promise.all([read($, snapshot), read($, selected), read($, asking), read($, grouping), read($, ordering)])
 		if (!snap) return <Text dimColor>reading the roadmap…</Text>
 		const width = Math.max(40, e.props.bodyColumns)
 		if (!snap.ok) return emptyState($, ui, snap, width - 1)
 		// the header's frame and padding take four columns; every line inside it shares the measure
 		const inner = width - 5
-		const rows = snap.candidates.slice(0, ROWS)
-		const pickedReady = rows.find(c => c.id === picked) ?? null
+		const group = kept ?? DEFAULT_GROUPING
+		const groups = subgroup(snap.candidates, group.by, group.first)
+		// the digits follow the drawn order, so the subgroups a person puts first get 1 upwards
+		const ordered = groups.flatMap(g => g.members)
+		const pickedReady = ordered.find(c => c.id === picked) ?? null
 		const pickedInPlay = pickedReady ? null : (snap.claimed.find(c => c.id === picked) ?? null)
 		const current = pickedReady ?? pickedInPlay
 		// a task already in play is past claiming; it can only change hands
 		const claimable = pickedReady !== null
 		const asked = current && ask?.id === current.id ? ask : null
+		let index = 0
 		return (
 			<Box flexDirection="column" width={width} rowGap={1}>
 				{header(ui, snap, inner)}
 				<Box flexDirection="column" paddingX={1}>
-					<Text color="subtle">{rule(`Ready now · ${snap.candidates.length}`, inner)}</Text>
-					{rows.length === 0 && <Text dimColor>nothing is ready. a blocker or a gate holds everything; /roadmap:review names it.</Text>}
+					{heading(ui, `Ready now · ${snap.candidates.length}`, inner)}
+					{ordered.length === 0 && <Text dimColor>nothing is ready. a blocker or a gate holds everything; /roadmap:review names it.</Text>}
 					<Box flexDirection="column" rowGap={1}>
-						{rows.map((c, i) => taskRow($, ui, c, i, picked, inner))}
+						{groups.map(g => (
+							<Box key={`group-${g.key}`} flexDirection="column" rowGap={1}>
+								{g.label !== '' && subheading(ui, g, group.by)}
+								{g.members.map(c => taskRow($, ui, c, index++, picked, inner))}
+							</Box>
+						))}
 					</Box>
-					{snap.candidates.length > ROWS && <Text dimColor>+{snap.candidates.length - ROWS} more below the fold</Text>}
 				</Box>
 				{snap.claimed.length > 0 && (
 					<Box flexDirection="column" paddingX={1}>
-						<Text color="subtle">{rule(`In play · ${snap.claimed.length}`, inner)}</Text>
+						{heading(ui, `In play · ${snap.claimed.length}`, inner)}
 						{claimedRows($, ui, snap.claimed, picked, inner)}
 					</Box>
 				)}
 				<Box flexDirection="column" paddingX={1}>
-					{ask === null && (
-						<Box flexDirection="row" columnGap={2}>
+					{ask === null && !isOrdering && (
+						<Box flexDirection="row" columnGap={2} flexWrap="wrap">
 							{current && claimable && (
 								<Button key="claim" label="claim" hotkey="c" variant="primary" onPress={() => update($, asking, () => ({ id: current.id, mode: 'claim' }))} />
 							)}
 							{current && <Button key="assign" label="assign" hotkey="a" onPress={() => update($, asking, () => ({ id: current.id, mode: 'assign' }))} />}
+							<Button key="group" label={`group: ${group.by}`} hotkey="g" onPress={() => saveGrouping($, { ...group, by: nextGroupBy(group.by) })} />
+							<Button key="order" label={group.first.length > 0 ? `first: ${group.first.join(', ')}` : 'first: natural'} hotkey="s" onPress={() => update($, ordering, () => true)} />
 							<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($)} />
 						</Box>
+					)}
+					{isOrdering && (
+						<Input
+							key="first"
+							label="subgroups that lead, in order"
+							placeholder="names or ids, comma-separated; blank for the natural order"
+							value={group.first.join(', ')}
+							submitLabel="order"
+							autoFocus
+							onSubmit={async value => {
+								await saveGrouping($, { ...group, first: parseFirst(value) })
+								await update($, ordering, () => false)
+							}}
+						/>
 					)}
 					{current && asked && (
 						<Input
@@ -486,7 +633,7 @@ export const register: Register = on => {
 							}}
 						/>
 					)}
-					<Text dimColor>1-9 pick · q-p in play · c claim · a assign · r refresh · esc or /ready closes</Text>
+					<Text dimColor>1-9 pick (tab past nine) · q-p in play · c claim · a assign · g group by · s order · r refresh · esc or /ready closes</Text>
 				</Box>
 			</Box>
 		)

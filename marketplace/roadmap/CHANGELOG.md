@@ -5,6 +5,15 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `/ready` splits the ready set into subgroups: by dev out of the box, or by milestone, tier or nothing (`g` cycles). `s` asks which subgroups lead, as a comma-separated list; the rest follow in natural order (devs alphabetically with the unassigned last, milestones by number, tiers lowest first). Both settings live in the plugin's store on each dev's own machine, never in the roadmap.
+
+### Changed
+
+- `/ready` draws every ready task and scrolls when the list outgrows the pane, in place of the first nine and a `more below the fold` line. The first nine rows still take a digit; Tab reaches the rest. The digits follow the drawn order, so the subgroups a person puts first take `1` upwards.
+- The `Ready now` and `In play` headings draw at full strength; only the rule either side is dim.
+
 ## [2.7.0] - 2026-10-15
 
 ### Added

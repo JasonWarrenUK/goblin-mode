@@ -1,6 +1,6 @@
 // The state contract for the roadmap plugin's pane mod: the pane draws from a
-// snapshot the CLI produced, the row the person picked and the task that is
-// waiting for an assignee.
+// snapshot the CLI produced, the row the person picked, the task that is
+// waiting for an assignee and how this person groups the ready set.
 
 export type Candidate = {
 	id: string
@@ -40,6 +40,20 @@ export type Asking = {
 /** Why the pane has no roadmap to draw: none above the directory, the old single-file format, or a CLI that refused or could not run. */
 export type Problem = 'none' | 'missing' | 'legacy' | 'broken'
 
+/** What the ready set is split by: the assignee, the milestone, the release tier, or nothing. */
+export type GroupBy = 'dev' | 'milestone' | 'tier' | 'none'
+
+/**
+ * How this person likes the ready set split: the key it is grouped by and
+ * which subgroups lead, in order. Kept in the plugin's store, so each dev's
+ * own machine remembers it and Jaz's pane can lead with Jaz while Jason's
+ * leads with Jason.
+ */
+export type Grouping = {
+	by: GroupBy
+	first: string[]
+}
+
 export type Snapshot = {
 	ok: boolean
 	problem: Problem
@@ -60,6 +74,8 @@ declare module 'claude-code' {
 			snapshot: Snapshot | null
 			selected: string | null
 			asking: Asking | null
+			grouping: Grouping | null
+			ordering: boolean
 		}
 	}
 }
