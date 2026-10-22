@@ -5,6 +5,12 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.13.0] - 2026-10-22
+
+### Added
+
+- Roadmap plugin 2.8.0: `/ready` shows every ready task, scrolls when the list outgrows the pane and groups the tasks by dev, milestone or tier. Details in the plugin's changelog.
+
 ## [6.12.0] - 2026-10-21
 
 ### Added
@@ -338,7 +344,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.12.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.0...HEAD
+[6.13.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.12.0...v6.13.0
 [6.12.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.11.0...v6.12.0
 [6.11.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.10.0...v6.11.0
 [6.10.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.9.0...v6.10.0

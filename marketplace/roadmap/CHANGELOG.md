@@ -5,6 +5,8 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-10-22
+
 ### Added
 
 - `/ready` splits the ready set into subgroups: by dev out of the box, or by milestone, tier or nothing (`g` cycles). `s` asks which subgroups lead, as a comma-separated list; the rest follow in natural order (devs alphabetically with the unassigned last, milestones by number, tiers lowest first). Both settings live in the plugin's store on each dev's own machine, never in the roadmap.
@@ -13,6 +15,10 @@ All notable changes to this project are documented here, newest first.
 
 - `/ready` draws every ready task and scrolls when the list outgrows the pane, in place of the first nine and a `more below the fold` line. The first nine rows still take a digit; Tab reaches the rest. The digits follow the drawn order, so the subgroups a person puts first take `1` upwards.
 - The `Ready now` and `In play` headings draw at full strength; only the rule either side is dim.
+
+### Fixed
+
+- The subgroup order field now matches tier names, and closes once a row is picked.
 
 ## [2.7.0] - 2026-10-15
 
@@ -165,7 +171,8 @@ The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the rend
 - The dashboard's Overview grid no longer collapses a tiered phase's milestones into a single narrow column.
 - Three skills are synced to the conventions reference.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.6.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.8.0...HEAD
+[2.8.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.7.0...roadmap-v2.8.0
 [2.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.5.0...roadmap-v2.6.0
 [2.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.4.0...roadmap-v2.5.0
 [2.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.3.0...roadmap-v2.4.0
