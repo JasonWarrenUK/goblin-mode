@@ -38,7 +38,7 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | Section | Shows |
 |---|---|
 | Header | run name, start time, base commit, who coordinates, how many assumptions, how many sessions are live, your role |
-| Crew | one row per session: live and busy or idle (from Claude Code's own session registry), task, branch, state, PR, last summary and when |
+| Crew | one row per session: live and busy or idle (from Claude Code's own session registry), task, branch, worktree name, state (`gone` and dimmed once the session has left), PR, last summary and the age of the last report (`2m ago`) |
 | Slots | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
 | Requests | pending slot requests, with what will run and for how long |
 | Needs Jason | numbered, each with the complete command (`cd <dir> && ...`) |
