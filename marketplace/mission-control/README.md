@@ -59,17 +59,17 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 
 ## 4. The tools
 
-Registered in every session where the plugin is on; the CLI refuses the coordinator-only ones from anywhere else.
+Registered in every session where the plugin is on; the CLI refuses the coordinator-only ones from anywhere else. Each tool writes the ledger and then hands the model the exact `SendMessage` call to make, recipient named as `ListAgents` lists it: a message the mod sent itself got no verdict from the auto-mode classifier in every session of the first live run, while the model's own `SendMessage` is judged as usual.
 
 | Tool | Who | Does |
 |---|---|---|
 | `mc_report` | crew | state (`briefing`, `working`, `in-slot`, `pr-ready`, `blocked`, `waiting-jason`, `done`), one-line summary, PR number |
-| `mc_slot` | crew | `request` records the request and messages the coordinator with what will run and for how long; `release` records the results and tells the coordinator |
-| `mc_need` | anyone | an item only the user can do: why, the exact command, the directory. Goes on the board and to the coordinator |
-| `mc_send` | anyone | a line to a session by task id, branch, session name, `coordinator` or `all`; addresses by session id, so a changed name or ref does not lose it |
-| `mc_grant` | coordinator | probes the machine, refuses while busy, grants, messages the grantee, notices the others |
-| `mc_revoke` | coordinator | releases another session's slot and tells it |
-| `mc_assume` | coordinator | sets or changes a numbered shared assumption and broadcasts it; every crew prompt carries the list |
+| `mc_slot` | crew | `request` records the request and hands over the line for the coordinator (what will run, for how long); `release` records the results and hands over the line that reports them |
+| `mc_need` | anyone | an item only the user can do: why, the exact command, the directory. Goes on the board; from crew, the line for the coordinator follows |
+| `mc_send` | anyone | resolves a task id, branch, session name, `coordinator` or `all` to the recipient names `SendMessage` takes now, so a changed name or ref does not lose a session |
+| `mc_grant` | coordinator | probes the machine, refuses while busy, grants, then hands over the grant line for the grantee and the notice line for every other crew session |
+| `mc_revoke` | coordinator | releases another session's slot and hands over the line that tells the holder |
+| `mc_assume` | coordinator | sets or changes a numbered shared assumption; every crew prompt carries the list, and the broadcast line follows for each live crew session |
 | `mc_board` | coordinator | the board as text, probes included |
 
 ---
@@ -88,7 +88,7 @@ Hosted reads, credentials, writes, merges and anything irreversible stay with th
 
 ## 6. Trust between sessions
 
-The user starts the run in the coordinator session; the ledger records that session's id and messaging socket. Every crew session's system prompt gains a section naming the run, the coordinator's session and socket, the shared assumptions and the human gates. A cross-session message carries its sender's socket in the harness's `from` attribute; the receiving mod marks a message from the coordinator's socket as verified against the ledger and one that claims to be mission control from any other socket as not. No passphrase, nothing saved to memory, no trust line to type.
+The user starts the run in the coordinator session; the ledger records that session's id, and reads its messaging socket and name live from Claude Code's session registry on every read, since a restart or a resume changes both while the id stays. Every crew session's system prompt gains a section naming the run, the coordinator's session and socket, the shared assumptions and the human gates. A cross-session message carries its sender's socket in the harness's `from` attribute; the receiving mod marks a message from the coordinator's socket as verified against the ledger, one from a crew session's socket as that crew's, and one from any other socket that opens by speaking as mission control or the coordinator as not the coordinator. Anything else is an ordinary peer and gets no mark. No passphrase, nothing saved to memory, no trust line to type.
 
 The boundary is honest about what it is: every session on the machine is the same user's, and a peer message is treated as a teammate's by Claude Code already. The mark tells the crew session which teammate carries the user's instructions for this run.
 

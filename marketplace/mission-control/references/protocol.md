@@ -6,7 +6,7 @@ Roles: **the user** starts sessions, types what only a person may type and decid
 
 ## 1. Kick-off
 
-1. Facts first. Fetch and name the base commit (`main@<sha>`). Every shared fact is checked against the repository at that commit, never recalled.
+1. Facts first. Fetch and name the base commit (`main@<sha>`), and check the base branch is on origin (`git ls-remote --heads origin <base>`); a PR cannot target a branch origin has never seen, and pushing one publishes its commits, which is the user's call and goes on the needs list. Every shared fact is checked against the repository at that commit, never recalled.
 2. One task, one branch, one worktree, created by the coordinator before any crew session starts. Migration timestamps, when the project has migrations, are assigned here, one per task, in merge order.
 3. Conventions are read from the files the project config lists and distilled into the shared guidance. A convention that is not written anywhere is **asked of the user**, never asserted. (The changelog rule cost three sessions a revert because the coordinator stated it from memory.)
 4. Each crew session gets a brief (`templates/brief.md`): what the task ships, the files it owns, the shared surfaces it must not touch alone, the resources it will need, the criteria it must meet and the five questions to answer back. The session reads it at its first turn; the `SessionStart` hook names the file.
@@ -39,13 +39,15 @@ Ownership rules that stopped two branches overwriting one function, worth carryi
 - one author per shared definition per change; a redefinition pastes the whole current body, never a diff
 - whoever merges second rebases and rewrites from what the trunk then holds
 - every threshold or tunable in one place keyed by what it depends on, with its measurement beside it
-- shared documents get appended, never rewritten; expect the rebase conflict and keep both sides
+- shared documents get appended, never rewritten; expect the rebase conflict and keep both sides. Two sessions each owning one row of the same table still conflict when the rows are adjacent, because git resolves by lines, not by ownership: say so in the guidance and name which side rebases
 
 ## 4. Resource slots
 
 A shared resource (the local database stack, an API port, a worker port, the hosted project) has one holder at a time. The ledger enforces it: a gated command without the slot is refused by the `PreToolUse` hook and the attempt appears on the board as a request.
 
-Request (crew, `mc_slot` with action request; it also messages the coordinator):
+Every message between sessions goes through the model's own `SendMessage` tool: the `mc_*` tools write the ledger and hand back the exact line and recipient, because a message a plugin sends itself gets no verdict from the auto-mode classifier and never arrives.
+
+Request (crew, `mc_slot` with action request, then the line it hands back):
 
 ```text
 slot request: <task>, <resource>. <exactly what will run>. About <n> minutes.

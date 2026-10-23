@@ -4,6 +4,19 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+### Changed
+
+- The tools no longer send messages themselves. A message a plugin sends got no verdict from the auto-mode classifier in every session of the first live run, so `mc_slot`, `mc_need`, `mc_send`, `mc_grant`, `mc_revoke` and `mc_assume` now write the ledger and hand the model the exact `SendMessage` call to make, recipient named as `ListAgents` lists it. The board's own `g` grant still sends and toasts the outcome.
+- The coordinator's socket and name are read live from the session registry by session id; a restart or a resume no longer leaves the ledger and the briefs naming a dead socket. The brief and guidance templates carry no socket.
+- The mark on an incoming peer message now names a crew session by its socket, and marks a message as not the coordinator's only when it opens by speaking as mission control or the coordinator; a peer that merely mentions the plugin gets no mark.
+- `mc.py start` records whether the base branch is on origin and, when it is not, puts the push on the needs list as item 1 and warns; the first run found out at the push.
+- Kick-off's launch lines end with the opening prompt, since an interactive session takes no first turn from a SessionStart hook; the worktree bootstrap is run with zsh.
+- A slot granted from a request the hook recorded names the command plainly, without the `attempted:` prefix.
+
+### Fixed
+
+- The board noticed a run started after the session began only once a pane was open; every tick now rereads the ledger and a tool call rereads before answering.
+
 ## [0.1.0] - 2026-10-23
 
 ### Added

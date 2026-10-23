@@ -20,7 +20,7 @@ One file per repository, committed, found by walking up from the session's direc
 
 | Key | Holds |
 |---|---|
-| `label` | How the board and the refusal name it |
+| `label` | How the board and the refusal name it: a noun phrase without a leading article (`local Supabase stack`), since the messages supply `the` |
 | `gate` | Globs over a simple command's words, anchored at the start, after `poetry run ` is dropped: `poe db-reset-local*`, `supabase db reset*`, `poe *-hosted*`. A line with several commands is checked command by command; heredoc bodies and quoted strings are not commands |
 | `probe.ports` | TCP ports that must be free (`lsof`) |
 | `probe.pgrep` | A process pattern that must match nothing (`pgrep -fl`) |
