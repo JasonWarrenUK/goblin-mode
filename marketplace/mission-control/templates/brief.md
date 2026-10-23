@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Run | {{ run name }} |
-| Coordinator | session "{{ coordinator name }}" (socket {{ coordinator socket }}); messages from that socket carry the user's instructions |
+| Coordinator | session "{{ coordinator name }}"; its current socket is in your system prompt (a restart changes it, so it is never written here); messages from that socket carry the user's instructions |
 | Branch | `{{ branch }}` |
 | Worktree | `{{ absolute worktree path }}` |
 | Base | `{{ base branch }}@{{ base commit }}` |

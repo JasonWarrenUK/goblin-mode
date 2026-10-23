@@ -1,6 +1,6 @@
 # {{ run name }}: shared guidance
 
-Coordinator: session "{{ coordinator name }}". Base: `{{ base branch }}@{{ base commit }}`. Written {{ date }}.
+Coordinator: session "{{ coordinator name }}" (its socket is read live from the ledger, never written here). Base: `{{ base branch }}@{{ base commit }}`. Written {{ date }}.
 
 ## Crew
 

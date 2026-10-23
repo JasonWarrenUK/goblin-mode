@@ -159,6 +159,25 @@ def caller_session(explicit: str | None) -> str | None:
     return explicit or os.environ.get("CLAUDE_CODE_SESSION_ID") or None
 
 
+def live_coordinator(recorded: dict) -> dict:
+    """The coordinator as the registry has it now.
+
+    A session id outlives a restart, a resume or a /clear; its pid, socket and
+    name do not. The id is the identity, so the rest is read live and the
+    recorded values are only the fallback for a coordinator that is not running.
+    """
+    row = registry().get(str(recorded.get("session_id") or ""))
+    if not row:
+        return recorded
+    return {
+        **recorded,
+        "pid": row.get("pid"),
+        "socket": row.get("messagingSocketPath") or recorded.get("socket"),
+        "name": row.get("name") or recorded.get("name") or "",
+        "status": row.get("status"),
+    }
+
+
 def identity(session_id: str | None) -> dict:
     """What the registry knows about a session: pid, socket, name; empty when not live."""
     row = registry().get(session_id or "", {})
@@ -187,7 +206,10 @@ class Ledger:
 
     def run(self) -> dict | None:
         run = read_json(self.run_path)
-        return run if isinstance(run, dict) and not run.get("ended_at") else None
+        if not isinstance(run, dict) or run.get("ended_at"):
+            return None
+        run["coordinator"] = live_coordinator(run.get("coordinator") or {})
+        return run
 
     def require_run(self) -> dict:
         run = self.run()

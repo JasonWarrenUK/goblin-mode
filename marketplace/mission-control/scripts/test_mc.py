@@ -128,6 +128,25 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(status["run"]["base"]["branch"], "main")
         self.assertTrue(status["run"]["base"]["commit"])
 
+    def test_coordinator_socket_follows_the_session_id_across_a_restart(self):
+        self.box.start()
+        before = json.loads(self.box.mc("--json", "status").stdout)["run"]["coordinator"]
+        self.assertEqual(before["socket"], "/tmp/cc-socks/coord-1.sock")
+        # the same session comes back under another process, another socket and another name
+        (self.box.sessions / "coord-1.json").write_text(json.dumps({
+            "pid": os.getpid(), "sessionId": "coord-1", "cwd": str(self.box.repo), "name": "mission control (resumed)",
+            "messagingSocketPath": "/tmp/cc-socks/99999.sock", "status": "idle",
+        }))
+        after = json.loads(self.box.mc("--json", "status").stdout)["run"]["coordinator"]
+        self.assertEqual(after["session_id"], "coord-1")
+        self.assertEqual(after["socket"], "/tmp/cc-socks/99999.sock")
+        self.assertEqual(after["name"], "mission control (resumed)")
+        # the crew's session-start context names the live socket, not the recorded one
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        text = self.box.hook("session-start", {}, session="crew-9")
+        self.assertIn("/tmp/cc-socks/99999.sock", text)
+        self.assertNotIn("/tmp/cc-socks/coord-1.sock", text)
+
     def test_second_start_is_refused(self):
         self.box.start()
         done = self.box.mc("start", "--name", "again", session="coord-1", expect=1)
