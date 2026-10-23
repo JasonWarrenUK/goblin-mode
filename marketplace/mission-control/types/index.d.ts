@@ -53,6 +53,7 @@ export type SessionRow = {
 	pr: number | null
 	live: boolean
 	live_status: string
+	socket: string | null
 	updated_at: number
 }
 
