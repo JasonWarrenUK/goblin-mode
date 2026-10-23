@@ -1,0 +1,34 @@
+{
+	"name": "mission-control",
+	"version": "0.1.0",
+	"description": "Coordinate several Claude Code sessions on one repository: a ledger of shared-resource slots enforced by hooks, a /mc board pane, tools that report, request, grant and broadcast, a kick-off that writes each session's brief, and the protocol that came out of running it.",
+	"author": {
+		"name": "Jason Warren"
+	},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"license": "Zlib",
+	"keywords": ["mod", "pane", "sessions", "coordination", "worktrees", "slots"],
+	"types": "./types/index.d.ts",
+	"userConfig": {
+		"enabled": {
+			"type": "boolean",
+			"title": "Mission control on",
+			"description": "The one switch for all of it. Off, nothing is registered and the command hooks still run but the pane, the tools and the slot approval do not.",
+			"default": true
+		},
+		"approve_in_slot": {
+			"type": "boolean",
+			"title": "Approve gated commands under a held slot",
+			"description": "While this session holds a resource's slot and runs the command from its own worktree, a project hook's ask on that command is answered allow, so the person does not type it. Only resources marked approve_in_slot in the project config; never a human gate.",
+			"default": true
+		},
+		"refresh_seconds": {
+			"type": "number",
+			"title": "Board refresh",
+			"description": "How often the board rereads the ledger while open, in seconds.",
+			"default": 15,
+			"min": 5,
+			"max": 120
+		}
+	}
+}
