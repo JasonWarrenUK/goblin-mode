@@ -65,7 +65,7 @@ Nothing below runs before both answers.
 For each task, in the main checkout:
 
 1. `git worktree add -b <branch> <main>/<worktrees.dir>/<name> origin/<base>`. A branch that already exists: `git worktree add <path> <branch>` and say so.
-2. `sh "${CLAUDE_PLUGIN_ROOT}"/scripts/worktree-bootstrap.sh <path>`: symlinks the git-ignored `.env*` files and installs every tracked lockfile. Relay its lines; a `failed` line is reported, not retried.
+2. `zsh "${CLAUDE_PLUGIN_ROOT}"/scripts/worktree-bootstrap.sh <path>` (it is a zsh script; `sh` fails on its array syntax): symlinks the git-ignored `.env*` files and installs every tracked lockfile. Relay its lines; a `failed` line is reported, not retried.
 3. With a roadmap: `roadmap.py claim <id> --assignee "<who>"` **inside the worktree** (the claim lives on the branch). Ask who once, for all tasks; never infer a name. Commit with `git commit -m "chore(roadmap): claim <id>" -- .claude/roadmaps.json`.
 4. `mc.py crew add --task <id> --branch <branch> --worktree <path> [--migration <timestamp>]`.
 
@@ -83,10 +83,12 @@ Run `mc.py start --name <run name> --pr-approval <answer>` **before** the first 
 Print one line per session for the user to run in a fresh terminal:
 
 ```text
-cd <worktree> && claude --name "<task id lowercased> <two words>"
+cd <worktree> && claude --name "<task id lowercased> <two words>" "Start: you are crew <task id> in run <run name>. Read your brief at <brief path>, invoke /mission-control:crew and answer its five questions to the coordinator."
 ```
 
-Then: the session needs nothing typed into it. The `SessionStart` hook names the brief and the coordinator; the mod registers the session on the board when it starts inside its worktree; the brief tells it to answer the five questions. Open the board with `/mc` and invoke `/mission-control:coordinate` for the rest of the run.
+The trailing prompt is what starts the session's first turn. Without it an interactive session sits idle at an empty prompt: the `SessionStart` hook only adds context, and the board would show the session as `briefing` with nothing happening (this is what the first board-visuals run did). Add `--plugin-dir <plugin root>` to each line when the plugin is being run from a working tree rather than installed.
+
+Then: nothing else is typed into the session. The `SessionStart` hook names the brief and the coordinator; the mod registers the session on the board when it starts inside its worktree; the brief tells it to answer the five questions. Open the board with `/mc` and invoke `/mission-control:coordinate` for the rest of the run.
 
 ## Red flags
 
