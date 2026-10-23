@@ -131,6 +131,16 @@ test('the board draws the crew, the slot, the request and the need', async ($, o
 	await ui.unmount()
 })
 
+test('the board header sets the run name apart and names the coordinator', async ($, on) => {
+	world(on, 'coord-1')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^search$/ }))?.text).toBe('search')
+	expect((await ui.find({ type: 'Text', text: /^coordinator mission control$/ }))?.text).toBe('coordinator mission control')
+	await ui.unmount()
+})
+
 test('/mc toggles the pane and /mc grant acts as the person', async ($, on) => {
 	const { panes, calls } = world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })

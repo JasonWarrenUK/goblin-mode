@@ -572,6 +572,36 @@ const heading = (ui: Ui, label: string, inner: number) => {
 	)
 }
 
+const header = (ui: Ui, snap: Snapshot, me: Self, now: number, inner: number) => {
+	const { Box, Text } = ui
+	const run_ = snap.run
+	if (!run_) return null
+	const role = me.isCoordinator ? 'you coordinate' : me.isCrew ? 'you are crew' : 'observer'
+	return (
+		<Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
+			<Box flexDirection="row" columnGap={2} flexWrap="wrap">
+				<Text color="claude" weight="bold">
+					{run_.name}
+				</Text>
+				<Text>{role}</Text>
+			</Box>
+			<Text color="subtle">{'─'.repeat(Math.max(2, inner - 1))}</Text>
+			<Box flexDirection="row" columnGap={2} flexWrap="wrap">
+				<Text dimColor>since {clock(run_.started_at)}</Text>
+				<Text dimColor>
+					{run_.base.branch}@{run_.base.commit.slice(0, 8)}
+				</Text>
+				<Text dimColor>coordinator {run_.coordinator.name || run_.coordinator.session_id.slice(0, 8)}</Text>
+				<Text dimColor>{run_.assumptions.length} assumptions</Text>
+				<Text dimColor>
+					{snap.sessions.filter(s => s.live).length}/{snap.sessions.length} live
+				</Text>
+				<Text dimColor>ledger {ago(now - snap.at)} ago</Text>
+			</Box>
+		</Box>
+	)
+}
+
 const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) => {
 	const { Box, Text, Button } = ui
 	const content =
@@ -867,30 +897,13 @@ export const register: Register = (on, options) => {
 		const width = Math.max(44, e.props.bodyColumns)
 		if (!snap.run) return emptyState($, ui, snap, width - 1)
 		const inner = width - 3
-		const run_ = snap.run
 		const pickedRequest = picked?.startsWith('req:') ? snap.requests.find(r => `req:${r.resource}:${r.session_id}` === picked) : undefined
 		const pickedNeed = picked?.startsWith('need:') ? snap.needs.find(n => `need:${n.n}` === picked) : undefined
 		const pickedSlot = pickedRequest ? snap.slots.find(s => s.resource === pickedRequest.resource) : undefined
-		const role = me.isCoordinator ? 'you coordinate' : me.isCrew ? 'you are crew' : 'observer'
 		const freeResources = snap.probes.filter(p => !snap.slots.some(s => s.resource === p.resource))
 		return (
 			<Box flexDirection="column" width={width} rowGap={1}>
-				<Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
-					<Box flexDirection="row" columnGap={2} flexWrap="wrap">
-						<Text bold>{run_.name}</Text>
-						<Text dimColor>since {clock(run_.started_at)}</Text>
-						<Text dimColor>
-							{run_.base.branch}@{run_.base.commit.slice(0, 8)}
-						</Text>
-						<Text color="claude">{role}</Text>
-					</Box>
-					<Box flexDirection="row" columnGap={2} flexWrap="wrap">
-						<Text dimColor>coordinator {run_.coordinator.name || run_.coordinator.session_id.slice(0, 8)}</Text>
-						<Text dimColor>{run_.assumptions.length} assumptions</Text>
-						<Text dimColor>{snap.sessions.filter(s => s.live).length}/{snap.sessions.length} live</Text>
-						<Text dimColor>ledger {ago(now - snap.at)} ago</Text>
-					</Box>
-				</Box>
+				{header(ui, snap, me, now, inner)}
 				<Box flexDirection="column" paddingX={1}>
 					{heading(ui, `Crew · ${snap.sessions.length}`, inner)}
 					{snap.sessions.length === 0 && <Text dimColor>nobody has joined yet; a session starting in a planned worktree joins by itself.</Text>}
