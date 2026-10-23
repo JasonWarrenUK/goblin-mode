@@ -187,3 +187,18 @@ test('without a run the tools say so and the pane shows the empty state', async 
 	expect((await ui.find({ type: 'Text', text: /No active run/ }))?.text).toBe('No active run')
 	await ui.unmount()
 })
+
+test('a gone session reads gone, dim, with its worktree name and the age of its last report', async ($, on) => {
+	const live = { ...STATUS.sessions[0], worktree: '/code/app/.claude/worktrees/wt-live' }
+	const gone = { ...live, session_id: 'crew-2', name: '10se3', task: '10SE.3', branch: 'feat/b', worktree: '/code/app/.claude/worktrees/wt-gone', state: 'working', live: false, live_status: 'idle', updated_at: NOON / 1000 - 3900 }
+	world(on, 'coord-1', { ...STATUS, sessions: [live, gone] })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^wt-live$/ }))?.text).toBe('wt-live')
+	expect((await ui.find({ type: 'Text', text: /^wt-gone$/ }))?.text).toBe('wt-gone')
+	expect((await ui.find({ type: 'Text', text: /^gone$/ }))?.text).toBe('gone')
+	expect((await ui.find({ type: 'Text', text: /^1m ago$/ }))?.text).toBe('1m ago')
+	expect((await ui.find({ type: 'Text', text: /^1h 5m ago$/ }))?.text).toBe('1h 5m ago')
+	await ui.unmount()
+})

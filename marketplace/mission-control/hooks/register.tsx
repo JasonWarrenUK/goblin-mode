@@ -606,16 +606,19 @@ const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: 
 		const key = `sess:${s.session_id}`
 		const isMe = s.session_id === me.sessionId
 		const label = s.task || s.branch || s.name || s.session_id.slice(0, 8)
+		const gone = !s.live
+		const worktreeName = (s.worktree ?? '').split('/').filter(Boolean).pop() ?? ''
 		return (
 			<Box key={key} flexDirection="column">
 				<Box flexDirection="row" columnGap={1}>
-					<Text color={s.live ? (s.live_status === 'busy' ? 'claude' : 'success') : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
-					<Button key={`row-${key}`} plain hotkey={i < 9 ? String(i + 1) : undefined} dimColor={picked !== null && picked !== key} label={label} onPress={() => update($, selected, () => key)} />
+					<Text dimColor={gone} color={s.live ? (s.live_status === 'busy' ? 'claude' : 'success') : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
+					<Button key={`row-${key}`} plain hotkey={i < 9 ? String(i + 1) : undefined} dimColor={gone || (picked !== null && picked !== key)} label={label} onPress={() => update($, selected, () => key)} />
 					<Text dimColor>{s.branch && s.branch !== label ? s.branch : ''}</Text>
-					<Text color={stateColour(s.state)} bold={s.state === 'in-slot'}>
-						{s.state}
+					{worktreeName ? <Text dimColor>{worktreeName}</Text> : null}
+					<Text dimColor={gone} color={gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
+						{gone ? 'gone' : s.state}
 					</Text>
-					{s.pr ? <Text color="claude">#{s.pr}</Text> : null}
+					{s.pr ? <Text dimColor={gone} color="claude">#{s.pr}</Text> : null}
 					{isMe ? <Text dimColor>◀ you</Text> : null}
 				</Box>
 				<Box flexDirection="row" paddingLeft={4} columnGap={1}>
@@ -624,7 +627,7 @@ const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: 
 							{s.summary || (s.live ? 'no report yet' : 'session gone')}
 						</Text>
 					</Box>
-					<Text dimColor>{s.updated_at ? ago(now - s.updated_at * 1000) : ''}</Text>
+					<Text dimColor>{s.updated_at ? `${ago(now - s.updated_at * 1000)} ago` : ''}</Text>
 				</Box>
 			</Box>
 		)
