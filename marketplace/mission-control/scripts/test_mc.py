@@ -147,6 +147,32 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("/tmp/cc-socks/99999.sock", text)
         self.assertNotIn("/tmp/cc-socks/coord-1.sock", text)
 
+    def test_start_puts_an_unpushed_base_on_the_needs_list(self):
+        bare = self.box.tmp / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+        git(self.box.repo, "remote", "add", "origin", str(bare))
+        out = self.box.mc("start", "--name", "search", "--base", "main", session="coord-1").stdout
+        self.assertIn("WARNING: main is not on origin", out)
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertIs(status["run"]["base"]["on_origin"], False)
+        self.assertEqual(status["needs"][0]["task"], "kick-off")
+        self.assertIn("push -u origin main", status["needs"][0]["command"])
+        self.box.mc("end", session="coord-1")
+        git(self.box.repo, "push", "-q", "-u", "origin", "main")
+        out = self.box.mc("start", "--name", "again", "--base", "main", session="coord-1").stdout
+        self.assertNotIn("WARNING", out)
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertIs(status["run"]["base"]["on_origin"], True)
+        self.assertEqual(status["needs"], [])
+
+    def test_grant_from_a_recorded_attempt_names_the_command_plainly(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", session="crew-1", cwd=self.box.worktree)
+        self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "poetry run poe serve-local"}})
+        granted = json.loads(self.box.mc("--json", "grant", "api-port", "--to", "A", session="coord-1").stdout)
+        self.assertEqual(granted["what"], "poe serve-local")
+
     def test_second_start_is_refused(self):
         self.box.start()
         done = self.box.mc("start", "--name", "again", session="coord-1", expect=1)

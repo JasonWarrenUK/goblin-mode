@@ -574,6 +574,9 @@ def cmd_start(args) -> int:
     base_branch = args.base or (run_git(ledger.main, "symbolic-ref", "--short", "refs/remotes/origin/HEAD") or "origin/main").split("/", 1)[-1]
     run_git(ledger.main, "fetch", "origin", base_branch)
     commit = run_git(ledger.main, "rev-parse", f"origin/{base_branch}") or run_git(ledger.main, "rev-parse", base_branch) or ""
+    # A PR cannot target a branch origin has never seen; the first run found out at the push.
+    has_origin = run_git(ledger.main, "remote", "get-url", "origin") is not None
+    on_origin = None if not has_origin else bool(run_git(ledger.main, "ls-remote", "--exit-code", "--heads", "origin", base_branch))
     if ledger.dir.exists():
         archive = ledger.dir.parent / "runs" / f"{time.strftime('%Y%m%d-%H%M')}-{ledger.slug}"
         archive.parent.mkdir(parents=True, exist_ok=True)
@@ -584,17 +587,24 @@ def cmd_start(args) -> int:
         "slug": ledger.slug,
         "started_at": now(),
         "coordinator": who,
-        "base": {"branch": base_branch, "commit": commit},
+        "base": {"branch": base_branch, "commit": commit, "on_origin": on_origin},
         "pr_approval": args.pr_approval,
         "crew": [],
         "assumptions": [],
         "needs": [],
         "ended_at": None,
     }
+    warning = ""
+    if on_origin is False:
+        push = f"git -C {ledger.main} push -u origin {base_branch}"
+        run["needs"].append({"id": uuid.uuid4().hex[:8], "n": 1, "session_id": session_id, "task": "kick-off",
+                             "why": f"{base_branch} is not on origin, so no PR can target it until it is pushed (publishes its commits)",
+                             "command": push, "cwd": str(ledger.main), "status": "open", "at": now()})
+        warning = f"\nWARNING: {base_branch} is not on origin. PRs cannot target it until the user pushes it; it is need #1 on the board: `{push}`."
     ledger.save_run(run)
     (ledger.dir / "briefs").mkdir(parents=True, exist_ok=True)
-    ledger.log("start", name=args.name, coordinator=who)
-    print(json.dumps(run, indent=2) if args.json else f"Run {args.name} started; coordinator {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; ledger {ledger.dir}")
+    ledger.log("start", name=args.name, coordinator=who, base=run["base"])
+    print(json.dumps(run, indent=2) if args.json else f"Run {args.name} started; coordinator {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; ledger {ledger.dir}{warning}")
     return 0
 
 
@@ -760,6 +770,9 @@ def cmd_grant(args) -> int:
         raise Refusal(f"{args.resource} is held by {holder.get('holder_task') or holder.get('holder', '')[:8]} since {clock(holder.get('granted_at'))}; wait for the release or pass --force to override")
     request = read_json(ledger.request_path(args.resource, target), {}) or {}
     minutes = args.minutes or request.get("minutes") or 15
+    # a request the hook recorded from a refused attempt reads `attempted: <command>`; the slot's purpose is the command
+    if isinstance(request.get("what"), str) and request["what"].startswith("attempted: "):
+        request["what"] = request["what"][len("attempted: "):]
     slot = {
         "resource": args.resource,
         "holder": target,
