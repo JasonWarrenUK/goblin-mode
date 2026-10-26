@@ -17,7 +17,7 @@ python3 <plugin-root>/scripts/roadmap.py <subcommand> [PATH] [--phase NAME]
 | Subcommand | Purpose | Key flags | Exit codes |
 |---|---|---|---|
 | `detect` | rich vs old-simple format | | 0 rich · 3 old · 2 unlocatable |
-| `validate` | graph integrity + status correctness | | 0 clean · 1 discrepancies · 2 |
+| `validate` | graph integrity + status correctness; in a tiered phase, also no lower-tier task edge the task already requires by milestone (see Tiers) | | 0 clean · 1 discrepancies · 2 |
 | `recompute` | fixed-point status recompute, writes back | `--check` `--json` `--reformat` `--render` | 0 · 1 cycle/format refusal · 2 |
 | `stats` | status counts; done fractions count in-scope tasks only (see Task counts) | `--json` | 0 · 2 |
 | `graph` | dependency graph | `--json` (default), `--mermaid --direction LR\|TD --omit-done --palette light\|dark\|vars` | 0 · 2 |
@@ -487,24 +487,50 @@ auto-reverted; absence still isn't evidence.
 ### Tiers
 
 A phase may split into tiers (e.g. core/secondary/tertiary) released one
-after another by gate, not by date: a tier's entry task depends on every
-milestone in the tier(s) before it plus that tier's release gate (`imposes:
-"deferred"`), and every other task in the tier chains behind the entry task
-via ordinary `dependsOn`. This is the one case a root-seeded parked status
-doesn't fit: root-seeding only holds for empty `dependsOn`, and a tier's
-tasks depend on the whole of the tier(s) before them, so the gate is what
-keeps them `deferred` under `recompute` rather than escalating to `blocked`
-the moment their nominal deps are all `done`. See the deferred annotation
-forms above for how this renders in PHASE.md.
+after another by gate, not by date. Two shapes carry the gate; a project
+picks one and keeps to it:
+
+- **Entry task.** The tier's entry task depends on every milestone in the
+  tier(s) before it plus that tier's release gate (`imposes: "deferred"`),
+  and every other task in the tier chains behind the entry task via
+  ordinary `dependsOn`. This is the one case a root-seeded parked status
+  doesn't fit: root-seeding only holds for empty `dependsOn`, and a tier's
+  tasks depend on the whole of the tier(s) before them, so the gate is what
+  keeps them `deferred` under `recompute` rather than escalating to
+  `blocked` the moment their nominal deps are all `done`. See the deferred
+  annotation forms above for how this renders in PHASE.md.
+- **Milestone list.** Every task in the tier carries the lower-tier
+  milestones it waits on directly, with no release gate and no entry task:
+  `["M7", "M8", "M9", "M10", "M11"]` on each tertiary task, or only the
+  milestones that matter (`["M1", "M6"]` on a secondary task whose project
+  gates on identity and hardening alone). The siblings are the template: a
+  new task copies the list its milestone's existing tasks carry, and the
+  first task in a new milestone copies the tier's other milestones.
+
+**A tier reaches a lower tier by milestone, never by task.** A task in tier
+N lists the gate above plus tasks of its own tier in `dependsOn`, and
+nothing from a lower tier by task ID: `13SE.5` carrying `["M10", "10SE.4"]`
+is wrong, since M10 `done` already means 10SE.4 `done`, so the task edge
+adds nothing and breaks the pattern its siblings follow. The relationship
+still matters, so it goes in `notes` (`Extends 10SE.4`, the idiom every
+tiered task uses for the lower-tier work it builds on). `validate` reports
+a lower-tier task edge the task already requires through another entry
+(a milestone, or a task that reaches it) as a discrepancy, naming the
+entry that covers it. Two shapes it leaves alone: a milestone entry the
+task also reaches through a sibling (`["M1", "M6", "8RT.9"]` is the pattern
+itself, even though 8RT.9 carries M1 and M6 too), and a lower-tier task
+edge nothing else covers, which may be a deliberate fast-track. A task that
+is meant to escape its tier (wanted soon, so it waits on no lower-tier
+milestone) carries no gate at all and says so in `notes`.
 
 **Naming.** The artefact reads a milestone's tier from a suffix on its
 `name`, case-insensitive, trailing: `(Secondary)`, `(Tertiary)`,
 `(Quaternary)`, `(Quinary)` (`roadmap.py`'s `milestone_tier()`). No suffix is
 tier 0, labelled Core (`tier_label()` spells every tier name; the vocabulary
-is core, secondary, tertiary). This is presentational only: it drives the
-Overview/Milestones tier grouping and the `deferred` colour cascade (see
-Milestone-level state above), and is never consulted by `recompute` or
-`validate`, which rely entirely on the gate-based mechanics above. A tier
+is core, secondary, tertiary). It drives the Overview/Milestones tier
+grouping and the `deferred` colour cascade (see Milestone-level state
+above) and the cross-tier edge check in `validate`; `recompute` never
+consults it, relying entirely on the gate-based mechanics above. A tier
 group in the dashboard expands only once every milestone in every lower tier
 is `done`, and only when it also holds a ready or in-progress task; a tier
 that isn't open yet stays collapsed regardless of what it contains.

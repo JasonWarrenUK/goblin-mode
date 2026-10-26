@@ -112,6 +112,7 @@ Assign:
 - **Proposed milestone**: which milestone this belongs to, and why
 - **Proposed status**, computed mechanically: `todo` if it has no incomplete dependencies, `blocked` if it depends on anything not yet `done`, `paused`/`deferred` if it sits behind a gate that imposes those
 - **Incoming dependencies**: existing task IDs, a milestone ID or a gate ID that must resolve first
+- **Tier gate**, when the proposed milestone is in tier 1 or above (a `(Secondary)`/`(Tertiary)` suffix on its name): the lower-tier milestones its existing tasks carry, copied as given. A tier reaches a lower tier by milestone, never by task (conventions, Tiers): a prerequisite in a lower tier that the gate already covers is noted as `Extends {ID}` and left out of the dependency list. `roadmap:update-tasks` applies the same rule when it writes, and `validate` refuses the edge.
 - **Outgoing dependencies**: existing tasks this would unblock, or new tasks in this batch that depend on it
 - **Assignee**: only if the user names one during the interview. Ask, don't infer; unlike status, this is never computed. Leave unset if nobody said who owns it.
 
@@ -138,6 +139,8 @@ Format the proposal clearly. Group tasks by milestone. For each task:
   Status: {todo / blocked / paused / deferred}
   Assignee: {name, or "unassigned"}
   Depends on: {task/milestone/gate IDs or "nothing"}
+  Tier gate: {lower-tier milestone IDs and the sibling they came from, or "n/a"} (tiered phases only)
+  Extends: {lower-tier task IDs noted rather than wired, or "nothing"} (tiered phases only)
   Enables: {IDs (existing or new) or "nothing yet"}
   [⚠ Orphan: no connections found] (if applicable)
   [+ Placeholder child proposed: {ID}. {Description}] (if applicable)
