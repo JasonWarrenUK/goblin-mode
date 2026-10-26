@@ -38,7 +38,7 @@ Record every item from a reply's answer 2 with `mc_need` (why, the exact command
 
 ### Now
 
-1. **<task>: <one line>.** `cd <absolute worktree>/<run_from> && <command>` — <what it unblocks>.
+1. **<task>: <one line>.** `cd <absolute worktree>/<run_from> && <command>`: <what it unblocks>.
 
 ### Right after <the thing it queues behind>
 

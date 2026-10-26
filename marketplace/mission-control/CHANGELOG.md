@@ -16,6 +16,12 @@ All notable changes to this plugin are documented here, newest first.
 ### Fixed
 
 - The board noticed a run started after the session began only once a pane was open; every tick now rereads the ledger and a tool call rereads before answering.
+- Slot approval covers a whole line only when every command on it is a gated command the session holds; `G && git push`, a `$(...)` or backtick substitution and unreadable quoting now prompt as before.
+- The guard refuses an abbreviated `--by-user`, a quoted one, `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment on an `mc.py` line, and the CLI takes no flag abbreviations. The docstring and README say plainly that this guards against accidents.
+- A subagent's Bash calls are gated like its parent's; only the crew brief at session start skips them.
+- A gated command inside `sh -c`, `bash -c` or `zsh -c` is gated, and `cd a && cd b` reads as `a/b`.
+- `needs`, `assume` and `crew` writes hold a lock on `run.json`, and temp files carry the process id, so concurrent sessions no longer drop a need or crash on a shared temp name.
+- `/mc grant` sends the grantee its message only when the CLI granted; a refused grant is reported and sent nowhere. A forced grant tells the session whose slot it took. Its row stops reading `in-slot` too.
 
 ## [0.1.0] - 2026-10-23
 
