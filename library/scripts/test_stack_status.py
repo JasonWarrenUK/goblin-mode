@@ -25,6 +25,11 @@ STUB_GH = textwrap.dedent("""\
 	args = sys.argv[1:]
 	if args[:1] == ["--version"]:
 		print("gh version stub"); sys.exit(0)
+	if args[:2] == ["stack", "--version"]:
+		version = fixture.get("gh_stack_version", "0.1.0")
+		if version is None:
+			sys.exit(1)  # extension not installed
+		print("gh stack version %s" % version); sys.exit(0)
 	if args[:2] == ["repo", "view"]:
 		print(json.dumps({"owner": {"login": "org"}, "name": "repo", "defaultBranchRef": {"name": "main"}})); sys.exit(0)
 	if args[:2] == ["pr", "list"]:
@@ -275,6 +280,114 @@ class StackStatus(unittest.TestCase):
 		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a")],
 				   "graphql": {"pr11": {"number": 11, "stack": stack(7, [(10, "feat/a", "OPEN"), (11, "feat/b", "OPEN")])}}}
 		self.assertIn("is in stack #7, layer 2 of 2 and tracked here", self.table("feat/b", fixture=fixture))
+
+	def linked_worktree(self, branch: str) -> tuple[Path, Path]:
+		"""(worktree path, its per-worktree git admin dir) for `branch`, checked out beside the repo."""
+		tree = self.root / ("tree-%s" % branch.replace("/", "-"))
+		_git(self.repo, "worktree", "add", "-q", str(tree), branch)
+		admin = Path(_git(tree, "rev-parse", "--path-format=absolute", "--git-dir").strip()).resolve()
+		self.assertNotEqual(admin, (self.repo / ".git").resolve())
+		return tree, admin
+
+	def test_v0_1_0_tracking_in_a_linked_worktree_is_read_there(self) -> None:
+		# gh-stack v0.1.0 writes `gh-stack` to `git rev-parse --git-dir`, the per-worktree admin
+		# dir, so a stack checked out in a worktree is tracked there and nowhere else
+		tree, admin = self.linked_worktree("feat/b")
+		(admin / "gh-stack").write_text(json.dumps({"schemaVersion": 1, "repository": "", "stacks": [
+			{"number": 7, "trunk": {"branch": "main"}, "branches": [
+				{"branch": "feat/a", "pullRequest": {"number": 10}},
+				{"branch": "feat/b", "pullRequest": {"number": 11}}]}]}))
+		self.write_tracking([])  # the common-dir file v0.1.0 leaves empty beside it
+		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a")],
+				   "graphql": {"pr11": {"number": 11, "stack": stack(7, [(10, "feat/a", "OPEN"), (11, "feat/b", "OPEN")])}}}
+		self.fixture.write_text(json.dumps(fixture))
+		done = self.run_script("--json", cwd=tree)
+		self.assertEqual(done.returncode, 0, done.stderr)
+		result = json.loads(done.stdout)
+		self.assertEqual(result["rows"][0]["tracked_locally"], {"stack": 7, "branch_exists": True})
+		self.assertEqual(result["tracking_files"], [str(admin / "gh-stack"), str((self.repo / ".git" / "gh-stack").resolve())])
+		self.assertEqual(result["local_tracking"][0]["file"], str(admin / "gh-stack"))
+		table = self.run_script(cwd=tree).stdout
+		self.assertIn("tracked here", table)
+		self.assertNotIn("`gh stack checkout 11`", table)
+		# the main checkout sees only the common-dir file, so the same stack is untracked from there
+		self.assertIsNone(self.status("feat/b", fixture=fixture)["rows"][0]["tracked_locally"])
+
+	def test_a_stack_in_both_files_is_listed_once(self) -> None:
+		tree, admin = self.linked_worktree("feat/b")
+		layers = [{"branch": "feat/a", "pullRequest": {"number": 10}}, {"branch": "feat/b", "pullRequest": {"number": 11}}]
+		(admin / "gh-stack").write_text(json.dumps({"schemaVersion": 1, "stacks": [
+			{"number": 7, "trunk": {"branch": "main"}, "branches": layers}]}))
+		self.write_tracking([{"number": 7, "trunk": {"branch": "main"}, "branches": layers},
+							 {"number": 9, "trunk": {"branch": "main"}, "branches": [{"branch": "feat/a", "pullRequest": {"number": 10}}]}])
+		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a")],
+				   "graphql": {"pr11": {"number": 11, "stack": stack(7, [(10, "feat/a", "OPEN"), (11, "feat/b", "OPEN")])}}}
+		self.fixture.write_text(json.dumps(fixture))
+		result = json.loads(self.run_script("--json", cwd=tree).stdout)
+		self.assertEqual(result["gh_stack_version"], "0.1.0")
+		self.assertEqual([s["number"] for s in result["local_tracking"]], [7, 9])
+		# v0.1.0 reads only this worktree's own file from here, so #9 is listed but not live
+		self.assertEqual([s["active"] for s in result["local_tracking"]], [True, False])
+		self.assertEqual(result["rows"][0]["tracked_in"], [{"stack": 7, "branch_exists": True}])
+		table = self.run_script(cwd=tree).stdout
+		self.assertIn("gh stack v0.1.0 tracks per worktree", table)
+		self.assertIn("not read by gh stack from this worktree", table)
+
+	def test_v0_2_0_reads_the_common_dir_and_flags_a_leftover_worktree_file(self) -> None:
+		tree, admin = self.linked_worktree("feat/b")
+		(admin / "gh-stack").write_text(json.dumps({"schemaVersion": 1, "stacks": [
+			{"number": 7, "trunk": {"branch": "main"}, "branches": [
+				{"branch": "feat/a", "pullRequest": {"number": 10}}, {"branch": "feat/b", "pullRequest": {"number": 11}}]}]}))
+		self.write_tracking([{"number": 9, "trunk": {"branch": "main"}, "branches": [{"branch": "feat/a", "pullRequest": {"number": 10}}]}])
+		fixture = {"gh_stack_version": "0.2.1", "open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a")],
+				   "graphql": {"pr11": {"number": 11, "stack": stack(7, [(10, "feat/a", "OPEN"), (11, "feat/b", "OPEN")])}}}
+		self.fixture.write_text(json.dumps(fixture))
+		result = json.loads(self.run_script("--json", cwd=tree).stdout)
+		self.assertEqual(result["gh_stack_version"], "0.2.1")
+		self.assertEqual([(s["number"], s["active"]) for s in result["local_tracking"]], [(7, False), (9, True)])
+		row = result["rows"][0]
+		self.assertIsNone(row["tracked_locally"])
+		table = self.run_script(cwd=tree).stdout
+		self.assertIn("one catalogue for every worktree", table)
+		self.assertIn("migrates it", table)
+		self.assertIn("stops with an error", table)
+		self.assertIn("`gh stack checkout 11`", table)
+
+	def test_a_stack_in_both_files_reports_the_active_copys_file(self) -> None:
+		tree, admin = self.linked_worktree("feat/b")
+		layers = [{"branch": "feat/a", "pullRequest": {"number": 10}}]
+		(admin / "gh-stack").write_text(json.dumps({"schemaVersion": 1, "stacks": [
+			{"number": 7, "trunk": {"branch": "main"}, "branches": layers}]}))
+		self.write_tracking([{"number": 7, "trunk": {"branch": "main"}, "branches": layers}])
+		self.fixture.write_text(json.dumps({"gh_stack_version": "0.2.1", "open_prs": [pr(10, "feat/a")], "graphql": {}}))
+		result = json.loads(self.run_script("--json", cwd=tree).stdout)
+		[tracked] = result["local_tracking"]
+		self.assertTrue(tracked["active"])
+		self.assertEqual(tracked["file"], str((self.repo / ".git" / "gh-stack").resolve()))
+
+	def test_stale_stack_in_another_checkouts_file_says_where_to_unstack(self) -> None:
+		tree, _ = self.linked_worktree("feat/b")
+		self.write_tracking([{"number": 3, "trunk": {"branch": "main"}, "branches": [
+			{"branch": "old/x", "pullRequest": {"number": 1, "merged": True}}]}])
+		fixture = {"open_prs": [], "graphql": {}}
+		self.fixture.write_text(json.dumps(fixture))
+		table = self.run_script(cwd=tree).stdout
+		self.assertIn("`gh stack unstack 3 --local`, from the checkout whose file it is in", table)
+		self.assertNotIn("from the checkout whose file", self.table("feat/a", fixture=fixture))
+
+	def test_without_the_extension_every_file_counts(self) -> None:
+		self.write_tracking([{"number": 7, "trunk": {"branch": "main"}, "branches": [{"branch": "feat/a", "pullRequest": {"number": 10}}]}])
+		fixture = {"gh_stack_version": None, "open_prs": [pr(10, "feat/a")], "graphql": {"pr10": {"number": 10, "stack": None}}}
+		result = self.status("feat/a", fixture=fixture)
+		self.assertIsNone(result["gh_stack_version"])
+		self.assertTrue(result["local_tracking"][0]["active"])
+		self.assertIn("gh stack is not installed", self.table("feat/a", fixture=fixture))
+
+	def test_no_tracking_file_names_the_paths_looked_in(self) -> None:
+		fixture = {"open_prs": [], "graphql": {}}
+		table = self.table("feat/a", fixture=fixture)
+		self.assertIn("No `gh-stack` file", table)
+		self.assertIn(str((self.repo / ".git" / "gh-stack").resolve()), table)
 
 	def test_outside_a_repository_exits_2(self) -> None:
 		self.fixture.write_text(json.dumps({"open_prs": []}))
