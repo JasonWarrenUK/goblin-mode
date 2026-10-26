@@ -319,6 +319,8 @@ def crew_for(run: dict, cwd: str | None, session_id: str | None, sessions: dict[
 SHELLS = {"sh", "bash", "zsh"}
 SHELL_C_FLAG = re.compile(r"-[A-Za-z]*c[A-Za-z]*")
 SHELL_DEPTH = 3
+SHELL_OPTION_WITH_ARGUMENT = {"-o", "+o", "-O", "+O"}
+RUNNERS = {"env", "timeout", "nohup", "time", "command"}
 SUBSTITUTION = re.compile(r"\$\(|`|<\(|>\(")
 
 
@@ -326,12 +328,62 @@ def shell_script(words: list[str]) -> str | None:
     """The string after `-c` (or `-lc` and the like) of an `sh`, `bash` or `zsh` call, else None."""
     if not words or os.path.basename(words[0]) not in SHELLS:
         return None
-    for index, word in enumerate(words[1:], 1):
-        if not word.startswith("-"):
+    index = 1
+    while index < len(words):
+        word = words[index]
+        if word in SHELL_OPTION_WITH_ARGUMENT:
+            index += 2
+            continue
+        if not word.startswith(("-", "+")):
             return None
         if SHELL_C_FLAG.fullmatch(word):
             return words[index + 1] if index + 1 < len(words) else None
+        index += 1
     return None
+
+
+def strip_runners(words: list[str]) -> list[str]:
+    """Peel `env`, `timeout`, `nohup`, `time` and `command` off the front of a simple command.
+
+    The gate patterns are anchored at the first word, so a runner in front of a
+    gated command would hide it. `command -v` is a lookup, not a run, and stays
+    as it is, as does a runner that leaves nothing behind or carries `env -S`.
+    """
+    for _ in range(SHELL_DEPTH * 2):
+        if not words:
+            break
+        runner = os.path.basename(words[0])
+        if runner not in RUNNERS:
+            break
+        rest = words[1:]
+        index = 0
+        if runner == "env":
+            if "-S" in rest or any(word.startswith("--split-string") for word in rest):
+                break
+            while index < len(rest):
+                word = rest[index]
+                if word in {"-u", "-C", "--unset", "--chdir"}:
+                    index += 2
+                elif word.startswith("-") and word != "-" or ASSIGNMENT.match(word):
+                    index += 1
+                else:
+                    break
+        elif runner == "timeout":
+            while index < len(rest) and rest[index].startswith("-"):
+                index += 2 if rest[index] in {"-s", "-k"} else 1
+            index += 1  # the duration
+        elif runner == "command":
+            if any(word in {"-v", "-V"} for word in rest):
+                break
+            while index < len(rest) and rest[index] in {"-p", "--"}:
+                index += 1
+        elif runner == "time":
+            while index < len(rest) and rest[index] in {"-p", "--"}:
+                index += 1
+        if index >= len(rest):
+            break
+        words = rest[index:]
+    return words
 
 
 def join_cd(previous: str | None, target: str) -> str:
@@ -397,6 +449,9 @@ def simple_commands(command: str, cd_target: str | None = None, depth: int = 0) 
         segments.append(words)
     out = []
     for seg in segments:
+        while seg and ASSIGNMENT.match(seg[0]):
+            seg = seg[1:]
+        seg = strip_runners(seg)
         while seg and ASSIGNMENT.match(seg[0]):
             seg = seg[1:]
         if not seg:

@@ -124,6 +124,34 @@ class GateMatching(unittest.TestCase):
         ]:
             self.assertEqual([h["resource"] for h in self.mc.gated(self.config, command)], ["local-db"], command)
 
+    def test_shell_options_with_an_argument_do_not_hide_the_script(self):
+        for command in [
+            "bash -o pipefail -c 'poetry run poe db-reset-local-anyway'",
+            "bash +o pipefail -c 'poe db-reset-local-anyway'",
+            "bash -O extglob -c 'poe db-reset-local-anyway'",
+            "bash -e -o pipefail -c 'poe db-reset-local-anyway'",
+            "bash --norc -c 'poe db-reset-local-anyway'",
+        ]:
+            self.assertEqual([h["resource"] for h in self.mc.gated(self.config, command)], ["local-db"], command)
+
+    def test_runner_prefixes_do_not_hide_a_gated_command(self):
+        for command in [
+            "env poetry run poe db-reset-local-anyway",
+            "env FOO=1 -u BAR poe db-reset-local-anyway",
+            "timeout 60 poe db-reset-local-anyway",
+            "timeout -s KILL 60 poe db-reset-local-anyway",
+            "nohup poe db-reset-local-anyway",
+            "time poe db-reset-local-anyway",
+            "command poe db-reset-local-anyway",
+            "timeout 60 sh -c 'poe db-reset-local-anyway'",
+            "nohup timeout 60 env FOO=1 poe db-reset-local-anyway",
+        ]:
+            self.assertEqual([h["resource"] for h in self.mc.gated(self.config, command)], ["local-db"], command)
+
+    def test_runner_prefixes_on_harmless_commands_stay_ungated(self):
+        for command in ["command -v poe", "env", "timeout 60 echo poe serve-local", "env FOO=1 poe lint"]:
+            self.assertEqual(self.mc.gated(self.config, command), [], command)
+
     def test_shell_c_inner_cd_composes_and_does_not_leak(self):
         hits = self.mc.gated(self.config, "cd sub && sh -c 'cd apps/api && poetry run poe db-reset-local-anyway'")
         self.assertEqual(hits[0]["cd"], "sub/apps/api")
