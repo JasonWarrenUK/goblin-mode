@@ -196,7 +196,8 @@ def local_tracking(cwd: str, version: str | None) -> tuple[list[dict], list[str]
 			branches = [b.get("branch") for b in stack.get("branches", [])]
 			key = (stack.get("number"), tuple(branches))
 			if key in seen:
-				seen[key]["active"] = seen[key]["active"] or active
+				if active and not seen[key]["active"]:
+					seen[key].update(active=True, file=str(path))
 				continue
 			merged = [bool((b.get("pullRequest") or {}).get("merged")) for b in stack.get("branches", [])]
 			missing = [b for b in branches

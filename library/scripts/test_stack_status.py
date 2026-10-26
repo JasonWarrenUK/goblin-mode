@@ -352,6 +352,18 @@ class StackStatus(unittest.TestCase):
 		self.assertIn("migrates it", table)
 		self.assertIn("`gh stack checkout 11`", table)
 
+	def test_a_stack_in_both_files_reports_the_active_copys_file(self) -> None:
+		tree, admin = self.linked_worktree("feat/b")
+		layers = [{"branch": "feat/a", "pullRequest": {"number": 10}}]
+		(admin / "gh-stack").write_text(json.dumps({"schemaVersion": 1, "stacks": [
+			{"number": 7, "trunk": {"branch": "main"}, "branches": layers}]}))
+		self.write_tracking([{"number": 7, "trunk": {"branch": "main"}, "branches": layers}])
+		self.fixture.write_text(json.dumps({"gh_stack_version": "0.2.1", "open_prs": [pr(10, "feat/a")], "graphql": {}}))
+		result = json.loads(self.run_script("--json", cwd=tree).stdout)
+		[tracked] = result["local_tracking"]
+		self.assertTrue(tracked["active"])
+		self.assertEqual(tracked["file"], str((self.repo / ".git" / "gh-stack").resolve()))
+
 	def test_stale_stack_in_another_checkouts_file_says_where_to_unstack(self) -> None:
 		tree, _ = self.linked_worktree("feat/b")
 		self.write_tracking([{"number": 3, "trunk": {"branch": "main"}, "branches": [
