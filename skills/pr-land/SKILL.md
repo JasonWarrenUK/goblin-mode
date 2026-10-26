@@ -51,7 +51,7 @@ Only when Step 1 blocked and the repo has a rich roadmap (`python3 "$HOME"/.clau
 **Where to rebase.** `git worktree list --porcelain` says whether a worktree already holds `{head}`:
 
 - It does: run `~/.claude/library/scripts/checkout-occupied.sh {path}`. Exit 1 means another live session is working there and a rebase under it would collide with its next commit; stop and name the session, so the user can run `/branch-integrate rebase main` from inside it. Exit 0 with `dirty_files` above 0 stops too (uncommitted work would block the rebase and is not yours to stash). Exit 0 and clean: rebase in that worktree.
-- Nothing holds it: `git worktree add "${TMPDIR:-/tmp}/pr-land-{repo}-{number}-rebase" {head}` (after the fetch above, so the branch is current) and rebase there. Leave it in place afterwards: Steps 1.5 and 1.6 need a checkout of the head branch and Step 4 removes it with the rest.
+- Nothing holds it: `git worktree add "${TMPDIR:-/tmp}/pr-land-{repo}-{number}-rebase" {head}` and rebase there. A local `{head}` that already exists is checked out as it stands, however far behind the remote it sits, which is why the rebase below starts with a fast-forward. Leave the worktree in place afterwards: Steps 1.5 and 1.6 need a checkout of the head branch and Step 4 removes it with the rest.
 
 The main checkout is never switched for this, as Step 3 says.
 
@@ -60,10 +60,13 @@ The main checkout is never switched for this, as Step 3 says.
 **Rebase.** For an `independent` PR, from the chosen checkout:
 
 ```bash
+git merge --ff-only origin/{head}
 git rebase origin/main
 ```
 
-A conflict in a dashboard resolves by taking main's copy (`git checkout --ours -- {path}`, where `--ours` is main during a rebase), `git add` and `git rebase --continue`. A conflict anywhere else: `git rebase --abort` and stop as Step 1 would, naming the paths. Once the rebase completes, re-render each phase whose dashboard conflicted (`roadmap.py render --phase {name}`) and, if `git status --short` shows a change, commit it as `chore(roadmap): re-render dashboard after rebase`; a render that changes nothing confirms main's copy was already current. Then `git push --force-with-lease`. For a `linked` stack layer the rebase is `gh stack sync` from the stack's checkout instead (the worktree rules above apply to that checkout), and its output must be read: it prints `Sync aborted` and still exits 0 when local and remote have diverged.
+The fast-forward comes first because the fetch refreshed `origin/{head}` without moving the local branch, and a local branch behind the remote (a review suggestion committed in the GitHub UI exists only there) would otherwise rebase without that commit and then push over it: `--force-with-lease` compares against the refreshed remote, so the lease passes and the commit is gone. `--ff-only` refusing means local and remote have diverged: stop and report it as Step 1 would, without guessing which side wins.
+
+A conflict in a dashboard can still appear mid-rebase when an intermediate commit edited it and a later one reverted it (the PR's net diff is clean, so the gate above let it through). Resolve by taking main's copy (`git checkout --ours -- {path}`, where `--ours` is main during a rebase), `git add` and `git rebase --continue`, once per commit that conflicts. A conflict anywhere else: `git rebase --abort` and stop as Step 1 would, naming the paths. Once the rebase completes, re-render each phase whose dashboard conflicted (`roadmap.py render --phase {name}`) and, if `git status --short` shows a change, commit it as `chore(roadmap): re-render dashboard after rebase`; a render that changes nothing confirms main's copy was already current. Then `git push --force-with-lease --force-if-includes`: the second flag refuses the push unless the remote tip is in the local branch's history, which is the backstop should the fast-forward above ever be skipped. For a `linked` stack layer the rebase is `gh stack sync` from the stack's checkout instead (the worktree rules above apply to that checkout), and its output must be read: it prints `Sync aborted` and still exits 0 when local and remote have diverged.
 
 **Wait, then re-check.** `gh pr checks {number} --watch` until every check finishes, then re-run Step 1's readiness check against the pushed commit. A roadmap failure that survives the rebase means main itself is stale: stop, say so and point at `roadmap:maintain` on main; this step runs once per landing, never in a loop. Any other failure after the rebase is reported as Step 1 reports it.
 
