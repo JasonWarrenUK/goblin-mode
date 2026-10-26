@@ -347,9 +347,11 @@ def strip_runners(words: list[str]) -> tuple[list[str], list[str], bool]:
 
     Returns (words, chdir targets, subprocess). The gate patterns are anchored
     at the first word, so a runner in front of a gated command would hide it.
-    The targets are the directories `env -C dir`, `-Cdir`, `--chdir dir` and
-    `--chdir=dir` run the command in, in order; they belong to this command
-    alone. `subprocess` is true when an `env`, `timeout` or `nohup` was peeled:
+    The targets are the directories `env` runs the command in, read the way
+    getopt reads them: `-C` alone or inside a short cluster (`-C dir`,
+    `-iCdir`) and any unique prefix of `--chdir` (`--chd dir`, `--c=dir`).
+    They are in order and belong to this command alone. `subprocess` is true
+    when an `env`, `timeout` or `nohup` was peeled:
     a `cd` behind one of those runs as a program and moves nothing, whereas
     `command cd` and `time cd` move the shell. `command -v` is a lookup, not a
     run, and stays as it is, as does a runner that leaves nothing behind or
