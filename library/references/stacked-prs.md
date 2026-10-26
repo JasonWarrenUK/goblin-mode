@@ -47,8 +47,8 @@ case.
 
 ## CLI: `gh stack`
 
-Installed with `gh extension install github/gh-stack` (v0.1.0; gh ≥ 2.90 per
-the quickstart). Verified against `gh stack <command> --help`, which wins over
+Installed with `gh extension install github/gh-stack` (gh ≥ 2.90 per the
+quickstart; no extension version is pinned). Verified against `gh stack <command> --help`, which wins over
 any command detail on this page: the extension is pre-1.0 and its flags move.
 GitHub also publishes a `gh-stack` agent skill (`github/gh-stack`, `skills/gh-stack`)
 covering exit codes and recovery; this page records only what a project decides
@@ -102,7 +102,7 @@ merge`. Guessing from the base branch gets this wrong in both directions
 (chirpdb #139 on 2026-10-01, #187 to #189 on 2026-10-21). The third source is
 **local tracking**: the `gh-stack` JSON file listing each stack's trunk,
 branches and PR numbers. Where it lives depends on the extension version.
-v0.1.0 (installed here) joins it onto `git rev-parse --git-dir`, so the main
+v0.1.0 joins it onto `git rev-parse --git-dir`, so the main
 checkout's file is `.git/gh-stack` and a linked worktree has its own at
 `.git/worktrees/<admin name>/gh-stack`: nothing is shared, and a stack checked
 out in a worktree is untracked from every other checkout (chirpdb #200 on
