@@ -1,5 +1,5 @@
 ---
-name: "Roadmap: Assign Devs"
+name: "Assign Devs"
 description: "Interview-led assignment of roadmap tasks to devs: collect the team roster, walk the chosen tasks in batches, write the approved assignee changes to roadmaps.json"
 when_to_use: "When roadmap tasks need owners: a fresh roadmap with nobody assigned, a new dev joining, one dev's load to hand over or a rebalance before a sprint. For setting the assignee on a single task as it is added, roadmap:update-tasks already asks."
 model: sonnet
@@ -27,27 +27,27 @@ Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`. T
 
 Every argument is optional, but they are positional: passing argument N requires arguments 1 to N-1. Defaults are `ready free current:project`.
 
-| # | Argument | Value | Meaning |
-|---|---|---|---|
-| 1 | `$horizon` | `ready` (default) | only tasks that are currently unblocked (effective status `todo`) and unclaimed |
-| 1 | `$horizon` | `open` | every unfinished task: any status except `done` and `out_of_scope` |
-| 2 | `$scope` | `free` (default) | only tasks with no `assignee` |
-| 2 | `$scope` | `taken` | only tasks with an `assignee` |
-| 2 | `$scope` | `all` | every task inside the horizon, assigned or unassigned |
-| 2 | `$scope` | `<dev>` | only tasks assigned to that dev (case-insensitive match) |
-| 3 | `$where` | `<roadmap>[:<filter>]` | which phase, and which slice of it (below) |
-| 4 | `$roadmap` | a path | the `roadmaps.json` to use; recognised by ending in `.json` or containing a `/`, so it never collides with `$where` |
+| #   | Argument   | Value                  | Meaning |
+|-----|------------|------------------------|---------|
+| 1   | `$horizon` | `ready` (default)      | only tasks that are currently unblocked (effective status `todo`) and unclaimed |
+| 1   | `$horizon` | `open`                 | every unfinished task: any status except `done` and `out_of_scope` |
+| 2   | `$scope`   | `free` (default)       | only tasks with no `assignee` |
+| 2   | `$scope`   | `taken`                | only tasks with an `assignee` |
+| 2   | `$scope`   | `all`                  | every task inside the horizon, assigned or unassigned |
+| 2   | `$scope`   | `<dev>`                | only tasks assigned to that dev (case-insensitive match) |
+| 3   | `$where`   | `<roadmap>[:<filter>]` | which phase, and which slice of it (below) |
+| 4   | `$roadmap` | a path                 | the `roadmaps.json` to use; recognised by ending in `.json` or containing a `/`, so it never collides with `$where` |
 
 **`$where`** is `<roadmap>:<filter>`, split on the **last** `:`. When passed, `<roadmap>` is required and `<filter>` is optional.
 
-| Part | Value | Meaning |
-|---|---|---|
+| Part        | Value               | Meaning |
+|-------------|---------------------|---------|
 | `<roadmap>` | `current` (default) | the only active phase, or the one the user picks in Step 1 when several are active |
-| `<roadmap>` | a phase name | that phase, matched case-insensitively against the active phases |
-| `<filter>` | `project` (default) | the whole phase |
-| `<filter>` | `focus` | tasks in the tier now underway (the lowest tier with unfinished work) |
-| `<filter>` | `<tiers>` | comma-separated tier words: `core`, `secondary`, `tertiary`, … (tasks in milestones of those tiers) |
-| `<filter>` | `<milestones>` | comma-separated milestone ids: `M2,M4` |
+| `<roadmap>` | a phase name        | that phase, matched case-insensitively against the active phases |
+| `<filter>`  | `project` (default) | the whole phase |
+| `<filter>`  | `focus`             | tasks in the tier now underway (the lowest tier with unfinished work) |
+| `<filter>`  | `<tiers>`           | comma-separated tier words: `core`, `secondary`, `tertiary`, … (tasks in milestones of those tiers) |
+| `<filter>`  | `<milestones>`      | comma-separated milestone ids: `M2,M4` |
 
 Tiers and milestones are mutually exclusive in one call. `M2,secondary` is a hard stop.
 
@@ -159,17 +159,17 @@ A run with a single batch drops the `Batch 1 of 1 ·` prefix: `## M5: Filtering 
 
 **Reply grammar**
 
-| Reply | Effect |
-|---|---|
-| `1-3 j` | rows 1 to 3 go to the dev whose handle is `j` |
-| `1,4 max` | rows 1 and 4 to Max (full names and handles both work) |
-| `all j` / `rest j` | every row / every row not named in an earlier clause |
-| `2 -` | clear row 2's assignee |
+| Reply                | Effect |
+|----------------------|--------|
+| `1-3 j`              | rows 1 to 3 go to the dev whose handle is `j` |
+| `1,4 max`            | rows 1 and 4 to Max (full names and handles both work) |
+| `all j` / `rest j`   | every row / every row not named in an earlier clause |
+| `2 -`                | clear row 2's assignee |
 | `1-2 j; 3 m; rest -` | several clauses, split by `;` or new lines |
-| `skip` | leave the whole batch as it is |
-| `back` | reopen the previous batch |
-| `done` | stop here and go to the proposal with what has been decided |
-| `+ Priya` | add a dev to the roster mid-run; handles are recomputed and reprinted |
+| `skip`               | leave the whole batch as it is |
+| `back`               | reopen the previous batch |
+| `done`               | stop here and go to the proposal with what has been decided |
+| `+ Priya`            | add a dev to the roster mid-run; handles are recomputed and reprinted |
 
 Rows a reply does not mention stay unchanged. A row named in two clauses, a row number outside the batch or a handle matching no one (or more than one dev): change nothing, quote the offending clause and ask again for that batch only. Never resolve an ambiguous reply by guessing.
 

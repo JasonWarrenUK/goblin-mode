@@ -1,5 +1,5 @@
 ---
-name: "Roadmap: Configure"
+name: "Configure"
 description: "Set or clear a per-phase roadmap option through the CLI, then render the dashboard once so it exists at the new path. The one option is artefact: where the HTML dashboard is written, relative to the project root."
 when_to_use: "When the user wants the roadmap dashboard written somewhere other than the default docs/artefacts/roadmap-{slug}.html (a short checked-in filename, a docs site folder) or wants that override removed. Never for changing the dashboard's look (that is the template) or for a plain render (roadmap:dashboard)."
 model: sonnet

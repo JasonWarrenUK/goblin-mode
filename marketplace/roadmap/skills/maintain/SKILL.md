@@ -1,5 +1,5 @@
 ---
-name: "Roadmap: Maintain"
+name: "Maintain"
 description: "Sync roadmap statuses after work lands: recompute from the dependency graph and refresh every projection, with optional codebase reconciliation"
 when_to_use: "When roadmap task statuses might have drifted from actual progress: after a batch of merges, or periodically to keep the dashboard trustworthy. Pass 'reconcile' (or ask to check the roadmap against the code) to also infer done/unblocked tasks from the actual codebase."
 model: sonnet
@@ -44,7 +44,7 @@ Skip this step entirely on a plain status-sync run. Run it when asked to reconci
    - Never infer a gate as cleared casually: gates are external by design; propose removing a gate dependency only on genuine, specific evidence and only through the gate below.
 7. **Confirmation gate.** Present the proposal before writing anything:
 
-   ```
+   ```text
    Proposed done (codebase evidence):
      {ID}: {description}
          evidence: {file:symbol / route / test}
@@ -108,16 +108,16 @@ Once step 3's recompute has produced the authoritative `{ID}: old -> new` list, 
 
 For each task whose status changed (from the script's output), update its line in the PHASE file. If the file uses status sub-sections, move the task under the matching sub-section (omit any that would be empty); otherwise leave it in place. Update the checkbox and trailing annotation:
 
-| Status                              | Checkbox | Trailing annotation                                        |
-| ----------------------------------- | -------- | ---------------------------------------------------------- |
-| `done`                              | `- [x]`  | none                                                       |
+| Status                              | Checkbox | Trailing annotation |
+|-------------------------------------|----------|---------------------|
+| `done`                              | `- [x]`  | none                |
 | `blocked`                           | `- [ ]`  | `_(blocked: depends on {comma-separated dependsOn IDs})_` |
-| `paused`                            | `- [ ]`  | `_(paused: reconvene {gateId})_`                          |
-| `deferred` (out of this phase)      | `- [ ]`  | `_(deferred to a later phase)_`                            |
+| `paused`                            | `- [ ]`  | `_(paused: reconvene {gateId})_` |
+| `deferred` (out of this phase)      | `- [ ]`  | `_(deferred to a later phase)_` |
 | `deferred` (tier-gated, this phase) | `- [ ]`  | `_(deferred: {gateId}, and every {tier} milestone)_` on the tier's entry task; `_(deferred: follows {ID})_` on each task chained behind it |
-| `todo` with dependencies (all done) | `- [ ]`  | `_(depends on {IDs})_`                                     |
-| `todo` with empty `dependsOn`       | `- [ ]`  | none                                                       |
-| `out_of_scope`                      | `- [ ]`  | left as authored (terminal)                                |
+| `todo` with dependencies (all done) | `- [ ]`  | `_(depends on {IDs})_` |
+| `todo` with empty `dependsOn`       | `- [ ]`  | none                |
+| `out_of_scope`                      | `- [ ]`  | left as authored (terminal) |
 
 Line format: `- [ ] **{ID}**: {description}` + annotation. Indented `- Note:` sub-bullets stay attached to their task and are never moved. Do not reorder tasks: they stay in milestone/category/sequence order.
 

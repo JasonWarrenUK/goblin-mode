@@ -1,5 +1,5 @@
 ---
-name: "Roadmap: Review"
+name: "Review"
 description: "Interview-led review of the roadmap: strategic health (freshness, priorities, milestone integrity) and dependency-graph rationality, in one pass or by lens"
 when_to_use: "Periodically, or when the roadmap feels stale, priorities feel off, tasks feel blocked for no reason or a milestone dragged past its intent. Lenses: 'health' for the strategic pass, 'deps' for the edge audit, default both; the judgement complement to roadmap:maintain's mechanical sync."
 model: fable
