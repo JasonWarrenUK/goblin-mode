@@ -100,8 +100,21 @@ A PR can be **chained** (its base is another open PR's branch) without being
 diffs, the link gives the stack map, the retarget after a merge and `gh stack
 merge`. Guessing from the base branch gets this wrong in both directions
 (chirpdb #139 on 2026-10-01, #187 to #189 on 2026-10-21). The third source is
-**local tracking**: `<git common dir>/gh-stack`, one JSON file shared by every
-worktree of the repo, listing each stack's trunk, branches and PR numbers.
+**local tracking**: the `gh-stack` JSON file listing each stack's trunk,
+branches and PR numbers. Where it lives depends on the extension version.
+v0.1.0 (installed here) joins it onto `git rev-parse --git-dir`, so the main
+checkout's file is `.git/gh-stack` and a linked worktree has its own at
+`.git/worktrees/<admin name>/gh-stack`: nothing is shared, and a stack checked
+out in a worktree is untracked from every other checkout (chirpdb #200 on
+2026-10-26, where the common-dir file held `"stacks": []` while the worktree's
+held the stack). v0.2.0 moved it to `<git common dir>/gh-stack`, one catalogue
+for every worktree, and migrates the per-worktree files on first run, keeping
+each as `gh-stack.pre-worktree-migration`. The script asks `gh stack --version`
+and reads both locations, counting only the one that version reads from the
+current checkout (`gh_stack_version`, `tracking_files` and a per-stack `active`
+in its JSON); the other file's stacks are listed as not read from here. The
+extension is installed once per machine, so every repo on it sees the same
+version; a project's vendored `gh-stack` skill may pin another.
 `sync`, `rebase`, `up`, `down`, `top` and `view` need the current branch in it;
 `link` and `merge` do not.
 
