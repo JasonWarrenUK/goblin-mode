@@ -2701,5 +2701,87 @@ class VersionStamp(unittest.TestCase):
                 self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], self.RUNNING)
 
 
+class CrossTierEdges(unittest.TestCase):
+    """validate flags a dependsOn entry naming a lower-tier task the task
+    already requires through another entry (a milestone, or a task that
+    reaches it): the tier pattern reaches a lower tier by milestone."""
+
+    @staticmethod
+    def _tiered(tertiary_deps, **extra):
+        return phase([
+            {"id": "M1", "name": "Core", "tasks": [task("1A.1", "done")]},
+            {"id": "M10", "name": "Search (Secondary)", "tasks": [
+                task("10SE.3", "todo", ["M1"]),
+                task("10SE.4", "todo", ["M1"]),
+                task("10SE.5", "blocked", ["10SE.3"])]},
+            {"id": "M13", "name": "Search (Tertiary)", "tasks": [
+                task("13SE.1", "blocked", ["M10"]),
+                task("13SE.5", "blocked", tertiary_deps, **extra)]}])
+
+    @staticmethod
+    def _flagged(ph):
+        return [p for p in roadmap._validate_phase(ph) if "sits in" in p]
+
+    def test_lower_tier_task_next_to_its_milestone_is_flagged(self):
+        found = roadmap.redundant_cross_tier_edges(
+            self._tiered(["M10", "10SE.4"]))
+        self.assertEqual(found, [("13SE.5", "10SE.4", "M10", 1, "M10")])
+        problems = self._flagged(self._tiered(["M10", "10SE.4"]))
+        self.assertEqual(len(problems), 1)
+        self.assertIn("13SE.5: dependsOn '10SE.4' sits in M10 (Secondary), "
+                      "already required through M10", problems[0])
+        self.assertIn("name 10SE.4 in notes", problems[0])
+
+    def test_reached_through_a_lower_tier_task_names_that_task(self):
+        found = roadmap.redundant_cross_tier_edges(
+            self._tiered(["10SE.5", "10SE.3"]))
+        self.assertEqual(found, [("13SE.5", "10SE.3", "M10", 1, "10SE.5")])
+
+    def test_uncovered_lower_tier_task_edge_stays_authored(self):
+        self.assertEqual(
+            roadmap.redundant_cross_tier_edges(self._tiered(["10SE.4"])), [])
+
+    def test_milestone_entries_are_never_flagged(self):
+        # ["M1", "M10", "13SE.1"] reaches M10 twice, but that is the tier
+        # pattern itself, as 8RT.10 ["M1", "M6", "8RT.9"] is in CHIRPdb.
+        ph = self._tiered(["M1", "M10", "13SE.1"])
+        self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
+        self.assertEqual(self._flagged(ph), [])
+
+    def test_same_tier_task_edges_are_never_flagged(self):
+        ph = phase([
+            {"id": "M10", "name": "Search (Secondary)", "tasks": [
+                task("10SE.3", "todo"),
+                task("10SE.5", "blocked", ["10SE.3"]),
+                task("10SE.6", "blocked", ["10SE.5", "10SE.3"])]}])
+        self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
+
+    def test_untiered_phase_is_never_checked(self):
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
+            {"id": "M2", "name": "More", "tasks": [
+                task("b", "todo", ["M1", "a"])]}])
+        self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
+
+    def test_soft_member_is_not_reached_through_its_milestone(self):
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [
+                task("a", "done"), task("s", "todo", softMilestone=True)]},
+            {"id": "M2", "name": "More (Secondary)", "tasks": [
+                task("b", "todo", ["M1", "s"])]}])
+        self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
+
+    def test_validate_cli_reports_the_edge(self):
+        with tempfile.TemporaryDirectory() as td:
+            jp = Path(td) / ".claude" / "roadmaps.json"
+            jp.parent.mkdir()
+            jp.write_text(json.dumps([self._tiered(["M10", "10SE.4"])]))
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = roadmap.main(["validate", str(jp)])
+            self.assertEqual(rc, 1)
+            self.assertIn("13SE.5: dependsOn '10SE.4' sits in M10", buf.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
