@@ -371,22 +371,36 @@ def strip_runners(words: list[str]) -> tuple[list[str], list[str], bool]:
             give_up = False
             while index < len(rest):
                 word = rest[index]
-                if word.startswith("-S") or word.startswith("--split-string"):
-                    give_up = True
-                    break
-                if word in {"-C", "--chdir"}:
-                    if index + 1 < len(rest):
-                        found.append(rest[index + 1])
-                    index += 2
-                elif word.startswith("--chdir="):
-                    found.append(word[len("--chdir="):])
+                if word.startswith("--"):
+                    name, equals, value = word[2:].partition("=")
+                    matches = [option for option in ("ignore-environment", "null", "unset", "chdir", "split-string", "block-signal", "default-signal", "ignore-signal", "list-signal-handling", "debug", "help", "version") if name and option.startswith(name)]
+                    option = matches[0] if len(matches) == 1 else name
+                    if option == "split-string":
+                        give_up = True
+                        break
+                    if option in {"chdir", "unset"} and not equals:
+                        value = rest[index + 1] if index + 1 < len(rest) else ""
+                        index += 1
+                    if option == "chdir":
+                        found.append(value)
                     index += 1
-                elif word.startswith("-C") and not word.startswith("--"):
-                    found.append(word[2:])
+                elif word.startswith("-") and word != "-":
+                    for position, letter in enumerate(word[1:], start=1):
+                        if letter == "S":
+                            give_up = True
+                            break
+                        if letter in "CuP":
+                            value = word[position + 1:]
+                            if not value:
+                                value = rest[index + 1] if index + 1 < len(rest) else ""
+                                index += 1
+                            if letter == "C":
+                                found.append(value)
+                            break
+                    if give_up:
+                        break
                     index += 1
-                elif word in {"-u", "--unset"}:
-                    index += 2
-                elif word.startswith("-") or ASSIGNMENT.match(word):
+                elif word == "-" or ASSIGNMENT.match(word):
                     index += 1
                 else:
                     break
@@ -394,7 +408,18 @@ def strip_runners(words: list[str]) -> tuple[list[str], list[str], bool]:
                 break
         elif runner == "timeout":
             while index < len(rest) and rest[index].startswith("-"):
-                index += 2 if rest[index] in {"-s", "-k", "--signal", "--kill-after"} else 1
+                word = rest[index]
+                index += 1
+                if word.startswith("--"):
+                    if len(word) > 2 and "=" not in word and ("--signal".startswith(word) or "--kill-after".startswith(word)):
+                        index += 1
+                else:
+                    # a short cluster: the first `s` or `k` takes the rest of the word, or the next word
+                    for position, letter in enumerate(word[1:], start=1):
+                        if letter in "sk":
+                            if position == len(word) - 1:
+                                index += 1
+                            break
             index += 1  # the duration
         elif runner == "command":
             lookup = False

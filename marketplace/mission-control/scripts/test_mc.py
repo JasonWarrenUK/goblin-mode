@@ -154,6 +154,16 @@ class GateMatching(unittest.TestCase):
             "nohup -- poe db-reset-local-anyway",
             "env -C /tmp poe db-reset-local-anyway",
             "env --chdir=/tmp poe db-reset-local-anyway",
+            "timeout -vs KILL 60 poe db-reset-local-anyway",
+            "timeout --sig KILL 60 poe db-reset-local-anyway",
+            "timeout --k 5 60 poe db-reset-local-anyway",
+            "timeout -k5s 60 poe db-reset-local-anyway",
+            "timeout -vk5s 60 poe db-reset-local-anyway",
+            "timeout -sTERM -k10s 60 poe db-reset-local-anyway",
+            "env -iC /x poe db-reset-local-anyway",
+            "env --chd /x poe db-reset-local-anyway",
+            "env -iu FOO poe db-reset-local-anyway",
+            "env -P /usr/bin poe db-reset-local-anyway",
         ]:
             self.assertEqual([h["resource"] for h in self.mc.gated(self.config, command)], ["local-db"], command)
 
@@ -388,6 +398,10 @@ class Hooks(unittest.TestCase):
             (f"env -C{repo} {gated}", worktree),
             (f"env --chdir {repo} {gated}", worktree),
             (f"env --chdir={repo} {gated}", worktree),
+            (f"env -iC{repo} {gated}", worktree),
+            (f"env -0C{repo} {gated}", worktree),
+            (f"env --c={repo} {gated}", worktree),
+            (f"env --chd {repo} {gated}", worktree),
             (f"env -C {repo} sh -c '{gated}'", worktree),
             (f"env -C {worktree} {gated} && {gated}", repo),
             (f"command cd {repo} && {gated}", worktree),
@@ -402,7 +416,7 @@ class Hooks(unittest.TestCase):
     def test_runner_chdir_inside_the_worktree_stays_covered(self):
         self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
         gated = "poetry run poe db-reset-local-anyway"
-        for command in [f"env -C {self.box.worktree} {gated}", f"env -C apps/api {gated}", f"env --chdir=apps/api {gated}"]:
+        for command in [f"env -C {self.box.worktree} {gated}", f"env -C apps/api {gated}", f"env --chdir=apps/api {gated}", f"env -iC{self.box.worktree} {gated}", f"env -i -C apps/api {gated}", f"env --chd=apps/api {gated}"]:
             checked = json.loads(self.box.mc("check", "--command", command, session="crew-1", cwd=self.box.worktree).stdout)
             self.assertTrue(checked["covered"], command)
 
