@@ -519,9 +519,13 @@ a lower-tier task edge the task already requires through another entry
 entry that covers it. Two shapes it leaves alone: a milestone entry the
 task also reaches through a sibling (`["M1", "M6", "8RT.9"]` is the pattern
 itself, even though 8RT.9 carries M1 and M6 too), and a lower-tier task
-edge nothing else covers, which may be a deliberate fast-track. A task that
-is meant to escape its tier (wanted soon, so it waits on no lower-tier
-milestone) carries no gate at all and says so in `notes`.
+edge nothing else covers, which may be a deliberate fast-track. An
+uncovered prerequisite has two homes, and the task edge is neither: a task
+that keeps its tier adds the prerequisite's milestone to its copied gate
+(`["M7", "M8", "M9"]` where the siblings carry `["M7", "M8"]`) and notes
+`Extends {ID}` as usual; a task that is meant to escape its tier (wanted
+soon, so it waits on no lower-tier milestone) carries no gate at all and
+says so in `notes`.
 
 **Naming.** The artefact reads a milestone's tier from a suffix on its
 `name`, case-insensitive, trailing: `(Secondary)`, `(Tertiary)`,
