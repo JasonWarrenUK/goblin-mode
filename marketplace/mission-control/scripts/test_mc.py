@@ -145,12 +145,35 @@ class GateMatching(unittest.TestCase):
             "command poe db-reset-local-anyway",
             "timeout 60 sh -c 'poe db-reset-local-anyway'",
             "nohup timeout 60 env FOO=1 poe db-reset-local-anyway",
+            "command poe db-reset-local-anyway -v",
+            "env poe db-reset-local-anyway -S",
+            "timeout --signal KILL 60 poe db-reset-local-anyway",
+            "timeout --kill-after 5 60 poe db-reset-local-anyway",
+            "timeout --signal=KILL 60 poe db-reset-local-anyway",
+            "env - poe db-reset-local-anyway",
+            "nohup -- poe db-reset-local-anyway",
+            "env -C /tmp poe db-reset-local-anyway",
+            "env --chdir=/tmp poe db-reset-local-anyway",
         ]:
             self.assertEqual([h["resource"] for h in self.mc.gated(self.config, command)], ["local-db"], command)
 
     def test_runner_prefixes_on_harmless_commands_stay_ungated(self):
-        for command in ["command -v poe", "env", "timeout 60 echo poe serve-local", "env FOO=1 poe lint"]:
+        for command in ["command -v poe", "command -V poe", "env", "timeout 60 echo poe serve-local", "env FOO=1 poe lint", "env -S 'poe db-reset-local-anyway'"]:
             self.assertEqual(self.mc.gated(self.config, command), [], command)
+
+    def test_env_chdir_is_read_as_the_directory_of_its_own_command(self):
+        for command in ["env -C /w poe serve-local", "env -C/w poe serve-local", "env --chdir /w poe serve-local", "env --chdir=/w poe serve-local"]:
+            self.assertEqual([h["cd"] for h in self.mc.gated(self.config, command)], ["/w"], command)
+        self.assertEqual(self.mc.gated(self.config, "cd a && env -C b poe serve-local")[0]["cd"], "a/b")
+        # the chdir does not leak onto the command after it
+        self.assertEqual([h["cd"] for h in self.mc.gated(self.config, "env -C /w poe serve-local && poe serve-local")], ["/w", None])
+        self.assertEqual(self.mc.gated(self.config, "env -C /w sh -c 'poe serve-local'")[0]["cd"], "/w")
+
+    def test_cd_behind_a_program_runner_moves_nothing(self):
+        for command in ["cd /r && env cd w && poe serve-local", "cd /r && nohup cd w && poe serve-local", "cd /r && timeout 5 cd w && poe serve-local"]:
+            self.assertEqual(self.mc.gated(self.config, command)[0]["cd"], "/r", command)
+        for command in ["cd /r && command cd w && poe serve-local", "cd /r && time cd w && poe serve-local"]:
+            self.assertEqual(self.mc.gated(self.config, command)[0]["cd"], "/r/w", command)
 
     def test_shell_c_inner_cd_composes_and_does_not_leak(self):
         hits = self.mc.gated(self.config, "cd sub && sh -c 'cd apps/api && poetry run poe db-reset-local-anyway'")
@@ -354,6 +377,38 @@ class Hooks(unittest.TestCase):
         verdict = self.decision("poetry run poe db-reset-local-anyway", cwd=self.box.repo)
         self.assertEqual(verdict["permissionDecision"], "deny")
         self.assertIn("this command would run in", verdict["permissionDecisionReason"])
+
+    def test_held_slot_moved_out_of_the_worktree_by_a_runner_is_denied(self):
+        self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+        gated = "poetry run poe db-reset-local-anyway"
+        repo, worktree = self.box.repo, self.box.worktree
+        relative = worktree.relative_to(repo)
+        cases = [
+            (f"env -C {repo} {gated}", worktree),
+            (f"env -C{repo} {gated}", worktree),
+            (f"env --chdir {repo} {gated}", worktree),
+            (f"env --chdir={repo} {gated}", worktree),
+            (f"env -C {repo} sh -c '{gated}'", worktree),
+            (f"env -C {worktree} {gated} && {gated}", repo),
+            (f"command cd {repo} && {gated}", worktree),
+            (f"cd {repo} && env cd {relative} && {gated}", worktree),
+            (f"cd {repo} && nohup cd {relative} && {gated}", worktree),
+        ]
+        for command, cwd in cases:
+            checked = json.loads(self.box.mc("check", "--command", command, session="crew-1", cwd=cwd).stdout)
+            self.assertEqual(checked["decision"], "deny", command)
+            self.assertFalse(checked["covered"], command)
+
+    def test_runner_chdir_inside_the_worktree_stays_covered(self):
+        self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+        gated = "poetry run poe db-reset-local-anyway"
+        for command in [f"env -C {self.box.worktree} {gated}", f"env -C apps/api {gated}", f"env --chdir=apps/api {gated}"]:
+            checked = json.loads(self.box.mc("check", "--command", command, session="crew-1", cwd=self.box.worktree).stdout)
+            self.assertTrue(checked["covered"], command)
+
+    def test_runner_chdir_without_a_slot_is_denied(self):
+        for command in ["env -C /elsewhere poetry run poe db-reset-local-anyway", "env --chdir=/elsewhere poetry run poe db-reset-local-anyway"]:
+            self.assertEqual(self.decision(command)["permissionDecision"], "deny", command)
 
     def test_check_reports_coverage_for_the_mod(self):
         before = json.loads(self.box.mc("check", "--command", "cd apps/api && poetry run poe db-reset-local-anyway", session="crew-1", cwd=self.box.worktree).stdout)

@@ -342,13 +342,22 @@ def shell_script(words: list[str]) -> str | None:
     return None
 
 
-def strip_runners(words: list[str]) -> list[str]:
+def strip_runners(words: list[str]) -> tuple[list[str], list[str], bool]:
     """Peel `env`, `timeout`, `nohup`, `time` and `command` off the front of a simple command.
 
-    The gate patterns are anchored at the first word, so a runner in front of a
-    gated command would hide it. `command -v` is a lookup, not a run, and stays
-    as it is, as does a runner that leaves nothing behind or carries `env -S`.
+    Returns (words, chdir targets, subprocess). The gate patterns are anchored
+    at the first word, so a runner in front of a gated command would hide it.
+    The targets are the directories `env -C dir`, `-Cdir`, `--chdir dir` and
+    `--chdir=dir` run the command in, in order; they belong to this command
+    alone. `subprocess` is true when an `env`, `timeout` or `nohup` was peeled:
+    a `cd` behind one of those runs as a program and moves nothing, whereas
+    `command cd` and `time cd` move the shell. `command -v` is a lookup, not a
+    run, and stays as it is, as does a runner that leaves nothing behind or
+    carries `env -S`. Only the leading run of options is read, so a flag meant
+    for the inner command never stops the strip.
     """
+    chdirs: list[str] = []
+    subprocess = False
     for _ in range(SHELL_DEPTH * 2):
         if not words:
             break
@@ -357,33 +366,54 @@ def strip_runners(words: list[str]) -> list[str]:
             break
         rest = words[1:]
         index = 0
+        found: list[str] = []
         if runner == "env":
-            if "-S" in rest or any(word.startswith("--split-string") for word in rest):
-                break
+            give_up = False
             while index < len(rest):
                 word = rest[index]
-                if word in {"-u", "-C", "--unset", "--chdir"}:
+                if word.startswith("-S") or word.startswith("--split-string"):
+                    give_up = True
+                    break
+                if word in {"-C", "--chdir"}:
+                    if index + 1 < len(rest):
+                        found.append(rest[index + 1])
                     index += 2
-                elif word.startswith("-") and word != "-" or ASSIGNMENT.match(word):
+                elif word.startswith("--chdir="):
+                    found.append(word[len("--chdir="):])
+                    index += 1
+                elif word.startswith("-C") and not word.startswith("--"):
+                    found.append(word[2:])
+                    index += 1
+                elif word in {"-u", "--unset"}:
+                    index += 2
+                elif word.startswith("-") or ASSIGNMENT.match(word):
                     index += 1
                 else:
                     break
+            if give_up:
+                break
         elif runner == "timeout":
             while index < len(rest) and rest[index].startswith("-"):
-                index += 2 if rest[index] in {"-s", "-k"} else 1
+                index += 2 if rest[index] in {"-s", "-k", "--signal", "--kill-after"} else 1
             index += 1  # the duration
         elif runner == "command":
-            if any(word in {"-v", "-V"} for word in rest):
-                break
-            while index < len(rest) and rest[index] in {"-p", "--"}:
+            lookup = False
+            while index < len(rest) and rest[index] in {"-p", "-v", "-V", "--"}:
+                if rest[index] in {"-v", "-V"}:
+                    lookup = True
+                    break
                 index += 1
-        elif runner == "time":
+            if lookup:
+                break
+        elif runner in {"time", "nohup"}:
             while index < len(rest) and rest[index] in {"-p", "--"}:
                 index += 1
         if index >= len(rest):
             break
         words = rest[index:]
-    return words
+        chdirs.extend(found)
+        subprocess = subprocess or runner in {"env", "timeout", "nohup"}
+    return words, chdirs, subprocess
 
 
 def join_cd(previous: str | None, target: str) -> str:
@@ -451,19 +481,24 @@ def simple_commands(command: str, cd_target: str | None = None, depth: int = 0) 
     for seg in segments:
         while seg and ASSIGNMENT.match(seg[0]):
             seg = seg[1:]
-        seg = strip_runners(seg)
+        seg, chdirs, subprocess = strip_runners(seg)
         while seg and ASSIGNMENT.match(seg[0]):
             seg = seg[1:]
         if not seg:
             continue
         if seg[0] == "cd":
-            cd_target = join_cd(cd_target, seg[1] if len(seg) > 1 else "~")
+            if not subprocess:
+                cd_target = join_cd(cd_target, seg[1] if len(seg) > 1 else "~")
             continue
+        # `env -C dir` moves this command (and any script it runs) and nothing after it
+        run_target = cd_target
+        for target in chdirs:
+            run_target = join_cd(run_target, target)
         script = shell_script(seg) if depth < SHELL_DEPTH else None
         if script is not None:
-            out.extend(simple_commands(script, cd_target, depth + 1))
+            out.extend(simple_commands(script, run_target, depth + 1))
             continue
-        out.append((seg, cd_target))
+        out.append((seg, run_target))
     return out
 
 
