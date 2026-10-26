@@ -505,7 +505,7 @@ picks one and keeps to it:
   milestones that matter (`["M1", "M6"]` on a secondary task whose project
   gates on identity and hardening alone). The siblings are the template: a
   new task copies the list its milestone's existing tasks carry, and the
-  first task in a new milestone copies the tier's other milestones.
+  first task in a new milestone copies the gate its tier's other milestones carry.
 
 **A tier reaches a lower tier by milestone, never by task.** A task in tier
 N lists the gate above plus tasks of its own tier in `dependsOn`, and
