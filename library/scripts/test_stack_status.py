@@ -350,6 +350,7 @@ class StackStatus(unittest.TestCase):
 		table = self.run_script(cwd=tree).stdout
 		self.assertIn("one catalogue for every worktree", table)
 		self.assertIn("migrates it", table)
+		self.assertIn("stops with an error", table)
 		self.assertIn("`gh stack checkout 11`", table)
 
 	def test_a_stack_in_both_files_reports_the_active_copys_file(self) -> None:

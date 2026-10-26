@@ -390,7 +390,7 @@ def print_table(result: dict) -> None:
 		if not stack["active"]:
 			notes.append("in `%s`, not read by gh stack from this worktree" % stack["file"])
 			if version_tuple(result["gh_stack_version"]) >= SHARED_CATALOGUE_SINCE:
-				notes.append("a pre-0.2.0 leftover: the next `gh stack` command migrates it")
+				notes.append("a pre-0.2.0 leftover: the next `gh stack` command migrates it, or stops with an error if another file defines its stack differently or a rebase or modify is unfinished")
 		if stack["stale"]:
 			notes.append("stale: every PR has merged")
 		if stack["missing_branches"]:
