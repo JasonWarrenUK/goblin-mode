@@ -33,9 +33,10 @@ const STATUS = {
 }
 
 /** The world beneath the plugin: a clock, panes, a session and a python that answers the CLI. */
-const world = (on: On, sessionId: string, status: unknown = STATUS) => {
+const world = (on: On, sessionId: string, status: unknown = STATUS, failing?: { verb: string; exitCode: number; stdout: string; stderr: string }) => {
 	const panes = { open: [] as string[] }
 	const calls: string[][] = []
+	const sent: { to: unknown; text: string }[] = []
 	on('ui.panes', async () => ({ value: panes.open.map(id => ({ id, title: id, isShown: true, isFocused: true, isPlaced: true })) }))
 	on('ui.open', async ($, e) => {
 		if (!panes.open.includes(e.id)) panes.open.push(e.id)
@@ -50,12 +51,16 @@ const world = (on: On, sessionId: string, status: unknown = STATUS) => {
 	on('session.start', async ($, e) => ({ cwd: e.cwd }))
 	on('session.id', async () => ({ value: sessionId }))
 	on('session.cwd', async () => ({ value: '/code/app' }))
-	on('session.send', async () => ({ isDelivered: true }))
+	on('session.send', async (_$, e) => {
+		sent.push({ to: e.to, text: e.text })
+		return { isDelivered: true }
+	})
 	on('prompt.compose', async () => ({ sections: [{ id: 'intro', text: 'engine', scope: 'shared' }] }))
 	on('process.run', async ($, e) => {
 		calls.push([...e.argv])
 		const args = e.argv.slice(2)
 		const sub = args.find(a => !a.startsWith('--') && a !== sessionId && a !== '/code/app') ?? ''
+		if (failing && sub === failing.verb) return { value: { exitCode: failing.exitCode, stdout: failing.stdout, stderr: failing.stderr, isStdoutTruncated: false, isStderrTruncated: false } }
 		let stdout = ''
 		if (sub === 'status') stdout = JSON.stringify(status)
 		else if (sub === 'check') stdout = JSON.stringify({ covered: args.join(' ').includes('db-reset'), decision: null, resources: ['local-db'] })
@@ -63,7 +68,7 @@ const world = (on: On, sessionId: string, status: unknown = STATUS) => {
 		else stdout = `${sub} ok\n`
 		return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
 	})
-	return { panes, calls }
+	return { panes, calls, sent }
 }
 
 const RUN = { origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } } as const
@@ -154,6 +159,36 @@ test('/mc toggles the pane and /mc grant acts as the person', async ($, on) => {
 	expect(grant).toBeTruthy()
 	expect(grant).toContain('--by-user')
 	expect(grant).toContain('crew-1')
+})
+
+test('/mc grant tells the session only when the CLI granted', async ($, on) => {
+	const { sent } = world(on, 'coord-1')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: 'grant api-port 10SE.2 10' })
+	expect(sent.length).toBe(1)
+	expect(sent[0]?.text).toMatch(/^Slot granted by the user: api-port is yours for 10 minutes/)
+})
+
+for (const refusal of [
+	{ name: 'an unknown resource', args: 'grant lcoal-db 10SE.2', exitCode: 1, stdout: '✗ no resource named lcoal-db; configured: local-db, api-port\n', stderr: '' },
+	{ name: 'a minutes value argparse rejects', args: 'grant local-db 10SE.2 ten', exitCode: 2, stdout: '', stderr: "usage: mc.py grant [-h] --to TO\nmc.py grant: error: argument --minutes: invalid float value: 'ten'\n" },
+]) {
+	test(`/mc grant sends nothing after ${refusal.name}`, async ($, on) => {
+		const { sent } = world(on, 'coord-1', STATUS, { verb: 'grant', exitCode: refusal.exitCode, stdout: refusal.stdout, stderr: refusal.stderr })
+		await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+		const answered = await $.command.run({ ...RUN, command: 'mc', args: refusal.args })
+		expect(sent).toEqual([])
+		expect(answered.text).not.toBe('')
+	})
+}
+
+test('/mc grant tells the session whose slot was taken', async ($, on) => {
+	const twoCrew = { ...STATUS, sessions: [...STATUS.sessions, { ...STATUS.sessions[0], session_id: 'crew-2', name: '10se3', task: '10SE.3', branch: 'feat/b' }] }
+	const { sent } = world(on, 'coord-1', twoCrew)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: 'grant local-db 10SE.3 10' })
+	expect(sent.map(s => s.to)).toEqual(['crew-2', 'crew-1'])
+	expect(sent[1]?.text).toMatch(/^Slot taken: the user gave local-db to another session/)
 })
 
 test('a crew session holding the slot turns a project ask into allow; a deny stands', async ($, on) => {

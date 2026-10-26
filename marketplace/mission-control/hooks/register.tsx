@@ -315,6 +315,13 @@ const send = async ($: EngineInterface, sessionId: string, text: string): Promis
 	}
 }
 
+/** A forced grant takes a held slot: the session that held it hears so, since its next gated command would otherwise just be refused. */
+const tellDisplaced = async ($: EngineInterface, snap: Snapshot, resource: string, granteeId: string): Promise<void> => {
+	const held = snap.slots.find(s => s.resource === resource)
+	if (!held || !held.holder || held.holder === granteeId) return
+	await send($, held.holder, `Slot taken: the user gave ${resource} to another session. Stop anything that touches it and report with mc_report.`)
+}
+
 /** How the SendMessage tool names a session: its registry name, else its task, else its id. */
 const addressOf = (snap: Snapshot, sessionId: string): string => {
 	if (snap.run && sessionId === snap.run.coordinator.session_id) return snap.run.coordinator.name || sessionId
@@ -785,12 +792,14 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 	const words = args.trim().split(/\s+/).filter(Boolean)
 	const verb = (words[0] ?? '').toLowerCase()
 	const me = await read($, self)
-	const byUser = async (cliArgs: readonly string[]): Promise<string> => {
+	const byUserRan = async (cliArgs: readonly string[]): Promise<{ ok: boolean; text: string }> => {
 		const ran = await run($, ['--session', me.sessionId, ...cliArgs, '--by-user'])
 		await refresh($, me.isCoordinator)
 		$.ui.invalidate('prompt.section')
-		return ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, `${verb} refused`)
+		// ok is the CLI's exit status: a refusal's text carries no marker to test for, because reasonOf strips the ✗
+		return { ok: ran.exitCode === 0, text: ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, `${verb} refused`) }
 	}
+	const byUser = async (cliArgs: readonly string[]): Promise<string> => (await byUserRan(cliArgs)).text
 	switch (verb) {
 		case 'start': {
 			const name = words.slice(1).join(' ')
@@ -807,9 +816,12 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 			const snap = (await read($, snapshot)) ?? (await refresh($))
 			const target = resolveSession(snap, words[2])
 			if (typeof target === 'string') return target
-			const result = await byUser(['grant', words[1], '--to', target.sessionId, ...(words[3] ? ['--minutes', words[3]] : []), '--force'])
-			if (snap.run && !/refused|✗/.test(result)) await send($, target.sessionId, `Slot granted by the user: ${words[1]} is yours${words[3] ? ` for ${words[3]} minutes` : ''}. Run only from your worktree; release with mc_slot (action release) when done, with results.`)
-			return result
+			const result = await byUserRan(['grant', words[1], '--to', target.sessionId, ...(words[3] ? ['--minutes', words[3]] : []), '--force'])
+			if (snap.run && result.ok) {
+				await send($, target.sessionId, `Slot granted by the user: ${words[1]} is yours${words[3] ? ` for ${words[3]} minutes` : ''}. Run only from your worktree; release with mc_slot (action release) when done, with results.`)
+				await tellDisplaced($, snap, words[1], target.sessionId)
+			}
+			return result.text
 		}
 		case 'release':
 		case 'revoke':
@@ -1004,7 +1016,10 @@ export const register: Register = (on, options) => {
 								const minutes = value.trim() || ask.ref
 								const ran = await run($, ['--session', me.sessionId, 'grant', ask.resource, '--to', ask.sessionId, '--minutes', minutes, '--force', '--by-user'])
 								$.ui.toast(ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, 'grant refused'))
-								if (ran.exitCode === 0) await send($, ask.sessionId, `Slot granted by the user: ${ask.resource} is yours for ${minutes} minutes. Run only from your worktree; release with mc_slot (action release) when done, with results.`)
+								if (ran.exitCode === 0) {
+										await send($, ask.sessionId, `Slot granted by the user: ${ask.resource} is yours for ${minutes} minutes. Run only from your worktree; release with mc_slot (action release) when done, with results.`)
+										await tellDisplaced($, snap, ask.resource, ask.sessionId)
+									}
 								await update($, asking, () => null)
 								await update($, selected, () => null)
 								await refresh($, me.isCoordinator)
