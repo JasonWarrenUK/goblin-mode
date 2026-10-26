@@ -525,7 +525,11 @@ that keeps its tier adds the prerequisite's milestone to its copied gate
 (`["M7", "M8", "M9"]` where the siblings carry `["M7", "M8"]`) and notes
 `Extends {ID}` as usual; a task that is meant to escape its tier (wanted
 soon, so it waits on no lower-tier milestone) carries no gate at all and
-says so in `notes`.
+says so in `notes`. A `softMilestone` member is the one lower-tier task
+its milestone never covers: a soft member does not gate milestone
+completion (see Soft milestone members above), so neither `M10` in the
+gate nor M10 added to it reaches a soft `10SE.7`. That task edge stays in
+`dependsOn` next to the gate, and `validate` leaves it alone.
 
 **Naming.** The artefact reads a milestone's tier from a suffix on its
 `name`, case-insensitive, trailing: `(Secondary)`, `(Tertiary)`,
