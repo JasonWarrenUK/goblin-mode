@@ -1017,9 +1017,9 @@ export const register: Register = (on, options) => {
 								const ran = await run($, ['--session', me.sessionId, 'grant', ask.resource, '--to', ask.sessionId, '--minutes', minutes, '--force', '--by-user'])
 								$.ui.toast(ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, 'grant refused'))
 								if (ran.exitCode === 0) {
-										await send($, ask.sessionId, `Slot granted by the user: ${ask.resource} is yours for ${minutes} minutes. Run only from your worktree; release with mc_slot (action release) when done, with results.`)
-										await tellDisplaced($, snap, ask.resource, ask.sessionId)
-									}
+									await send($, ask.sessionId, `Slot granted by the user: ${ask.resource} is yours for ${minutes} minutes. Run only from your worktree; release with mc_slot (action release) when done, with results.`)
+									await tellDisplaced($, snap, ask.resource, ask.sessionId)
+								}
 								await update($, asking, () => null)
 								await update($, selected, () => null)
 								await refresh($, me.isCoordinator)
