@@ -11,7 +11,7 @@ All notable changes to this project are documented here, newest first.
 
 ### Changed
 
-- `roadmap:update-tasks` reads the target milestone's tier in Step 2 and applies the tier gate in Step 4: the lower-tier milestones its siblings carry, copied as given, with any covered lower-tier prerequisite recorded as `Extends {ID}` in `notes` rather than wired. The proposal shows the gate and the sibling it came from. `roadmap:create-interview` carries the same line in its proposal.
+- `roadmap:update-tasks` reads the target milestone's tier in Step 2 and applies the tier gate in Step 4: the lower-tier milestones its siblings carry, copied as given, with any covered lower-tier prerequisite recorded as `Extends {ID}` in `notes` rather than wired. An uncovered prerequisite adds its milestone to the gate unless the user confirms the task escapes its tier. A `softMilestone` member is never covered by its milestone, so it keeps its task edge. The proposal shows the gate and the sibling it came from, and flags a gate that differs from its siblings'. `roadmap:create-interview` carries the same line in its proposal.
 - The conventions' Tiers section documents the milestone-list shape (every task carries the lower-tier milestones directly, no release gate or entry task) alongside the entry-task shape, and states the by-milestone rule outright.
 
 ## [2.8.0] - 2026-10-22
