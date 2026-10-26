@@ -34,6 +34,6 @@ One file per repository, committed, found by walking up from the session's direc
 
 ## What the hooks do with it
 
-- `PreToolUse` on Bash (`mc.py hook pre-tool-use`): no run, nothing. A gated command without the slot: `deny`, naming the holder and the request path, and the attempt is recorded as a request. The holder, outside its worktree: `deny`. The holder, inside: context only. A human gate: context only. `--by-user` on a command line: `deny`.
+- `PreToolUse` on Bash (`mc.py hook pre-tool-use`): no run, nothing. A gated command without the slot: `deny`, naming the holder and the request path, and the attempt is recorded as a request. The holder, outside its worktree: `deny`. The holder, inside: context only. A human gate: context only. `--by-user`, `--session` or `CLAUDE_CODE_SESSION_ID=` on an `mc.py` command line: `deny`. A gated command inside `sh -c` is read like a bare one.
 - `SessionStart` (`mc.py hook session-start`): a session starting inside a planned worktree is told its task, the coordinator's name and socket, where its brief is and which skill to invoke. The coordinator session is told it coordinates.
 - The mod's `tool.check` on Bash: only loosens `ask` to `allow`, only when `mc.py check` says every gated resource the line touches is held by this session, runs in its worktree and is `approve_in_slot`.

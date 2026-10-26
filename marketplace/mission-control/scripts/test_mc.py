@@ -114,6 +114,32 @@ class GateMatching(unittest.TestCase):
         self.assertEqual(self.mc.runs_in("/w", None), "/w")
         self.assertIsNone(self.mc.runs_in("/w", "$DIR"))
 
+    def test_shell_c_wrappers_are_unwrapped(self):
+        for command in [
+            "sh -c 'poetry run poe db-reset-local-anyway'",
+            'bash -c "poetry run poe db-reset-local-anyway"',
+            "zsh -c 'poetry run poe db-reset-local-anyway'",
+            "bash -lc 'poetry run poe db-reset-local-anyway'",
+            "sh -c \"sh -c 'poe db-reset-local-anyway'\"",
+        ]:
+            self.assertEqual([h["resource"] for h in self.mc.gated(self.config, command)], ["local-db"], command)
+
+    def test_shell_c_inner_cd_composes_and_does_not_leak(self):
+        hits = self.mc.gated(self.config, "cd sub && sh -c 'cd apps/api && poetry run poe db-reset-local-anyway'")
+        self.assertEqual(hits[0]["cd"], "sub/apps/api")
+        hits = self.mc.gated(self.config, "sh -c 'cd x && poe serve-local'; poe serve-local")
+        self.assertEqual([h["cd"] for h in hits], ["x", None])
+        self.assertEqual(self.mc.gated(self.config, "cd a && cd b && poe serve-local")[0]["cd"], "a/b")
+
+    def test_shell_c_text_is_not_a_command(self):
+        for command in ["bash -c 'echo poe serve-local'", "bash script.sh", "bash -c", "bash -c 'poetry run poe lint'"]:
+            self.assertEqual(self.mc.gated(self.config, command), [], command)
+
+    def test_opaque_lines(self):
+        for command in ['poe serve-local "$(git push)"', "poe serve-local `git push`", "poe serve-local && git push 'x"]:
+            self.assertTrue(self.mc.opaque(command), command)
+        self.assertFalse(self.mc.opaque("cd apps/api && poe serve-local > out.log 2>&1"))
+
 
 class LedgerFlow(unittest.TestCase):
     def setUp(self):
@@ -216,6 +242,34 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(forced["holder"], "crew-2")
         self.assertTrue(forced["forced"])
         self.assertEqual(forced["by"], "user")
+        states = {s["task"]: s["state"] for s in json.loads(self.box.mc("--json", "status").stdout)["sessions"]}
+        self.assertEqual(states, {"A": "working", "B": "in-slot"})
+
+    def test_flag_abbreviations_are_refused(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        refused = self.box.mc("grant", "local-db", "--to", "A", "--by", session="crew-1", cwd=self.box.worktree, expect=2)
+        self.assertIn("unrecognized arguments", refused.stderr)
+        self.box.mc("--sess", "coord-1", "grant", "local-db", "--to", "A", session="crew-1", cwd=self.box.worktree, expect=2)
+        self.assertEqual(json.loads(self.box.mc("--json", "status").stdout)["slots"], [])
+
+    def test_concurrent_needs_and_assumptions_all_survive(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        env = {**self.box.env, "CLAUDE_CODE_SESSION_ID": "crew-1"}
+        procs = [
+            subprocess.Popen([sys.executable, "-I", str(CLI), "--cwd", str(self.box.worktree), "needs", "add", "--why", f"need {i}"],
+                             env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for i in range(8)
+        ]
+        procs.append(subprocess.Popen([sys.executable, "-I", str(CLI), "--cwd", str(self.box.repo), "assume", "set", "--text", "shared"],
+                                      env={**self.box.env, "CLAUDE_CODE_SESSION_ID": "coord-1"}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+        for proc in procs:
+            out, err = proc.communicate()
+            self.assertEqual(proc.returncode, 0, out + err)
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertEqual(sorted(n["n"] for n in status["needs"]), list(range(1, 9)))
+        self.assertEqual(len(status["assumptions"]), 1)
 
     def test_needs_and_assumptions(self):
         self.box.start()
@@ -295,6 +349,60 @@ class Hooks(unittest.TestCase):
     def test_by_user_on_a_command_line_is_denied(self):
         verdict = self.decision("python3 mc.py grant local-db --to me --by-user")
         self.assertEqual(verdict["permissionDecision"], "deny")
+
+    def test_identity_overrides_on_an_mc_line_are_denied(self):
+        for command in [
+            "python3 mc.py grant local-db --to me --by",
+            "python3 mc.py grant local-db --to me '--by-user'",
+            'python3 mc.py grant local-db --to me "--by-user"',
+            "python3 mc.py --session coord-1 grant local-db --to me",
+            "python3 mc.py --session=coord-1 grant local-db --to me",
+            "python3 mc.py --sess coord-1 grant local-db --to me",
+            "CLAUDE_CODE_SESSION_ID=coord-1 python3 mc.py grant local-db --to me",
+            "export CLAUDE_CODE_SESSION_ID=coord-1; python3 mc.py grant local-db --to me",
+            "env CLAUDE_CODE_SESSION_ID=coord-1 python3 mc.py grant local-db --to me",
+            "sh -c \"python3 mc.py grant local-db --to me --by-user\"",
+        ]:
+            self.assertEqual(self.decision(command)["permissionDecision"], "deny", command)
+
+    def test_plain_mc_and_foreign_session_flags_are_not_denied(self):
+        self.assertIsNone(self.decision("python3 mc.py status --json"))
+        self.assertIsNone(self.decision("git log --session"))
+
+    def test_a_subagent_is_gated_like_its_parent(self):
+        command = "cd apps/api && poetry run poe db-reset-local-anyway"
+        payload = {"tool_name": "Bash", "tool_input": {"command": command}, "agent_id": "agent-1"}
+        verdict = json.loads(self.box.hook("pre-tool-use", payload))["hookSpecificOutput"]
+        self.assertEqual(verdict["permissionDecision"], "deny")
+        by_user = {"tool_name": "Bash", "tool_input": {"command": "python3 mc.py grant local-db --to me --by-user"}, "agent_id": "agent-1"}
+        self.assertEqual(json.loads(self.box.hook("pre-tool-use", by_user))["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertEqual(self.box.hook("session-start", {"agent_id": "agent-1"}, session="crew-9"), "")
+
+    def test_shell_wrapped_gated_command_is_denied_without_a_slot(self):
+        self.assertEqual(self.decision("sh -c 'poetry run poe db-reset-local-anyway'")["permissionDecision"], "deny")
+
+    def test_check_compound_and_substituted_lines_are_not_covered(self):
+        self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+        gated = "poetry run poe db-reset-local-anyway"
+        for command in [
+            f"cd apps/api && {gated} && git push --force origin main",
+            f"{gated} ; rm -rf x",
+            f"{gated} || true",
+            f"echo hi | {gated}",
+            f'{gated} "$(git push --force)"',
+            f"{gated} `git push`",
+            f"{gated} && git push 'unbalanced",
+        ]:
+            checked = json.loads(self.box.mc("check", "--command", command, session="crew-1", cwd=self.box.worktree).stdout)
+            self.assertFalse(checked["covered"], command)
+            self.assertIsNone(checked["decision"], command)
+
+    def test_check_plain_gated_forms_stay_covered(self):
+        self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+        gated = "poetry run poe db-reset-local-anyway"
+        for command in [gated, f"cd apps/api && {gated}", f"FOO=1 {gated}", f"{gated} > out.log 2>&1", f"{gated} && {gated}", f"sh -c '{gated}'"]:
+            checked = json.loads(self.box.mc("check", "--command", command, session="crew-1", cwd=self.box.worktree).stdout)
+            self.assertTrue(checked["covered"], command)
 
     def test_unrelated_and_no_run_are_silent(self):
         self.assertIsNone(self.decision("git status"))

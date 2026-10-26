@@ -53,7 +53,7 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | `r` | refreshes, probing the machine |
 | Esc, or `/mc` | closes |
 
-`/mc` with arguments is your hand on the ledger from any session, no turn, no model: `/mc start <name>`, `/mc grant <resource> <task|branch|name> [minutes]`, `/mc release <resource>`, `/mc done <n>`, `/mc status`, `/mc end [force]`. Every write it makes carries `--by-user`, which the hook refuses on any command a model runs.
+`/mc` with arguments is your hand on the ledger from any session, no turn, no model: `/mc start <name>`, `/mc grant <resource> <task|branch|name> [minutes]`, `/mc release <resource>`, `/mc done <n>`, `/mc status`, `/mc end [force]`. Every write it makes carries `--by-user`, which the hook refuses on any `mc.py` command a model runs, along with `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment. That is a guard against accidents: a variable expanded later, a copied script or a hand-written ledger file get past it.
 
 ---
 
@@ -78,7 +78,7 @@ Registered in every session where the plugin is on; the CLI refuses the coordina
 
 Three things enforce the slot; none asks a session to do what its own permissions refuse.
 
-- **`PreToolUse` on Bash** (`scripts/mc.py hook pre-tool-use`): during a run, a command matching a resource's `gate` is refused unless this session holds the slot and runs it from its own worktree. The refusal says who holds it and how to ask, and the attempt appears on the board as a request. A `human_gate` resource gets context instead of a verdict. `--by-user` on a model's command line is refused.
+- **`PreToolUse` on Bash** (`scripts/mc.py hook pre-tool-use`): during a run, a command matching a resource's `gate` is refused unless this session holds the slot and runs it from its own worktree. The refusal says who holds it and how to ask, and the attempt appears on the board as a request. A `human_gate` resource gets context instead of a verdict. The same hook gates a command inside `sh -c`, `bash -c` or `zsh -c`, and a subagent's calls count as its parent's. `--by-user`, `--session` and `CLAUDE_CODE_SESSION_ID=` on a model's `mc.py` command line are refused.
 - **The mod's `tool.check` on Bash**: when the project's own hook answers `ask` on a gated command (CHIRPdb's `db-reset-local-anyway`, say), and this session holds the slot, runs from its worktree and the resource is `approve_in_slot`, the mod answers `allow`. A `deny` is never loosened. Off with the `approve_in_slot` option.
 - **`SessionStart`** (`scripts/mc.py hook session-start`): a session starting inside a planned worktree is told its task, the coordinator's name and socket, where its brief is and to invoke `/mission-control:crew`.
 

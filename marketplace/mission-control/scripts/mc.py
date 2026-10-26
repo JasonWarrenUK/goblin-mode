@@ -19,9 +19,12 @@ this script documents every key). A caller is identified by CLAUDE_CODE_SESSION_
 which Claude Code sets for every Bash child, or by --session when the mod
 calls on its own behalf. Writes that steer the run (start, end, grant, revoke,
 assumptions, marking a need done, the crew plan) are the coordinator session's
-alone; `--by-user` stands for the person typing a /mc command in any session,
-and the PreToolUse hook refuses that flag on a Bash command line so the model
-never borrows it.
+alone; `--by-user` stands for the person typing a /mc command in any session.
+The PreToolUse hook refuses `--by-user`, `--session` and a `CLAUDE_CODE_SESSION_ID=`
+assignment on a Bash line that runs this script, abbreviations and quoting
+included, so the model does not borrow another identity by accident. It is a
+guard against accidents: a variable expanded later, a copied script or a
+hand-written ledger file get past it, and the ledger files are not protected.
 
 Exit codes: 0 done, 1 refused (the reason on stdout as one `✗` line, or JSON
 with `--json`), 2 environment or usage error. Stdlib only, Python 3.9+.
@@ -29,6 +32,8 @@ with `--json`), 2 environment or usage error. Stdlib only, Python 3.9+.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import fnmatch
 import glob
 import json
@@ -100,7 +105,7 @@ def read_json(path: Path, default=None):
 
 def write_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp = path.with_suffix(f"{path.suffix}.{os.getpid()}.tmp")
     tmp.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n")
     os.replace(tmp, path)
 
@@ -220,6 +225,16 @@ class Ledger:
     def save_run(self, run: dict) -> None:
         write_json(self.run_path, run)
 
+    @contextlib.contextmanager
+    def locked(self):
+        """Hold the run's lock across a read-modify-write of run.json, so two sessions never overwrite each other's change."""
+        if not self.dir.is_dir():
+            yield  # no run: require_run refuses, and the directory is not made here
+            return
+        with (self.dir / "run.lock").open("a") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
+
     def log(self, event: str, **fields) -> None:
         self.dir.mkdir(parents=True, exist_ok=True)
         with (self.dir / "log.jsonl").open("a") as fh:
@@ -301,12 +316,52 @@ def crew_for(run: dict, cwd: str | None, session_id: str | None, sessions: dict[
 # ---------------------------------------------------------------- command parsing and gates
 
 
-def simple_commands(command: str) -> list[tuple[list[str], str | None]]:
+SHELLS = {"sh", "bash", "zsh"}
+SHELL_C_FLAG = re.compile(r"-[A-Za-z]*c[A-Za-z]*")
+SHELL_DEPTH = 3
+SUBSTITUTION = re.compile(r"\$\(|`|<\(|>\(")
+
+
+def shell_script(words: list[str]) -> str | None:
+    """The string after `-c` (or `-lc` and the like) of an `sh`, `bash` or `zsh` call, else None."""
+    if not words or os.path.basename(words[0]) not in SHELLS:
+        return None
+    for index, word in enumerate(words[1:], 1):
+        if not word.startswith("-"):
+            return None
+        if SHELL_C_FLAG.fullmatch(word):
+            return words[index + 1] if index + 1 < len(words) else None
+    return None
+
+
+def join_cd(previous: str | None, target: str) -> str:
+    """The directory a `cd target` lands in, given the cd already in force on the line."""
+    if previous is None or os.path.isabs(target) or target.startswith("~") or target == "-" or re.search(r"[$`]", target):
+        return target
+    if re.search(r"[$`]", previous) or previous == "-":
+        return target
+    return os.path.normpath(os.path.join(previous, target))
+
+
+def opaque(command: str) -> bool:
+    """True when the line hides commands from the matcher: a substitution, or quoting shlex cannot parse."""
+    if SUBSTITUTION.search(command):
+        return True
+    try:
+        list(shlex.shlex(HEREDOC.sub(" ", command), posix=True, punctuation_chars="();<>|&\n"))
+    except ValueError:
+        return True
+    return False
+
+
+def simple_commands(command: str, cd_target: str | None = None, depth: int = 0) -> list[tuple[list[str], str | None]]:
     """Each simple command of a shell line as (words, cd target seen before it or None).
 
     Heredoc bodies are lifted out first; redirects and leading VAR=value words
-    are dropped. The cd target is the last `cd` seen earlier on the line, so a
-    guard can tell where a command runs.
+    are dropped. The cd target is the directory the earlier `cd`s on the line
+    lead to, so a guard can tell where a command runs. The script of an
+    `sh -c` / `bash -c` / `zsh -c` call is read as a line of its own, from the
+    cd in force at the call, to a depth of three.
     """
     heredocs: list[str] = []
 
@@ -341,14 +396,17 @@ def simple_commands(command: str) -> list[tuple[list[str], str | None]]:
     if words:
         segments.append(words)
     out = []
-    cd_target = None
     for seg in segments:
         while seg and ASSIGNMENT.match(seg[0]):
             seg = seg[1:]
         if not seg:
             continue
         if seg[0] == "cd":
-            cd_target = seg[1] if len(seg) > 1 else "~"
+            cd_target = join_cd(cd_target, seg[1] if len(seg) > 1 else "~")
+            continue
+        script = shell_script(seg) if depth < SHELL_DEPTH else None
+        if script is not None:
+            out.extend(simple_commands(script, cd_target, depth + 1))
             continue
         out.append((seg, cd_target))
     return out
@@ -659,6 +717,11 @@ def cmd_probe(args) -> int:
 
 def cmd_crew(args) -> int:
     ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return crew_locked(args, ledger)
+
+
+def crew_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     if args.action == "list":
         print(json.dumps(run.get("crew", []), indent=2))
@@ -792,6 +855,12 @@ def cmd_grant(args) -> int:
         row["state"] = "in-slot"
         row["updated_at"] = now()
         ledger.save_session(row)
+    # a forced grant displaces the old holder, whose row must stop reading in-slot
+    displaced = sessions.get((holder or {}).get("holder", ""))
+    if slot["forced"] and displaced and displaced.get("state") == "in-slot":
+        displaced["state"] = "working"
+        displaced["updated_at"] = now()
+        ledger.save_session(displaced)
     ledger.log("grant", **slot)
     print(json.dumps(slot) if args.json else f"{args.resource} granted to {(row or {}).get('task') or target[:8]} until {clock(slot['until'])}" + (" (forced)" if slot["forced"] else ""))
     return 0
@@ -819,6 +888,11 @@ def cmd_release(args) -> int:
 
 def cmd_needs(args) -> int:
     ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return needs_locked(args, ledger)
+
+
+def needs_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     session_id = caller_session(args.session)
     needs = run.setdefault("needs", [])
@@ -853,6 +927,11 @@ def cmd_needs(args) -> int:
 
 def cmd_assume(args) -> int:
     ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return assume_locked(args, ledger)
+
+
+def assume_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     assumptions = run.setdefault("assumptions", [])
     if args.action == "list":
@@ -905,15 +984,47 @@ def hook_output(decision: str | None, reason: str | None, context: str | None) -
     return {"hookSpecificOutput": out}
 
 
+OVERRIDE_FLAGS = (BY_USER, "--session")
+SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
+
+
+def overrides_identity(command: str, depth: int = 0) -> bool:
+    """True when a line that runs mc.py passes a flag or variable that changes who the CLI takes the caller to be.
+
+    Reads the line as shlex tokens, so quoting, `env` and `export` forms and an
+    abbreviated flag (`--by`, `--sess`) are seen; a quoted script is read the
+    same way, three levels down. A best-effort check on accidents: a variable
+    expanded later, a copied script or a hand-written ledger file get past it.
+    """
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
+        lexer.whitespace = " \t\r"
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        tokens = command.split()
+    if any(os.path.basename(token) == "mc.py" for token in tokens):
+        for token in tokens:
+            name = token.split("=", 1)[0]
+            if token.startswith(SESSION_ENV + "=") or token == SESSION_ENV:
+                return True
+            if name.startswith("--") and len(name) > 2 and any(flag.startswith(name) for flag in OVERRIDE_FLAGS):
+                return True
+    if depth < SHELL_DEPTH:
+        return any(overrides_identity(token, depth + 1) for token in tokens if re.search(r"\s", token))
+    return False
+
+
 def assess(payload: dict) -> dict:
     """What mission control says about a Bash command: the verdict and whether a held slot covers it.
 
     A gated command needs the slot held by this session and must run inside
     the holder's worktree. Without the slot the refusal says who holds it and
     how to ask; the attempt is recorded as a request so the board shows it.
-    `covered` is true only when every gated resource the line touches is held
-    by this session, runs in its worktree and is marked `approve_in_slot`: the
-    mod's tool.check hook answers `allow` over the project's `ask` on that alone.
+    `covered` is true only when the whole line is gated commands this session
+    holds (a `cd`, a `VAR=` prefix and a redirect aside), each runs in its
+    worktree and is marked `approve_in_slot`: the mod's tool.check hook answers
+    `allow` over the project's `ask` on that alone.
     """
     out = {"decision": None, "reason": None, "context": None, "covered": False, "resources": []}
     command = (payload.get("tool_input") or {}).get("command") or ""
@@ -921,8 +1032,8 @@ def assess(payload: dict) -> dict:
         return out
     cwd = payload.get("cwd") or os.getcwd()
     session_id = payload.get("session_id")
-    if re.search(r"mc\.py\b.*\s" + re.escape(BY_USER) + r"\b", command):
-        return {**out, "decision": "deny", "reason": f"`{BY_USER}` stands for the person typing /mc; a session never passes it. Ask mission control, or the person runs /mc."}
+    if overrides_identity(command):
+        return {**out, "decision": "deny", "reason": f"`{BY_USER}` stands for the person typing /mc, and `--session` or `{SESSION_ENV}=` on an mc.py line would make a session someone else; a session passes none of them. Ask mission control, or the person runs /mc."}
     try:
         ledger = ledger_for(cwd)
     except Refusal:
@@ -970,7 +1081,10 @@ def assess(payload: dict) -> dict:
             f"`{hit['command']}` touches the {label}, a shared resource of mission-control run {run['name']}: {holder}. "
             f"Request a slot (mc_slot with the resource, what you will run and the minutes), wait for the grant message, then run it from your worktree. "
             f"The attempt is on the board as a request.")}
-    out["covered"] = covered and bool(contexts)
+    # A line is covered only when every simple command on it is one of the gated hits: `G && git push` is not, and
+    # neither is a line that hides commands in a substitution or in quoting shlex cannot read.
+    whole_line = {" ".join(normalise(words)) for words, _ in simple_commands(command)} <= {h["command"] for h in hits} and not opaque(command)
+    out["covered"] = covered and bool(contexts) and whole_line
     out["context"] = " ".join(contexts) or None
     return out
 
@@ -1023,7 +1137,10 @@ def cmd_hook(args) -> int:
         payload = json.loads(sys.stdin.read() or "{}")
     except ValueError:
         payload = {}
-    if not isinstance(payload, dict) or payload.get("agent_id"):
+    if not isinstance(payload, dict):
+        return 0
+    # A subagent does not get its parent's crew brief, but its Bash calls are the parent's: the gate applies to them.
+    if args.event == "session-start" and payload.get("agent_id"):
         return 0
     try:
         if args.event == "pre-tool-use":
@@ -1042,8 +1159,16 @@ def cmd_hook(args) -> int:
 # ---------------------------------------------------------------- main
 
 
+class StrictParser(argparse.ArgumentParser):
+    """No flag abbreviations: `--by` must not reach `--by-user`. Subparsers are built from type(self), so they inherit this."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("allow_abbrev", False)
+        super().__init__(*args, **kwargs)
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="mc.py", description=__doc__.split("\n\n")[0])
+    parser = StrictParser(prog="mc.py", description=__doc__.split("\n\n")[0])
     parser.add_argument("--cwd", default=os.getcwd(), help="the directory to act from (default: the current one)")
     parser.add_argument("--session", help="act as this session id (the mod passes its own; a Bash child needs none)")
     parser.add_argument("--json", action="store_true")
