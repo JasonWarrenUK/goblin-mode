@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.15.0] - 2026-10-27
+
+### Added
+
+- `roadmap` plugin 2.9.0: `validate` reports a `dependsOn` entry naming a task in a lower release tier when the task already requires it through another entry. A tier reaches a lower tier by milestone, never by task, so the edge adds nothing. The message names the covering entry and says to move the ID into `notes`; a roadmap that already carries such edges reports them as discrepancies. Details in the plugin's changelog.
+
+### Changed
+
+- `roadmap:update-tasks` and `roadmap:create-interview` apply the tier gate when adding a task: the lower-tier milestones its siblings carry, with a covered lower-tier prerequisite recorded as `Extends {ID}` in `notes` rather than wired. The proposal shows the gate and the sibling it came from.
+
 ## [6.14.1] - 2026-10-27
 
 ### Changed
@@ -365,7 +375,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.1...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.15.0...HEAD
+[6.15.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.1...v6.15.0
 [6.14.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.0...v6.14.1
 [6.14.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.1...v6.14.0
 [6.13.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.0...v6.13.1

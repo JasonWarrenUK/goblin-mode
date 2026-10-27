@@ -5,6 +5,8 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-10-27
+
 ### Added
 
 - `validate` reports a `dependsOn` entry naming a task in a lower release tier when the task already requires it through another entry (its milestone, or a task that reaches it): a tier reaches a lower tier by milestone, never by task, so the edge adds nothing and breaks the pattern its siblings follow. The message names the covering entry and says to move the ID into `notes`. Milestone entries and uncovered lower-tier task edges are left alone. A roadmap that already carries such edges reports them as discrepancies from this version; drop the edges and note the relationship.
@@ -180,7 +182,8 @@ The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the rend
 - The dashboard's Overview grid no longer collapses a tiered phase's milestones into a single narrow column.
 - Three skills are synced to the conventions reference.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.8.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.9.0...HEAD
+[2.9.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.8.0...roadmap-v2.9.0
 [2.8.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.7.0...roadmap-v2.8.0
 [2.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.5.0...roadmap-v2.6.0
 [2.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.4.0...roadmap-v2.5.0
