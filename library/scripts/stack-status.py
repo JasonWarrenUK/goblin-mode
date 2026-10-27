@@ -334,7 +334,9 @@ def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 		# the single-stack shape stays for consumers: the entry GitHub agrees with, else the first
 		tracked = next((e for e in entries if e["stack"] == github_number), entries[0] if entries else None)
 		above, fork = climb(pr, prs_by_base) if pr and not foreign else ([], [])
-		chain = [p["number"] for p in chain_of(pr, prs_by_head, default)] if pr and not foreign else [pr["number"]] if pr else []
+		chain_prs = chain_of(pr, prs_by_head, default) if pr and not foreign else []
+		chain = [p["number"] for p in chain_prs] if chain_prs else [pr["number"]] if pr else []
+		bottom_base = chain_prs[0]["baseRefName"] if chain_prs else None
 		rows.append({
 			"branch": branch,
 			"pr": pr["number"] if pr else None,
@@ -345,6 +347,7 @@ def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 			"chain": chain,
 			"children": [] if foreign else [p["number"] for p in prs_by_base.get(branch or "", [])],
 			"link_order": chain + [p["number"] for p in above],
+			"off_trunk": bottom_base if bottom_base and bottom_base != default else None,
 			"fork": [p["number"] for p in fork],
 			"tracked_locally": tracked,
 			"tracked_in": entries,
@@ -433,13 +436,16 @@ def next_step(row: dict, default: str) -> str:
 		return "%s (#%s) is an ordinary PR on %s" % (branch, row["pr"], row["base"] or default)
 	if row["verdict"] == "chained-unlinked":
 		order = " ".join(str(n) for n in row["link_order"])
+		link = "gh stack link --base %s" % row["off_trunk"] if row["off_trunk"] else "gh stack link"
+		retarget = (" (the bottom PR #%s is based on %s, not %s: `gh stack link` without --base would retarget it)" % (
+			row["link_order"][0], row["off_trunk"], default)) if row["off_trunk"] else ""
 		if row["fork"]:
-			options = " or ".join("`gh stack link %s %d`" % (order, n) for n in row["fork"])
+			options = " or ".join("`%s %s %d`" % (link, order, n) for n in row["fork"])
 			return ("%s (#%s) is chained by base but the chain forks above #%s into %s: a stack is one line, so link "
-					"one path (%s) and retarget the other" % (
-						branch, row["pr"], row["link_order"][-1], ", ".join("#%d" % n for n in row["fork"]), options))
-		return ("%s (#%s) is chained by base but GitHub holds no stack: `gh stack link %s` (bottom to top), "
-				"not `gh stack init`" % (branch, row["pr"], order))
+					"one path (%s) and retarget the other%s" % (
+						branch, row["pr"], row["link_order"][-1], ", ".join("#%d" % n for n in row["fork"]), options, retarget))
+		return ("%s (#%s) is chained by base but GitHub holds no stack: `%s %s` (bottom to top), "
+				"not `gh stack init`%s" % (branch, row["pr"], link, order, retarget))
 	stack_number = row["github_stack"]["number"]
 	tracked = row["tracked_locally"]
 	if len(row["tracked_in"]) > 1:

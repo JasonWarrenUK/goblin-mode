@@ -226,6 +226,28 @@ class StackStatus(unittest.TestCase):
 		self.assertIn("`gh stack link 10 12`", table)
 		self.assertIn("`gh stack link 10 11`", self.table("feat/b", fixture=fixture))
 
+	def test_link_hint_keeps_an_off_trunk_bottom_base(self) -> None:
+		fixture = {"open_prs": [pr(20, "feat/a", "release/1.x"), pr(21, "feat/b", "feat/a")],
+				   "graphql": {"pr20": {"number": 20, "stack": None}, "pr21": {"number": 21, "stack": None}}}
+		row = self.status("feat/b", fixture=fixture)["rows"][0]
+		self.assertEqual(row["verdict"], "chained-unlinked")
+		self.assertEqual(row["off_trunk"], "release/1.x")
+		for branch in ("feat/a", "feat/b"):
+			self.assertIn("`gh stack link --base release/1.x 20 21`", self.table(branch, fixture=fixture))
+
+	def test_fork_options_keep_an_off_trunk_bottom_base(self) -> None:
+		fixture = {"open_prs": [pr(20, "feat/a", "release/1.x"), pr(21, "feat/b", "feat/a"), pr(22, "feat/c", "feat/a")],
+				   "graphql": {"pr20": {"number": 20, "stack": None}}}
+		table = self.table("feat/a", fixture=fixture)
+		self.assertIn("`gh stack link --base release/1.x 20 21`", table)
+		self.assertIn("`gh stack link --base release/1.x 20 22`", table)
+
+	def test_on_trunk_chain_has_no_base_flag(self) -> None:
+		fixture = {"open_prs": [pr(10, "feat/a"), pr(11, "feat/b", "feat/a")],
+				   "graphql": {"pr10": {"number": 10, "stack": None}, "pr11": {"number": 11, "stack": None}}}
+		self.assertIsNone(self.status("feat/a", fixture=fixture)["rows"][0]["off_trunk"])
+		self.assertNotIn("--base", self.table("feat/a", fixture=fixture))
+
 	def test_unsynced_merged_stack_is_stale(self) -> None:
 		self.write_tracking([{"number": 3, "trunk": {"branch": "main"}, "branches": [
 			{"branch": "old/x", "pullRequest": {"number": 1}},
