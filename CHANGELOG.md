@@ -5,6 +5,10 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `mission-control` plugin 0.1.0: coordinate several Claude Code sessions on one repository. A ledger of shared-resource slots enforced by a `PreToolUse` hook, a `/mc` board pane, `mc_*` tools that report, request, grant and broadcast, a kick-off skill that creates the worktrees and writes each session's brief, and the protocol from the 23 October CHIRPdb run. CHIRPdb's `.claude/mission-control.json` is the first project config. Details in the plugin's changelog.
+
 ## [6.13.1] - 2026-10-26
 
 ### Fixed

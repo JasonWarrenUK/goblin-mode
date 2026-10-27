@@ -1,0 +1,111 @@
+{
+	"version": 1,
+	"project": "CHIRPdb",
+	"worktrees": {
+		"dir": ".claude/worktrees",
+		"bootstrap": "symlink .env and .env.local from the main checkout's apps/api/ into the worktree's apps/api/, then poetry install (apps/api) and bun install (root). The plugin's worktree-bootstrap.sh does all three."
+	},
+	"resources": {
+		"local-db": {
+			"label": "local Supabase stack",
+			"gate": [
+				"supabase db reset*",
+				"supabase migration up*",
+				"poe db-reset-local*",
+				"poe seed-pdfs-local",
+				"poe rehearse-backfill-local"
+			],
+			"probe": {
+				"pgrep": "supabase db reset|supabase migration",
+				"pg_activity": {
+					"dsn": "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+					"database": "postgres",
+					"ignore_users": ["supabase_admin", "supabase_storage_admin"],
+					"ignore_idle_users": ["authenticator"]
+				},
+				"migrations": {
+					"dsn": "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+					"table": "supabase_migrations.schema_migrations"
+				}
+			},
+			"approve_in_slot": true,
+			"run_from": "apps/api",
+			"reset": "poetry run poe db-reset-local-anyway",
+			"notes": "One stack for every worktree. A reset rebuilds from the resetting worktree's migrations alone, so it drops any migration another branch applied until that branch re-runs `supabase migration up --local`. `db-reset-local` refuses when the stack holds a migration this worktree lacks; `db-reset-local-anyway` is the override and is what a slot is for. One full reset per branch, at PR-ready time; prove DDL on a scratch database before that."
+		},
+		"api-port": {
+			"label": "API server on port 8000",
+			"gate": [
+				"poe serve-*",
+				"uvicorn main:app*"
+			],
+			"probe": {
+				"ports": [8000],
+				"pgrep": "uvicorn main:app|poe serve-"
+			},
+			"approve_in_slot": true,
+			"run_from": "apps/api",
+			"notes": "Every serve task binds 8000; one API server across all worktrees. `uvicorn main:app --port <other>` sidesteps the slot but then nothing that calls the API finds it; say so in the request if you do it."
+		},
+		"embeddings-worker": {
+			"label": "embeddings worker on port 8100",
+			"gate": [
+				"poe embeddings-worker-*"
+			],
+			"probe": {
+				"ports": [8100],
+				"pgrep": "services.embeddings.worker"
+			},
+			"approve_in_slot": true,
+			"run_from": "apps/api"
+		},
+		"hosted": {
+			"label": "hosted Supabase project",
+			"gate": [
+				"poe *-hosted*",
+				"supabase db * --linked*",
+				"supabase db * --db-url*"
+			],
+			"human_gate": true,
+			"approve_in_slot": false,
+			"run_from": "apps/api",
+			"notes": "Reads, credentials and writes on the hosted project are Jason's to run: the classifier refuses production reads from a session and that refusal is correct. A session asks mission control for a hosted window (read-only, announced, nobody else reading during a cold-cache measurement) and asks Jason for the exact command. A hosted write is never a development step."
+		}
+	},
+	"commands": {
+		"test": "cd apps/api && poetry run poe test",
+		"lint": "cd apps/api && poetry run poe lint",
+		"contract": "bun run contract",
+		"schema": "cd apps/api && poetry run poe schema",
+		"stack_status": "python3 .claude/scripts/stack-status.py --open --json"
+	},
+	"conventions": [
+		"CLAUDE.md",
+		".claude/rules/dev-scripts.md",
+		".claude/rules/seed-data.md",
+		".claude/rules/stacked-prs.md",
+		".claude/rules/schema.md",
+		".claude/rules/planning-docs.md",
+		"docs/reference/usage/poetry-tasks.md"
+	],
+	"facts": [
+		"Changelog entries are written on main after a PR merges and its tag lands, never on a branch; put the intended wording in the PR description instead.",
+		"Env files: the real `.env` and `.env.local` live at the repository root and are symlinked into `apps/api/`; a worktree gets the same two symlinks from the bootstrap.",
+		"Every `poe` task runs as `poetry run poe <task>` from `apps/api/`; `-hosted` loads `.env`, `-local` loads `.env` then `.env.local`.",
+		"Contract regeneration: `bun run contract` from the repository root after any route or response-model change, docstrings included; commit both generated files; on a conflict rerun, never hand-merge.",
+		"Feature work reaches main through a pull request; a roadmap or Jira sync commit goes straight on main and must re-render the dashboard in the same commit or every open PR's CI goes red.",
+		"A stack lives in one worktree; `gh stack merge <pr#> --merge` lands a layer and everything below it; never `git merge main` into a layer.",
+		"Shared SQL functions: one author per function per migration, a redefinition pastes the whole body, the second to merge rewrites from main, migration timestamps are assigned at kick-off."
+	],
+	"human_gates": [
+		"hosted reads, including inspect queries",
+		"hosted credentials (an API key, an invite)",
+		"hosted writes of any kind",
+		"gh stack merge, gh pr merge",
+		"anything irreversible"
+	],
+	"migrations": {
+		"dir": "supabase/migrations",
+		"timestamp_format": "%Y%m%d%H%M%S"
+	}
+}
