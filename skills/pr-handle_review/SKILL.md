@@ -84,7 +84,7 @@ Present a triage table: thread reference, one-line summary of the ask, verdict, 
 
 ## Step 4: Implement the approved fixes
 
-1. Fix each approved item. **Follow-up commits only; never amend or rebase commits the reviewers have already seen.** One carve-out for stacked PRs (see `~/.claude/library/references/stacked-prs.md`): when this PR sits above a layer that just changed, the cascading rebase (`gh stack rebase --upstack`, then `gh stack push`) is stack maintenance, not history rewriting; the reviewed content survives and only parentage changes. The prohibition protects this PR's own commits from being reworded, squashed or dropped.
+1. Fix each approved item. **Follow-up commits only; never amend or rebase commits the reviewers have already seen.** One carve-out for stacked PRs (see `~/.claude/library/references/stacked-prs.md`): when this PR sits above a layer that just changed, the cascading rebase (`gh stack rebase --upstack`, then `gh stack push`) is stack maintenance, not history rewriting; the reviewed content survives and only parentage changes. `pr-land`'s Step 1.1 rebase of a PR onto main, for a roadmap-dashboard failure only, is the second exemption on the same reasoning; this skill never performs it. The prohibition protects this PR's own commits from being reworded, squashed or dropped.
 2. Discover the project's test, typecheck and lint commands from `package.json` (or ecosystem equivalent) and run all three until green. A red gate never proceeds to commit.
 3. Once every approved item is fixed and the gate is green, invoke the `commit-batch` skill to split the fixes into granular commits and push. Its own plan-approval pause applies as normal: that pause belongs to `commit-batch`, not this skill; don't suppress it and don't treat it as a substitute for Gate 2.
 
@@ -115,6 +115,6 @@ Finish by reporting: items fixed / deferred / pushed back, commits pushed, repli
 
 ## Red flags
 
-**Never:** implement a request without verifying it first; dismiss a request without `file:line` evidence; treat a reaction as ground truth or resolve a signal-versus-evidence conflict without surfacing it at Gate 1; read a reaction from anyone but Jason as a signal; amend or force-push over reviewed commits (a stack's cascading rebase via `gh stack rebase` + `gh stack push` is the one exemption; it re-parents layers above a changed one without touching their content); post anything to GitHub before Gate 2 approval; resolve a reviewer's thread; push with a red test/typecheck/lint gate.
+**Never:** implement a request without verifying it first; dismiss a request without `file:line` evidence; treat a reaction as ground truth or resolve a signal-versus-evidence conflict without surfacing it at Gate 1; read a reaction from anyone but Jason as a signal; amend or force-push over reviewed commits (two exemptions: a stack's cascading rebase via `gh stack rebase` + `gh stack push`, and `pr-land` Step 1.1's rebase onto main for a roadmap-dashboard-only failure; both re-parent without rewording, squashing or dropping commits); post anything to GitHub before Gate 2 approval; resolve a reviewer's thread; push with a red test/typecheck/lint gate.
 
 <raw-arguments value="$ARGUMENTS" />
