@@ -5,6 +5,14 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.14.1] - 2026-10-27
+
+### Changed
+
+- `pr-land` rebases a PR onto `main` itself when the only thing blocking it is a stale roadmap dashboard check (new Step 1.1). It acts once, only when the PR touches no roadmap file, the branch is behind `main` and `main`'s own run of that check passes. The rebase runs in the worktree that already holds the branch, or in a new one; it stops if another live session occupies that worktree or the branch has local commits the remote lacks. On a repo that requires reviews it asks before force-pushing; on a personal repo it records the pre-rebase SHAs and proceeds. A stacked PR names every layer `gh stack sync` will push. Afterwards it waits for the roadmap check to register on the new commit before re-running the readiness check.
+- `pr-land`'s never-list and `pr-handle_review` name this rebase as the second exemption from "never rebase reviewed commits", beside a stack's cascading rebase. `pr-handle_review` never performs it.
+- `library/references/stacked-prs.md` matches the `sync` row to gh-stack v0.2.1.
+
 ## [6.14.0] - 2026-10-27
 
 ### Added
@@ -357,7 +365,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.1...HEAD
+[6.14.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.0...v6.14.1
 [6.14.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.1...v6.14.0
 [6.13.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.0...v6.13.1
 [6.13.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.12.0...v6.13.0
