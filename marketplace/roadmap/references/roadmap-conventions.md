@@ -528,10 +528,12 @@ soon, so it waits on no lower-tier milestone) carries no gate at all and
 says so in `notes`. A `softMilestone` member is the one lower-tier task
 its milestone does not cover by membership: a soft member does not gate
 milestone completion (see Soft milestone members above), so neither `M10`
-in the gate nor M10 added to it reaches a soft `10SE.7`. That task edge
-stays in `dependsOn` next to the gate, and `validate` leaves it alone,
-unless a hard member of M10 depends on 10SE.7 itself: M10 then waits on
-it after all, so `validate` reports the edge and the edge goes.
+in the gate nor M10 added to it reaches a soft `10SE.7` by membership.
+That task edge stays in `dependsOn` next to the gate, and `validate`
+leaves it alone, unless a hard member of M10, or anything else the gate
+requires, depends on 10SE.7, directly or through other tasks: the gate
+then waits on it after all, so the edge goes, M10 joins the gate if the
+copied list lacks it and `validate` reports the edge if it stays.
 
 **Naming.** The artefact reads a milestone's tier from a suffix on its
 `name`, case-insensitive, trailing: `(Secondary)`, `(Tertiary)`,
