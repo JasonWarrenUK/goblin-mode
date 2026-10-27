@@ -532,8 +532,10 @@ in the gate nor M10 added to it reaches a soft `10SE.7` by membership.
 That task edge stays in `dependsOn` next to the gate, and `validate`
 leaves it alone, unless a hard member of M10, or anything else the gate
 requires, depends on 10SE.7, directly or through other tasks: the gate
-then waits on it after all, so the edge goes, M10 joins the gate if the
-copied list lacks it and `validate` reports the edge if it stays.
+then waits on it after all, so the edge goes and `validate` reports it if
+it stays. M10 joins the gate only when the sole path to 10SE.7 runs
+through a hard member of M10 and the copied list lacks M10; when an entry
+already in the gate reaches it, the gate stays as copied.
 
 **Naming.** The artefact reads a milestone's tier from a suffix on its
 `name`, case-insensitive, trailing: `(Secondary)`, `(Tertiary)`,
