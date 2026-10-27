@@ -2782,6 +2782,31 @@ class CrossTierEdges(unittest.TestCase):
         self.assertEqual(roadmap.redundant_cross_tier_edges(ph),
                          [("b", "s", "M1", 0, "M1")])
 
+    def test_soft_member_reached_transitively(self):
+        # The walk follows dependsOn through any task: hard h waits on
+        # soft t, t waits on soft s, so M1 covers s two hops away.
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [
+                task("h", "todo", ["t"]),
+                task("t", "todo", ["s"], softMilestone=True),
+                task("s", "todo", softMilestone=True)]},
+            {"id": "M2", "name": "More (Secondary)", "tasks": [
+                task("b", "todo", ["M1", "s"])]}])
+        self.assertEqual(roadmap.redundant_cross_tier_edges(ph),
+                         [("b", "s", "M1", 0, "M1")])
+
+    def test_soft_member_reached_through_another_gate_milestone(self):
+        # Hard 7.1 in M7 waits on soft s in M10, so M7 covers s even
+        # though M10 (s's own milestone) is not in the gate at all.
+        ph = phase([
+            {"id": "M7", "name": "A", "tasks": [task("7.1", "todo", ["s"])]},
+            {"id": "M10", "name": "C", "tasks": [
+                task("10.1", "todo"), task("s", "todo", softMilestone=True)]},
+            {"id": "M13", "name": "D (Secondary)", "tasks": [
+                task("b", "todo", ["M7", "s"])]}])
+        self.assertEqual(roadmap.redundant_cross_tier_edges(ph),
+                         [("b", "s", "M10", 0, "M7")])
+
     def test_validate_cli_reports_the_edge(self):
         with tempfile.TemporaryDirectory() as td:
             jp = Path(td) / ".claude" / "roadmaps.json"
