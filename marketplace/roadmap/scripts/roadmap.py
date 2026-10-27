@@ -225,6 +225,57 @@ def tier_label(tier):
     return _TIER_CORE if tier == 0 else _TIER_SUFFIXES[tier - 1]
 
 
+def redundant_cross_tier_edges(phase):
+    """[(task_id, dep_id, dep_milestone_id, dep_tier, via_id)] for every `dependsOn`
+    entry naming a *task* in a lower release tier that the task already
+    requires through another of its own entries: a milestone requires
+    every hard member, a task requires everything in its `dependsOn`. A
+    tertiary task listing `10SE.4` next to `M10` is the shape this catches;
+    the milestone already carries the edge, so the task edge adds nothing
+    and breaks the tier pattern (roadmap-conventions.md, Tiers). Milestone
+    entries are never reported, since `["M1", "M6", "8RT.9"]` is the
+    pattern itself even when `8RT.9` carries M1 and M6 too; nor is a
+    lower-tier task nothing else reaches, which may be a deliberate
+    fast-track. Empty for an untiered phase."""
+    tasks, milestones, _gates = build_index(phase)
+    task_tier, task_milestone, milestone_tier_of = {}, {}, {}
+    for m in phase.get("milestones", []):
+        milestone_tier_of[m["id"]] = milestone_tier(m.get("name", ""))
+        for t in m.get("tasks", []):
+            task_tier[t["id"]] = milestone_tier_of[m["id"]]
+            task_milestone[t["id"]] = m["id"]
+    if not any(milestone_tier_of.values()):
+        return []
+    hard_members = {mid: [t for t in members
+                          if not tasks.get(t, {}).get("softMilestone")]
+                    for mid, members in milestones.items()}
+
+    def reachable(start):
+        seen, stack = set(), [start]
+        while stack:
+            node = stack.pop()
+            if node in seen:
+                continue
+            seen.add(node)
+            if node in tasks:
+                stack.extend(tasks[node].get("dependsOn", []))
+            elif node in hard_members:
+                stack.extend(hard_members[node])
+        return seen
+
+    found = []
+    for tid, task in tasks.items():
+        deps = task.get("dependsOn", [])
+        for dep in deps:
+            if dep not in tasks or task_tier[dep] >= task_tier[tid]:
+                continue
+            via = next((other for other in deps
+                        if other != dep and dep in reachable(other)), None)
+            if via is not None:
+                found.append((tid, dep, task_milestone[dep], task_tier[dep], via))
+    return found
+
+
 def undone_tiers(milestones):
     """The tiers still holding unfinished work, from entries carrying
     `tier`, `total` and `byStatus` (build_stats()'s own milestone shape).
@@ -468,6 +519,13 @@ def _validate_phase(phase):
         for extra in sorted(declared - expected):
             problems.append(
                 f"gate {gid}: blocks[] lists {extra} but it does not depend on {gid}")
+
+    for tid, dep, dep_milestone, dep_tier, via in redundant_cross_tier_edges(phase):
+        problems.append(
+            f"{tid}: dependsOn {dep!r} sits in {dep_milestone} "
+            f"({tier_label(dep_tier)}), already required through {via}; "
+            f"a tier reaches a lower tier by milestone, so drop the edge "
+            f"and name {dep} in notes instead")
 
     cycles = find_cycles(tasks, milestones)
     for cycle in cycles:

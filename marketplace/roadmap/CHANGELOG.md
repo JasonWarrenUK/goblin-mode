@@ -5,6 +5,15 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `validate` reports a `dependsOn` entry naming a task in a lower release tier when the task already requires it through another entry (its milestone, or a task that reaches it): a tier reaches a lower tier by milestone, never by task, so the edge adds nothing and breaks the pattern its siblings follow. The message names the covering entry and says to move the ID into `notes`. Milestone entries and uncovered lower-tier task edges are left alone. A roadmap that already carries such edges reports them as discrepancies from this version; drop the edges and note the relationship.
+
+### Changed
+
+- `roadmap:update-tasks` reads the target milestone's tier in Step 2 and applies the tier gate in Step 4: the lower-tier milestones its siblings carry, copied as given, with any covered lower-tier prerequisite recorded as `Extends {ID}` in `notes` rather than wired. An uncovered prerequisite adds its milestone to the gate unless the user confirms the task escapes its tier. A `softMilestone` member is not covered by its milestone's membership alone, so it keeps its task edge unless a hard member of that milestone, or anything else the gate requires, depends on it, directly or through other tasks. The proposal shows the gate and the sibling it came from, and flags a gate that differs from its siblings'. `roadmap:create-interview` carries the same line in its proposal.
+- The conventions' Tiers section documents the milestone-list shape (every task carries the lower-tier milestones directly, no release gate or entry task) alongside the entry-task shape, and states the by-milestone rule outright.
+
 ## [2.8.0] - 2026-10-22
 
 ### Added

@@ -55,7 +55,7 @@ Read the full `roadmaps.json` and the active phase's PHASE file before adding: y
 
 ## Step 2: Understand what to add
 
-Extract: **description**; **milestone** (which milestone; ask if unclear); **category** (2–3 letter prefix, reuse an existing one in that milestone where it fits); **dependencies** (what must be done first; what it unblocks); **assignee** (ask the user directly; never infer it from the description, the git author, the category owner or who is running this skill; leave it unset if the user doesn't say). Ask before proceeding if any is ambiguous: a badly placed task is worse than a delayed one.
+Extract: **description**; **milestone** (which milestone; ask if unclear); **tier** (read from the milestone name's trailing `(Secondary)`/`(Tertiary)` suffix, Core when there is none; see the conventions reference, Tiers. A follow-up to a task in one tier often belongs in a later tier, and that is where the tier gate in Step 4 applies); **category** (2–3 letter prefix, reuse an existing one in that milestone where it fits); **dependencies** (what must be done first; what it unblocks); **assignee** (ask the user directly; never infer it from the description, the git author, the category owner or who is running this skill; leave it unset if the user doesn't say). Ask before proceeding if any is ambiguous: a badly placed task is worse than a delayed one.
 
 **In milestone mode (`m`), do this instead of picking an existing milestone**: see "Milestone mode" below, then continue into Step 3 for the seed task(s).
 
@@ -83,6 +83,8 @@ No existing skill appends a milestone to a *live* phase (`roadmap:create` builds
 ## Step 4: Identify dependencies
 
 **Incoming** (`dependsOn`): tasks this new task requires. An entry may be a **task ID**, a **milestone ID** (`M1`: resolves done only when all its tasks are done), or an **external gate ID** (from `externalGates`). If a gate is an incoming dependency, the gate's `blocks[]` must gain this task ID (parity).
+
+**Tier gate** (when the target milestone is in tier 1 or above): a tier reaches a lower tier by milestone, never by task (conventions reference, Tiers). Before wiring anything from a lower tier, read what the milestone's existing tasks carry as lower-tier entries (`["M7", "M8", "M9", "M10", "M11"]`, or `["M1", "M6"]`; with no siblings yet, the gate the tier's other milestones carry): that list is the gate, and the new task copies it. Then, for every lower-tier **task** the user named as a prerequisite: if the gate already covers it (its milestone is in the list, or a listed entry reaches it), it does not go in `dependsOn`; record it in `notes` as `Extends {ID}` instead, and say which sibling the gate was copied from. When the gate does not cover it, the task edge is still wrong; the prerequisite's **milestone** is what joins the gate. By default the task keeps its tier: add that milestone to the copied list (`["M7", "M8", "M9"]` where the siblings carry `["M7", "M8"]`), note `Extends {ID}` as usual and flag in Step 7 that this task's gate now differs from its siblings'. The one exception is a task the user confirms is meant to escape its tier (wanted soon, so it waits on no lower-tier milestone): then the task edge stays, it carries no gate at all and `notes` says so. One prerequisite neither branch covers by itself: a `softMilestone` member of a lower-tier milestone. A soft member never gates its milestone (conventions reference, Soft milestone members), so membership alone does not let `M10` reach a soft `10SE.7`, whether M10 is already in the list or added to it. While nothing the gate requires waits on it, the task edge is the only thing that does, so it stays in `dependsOn` alongside the copied gate, and `validate` accepts that shape. When a hard member of M10, or anything else the gate requires, depends on `10SE.7`, directly or through other tasks, the gate cannot resolve before it, so it is covered: record `Extends 10SE.7` and leave the edge out. Check the copied gate first: when an entry already in it reaches 10SE.7, such as a hard member of M7 that depends on it, the gate stays as copied. Add M10 only when the sole path to 10SE.7 runs through a hard member of M10 and the copied list lacks M10 (flag the differing gate in Step 7), which is the uncovered-prerequisite rule above applied as usual. `validate` (Step 9) refuses a covered lower-tier task edge, so make the choice here; Step 9 only reports it.
 
 **Outgoing**: existing tasks that this new task should now block; add the new ID to their `dependsOn` (and mirror any gate parity). Completing this task may change those tasks' computed status (the recompute handles that). If one of them is claimed (it has a `started` date), say so before adding the edge: the new dependency blocks work someone has already started.
 
@@ -121,6 +123,8 @@ New task: {ID}, {description}
 Milestone: {N} ({Milestone Name})   Status: {todo|blocked|paused|deferred}
 Assignee: {name, or "unassigned"}
 Dependencies (in): {IDs / milestone / gate, or "none"}
+Tier gate: {lower-tier milestone IDs copied, and the sibling they came from, e.g. "M7, M8, M9, M10, M11 (from 13SE.1)"; "M7, M8 (from 13SE.1) + M9 for 9AB.2: differs from siblings" when a prerequisite's milestone was added; "n/a: core tier"; or "none: escapes the tier"}
+Lower-tier work noted, not wired: {IDs moved into notes as "Extends {ID}", or "none"}
 Dependencies (out): {task IDs this gets added to, or "none"}
 Placeholder child: {ID and description, or "none"}
 
@@ -145,7 +149,7 @@ Then ask: *"Does this look right? I'll write to the roadmap on your say-so."*
 
 ## Step 9: Validate and confirm
 
-Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py validate`; it must report clean (parity, acyclicity, status recompute). If an HTML dashboard exists (`docs/artefacts/roadmap-*.html`), refresh it with `roadmap.py render`. Then report: task added (and milestone, in `m` mode); status; edges added; existing tasks modified; placeholder created; any orphan warning. If the new task's computed status is `blocked` on a dependency that looks like it should already be `done` in reality, say so explicitly rather than reporting `blocked` as if the wiring itself is uncertain; the roadmap can lag real-world completion.
+Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py validate`; it must report clean (parity, acyclicity, status recompute, no lower-tier task edge the task already requires by milestone). A cross-tier discrepancy here means Step 4's tier gate was skipped: drop the edge and move the ID into `notes`, never the reverse. If an HTML dashboard exists (`docs/artefacts/roadmap-*.html`), refresh it with `roadmap.py render`. Then report: task added (and milestone, in `m` mode); status; edges added; existing tasks modified; placeholder created; any orphan warning. If the new task's computed status is `blocked` on a dependency that looks like it should already be `done` in reality, say so explicitly rather than reporting `blocked` as if the wiring itself is uncertain; the roadmap can lag real-world completion.
 
 ---
 
