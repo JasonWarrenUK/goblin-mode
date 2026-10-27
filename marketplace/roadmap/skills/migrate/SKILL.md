@@ -1,5 +1,5 @@
 ---
-name: "Roadmap: Migrate"
+name: "Migrate"
 description: "Convert an old simple-style roadmap (single Markdown, four statuses, <a name> anchors, roadmaps.json pointer registry) into the rich phase-array format (roadmaps.json source of truth + PHASE task list + prose overview)."
 when_to_use: "When a project still has the old single-Markdown-file roadmap format and needs upgrading to the rich phase-array format before roadmap:create or roadmap:update-tasks can be used on it."
 model: sonnet

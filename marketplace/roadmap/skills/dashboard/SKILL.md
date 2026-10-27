@@ -1,5 +1,5 @@
 ---
-name: "Artefacts: Create Roadmap"
+name: "Dashboard"
 description: "Generate the HTML roadmap dashboard deterministically via roadmap.py render."
 when_to_use: "When you want to view or share the current roadmap as an interactive dashboard rather than reading roadmaps.json directly."
 model: sonnet # was haiku: auto mode skips haiku and keeps the session model, which is sometimes Fable or Opus here; sonnet pins it

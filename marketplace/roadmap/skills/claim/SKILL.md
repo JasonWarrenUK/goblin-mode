@@ -1,5 +1,5 @@
 ---
-name: "Roadmap: Claim"
+name: "Claim"
 description: "Claim a roadmap task when work on it starts, or release the claim when work stops: asks who is doing it, runs the CLI, commits the change"
 when_to_use: "When the user says they are starting, taking or working on a roadmap task (\"claim 2SE.1\", \"I'm picking up the search task\"), or wants to drop one (\"release 2SE.1\", \"I'm not doing that any more\"), or a roadmap hook nudge asks whether the branch is roadmap work. Never for setting an assignee without a start (roadmap:update-devs, or `roadmap.py assign`) or for marking work done (roadmap:maintain)."
 model: sonnet
@@ -27,12 +27,12 @@ Shared conventions: `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md` (C
 
 Both arguments are optional and positional: passing `$who` requires `$task`.
 
-| Call | Meaning |
-|---|---|
-| (no arguments) | pick a ready task from a list, then claim it |
-| `<task id>` | claim that task; ask who is doing it |
+| Call                   | Meaning |
+|------------------------|---------|
+| (no arguments)         | pick a ready task from a list, then claim it |
+| `<task id>`            | claim that task; ask who is doing it |
 | `<task id> <assignee>` | claim it for that assignee; nothing to ask |
-| `<task id> release` | drop the claim |
+| `<task id> release`    | drop the claim |
 
 `release` is a reserved word in the `$who` slot, so a dev with that name needs `roadmap.py claim` run by hand. A multi-word assignee arrives quoted (`"Mary Ann"`); take the quoted string whole.
 

@@ -12,7 +12,12 @@ Three sources disagree in practice, and each disagreement is a different fix:
 				  is the base of an open PR, is chained. Chained without a
 				  GitHub stack means `gh stack link`, never `gh stack init`.
 				  A base no open PR owns (`release/1.x`) is not a chain.
-  local tracking  `<git common dir>/gh-stack`, the file `gh stack` keeps. A
+  local tracking  the `gh-stack` file `gh stack` keeps. v0.1.0 writes it to
+				  `git rev-parse --git-dir`, so a linked worktree has its own
+				  (`.git/worktrees/<name>/gh-stack`) and the main checkout's is
+				  `.git/gh-stack`; v0.2.0 moved it to `<git common dir>/gh-stack`,
+				  one file for every worktree. `gh stack --version` decides
+				  which file counts here; the other is listed, not trusted. A
 				  branch must be in it for `gh stack sync|rebase|up|down` to
 				  work from this checkout; a stack whose every PR has merged is
 				  stale there and blocks `gh stack submit` from the trunk. The
@@ -128,34 +133,88 @@ def github_lookups(numbers: list[int], state_numbers: list[int], cwd: str) -> tu
 	return stacks, states
 
 
-def local_tracking(cwd: str) -> list[dict]:
-	"""Every stack in `<git common dir>/gh-stack`; staleness is judged in report(), once GitHub has been asked."""
-	common = run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd)
-	if not common:
-		return []
-	path = Path(common) / "gh-stack"
-	if not path.is_file():
-		return []
-	try:
-		data = json.loads(path.read_text())
-	except ValueError:
-		return []
-	stacks = []
-	for stack in data.get("stacks", []):
-		branches = [b.get("branch") for b in stack.get("branches", [])]
-		merged = [bool((b.get("pullRequest") or {}).get("merged")) for b in stack.get("branches", [])]
-		missing = [b for b in branches
-				   if run(["git", "show-ref", "--verify", "--quiet", "refs/heads/%s" % b], cwd) is None]
-		stacks.append({
-			"number": stack.get("number"),
-			"trunk": (stack.get("trunk") or {}).get("branch"),
-			"branches": branches,
-			"prs": [(b.get("pullRequest") or {}).get("number") for b in stack.get("branches", [])],
-			"merged": merged,
-			"stale": False,
-			"missing_branches": missing,
-		})
-	return stacks
+def gh_stack_version(cwd: str) -> str | None:
+	"""The installed extension's version (`gh stack --version` prints `gh stack version 0.1.0`), or None."""
+	out = run(["gh", "stack", "--version"], cwd)
+	if not out:
+		return None
+	return out.strip().split()[-1].lstrip("v")
+
+
+def version_tuple(version: str | None) -> tuple[int, ...]:
+	parts = []
+	for piece in (version or "0").split("."):
+		digits = "".join(ch for ch in piece if ch.isdigit())
+		parts.append(int(digits) if digits else 0)
+	return tuple(parts)
+
+
+SHARED_CATALOGUE_SINCE = (0, 2, 0)
+
+
+def tracking_paths(cwd: str, version: str | None) -> list[tuple[Path, bool]]:
+	"""(path a `gh-stack` file can be at, whether the installed version reads it from here).
+
+	gh-stack v0.1.0 joins the file onto `git rev-parse --git-dir`, which in a linked worktree
+	is the per-worktree admin dir (`.git/worktrees/<name>/`), so each worktree tracks on its
+	own and the common-dir file is dead from there. v0.2.0 moved it to the common dir, one
+	catalogue for every worktree, and migrates the old files on first run, so from then on
+	a per-worktree file is a leftover. In the main checkout the two are one directory. With
+	no extension installed the version is unknown and both files count."""
+	shared = version_tuple(version) >= SHARED_CATALOGUE_SINCE
+	paths: list[tuple[Path, bool]] = []
+	for flag, active in (("--git-dir", version is None or not shared), ("--git-common-dir", version is None or shared)):
+		out = run(["git", "rev-parse", "--path-format=absolute", flag], cwd)
+		if not out:
+			continue
+		path = (Path(out) / "gh-stack").resolve()
+		if any(path == p for p, _ in paths):
+			paths[:] = [(p, a or active) for p, a in paths]
+			continue
+		paths.append((path, active))
+	return paths
+
+
+def local_tracking(cwd: str, version: str | None) -> tuple[list[dict], list[str]]:
+	"""(every stack in the `gh-stack` files this checkout can see, the files that exist).
+
+	Each stack says which file it came from and whether `gh stack` reads that file from this
+	checkout (`active`). A stack recorded identically in both files is listed once, as active if
+	either copy is. Staleness is judged in report(), once GitHub has been asked."""
+	stacks: list[dict] = []
+	seen: dict[tuple, dict] = {}
+	files: list[str] = []
+	for path, active in tracking_paths(cwd, version):
+		if not path.is_file():
+			continue
+		try:
+			data = json.loads(path.read_text())
+		except ValueError:
+			continue
+		files.append(str(path))
+		for stack in data.get("stacks", []):
+			branches = [b.get("branch") for b in stack.get("branches", [])]
+			key = (stack.get("number"), tuple(branches))
+			if key in seen:
+				if active and not seen[key]["active"]:
+					seen[key].update(active=True, file=str(path))
+				continue
+			merged = [bool((b.get("pullRequest") or {}).get("merged")) for b in stack.get("branches", [])]
+			missing = [b for b in branches
+					   if run(["git", "show-ref", "--verify", "--quiet", "refs/heads/%s" % b], cwd) is None]
+			seen[key] = {
+				"number": stack.get("number"),
+				"trunk": (stack.get("trunk") or {}).get("branch"),
+				"branches": branches,
+				"prs": [(b.get("pullRequest") or {}).get("number") for b in stack.get("branches", [])],
+				"merged": merged,
+				"stale": False,
+				"missing_branches": missing,
+				"file": str(path),
+				"active": active,
+			}
+			stacks.append(seen[key])
+	return stacks, files
 
 
 def judge_staleness(tracking: list[dict], open_numbers: set[int], states: dict[int, str | None]) -> None:
@@ -244,9 +303,12 @@ def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 	prs_by_base: dict[str, list[dict]] = {}
 	for pr in same_repo:
 		prs_by_base.setdefault(pr["baseRefName"], []).append(pr)
-	tracking = local_tracking(cwd)
+	version = gh_stack_version(cwd)
+	tracking, tracking_files = local_tracking(cwd, version)
 	tracked_in: dict[str, list[dict]] = {}
 	for tracked_stack in tracking:
+		if not tracked_stack["active"]:
+			continue  # listed for information; `gh stack` will not read it from this checkout
 		for tracked_branch in tracked_stack["branches"]:
 			tracked_in.setdefault(tracked_branch, []).append(tracked_stack)
 	trees = worktrees(cwd)
@@ -289,7 +351,8 @@ def report(targets: list[str], all_open: bool, cwd: str) -> dict:
 			"worktree": trees.get(branch) if branch and not foreign else None,
 			"verdict": verdict_for(branch, pr, stack, default, prs_by_head, prs_by_base),
 		})
-	return {"default_branch": default, "rows": rows, "local_tracking": tracking}
+	return {"default_branch": default, "rows": rows, "local_tracking": tracking, "gh_stack_version": version,
+			"tracking_files": tracking_files, "tracking_paths": [str(p) for p, _ in tracking_paths(cwd, version)]}
 
 
 def describe_stack(stack: dict | None, number: int | None) -> str:
@@ -312,11 +375,22 @@ def print_table(result: dict) -> None:
 	print()
 	print("## Local Tracking")
 	print()
-	if not result["local_tracking"]:
-		print("No `gh-stack` file: nothing tracked in this checkout.")
+	print(describe_version(result["gh_stack_version"]))
+	if not result["tracking_files"]:
+		print("No `gh-stack` file: nothing tracked in this checkout. Looked in %s." % ", ".join(
+			"`%s`" % p for p in result["tracking_paths"]))
+	elif not result["local_tracking"]:
+		print("Nothing tracked in this checkout (%s)." % ", ".join("`%s`" % p for p in result["tracking_files"]))
+	else:
+		for path in result["tracking_files"]:
+			print("Read from `%s`." % path)
 	for stack in result["local_tracking"]:
 		label = "#%s" % stack["number"] if stack["number"] else "local only, not submitted"
 		notes = []
+		if not stack["active"]:
+			notes.append("in `%s`, not read by gh stack from this worktree" % stack["file"])
+			if version_tuple(result["gh_stack_version"]) >= SHARED_CATALOGUE_SINCE:
+				notes.append("a pre-0.2.0 leftover: the next `gh stack` command migrates it, or stops with an error if another file defines its stack differently or a rebase or modify is unfinished")
 		if stack["stale"]:
 			notes.append("stale: every PR has merged")
 		if stack["missing_branches"]:
@@ -330,7 +404,16 @@ def print_table(result: dict) -> None:
 		print("- %s" % next_step(row, result["default_branch"]))
 	stale = [s for s in result["local_tracking"] if s["stale"] and s["number"]]
 	for stack in stale:
-		print("- stack #%s is stale in local tracking: `gh stack unstack %s --local`" % (stack["number"], stack["number"]))
+		where = "" if stack["active"] else ", from the checkout whose file it is in (`%s`)" % stack["file"]
+		print("- stack #%s is stale in local tracking: `gh stack unstack %s --local`%s" % (stack["number"], stack["number"], where))
+
+
+def describe_version(version: str | None) -> str:
+	if version is None:
+		return "gh stack is not installed (`gh extension install github/gh-stack`); every tracking file found is listed."
+	if version_tuple(version) >= SHARED_CATALOGUE_SINCE:
+		return "gh stack v%s keeps one catalogue for every worktree in the git common dir." % version
+	return "gh stack v%s tracks per worktree: only the file in this checkout's own git dir counts here." % version
 
 
 def describe_tracking(tracked: dict | None, entries: list[dict]) -> str:

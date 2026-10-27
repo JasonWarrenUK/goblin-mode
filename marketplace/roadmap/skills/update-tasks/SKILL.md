@@ -1,5 +1,5 @@
 ---
-name: "Roadmap: Add Task"
+name: "Update Tasks"
 description: "Add a well-formed task, or a reviewed batch of them, to a rich-format roadmap: ID assignment, dependency wiring in both directions, graph integrity"
 when_to_use: "Whenever the user wants to add a task, feature or work item to a roadmap, even phrased as 'add this to the roadmap', 'put this in the plan' or 'track this as a task'. For a batch of half-formed ideas, run roadmap:create-interview first and feed its approved proposal here as one batch."
 model: opus

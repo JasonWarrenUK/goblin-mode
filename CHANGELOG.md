@@ -9,6 +9,13 @@ All notable changes to this project are documented here, newest first.
 
 - `mission-control` plugin 0.1.0: coordinate several Claude Code sessions on one repository. A ledger of shared-resource slots enforced by a `PreToolUse` hook, a `/mc` board pane, `mc_*` tools that report, request, grant and broadcast, a kick-off skill that creates the worktrees and writes each session's brief, and the protocol from the 23 October CHIRPdb run. CHIRPdb's `.claude/mission-control.json` is the first project config. Details in the plugin's changelog.
 
+## [6.13.1] - 2026-10-26
+
+### Fixed
+
+- `stack-status.py` reads the `gh-stack` tracking file from the per-worktree git dir as well as the common dir. gh-stack v0.1.0 writes it to `git rev-parse --git-dir`, so from a linked worktree the script saw only the empty common-dir file and reported a tracked stack as untracked, with a `gh stack checkout` hint that changed nothing. It asks `gh stack --version` to decide which file that version reads from the current checkout (per worktree before 0.2.0, the common dir from 0.2.0) and counts only that one for the verdict; the other file's stacks are listed as not read from here. Its JSON gains `gh_stack_version`, `tracking_files`, `tracking_paths` and a `file` and `active` per stack; the table names the version, the files it read or the paths it looked in.
+- `library/references/stacked-prs.md` describes where each gh-stack version keeps local tracking instead of calling it one file shared by every worktree.
+
 ## [6.13.0] - 2026-10-22
 
 ### Added
@@ -348,7 +355,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.1...HEAD
+[6.13.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.0...v6.13.1
 [6.13.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.12.0...v6.13.0
 [6.12.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.11.0...v6.12.0
 [6.11.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.10.0...v6.11.0

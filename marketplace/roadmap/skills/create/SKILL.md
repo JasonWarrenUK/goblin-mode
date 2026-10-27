@@ -1,5 +1,5 @@
 ---
-name: "Roadmap: Create"
+name: "Create"
 description: "Create a project roadmap in the rich phase-array format: roadmaps.json as source of truth plus a PHASE task list and prose overview"
 when_to_use: "When a project has no roadmap yet, or an existing simple-style one needs superseding with a new phase built from scratch (for converting an old roadmap, use roadmap:migrate instead)."
 model: fable
