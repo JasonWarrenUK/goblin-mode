@@ -2771,6 +2771,17 @@ class CrossTierEdges(unittest.TestCase):
                 task("b", "todo", ["M1", "s"])]}])
         self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
 
+    def test_soft_member_reached_through_a_hard_member(self):
+        # M1 cannot finish before hard h, and h waits on soft s, so the
+        # milestone does cover s after all and the task edge is redundant.
+        ph = phase([
+            {"id": "M1", "name": "Core", "tasks": [
+                task("h", "todo", ["s"]), task("s", "todo", softMilestone=True)]},
+            {"id": "M2", "name": "More (Secondary)", "tasks": [
+                task("b", "todo", ["M1", "s"])]}])
+        self.assertEqual(roadmap.redundant_cross_tier_edges(ph),
+                         [("b", "s", "M1", 0, "M1")])
+
     def test_validate_cli_reports_the_edge(self):
         with tempfile.TemporaryDirectory() as td:
             jp = Path(td) / ".claude" / "roadmaps.json"
