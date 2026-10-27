@@ -5,6 +5,8 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.14.0] - 2026-10-27
+
 ### Added
 
 - `mission-control` plugin 0.1.0: coordinate several Claude Code sessions on one repository. A ledger of shared-resource slots enforced by a `PreToolUse` hook, a `/mc` board pane, `mc_*` tools that report, request, grant and broadcast, a kick-off skill that creates the worktrees and writes each session's brief, and the protocol from the 23 October CHIRPdb run. CHIRPdb's `.claude/mission-control.json` is the first project config. Details in the plugin's changelog.
@@ -355,7 +357,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.1...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.0...HEAD
+[6.14.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.1...v6.14.0
 [6.13.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.0...v6.13.1
 [6.13.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.12.0...v6.13.0
 [6.12.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.11.0...v6.12.0
