@@ -22,7 +22,7 @@ All notable changes to this plugin are documented here, newest first.
 
 - A session whose cwd differed from the crew plan only in letter case (`code` and `Code` on a case-insensitive volume) never joined the run, so it was missing from the board and `mc_grant` could not resolve it. The worktree match asks the filesystem whether two paths are one, in the mod, in `crew_for` and in the SessionStart hook.
 - Overlapping refreshes could finish out of order and draw the older picture of the ledger. A result is now applied only while no refresh that started later has landed, and a timed refresh is skipped while the previous one is still running. A refresh without probes keeps the PR state and the probes the last probed one found, and a probed refresh overtaken by a plain one still lands its PR state and probes.
-- `status --probe` could outlast the mod's 20-second limit and draw the board as broken when `gh` or `psql` hung. A `gh pr view` lookup now waits 3 seconds and the first timeout ends the pass; each `psql` probe waits 3 seconds.
+- `status --probe` could outlast the mod's 20-second limit and draw the board as broken when `gh` or `psql` hung. A `gh pr view` lookup now waits 3 seconds, and after the first timeout the remaining PRs are answered from the cache alone; each `psql` probe waits 3 seconds.
 - `crew add` rewrote a worktree into the main checkout's spelling even where the two spellings are different directories (a case-sensitive volume). It now asks the filesystem first.
 - The kickoff and end skills gave `mc.py status --json`; the flag goes before the subcommand (`mc.py --json status`).
 
