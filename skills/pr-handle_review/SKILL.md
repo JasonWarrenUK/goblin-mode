@@ -118,7 +118,7 @@ Threads carrying a live disagreement or a 😕 question are not drafted as repli
 
 ## Gate 2: Reply approval
 
-Show every drafted reply against its thread, then the inner re-review's outcome: each finding it raised with fixed (commit SHA), deferred (reason) or rejected (counter-evidence), and whether Step 6 will post it. **Stop and await approval.** Nothing has been posted yet; edits here are free.
+Show every drafted reply against its thread, then the inner re-review's outcome: each finding it raised with fixed (commit SHA), deferred (reason) or rejected (counter-evidence), and whether Step 6 will post it. When it will, say so plainly: approval also posts a fresh `pr-review strict` run on the final head, which recomputes its findings and re-runs the suite, so the posted review can differ from the round shown here. **Stop and await approval.** Nothing has been posted yet; edits here are free.
 
 ## Step 6: Post
 
@@ -129,7 +129,7 @@ Every body goes to GitHub from a file, never from a quoted string on the command
 - **Never resolve threads**; the reviewer closes their own threads when satisfied.
 - **The inner re-review, only when the user was the original reviewer.** When every author recorded in Step 2 is the authenticated login (the self-review case: the user's own `pr-review` runs, or a hand-written review of their own PR), run `pr-review strict` on the PR now. Its follow-up mode finds the earlier marker, writes the "Since my last review" delta and posts the round, so GitHub carries the same history the manual loop produced. When any handled ask came from another login, post no review: the human reviewer re-reviews their own asks, and the re-request below is the hand-off. The terminal already has the converged findings either way.
 
-Finish by reporting: items fixed / deferred / pushed back, inner rounds run and what each found, commits pushed, replies posted, review posted or withheld and why. Offer to re-request review from the reviewers whose requests were addressed (`gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers -f 'reviewers[]=...'`); offer, don't do it unasked.
+Finish by reporting: items fixed / deferred / pushed back, inner rounds run and what each found, commits pushed, replies posted, review posted or withheld and why. When a review was posted, name any finding in it that was absent from the last inner round, since the user approved that round and not this one. Offer to re-request review from the reviewers whose requests were addressed (`gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers -f 'reviewers[]=...'`); offer, don't do it unasked.
 
 ## Red flags
 
