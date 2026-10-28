@@ -168,6 +168,10 @@ Detailed commit bodies when context needed. Good git history is documentation.
 
 Tags come from `safe-version-next.sh`, never bare `svu next`. See the `project-tag_version` skill.
 
+### 8.2a. Docs Straight to Main
+
+Docs-only commits (changelog promotions, README fixes, roadmap projections) go straight to `main`: a throwaway worktree on `origin/main`, commit, fast-forward push, never a `docs/` branch and PR. Code still goes through PRs. Recipe: `doc-changelog` Step 3.
+
 ### 8.3. Commit Granularity
 
 - Commit frequently; each commit is a single logical unit
