@@ -68,9 +68,9 @@ Canonical review methodology. Produces structured findings only; **never posts t
     <row type="admiration" scope="cross-file" anchor="review body, Accolades section" suggestion="no" />
   </matrix>
   <test-run>
-    <guide>Never check the PR out in the current checkout: it may be another session's, and `pr-land` forbids switching the main checkout for the same reason. Fetch the head and run in a detached, throwaway worktree, then remove it from outside:</guide>
+    <guide>Never check the PR out in the current checkout: it may be another session's, and `pr-land` forbids switching the main checkout for the same reason. Fetch the head by its pull ref (GitHub serves `pull/{number}/head` for a fork's PR too, where the head branch is not on `origin`) and run in a detached, throwaway worktree, then remove it from outside:</guide>
     <code>
-git fetch origin {headRefName} \
+git fetch origin pull/{number}/head \
   && git worktree add --detach "${TMPDIR:-/tmp}/pr-review-{repo}-{number}" FETCH_HEAD \
   && cd "${TMPDIR:-/tmp}/pr-review-{repo}-{number}"
 # install if the lockfile asks for it, then the suite:
