@@ -132,7 +132,8 @@ def _notes_file_ok(value: str, heredocs: list[str], cwd: str) -> bool:
 
 
 UNEVALUABLE = re.compile(r"[$`]")
-MOVED_OR_WROTE = re.compile(r"(^|[;&|(\s])cd\s|>")
+# a `cd`, or a redirect that writes a file; `2>` and `2>&1` only route stderr and write nothing the call could read
+MOVED_OR_WROTE = re.compile(r"(^|[;&|(\s])cd\s|(?<!\d)>")
 
 
 def check_call(subcommand: str, tail: str, cwd: str, prefix: str = "") -> str | None:

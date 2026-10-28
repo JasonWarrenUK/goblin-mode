@@ -131,6 +131,10 @@ class ReleaseNotes(unittest.TestCase):
 	def test_file_written_earlier_in_the_command_fails_open(self):
 		self.assertIsNone(reason("python3 cut.py > rn.md && gh release create v1 --notes-file rn.md", cwd=str(self.dir)))
 
+	def test_a_stderr_redirect_earlier_on_the_line_keeps_the_empty_check_live(self):
+		self.assertIn("missing or empty", reason(f"some-check 2>/dev/null && gh release create v1 --notes-file {self.dir / 'empty.md'}"))
+		self.assertIn("missing or empty", reason(f"some-check 2>&1 | tee log; gh release create v1 --notes-file {self.dir / 'empty.md'}"))
+
 	def test_cd_before_the_call_fails_open(self):
 		self.assertIsNone(reason(f"cd {self.dir} && gh release create v1 --notes-file absent.md"))
 
