@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- The board's crew section is grouped by state, each group under a subheading with its count: `in-slot`, `working`, `blocked`, `waiting-jason`, `briefing`, `pr-ready`, `done`, then `gone` for sessions no longer live. Ledger order holds within a group and the number hotkeys follow the grouped order.
+
 ## [0.1.1] - 2026-10-28
 
 ### Added

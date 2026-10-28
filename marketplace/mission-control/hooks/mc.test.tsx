@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, foldProbed, handoff, markFor, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -372,6 +372,40 @@ test('two overlapping refreshes leave the board on the one that started later, w
 	await Promise.all([$.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' }), $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' })])
 	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
 	expect(composed.sections[1]?.text).toMatch(/10SE\.2 \(pr-ready\)/)
+})
+
+const threeStates = () => {
+	const [base] = STATUS.sessions
+	return {
+		...STATUS,
+		sessions: [
+			{ ...base, session_id: 'crew-1', task: '10SE.2', state: 'pr-ready' },
+			{ ...base, session_id: 'crew-2', task: '10SE.3', state: 'working' },
+			{ ...base, session_id: 'crew-3', task: '10SE.4', state: 'working' },
+			{ ...base, session_id: 'crew-4', task: '10SE.5', state: 'working', live: false },
+		],
+	}
+}
+
+test('helpers: crewGroups orders by what needs attention and keeps ledger order within a group', async () => {
+	const snap = parseSnapshot(JSON.stringify(threeStates()), NOON)
+	const groups = crewGroups(snap.sessions)
+	expect(groups.map(g => g.group)).toEqual(['working', 'pr-ready', 'gone'])
+	expect(groups[0]?.sessions.map(s => s.task)).toEqual(['10SE.3', '10SE.4'])
+	// a gone session is gone whatever it last reported
+	expect(groups[2]?.sessions.map(s => s.task)).toEqual(['10SE.5'])
+	expect(crewGroups([])).toEqual([])
+})
+
+test('the board groups the crew under a subheading per state', async ($, on) => {
+	world(on, 'coord-1', threeStates())
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^working · 2$/ }))?.text).toBe('working · 2')
+	expect((await ui.find({ type: 'Text', text: /^pr-ready · 1$/ }))?.text).toBe('pr-ready · 1')
+	expect((await ui.find({ type: 'Text', text: /^gone · 1$/ }))?.text).toBe('gone · 1')
+	await ui.unmount()
 })
 
 test('a probed refresh overtaken by a plain one still lands its PR state', async ($, on) => {

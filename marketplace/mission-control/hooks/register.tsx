@@ -758,9 +758,36 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 	)
 }
 
+/** Where a state sits on the board: what needs the coordinator first, finished and gone sessions last. */
+const CREW_GROUPS = ['in-slot', 'working', 'blocked', 'waiting-jason', 'briefing', 'pr-ready', 'done', 'gone'] as const
+
+/** The crew by the group their row reads in (a gone session is `gone` whatever it last reported); ledger order holds within a group. */
+export const crewGroups = (sessions: readonly Snapshot['sessions'][number][]): { group: string; sessions: Snapshot['sessions'] }[] => {
+	const groupOf = (s: Snapshot['sessions'][number]): string => (s.live ? s.state : 'gone')
+	const rank = (group: string): number => {
+		const at = (CREW_GROUPS as readonly string[]).indexOf(group)
+		return at === -1 ? CREW_GROUPS.length - 1 : at
+	}
+	const names = [...new Set(sessions.map(groupOf))].sort((a, b) => rank(a) - rank(b))
+	return names.map(group => ({ group, sessions: sessions.filter(s => groupOf(s) === group) }))
+}
+
 const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: string | null, inner: number, now: number) => {
+	const { Text } = ui
+	const grouped = crewGroups(snap.sessions)
+	let nth = 0
+	return grouped.flatMap(({ group, sessions }) => [
+		<Text key={`group-${group}`} dimColor>
+			{group} · {sessions.length}
+		</Text>,
+		...crewRowsOf($, ui, sessions, me, picked, inner, now, () => nth++),
+	])
+}
+
+const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], me: Self, picked: string | null, inner: number, now: number, nextIndex: () => number) => {
 	const { Box, Text, Button } = ui
-	return snap.sessions.map((s, i) => {
+	return sessions.map(s => {
+		const i = nextIndex()
 		const key = `sess:${s.session_id}`
 		const isMe = s.session_id === me.sessionId
 		const label = s.task || s.branch || s.name || s.session_id.slice(0, 8)
