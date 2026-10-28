@@ -671,6 +671,163 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
     return found
 
 
+PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt"
+
+
+def normalise_pr_facts(raw: dict) -> dict:
+    """The few facts reconcile needs from `gh pr view --json`, in one flat shape: a requested reviewer is a login or a team slug, and the latest reviews are split by their verdict."""
+    requested = []
+    for item in raw.get("reviewRequests") or []:
+        if isinstance(item, dict):
+            who = item.get("login") or item.get("slug") or item.get("name")
+            if who:
+                requested.append(str(who))
+    by_state: dict[str, list[str]] = {"CHANGES_REQUESTED": [], "APPROVED": []}
+    for review in raw.get("latestReviews") or []:
+        if not isinstance(review, dict):
+            continue
+        state = str(review.get("state") or "").upper()
+        login = (review.get("author") or {}).get("login") if isinstance(review.get("author"), dict) else None
+        if state in by_state and login:
+            by_state[state].append(str(login))
+    return {
+        "state": str(raw.get("state") or "").upper(),
+        "review_decision": str(raw.get("reviewDecision") or "").upper(),
+        "requested": requested,
+        "changes_requested_by": by_state["CHANGES_REQUESTED"],
+        "approved_by": by_state["APPROVED"],
+        "merged_at": raw.get("mergedAt"),
+    }
+
+
+def pr_facts(ledger: Ledger, numbers: set[int]) -> dict[int, dict]:
+    """What GitHub says about each PR beyond its state: who it waits on. Cached and hang-guarded like pr_states, in its own file; a PR gh cannot read is left out."""
+    cache_path = ledger.dir / "pr-facts.json"
+    cache = read_json(cache_path, {}) or {}
+    found: dict[int, dict] = {}
+    changed = False
+    hanging = False
+    for number in sorted(numbers):
+        hit = cache.get(str(number)) or {}
+        if isinstance(hit.get("facts"), dict) and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
+            found[number] = hit["facts"]
+            continue
+        if hanging:
+            continue
+        code, out = sh(["gh", "pr", "view", str(number), "--json", PR_FACT_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
+        if code == 124:
+            hanging = True
+            continue
+        if code != 0:
+            continue
+        try:
+            raw = json.loads(out)
+        except ValueError:
+            continue
+        if not isinstance(raw, dict):
+            continue
+        facts = normalise_pr_facts(raw)
+        if facts["state"] not in ("OPEN", "MERGED", "CLOSED"):
+            continue
+        found[number] = facts
+        cache[str(number)] = {"facts": facts, "at": now()}
+        changed = True
+    if changed and ledger.dir.is_dir():
+        write_json(cache_path, cache)
+    return found
+
+
+def waiting_on(facts: dict | None) -> str:
+    """Who a PR waits on, in the words the board may repeat; never a guess at the user."""
+    if not facts:
+        return "unknown (gh did not answer)"
+    if facts["state"] == "MERGED":
+        return "merged"
+    if facts["state"] == "CLOSED":
+        return "closed"
+    if facts["requested"]:
+        return ", ".join(facts["requested"])
+    if facts["changes_requested_by"]:
+        return "changes requested by " + ", ".join(facts["changes_requested_by"])
+    if facts["review_decision"] == "APPROVED" or facts["approved_by"]:
+        return "approved; the merge is the user's"
+    return "no reviewer requested"
+
+
+def claim_on_main(main: Path, task: str) -> bool | None:
+    """Whether origin/main carries roadmap:claim's commit for a task; None when the repo has no rich roadmap or no origin/main to read."""
+    if not (main / ".claude" / "roadmaps.json").is_file():
+        return None
+    if run_git(main, "rev-parse", "--verify", "--quiet", "origin/main") is None:
+        return None
+    found = run_git(main, "log", "origin/main", "--fixed-strings", "--grep", f"chore(roadmap): claim {task}", "--format=%h", "-1")
+    return bool(found)
+
+
+def reconcile(ledger: Ledger) -> dict:
+    """The ledger against ground truth: the live registry, GitHub's word on each PR and origin/main. Reports drift; changes nothing."""
+    run = ledger.require_run()
+    live = registry()
+    sessions = ledger.sessions()
+    drift: list[dict] = []
+
+    def note(kind: str, detail: str, task: str = "", session_id: str = "", pr: int | None = None) -> None:
+        drift.append({"kind": kind, "task": task, "session_id": session_id, "pr": pr, "detail": detail})
+
+    for sid, row in sessions.items():
+        if sid not in live and row.get("state") != "done":
+            note("gone", f"session {row.get('name') or sid[:8]} is no longer running but its row reads {row.get('state')}", row.get("task", ""), sid, row.get("pr"))
+    joined_tasks = {row.get("task") for row in sessions.values()}
+    for entry in run.get("crew", []):
+        task = entry.get("task", "")
+        if task and task not in joined_tasks:
+            note("unjoined", f"crew task {task} is in the plan but no session has joined the ledger for it", task)
+
+    numbers = {int(row["pr"]) for row in sessions.values() if row.get("pr")}
+    facts = pr_facts(ledger, numbers)
+    prs = []
+    for sid, row in sorted(sessions.items(), key=lambda item: int(item[1].get("pr") or 0)):
+        if not row.get("pr"):
+            continue
+        number = int(row["pr"])
+        fact = facts.get(number)
+        prs.append({"pr": number, "task": row.get("task", ""), "state": (fact or {}).get("state") or "UNKNOWN", "waiting_on": waiting_on(fact)})
+        if fact and fact["state"] in ("MERGED", "CLOSED") and row.get("state") != "done":
+            note(f"{fact['state'].lower()}-not-done", f"PR #{number} is {fact['state'].lower()} on GitHub but the row reads {row.get('state')}", row.get("task", ""), sid, number)
+
+    for need in run.get("needs", []):
+        if need.get("status") == "done":
+            continue
+        row = sessions.get(need.get("session_id") or "", {})
+        merged = row.get("pr") and (facts.get(int(row["pr"])) or {}).get("state") == "MERGED"
+        if row.get("state") == "done" or merged:
+            why = "its session is done" if row.get("state") == "done" else f"its PR #{row.get('pr')} is merged"
+            note("need-open-after-done", f"need #{need.get('n')} ({need.get('why', '')[:60]}) is still open but {why}", need.get("task", ""), need.get("session_id", ""), row.get("pr"))
+
+    for entry in run.get("crew", []):
+        task = entry.get("task", "")
+        if task and claim_on_main(ledger.main, task) is False:
+            note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/main", task)
+
+    return {"run": run.get("name"), "drift": drift, "prs": prs, "at": now()}
+
+
+def print_reconcile(result: dict) -> None:
+    print("## Drift")
+    print()
+    if not result["drift"]:
+        print("nothing to reconcile")
+    for item in result["drift"]:
+        print(f"- {item.get('task') or item.get('session_id', '')[:8] or 'run'}: {item['detail']}")
+    print()
+    print("## PRs")
+    print()
+    if not result["prs"]:
+        print("no PRs on the board")
+    for pr in result["prs"]:
+        print(f"- #{pr['pr']} ({pr['task']}): {pr['state'].lower()}, {pr['waiting_on']}")
+
+
 def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
     run = ledger.run()
     live = registry()
@@ -880,6 +1037,16 @@ def cmd_probe(args) -> int:
             print(f"{probe['resource']}: {'BUSY' if probe['busy'] else 'free'}")
             for check in probe["checks"]:
                 print(f"  {check['kind']}: {check.get('detail', '')}")
+    return 0
+
+
+def cmd_reconcile(args) -> int:
+    ledger = ledger_for(args.cwd)
+    result = reconcile(ledger)
+    if args.json:
+        print(json.dumps(result))
+    else:
+        print_reconcile(result)
     return 0
 
 
@@ -1405,6 +1572,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--probe", action="store_true", help="also probe each resource on the machine")
     sp = sub.add_parser("probe", help="what the machine says about a resource")
     sp.add_argument("resource", nargs="?")
+    sub.add_parser("reconcile", help="diff the ledger against the live registry, GitHub and main; print what drifted and who each PR waits on")
     sp = sub.add_parser("crew", help="the crew plan: add a task's branch, worktree and brief path, or list")
     sp.add_argument("action", choices=["add", "list"])
     sp.add_argument("--task")
@@ -1460,7 +1628,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 COMMANDS = {
-    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe,
+    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile,
     "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
     "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "hook": cmd_hook,
 }

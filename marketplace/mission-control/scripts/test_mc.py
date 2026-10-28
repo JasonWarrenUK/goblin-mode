@@ -578,6 +578,98 @@ class LedgerFlow(unittest.TestCase):
         finally:
             mc_module.sh = real_sh
 
+    def _crew_with_pr(self, task, session, branch, pr, state="pr-ready"):
+        """A crew session in the plan, joined and reporting a PR; the module-level helpers then read the same ledger root."""
+        self.box.mc("crew", "add", "--task", task, "--branch", branch, session="coord-1")
+        self.box.mc("join", "--task", task, "--branch", branch, session=session)
+        self.box.mc("report", "--state", state, "--pr", str(pr), session=session)
+
+    def _reconcile_with(self, fake_sh):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
+        mc_module.sh = fake_sh
+        mc_module.LEDGER_ROOT = self.box.ledger_root
+        mc_module.SESSIONS_DIR = self.box.sessions
+        try:
+            return mc_module.reconcile(mc_module.ledger_for(self.box.repo))
+        finally:
+            mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = real
+
+    @staticmethod
+    def _gh(answers):
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:3] != ["gh", "pr", "view"]:
+                return 1, "not gh"
+            answer = answers.get(argv[3])
+            if answer == "hang":
+                return 124, "timed out"
+            if answer is None:
+                return 1, "no such PR"
+            return 0, json.dumps(answer)
+        return fake_sh
+
+    def test_reconcile_flags_a_merged_pr_whose_row_is_not_done(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 209)
+        result = self._reconcile_with(self._gh({"209": {"state": "MERGED", "reviewDecision": "APPROVED", "reviewRequests": [], "latestReviews": [], "mergedAt": "2026-10-28T10:00:00Z"}}))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertIn("merged-not-done", kinds)
+        self.assertEqual(result["prs"], [{"pr": 209, "task": "10SE.2", "state": "MERGED", "waiting_on": "merged"}])
+        self.assertNotIn("gone", kinds, "crew-1 is registered and live")
+
+    def test_reconcile_names_the_reviewer_a_pr_waits_on(self):
+        self.box.start()
+        self.box.register("crew-2", "10se4", str(self.box.repo))
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 210)
+        self._crew_with_pr("10SE.4", "crew-2", "feat/b", 211)
+        result = self._reconcile_with(self._gh({
+            "210": {"state": "OPEN", "reviewDecision": "REVIEW_REQUIRED", "reviewRequests": [{"login": "maxime"}, {"slug": "backend"}], "latestReviews": [], "mergedAt": None},
+            "211": {"state": "OPEN", "reviewDecision": "CHANGES_REQUESTED", "reviewRequests": [], "latestReviews": [{"author": {"login": "jess"}, "state": "CHANGES_REQUESTED"}], "mergedAt": None},
+        }))
+        waits = {pr["pr"]: pr["waiting_on"] for pr in result["prs"]}
+        self.assertEqual(waits[210], "maxime, backend")
+        self.assertEqual(waits[211], "changes requested by jess")
+        self.assertEqual(result["drift"], [])
+
+    def test_reconcile_flags_a_planned_task_nobody_joined_and_a_session_that_went_away(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.9", "--branch", "feat/z", session="coord-1")
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 212, state="working")
+        (self.box.sessions / "crew-1.json").unlink()
+        result = self._reconcile_with(self._gh({"212": {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}}))
+        by_kind = {item["kind"]: item for item in result["drift"]}
+        self.assertEqual(by_kind["unjoined"]["task"], "10SE.9")
+        self.assertEqual(by_kind["gone"]["task"], "10SE.2")
+        self.assertEqual(by_kind["gone"]["session_id"], "crew-1")
+        self.assertEqual(result["prs"][0]["waiting_on"], "no reviewer requested")
+
+    def test_reconcile_reports_unknown_when_gh_hangs(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 213)
+        result = self._reconcile_with(self._gh({"213": "hang"}))
+        self.assertEqual(result["prs"], [{"pr": 213, "task": "10SE.2", "state": "UNKNOWN", "waiting_on": "unknown (gh did not answer)"}])
+        self.assertEqual([item["kind"] for item in result["drift"]], [])
+
+    def test_reconcile_flags_a_need_left_open_after_its_session_finished(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1")
+        self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1")
+        self.box.mc("report", "--state", "done", session="crew-1")
+        result = self._reconcile_with(self._gh({}))
+        self.assertEqual([item["kind"] for item in result["drift"]], ["need-open-after-done"])
+        self.assertIn("its session is done", result["drift"][0]["detail"])
+
+    def test_reconcile_cli_prints_nothing_to_reconcile_for_a_quiet_run(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1")
+        out = self.box.mc("reconcile").stdout
+        self.assertIn("nothing to reconcile", out)
+        self.assertIn("no PRs on the board", out)
+        self.assertEqual(self.box.mc("reconcile", cwd=self.box.tmp, expect=1).returncode, 1, "outside a repo is a refusal")
+
     def test_the_psql_probes_wait_no_longer_than_the_gh_lookups(self):
         sys.path.insert(0, str(HERE))
         import mc as mc_module

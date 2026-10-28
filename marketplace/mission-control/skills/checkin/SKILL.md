@@ -19,7 +19,7 @@ Three questions out, one list back. The list is the whole output; the user asked
 
 ## Step 1: Ask
 
-`mc_board` first, so the list starts from what the ledger already knows (states, slots, open needs). Then one message to every live crew session (`mc_send` to `all`):
+`mc_board` first, so the list starts from what the ledger already knows (states, slots, open needs), then `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py reconcile`. Fix what it prints before asking anyone: a merged PR's row to `done` with `mc_report`, a need the user has plainly done marked done, so the questions go to sessions that are still working and the list does not repeat an item already handled. Drift that cannot be fixed from here (a crew task never joined, a claim commit not on main) opens the list as its own bucket. Then one message to every live crew session (`mc_send` to `all`):
 
 ```text
 Check-in from mission control; reply in three lines. (1) Current state of your branch and anything uncommitted. (2) Exactly what you need from the user right now, as the commands they would type, or "nothing". (3) Anything blocking you that is not the user.
@@ -36,6 +36,10 @@ Record every item from a reply's answer 2 with `mc_need` (why, the exact command
 ```markdown
 ## Needs you
 
+### Drift
+
+- <task>: <what reconcile found and the one command or action that fixes it>.
+
 ### Now
 
 1. **<task>: <one line>.** `cd <absolute worktree>/<run_from> && <command>`: <what it unblocks>.
@@ -49,7 +53,7 @@ Record every item from a reply's answer 2 with `mc_need` (why, the exact command
 - <task>: <state, one line>.
 ```
 
-Rules for the list: every command is complete, with its `cd`, because the user's `!` shell may be standing in another checkout; a hosted command says `read-only` or `writes` in the line; an approval names the session to visit; a slot that the coordinator will grant on a release is stated as such, with who it waits on. A bucket with nothing in it is left out.
+Rules for the list: every command is complete, with its `cd`, because the user's `!` shell may be standing in another checkout; a hosted command says `read-only` or `writes` in the line; an approval names the session to visit; a slot that the coordinator will grant on a release is stated as such, with who it waits on; a PR waits on the reviewer `reconcile` names, never on "the user" unless the user is that reviewer or the merge is theirs. A bucket with nothing in it is left out, `Drift` included.
 
 ## Step 4: Keep it true
 
