@@ -19,7 +19,7 @@ The aftermath, in the order that avoids losing anyone's work. Landing is `pr-lan
 
 ## Step 1: Where things stand
 
-`mc_board`, then the config's `stack_status` command (`mc.py status --json` has `config_path`; read `commands.stack_status`). For each crew row: the PR number, its base, whether it is linked, chained or independent and whether the session is still live.
+`mc_board`, then the config's `stack_status` command (`mc.py --json status` has `config_path`; read `commands.stack_status`). For each crew row: the PR number, its base, whether it is linked, chained or independent and whether the session is still live.
 
 ## Step 2: Link the stack
 

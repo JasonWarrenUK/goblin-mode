@@ -33,7 +33,7 @@ Usage: /mission-control:kickoff [task ids...] [name <run name>]
 ## Step 1: Preconditions
 
 1. `mc.py detect`. Exit 2: stop and say `/mission-control:configure` writes the project config; nothing else happens without it.
-2. `mc.py status --json`. A non-null `run`: stop and name it; `/mission-control:end` closes a run.
+2. `mc.py --json status` (the flag goes before the subcommand). A non-null `run`: stop and name it; `/mission-control:end` closes a run.
 3. `git fetch origin` in the main checkout, then record the base: `git rev-parse origin/<default branch>` (origin's HEAD), or the branch the user names. Check it is on origin: `git ls-remote --exit-code --heads origin <base>`. A base that is not (a feature branch the PRs will stack on) cannot be a PR target until the user pushes it, and the push publishes its commits, so it is the user's: `mc.py start` puts it on the needs list as item 1 and warns; say so in the hand-over and do not expect a PR before it is done. This sha is quoted in the guidance and every brief; every shared fact is checked at it.
 4. `mc.py probe`. Relay what the machine holds (a running server, a migration on the stack from a worktree that is not in this run). It becomes a shared fact.
 
