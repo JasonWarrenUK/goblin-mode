@@ -44,6 +44,7 @@ let refreshMs = 15_000
 // applied only while no refresh that started later has landed; a tick is skipped while one is running.
 let refreshSeq = 0
 let appliedSeq = 0
+let probedSeq = 0
 let tickInFlight = false
 let joining = false
 
@@ -239,16 +240,34 @@ const isPaneOpen = async ($: EngineInterface): Promise<boolean> => {
 }
 
 /**
- * A refresh without probes cannot say what GitHub thinks of a PR, so a session whose PR has not changed keeps the
- * state the last probed refresh found; otherwise a tool call would blank the board's `merged` until the next tick.
+ * A refresh without probes cannot say what GitHub thinks of a PR or what the machine holds, so a session whose PR has
+ * not changed keeps the state the last probed refresh found, and the probes stay; otherwise a tool call would blank
+ * the board's `merged` and its slot labels until the next tick.
  */
 export const carryPrState = (prev: Snapshot | null, next: Snapshot): Snapshot => {
 	if (!prev?.run || !next.run || prev.run.name !== next.run.name) return next
 	return {
 		...next,
+		probes: next.probes.length ? next.probes : prev.probes,
 		sessions: next.sessions.map(s => {
 			const old = prev.sessions.find(o => o.session_id === s.session_id)
 			return !s.pr_state && old?.pr_state && old.pr === s.pr ? { ...s, pr_state: old.pr_state } : s
+		}),
+	}
+}
+
+/**
+ * A probed refresh that lost the race to a later plain one read the ledger first, so only what a plain refresh cannot
+ * see is taken from it: the probes, and the PR state of a session whose PR is still the one it asked about.
+ */
+export const foldProbed = (prev: Snapshot | null, probed: Snapshot): Snapshot | null => {
+	if (!prev?.run || !probed.ok || !probed.run || prev.run.name !== probed.run.name) return prev
+	return {
+		...prev,
+		probes: probed.probes,
+		sessions: prev.sessions.map(s => {
+			const seen = probed.sessions.find(o => o.session_id === s.session_id)
+			return seen?.pr_state && seen.pr === s.pr ? { ...s, pr_state: seen.pr_state } : s
 		}),
 	}
 }
@@ -265,8 +284,16 @@ const refresh = async ($: EngineInterface, withProbes = false): Promise<Snapshot
 		next = failed('broken', error instanceof Error && /ENOENT|not found/i.test(error.message) ? 'python3 is not on PATH' : 'the CLI could not run', at)
 	}
 	// a refresh that started later has already landed: this one read the ledger first, so it is the older picture
-	if (seq < appliedSeq) return (await read($, snapshot)) ?? next
+	if (seq < appliedSeq) {
+		// ...but its probes and PR states are news unless a later probed refresh has already landed
+		if (withProbes && seq > probedSeq) {
+			probedSeq = seq
+			await update($, snapshot, prev => foldProbed(prev, next))
+		}
+		return (await read($, snapshot)) ?? next
+	}
 	appliedSeq = seq
+	if (withProbes) probedSeq = seq
 	await update($, snapshot, prev => (withProbes ? next : carryPrState(prev, next)))
 	await place($, next)
 	return next

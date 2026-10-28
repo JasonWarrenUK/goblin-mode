@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, handoff, markFor, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
+import { carryPrState, clock, foldProbed, handoff, markFor, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -41,7 +41,7 @@ const world = (
 	sessionId: string,
 	status: unknown = STATUS,
 	failing?: { verb: string; exitCode: number; stdout: string; stderr: string },
-	extra: { cwd?: string; statusFor?: (nth: number) => { status: unknown; delayMs: number } } = {},
+	extra: { cwd?: string; statusFor?: (nth: number, probed: boolean) => { status: unknown; delayMs: number } } = {},
 ) => {
 	let statusCalls = 0
 	const panes = { open: [] as string[] }
@@ -73,7 +73,7 @@ const world = (
 		if (failing && sub === failing.verb) return { value: { exitCode: failing.exitCode, stdout: failing.stdout, stderr: failing.stderr, isStdoutTruncated: false, isStderrTruncated: false } }
 		let stdout = ''
 		if (sub === 'status' && extra.statusFor) {
-			const answer = extra.statusFor(statusCalls++)
+			const answer = extra.statusFor(statusCalls++, args.includes('--probe'))
 			await new Promise(resolve => setTimeout(resolve, answer.delayMs))
 			stdout = JSON.stringify(answer.status)
 		} else if (sub === 'status') stdout = JSON.stringify(status)
@@ -372,4 +372,48 @@ test('two overlapping refreshes leave the board on the one that started later, w
 	await Promise.all([$.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' }), $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' })])
 	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
 	expect(composed.sections[1]?.text).toMatch(/10SE\.2 \(pr-ready\)/)
+})
+
+test('a probed refresh overtaken by a plain one still lands its PR state', async ($, on) => {
+	const plain = withPr(null)
+	const probed = withPr('MERGED')
+	// call 0 is the session start; after it the slow probed refresh reads GitHub's word and the quick plain one cannot
+	world(on, 'coord-1', STATUS, undefined, { statusFor: (nth, isProbed) => (nth > 0 && isProbed ? { status: probed, delayMs: 200 } : { status: plain, delayMs: 0 }) })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	const opening = $.command.run({ ...RUN, command: 'mc', args: '' })
+	await new Promise(resolve => setTimeout(resolve, 50))
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' })
+	await opening
+	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
+	expect(composed.sections[1]?.text).toMatch(/PRs merged while the crew row is not done: 10SE\.2 \(#209\)/)
+})
+
+test('helpers: foldProbed takes the probes and the PR state a plain refresh cannot see, and nothing else', async () => {
+	const probe = { resource: 'local-db', busy: true, checks: [] }
+	const stored = parseSnapshot(JSON.stringify(withPr(null)), NOON)
+	const probed = parseSnapshot(JSON.stringify({ ...withPr('MERGED'), probes: [probe] }), NOON)
+	const folded = foldProbed(stored, probed)
+	expect(folded?.sessions[0]?.pr_state).toBe('MERGED')
+	expect(folded?.probes.length).toBe(1)
+	// the ledger rows stay the newer picture
+	const newer = parseSnapshot(JSON.stringify({ ...withPr(null), sessions: [{ ...withPr(null).sessions[0], state: 'blocked' }] }), NOON)
+	expect(foldProbed(newer, probed)?.sessions[0]?.state).toBe('blocked')
+	// another run, a failed probe and a session now on another PR leave the stored snapshot as it was
+	const otherRun = parseSnapshot(JSON.stringify({ ...withPr('MERGED'), run: { ...STATUS.run, name: 'other' } }), NOON)
+	expect(foldProbed(stored, otherRun)).toBe(stored)
+	expect(foldProbed(stored, { ...probed, ok: false })).toBe(stored)
+	const moved = parseSnapshot(JSON.stringify({ ...withPr(null), sessions: [{ ...withPr(null).sessions[0], pr: 210 }] }), NOON)
+	expect(foldProbed(moved, probed)?.sessions[0]?.pr_state).toBeNull()
+	expect(foldProbed(null, probed)).toBeNull()
+})
+
+test('a refresh without probes keeps the probes the last probed one found', async () => {
+	const probe = { resource: 'local-db', busy: true, checks: [] }
+	const probed = parseSnapshot(JSON.stringify({ ...withPr('MERGED'), probes: [probe] }), NOON)
+	const plain = parseSnapshot(JSON.stringify(withPr(null)), NOON)
+	expect(carryPrState(probed, plain).probes.length).toBe(1)
+	expect(carryPrState(null, plain).probes.length).toBe(0)
+	const otherRun = parseSnapshot(JSON.stringify({ ...withPr(null), run: { ...STATUS.run, name: 'other' } }), NOON)
+	expect(carryPrState(probed, otherRun).probes.length).toBe(0)
 })
