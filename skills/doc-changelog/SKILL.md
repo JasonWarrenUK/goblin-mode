@@ -109,11 +109,11 @@ git fetch origin main \
 # write {changelog-path}, then:
 git add {changelog-path} \
   && git commit -m "docs: changelog for {versions}" \
-  && git merge-base --is-ancestor origin/main HEAD \
+  && git fetch origin main && git merge-base --is-ancestor origin/main HEAD \
   && git push origin HEAD:main
 ```
 
-The `merge-base` check is what makes the push a fast-forward: if main moved while the draft was being approved, `git fetch origin main && git rebase origin/main` and run the check again. A push the remote refuses (branch protection) is the one case that falls back to a `docs/` branch and `pr-create`; say so when it happens. Keep the worktree until Step 4 has read the section it needs for `release`, then remove it from outside it: `cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && git worktree remove "${TMPDIR:-/tmp}/doc-changelog-{repo}-{tag}"`.
+The fetch and the `merge-base` check together make the push a fast-forward: the worktree was cut from `origin/main` as it stood before the draft, so without the fetch the check can never fail. It fails when main moved while the draft was being approved; then `git rebase origin/main` (the fetch has already run) and repeat the check. A push the remote refuses (branch protection) is the one case that falls back to a `docs/` branch and `pr-create`; say so when it happens. Keep the worktree until Step 4 has read the section it needs for `release`, then remove it from outside it: `cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && git worktree remove "${TMPDIR:-/tmp}/doc-changelog-{repo}-{tag}"`.
 
 **npm packages** (a `package.json` with no `"private": true`): check `CHANGELOG.md` ships or is reachable: either listed in `files` or linked from the README, since the npm page shows only the README. Flag whichever is missing; registry users otherwise never see release history.
 
