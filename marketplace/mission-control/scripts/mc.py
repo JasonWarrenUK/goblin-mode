@@ -649,14 +649,18 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
     cache = read_json(cache_path, {}) or {}
     found: dict[int, str] = {}
     changed = False
+    hanging = False
     for number in sorted(numbers):
         hit = cache.get(str(number)) or {}
         if hit.get("state") and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
             found[number] = hit["state"]
             continue
+        if hanging:
+            continue  # gh is hanging, so the rest would too; the next tick retries
         code, out = sh(["gh", "pr", "view", str(number), "--json", "state", "-q", ".state"], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
         if code == 124:
-            break  # gh is hanging, so the rest would too; the next tick retries
+            hanging = True
+            continue
         state = out.strip().upper()
         if code == 0 and state in ("OPEN", "MERGED", "CLOSED"):
             found[number] = state

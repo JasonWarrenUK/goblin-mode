@@ -558,6 +558,26 @@ class LedgerFlow(unittest.TestCase):
         finally:
             mc_module.sh = real_sh
 
+    def test_a_hanging_gh_still_reads_the_cached_states_of_later_prs(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        ledger = mc_module.Ledger(self.box.repo)
+        ledger.dir = self.box.tmp / "pr-hang-cache-ledger"
+        ledger.dir.mkdir()
+        mc_module.write_json(ledger.dir / "pr-cache.json", {"311": {"state": "MERGED", "at": mc_module.now()}})
+        asked = []
+        real_sh = mc_module.sh
+        def hanging_sh(argv, timeout=8, cwd=None):
+            asked.append(argv[3])
+            return 124, "timed out"
+        mc_module.sh = hanging_sh
+        try:
+            # 309 sorts before the cached 311 and hangs; 311 is still answered from disk
+            self.assertEqual(mc_module.pr_states(ledger, {309, 311}), {311: "MERGED"})
+            self.assertEqual(asked, ["309"])
+        finally:
+            mc_module.sh = real_sh
+
     def test_the_psql_probes_wait_no_longer_than_the_gh_lookups(self):
         sys.path.insert(0, str(HERE))
         import mc as mc_module
