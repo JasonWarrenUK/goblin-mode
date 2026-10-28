@@ -51,6 +51,8 @@ export type SessionRow = {
 	state: string
 	summary: string
 	pr: number | null
+	/** GitHub's word on the PR (OPEN, MERGED, CLOSED); only on the coordinator's probed board, and only when gh answered. */
+	pr_state: string | null
 	live: boolean
 	live_status: string
 	socket: string | null
