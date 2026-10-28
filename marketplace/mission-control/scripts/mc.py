@@ -766,7 +766,7 @@ def claim_on_main(main: Path, task: str, ref: str = "origin/main") -> bool | Non
 
 
 def reconcile(ledger: Ledger) -> dict:
-    """The ledger against ground truth: the live registry, GitHub's word on each PR and origin/main. Reports drift; changes nothing."""
+    """The ledger against ground truth: the live registry, GitHub's word on each PR and the branches on origin (a merged PR's base, an open PR's branch). Reports drift; changes nothing."""
     run = ledger.require_run()
     live = registry()
     sessions = ledger.sessions()
@@ -1593,7 +1593,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--probe", action="store_true", help="also probe each resource on the machine")
     sp = sub.add_parser("probe", help="what the machine says about a resource")
     sp.add_argument("resource", nargs="?")
-    sub.add_parser("reconcile", help="diff the ledger against the live registry, GitHub and main; print what drifted and who each PR waits on")
+    sub.add_parser("reconcile", help="diff the ledger against the live registry, GitHub and the branches on origin (a merged PR's base, an open PR's branch); print what drifted and who each PR waits on")
     sp = sub.add_parser("crew", help="the crew plan: add a task's branch, worktree and brief path, or list")
     sp.add_argument("action", choices=["add", "list"])
     sp.add_argument("--task")
