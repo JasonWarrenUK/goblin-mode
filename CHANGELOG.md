@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.16.0] - 2026-10-28
+
+### Added
+
+- `mission-control` plugin 0.2.0: the board groups crew by state, each group under a subheading with its count. A coordinator's probed board now shows `merged` or `closed` beside a crew PR, and the coordinator can correct another session's row with `mc_report` and `for`. A crew session that opens a PR records it on the board without being asked. Details in the plugin's changelog.
+
+### Fixed
+
+- `mission-control`: a session whose folder path differed from the crew plan only in letter case now joins the run and appears on the board. Board refreshes land in the order they were read, session-row writes wait for the run lock instead of overwriting each other, and releasing a slot restores the state it interrupted. The kickoff and end skills give `mc.py --json status`, the flag order that works.
+
 ## [6.15.0] - 2026-10-27
 
 ### Added
@@ -375,7 +385,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.15.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.16.0...HEAD
+[6.16.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.15.0...v6.16.0
 [6.15.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.1...v6.15.0
 [6.14.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.0...v6.14.1
 [6.14.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.13.1...v6.14.0
