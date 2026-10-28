@@ -644,7 +644,7 @@ PR_LOOKUP_SECONDS = 3
 
 
 def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
-    """GitHub's word on each PR (OPEN, MERGED, CLOSED), cached so a 15-second board does not ask every tick; a PR gh cannot read is left out, and a lookup that hangs ends the pass."""
+    """GitHub's word on each PR (OPEN, MERGED, CLOSED), cached so a 15-second board does not ask every tick; a PR gh cannot read is left out, and once a lookup hangs the rest skip gh and answer from the cache alone."""
     cache_path = ledger.dir / "pr-cache.json"
     cache = read_json(cache_path, {}) or {}
     found: dict[int, str] = {}

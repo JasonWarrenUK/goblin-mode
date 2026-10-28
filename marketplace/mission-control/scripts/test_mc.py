@@ -531,7 +531,7 @@ class LedgerFlow(unittest.TestCase):
         finally:
             mc_module.sh = real_sh
 
-    def test_a_hanging_gh_ends_the_pr_lookup_pass_after_one_short_wait(self):
+    def test_a_hanging_gh_ends_the_pr_lookups_after_one_short_wait(self):
         sys.path.insert(0, str(HERE))
         import mc as mc_module
         ledger = mc_module.Ledger(self.box.repo)
@@ -545,7 +545,7 @@ class LedgerFlow(unittest.TestCase):
         mc_module.sh = hanging_sh
         try:
             self.assertEqual(mc_module.pr_states(ledger, {301, 302, 303}), {})
-            self.assertEqual(len(asked), 1, "the first timeout stops the pass")
+            self.assertEqual(len(asked), 1, "the first timeout stops the gh lookups")
             self.assertTrue(all(timeout <= 3 for _, timeout in asked))
             # what was found before the hang survives it, and nothing after is asked
             asked.clear()
