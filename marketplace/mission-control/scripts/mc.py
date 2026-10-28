@@ -589,6 +589,10 @@ def sh(argv: list[str], timeout: int = 8, cwd: str | Path | None = None) -> tupl
     return done.returncode, (done.stdout + done.stderr).strip()
 
 
+# two psql probes plus the gh lookups share the mod's 20-second limit on `status --probe`
+PSQL_PROBE_SECONDS = 3
+
+
 def probe_resource(name: str, spec: dict) -> dict:
     """What the machine says about a resource right now; never trusts a message."""
     probe = spec.get("probe") if isinstance(spec, dict) else None
@@ -617,7 +621,7 @@ def probe_resource(name: str, spec: dict) -> dict:
             "and usename not in (%s) and not (usename in (%s) and state='idle') and pid<>pg_backend_pid()"
             % ("'%s'" % activity.get("database", "postgres"), ignore, idle)
         )
-        code, out = sh(["psql", activity["dsn"], "-Atc", query])
+        code, out = sh(["psql", activity["dsn"], "-Atc", query], timeout=PSQL_PROBE_SECONDS)
         if code == 0 and out.strip().isdigit():
             clients = int(out.strip())
             result["checks"].append({"kind": "pg_activity", "busy": clients > 0, "detail": f"{clients} client connection(s)"})
@@ -627,7 +631,7 @@ def probe_resource(name: str, spec: dict) -> dict:
     migrations = probe.get("migrations")
     if isinstance(migrations, dict) and migrations.get("dsn"):
         table = migrations.get("table", "supabase_migrations.schema_migrations")
-        code, out = sh(["psql", migrations["dsn"], "-Atc", f"select coalesce(max(version),'none') from {table}"])
+        code, out = sh(["psql", migrations["dsn"], "-Atc", f"select coalesce(max(version),'none') from {table}"], timeout=PSQL_PROBE_SECONDS)
         result["checks"].append({"kind": "migrations", "busy": False, "detail": f"latest applied: {out.strip()[:40]}" if code == 0 else f"unreachable: {out[:100]}"})
     return result
 
@@ -636,10 +640,11 @@ def probe_resource(name: str, spec: dict) -> dict:
 
 
 PR_CACHE_SECONDS = 60
+PR_LOOKUP_SECONDS = 3
 
 
 def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
-    """GitHub's word on each PR (OPEN, MERGED, CLOSED), cached so a 15-second board does not ask every tick; a PR gh cannot read is left out."""
+    """GitHub's word on each PR (OPEN, MERGED, CLOSED), cached so a 15-second board does not ask every tick; a PR gh cannot read is left out, and a lookup that hangs ends the pass."""
     cache_path = ledger.dir / "pr-cache.json"
     cache = read_json(cache_path, {}) or {}
     found: dict[int, str] = {}
@@ -649,7 +654,9 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
         if hit.get("state") and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
             found[number] = hit["state"]
             continue
-        code, out = sh(["gh", "pr", "view", str(number), "--json", "state", "-q", ".state"], cwd=ledger.main)
+        code, out = sh(["gh", "pr", "view", str(number), "--json", "state", "-q", ".state"], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
+        if code == 124:
+            break  # gh is hanging, so the rest would too; the next tick retries
         state = out.strip().upper()
         if code == 0 and state in ("OPEN", "MERGED", "CLOSED"):
             found[number] = state
@@ -878,6 +885,13 @@ def cmd_crew(args) -> int:
         return crew_locked(args, ledger)
 
 
+def in_main_spelling(worktree: str, main_path: str) -> str:
+    """The spelling git reports for the checkout wins, so a `Code`/`code` typo does not split one path in two; on a case-sensitive volume, where the two spellings are different directories, the path is left alone."""
+    if worktree.lower().startswith(main_path.lower() + "/") and same_path(worktree[:len(main_path)], main_path):
+        return main_path + worktree[len(main_path):]
+    return worktree
+
+
 def crew_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     if args.action == "list":
@@ -887,10 +901,8 @@ def crew_locked(args, ledger: Ledger) -> int:
     if not args.task or not args.branch:
         raise Refusal("crew add needs --task and --branch")
     worktree = os.path.abspath(args.worktree) if args.worktree else None
-    # the spelling git reports for the checkout wins, so a `Code`/`code` typo does not split one path in two
-    main_path = str(ledger.main)
-    if worktree and worktree.lower().startswith(main_path.lower() + "/"):
-        worktree = main_path + worktree[len(main_path):]
+    if worktree:
+        worktree = in_main_spelling(worktree, str(ledger.main))
     entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration}
     run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
     ledger.save_run(run)
@@ -1004,6 +1016,11 @@ def cmd_grant(args) -> int:
         return grant_locked(args, ledger)
 
 
+def holds_a_slot(ledger: Ledger, session_id: str) -> bool:
+    """Whether a session still holds any slot; a row reads `in-slot` until its last one goes."""
+    return any(held.get("holder") == session_id for held in ledger.slots().values())
+
+
 def grant_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     by = authorise(run, caller_session(args.session), args.by_user, "grant a slot")
@@ -1033,8 +1050,9 @@ def grant_locked(args, ledger: Ledger) -> int:
     row = sessions.get(target)
     # what the holder was doing before the slot, so the release puts it back instead of forcing `working`
     prior = (row or {}).get("state")
-    if row and prior == "in-slot" and holder and holder.get("holder") == target:
-        prior = holder.get("prior_state")
+    if row and prior == "in-slot":
+        # already in another slot (or this one): the state before the first of them is the one to restore
+        prior = next((held.get("prior_state") for held in ledger.slots().values() if held.get("holder") == target and held.get("prior_state")), None)
     slot["prior_state"] = prior if prior in RESTORED_STATES else "working"
     write_json(ledger.slot_path(args.resource), slot)
     path = ledger.request_path(args.resource, target)
@@ -1046,8 +1064,8 @@ def grant_locked(args, ledger: Ledger) -> int:
         ledger.save_session(row)
     # a forced grant displaces the old holder, whose row must stop reading in-slot
     displaced = sessions.get((holder or {}).get("holder", ""))
-    if slot["forced"] and displaced and displaced.get("state") == "in-slot":
-        displaced["state"] = "working"
+    if slot["forced"] and displaced and displaced.get("state") == "in-slot" and not holds_a_slot(ledger, holder["holder"]):
+        displaced["state"] = holder.get("prior_state") or "working"
         displaced["updated_at"] = now()
         ledger.save_session(displaced)
     ledger.log("grant", **slot)
@@ -1071,7 +1089,7 @@ def release_locked(args, ledger: Ledger) -> int:
         authorise(run, session_id, args.by_user, f"release {args.resource} held by another session")
     ledger.slot_path(args.resource).unlink(missing_ok=True)
     row = ledger.sessions().get(slot["holder"])
-    if row and row.get("state") == "in-slot":
+    if row and row.get("state") == "in-slot" and not holds_a_slot(ledger, slot["holder"]):
         row["state"] = slot.get("prior_state") or "working"
         row["updated_at"] = now()
         ledger.save_session(row)
