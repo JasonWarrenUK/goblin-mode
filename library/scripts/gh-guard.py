@@ -19,7 +19,9 @@ Usage:
 
 Exit 2 with the reason on stderr when a rule trips, so the call is blocked
 and the reason reaches Claude. Exit 0 otherwise. Anything the script cannot
-parse exits 0: the hook fails open.
+parse or evaluate exits 0: the hook fails open. A notes path holding a shell
+variable, a file the same command writes first or a relative path behind a
+`cd` cannot be read at hook time, so none of those blocks.
 
 Allowed shapes: `-F body=@<file>`, `--body-file <file>`, `--body-file -` and
 `--input -` fed by a heredoc, `--notes-file <non-empty file>`, `--notes-file -`
@@ -50,14 +52,44 @@ NOTES_ADVICE = (
 )
 
 
-def _calls(command: str) -> list[tuple[str, str]]:
-	"""Every (subcommand, tail) for a gh call that is not quoted inside a heredoc body."""
+def _inside_quotes(text: str) -> bool:
+	"""Whether a shell reading `text` would still be inside a single- or double-quoted string at its end."""
+	quote = None
+	index = 0
+	while index < len(text):
+		char = text[index]
+		if quote == "'":
+			if char == "'":
+				quote = None
+		elif quote == '"':
+			if char == "\\":
+				index += 1
+			elif char == '"':
+				quote = None
+		elif char == "\\":
+			index += 1
+		elif char in ("'", '"'):
+			quote = char
+		index += 1
+	return quote is not None
+
+
+def _calls(command: str) -> list[tuple[str, str, str]]:
+	"""Every (subcommand, tail, prefix) for a gh call that is a real call: not inside a heredoc body and not inside a quoted string.
+
+	The prefix is the command text before the call, with heredoc bodies blanked, so a caller can see a `cd` or a redirect that ran first."""
 	quoted = [heredoc.span(3) for heredoc in HEREDOC.finditer(command)]
-	matches = [found for found in GH_CALL.finditer(command) if not any(start <= found.start() < end for start, end in quoted)]
+	blanked = command
+	for start, end in reversed(quoted):
+		blanked = blanked[:start] + " " * (end - start) + blanked[end:]
+	matches = [
+		found for found in GH_CALL.finditer(command)
+		if not any(start <= found.start() < end for start, end in quoted) and not _inside_quotes(blanked[: found.start()])
+	]
 	calls = []
 	for index, found in enumerate(matches):
 		end = matches[index + 1].start() if index + 1 < len(matches) else len(command)
-		calls.append((re.sub(r"\s+", " ", found.group(1)), command[found.start():end]))
+		calls.append((re.sub(r"\s+", " ", found.group(1)), command[found.start():end], blanked[: found.start()]))
 	return calls
 
 
@@ -99,8 +131,12 @@ def _notes_file_ok(value: str, heredocs: list[str], cwd: str) -> bool:
 		return False
 
 
-def check_call(subcommand: str, tail: str, cwd: str) -> str | None:
-	"""The reason this gh call should be blocked, or None."""
+UNEVALUABLE = re.compile(r"[$`]")
+MOVED_OR_WROTE = re.compile(r"(^|[;&|(\s])cd\s|>")
+
+
+def check_call(subcommand: str, tail: str, cwd: str, prefix: str = "") -> str | None:
+	"""The reason this gh call should be blocked, or None. `prefix` is what ran before the call on the same line."""
 	tokens, heredocs = _tokens(tail)
 	if tokens is None:
 		return None
@@ -127,6 +163,8 @@ def check_call(subcommand: str, tail: str, cwd: str) -> str | None:
 			return f"gh {subcommand}: inline `{flag}`; {NOTES_ADVICE}"
 		files = _flag_values(tokens, ("-F", "--notes-file"))
 		for flag, value in files:
+			if value is not None and value != "-" and (UNEVALUABLE.search(value) or MOVED_OR_WROTE.search(prefix)):
+				continue  # a variable, a file this command writes first or a path behind a cd: not readable at hook time
 			if value is None or not _notes_file_ok(value, heredocs, cwd):
 				where = "the heredoc is blank" if value == "-" else f"`{value}` is missing or empty"
 				return f"gh {subcommand}: `{flag}` {where}; {NOTES_ADVICE}"
@@ -141,8 +179,8 @@ def check_call(subcommand: str, tail: str, cwd: str) -> str | None:
 
 
 def check_command(command: str, cwd: str) -> str | None:
-	for subcommand, tail in _calls(command):
-		reason = check_call(subcommand, tail, cwd)
+	for subcommand, tail, prefix in _calls(command):
+		reason = check_call(subcommand, tail, cwd, prefix)
 		if reason:
 			return reason
 	return None

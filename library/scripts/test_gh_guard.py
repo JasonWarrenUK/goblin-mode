@@ -74,6 +74,21 @@ class InlineBodies(unittest.TestCase):
 	def test_review_without_a_body_passes(self):
 		self.assertIsNone(reason("gh pr review 12 --approve"))
 
+	def test_api_body_file_is_never_read(self):
+		self.assertIsNone(reason('gh api repos/o/r/issues/1/comments -F body=@"$F"'))
+		self.assertIsNone(reason("gh api repos/o/r/issues/1/comments -F body=@nonexistent.md"))
+
+	def test_quoted_mention_is_not_a_call(self):
+		self.assertIsNone(reason("echo 'gh pr comment 12 --body x' it's"))
+		self.assertIsNone(reason('grep -rn "gh pr comment --body" skills'))
+
+	def test_real_call_before_a_quoted_mention_is_still_checked(self):
+		self.assertIn("inline `--body`", reason("gh pr comment 12 --body 'hi' && echo 'gh pr comment 13'"))
+
+	def test_assignment_and_cd_prefixes_are_still_calls(self):
+		self.assertIn("inline `--body`", reason("FOO=1 gh pr comment 12 --body 'hi'"))
+		self.assertIn("inline `--body`", reason("cd x && gh pr comment 12 --body 'hi'"))
+
 
 class ReleaseNotes(unittest.TestCase):
 	def setUp(self):
@@ -107,6 +122,28 @@ class ReleaseNotes(unittest.TestCase):
 	def test_generated_notes_pass(self):
 		self.assertIsNone(reason("gh release create v1.2.0 --generate-notes"))
 		self.assertIsNone(reason("gh release create v1.2.0 --notes-from-tag"))
+
+	def test_unevaluable_notes_path_fails_open(self):
+		self.assertIsNone(reason('gh release create "$TAG" --notes-file "$TAG.md"', cwd=str(self.dir)))
+		self.assertIsNone(reason('N=notes.md; gh release create v1 --notes-file "$N"', cwd=str(self.dir)))
+		self.assertIsNone(reason("gh release create v1 --notes-file `cat path`", cwd=str(self.dir)))
+
+	def test_file_written_earlier_in_the_command_fails_open(self):
+		self.assertIsNone(reason("python3 cut.py > rn.md && gh release create v1 --notes-file rn.md", cwd=str(self.dir)))
+
+	def test_cd_before_the_call_fails_open(self):
+		self.assertIsNone(reason(f"cd {self.dir} && gh release create v1 --notes-file absent.md"))
+
+	def test_literal_empty_file_still_blocks(self):
+		self.assertIn("missing or empty", reason(f"gh release create v1 --notes-file {self.dir / 'empty.md'}"))
+		self.assertIn("missing or empty", reason("echo start && gh release create v1 --notes-file absent.md", cwd=str(self.dir)))
+
+	def test_quoted_mention_is_not_a_call(self):
+		self.assertIsNone(reason("echo 'gh release create v1' it's"))
+		self.assertIsNone(reason("python3 t.py --command 'gh release create v1 --title x' --reason 'a' 'b' --n it's"))
+
+	def test_real_call_before_a_quoted_mention_is_still_checked(self):
+		self.assertIn("missing or empty", reason("gh release create v1 --notes-file absent.md && echo 'gh release create v2'", cwd=str(self.dir)))
 
 	def test_edit_rules(self):
 		self.assertIsNone(reason("gh release edit v1.2.0 --title 'v1.2.0'"))
