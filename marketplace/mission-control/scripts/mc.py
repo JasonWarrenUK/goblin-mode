@@ -671,7 +671,7 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
     return found
 
 
-PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt"
+PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt,baseRefName"
 
 
 def normalise_pr_facts(raw: dict) -> dict:
@@ -697,6 +697,7 @@ def normalise_pr_facts(raw: dict) -> dict:
         "changes_requested_by": by_state["CHANGES_REQUESTED"],
         "approved_by": by_state["APPROVED"],
         "merged_at": raw.get("mergedAt"),
+        "base": str(raw.get("baseRefName") or ""),
     }
 
 
@@ -746,7 +747,7 @@ def waiting_on(facts: dict | None) -> str:
     if facts["state"] == "CLOSED":
         return "closed"
     if facts["requested"]:
-        return ", ".join(facts["requested"])
+        return "waiting on " + ", ".join(facts["requested"])
     if facts["changes_requested_by"]:
         return "changes requested by " + ", ".join(facts["changes_requested_by"])
     if facts["review_decision"] == "APPROVED" or facts["approved_by"]:
@@ -804,9 +805,14 @@ def reconcile(ledger: Ledger) -> dict:
             why = "its session is done" if row.get("state") == "done" else f"its PR #{row.get('pr')} is merged"
             note("need-open-after-done", f"need #{need.get('n')} ({need.get('why', '')[:60]}) is still open but {why}", need.get("task", ""), need.get("session_id", ""), row.get("pr"))
 
-    # roadmap:claim commits on the work branch, so the claim reaches main only with the merge:
-    # a merged PR is checked on origin/main, an open one on its own branch, anything else is skipped.
+    # roadmap:claim commits on the work branch, so the claim reaches the trunk only with the merge:
+    # a merged PR is checked on its own base (the run's trunk, or the parent layer of a stack), an
+    # open one on its own branch, anything else is skipped. The remote-tracking refs are only as
+    # fresh as the last fetch, and a merge the user made on GitHub minutes ago is the common case,
+    # so fetch once first; a fetch that fails leaves the stale refs to answer, as before.
     by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
+    if (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
+        run_git(ledger.main, "fetch", "--quiet", "origin")
     for entry in run.get("crew", []):
         task = entry.get("task", "")
         row = by_task.get(task, {})
@@ -816,8 +822,9 @@ def reconcile(ledger: Ledger) -> dict:
         if not fact:
             continue
         if fact["state"] == "MERGED":
-            if claim_on_main(ledger.main, task) is False:
-                note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/main, though PR #{row['pr']} is merged", task, row.get("session_id", ""), int(row["pr"]))
+            base = fact.get("base") or run.get("base", {}).get("branch") or "main"
+            if claim_on_main(ledger.main, task, f"origin/{base}") is False:
+                note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/{base}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
         elif fact["state"] == "OPEN":
             branch = row.get("branch") or entry.get("branch") or ""
             if branch and claim_on_main(ledger.main, task, f"origin/{branch}") is False:

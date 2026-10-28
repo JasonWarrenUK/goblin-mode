@@ -110,7 +110,7 @@ What drifted on the October 2026 runs, and the rule each one left behind:
 - **The wrong blocker named.** A PR was reported as waiting on the user when GitHub had another reviewer's request pending. The blocker is what GitHub says: the pending reviewer by login, `changes requested by` or `approved; the merge is the user's`.
 - **Fixes that failed the live check.** Columns pushed the primary action off screen at 1280px; sr-only labels still widened a table. Every rendered change is checked at the brief's `Verify at` widths, every open state included, before the session reports `pr-ready`.
 
-`mc.py reconcile` diffs the ledger against the live session registry, GitHub and `origin/main` and prints each drift and each PR's real blocker. The coordinator runs it before every status, check-in or answer about where things stand, and after each batch of crew messages.
+`mc.py reconcile` diffs the ledger against the live session registry, GitHub and the branches on origin (a merged PR's own base, an open PR's own branch, fetched first) and prints each drift and each PR's real blocker. The coordinator runs it before every status, check-in or answer about where things stand, and after each batch of crew messages.
 
 ## 12. Trust
 

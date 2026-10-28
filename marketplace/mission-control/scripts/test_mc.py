@@ -628,7 +628,7 @@ class LedgerFlow(unittest.TestCase):
             "211": {"state": "OPEN", "reviewDecision": "CHANGES_REQUESTED", "reviewRequests": [], "latestReviews": [{"author": {"login": "jess"}, "state": "CHANGES_REQUESTED"}], "mergedAt": None},
         }))
         waits = {pr["pr"]: pr["waiting_on"] for pr in result["prs"]}
-        self.assertEqual(waits[210], "maxime, backend")
+        self.assertEqual(waits[210], "waiting on maxime, backend")
         self.assertEqual(waits[211], "changes requested by jess")
         self.assertEqual(result["drift"], [])
 
@@ -685,8 +685,50 @@ class LedgerFlow(unittest.TestCase):
         return {str(pr): {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}}
 
     @staticmethod
-    def _merged(pr):
-        return {str(pr): {"state": "MERGED", "reviewDecision": "APPROVED", "reviewRequests": [], "latestReviews": [], "mergedAt": "2026-10-28T10:00:00Z"}}
+    def _merged(pr, base="main"):
+        return {str(pr): {"state": "MERGED", "reviewDecision": "APPROVED", "reviewRequests": [], "latestReviews": [], "mergedAt": "2026-10-28T10:00:00Z", "baseRefName": base}}
+
+    def test_a_pr_merged_into_a_non_main_base_is_checked_on_that_base(self):
+        self._roadmap_repo_with_origin()
+        git(self.box.repo, "branch", "develop", "main")
+        git(self.box.repo, "push", "-q", "origin", "develop")
+        git(self.box.repo, "checkout", "-q", "develop")
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "develop")
+        git(self.box.repo, "checkout", "-q", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 225, state="done")
+        result = self._reconcile_with(self._gh(self._merged(225, base="develop")))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]], "the claim is on origin/develop, where the PR merged")
+
+    def test_a_pr_gh_says_merged_into_main_is_drift_when_the_claim_only_reached_develop(self):
+        self._roadmap_repo_with_origin()
+        git(self.box.repo, "branch", "develop", "main")
+        git(self.box.repo, "checkout", "-q", "develop")
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "develop")
+        git(self.box.repo, "checkout", "-q", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 227, state="done")
+        result = self._reconcile_with(self._gh(self._merged(227, base="main")))
+        missing = [item for item in result["drift"] if item["kind"] == "claim-missing"]
+        self.assertEqual(len(missing), 1)
+        self.assertIn("on origin/main", missing[0]["detail"])
+
+    def test_the_claim_check_fetches_so_a_merge_made_elsewhere_is_seen(self):
+        self._roadmap_repo_with_origin()
+        elsewhere = self.box.tmp / "elsewhere"
+        subprocess.run(["git", "clone", "-q", str(self.box.tmp / "origin.git"), str(elsewhere)], check=True)
+        git(elsewhere, "config", "user.email", "t@example.com")
+        git(elsewhere, "config", "user.name", "t")
+        git(elsewhere, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "origin/feat/a")
+        git(elsewhere, "push", "-q", "origin", "main")
+        # this checkout's origin/main still predates the merge
+        self.assertNotIn("claim 10SE.2", subprocess.run(["git", "-C", str(self.box.repo), "log", "origin/main", "--format=%s"], capture_output=True, text=True).stdout)
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 226, state="done")
+        result = self._reconcile_with(self._gh(self._merged(226)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
 
     def test_an_open_pr_with_its_claim_on_the_branch_is_not_drift(self):
         self._roadmap_repo_with_origin()
