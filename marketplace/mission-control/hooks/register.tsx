@@ -40,6 +40,13 @@ const asking = atom({ plugin: 'mission-control', key: 'asking' } as const, null 
 let cli = ''
 let approveInSlot = true
 let refreshMs = 15_000
+// Refreshes overlap (the tick, every tool call, a press of r) and a probed one is slow, so a result is
+// applied only while no refresh that started later has landed; a tick is skipped while one is running.
+let refreshSeq = 0
+let appliedSeq = 0
+let probedSeq = 0
+let tickInFlight = false
+let joining = false
 
 type Ui = ReturnType<EngineInterface['ui']['resolve']>
 type Ran = { exitCode: number; stdout: string; stderr: string }
@@ -82,6 +89,12 @@ export const ago = (ms: number): string => {
 export const socketOf = (text: string): string | null => {
 	const match = /from="(?:uds:)?([^"\s]+\.sock)"/.exec(text) ?? /\buds:(\/\S+\.sock)\b/.exec(text)
 	return match?.[1] ?? null
+}
+
+/** The PR number in what `gh pr create` printed (its URL, `.../pull/209`), or null. */
+export const prNumberOf = (text: string): number | null => {
+	const match = /\/pull\/(\d+)\b/.exec(text)
+	return match?.[1] ? Number(match[1]) : null
 }
 
 /** The message body without the harness's envelope tag, for reading how it opens. */
@@ -137,6 +150,7 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		state: str(s.state),
 		summary: str(s.summary),
 		pr: num(s.pr) || null,
+		pr_state: str(s.pr_state) || null,
 		live: s.live === true,
 		live_status: str(s.live_status),
 		socket: str(s.socket) || null,
@@ -225,8 +239,42 @@ const isPaneOpen = async ($: EngineInterface): Promise<boolean> => {
 	}
 }
 
+/**
+ * A refresh without probes cannot say what GitHub thinks of a PR or what the machine holds, so a session whose PR has
+ * not changed keeps the state the last probed refresh found, and the probes stay; otherwise a tool call would blank
+ * the board's `merged` and its slot labels until the next tick.
+ */
+export const carryPrState = (prev: Snapshot | null, next: Snapshot): Snapshot => {
+	if (!prev?.run || !next.run || prev.run.name !== next.run.name) return next
+	return {
+		...next,
+		probes: next.probes.length ? next.probes : prev.probes,
+		sessions: next.sessions.map(s => {
+			const old = prev.sessions.find(o => o.session_id === s.session_id)
+			return !s.pr_state && old?.pr_state && old.pr === s.pr ? { ...s, pr_state: old.pr_state } : s
+		}),
+	}
+}
+
+/**
+ * A probed refresh that lost the race to a later plain one read the ledger first, so only what a plain refresh cannot
+ * see is taken from it: the probes, and the PR state of a session whose PR is still the one it asked about.
+ */
+export const foldProbed = (prev: Snapshot | null, probed: Snapshot): Snapshot | null => {
+	if (!prev?.run || !probed.ok || !probed.run || prev.run.name !== probed.run.name) return prev
+	return {
+		...prev,
+		probes: probed.probes,
+		sessions: prev.sessions.map(s => {
+			const seen = probed.sessions.find(o => o.session_id === s.session_id)
+			return seen?.pr_state && seen.pr === s.pr ? { ...s, pr_state: seen.pr_state } : s
+		}),
+	}
+}
+
 /** Reread the ledger; probe the machine too when asked (the coordinator's board does). */
 const refresh = async ($: EngineInterface, withProbes = false): Promise<Snapshot> => {
+	const seq = ++refreshSeq
 	const at = await $.clock.now()
 	let next: Snapshot
 	try {
@@ -235,7 +283,18 @@ const refresh = async ($: EngineInterface, withProbes = false): Promise<Snapshot
 	} catch (error) {
 		next = failed('broken', error instanceof Error && /ENOENT|not found/i.test(error.message) ? 'python3 is not on PATH' : 'the CLI could not run', at)
 	}
-	await update($, snapshot, () => next)
+	// a refresh that started later has already landed: this one read the ledger first, so it is the older picture
+	if (seq < appliedSeq) {
+		// ...but its probes and PR states are news unless a later probed refresh has already landed
+		if (withProbes && seq > probedSeq) {
+			probedSeq = seq
+			await update($, snapshot, prev => foldProbed(prev, next))
+		}
+		return (await read($, snapshot)) ?? next
+	}
+	appliedSeq = seq
+	if (withProbes) probedSeq = seq
+	await update($, snapshot, prev => (withProbes ? next : carryPrState(prev, next)))
 	await place($, next)
 	return next
 }
@@ -259,23 +318,32 @@ const place = async ($: EngineInterface, snap: Snapshot): Promise<void> => {
 	} catch {
 		return
 	}
-	const me = await read($, self)
+	let me = await read($, self)
 	if (!snap.run) {
 		await update($, self, () => ({ sessionId, isCoordinator: false, isCrew: false }))
 		return
 	}
 	const isCoordinator = snap.run.coordinator.session_id === sessionId
 	let isCrew = snap.sessions.some(s => s.session_id === sessionId)
-	if (!isCoordinator && !isCrew) {
-		const cwd = await $.session.cwd()
-		const planned = snap.run.crew.some(c => c.worktree && (cwd === c.worktree || cwd.startsWith(c.worktree + '/')))
+	if (!isCoordinator && !isCrew && !joining) {
+		const cwd = (await $.session.cwd()).toLowerCase()
+		// the volume may not tell `Code` from `code`, so this only spares a CLI call per tick; `join --planned` decides
+		const planned = snap.run.crew.some(c => {
+			const worktree = c.worktree?.toLowerCase()
+			return worktree && (cwd === worktree || cwd.startsWith(worktree + '/'))
+		})
 		if (planned) {
-			const joined = await run($, ['--session', sessionId, 'join'])
-			isCrew = joined.exitCode === 0
-			if (isCrew) {
-				$.ui.toast(`mission control: joined run ${snap.run.name}`)
-				const again = await run($, ['--json', 'status'])
-				if (again.exitCode === 0) await update($, snapshot, () => parseSnapshot(again.stdout, snap.at))
+			joining = true
+			try {
+				const joined = await run($, ['--session', sessionId, 'join', '--planned'])
+				isCrew = joined.exitCode === 0
+				if (isCrew) {
+					$.ui.toast(`mission control: joined run ${snap.run.name}`)
+					await refresh($)
+					me = await read($, self)
+				}
+			} finally {
+				joining = false
 			}
 		}
 	}
@@ -364,6 +432,7 @@ const TOOLS = [
 				state: { type: 'string', enum: ['briefing', 'working', 'in-slot', 'pr-ready', 'blocked', 'waiting-jason', 'done'] },
 				summary: { type: 'string', description: 'one line, what you are doing or waiting on' },
 				pr: { type: 'integer', description: 'the PR number once it exists' },
+				for: { type: 'string', description: 'coordinator only: correct another session’s row (task id, branch or session name), for instance one whose PR has merged' },
 			},
 		},
 	},
@@ -457,6 +526,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 	switch (name) {
 		case 'mc_report': {
 			const args = ['report']
+			if (arg(input, 'for')) args.push('--for', arg(input, 'for'))
 			if (arg(input, 'state')) args.push('--state', arg(input, 'state'))
 			if (arg(input, 'summary')) args.push('--summary', arg(input, 'summary'))
 			const pr = argNum(input, 'pr')
@@ -581,8 +651,12 @@ export const sectionText = (snap: Snapshot, me: Self): string | null => {
 		: ''
 	const crewList = snap.sessions.map(s => `${s.task || s.branch || s.session_id.slice(0, 8)} (${s.state}${s.live ? '' : ', gone'})`).join(', ') || 'none joined yet'
 	if (me.isCoordinator) {
+		const merged = snap.sessions.filter(s => s.pr_state === 'MERGED' && s.state !== 'done')
+		const mergedLine = merged.length
+			? `PRs merged while the crew row is not done: ${merged.map(s => `${s.task || s.branch || s.session_id.slice(0, 8)} (#${s.pr})`).join(', ')}; close each with mc_report (for, state done). `
+			: ''
 		return (
-			`# Mission control\n\nThis session coordinates run "${snap.run.name}" on ${snap.mainCheckout} (base ${snap.run.base.branch}@${snap.run.base.commit.slice(0, 8)}), started by the user. Crew: ${crewList}. ` +
+			`# Mission control\n\nThis session coordinates run "${snap.run.name}" on ${snap.mainCheckout} (base ${snap.run.base.branch}@${snap.run.base.commit.slice(0, 8)}), started by the user. Crew: ${crewList}. ${mergedLine}` +
 			`Shared resources are granted one holder at a time with mc_grant, which probes the machine first; mc_assume numbers shared assumptions; mc_send resolves a session's current name; mc_board reads the board. Each tool ends its reply with the exact SendMessage calls to make; every message between sessions goes through the SendMessage tool, as written there. ` +
 			`Decide anything that only keeps the sessions consistent; escalate product, cost and hosted-configuration choices to the user with a recommendation, and put every command only the user can type on the needs list (mc_need). ` +
 			`Never state a project convention you have not read in the repository or had from the user; ask instead.${assumptions}`
@@ -684,9 +758,36 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 	)
 }
 
+/** Where a state sits on the board: what needs the coordinator first, finished and gone sessions last. */
+const CREW_GROUPS = ['in-slot', 'working', 'blocked', 'waiting-jason', 'briefing', 'pr-ready', 'done', 'gone'] as const
+
+/** The crew by the group their row reads in (a gone session is `gone` whatever it last reported); ledger order holds within a group. */
+export const crewGroups = (sessions: readonly Snapshot['sessions'][number][]): { group: string; sessions: Snapshot['sessions'] }[] => {
+	const groupOf = (s: Snapshot['sessions'][number]): string => (s.live ? s.state : 'gone')
+	const rank = (group: string): number => {
+		const at = (CREW_GROUPS as readonly string[]).indexOf(group)
+		return at === -1 ? CREW_GROUPS.length - 1 : at
+	}
+	const names = [...new Set(sessions.map(groupOf))].sort((a, b) => rank(a) - rank(b))
+	return names.map(group => ({ group, sessions: sessions.filter(s => groupOf(s) === group) }))
+}
+
 const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: string | null, inner: number, now: number) => {
+	const { Text } = ui
+	const grouped = crewGroups(snap.sessions)
+	let nth = 0
+	return grouped.flatMap(({ group, sessions }) => [
+		<Text key={`group-${group}`} dimColor>
+			{group} · {sessions.length}
+		</Text>,
+		...crewRowsOf($, ui, sessions, me, picked, inner, now, () => nth++),
+	])
+}
+
+const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], me: Self, picked: string | null, inner: number, now: number, nextIndex: () => number) => {
 	const { Box, Text, Button } = ui
-	return snap.sessions.map((s, i) => {
+	return sessions.map(s => {
+		const i = nextIndex()
 		const key = `sess:${s.session_id}`
 		const isMe = s.session_id === me.sessionId
 		const label = s.task || s.branch || s.name || s.session_id.slice(0, 8)
@@ -703,6 +804,7 @@ const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: 
 						{gone ? 'gone' : s.state}
 					</Text>
 					{s.pr ? <Text dimColor={gone} color="claude">#{s.pr}</Text> : null}
+					{s.pr && s.pr_state && s.pr_state !== 'OPEN' ? <Text dimColor={gone} color={s.pr_state === 'MERGED' ? 'success' : 'subtle'}>{s.pr_state.toLowerCase()}</Text> : null}
 					{isMe ? <Text dimColor>◀ you</Text> : null}
 				</Box>
 				<Box flexDirection="row" paddingLeft={4} columnGap={1}>
@@ -861,10 +963,16 @@ export const register: Register = (on, options) => {
 		// Every tick rereads the ledger, so a run started after this session did is noticed within one period;
 		// the machine is probed only while the coordinator's board is open.
 		$.clock.every(refreshMs, () => {
-			void isPaneOpen($).then(async open => {
-				const me = await read($, self)
-				await refresh($, open && me.isCoordinator)
-			})
+			if (tickInFlight) return
+			tickInFlight = true
+			void isPaneOpen($)
+				.then(async open => {
+					const me = await read($, self)
+					await refresh($, open && me.isCoordinator)
+				})
+				.finally(() => {
+					tickInFlight = false
+				})
 		})
 		return next(e)
 	})
@@ -895,8 +1003,14 @@ export const register: Register = (on, options) => {
 	on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
 		const ran = await next(e)
 		if (e.agentId) return ran
+		// a crew session that opens a PR says so on the board by itself; the number is in the URL gh prints
+		if (/gh pr create/.test(e.command) && ran.result && !ran.isError) {
+			const number = prNumberOf(ran.result.stdout)
+			const me = await read($, self)
+			if (number !== null && me.isCrew) await mine($, ['report', '--pr', String(number), '--state', 'pr-ready'])
+		}
 		// the ledger CLI run from Bash may have started, joined or ended a run: reread whatever the pane's state
-		if (/mc\.py/.test(e.command) || (/gh pr create|gh stack|git worktree|gh pr merge/.test(e.command) && (await isPaneOpen($)))) await refresh($)
+		if (/mc\.py/.test(e.command) || /gh pr create/.test(e.command) || (/gh stack|git worktree|gh pr merge/.test(e.command) && (await isPaneOpen($)))) await refresh($)
 		return ran
 	})
 

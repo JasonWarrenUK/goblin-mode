@@ -356,6 +356,245 @@ class LedgerFlow(unittest.TestCase):
         self.assertIsNone(json.loads(self.box.mc("--json", "status").stdout)["run"])
         self.assertTrue(list((self.box.ledger_root / "runs").iterdir()))
 
+    def case_variant_of_worktree(self):
+        """The worktree spelt with other capitals, or a skip when this volume tells them apart."""
+        variant = self.box.worktree.parent / self.box.worktree.name.upper()
+        if not variant.exists():
+            self.skipTest("this volume is case-sensitive")
+        return variant
+
+    def test_a_cwd_spelt_in_another_case_still_joins_a_planned_worktree(self):
+        variant = self.case_variant_of_worktree()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        joined = json.loads(self.box.mc("--json", "join", "--planned", session="crew-1", cwd=variant).stdout)
+        self.assertEqual(joined["task"], "A")
+        # and a directory outside the plan is turned away rather than joined bare
+        self.box.register("crew-2", "elsewhere", str(self.box.repo))
+        refused = self.box.mc("join", "--planned", session="crew-2", cwd=self.box.repo, expect=1)
+        self.assertIn("not in a planned worktree", refused.stdout)
+
+    def test_session_start_context_finds_the_crew_for_a_cwd_in_another_case(self):
+        variant = self.case_variant_of_worktree()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.assertIn("this worktree is crew A", self.box.hook("session-start", {}, session="crew-9", cwd=variant))
+
+    def test_crew_add_writes_the_worktree_in_the_spelling_git_reports(self):
+        self.case_variant_of_worktree()
+        self.box.start()
+        main = Path(json.loads(self.box.mc("--json", "status").stdout)["main_checkout"])
+        shouted = main.parent / main.name.upper() / ".claude" / "worktrees" / "crew-a"
+        self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(shouted), session="coord-1")
+        planned = json.loads(self.box.mc("crew", "list").stdout)[0]["worktree"]
+        self.assertEqual(planned, str(main / ".claude" / "worktrees" / "crew-a"))
+
+    def test_crew_add_leaves_a_worktree_alone_when_the_other_spelling_is_a_different_directory(self):
+        self.box.start()
+        main = Path(json.loads(self.box.mc("--json", "status").stdout)["main_checkout"])
+        sibling = main.parent / main.name.upper()
+        sibling.mkdir(exist_ok=True)
+        if os.path.samefile(sibling, main):
+            self.skipTest("this volume is case-insensitive")
+        worktree = sibling / ".claude" / "worktrees" / "crew-a"
+        worktree.mkdir(parents=True)
+        self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(worktree), session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("crew", "list").stdout)[0]["worktree"], str(worktree))
+
+    def test_in_main_spelling_rewrites_only_what_the_filesystem_calls_the_same_checkout(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real_same_path = mc_module.same_path
+        try:
+            mc_module.same_path = lambda a, b: True
+            self.assertEqual(mc_module.in_main_spelling("/CODE/app/wt", "/Code/app"), "/Code/app/wt")
+            self.assertEqual(mc_module.in_main_spelling("/elsewhere/wt", "/Code/app"), "/elsewhere/wt")
+            mc_module.same_path = lambda a, b: False
+            self.assertEqual(mc_module.in_main_spelling("/CODE/app/wt", "/Code/app"), "/CODE/app/wt")
+        finally:
+            mc_module.same_path = real_same_path
+
+    def test_release_puts_back_the_state_the_slot_interrupted(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "209", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("grant", "api-port", "--to", "A", session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("--json", "status").stdout)["sessions"][0]["state"], "in-slot")
+        self.box.mc("release", "api-port", session="crew-1", cwd=self.box.worktree)
+        row = json.loads(self.box.mc("--json", "status").stdout)["sessions"][0]
+        self.assertEqual((row["state"], row["pr"]), ("pr-ready", 209))
+
+    def states(self):
+        return {s["task"]: s["state"] for s in json.loads(self.box.mc("--json", "status").stdout)["sessions"]}
+
+    def two_slots_for_a_pr_ready_session(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "209", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("grant", "local-db", "--to", "A", session="coord-1")
+        self.box.mc("grant", "api-port", "--to", "A", session="coord-1")
+
+    def test_a_session_holding_two_slots_reads_in_slot_until_the_last_release(self):
+        for first, second in (("api-port", "local-db"), ("local-db", "api-port")):
+            with self.subTest(first=first):
+                self.setUp()
+                self.two_slots_for_a_pr_ready_session()
+                self.box.mc("release", first, session="crew-1", cwd=self.box.worktree)
+                self.assertEqual(self.states(), {"A": "in-slot"})
+                self.box.mc("release", second, session="crew-1", cwd=self.box.worktree)
+                row = json.loads(self.box.mc("--json", "status").stdout)["sessions"][0]
+                self.assertEqual((row["state"], row["pr"]), ("pr-ready", 209))
+
+    def test_a_forced_grant_puts_the_displaced_holder_back_to_what_it_was_doing(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", session="crew-1", cwd=self.box.worktree)
+        self.box.register("crew-2", "b", str(self.box.repo))
+        self.box.mc("join", "--task", "B", session="crew-2")
+        self.box.mc("grant", "api-port", "--to", "A", session="coord-1")
+        self.box.mc("grant", "api-port", "--to", "B", "--force", session="coord-1")
+        self.assertEqual(self.states(), {"A": "pr-ready", "B": "in-slot"})
+
+    def test_a_forced_grant_leaves_a_displaced_holder_of_a_second_slot_in_slot(self):
+        self.two_slots_for_a_pr_ready_session()
+        self.box.register("crew-2", "b", str(self.box.repo))
+        self.box.mc("join", "--task", "B", session="crew-2")
+        self.box.mc("grant", "api-port", "--to", "B", "--force", session="coord-1")
+        self.assertEqual(self.states(), {"A": "in-slot", "B": "in-slot"})
+        self.box.mc("release", "local-db", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(self.states(), {"A": "pr-ready", "B": "in-slot"})
+
+    def test_a_forced_grant_to_a_session_already_in_a_slot_keeps_what_it_was_doing_first(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        self.box.register("crew-2", "b", str(self.box.repo))
+        self.box.mc("join", "--task", "B", session="crew-2")
+        self.box.mc("report", "--state", "pr-ready", session="crew-2")
+        self.box.mc("grant", "local-db", "--to", "B", session="coord-1")
+        self.box.mc("grant", "api-port", "--to", "A", session="coord-1")
+        self.box.mc("grant", "api-port", "--to", "B", "--force", session="coord-1")
+        self.assertEqual(self.states(), {"A": "working", "B": "in-slot"})
+        self.box.mc("release", "api-port", session="crew-2")
+        self.assertEqual(self.states(), {"A": "working", "B": "in-slot"})
+        self.box.mc("release", "local-db", session="crew-2")
+        self.assertEqual(self.states(), {"A": "working", "B": "pr-ready"})
+
+    def test_the_coordinator_can_correct_a_crew_row_and_a_crew_session_cannot(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "209", session="crew-1", cwd=self.box.worktree)
+        self.box.register("crew-2", "b", str(self.box.repo))
+        self.box.mc("join", "--task", "B", session="crew-2")
+        refused = self.box.mc("report", "--for", "A", "--state", "done", session="crew-2", expect=1)
+        self.assertIn("only the coordinator", refused.stdout)
+        self.box.mc("report", "--for", "A", "--state", "done", session="coord-1")
+        rows = {s["task"]: s["state"] for s in json.loads(self.box.mc("--json", "status").stdout)["sessions"]}
+        self.assertEqual(rows, {"A": "done", "B": "briefing"})
+        log = [json.loads(line) for line in (self.box.ledger_root / next(self.box.ledger_root.iterdir()).name / "log.jsonl").read_text().splitlines()]
+        self.assertEqual([e["by"] for e in log if e["event"] == "report" and e.get("by")], ["coordinator"])
+
+    def test_report_waits_for_the_run_lock_instead_of_racing_a_grant(self):
+        import fcntl
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        lock_path = next(self.box.ledger_root.iterdir()) / "run.lock"
+        with lock_path.open("a") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            proc = subprocess.Popen(
+                [sys.executable, "-I", str(CLI), "--cwd", str(self.box.worktree), "report", "--state", "working"],
+                env={**self.box.env, "CLAUDE_CODE_SESSION_ID": "crew-1"}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            with self.assertRaises(subprocess.TimeoutExpired):
+                proc.communicate(timeout=1)
+            fcntl.flock(handle, fcntl.LOCK_UN)
+        out, err = proc.communicate(timeout=10)
+        self.assertEqual(proc.returncode, 0, out + err)
+
+    def test_pr_state_comes_from_gh_and_is_cached(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        ledger = mc_module.Ledger(self.box.repo)
+        ledger.dir = self.box.tmp / "pr-ledger"
+        ledger.dir.mkdir()
+        asked = []
+        real_sh = mc_module.sh
+        def fake_sh(argv, timeout=8, cwd=None):
+            asked.append(argv)
+            return 0, "MERGED\n" if argv[3] == "209" else "OPEN\n"
+        mc_module.sh = fake_sh
+        try:
+            self.assertEqual(mc_module.pr_states(ledger, {209, 210}), {209: "MERGED", 210: "OPEN"})
+            self.assertEqual(mc_module.pr_states(ledger, {209, 210}), {209: "MERGED", 210: "OPEN"})
+            self.assertEqual(len(asked), 2, "the second read comes from the cache")
+            mc_module.sh = lambda argv, timeout=8, cwd=None: (1, "no gh")
+            self.assertEqual(mc_module.pr_states(ledger, {211}), {})
+        finally:
+            mc_module.sh = real_sh
+
+    def test_a_hanging_gh_ends_the_pr_lookups_after_one_short_wait(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        ledger = mc_module.Ledger(self.box.repo)
+        ledger.dir = self.box.tmp / "pr-hang-ledger"
+        ledger.dir.mkdir()
+        asked = []
+        real_sh = mc_module.sh
+        def hanging_sh(argv, timeout=8, cwd=None):
+            asked.append((argv[3], timeout))
+            return 124, "timed out"
+        mc_module.sh = hanging_sh
+        try:
+            self.assertEqual(mc_module.pr_states(ledger, {301, 302, 303}), {})
+            self.assertEqual(len(asked), 1, "the first timeout stops the gh lookups")
+            self.assertTrue(all(timeout <= 3 for _, timeout in asked))
+            # what was found before the hang survives it, and nothing after is asked
+            asked.clear()
+            def half_sh(argv, timeout=8, cwd=None):
+                asked.append((argv[3], timeout))
+                return (0, "OPEN\n") if argv[3] == "301" else (124, "timed out")
+            mc_module.sh = half_sh
+            self.assertEqual(mc_module.pr_states(ledger, {301, 302, 303}), {301: "OPEN"})
+            self.assertEqual([number for number, _ in asked], ["301", "302"])
+        finally:
+            mc_module.sh = real_sh
+
+    def test_a_hanging_gh_still_reads_the_cached_states_of_later_prs(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        ledger = mc_module.Ledger(self.box.repo)
+        ledger.dir = self.box.tmp / "pr-hang-cache-ledger"
+        ledger.dir.mkdir()
+        mc_module.write_json(ledger.dir / "pr-cache.json", {"311": {"state": "MERGED", "at": mc_module.now()}})
+        asked = []
+        real_sh = mc_module.sh
+        def hanging_sh(argv, timeout=8, cwd=None):
+            asked.append(argv[3])
+            return 124, "timed out"
+        mc_module.sh = hanging_sh
+        try:
+            # 309 sorts before the cached 311 and hangs; 311 is still answered from disk
+            self.assertEqual(mc_module.pr_states(ledger, {309, 311}), {311: "MERGED"})
+            self.assertEqual(asked, ["309"])
+        finally:
+            mc_module.sh = real_sh
+
+    def test_the_psql_probes_wait_no_longer_than_the_gh_lookups(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        timeouts = []
+        real_sh = mc_module.sh
+        def recording_sh(argv, timeout=8, cwd=None):
+            timeouts.append((argv[0], timeout))
+            return 1, "down"
+        mc_module.sh = recording_sh
+        try:
+            spec = {"probe": {"pg_activity": {"dsn": "postgres://x"}, "migrations": {"dsn": "postgres://x"}}}
+            mc_module.probe_resource("local-db", spec)
+        finally:
+            mc_module.sh = real_sh
+        self.assertEqual([name for name, _ in timeouts], ["psql", "psql"])
+        self.assertTrue(all(timeout <= 3 for _, timeout in timeouts))
+
 
 class Hooks(unittest.TestCase):
     def setUp(self):

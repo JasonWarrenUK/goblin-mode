@@ -1,6 +1,9 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { clock, handoff, markFor, parseSnapshot, reasonOf, resolveSession, sectionText, socketOf } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
+
+// the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
+declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
 
 const PLUGIN = 'mission-control'
 const NOON = new Date(2026, 9, 23, 12, 0).getTime()
@@ -33,7 +36,14 @@ const STATUS = {
 }
 
 /** The world beneath the plugin: a clock, panes, a session and a python that answers the CLI. */
-const world = (on: On, sessionId: string, status: unknown = STATUS, failing?: { verb: string; exitCode: number; stdout: string; stderr: string }) => {
+const world = (
+	on: On,
+	sessionId: string,
+	status: unknown = STATUS,
+	failing?: { verb: string; exitCode: number; stdout: string; stderr: string },
+	extra: { cwd?: string; statusFor?: (nth: number, probed: boolean) => { status: unknown; delayMs: number } } = {},
+) => {
+	let statusCalls = 0
 	const panes = { open: [] as string[] }
 	const calls: string[][] = []
 	const sent: { to: unknown; text: string }[] = []
@@ -50,7 +60,7 @@ const world = (on: On, sessionId: string, status: unknown = STATUS, failing?: { 
 	mock.env(on, { HOME: '/home/j' })
 	on('session.start', async ($, e) => ({ cwd: e.cwd }))
 	on('session.id', async () => ({ value: sessionId }))
-	on('session.cwd', async () => ({ value: '/code/app' }))
+	on('session.cwd', async () => ({ value: extra.cwd ?? '/code/app' }))
 	on('session.send', async (_$, e) => {
 		sent.push({ to: e.to, text: e.text })
 		return { isDelivered: true }
@@ -62,7 +72,11 @@ const world = (on: On, sessionId: string, status: unknown = STATUS, failing?: { 
 		const sub = args.find(a => !a.startsWith('--') && a !== sessionId && a !== '/code/app') ?? ''
 		if (failing && sub === failing.verb) return { value: { exitCode: failing.exitCode, stdout: failing.stdout, stderr: failing.stderr, isStdoutTruncated: false, isStderrTruncated: false } }
 		let stdout = ''
-		if (sub === 'status') stdout = JSON.stringify(status)
+		if (sub === 'status' && extra.statusFor) {
+			const answer = extra.statusFor(statusCalls++, args.includes('--probe'))
+			await new Promise(resolve => setTimeout(resolve, answer.delayMs))
+			stdout = JSON.stringify(answer.status)
+		} else if (sub === 'status') stdout = JSON.stringify(status)
 		else if (sub === 'check') stdout = JSON.stringify({ covered: args.join(' ').includes('db-reset'), decision: null, resources: ['local-db'] })
 		else if (sub === 'probe') stdout = JSON.stringify([{ resource: 'local-db', busy: false, checks: [{ kind: 'port', detail: 'free' }] }])
 		else stdout = `${sub} ok\n`
@@ -266,4 +280,174 @@ test('a gone session reads gone, dim, with its worktree name and the age of its 
 	expect((await ui.find({ type: 'Text', text: /^1m ago$/ }))?.text).toBe('1m ago')
 	expect((await ui.find({ type: 'Text', text: /^1h 5m ago$/ }))?.text).toBe('1h 5m ago')
 	await ui.unmount()
+})
+
+const withPr = (prState: string | null) => ({ ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'pr-ready', pr: 209, pr_state: prState }] })
+
+test('helpers: prNumberOf and carryPrState', async () => {
+	expect(prNumberOf('https://github.com/o/r/pull/209\n')).toBe(209)
+	expect(prNumberOf('Creating pull request for feat/a into main\nhttps://github.com/o/r/pull/12')).toBe(12)
+	expect(prNumberOf('no url here')).toBeNull()
+	const probed = parseSnapshot(JSON.stringify(withPr('MERGED')), NOON)
+	const plain = parseSnapshot(JSON.stringify(withPr(null)), NOON)
+	expect(carryPrState(probed, plain).sessions[0]?.pr_state).toBe('MERGED')
+	expect(carryPrState(null, plain).sessions[0]?.pr_state).toBeNull()
+	// a session on another PR does not inherit the old one's state
+	const moved = parseSnapshot(JSON.stringify({ ...withPr(null), sessions: [{ ...withPr(null).sessions[0], pr: 210 }] }), NOON)
+	expect(carryPrState(probed, moved).sessions[0]?.pr_state).toBeNull()
+})
+
+test('a merged PR reads merged beside its number and the coordinator is told to close the row', async ($, on) => {
+	world(on, 'coord-1', withPr('MERGED'))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^#209$/ }))?.text).toBe('#209')
+	expect((await ui.find({ type: 'Text', text: /^merged$/ }))?.text).toBe('merged')
+	await ui.unmount()
+	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
+	expect(composed.sections[1]?.text).toMatch(/PRs merged while the crew row is not done: 10SE\.2 \(#209\)/)
+})
+
+test('an open PR draws no state word', async ($, on) => {
+	world(on, 'coord-1', withPr('OPEN'))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect(await ui.find({ type: 'Text', text: /^merged$/ })).toBeFalsy()
+	await ui.unmount()
+})
+
+test('a session whose cwd differs in case from the crew plan asks the CLI to join it, once', async ($, on) => {
+	const planned = { ...STATUS, sessions: [], run: { ...STATUS.run, crew: [{ ...STATUS.run.crew[0], worktree: '/Code/app/.claude/worktrees/a' }] } }
+	const { calls } = world(on, 'crew-9', planned, undefined, { cwd: '/code/app/.claude/worktrees/a' })
+	await $.session.start({ cwd: '/code/app/.claude/worktrees/a', surface: 'terminal', isInteractive: true })
+	const joins = calls.filter(c => c.includes('join'))
+	expect(joins.length).toBe(1)
+	expect(joins[0]).toContain('--planned')
+	expect(joins[0]).toContain('crew-9')
+})
+
+test('a session outside every planned worktree is not asked to join', async ($, on) => {
+	const { calls } = world(on, 'crew-9', { ...STATUS, sessions: [] }, undefined, { cwd: '/code/app/.claude/worktrees/other' })
+	await $.session.start({ cwd: '/code/app/.claude/worktrees/other', surface: 'terminal', isInteractive: true })
+	expect(calls.some(c => c.includes('join'))).toBe(false)
+})
+
+test('a crew session that opens a PR reports its number; a coordinator does not', async ($, on) => {
+	const created = { result: { stdout: 'https://github.com/o/r/pull/209\n', stderr: '', interrupted: false } }
+	const crew = world(on, 'crew-1')
+	on('tool.call', { tool: 'Bash' }, async () => created)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.tool.call({ tool: 'Bash', command: 'gh pr create --title x --body y' })
+	const report = crew.calls.find(c => c.includes('report'))
+	expect(report).toBeTruthy()
+	expect(report).toEqual(expect.arrayContaining(['--pr', '209', '--state', 'pr-ready']))
+})
+
+test('a coordinator that opens a PR reports nothing', async ($, on) => {
+	const { calls } = world(on, 'coord-1')
+	on('tool.call', { tool: 'Bash' }, async () => ({ result: { stdout: 'https://github.com/o/r/pull/209\n', stderr: '', interrupted: false } }))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.tool.call({ tool: 'Bash', command: 'gh pr create --title x --body y' })
+	expect(calls.some(c => c.includes('report'))).toBe(false)
+})
+
+test('mc_report passes --for through for the coordinator', async ($, on) => {
+	const { calls } = world(on, 'coord-1')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	await $.tool.call({ tool: 'mcp__mission-control__mc_report', for: '10SE.2', state: 'done' })
+	const report = calls.find(c => c.includes('report'))
+	expect(report).toEqual(expect.arrayContaining(['--for', '10SE.2', '--state', 'done']))
+})
+
+test('two overlapping refreshes leave the board on the one that started later, whichever finishes last', async ($, on) => {
+	const pending = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'working' }] }
+	const ready = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'pr-ready' }] }
+	// call 0 is the session start; of the next two, the first to ask is slow and reads the older ledger
+	world(on, 'coord-1', STATUS, undefined, { statusFor: nth => (nth === 1 ? { status: pending, delayMs: 200 } : nth === 2 ? { status: ready, delayMs: 0 } : { status: STATUS, delayMs: 0 }) })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	await Promise.all([$.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' }), $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' })])
+	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
+	expect(composed.sections[1]?.text).toMatch(/10SE\.2 \(pr-ready\)/)
+})
+
+const threeStates = () => {
+	const [base] = STATUS.sessions
+	return {
+		...STATUS,
+		sessions: [
+			{ ...base, session_id: 'crew-1', task: '10SE.2', state: 'pr-ready' },
+			{ ...base, session_id: 'crew-2', task: '10SE.3', state: 'working' },
+			{ ...base, session_id: 'crew-3', task: '10SE.4', state: 'working' },
+			{ ...base, session_id: 'crew-4', task: '10SE.5', state: 'working', live: false },
+		],
+	}
+}
+
+test('helpers: crewGroups orders by what needs attention and keeps ledger order within a group', async () => {
+	const snap = parseSnapshot(JSON.stringify(threeStates()), NOON)
+	const groups = crewGroups(snap.sessions)
+	expect(groups.map(g => g.group)).toEqual(['working', 'pr-ready', 'gone'])
+	expect(groups[0]?.sessions.map(s => s.task)).toEqual(['10SE.3', '10SE.4'])
+	// a gone session is gone whatever it last reported
+	expect(groups[2]?.sessions.map(s => s.task)).toEqual(['10SE.5'])
+	expect(crewGroups([])).toEqual([])
+})
+
+test('the board groups the crew under a subheading per state', async ($, on) => {
+	world(on, 'coord-1', threeStates())
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^working · 2$/ }))?.text).toBe('working · 2')
+	expect((await ui.find({ type: 'Text', text: /^pr-ready · 1$/ }))?.text).toBe('pr-ready · 1')
+	expect((await ui.find({ type: 'Text', text: /^gone · 1$/ }))?.text).toBe('gone · 1')
+	await ui.unmount()
+})
+
+test('a probed refresh overtaken by a plain one still lands its PR state', async ($, on) => {
+	const plain = withPr(null)
+	const probed = withPr('MERGED')
+	// call 0 is the session start; after it the slow probed refresh reads GitHub's word and the quick plain one cannot
+	world(on, 'coord-1', STATUS, undefined, { statusFor: (nth, isProbed) => (nth > 0 && isProbed ? { status: probed, delayMs: 200 } : { status: plain, delayMs: 0 }) })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	const opening = $.command.run({ ...RUN, command: 'mc', args: '' })
+	await new Promise(resolve => setTimeout(resolve, 50))
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' })
+	await opening
+	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
+	expect(composed.sections[1]?.text).toMatch(/PRs merged while the crew row is not done: 10SE\.2 \(#209\)/)
+})
+
+test('helpers: foldProbed takes the probes and the PR state a plain refresh cannot see, and nothing else', async () => {
+	const probe = { resource: 'local-db', busy: true, checks: [] }
+	const stored = parseSnapshot(JSON.stringify(withPr(null)), NOON)
+	const probed = parseSnapshot(JSON.stringify({ ...withPr('MERGED'), probes: [probe] }), NOON)
+	const folded = foldProbed(stored, probed)
+	expect(folded?.sessions[0]?.pr_state).toBe('MERGED')
+	expect(folded?.probes.length).toBe(1)
+	// the ledger rows stay the newer picture
+	const newer = parseSnapshot(JSON.stringify({ ...withPr(null), sessions: [{ ...withPr(null).sessions[0], state: 'blocked' }] }), NOON)
+	expect(foldProbed(newer, probed)?.sessions[0]?.state).toBe('blocked')
+	// another run, a failed probe and a session now on another PR leave the stored snapshot as it was
+	const otherRun = parseSnapshot(JSON.stringify({ ...withPr('MERGED'), run: { ...STATUS.run, name: 'other' } }), NOON)
+	expect(foldProbed(stored, otherRun)).toBe(stored)
+	expect(foldProbed(stored, { ...probed, ok: false })).toBe(stored)
+	const moved = parseSnapshot(JSON.stringify({ ...withPr(null), sessions: [{ ...withPr(null).sessions[0], pr: 210 }] }), NOON)
+	expect(foldProbed(moved, probed)?.sessions[0]?.pr_state).toBeNull()
+	expect(foldProbed(null, probed)).toBeNull()
+})
+
+test('a refresh without probes keeps the probes the last probed one found', async () => {
+	const probe = { resource: 'local-db', busy: true, checks: [] }
+	const probed = parseSnapshot(JSON.stringify({ ...withPr('MERGED'), probes: [probe] }), NOON)
+	const plain = parseSnapshot(JSON.stringify(withPr(null)), NOON)
+	expect(carryPrState(probed, plain).probes.length).toBe(1)
+	expect(carryPrState(null, plain).probes.length).toBe(0)
+	const otherRun = parseSnapshot(JSON.stringify({ ...withPr(null), run: { ...STATUS.run, name: 'other' } }), NOON)
+	expect(carryPrState(probed, otherRun).probes.length).toBe(0)
 })
