@@ -9,7 +9,7 @@ metadata:
   family: doc
   goblin-spinner: reading the commits|writing history|projecting the changelog
 disable-model-invocation: false # programmatic (built from commits), and its trigger moment follows pr-land; approval gates the write
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(svu:*)", "Bash(cd:*)", "Bash(test:*)", "Bash(python3:*)", "Bash(~/.claude/library/scripts/slop-scan.py:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)"]
 arguments: ["scope", "targets", "version"]
 argument-hint: "[root|plugin:NAME|pkg:NAME] [md|release|app|docs|all] [tag (optional, scopes to one release)] (default scope: root; default targets: md + whatever already exists)"
 ---
@@ -100,13 +100,31 @@ Non-zero exit: rewrite to clear every `L<n> <rule>: <excerpt>` line and rescan, 
 
 Show the draft (or the diff, when updating) and **await approval** before writing.
 
+**Where the commit goes: straight to main.** A changelog commit is docs only, and docs-only commits go to `main` directly, never via a `docs/` branch and a PR (the user redirected a `docs/changelog-6-13-1` branch on 2026-10-26; that habit is gone). The main checkout may be another session's, so never write there:
+
+```bash
+git fetch origin main \
+  && git worktree add --detach "${TMPDIR:-/tmp}/doc-changelog-{repo}-{tag}" origin/main \
+  && cd "${TMPDIR:-/tmp}/doc-changelog-{repo}-{tag}"
+# write {changelog-path}, then:
+git add {changelog-path} \
+  && git commit -m "docs: changelog for {versions}" \
+  && git merge-base --is-ancestor origin/main HEAD \
+  && git push origin HEAD:main
+```
+
+The `merge-base` check is what makes the push a fast-forward: if main moved while the draft was being approved, `git fetch origin main && git rebase origin/main` and run the check again. A push the remote refuses (branch protection) is the one case that falls back to a `docs/` branch and `pr-create`; say so when it happens. Keep the worktree until Step 4 has read the section it needs for `release`, then remove it from outside it: `cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && git worktree remove "${TMPDIR:-/tmp}/doc-changelog-{repo}-{tag}"`.
+
 **npm packages** (a `package.json` with no `"private": true`): check `CHANGELOG.md` ships or is reachable: either listed in `files` or linked from the README, since the npm page shows only the README. Flag whichever is missing; registry users otherwise never see release history.
 
 ## Step 4: Project
 
 Only after `md` is approved and written:
 
-- **`release`**: for each new tag (in this scope's `{prefix}` series), `gh release create {tag} --title {tag} --notes-file -` fed with that version's section verbatim (`gh release edit` when the release exists). The Release body is the section, not a rewrite. A plugin's `NAME-v*` tags and a package's `{prefix}*` tags get their own GitHub Releases, distinct from the root `v*` series; several series point at the same commit when one landing bumped them all.
+- **`release`**: for each new tag (in this scope's `{prefix}` series), a GitHub Release whose body is that version's section verbatim, not a rewrite. A plugin's `NAME-v*` tags and a package's `{prefix}*` tags get their own GitHub Releases, distinct from the root `v*` series; several series point at the same commit when one landing bumped them all. Three rules, each from an incident:
+  1. **Extract with python3, never sed.** BSD sed's address syntax silently matched nothing in October 2026 and two releases went out with empty bodies. Cut the section (from its `## [x.y.z]` heading to the line before the next `## [` heading) with a short python3 script and write it to `<scratchpad>/release-notes-{tag}.md`.
+  2. **Refuse an empty file.** `test -s <file>` before `gh release create`; an empty or whitespace-only file stops the step with the path named. The `gh` guard hook blocks a `gh release create` without a non-empty notes file regardless, so the check here is what makes the failure legible.
+  3. **Read it back.** `gh release create {tag} --title {tag} --notes-file <file>` (`gh release edit {tag} --notes-file <file>` when the release exists), then `gh release view {tag} --json body -q .body` and compare with the file, whitespace-trimmed. A mismatch or an empty body is repaired with `gh release edit` and read back again; report the repair.
 - **`app`**: emit the structured form the app consumes. Root scope only; a plugin or package has no in-app what's-new surface of its own. If none exists yet and the user asked for `app`, propose the simplest fit for the stack (for SvelteKit: a `changelog.json` importable by a route) and build it from the same entries.
 - **`docs`**: update the docs-site changelog page from the same sections, matching that site's existing format. Root scope only, for the same reason.
 
@@ -116,6 +134,6 @@ Versions covered, surfaces written, surfaces skipped and why, plus any npm visib
 
 ## Red flags
 
-**Never:** write a projection that disagrees with `CHANGELOG.md`; rewrite already-published version sections (corrections get an explicit edit, called out to the user); invent user-facing descriptions for changes you don't understand; quote the commit and ask; create or suggest a 1.x tag in a `pkg:` series (only the repo's Declare Stable workflow, dispatched by a listed signer, does that).
+**Never:** write a projection that disagrees with `CHANGELOG.md`; rewrite already-published version sections (corrections get an explicit edit, called out to the user); invent user-facing descriptions for changes you don't understand; quote the commit and ask; create or suggest a 1.x tag in a `pkg:` series (only the repo's Declare Stable workflow, dispatched by a listed signer, does that); commit the changelog on a `docs/` branch or open a PR for it when the push to main was not refused; cut a release section with sed; publish a release without reading its body back.
 
 <raw-arguments value="$ARGUMENTS" />
