@@ -15,14 +15,16 @@ All notable changes to this plugin are documented here, newest first.
 
 ### Changed
 
-- Releasing a slot puts back the state it interrupted when that was `pr-ready`, `blocked`, `waiting-jason` or `done`, recorded on the slot as `prior_state`; it used to set `working`, so a session that had reported `pr-ready` read `working` until it reported again. Any other state still returns to `working`.
+- Releasing a slot puts back the state it interrupted when that was `pr-ready`, `blocked`, `waiting-jason` or `done`, recorded on the slot as `prior_state`; it used to set `working`, so a session that had reported `pr-ready` read `working` until it reported again. Any other state still returns to `working`. A session holding two slots reads `in-slot` until the last one goes, and a forced grant puts the displaced holder back the same way.
 - `report`, `join`, `grant` and `release` hold the run lock while they rewrite a session row. A report landing during a grant or release used to be overwritten by whichever wrote last.
 - `mc.py crew add` writes a worktree under the main checkout in the spelling git reports for it.
 
 ### Fixed
 
 - A session whose cwd differed from the crew plan only in letter case (`code` and `Code` on a case-insensitive volume) never joined the run, so it was missing from the board and `mc_grant` could not resolve it. The worktree match asks the filesystem whether two paths are one, in the mod, in `crew_for` and in the SessionStart hook.
-- Overlapping refreshes could finish out of order and draw the older picture of the ledger. A result is now applied only while no refresh that started later has landed, and a timed refresh is skipped while the previous one is still running. A refresh without probes keeps the PR state the last probed one found.
+- Overlapping refreshes could finish out of order and draw the older picture of the ledger. A result is now applied only while no refresh that started later has landed, and a timed refresh is skipped while the previous one is still running. A refresh without probes keeps the PR state and the probes the last probed one found, and a probed refresh overtaken by a plain one still lands its PR state and probes.
+- `status --probe` could outlast the mod's 20-second limit and draw the board as broken when `gh` or `psql` hung. A `gh pr view` lookup now waits 3 seconds and the first timeout ends the pass; each `psql` probe waits 3 seconds.
+- `crew add` rewrote a worktree into the main checkout's spelling even where the two spellings are different directories (a case-sensitive volume). It now asks the filesystem first.
 - The kickoff and end skills gave `mc.py status --json`; the flag goes before the subcommand (`mc.py --json status`).
 
 ## [0.1.0] - 2026-10-27
