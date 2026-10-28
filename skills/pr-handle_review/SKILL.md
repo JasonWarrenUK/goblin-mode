@@ -7,7 +7,7 @@ effort: high
 metadata:
   glyph: ᛟ
   family: pr
-  goblin-spinner: reading the review|verifying claims|replying to threads
+  goblin-spinner: reading the review|verifying claims|re-reviewing the fixes|replying to threads
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Bash(python3:*)", "Agent"]
 arguments: ["pr", "mode"]
@@ -16,7 +16,7 @@ argument-hint: "[PR number | URL] [legend]"
 
 # Handle a PR Review
 
-Takes the review feedback on a PR and closes the loop: independent verification of every change request, fixes for the ones that hold up, granular commits via `commit-batch` and a reply on every thread. Two approval gates: one before any code changes, one before anything is posted to GitHub.
+Takes the review feedback on a PR and closes the loop: independent verification of every change request, fixes for the ones that hold up, granular commits via `commit-batch`, a fresh-context strict re-review of the result before anything is drafted, and a reply on every thread. Two approval gates: one before any code changes, one before anything is posted to GitHub.
 
 Reviewers are sometimes wrong. The core of this skill is that no change request is implemented on the reviewer's authority alone, and none is dismissed without evidence. Jason's own replies and reactions steer that verification; they never replace it. See `library/references/review-reaction-signals.md` for the full reaction vocabulary and how it interacts with this promise.
 
@@ -50,6 +50,8 @@ Two sources, both required:
    - A reaction from Jason and no reply from him: read it per the vocabulary in `library/references/review-reaction-signals.md`. If Jason also replied, text wins unless the reaction sits on a comment that comes *after* his last reply, which is the fresher signal and makes it a live disagreement (comment order is derivable from position in the thread; reaction timestamps cannot be trusted for this, see the reference doc). Two or more of Jason's signals on the same comment collapses to 😕 Unclear: surface both at Gate 1, don't pick.
 
 2. **Review bodies**: `gh pr view {pull_number} --json reviews`; a `CHANGES_REQUESTED` or `COMMENTED` review body often carries file-level or cross-file asks that never became threads. Extract each actionable ask as its own item. Review bodies carry no reaction signal, since one reaction can't disambiguate which of several extracted asks it means; if a body has a reaction from Jason, note it and move on rather than guessing which ask it applies to.
+
+Record the login of every author whose asks are in scope: the first comment of each unresolved thread and each review body extracted above. Step 4.5 and Step 6 read this list to decide whether the re-review is posted.
 
 If there is nothing to handle, say so and stop.
 
@@ -88,6 +90,19 @@ Present a triage table: thread reference, one-line summary of the ask, verdict, 
 2. Discover the project's test, typecheck and lint commands from `package.json` (or ecosystem equivalent) and run all three until green. A red gate never proceeds to commit.
 3. Once every approved item is fixed and the gate is green, invoke the `commit-batch` skill to split the fixes into granular commits and push. Its own plan-approval pause applies as normal: that pause belongs to `commit-batch`, not this skill; don't suppress it and don't treat it as a substitute for Gate 2.
 
+## Step 4.5: Inner re-review
+
+The next strict review round would mostly find nits in the fixes just pushed. Find them now, in this round, so the user reads one consolidated result instead of opening a session per round.
+
+Once `commit-batch` has pushed, dispatch one subagent (the `Agent` tool, session model, no override) with fresh context: it loads `pr-review-dry_run` in `strict` mode against the PR and gets, as follow-up context, the prior findings handled above (path, line, body and which Step 4 fixed). It reads the PR, its description and the repo and nothing of this session's reasoning, which is what keeps the review adversarial rather than a check of its own work. It returns the structured findings and verdict; it posts nothing.
+
+- Every 🔴, 🟠 or 🟡 it raises goes through Step 3's verification like any reviewer's ask (a subagent can be wrong too). Fix the ones that hold, re-run the Step 4 gate, invoke `commit-batch` again, then re-dispatch.
+- Two inner rounds at most. A finding still open after the second is carried to Gate 2 as a deferral, with the reason, so the user decides.
+- An Approve verdict, or only 🟣 findings, ends the loop.
+- A finding you reject is carried to Gate 2 with its counter-evidence, like a pushback reply, so the user sees what the re-review said and why it was not acted on.
+
+Nothing is posted during the loop. Whether the converged round is posted to GitHub at all is Step 6's decision, by who wrote the original review.
+
 ## Step 5: Draft the replies
 
 One reply per item, written per the writing-style skill's rules (no em-dashes, no contrastive couplets, lead with specifics):
@@ -103,18 +118,21 @@ Threads carrying a live disagreement or a 😕 question are not drafted as repli
 
 ## Gate 2: Reply approval
 
-Show every drafted reply against its thread. **Stop and await approval.** Nothing has been posted yet; edits here are free.
+Show every drafted reply against its thread, then the inner re-review's outcome: each finding it raised with fixed (commit SHA), deferred (reason) or rejected (counter-evidence), and whether Step 6 will post it. **Stop and await approval.** Nothing has been posted yet; edits here are free.
 
 ## Step 6: Post
 
-- Thread replies: `gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies -f body=...`, where `comment_id` is the `databaseId` of the thread's first comment.
-- Review-body asks with no thread: one consolidated reply via `gh pr comment`, quoting each ask above its answer.
-- **Never resolve threads**; the reviewer closes their own threads when satisfied.
+Every body goes to GitHub from a file, never from a quoted string on the command line: apostrophes get stripped from quoted bodies, and a word inside one (`git`, in a month of git work) can trip the permission classifier. The `gh` guard hook refuses an inline body regardless, so writing the file first is the only path that runs. Files live in the session's scratchpad directory, never `/tmp`.
 
-Finish by reporting: items fixed / deferred / pushed back, commits pushed, replies posted. Offer to re-request review from the reviewers whose requests were addressed (`gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers -f 'reviewers[]=...'`); offer, don't do it unasked.
+- Thread replies: write the reply to `<scratchpad>/reply-{comment_id}.md`, then `gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies -F body=@<scratchpad>/reply-{comment_id}.md`, where `comment_id` is the `databaseId` of the thread's first comment.
+- Review-body asks with no thread: one consolidated reply, quoting each ask above its answer, via `gh pr comment {pull_number} --body-file <scratchpad>/comment.md`.
+- **Never resolve threads**; the reviewer closes their own threads when satisfied.
+- **The inner re-review, only when the user was the original reviewer.** When every author recorded in Step 2 is the authenticated login (the self-review case: the user's own `pr-review` runs, or a hand-written review of their own PR), run `pr-review strict` on the PR now. Its follow-up mode finds the earlier marker, writes the "Since my last review" delta and posts the round, so GitHub carries the same history the manual loop produced. When any handled ask came from another login, post no review: the human reviewer re-reviews their own asks, and the re-request below is the hand-off. The terminal already has the converged findings either way.
+
+Finish by reporting: items fixed / deferred / pushed back, inner rounds run and what each found, commits pushed, replies posted, review posted or withheld and why. Offer to re-request review from the reviewers whose requests were addressed (`gh api --method POST repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers -f 'reviewers[]=...'`); offer, don't do it unasked.
 
 ## Red flags
 
-**Never:** implement a request without verifying it first; dismiss a request without `file:line` evidence; treat a reaction as ground truth or resolve a signal-versus-evidence conflict without surfacing it at Gate 1; read a reaction from anyone but Jason as a signal; amend or force-push over reviewed commits (two exemptions: a stack's cascading rebase via `gh stack rebase` + `gh stack push`, and `pr-land` Step 1.1's rebase onto main for a roadmap-dashboard-only failure; both re-parent without rewording, squashing or dropping commits); post anything to GitHub before Gate 2 approval; resolve a reviewer's thread; push with a red test/typecheck/lint gate.
+**Never:** implement a request without verifying it first; dismiss a request without `file:line` evidence; treat a reaction as ground truth or resolve a signal-versus-evidence conflict without surfacing it at Gate 1; read a reaction from anyone but Jason as a signal; amend or force-push over reviewed commits (two exemptions: a stack's cascading rebase via `gh stack rebase` + `gh stack push`, and `pr-land` Step 1.1's rebase onto main for a roadmap-dashboard-only failure; both re-parent without rewording, squashing or dropping commits); post anything to GitHub before Gate 2 approval; post a body from an inline `-f body=` or `--body` string; run more than two inner re-review rounds; post a re-review on a PR whose handled asks came from anyone but the authenticated login; resolve a reviewer's thread; push with a red test/typecheck/lint gate.
 
 <raw-arguments value="$ARGUMENTS" />
