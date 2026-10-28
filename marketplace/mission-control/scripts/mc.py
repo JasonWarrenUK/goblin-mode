@@ -51,6 +51,8 @@ CONFIG_REL = ".claude/mission-control.json"
 LEDGER_ROOT = Path(os.environ.get("MISSION_CONTROL_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "mission-control"))
 SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "sessions"))
 STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting-jason", "done")
+# the states a release puts back; anything else the slot interrupted was plain work
+RESTORED_STATES = ("pr-ready", "blocked", "waiting-jason", "done")
 BY_USER = "--by-user"
 SEPARATORS = re.compile(r"^[();<>|&\n]+$")
 REDIRECT = re.compile(r"^&?[<>]+&?$")
@@ -110,6 +112,14 @@ def write_json(path: Path, data) -> None:
     os.replace(tmp, path)
 
 
+def same_path(a: str | Path, b: str | Path) -> bool:
+    """Whether two paths name one file: the filesystem decides, so `Code` and `code` on a case-insensitive volume agree."""
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        return str(a) == str(b)
+
+
 def inside(path: str | None, root: str | None) -> bool:
     if not path or not root:
         return False
@@ -117,7 +127,7 @@ def inside(path: str | None, root: str | None) -> bool:
         p, r = Path(path).resolve(), Path(root).resolve()
     except OSError:
         return False
-    return p == r or r in p.parents
+    return p == r or r in p.parents or any(same_path(parent, r) for parent in (p, *p.parents) if parent.exists() and r.exists())
 
 
 # ---------------------------------------------------------------- config
@@ -305,7 +315,7 @@ def crew_for(run: dict, cwd: str | None, session_id: str | None, sessions: dict[
     """The crew-plan entry a session belongs to: by its registered row first, then by the worktree its cwd is in."""
     row = sessions.get(session_id or "")
     for entry in run.get("crew", []):
-        if row and (entry.get("task") == row.get("task") or entry.get("worktree") == row.get("worktree")):
+        if row and (entry.get("task") == row.get("task") or (entry.get("worktree") and row.get("worktree") and same_path(entry["worktree"], row["worktree"]))):
             return entry
     for entry in run.get("crew", []):
         if inside(cwd, entry.get("worktree")):
@@ -569,9 +579,9 @@ def runs_in(cwd: str | None, cd_target: str | None) -> str | None:
 # ---------------------------------------------------------------- probes
 
 
-def sh(argv: list[str], timeout: int = 8) -> tuple[int, str]:
+def sh(argv: list[str], timeout: int = 8, cwd: str | Path | None = None) -> tuple[int, str]:
     try:
-        done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, cwd=cwd)
     except FileNotFoundError:
         return 127, f"{argv[0]} not installed"
     except subprocess.SubprocessError as error:
@@ -625,6 +635,31 @@ def probe_resource(name: str, spec: dict) -> dict:
 # ---------------------------------------------------------------- status
 
 
+PR_CACHE_SECONDS = 60
+
+
+def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
+    """GitHub's word on each PR (OPEN, MERGED, CLOSED), cached so a 15-second board does not ask every tick; a PR gh cannot read is left out."""
+    cache_path = ledger.dir / "pr-cache.json"
+    cache = read_json(cache_path, {}) or {}
+    found: dict[int, str] = {}
+    changed = False
+    for number in sorted(numbers):
+        hit = cache.get(str(number)) or {}
+        if hit.get("state") and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
+            found[number] = hit["state"]
+            continue
+        code, out = sh(["gh", "pr", "view", str(number), "--json", "state", "-q", ".state"], cwd=ledger.main)
+        state = out.strip().upper()
+        if code == 0 and state in ("OPEN", "MERGED", "CLOSED"):
+            found[number] = state
+            cache[str(number)] = {"state": state, "at": now()}
+            changed = True
+    if changed and ledger.dir.is_dir():
+        write_json(cache_path, cache)
+    return found
+
+
 def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
     run = ledger.run()
     live = registry()
@@ -663,6 +698,11 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
         "assumptions": (run or {}).get("assumptions", []) if run else [],
         "at": now(),
     }
+    if with_probes and run:
+        states = pr_states(ledger, {int(s["pr"]) for s in sessions if s.get("pr")})
+        for s in sessions:
+            if s.get("pr") and int(s["pr"]) in states:
+                s["pr_state"] = states[int(s["pr"])]
     if with_probes and config:
         out["probes"] = [probe_resource(name, spec) for name, spec in resources(config).items() if not (isinstance(spec, dict) and spec.get("human_gate"))]
     return out
@@ -680,7 +720,7 @@ def print_status(status: dict) -> None:
     print("|---|---|---|---|---|---|")
     for s in status["sessions"]:
         live = "" if s.get("live") else " (gone)"
-        print(f"| {s.get('name') or s['session_id'][:8]}{live} | {s.get('task', '')} | {s.get('branch', '')} | {s.get('state', '')} | {s.get('summary', '')} | {s.get('pr') or ''} |")
+        print(f"| {s.get('name') or s['session_id'][:8]}{live} | {s.get('task', '')} | {s.get('branch', '')} | {s.get('state', '')} | {s.get('summary', '')} | {s.get('pr') or ''}{' ' + s['pr_state'].lower() if s.get('pr_state') and s['pr_state'] != 'OPEN' else ''} |")
     print()
     print("| Slot | Holder | Since | Until | What |")
     print("|---|---|---|---|---|")
@@ -847,6 +887,10 @@ def crew_locked(args, ledger: Ledger) -> int:
     if not args.task or not args.branch:
         raise Refusal("crew add needs --task and --branch")
     worktree = os.path.abspath(args.worktree) if args.worktree else None
+    # the spelling git reports for the checkout wins, so a `Code`/`code` typo does not split one path in two
+    main_path = str(ledger.main)
+    if worktree and worktree.lower().startswith(main_path.lower() + "/"):
+        worktree = main_path + worktree[len(main_path):]
     entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration}
     run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
     ledger.save_run(run)
@@ -857,6 +901,11 @@ def crew_locked(args, ledger: Ledger) -> int:
 
 def cmd_join(args) -> int:
     ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return join_locked(args, ledger)
+
+
+def join_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     session_id = caller_session(args.session)
     if not session_id:
@@ -864,6 +913,8 @@ def cmd_join(args) -> int:
     who = identity(session_id)
     cwd = os.path.abspath(args.cwd)
     plan = crew_for(run, cwd, session_id, ledger.sessions())
+    if args.planned and plan is None:
+        raise Refusal("not in a planned worktree")
     task = args.task or (plan or {}).get("task") or ""
     branch = args.branch or run_git(cwd, "branch", "--show-current") or (plan or {}).get("branch") or ""
     worktree = str(toplevel(cwd) or cwd)
@@ -889,10 +940,21 @@ def cmd_join(args) -> int:
 
 def cmd_report(args) -> int:
     ledger = ledger_for(args.cwd)
-    ledger.require_run()
-    session_id = caller_session(args.session)
-    if not session_id:
+    with ledger.locked():
+        return report_locked(args, ledger)
+
+
+def report_locked(args, ledger: Ledger) -> int:
+    run = ledger.require_run()
+    caller = caller_session(args.session)
+    if not caller:
         raise Refusal("no session id: run from a Claude Code session or pass --session")
+    session_id = caller
+    by = None
+    if args.for_session:
+        # the coordinator (or the person) corrects a crew row that the crew session cannot or did not
+        by = authorise(run, caller, args.by_user, "report for another session")
+        session_id = resolve_session(args.for_session, ledger.sessions())
     row = ledger.sessions().get(session_id)
     if row is None:
         raise Refusal("this session has not joined the run; run `mc.py join` first (the mod does it at its first turn)")
@@ -908,7 +970,7 @@ def cmd_report(args) -> int:
         row["branch"] = args.branch
     row["updated_at"] = now()
     ledger.save_session(row)
-    ledger.log("report", session_id=session_id, state=row.get("state"), summary=row.get("summary"), pr=row.get("pr"))
+    ledger.log("report", session_id=session_id, state=row.get("state"), summary=row.get("summary"), pr=row.get("pr"), **({"by": by} if by else {}))
     print(json.dumps(row) if args.json else f"{row.get('task') or session_id[:8]}: {row.get('state')} · {row.get('summary', '')}")
     return 0
 
@@ -938,6 +1000,11 @@ def cmd_request(args) -> int:
 
 def cmd_grant(args) -> int:
     ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return grant_locked(args, ledger)
+
+
+def grant_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     by = authorise(run, caller_session(args.session), args.by_user, "grant a slot")
     found = find_config(args.cwd)
@@ -963,11 +1030,16 @@ def cmd_grant(args) -> int:
         "by": by,
         "forced": bool(holder and holder.get("holder") != target),
     }
+    row = sessions.get(target)
+    # what the holder was doing before the slot, so the release puts it back instead of forcing `working`
+    prior = (row or {}).get("state")
+    if row and prior == "in-slot" and holder and holder.get("holder") == target:
+        prior = holder.get("prior_state")
+    slot["prior_state"] = prior if prior in RESTORED_STATES else "working"
     write_json(ledger.slot_path(args.resource), slot)
     path = ledger.request_path(args.resource, target)
     if path.exists():
         path.unlink()
-    row = sessions.get(target)
     if row:
         row["state"] = "in-slot"
         row["updated_at"] = now()
@@ -985,6 +1057,11 @@ def cmd_grant(args) -> int:
 
 def cmd_release(args) -> int:
     ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return release_locked(args, ledger)
+
+
+def release_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     session_id = caller_session(args.session)
     slot = ledger.slots().get(args.resource)
@@ -995,7 +1072,7 @@ def cmd_release(args) -> int:
     ledger.slot_path(args.resource).unlink(missing_ok=True)
     row = ledger.sessions().get(slot["holder"])
     if row and row.get("state") == "in-slot":
-        row["state"] = "working"
+        row["state"] = slot.get("prior_state") or "working"
         row["updated_at"] = now()
         ledger.save_session(row)
     ledger.log("release", resource=args.resource, holder=slot["holder"], note=(args.note or "")[:240], by=session_id)
@@ -1316,7 +1393,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("join", help="register this session in the run")
     sp.add_argument("--task")
     sp.add_argument("--branch")
+    sp.add_argument("--planned", action="store_true", help="refuse unless the cwd is in a worktree the crew plan names")
     sp = sub.add_parser("report", help="update this session's row")
+    sp.add_argument("--for", dest="for_session", help="update another session's row (coordinator or --by-user): id, prefix, task, branch or name")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp.add_argument("--state", choices=STATES)
     sp.add_argument("--summary")
     sp.add_argument("--pr", type=int)

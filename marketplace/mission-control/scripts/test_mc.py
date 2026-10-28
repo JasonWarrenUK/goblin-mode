@@ -356,6 +356,101 @@ class LedgerFlow(unittest.TestCase):
         self.assertIsNone(json.loads(self.box.mc("--json", "status").stdout)["run"])
         self.assertTrue(list((self.box.ledger_root / "runs").iterdir()))
 
+    def case_variant_of_worktree(self):
+        """The worktree spelt with other capitals, or a skip when this volume tells them apart."""
+        variant = self.box.worktree.parent / self.box.worktree.name.upper()
+        if not variant.exists():
+            self.skipTest("this volume is case-sensitive")
+        return variant
+
+    def test_a_cwd_spelt_in_another_case_still_joins_a_planned_worktree(self):
+        variant = self.case_variant_of_worktree()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        joined = json.loads(self.box.mc("--json", "join", "--planned", session="crew-1", cwd=variant).stdout)
+        self.assertEqual(joined["task"], "A")
+        # and a directory outside the plan is turned away rather than joined bare
+        self.box.register("crew-2", "elsewhere", str(self.box.repo))
+        refused = self.box.mc("join", "--planned", session="crew-2", cwd=self.box.repo, expect=1)
+        self.assertIn("not in a planned worktree", refused.stdout)
+
+    def test_session_start_context_finds_the_crew_for_a_cwd_in_another_case(self):
+        variant = self.case_variant_of_worktree()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.assertIn("this worktree is crew A", self.box.hook("session-start", {}, session="crew-9", cwd=variant))
+
+    def test_crew_add_writes_the_worktree_in_the_spelling_git_reports(self):
+        self.case_variant_of_worktree()
+        self.box.start()
+        main = Path(json.loads(self.box.mc("--json", "status").stdout)["main_checkout"])
+        shouted = main.parent / main.name.upper() / ".claude" / "worktrees" / "crew-a"
+        self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(shouted), session="coord-1")
+        planned = json.loads(self.box.mc("crew", "list").stdout)[0]["worktree"]
+        self.assertEqual(planned, str(main / ".claude" / "worktrees" / "crew-a"))
+
+    def test_release_puts_back_the_state_the_slot_interrupted(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "209", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("grant", "api-port", "--to", "A", session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("--json", "status").stdout)["sessions"][0]["state"], "in-slot")
+        self.box.mc("release", "api-port", session="crew-1", cwd=self.box.worktree)
+        row = json.loads(self.box.mc("--json", "status").stdout)["sessions"][0]
+        self.assertEqual((row["state"], row["pr"]), ("pr-ready", 209))
+
+    def test_the_coordinator_can_correct_a_crew_row_and_a_crew_session_cannot(self):
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "209", session="crew-1", cwd=self.box.worktree)
+        self.box.register("crew-2", "b", str(self.box.repo))
+        self.box.mc("join", "--task", "B", session="crew-2")
+        refused = self.box.mc("report", "--for", "A", "--state", "done", session="crew-2", expect=1)
+        self.assertIn("only the coordinator", refused.stdout)
+        self.box.mc("report", "--for", "A", "--state", "done", session="coord-1")
+        rows = {s["task"]: s["state"] for s in json.loads(self.box.mc("--json", "status").stdout)["sessions"]}
+        self.assertEqual(rows, {"A": "done", "B": "briefing"})
+        log = [json.loads(line) for line in (self.box.ledger_root / next(self.box.ledger_root.iterdir()).name / "log.jsonl").read_text().splitlines()]
+        self.assertEqual([e["by"] for e in log if e["event"] == "report" and e.get("by")], ["coordinator"])
+
+    def test_report_waits_for_the_run_lock_instead_of_racing_a_grant(self):
+        import fcntl
+        self.box.start()
+        self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
+        lock_path = next(self.box.ledger_root.iterdir()) / "run.lock"
+        with lock_path.open("a") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            proc = subprocess.Popen(
+                [sys.executable, "-I", str(CLI), "--cwd", str(self.box.worktree), "report", "--state", "working"],
+                env={**self.box.env, "CLAUDE_CODE_SESSION_ID": "crew-1"}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            with self.assertRaises(subprocess.TimeoutExpired):
+                proc.communicate(timeout=1)
+            fcntl.flock(handle, fcntl.LOCK_UN)
+        out, err = proc.communicate(timeout=10)
+        self.assertEqual(proc.returncode, 0, out + err)
+
+    def test_pr_state_comes_from_gh_and_is_cached(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        ledger = mc_module.Ledger(self.box.repo)
+        ledger.dir = self.box.tmp / "pr-ledger"
+        ledger.dir.mkdir()
+        asked = []
+        real_sh = mc_module.sh
+        def fake_sh(argv, timeout=8, cwd=None):
+            asked.append(argv)
+            return 0, "MERGED\n" if argv[3] == "209" else "OPEN\n"
+        mc_module.sh = fake_sh
+        try:
+            self.assertEqual(mc_module.pr_states(ledger, {209, 210}), {209: "MERGED", 210: "OPEN"})
+            self.assertEqual(mc_module.pr_states(ledger, {209, 210}), {209: "MERGED", 210: "OPEN"})
+            self.assertEqual(len(asked), 2, "the second read comes from the cache")
+            mc_module.sh = lambda argv, timeout=8, cwd=None: (1, "no gh")
+            self.assertEqual(mc_module.pr_states(ledger, {211}), {})
+        finally:
+            mc_module.sh = real_sh
+
 
 class Hooks(unittest.TestCase):
     def setUp(self):
