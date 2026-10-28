@@ -754,13 +754,13 @@ def waiting_on(facts: dict | None) -> str:
     return "no reviewer requested"
 
 
-def claim_on_main(main: Path, task: str) -> bool | None:
-    """Whether origin/main carries roadmap:claim's commit for a task; None when the repo has no rich roadmap or no origin/main to read."""
+def claim_on_main(main: Path, task: str, ref: str = "origin/main") -> bool | None:
+    """Whether a ref carries roadmap:claim's commit for a task; None when the repo has no rich roadmap or the ref does not resolve."""
     if not (main / ".claude" / "roadmaps.json").is_file():
         return None
-    if run_git(main, "rev-parse", "--verify", "--quiet", "origin/main") is None:
+    if run_git(main, "rev-parse", "--verify", "--quiet", ref) is None:
         return None
-    found = run_git(main, "log", "origin/main", "--fixed-strings", "--grep", f"chore(roadmap): claim {task}", "--format=%h", "-1")
+    found = run_git(main, "log", ref, "--fixed-strings", "--grep", f"chore(roadmap): claim {task}", "--format=%h", "-1")
     return bool(found)
 
 
@@ -804,10 +804,24 @@ def reconcile(ledger: Ledger) -> dict:
             why = "its session is done" if row.get("state") == "done" else f"its PR #{row.get('pr')} is merged"
             note("need-open-after-done", f"need #{need.get('n')} ({need.get('why', '')[:60]}) is still open but {why}", need.get("task", ""), need.get("session_id", ""), row.get("pr"))
 
+    # roadmap:claim commits on the work branch, so the claim reaches main only with the merge:
+    # a merged PR is checked on origin/main, an open one on its own branch, anything else is skipped.
+    by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
     for entry in run.get("crew", []):
         task = entry.get("task", "")
-        if task and claim_on_main(ledger.main, task) is False:
-            note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/main", task)
+        row = by_task.get(task, {})
+        if not task or not row.get("pr"):
+            continue
+        fact = facts.get(int(row["pr"]))
+        if not fact:
+            continue
+        if fact["state"] == "MERGED":
+            if claim_on_main(ledger.main, task) is False:
+                note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/main, though PR #{row['pr']} is merged", task, row.get("session_id", ""), int(row["pr"]))
+        elif fact["state"] == "OPEN":
+            branch = row.get("branch") or entry.get("branch") or ""
+            if branch and claim_on_main(ledger.main, task, f"origin/{branch}") is False:
+                note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/{branch}", task, row.get("session_id", ""), int(row["pr"]))
 
     return {"run": run.get("name"), "drift": drift, "prs": prs, "at": now()}
 

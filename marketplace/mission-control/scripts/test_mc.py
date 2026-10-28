@@ -661,6 +661,76 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual([item["kind"] for item in result["drift"]], ["need-open-after-done"])
         self.assertIn("its session is done", result["drift"][0]["detail"])
 
+    def _roadmap_repo_with_origin(self, claim_on_branch=True):
+        """A rich roadmap, a bare origin holding main, and feat/a pushed with (or without) its claim commit."""
+        (self.box.repo / ".claude" / "roadmaps.json").write_text("{}")
+        git(self.box.repo, "add", ".claude/roadmaps.json")
+        git(self.box.repo, "commit", "-q", "-m", "chore: roadmap")
+        bare = self.box.tmp / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+        git(self.box.repo, "remote", "add", "origin", str(bare))
+        git(self.box.repo, "push", "-q", "-u", "origin", "main")
+        if claim_on_branch:
+            (self.box.worktree / "claim.txt").write_text("x\n")
+            git(self.box.worktree, "add", "claim.txt")
+            git(self.box.worktree, "commit", "-q", "-m", "chore(roadmap): claim 10SE.2")
+        else:
+            (self.box.worktree / "work.txt").write_text("x\n")
+            git(self.box.worktree, "add", "work.txt")
+            git(self.box.worktree, "commit", "-q", "-m", "feat: work without a claim")
+        git(self.box.worktree, "push", "-q", "-u", "origin", "feat/a")
+
+    @staticmethod
+    def _open(pr):
+        return {str(pr): {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}}
+
+    @staticmethod
+    def _merged(pr):
+        return {str(pr): {"state": "MERGED", "reviewDecision": "APPROVED", "reviewRequests": [], "latestReviews": [], "mergedAt": "2026-10-28T10:00:00Z"}}
+
+    def test_an_open_pr_with_its_claim_on_the_branch_is_not_drift(self):
+        self._roadmap_repo_with_origin()
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 220)
+        result = self._reconcile_with(self._gh(self._open(220)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
+
+    def test_a_merged_pr_whose_claim_reached_main_is_not_drift(self):
+        self._roadmap_repo_with_origin()
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 221, state="done")
+        result = self._reconcile_with(self._gh(self._merged(221)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
+
+    def test_a_merged_pr_with_no_claim_on_main_is_drift(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False)
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 222, state="done")
+        result = self._reconcile_with(self._gh(self._merged(222)))
+        missing = [item for item in result["drift"] if item["kind"] == "claim-missing"]
+        self.assertEqual(len(missing), 1)
+        self.assertIn("on origin/main", missing[0]["detail"])
+        self.assertEqual(missing[0]["pr"], 222)
+
+    def test_an_open_pr_whose_pushed_branch_has_no_claim_is_drift_naming_the_branch(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False)
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 223)
+        result = self._reconcile_with(self._gh(self._open(223)))
+        missing = [item for item in result["drift"] if item["kind"] == "claim-missing"]
+        self.assertEqual(len(missing), 1)
+        self.assertIn("on origin/feat/a", missing[0]["detail"])
+
+    def test_the_claim_check_stays_silent_without_a_roadmap(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")
+        result = self._reconcile_with(self._gh(self._merged(224)))
+        self.assertEqual([item["kind"] for item in result["drift"]], [])
+
     def test_reconcile_cli_prints_nothing_to_reconcile_for_a_quiet_run(self):
         self.box.start()
         self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
