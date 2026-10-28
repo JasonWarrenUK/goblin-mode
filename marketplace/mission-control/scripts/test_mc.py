@@ -578,6 +578,210 @@ class LedgerFlow(unittest.TestCase):
         finally:
             mc_module.sh = real_sh
 
+    def _crew_with_pr(self, task, session, branch, pr, state="pr-ready"):
+        """A crew session in the plan, joined and reporting a PR; the module-level helpers then read the same ledger root."""
+        self.box.mc("crew", "add", "--task", task, "--branch", branch, session="coord-1")
+        self.box.mc("join", "--task", task, "--branch", branch, session=session)
+        self.box.mc("report", "--state", state, "--pr", str(pr), session=session)
+
+    def _reconcile_with(self, fake_sh):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
+        mc_module.sh = fake_sh
+        mc_module.LEDGER_ROOT = self.box.ledger_root
+        mc_module.SESSIONS_DIR = self.box.sessions
+        try:
+            return mc_module.reconcile(mc_module.ledger_for(self.box.repo))
+        finally:
+            mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = real
+
+    @staticmethod
+    def _gh(answers):
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:3] != ["gh", "pr", "view"]:
+                return 1, "not gh"
+            answer = answers.get(argv[3])
+            if answer == "hang":
+                return 124, "timed out"
+            if answer is None:
+                return 1, "no such PR"
+            return 0, json.dumps(answer)
+        return fake_sh
+
+    def test_reconcile_flags_a_merged_pr_whose_row_is_not_done(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 209)
+        result = self._reconcile_with(self._gh({"209": {"state": "MERGED", "reviewDecision": "APPROVED", "reviewRequests": [], "latestReviews": [], "mergedAt": "2026-10-28T10:00:00Z"}}))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertIn("merged-not-done", kinds)
+        self.assertEqual(result["prs"], [{"pr": 209, "task": "10SE.2", "state": "MERGED", "waiting_on": "merged"}])
+        self.assertNotIn("gone", kinds, "crew-1 is registered and live")
+
+    def test_reconcile_names_the_reviewer_a_pr_waits_on(self):
+        self.box.start()
+        self.box.register("crew-2", "10se4", str(self.box.repo))
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 210)
+        self._crew_with_pr("10SE.4", "crew-2", "feat/b", 211)
+        result = self._reconcile_with(self._gh({
+            "210": {"state": "OPEN", "reviewDecision": "REVIEW_REQUIRED", "reviewRequests": [{"login": "maxime"}, {"slug": "backend"}], "latestReviews": [], "mergedAt": None},
+            "211": {"state": "OPEN", "reviewDecision": "CHANGES_REQUESTED", "reviewRequests": [], "latestReviews": [{"author": {"login": "jess"}, "state": "CHANGES_REQUESTED"}], "mergedAt": None},
+        }))
+        waits = {pr["pr"]: pr["waiting_on"] for pr in result["prs"]}
+        self.assertEqual(waits[210], "waiting on maxime, backend")
+        self.assertEqual(waits[211], "changes requested by jess")
+        self.assertEqual(result["drift"], [])
+
+    def test_reconcile_flags_a_planned_task_nobody_joined_and_a_session_that_went_away(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.9", "--branch", "feat/z", session="coord-1")
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 212, state="working")
+        (self.box.sessions / "crew-1.json").unlink()
+        result = self._reconcile_with(self._gh({"212": {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}}))
+        by_kind = {item["kind"]: item for item in result["drift"]}
+        self.assertEqual(by_kind["unjoined"]["task"], "10SE.9")
+        self.assertEqual(by_kind["gone"]["task"], "10SE.2")
+        self.assertEqual(by_kind["gone"]["session_id"], "crew-1")
+        self.assertEqual(result["prs"][0]["waiting_on"], "no reviewer requested")
+
+    def test_reconcile_reports_unknown_when_gh_hangs(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 213)
+        result = self._reconcile_with(self._gh({"213": "hang"}))
+        self.assertEqual(result["prs"], [{"pr": 213, "task": "10SE.2", "state": "UNKNOWN", "waiting_on": "unknown (gh did not answer)"}])
+        self.assertEqual([item["kind"] for item in result["drift"]], [])
+
+    def test_reconcile_flags_a_need_left_open_after_its_session_finished(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1")
+        self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1")
+        self.box.mc("report", "--state", "done", session="crew-1")
+        result = self._reconcile_with(self._gh({}))
+        self.assertEqual([item["kind"] for item in result["drift"]], ["need-open-after-done"])
+        self.assertIn("its session is done", result["drift"][0]["detail"])
+
+    def _roadmap_repo_with_origin(self, claim_on_branch=True):
+        """A rich roadmap, a bare origin holding main, and feat/a pushed with (or without) its claim commit."""
+        (self.box.repo / ".claude" / "roadmaps.json").write_text("{}")
+        git(self.box.repo, "add", ".claude/roadmaps.json")
+        git(self.box.repo, "commit", "-q", "-m", "chore: roadmap")
+        bare = self.box.tmp / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+        git(self.box.repo, "remote", "add", "origin", str(bare))
+        git(self.box.repo, "push", "-q", "-u", "origin", "main")
+        if claim_on_branch:
+            (self.box.worktree / "claim.txt").write_text("x\n")
+            git(self.box.worktree, "add", "claim.txt")
+            git(self.box.worktree, "commit", "-q", "-m", "chore(roadmap): claim 10SE.2")
+        else:
+            (self.box.worktree / "work.txt").write_text("x\n")
+            git(self.box.worktree, "add", "work.txt")
+            git(self.box.worktree, "commit", "-q", "-m", "feat: work without a claim")
+        git(self.box.worktree, "push", "-q", "-u", "origin", "feat/a")
+
+    @staticmethod
+    def _open(pr):
+        return {str(pr): {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}}
+
+    @staticmethod
+    def _merged(pr, base="main"):
+        return {str(pr): {"state": "MERGED", "reviewDecision": "APPROVED", "reviewRequests": [], "latestReviews": [], "mergedAt": "2026-10-28T10:00:00Z", "baseRefName": base}}
+
+    def test_a_pr_merged_into_a_non_main_base_is_checked_on_that_base(self):
+        self._roadmap_repo_with_origin()
+        git(self.box.repo, "branch", "develop", "main")
+        git(self.box.repo, "push", "-q", "origin", "develop")
+        git(self.box.repo, "checkout", "-q", "develop")
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "develop")
+        git(self.box.repo, "checkout", "-q", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 225, state="done")
+        result = self._reconcile_with(self._gh(self._merged(225, base="develop")))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]], "the claim is on origin/develop, where the PR merged")
+
+    def test_a_pr_gh_says_merged_into_main_is_drift_when_the_claim_only_reached_develop(self):
+        self._roadmap_repo_with_origin()
+        git(self.box.repo, "branch", "develop", "main")
+        git(self.box.repo, "checkout", "-q", "develop")
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "develop")
+        git(self.box.repo, "checkout", "-q", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 227, state="done")
+        result = self._reconcile_with(self._gh(self._merged(227, base="main")))
+        missing = [item for item in result["drift"] if item["kind"] == "claim-missing"]
+        self.assertEqual(len(missing), 1)
+        self.assertIn("on origin/main", missing[0]["detail"])
+
+    def test_the_claim_check_fetches_so_a_merge_made_elsewhere_is_seen(self):
+        self._roadmap_repo_with_origin()
+        elsewhere = self.box.tmp / "elsewhere"
+        subprocess.run(["git", "clone", "-q", str(self.box.tmp / "origin.git"), str(elsewhere)], check=True)
+        git(elsewhere, "config", "user.email", "t@example.com")
+        git(elsewhere, "config", "user.name", "t")
+        git(elsewhere, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "origin/feat/a")
+        git(elsewhere, "push", "-q", "origin", "main")
+        # this checkout's origin/main still predates the merge
+        self.assertNotIn("claim 10SE.2", subprocess.run(["git", "-C", str(self.box.repo), "log", "origin/main", "--format=%s"], capture_output=True, text=True).stdout)
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 226, state="done")
+        result = self._reconcile_with(self._gh(self._merged(226)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
+
+    def test_an_open_pr_with_its_claim_on_the_branch_is_not_drift(self):
+        self._roadmap_repo_with_origin()
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 220)
+        result = self._reconcile_with(self._gh(self._open(220)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
+
+    def test_a_merged_pr_whose_claim_reached_main_is_not_drift(self):
+        self._roadmap_repo_with_origin()
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 221, state="done")
+        result = self._reconcile_with(self._gh(self._merged(221)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
+
+    def test_a_merged_pr_with_no_claim_on_main_is_drift(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False)
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 222, state="done")
+        result = self._reconcile_with(self._gh(self._merged(222)))
+        missing = [item for item in result["drift"] if item["kind"] == "claim-missing"]
+        self.assertEqual(len(missing), 1)
+        self.assertIn("on origin/main", missing[0]["detail"])
+        self.assertEqual(missing[0]["pr"], 222)
+
+    def test_an_open_pr_whose_pushed_branch_has_no_claim_is_drift_naming_the_branch(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False)
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 223)
+        result = self._reconcile_with(self._gh(self._open(223)))
+        missing = [item for item in result["drift"] if item["kind"] == "claim-missing"]
+        self.assertEqual(len(missing), 1)
+        self.assertIn("on origin/feat/a", missing[0]["detail"])
+
+    def test_the_claim_check_stays_silent_without_a_roadmap(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")
+        result = self._reconcile_with(self._gh(self._merged(224)))
+        self.assertEqual([item["kind"] for item in result["drift"]], [])
+
+    def test_reconcile_cli_prints_nothing_to_reconcile_for_a_quiet_run(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1")
+        out = self.box.mc("reconcile").stdout
+        self.assertIn("nothing to reconcile", out)
+        self.assertIn("no PRs on the board", out)
+        self.assertEqual(self.box.mc("reconcile", cwd=self.box.tmp, expect=1).returncode, 1, "outside a repo is a refusal")
+
     def test_the_psql_probes_wait_no_longer_than_the_gh_lookups(self):
         sys.path.insert(0, str(HERE))
         import mc as mc_module

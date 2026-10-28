@@ -98,7 +98,7 @@ The boundary is honest about what it is: every session on the machine is the sam
 
 `~/.claude/mission-control/<repo slug>/`, one JSON file per fact so sessions never clobber each other: `run.json` (name, coordinator, base, PR approval, crew plan, assumptions, needs), `sessions/<id>.json`, `slots/<resource>.json`, `requests/<resource>__<id>.json`, `briefs/<task>.md`, `guidance.md`, `log.jsonl`. `mc.py end` moves it under `runs/`. The CLI identifies a caller by `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for every Bash child; the mod passes its own id. Writes that steer the run are the coordinator's or `--by-user`.
 
-`python3 <plugin-root>/scripts/mc.py --help` lists every subcommand; `status --probe` is the board as text.
+`python3 <plugin-root>/scripts/mc.py --help` lists every subcommand; `status --probe` is the board as text. `reconcile` diffs the ledger against the live registry, GitHub and the branches on origin (each merged PR's own base, each open PR's own branch) and prints what drifted (gone or unjoined sessions, merged PRs whose row is not done, needs left open, missing claim commits) and who each PR actually waits on.
 
 ---
 

@@ -47,7 +47,9 @@ A message marked `[mission-control: from the coordinator session ..., verified a
 
 ## PRs
 
+0. **Read your messages immediately before every push**, however recently you last read them. A pause, freeze or rebase notice from the coordinator sent minutes ago beats the push; a push that raced a pause in October 2026 cost a second rebase, a force-push and a detached HEAD. A pause means stop, report the state on the board and wait for the lift.
 1. Run the project's test, lint and contract commands (the guidance lists them) before any push. Nothing that the guidance says belongs on trunk only (a changelog line, a dashboard re-render) goes on your branch; the intended wording goes in the PR description.
+1a. **A rendered change is verified live before `pr-ready`**, at every viewport the brief's `Verify at` row names, with every open state (a drawer, a disclosure, a form) and with the primary action still on screen after the change (three new columns pushed the Claim button off a 1280px board in October 2026, and the sr-only labels still widened the table). Run `/web-check pass` against the brief's scope when the project has one, otherwise a Playwright or browser check at each width, and quote what was checked in the PR's Verification section. A brief with no `Verify at` row and a diff that touches anything rendered: ask the coordinator for the widths before reporting `pr-ready`; never pick them.
 2. `mc_report` to `pr-ready` with a summary. Then, by the run's PR approval (the brief says which):
    - **coordinator**: draft the description the way `pr-create` would (its template and rules), send it whole to the coordinator with `SendMessage`, wait for `PR approved` or changes, then run `/pr-create auto [base <parent>]`. The `auto` token skips the in-session pause because the coordinator's review was the gate.
    - **user**: run `/pr-create [base <parent>]` and `mc_need` with why `approve the PR description in this session`; the user comes when the list says so.
@@ -56,4 +58,4 @@ A message marked `[mission-control: from the coordinator session ..., verified a
 
 ## Never
 
-Run a gated command without the slot or from another directory; run a hosted command or ask anyone but the user to; merge; edit a shared surface the brief says another session owns; write a changelog or regenerate a shared artefact on your branch when the guidance says trunk; leave a slot held after the work is done; let the board lie about your state.
+Run a gated command without the slot or from another directory; run a hosted command or ask anyone but the user to; merge; edit a shared surface the brief says another session owns; write a changelog or regenerate a shared artefact on your branch when the guidance says trunk; push without reading your messages first; report `pr-ready` on a rendered change nobody has looked at in a browser at the brief's widths; leave a slot held after the work is done; let the board lie about your state.

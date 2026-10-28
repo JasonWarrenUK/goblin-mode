@@ -1,13 +1,13 @@
 ---
 name: "PR: Land"
-description: "Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up"
+description: "Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, write the changelog and release, read every artefact back, clean up"
 when_to_use: "When a PR is approved with checks green and the user wants it merged and the aftermath handled."
 model: opus
 effort: medium
 metadata:
   glyph: ᛟ
   family: pr
-  goblin-spinner: merging|deleting evidence|tagging|cleaning up
+  goblin-spinner: merging|deleting evidence|tagging|writing the changelog|reading it back|cleaning up
 disable-model-invocation: true
 allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/stack-status.py:*)", "Bash(python3:*)"]
 arguments: ["pr"]
@@ -16,7 +16,7 @@ argument-hint: "[PR number | URL]"
 
 # PR: Land
 
-The post-approval sequence as one skill: verify the PR is genuinely ready, merge with a merge commit (granular commits are documentation; they belong on main), then handle everything a merge leaves behind: branch, worktree, version tag, roadmap.
+The post-approval sequence as one skill: verify the PR is genuinely ready, merge with a merge commit (granular commits are documentation; they belong on main), then handle everything a merge leaves behind: branch, worktree, version tag, roadmap, changelog and release, each read back before the report says it exists.
 
 ## Hard rule: the version guard
 
@@ -166,15 +166,30 @@ Steps 1 and 2 run from the landing worktree: it sits outside the branch's own wo
 1. If a worktree held this branch (`git worktree list`), remove it, from **outside** it, never while the shell is inside. A stack merge may have landed several branches; clean up each merged layer's worktree, but leave the worktrees of still-open child PRs alone (post-sync they're live work, not leftovers).
 2. If the local branch survived (it was checked out somewhere), `git branch -d {branch}`: only `-d`; a refusal means unmerged commits and stops the line, not `-D`.
 3. Remove the landing worktree last, standing in the main checkout without touching its branch: `cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && git worktree remove "${TMPDIR:-/tmp}/pr-land-{repo}-{number}" && git worktree prune`.
-4. Bring the main checkout up to date only when that is safe. Run `~/.claude/library/scripts/checkout-occupied.sh` there: fast-forward with `git pull --ff-only` when it exits 0 **and** its JSON shows `branch` as `main` and `dirty_files` as 0. Anything else (another live session, a different branch, uncommitted files), leave the checkout exactly as it is and name the reason in the Step 6 report.
+4. Bring the main checkout up to date only when that is safe. Run `~/.claude/library/scripts/checkout-occupied.sh` there: fast-forward with `git pull --ff-only` when it exits 0 **and** its JSON shows `branch` as `main` and `dirty_files` as 0. Anything else (another live session, a different branch, uncommitted files), leave the checkout exactly as it is and name the reason in the Step 7 report.
 
 ## Step 5: Roadmap sync
 
 If the repo has a rich roadmap (`python3 "$HOME"/.claude/marketplace/roadmap/scripts/roadmap.py detect` exits 0), offer to run the `roadmap:maintain` skill so the merged work's task lands as `done` and the projections refresh; it also backfills any done task whose `ended` Step 1.6 missed. Offer, don't assume; the PR may not map to a roadmap task.
 
-## Step 6: Report
+## Step 6: Changelog and release
 
-PR merged (URL), every tag created (root, any bumped plugin and each tag CI returned in Step 3), branch/worktree state after cleanup, roadmap synced or skipped, and the task IDs given an end date by Step 1.6. If the changelog matters for this project, offer `/doc-changelog root md {tag}` for the root tag and, for each bumped plugin, `/doc-changelog plugin:{name} md {name}-v{X.Y.Z}`. On a manifest repo, offer `/doc-changelog pkg:{name} md {tag}` for each Step 3 tag whose prefix matches a `packages[]` entry's `prefix` (`api/v0.2.0` pairs with the entry whose prefix is `api/v`, so `pkg:api`); a tag matching no entry is reported but gets no offer. `doc-changelog`'s scope and version arguments together scope each run to exactly one release. Also offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
+Every tag Step 3 produced gets its changelog section now, in this session, rather than as an offer the user has to take up: the landing is not finished until the changelog says what landed. Skip this step only when the repo has no `CHANGELOG.md` and the user has not asked for one.
+
+Map each tag to a `doc-changelog` scope: the root `v*` tag is `root`; a plugin tag `{name}-v{X.Y.Z}` from Step 1.5 is `plugin:{name}`; on a manifest repo a CI tag whose prefix matches a `packages[]` entry's `prefix` is `pkg:{name}` (`api/v0.2.0` pairs with the entry whose prefix is `api/v`, so `pkg:api`), and a tag matching no entry is reported in Step 7 and gets no run.
+
+**Release only where the series already publishes releases.** For each scope, `gh release list --limit 100 --json tagName -q '.[].tagName'` and look for any tag in the same series: `v` followed by a digit for root, `{name}-v` for a plugin, the manifest `prefix` for a package. A series with at least one release gets `/doc-changelog {scope} md release {tag}`; a series with none gets `/doc-changelog {scope} md {tag}` and no release is created, since starting a release series is the user's decision, not a landing's side effect. `doc-changelog`'s own approval gate on the draft applies as normal, and its Step 3 commits the section straight to main from its own worktree, so the landing worktree removed in Step 4 is not needed here.
+
+**Then verify by reading back**, one line each in Step 7:
+
+- Tag: `git ls-remote --tags origin "refs/tags/{tag}^{}"` (or without `^{}` for a lightweight tag) resolves to the merge commit from Step 2, or to the commit CI tagged. A tag on any other commit is reported as drift and not corrected here (a hand-moved tag is how tag and changelog diverge).
+- Plugin version: `git show origin/main:{source}/.claude-plugin/plugin.json` carries the version Step 1.5 bumped to.
+- Changelog: `git show origin/main:{changelog-path}` has a `## [{version}]` heading for the tag.
+- Release, only where one was made: `gh release view {tag} --json tagName,body -q .body` is non-empty. `doc-changelog` already compared it with the section; an empty body here means that comparison was skipped and the release is repaired with `gh release edit {tag} --notes-file` from the section, then read back again.
+
+## Step 7: Report
+
+PR merged (URL), every tag created (root, any bumped plugin and each tag CI returned in Step 3), branch/worktree state after cleanup, roadmap synced or skipped, the task IDs given an end date by Step 1.6, and the Step 6 read-backs: changelog section per tag, release created or deliberately skipped (and why) per series, each verification line. Offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
 
 ## Red flags
 

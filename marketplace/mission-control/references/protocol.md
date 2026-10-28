@@ -99,6 +99,19 @@ Trunk moves during a run. When it does: a commit on trunk that changes a generat
 4. Follow-up work found during the run goes on the roadmap (`/roadmap:update-tasks`).
 5. `mc.py end` archives the ledger under `runs/`.
 
-## 11. Trust
+## 11. The board stays true
+
+What drifted on the October 2026 runs, and the rule each one left behind:
+
+- **Needs left open after the user did them.** A need is marked done the moment it is satisfied, by whoever sees it first: the user with `d` on the board or `/mc done <n>`, the asking session with its next `mc_report`, the coordinator from `reconcile`.
+- **Crew sessions never joined to the ledger.** A crew task with no session row is drift, not a session that is quiet; the coordinator chases it at the next reconcile.
+- **A task sliced without the user.** 10SE.6 was split into slices on the coordinator's judgement. Slicing, merging and re-slicing are the user's decisions: an AskUserQuestion naming the slices, then a yes, then the plan changes.
+- **A push that raced a pause.** A crew session pushed while the coordinator's pause notice was in flight; the cost was a second rebase, a force-push and a detached HEAD. Every crew session reads its messages immediately before every push.
+- **The wrong blocker named.** A PR was reported as waiting on the user when GitHub had another reviewer's request pending. The blocker is what GitHub says: the pending reviewer by login, `changes requested by` or `approved; the merge is the user's`.
+- **Fixes that failed the live check.** Columns pushed the primary action off screen at 1280px; sr-only labels still widened a table. Every rendered change is checked at the brief's `Verify at` widths, every open state included, before the session reports `pr-ready`.
+
+`mc.py reconcile` diffs the ledger against the live session registry, GitHub and the branches on origin (a merged PR's own base, an open PR's own branch, fetched first) and prints each drift and each PR's real blocker. The coordinator runs it before every status, check-in or answer about where things stand, and after each batch of crew messages.
+
+## 12. Trust
 
 The user starts the run in the coordinator session; the ledger records that session's id and messaging socket. Every crew session's system prompt names them. A cross-session message carries the sender's socket in its harness-stamped `from` attribute, so the receiving mod marks a message from that socket as the coordinator's and one that claims to be mission control from another socket as not. Nothing is saved to memory, no passphrase is relayed and no session is asked to do what its own permissions refuse.

@@ -9,6 +9,7 @@
 | Base | `{{ base branch }}@{{ base commit }}` |
 | Migration timestamp | {{ assigned timestamp, or "none expected; tell the coordinator before writing one" }} |
 | PR approval | {{ "the coordinator reviews your draft description, then you run /pr-create auto" or "the user approves in this session" }} |
+| Verify at | {{ the viewports and devices every rendered change is checked at before pr-ready, from the scope document or the user, e.g. "1280 and 390, every open state"; or "nothing rendered in this task" }} |
 
 ## What this task ships
 
