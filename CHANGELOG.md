@@ -5,6 +5,22 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [6.17.0] - 2026-10-28
+
+### Added
+
+- `mission-control` plugin 0.3.0: `mc.py reconcile` diffs the board against the live session registry, GitHub and the branches on origin. It prints each drift (a session gone, a crew task never joined, a merged PR whose row is not done, a need left open, a claim commit missing) and who each PR actually waits on by login. The coordinator runs it before every status and never slices a task without asking; crew sessions read their messages immediately before every push and verify rendered changes at the brief's new `Verify at` widths before reporting ready. Details in the plugin's changelog.
+- A `gh` guard hook (`library/scripts/gh-guard.py`, wired per machine through `hooks/gh-body-guard.sh`) refuses an inline body on `gh api`, `gh pr comment`, `gh pr review` and `gh issue comment`, and refuses `gh release create` without a non-empty notes file. Both shapes caused real incidents in October: apostrophes stripped from quoted replies and two releases published with empty bodies.
+- `pr-handle_review` ends each round with a fresh-context strict re-review of the fixes, at most twice, before drafting replies. The converged round is posted back to GitHub only when the user wrote the original review.
+- `pr-land` writes the changelog for every tag a landing produces and, where that tag series already publishes releases, the release too, then reads back the tag, plugin version, changelog heading and release body before reporting.
+- `pr-review-dry_run` strict mode runs the project's test suite on the PR head in a throwaway worktree cut from the pull ref, and follow-up mode settles every prior finding before looking for new ones. A failing suite blocks.
+
+### Changed
+
+- `doc-changelog` commits straight to `main` from a throwaway worktree, with a fetch and ancestry check before the push, and falls back to a `docs/` branch only when the remote refuses. Release notes are cut with python3, refused when empty and compared with the published body afterwards.
+- `pr-handle_review` posts every reply and comment from a file, never from a quoted string.
+- `CLAUDE.md` §8.2a records the docs-straight-to-main rule.
+
 ## [6.16.0] - 2026-10-28
 
 ### Added
@@ -385,7 +401,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.16.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.17.0...HEAD
+[6.17.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.16.0...v6.17.0
 [6.16.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.15.0...v6.16.0
 [6.15.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.1...v6.15.0
 [6.14.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.0...v6.14.1
