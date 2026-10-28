@@ -7,11 +7,6 @@ All notable changes to this plugin are documented here, newest first.
 ### Added
 
 - The board's crew section is grouped by state, each group under a subheading with its count: `in-slot`, `working`, `blocked`, `waiting-jason`, `briefing`, `pr-ready`, `done`, then `gone` for sessions no longer live. Ledger order holds within a group and the number hotkeys follow the grouped order.
-
-## [0.1.1] - 2026-10-28
-
-### Added
-
 - The coordinator's probed board asks GitHub for each crew PR's state (cached for 60 seconds in `<ledger>/pr-cache.json`) and draws `merged` or `closed` beside the number; the coordinator's prompt section names crew whose PR merged while their row is not `done`. No crew session reports a merge the user made, so the row used to read `pr-ready` for ever.
 - `mc.py report --for <session>` and `mc_report` with `for`: the coordinator (or the person with `--by-user`) corrects another session's row. The log records who.
 - A crew session that runs `gh pr create` has the PR number and `pr-ready` reported by the mod from the URL `gh` prints.
