@@ -4,6 +4,20 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-28
+
+### Added
+
+- `mc.py reconcile`: the ledger against ground truth. It reads the live session registry, GitHub's word on each PR and the branches on origin, and prints what drifted: a session no longer running whose row is not `done`, a crew task in the plan that no session joined, a merged or closed PR whose row still reads otherwise, a need left open after its session finished, and a `chore(roadmap): claim` commit missing from a merged PR's base or an open PR's branch (fetched first, only where the repo has a rich roadmap). Each PR line names who it waits on in GitHub's own terms: `waiting on <login>`, `changes requested by <login>`, `approved; the merge is the user's` or `no reviewer requested`. PR facts cache in `<ledger>/pr-facts.json` with the same hang guard as the board's state lookup.
+- The brief template carries a `Verify at` row: the viewports and devices a rendered change is checked at before `pr-ready`.
+
+### Changed
+
+- The coordinate skill runs `reconcile` before every status, check-in or answer about where things stand, and after each batch of crew messages; what remains opens the status. It never splits, merges or re-slices a task without an AskUserQuestion naming the slices, and it names a PR's blocker as GitHub does rather than as "the user".
+- The crew skill reads its messages immediately before every push, since a pause notice in flight beats the push, and verifies every rendered change at the brief's widths with the primary action still on screen before reporting `pr-ready`.
+- The check-in skill fixes drift before asking anyone and opens its list with a `Drift` bucket when any remains.
+- `protocol.md` section 11 records each October 2026 drift incident and the rule it left: needs marked done at once, crew joined to the ledger, no slicing without the user, messages read before a push, the real blocker named, rendered changes checked live.
+
 ## [0.2.0] - 2026-10-28
 
 ### Added
