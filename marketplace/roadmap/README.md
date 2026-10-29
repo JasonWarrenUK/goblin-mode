@@ -66,6 +66,36 @@ The grouping and the order are kept in the plugin's own store on your machine, n
 
 The pane refreshes itself every two minutes while open and whenever a tool call touches `roadmaps.json` or runs the CLI. It is a tab beside any other pane, `/diff` included: Ctrl+X Tab moves the keyboard between panes, and only one shows at a time. In a fullscreen terminal of 110 columns or more it docks beside the transcript; narrower, it sits above the prompt. Without a roadmap it says so and names `/roadmap:create`.
 
+### 2f. The workflow, start to finish
+
+| Moment | What you run | What it writes |
+|---|---|---|
+| A project with no roadmap | `/roadmap:create`, or `/roadmap:migrate` for an old single-file one | `.claude/roadmaps.json`, the PHASE task list and the overview |
+| Ideas to turn into tasks | `/roadmap:create-interview`, then its approved batch through `/roadmap:update-tasks` | tasks with ids, dependencies wired both ways |
+| One task you can already state | `/roadmap:update-tasks` | the task, asking its assignee as it goes |
+| Owners | `/roadmap:update-devs` | `assignee` on each task; no `started` |
+| Picking what to do | `/ready` (the pane), `/roadmap:next-suggest` or `/roadmap:next-group` | nothing |
+| Starting a task | the branch hook's question, `c` on `/ready` or `/roadmap:claim <id>` | `started` and `assignee` on the task, committed |
+| Dropping a task | `/roadmap:claim <id> release` | `started` removed |
+| Work lands | `pr-land` stamps `ended` on what the PR finished (`stamp-ended`); then `/roadmap:maintain` | statuses recomputed, every projection and the dashboard refreshed |
+| Statuses look wrong against the code | `/roadmap:maintain reconcile` | the same, after reading the codebase |
+| Now and then | `/roadmap:review` | nothing until you approve its edits |
+| The dashboard elsewhere | `/roadmap:configure artefact <path>`, then `/roadmap:dashboard` | the phase's `artefact` option and the HTML file |
+
+**The CLI by hand.** `python3 <plugin-root>/scripts/roadmap.py <subcommand>` from anywhere under the project. The ones you will type yourself: `ready`, `open`, `stats`, `validate`, `claim <id> --assignee <name>`, `assign <id> (--assignee <name> | --unassign)`, `release <id>`, `end <id>`, `recompute [--check] [--render]`, `render`, `graph --mermaid`, `config artefact <path>`, `backfill-ended --dry-run`. `--help` lists the rest. With several active phases every subcommand needs `--phase <name>`; it never guesses.
+
+### 2g. Do not
+
+- **Do not edit a task's `status` by hand.** Status is computed from the graph and `recompute` (which `maintain` runs) writes it back; a hand-set status is overwritten, and a held one (`paused`, `deferred`, `out_of_scope`) is the only kind that sticks.
+- **Do not mark work done by editing the file.** `/roadmap:maintain` after the merge; `pr-land` stamps the `ended` dates.
+- **Do not add a task or a dependency by editing the JSON.** `/roadmap:update-tasks` assigns the id and wires the edge in both directions; a one-sided edge fails `validate`.
+- **Do not use `assign` to mean start.** `assign` sets an owner; `claim` records a start. The pane's `a` and `c` keep them apart for the same reason.
+- **Do not infer or pre-fill who is doing a task.** Every claim path asks; a name never comes from the branch, the git author or the last claim.
+- **Do not silence the branch question by ignoring it.** `git config branch.<name>.roadmapClaim none` is the switch for a branch that is not roadmap work.
+- **Do not commit a `recompute` that changes the dashboard without the re-rendered dashboard in the same commit** where the project checks it in; `recompute --render` does both.
+- **Do not run with two active phases and no `--phase`.** The CLI stops rather than guess.
+- **Do not keep the pane's grouping in the roadmap.** It lives in the plugin's store per machine, which is why two devs can order the same file differently.
+
 ---
 
 ## 3. Concepts

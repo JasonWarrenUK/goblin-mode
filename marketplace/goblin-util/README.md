@@ -43,6 +43,26 @@ A row that has not written for a minute reads `quiet`. Opening `/fleet` never wr
 
 ---
 
+## 3.1. The commands you have, the workflow and what not to do
+
+| Command | Where | Does |
+|---|---|---|
+| `/pain <text>` | any session, any time, even mid-turn | logs the friction at once, with the repo, branch and last failed tool call attached |
+| `/pain` | any session | opens the small pane: type, Enter logs, Esc closes |
+| `/fleet` | any session | opens the pane of every live session on this machine; `1` to `9` picks one, Enter in the input messages it, Esc closes |
+
+The workflow is short. Something in Claude Code itself bites: `/pain <what happened>` the moment it does, before the detail fades; `hud-cc_releases` reads the log against each release's changelog and tells you when it is fixed. You want to know what another session on this machine is doing, or to tell it something: `/fleet`, pick the row, type the line. Neither starts a turn, so both work while Claude is busy.
+
+Do not:
+
+- **Do not log a bug in your project with `/pain`.** It is for Claude Code, the tool, only; a project bug goes on the project's tracker or roadmap, and an entry about one is noise the release check cannot match.
+- **Do not use `/fleet` to get another session to do what yours was refused.** A fleet message arrives as a peer message and is read as a teammate's, and a peer cannot grant a permission; the receiving session is told to refuse and surface it. Route the blocked thing to yourself.
+- **Do not treat a `quiet` row as gone.** It has not written for a minute; it is dropped only after `stale_minutes` by the next heartbeat another session writes. Opening `/fleet` writes nothing.
+- **Do not mark an entry resolved from here.** `/pain` only adds; resolving stays with the `track-cc_pain` and `hud-cc_releases` skills, which know what fixed it.
+- **Do not duplicate an open entry.** The same description is refused with the existing id; add to that one through the skill instead.
+
+---
+
 ## 4. Options
 
 | Option | Default | What it does |

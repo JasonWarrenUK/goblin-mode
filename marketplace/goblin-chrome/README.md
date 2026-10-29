@@ -53,6 +53,28 @@ A prop is up to four terminal cells of BMP text, so the band's arithmetic holds;
 
 The day has nine states on the local clock, fading over ten minutes, shifted one row towards lively on a Friday from four, one towards tired on a Sunday and one towards tired once the session passes four hours. Colours come from the project's theme in `.claude/themes/`, the `clod` family when it has none.
 
+### 2.2. What you can do with it, and what not to expect
+
+There is no slash command and nothing to type: the mod reacts to the session. What you control is in `/config` (section 3), the project's theme and the frontmatter of your own skills and agents.
+
+| To | Do |
+|---|---|
+| Turn it off, or back on | `enabled` in `/config`; the hooks then pass through and nothing draws |
+| Dress it in the project's colours | put a theme family in `.claude/themes/` (`/theme-factory` builds one); `theme` picks one when there are several |
+| Change when it is grumpy, prime or feral | `schedule`, as `HH=state` pairs on the local clock |
+| Give a skill a prop and its own spinner words | `metadata.family` and `metadata.goblin-spinner` in that skill's frontmatter, under `~/.claude/skills/` or `<project>/.claude/skills/` |
+| Give a subagent a face in the parade | `goblin-minion` at the top of the agent file, one to five cells |
+| Hear the cackle when the commit-msg hook bounces a message | `audio` on |
+| Poke it | click the goblin in the band |
+
+Do not:
+
+- **Do not put `goblin-spinner` or `family` in a plugin's skill and expect a prop.** Only skills under `~/.claude/skills/` and the project's `.claude/skills/` are read; a plugin skill reads as nothing set and the goblin walks empty-handed.
+- **Do not expect the frame to change the moment you run `/model`.** The frame follows the model that served the last request, so it switches once a reply has come back from the new one.
+- **Do not use a prop wider than four cells, a minion face wider than five, or an emoji in either.** The band's arithmetic refuses them and falls back to the default.
+- **Do not disable it by removing the hooks from `hooks.json`.** `enabled` is the switch; the manifest is the plugin's own.
+- **Do not read anything into what it draws.** It is chrome: it changes nothing Claude does and nothing it is told.
+
 ---
 
 ## 3. Options
