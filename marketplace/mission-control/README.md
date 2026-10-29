@@ -16,18 +16,65 @@ Requires `python3` (3.9+, stdlib only) on `PATH`, `lsof` and `pgrep` for the pro
 
 ---
 
-## 2. A run, start to finish
+## 2. A run, start to finish: what you type, where, and what not to
+
+### 2.1. The workflow, in order
 
 | Moment | Who | What |
 |---|---|---|
-| Once per project | the user | `/mission-control:configure` writes `.claude/mission-control.json`: the shared resources, the commands that touch them, how to tell each one is busy, the check commands, the convention files and the conventions that live only in the user's head |
-| Kick-off | the coordinator session | `/mission-control:kickoff 10SE.2 10SE.4 name search` picks the tasks (from the roadmap when there is one), creates a worktree per task, starts the run in the ledger, asks every convention it cannot read, sets numbered shared assumptions, writes the guidance and one brief per session, and prints a launch line per session |
-| Launch | the user | runs each launch line in a terminal. The line ends with the opening prompt, which starts the session's first turn; nothing else is typed into it. The `SessionStart` hook names its brief and the coordinator, the mod puts it on the board |
-| The run | crew and coordinator | crew answer the five questions, report state changes, request slots and put anything only the user can do on the needs list; the coordinator grants slots from the machine's state, settles assumptions, reviews draft PRs when the run says so, checks in and keeps the board true |
-| Whenever | the user | `/mc` in the coordinator session (or any session) shows the board; the needs list has complete commands with their directories |
-| End | the coordinator session | `/mission-control:end` links the stack, prunes closed sessions' worktrees, runs the checks on the top layer, offers the roadmap follow-ups and archives the ledger |
+| Once per project | the user, any session | `/mission-control:configure` writes `.claude/mission-control.json`: the shared resources, the commands that touch them, how to tell each one is busy, the check commands, the convention files, the conventions that live only in the user's head, and `collaboration` (solo or collaborative, with the team's hours) |
+| Kick-off | the user, in an **opus** session that becomes the coordinator | `/mission-control:kickoff 10SE.2 10SE.4 name search` picks the tasks (from the roadmap when there is one), classifies the project solo or collaborative and asks you to confirm, creates a worktree per task, starts the run in the ledger, asks every convention it cannot read, sets numbered shared assumptions, writes the guidance and one brief per session, and prints a launch line per session |
+| Launch | the user | runs each launch line in a fresh terminal. The line ends with the opening prompt, which starts the session's first turn; nothing else is typed into it. The `SessionStart` hook names its brief and the coordinator, the mod puts it on the board |
+| The run | crew and coordinator, by themselves | crew answer the five questions, report state changes, request slots, watch their PR once it exists and put anything only you can do on the needs list; the coordinator reconciles before every status, grants slots from the machine's state, settles assumptions, reviews draft PRs when the run says so, checks in and retires merged tasks' worktrees |
+| Whenever | the user | `/mc` in any session shows the board; the needs list has complete commands with their directories, and that list is the whole of what the run needs from you |
+| End | the user, in the coordinator session | `/mission-control:end` links the stack, prunes what `retire` left, runs the checks on the top layer, offers the roadmap follow-ups and archives the ledger |
 
 The protocol itself, with the message shapes: `references/protocol.md`.
+
+### 2.2. Everything you can type
+
+**Slash commands.** Each runs in the session named; the skill refuses or misbehaves elsewhere.
+
+| Command | Where | Does |
+|---|---|---|
+| `/mission-control:configure` | any session in the project | writes or revises the project config by interview |
+| `/mission-control:kickoff [ids...] [name <run>]` | the session that will coordinate (opus) | starts the run; refuses while one is active |
+| `/mission-control:coordinate` | the coordinator session | the running protocol: reconcile, grant, check in, retire, escalate |
+| `/mission-control:checkin` | the coordinator session | asks every crew session the three questions and gives you one list of what you need to do |
+| `/mission-control:crew` | a crew session, once, at its first turn (the launch line does this) | how that session reports, asks for slots, watches its PR and what stays with you |
+| `/mission-control:end` | the coordinator session | closes the run |
+
+**`/mc`.** Your own hand on the ledger from any session, with no turn and no model. Every write carries `--by-user`.
+
+| Form | Does |
+|---|---|
+| `/mc` | opens or closes the board |
+| `/mc start <name> [anyway]` | starts a run with this session as coordinator; a haiku or sonnet session is warned off and `anyway` overrides |
+| `/mc grant <resource> <task\|branch\|name> [minutes]` | grants a slot, taking it from a holder if need be, and messages the grantee |
+| `/mc release <resource>` | releases a slot |
+| `/mc done <n>` | marks need `n` done |
+| `/mc retire <task> [dry]` | reclaims a merged task's worktree (section 7 has the preconditions); `dry` only prints |
+| `/mc status` | the board as text, machine probed |
+| `/mc end [force]` | ends the run; `force` ends it with slots still held |
+
+**The board's keys** are in section 3.
+
+**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `crew list`, `probe [resource]`. `--help` lists the rest.
+
+### 2.3. Do not
+
+Each of these runs against the protocol, and most were learned on a live run.
+
+- **Do not coordinate from a haiku or sonnet session.** The mod refuses `mc.py start` from one; `--small-model-ok` and `anyway` exist for the case where you mean it, and that case has not come up.
+- **Do not type into a crew session after its launch line.** Its instructions come from its brief and the coordinator's messages. A decision goes to the coordinator session, which broadcasts it; a command only you can run goes on the needs list, which tells you the directory.
+- **Do not run a gated command yourself in a worktree another session holds the slot for**, and do not run one from the main checkout during a run. The slot is what keeps two resets apart.
+- **Do not run hosted reads, hosted writes or merges from any session.** They are human gates; a session that is refused is behaving correctly. Type them yourself from the needs list.
+- **Do not prune a worktree by hand mid-run.** `retire` checks the session is closed, the PR landed, the tree clean and nothing running in it; `end` is the backstop.
+- **Do not set up your own PR polling, Monitor or cron in a crew session, and do not tell sessions to pause for the night.** `mc.py watch` is the one shape; the quiet hours come from `collaboration.hours` in the config.
+- **Do not start a run while one is active**, and do not edit `run.json` or a session row by hand. `mc.py end` archives; the CLI is the only writer.
+- **Do not pass `--by-user`, `--session` or `CLAUDE_CODE_SESSION_ID=` to a model.** The hook refuses an `mc.py` line a model runs with any of them; they are yours.
+- **Do not state a convention to the coordinator that is not written in the repository.** Put it in the config's `facts` instead, so the next run has it too.
+- **Do not expect the chat to be the truth.** The board is; a session whose row is stale is told to report, not believed.
 
 ---
 
@@ -38,7 +85,7 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | Section | Shows |
 |---|---|
 | Header | run name as the title with your role beside it, a rule, then in dim text the start time, base commit, who coordinates, how many assumptions, how many sessions are live and the ledger's age |
-| Crew | one row per session: live and busy or idle (from Claude Code's own session registry), task, branch, worktree name, state (`gone` and dimmed once the session has left), PR, last summary and the age of the last report (`2m ago`) |
+| Crew | grouped by state, one row per session: live and busy or idle (from Claude Code's own session registry), task, branch, worktree name, state (`gone` and dimmed once the session has left, `retired` once its worktree is reclaimed), PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
 | Slots | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
 | Requests | pending slot requests, with what will run and for how long |
 | Needs Jason | numbered, each with the complete command (`cd <dir> && ...`) |
@@ -53,7 +100,7 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | `r` | refreshes, probing the machine |
 | Esc, or `/mc` | closes |
 
-`/mc` with arguments is your hand on the ledger from any session, no turn, no model: `/mc start <name>`, `/mc grant <resource> <task|branch|name> [minutes]`, `/mc release <resource>`, `/mc done <n>`, `/mc status`, `/mc end [force]`. Every write it makes carries `--by-user`, which the hook refuses on any `mc.py` command a model runs, along with `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment. That is a guard against accidents: a variable expanded later, a copied script or a hand-written ledger file get past it.
+`/mc` with arguments is your hand on the ledger from any session, no turn, no model: `/mc start <name> [anyway]`, `/mc grant <resource> <task|branch|name> [minutes]`, `/mc release <resource>`, `/mc done <n>`, `/mc retire <task> [dry]`, `/mc status`, `/mc end [force]` (the full table is in section 2.2). Every write it makes carries `--by-user`, which the hook refuses on any `mc.py` command a model runs, along with `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment. That is a guard against accidents: a variable expanded later, a copied script or a hand-written ledger file get past it.
 
 ---
 
@@ -98,7 +145,7 @@ The boundary is honest about what it is: every session on the machine is the sam
 
 `~/.claude/mission-control/<repo slug>/`, one JSON file per fact so sessions never clobber each other: `run.json` (name, coordinator, base, PR approval, crew plan, assumptions, needs), `sessions/<id>.json`, `slots/<resource>.json`, `requests/<resource>__<id>.json`, `briefs/<task>.md`, `guidance.md`, `log.jsonl`. `mc.py end` moves it under `runs/`. The CLI identifies a caller by `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for every Bash child; the mod passes its own id. Writes that steer the run are the coordinator's or `--by-user`.
 
-`python3 <plugin-root>/scripts/mc.py --help` lists every subcommand; `status --probe` is the board as text. `reconcile` diffs the ledger against the live registry, GitHub and the branches on origin (each merged PR's own base, each open PR's own branch) and prints what drifted (gone or unjoined sessions, merged PRs whose row is not done, needs left open, a task whose roadmap carries no claim at the ref where it ought to; a task the roadmap does not list is named once, with no claim expected; a merged task's worktree still on disk an hour on) and who each PR actually waits on. `retire <task>` reclaims a finished crew worktree while the run goes on: it refuses while the session is live, the row is not done, the PR is open, the tree is dirty, a slot is held, something runs in the tree or an open PR is stacked on the branch, then removes the worktree, prunes, deletes the branch with `-d` only and records it on the row; `--dry-run` prints what would go and the disk it holds.
+`python3 <plugin-root>/scripts/mc.py --help` lists every subcommand; `status --probe` is the board as text. `reconcile` diffs the ledger against the live registry, GitHub and the branches on origin (each merged PR's own base, each open PR's own branch) and prints what drifted (gone or unjoined sessions, merged PRs whose row is not done, needs left open, a task whose roadmap carries no claim at the ref where it ought to; a task the roadmap does not list is named once, with no claim expected; a merged task's worktree still on disk an hour on) and who each PR actually waits on. `retire <task>` reclaims a finished crew worktree while the run goes on: it refuses while the session is live, the row is not done, the PR is open, the tree is dirty, a slot is held, something runs in the tree or an open PR is stacked on the branch, then removes the worktree, prunes, deletes the branch with `-d` only and records it on the row; `--dry-run` prints what would go and the disk it holds. `classify` says whether the project is solo or collaborative (stated as `collaboration` in the config or its gitignored `.local` twin, else inferred from 90 days of authors and the reviews on merged PRs) and the team's hours; `start` records the answer on the run. `watch [--pr N]` is a crew session's PR watcher, run in the background: a five-minute `gh` poll that prints the first change (reviews, decision, comments, checks, state) and exits, held outside the team's hours on a collaborative project unless the PR merged or closed.
 
 ---
 
