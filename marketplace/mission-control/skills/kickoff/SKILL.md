@@ -69,7 +69,7 @@ For each task, in the main checkout:
 1. `git worktree add -b <branch> <main>/<worktrees.dir>/<name> origin/<base>`. A branch that already exists: `git worktree add <path> <branch>` and say so.
 2. `zsh "${CLAUDE_PLUGIN_ROOT}"/scripts/worktree-bootstrap.sh <path>` (it is a zsh script; `sh` fails on its array syntax): symlinks the git-ignored `.env*` files and installs every tracked lockfile. Relay its lines; a `failed` line is reported, not retried.
 3. With a roadmap: `roadmap.py claim <id> --assignee "<who>"` **inside the worktree** (the claim lives on the branch). Ask who once, for all tasks; never infer a name. Commit with `git commit -m "chore(roadmap): claim <id>" -- .claude/roadmaps.json`.
-4. `mc.py crew add --task <id> --branch <branch> --worktree <path> [--migration <timestamp>]`.
+4. `mc.py crew add --task <id> --branch <branch> --worktree <path> [--migration <timestamp>] [--unlisted]`; `--unlisted` for a task the user chose with no roadmap item, so nothing later expects a claim or a roadmap row for it.
 
 Run `mc.py start --name <run name> --pr-approval <answer> [--collaboration <mode>]` **before** the first `crew add` (crew add needs a run); the collaboration flag only when the user corrected step 1's classification. The run's coordinator is this session, read from `CLAUDE_CODE_SESSION_ID`.
 

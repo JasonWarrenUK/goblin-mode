@@ -37,11 +37,11 @@ From the stack worktree: `gh stack sync` when trunk moved (show the layers it wi
 
 ## Step 5: Follow-ups
 
-Everything the run found and did not do (the briefs' "out of scope" lines, the coordinator's notes, a measurement that was inconclusive) is offered to the roadmap: list the items and say `/roadmap:update-tasks` adds them as a batch. Offer, do not run.
+Everything the run found and did not do (the briefs' "out of scope" lines, the coordinator's notes, a measurement that was inconclusive, a scope the user withdrew) is offered to the roadmap: read the decisions record first (`python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py decide list`), since what the user decided to defer is written there in their words, then list the items and say `/roadmap:update-tasks` adds them as a batch. A task planned `--unlisted` has no roadmap row to update; name it as a candidate for one. Offer, do not run.
 
 ## Step 6: Archive
 
-`mc.py end` from this session (it refuses while a slot is held; `/mc release <resource>` first, after asking the holder). The ledger moves to `~/.claude/mission-control/runs/<date>-<name>/`, briefs and log included. Then one closing paragraph for the user: the PRs and their stack, the worktree that remains, what `pr-land` will land in which order and the roadmap items offered.
+`mc.py end` from this session (it refuses while a slot is held; `/mc release <resource>` first, after asking the holder). The ledger moves to `~/.claude/mission-control/runs/<date>-<name>/`, briefs and log included. Then one closing paragraph for the user: the PRs and their stack, the worktree that remains, what `pr-land` will land in which order, the decisions the run recorded (from `decide list`, numbered, in the user's words) and the roadmap items offered.
 
 ## Never
 

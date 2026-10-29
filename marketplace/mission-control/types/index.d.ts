@@ -14,6 +14,23 @@ export type CrewPlan = {
 	worktree: string | null
 	brief: string
 	migration: string | null
+	/** Planned with no roadmap item: no claim is expected and the board says so. */
+	unlisted: boolean
+}
+
+/** A decision the user made, from decisions.jsonl: how many sessions were told and how many acknowledged. */
+export type Decision = {
+	n: number
+	text: string
+	told: number
+	acks: number
+}
+
+/** One of the coordinator's open threads, kept in the ledger across a compaction. */
+export type Pending = {
+	n: number
+	kind: string
+	text: string
 }
 
 export type Assumption = {
@@ -31,6 +48,11 @@ export type Need = {
 	command: string
 	cwd: string
 	status: string
+	/** action (the default), measurement (its result goes back to a session) or approval. */
+	kind: string
+	/** The session the result is for, when the need is a measurement. */
+	for: string | null
+	for_task: string
 }
 
 export type Run = {
@@ -40,6 +62,10 @@ export type Run = {
 	base: { branch: string; commit: string }
 	crew: CrewPlan[]
 	assumptions: Assumption[]
+	/** The coordinator's own process under a new session id (after a /clear), waiting for the user to rebind the run to it. */
+	rebind: { session_id: string; name: string } | null
+	pending: Pending[]
+	decisions: Decision[]
 }
 
 export type SessionRow = {

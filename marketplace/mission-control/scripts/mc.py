@@ -52,6 +52,11 @@ CONFIG_REL = ".claude/mission-control.json"
 LEDGER_ROOT = Path(os.environ.get("MISSION_CONTROL_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "mission-control"))
 SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "sessions"))
 STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting-jason", "done")
+# a need's why is what the user reads before typing a hosted command, so it is not cut mid-sentence; a pasted result can be a query's whole output
+NEED_WHY_LIMIT = 1200
+RESULT_LIMIT = 20_000
+# how long a decision may go unacknowledged by a session it was told to before reconcile says so
+DECISION_ACK_SECONDS = 30 * 60
 # the states a release puts back; anything else the slot interrupted was plain work
 RESTORED_STATES = ("pr-ready", "blocked", "waiting-jason", "done")
 BY_USER = "--by-user"
@@ -175,16 +180,39 @@ def caller_session(explicit: str | None) -> str | None:
     return explicit or os.environ.get("CLAUDE_CODE_SESSION_ID") or None
 
 
+def same_identity(pid_a, socket_a, pid_b, socket_b) -> bool:
+    """One process: the pids match and, where both sides know their socket, the sockets match too (a /clear keeps both)."""
+    if not pid_a or pid_a != pid_b:
+        return False
+    return not (socket_a and socket_b) or socket_a == socket_b
+
+
+def same_process(recorded: dict, live: dict[str, dict]) -> dict | None:
+    """The live registry row that is the recorded session's own process under another id: a /clear keeps the pid and the socket and issues a new id. None when nothing matches."""
+    for sid, row in live.items():
+        if sid == recorded.get("session_id"):
+            continue
+        if same_identity(recorded.get("pid"), recorded.get("socket"), row.get("pid"), row.get("messagingSocketPath")):
+            return {"session_id": sid, "pid": row.get("pid"), "socket": row.get("messagingSocketPath"), "name": row.get("name") or ""}
+    return None
+
+
 def live_coordinator(recorded: dict) -> dict:
     """The coordinator as the registry has it now.
 
-    A session id outlives a restart, a resume or a /clear; its pid, socket and
-    name do not. The id is the identity, so the rest is read live and the
-    recorded values are only the fallback for a coordinator that is not running.
+    A session id outlives a resume and a compaction; a /clear issues a new one
+    while the pid and the socket stay. The id is the identity, so pid, socket
+    and name are read live and the recorded values are the fallback for a
+    coordinator that is not running. When the recorded id has no live row but
+    its process is live under another id, that row is offered as
+    `rebind_candidate`: never adopted silently, since every coordinator-only
+    write would otherwise follow a guess.
     """
-    row = registry().get(str(recorded.get("session_id") or ""))
+    live = registry()
+    row = live.get(str(recorded.get("session_id") or ""))
     if not row:
-        return recorded
+        candidate = same_process(recorded, live)
+        return {**recorded, "rebind_candidate": candidate} if candidate else recorded
     return {
         **recorded,
         "pid": row.get("pid"),
@@ -281,6 +309,36 @@ class Ledger:
     # requests
     def request_path(self, resource: str, session_id: str) -> Path:
         return self.dir / "requests" / f"{resource}__{session_id}.json"
+
+    # decisions: what the user decided and when, appended, never rewritten
+    @property
+    def decisions_path(self) -> Path:
+        return self.dir / "decisions.jsonl"
+
+    def decisions(self) -> list[dict]:
+        rows: dict[int, dict] = {}
+        if not self.decisions_path.is_file():
+            return []
+        for line in self.decisions_path.read_text().splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(row, dict) or "n" not in row:
+                continue
+            if row.get("ack"):
+                # an acknowledgement line adds the session to the decision it names
+                target = rows.get(int(row["n"]))
+                if target is not None and row["ack"] not in target.setdefault("acks", []):
+                    target["acks"].append(row["ack"])
+                continue
+            rows[int(row["n"])] = {**row, "acks": list(row.get("acks") or [])}
+        return [rows[n] for n in sorted(rows)]
+
+    def append_decision(self, row: dict) -> None:
+        self.dir.mkdir(parents=True, exist_ok=True)
+        with self.decisions_path.open("a") as fh:
+            fh.write(json.dumps(row) + "\n")
 
     def requests(self) -> list[dict]:
         rows = []
@@ -860,6 +918,8 @@ def reconcile(ledger: Ledger) -> dict:
         row = by_task.get(task, {})
         if not task or not row.get("pr"):
             continue
+        if entry.get("unlisted"):
+            continue  # planned as unlisted: no roadmap row, no claim, nothing to check
         fact = facts.get(int(row["pr"]))
         if not fact:
             continue
@@ -885,6 +945,23 @@ def reconcile(ledger: Ledger) -> dict:
             else:
                 note("claim-missing", f"neither the roadmap on origin/{trunk} nor the one on origin/{branch} has a claim (`started`) for {task}", task, row.get("session_id", ""), int(row["pr"]))
 
+    # a scheduled job (a watch, a cron, a Monitor) dies with its process; one whose session is gone is named so it is re-armed or dropped
+    for sid, row in sessions.items():
+        if sid in live:
+            continue
+        for job in row.get("jobs") or []:
+            if job.get("status", "open") == "open":
+                note("job-orphaned", f"{job.get('kind')} job {job.get('id')} ({job.get('reason') or job.get('spec') or ''}) belongs to a session that is gone; re-arm it from the session that adopts the row, or `mc.py jobs done {job.get('id')}`", row.get("task", ""), sid, row.get("pr"))
+    # a decision told to sessions that have not acknowledged it after a while
+    for decision in ledger.decisions():
+        told = [t for t in decision.get("told", []) if t not in decision.get("acks", [])]
+        if told and now() - decision.get("at", 0) > DECISION_ACK_SECONDS:
+            names = ", ".join(by_task.get(t, {}).get("task") or t for t in told)
+            note("decision-unacknowledged", f"decision #{decision.get('n')} ({str(decision.get('text', ''))[:80]}) not acknowledged by {names}", "", "", None)
+    # the coordinator's own backlog: a rebind waiting on the user is drift until it is answered
+    candidate = run.get("coordinator", {}).get("rebind_candidate")
+    if candidate:
+        note("coordinator-rebind", f"the coordinator's session id changed (a /clear): its process is live as {candidate['session_id'][:8]}; `/mc adopt coordinator` in that session", "", candidate["session_id"], None)
     return {"run": run.get("name"), "drift": drift, "prs": prs, "at": now()}
 
 
@@ -942,6 +1019,8 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
         "requests": requests,
         "needs": [n for n in (run or {}).get("needs", []) if n.get("status") != "done"] if run else [],
         "assumptions": (run or {}).get("assumptions", []) if run else [],
+        "pending": [p for p in (run or {}).get("pending", []) if p.get("status") == "open"] if run else [],
+        "decisions": ledger.decisions()[-20:] if run else [],
         "at": now(),
     }
     if with_probes and run:
@@ -1564,6 +1643,11 @@ def cmd_watch(args) -> int:
             if not fresh:
                 return
             fresh["watch"] = {"pr": number, "since": (fresh.get("watch") or {}).get("since") or now(), "status": status, "checked_at": now(), "seen": seen, "last_change": changes or (fresh.get("watch") or {}).get("last_change") or []}
+            # the watch is a scheduled job like any other: open while it should be running or re-armed, done once the PR landed
+            jobs = [j for j in (fresh.get("jobs") or []) if j.get("id") != f"watch-{number}"]
+            jobs.append({"id": f"watch-{number}", "kind": "watch", "spec": f"PR #{number}, every {int(args.interval)}s" + (f", held outside {hours['start']}-{hours['end']}" if hours else ""),
+                         "prompt": f"python3 mc.py watch --pr {number}", "reason": f"watch PR #{number} and report each change", "status": "done" if status == "ended" else "open", "at": (fresh.get("watch") or {}).get("since") or now()})
+            fresh["jobs"] = jobs
             ledger.save_session(fresh)
         ledger.log("watch", session_id=row["session_id"], pr=number, status=status, changes=changes)
 
@@ -1649,11 +1733,100 @@ def crew_locked(args, ledger: Ledger) -> int:
     worktree = os.path.abspath(args.worktree) if args.worktree else None
     if worktree:
         worktree = in_main_spelling(worktree, str(ledger.main))
-    entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration}
+    entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration, "unlisted": bool(args.unlisted)}
     run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
     ledger.save_run(run)
     ledger.log("crew", **entry)
     print(json.dumps(entry) if args.json else f"crew {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; brief at {entry['brief']}")
+    return 0
+
+
+def stale_row_for(ledger: Ledger, plan: dict, who: dict) -> dict | None:
+    """The row a fresh session in a planned worktree should carry on: one for that worktree (or task) whose session is not live, or whose process is this session's own under an old id."""
+    live = registry()
+    for row in ledger.sessions().values():
+        same_place = (plan.get("worktree") and row.get("worktree") and same_path(plan["worktree"], row["worktree"])) or (plan.get("task") and row.get("task") == plan.get("task"))
+        if not same_place or row.get("retired"):
+            continue
+        old_id = row.get("session_id", "")
+        own_process = same_identity(who.get("pid"), who.get("socket"), live.get(old_id, {}).get("pid"), live.get(old_id, {}).get("messagingSocketPath"))
+        if old_id not in live or own_process:
+            return row
+    return None
+
+
+def adopt_row(ledger: Ledger, old: dict, session_id: str, who: dict) -> dict:
+    """Carry a crew row over to a new session id: task, branch, worktree, state, summary, PR, jobs and age stay; id, socket and name change; slots and pending requests move; the old file is kept as `<id>.json.adopted`."""
+    old_id = old["session_id"]
+    row = {**old, "session_id": session_id, "socket": who.get("socket"), "name": who.get("name", ""), "updated_at": now(), "adopted_from": old_id, "adopted_at": now()}
+    ledger.save_session(row)
+    old_path = ledger.session_path(old_id)
+    if old_path.exists():
+        old_path.rename(old_path.with_suffix(".json.adopted"))
+    for resource, slot in ledger.slots().items():
+        if slot.get("holder") == old_id:
+            slot["holder"] = session_id
+            write_json(ledger.slot_path(resource), slot)
+    for request in ledger.requests():
+        if request.get("session_id") == old_id:
+            old_request = ledger.request_path(request["resource"], old_id)
+            request["session_id"] = session_id
+            write_json(ledger.request_path(request["resource"], session_id), request)
+            if old_request.exists():
+                old_request.unlink()
+    run = ledger.run()
+    if run:
+        changed = False
+        for need in run.get("needs", []):
+            if need.get("session_id") == old_id:
+                need["session_id"] = session_id
+                changed = True
+        if changed:
+            ledger.save_run(run)
+    ledger.log("adopt", kind="crew", old=old_id, new=session_id, task=row.get("task", ""), by="join")
+    return row
+
+
+def cmd_adopt(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return adopt_locked(args, ledger)
+
+
+def adopt_locked(args, ledger: Ledger) -> int:
+    """Bind this session to a role whose recorded id is dead: `coordinator` rewrites the run's coordinator to the caller (its own process under a new id after /clear, or --by-user for a fresh process); `crew` carries over the planned worktree's old row."""
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    if not session_id:
+        raise Refusal("no session id: run from a Claude Code session or pass --session")
+    who = identity(session_id)
+    if args.role == "coordinator":
+        recorded = run.get("coordinator", {})
+        if recorded.get("session_id") == session_id:
+            print(f"this session already coordinates run {run['name']}")
+            return 0
+        if recorded.get("session_id") in registry() and not args.by_user:
+            raise Refusal(f"the coordinator session {recorded.get('session_id', '')[:8]} is live; adopting the run from it is the user's (/mc adopt coordinator from the new session)")
+        own_process = same_identity(who.get("pid"), who.get("socket"), recorded.get("pid"), recorded.get("socket"))
+        if not own_process and not args.by_user:
+            raise Refusal("this session is not the coordinator's process under a new id; a fresh coordinator is adopted by the user with /mc adopt coordinator")
+        by = "user" if args.by_user else "same process"
+        run["coordinator"] = {"session_id": session_id, "pid": who.get("pid"), "socket": who.get("socket"), "name": who.get("name", ""), "adopted_from": recorded.get("session_id"), "adopted_at": now(), "adopted_by": by}
+        ledger.save_run(run)
+        ledger.log("adopt", kind="coordinator", old=recorded.get("session_id"), new=session_id, by=by)
+        print(json.dumps(run["coordinator"]) if args.json else f"this session now coordinates run {run['name']} (was {str(recorded.get('session_id') or '?')[:8]}, {by})")
+        return 0
+    plan = crew_for(run, os.path.abspath(args.cwd), session_id, ledger.sessions())
+    if plan is None:
+        raise Refusal("not in a planned worktree; nothing to adopt")
+    if session_id in ledger.sessions():
+        print(f"this session already holds {plan['task']}'s row")
+        return 0
+    old = stale_row_for(ledger, plan, who)
+    if old is None:
+        raise Refusal(f"no row for {plan['task']} to adopt; `mc.py join --planned` makes a fresh one")
+    row = adopt_row(ledger, old, session_id, who)
+    print(json.dumps(row) if args.json else f"adopted {row.get('task')}'s row from session {old['session_id'][:8]} ({row.get('state')})")
     return 0
 
 
@@ -1677,6 +1850,13 @@ def join_locked(args, ledger: Ledger) -> int:
     branch = args.branch or run_git(cwd, "branch", "--show-current") or (plan or {}).get("branch") or ""
     worktree = str(toplevel(cwd) or cwd)
     row = ledger.sessions().get(session_id, {})
+    if not row and plan:
+        # a session restarted fresh or cleared in a planned worktree carries on the old row: its state, PR, summary and slots
+        old = stale_row_for(ledger, plan, who)
+        if old:
+            row = adopt_row(ledger, old, session_id, who)
+            print(json.dumps(row) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined run {run['name']}")
+            return 0
     row.update({
         "session_id": session_id,
         "task": task,
@@ -1784,6 +1964,17 @@ def grant_locked(args, ledger: Ledger) -> int:
     sessions = ledger.sessions()
     target = resolve_session(args.to, sessions)
     holder = ledger.slots().get(args.resource)
+    if holder and holder.get("holder") == target:
+        # a grant to the holder extends the slot: more minutes, nothing else moves, and only the holder is told
+        minutes = float(args.minutes or 15)
+        holder["until"] = max(float(holder.get("until") or now()), now()) + 60 * minutes
+        holder["extended_at"] = now()
+        if args.note:
+            holder["note"] = args.note.strip()[:240]
+        write_json(ledger.slot_path(args.resource), holder)
+        ledger.log("extend", resource=args.resource, holder=target, minutes=minutes, until=holder["until"], by=by)
+        print(json.dumps({**holder, "extended": True}) if args.json else f"{args.resource} extended for {(sessions.get(target) or {}).get('task') or target[:8]} until {clock(holder['until'])}")
+        return 0
     if holder and holder.get("holder") != target and not args.force:
         raise Refusal(f"{args.resource} is held by {holder.get('holder_task') or holder.get('holder', '')[:8]} since {clock(holder.get('granted_at'))}; wait for the release or pass --force to override")
     request = read_json(ledger.request_path(args.resource, target), {}) or {}
@@ -1870,12 +2061,16 @@ def needs_locked(args, ledger: Ledger) -> int:
             raise Refusal("needs add wants --why, and --command with --cwd when there is a command to type")
         row = ledger.sessions().get(session_id or "", {})
         n = 1 + max([x.get("n", 0) for x in needs] or [0])
-        need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""), "why": args.why.strip()[:240],
-                "command": (args.command or "").strip(), "cwd": args.cwd_hint or row.get("worktree") or "", "status": "open", "at": now()}
+        # the result of a measurement goes to the session that asked for it, or the one named; the board says which
+        for_session = resolve_session(args.for_session, ledger.sessions()) if args.for_session else (session_id if row else None)
+        need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
+                "command": (args.command or "").strip(), "cwd": args.cwd_hint or row.get("worktree") or "", "status": "open", "at": now(),
+                "kind": args.kind or "action", "for": for_session, "for_task": (ledger.sessions().get(for_session or "") or {}).get("task", "")}
         needs.append(need)
         ledger.save_run(run)
         ledger.log("need", **need)
-        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else ""))
+        wants = f" (result to {need['for_task'] or (for_session or '')[:8]})" if need["kind"] == "measurement" and for_session else ""
+        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants)
         return 0
     # done
     target = next((x for x in needs if str(x.get("n")) == str(args.ref) or x.get("id") == args.ref), None)
@@ -1883,11 +2078,139 @@ def needs_locked(args, ledger: Ledger) -> int:
         raise Refusal(f"no open need {args.ref}")
     if target.get("session_id") != session_id:
         authorise(run, session_id, args.by_user, "mark another session's need done")
+    result = args.result
+    if result and result.startswith("@") and Path(result[1:]).is_file():
+        result = Path(result[1:]).read_text()
     target["status"] = "done"
     target["done_at"] = now()
+    if result is not None:
+        target["result"] = result.strip()[:RESULT_LIMIT]
     ledger.save_run(run)
-    ledger.log("need-done", id=target["id"], n=target["n"])
-    print(f"need #{target['n']} done")
+    ledger.log("need-done", id=target["id"], n=target["n"], result_chars=len(target.get("result") or ""))
+    recipient = target.get("for") or target.get("session_id") or ""
+    if args.json:
+        print(json.dumps({**target, "forward_to": recipient if result else None}))
+    else:
+        print(f"need #{target['n']} done" + (f"; result ({len(target['result'])} chars) for {target.get('for_task') or recipient[:8]}" if result else ""))
+    return 0
+
+
+def cmd_jobs(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return jobs_locked(args, ledger)
+
+
+def jobs_locked(args, ledger: Ledger) -> int:
+    """A session's scheduled state in the ledger, so a resume can re-arm it: each cron job, Monitor and watch, with its spec and reason. `mc.py watch` keeps its own entry."""
+    ledger.require_run()
+    session_id = caller_session(args.session)
+    sessions = ledger.sessions()
+    if args.action == "list":
+        target = resolve_session(args.ref, sessions) if args.ref else session_id
+        rows = [{**job, "task": r.get("task", ""), "session_id": sid} for sid, r in sessions.items() if (target is None or sid == target) for job in (r.get("jobs") or []) if args.all or job.get("status", "open") == "open"]
+        print(json.dumps(rows, indent=2))
+        return 0
+    row = sessions.get(session_id or "")
+    if row is None:
+        raise Refusal("this session has not joined the run; jobs belong to a session row")
+    jobs = row.setdefault("jobs", [])
+    if args.action == "add":
+        if not args.kind or not args.spec:
+            raise Refusal("jobs add needs --kind (cron, monitor, watch, other) and --spec (the cron expression, the Monitor's condition, the watch's PR)")
+        job = {"id": args.id or f"{args.kind}-{uuid.uuid4().hex[:6]}", "kind": args.kind, "spec": args.spec.strip(), "prompt": (args.prompt or "").strip(), "reason": (args.reason or "").strip()[:240], "status": "open", "at": now()}
+        jobs[:] = [j for j in jobs if j.get("id") != job["id"]] + [job]
+        ledger.save_session(row)
+        ledger.log("job", session_id=session_id, **job)
+        print(json.dumps(job) if args.json else f"job {job['id']} recorded ({job['kind']}: {job['spec']}); a resume of this session is told to re-arm it")
+        return 0
+    target = next((j for j in jobs if j.get("id") == args.ref), None)
+    if target is None:
+        raise Refusal(f"no job {args.ref} on this session; `jobs list` names them")
+    target["status"] = "done"
+    target["done_at"] = now()
+    ledger.save_session(row)
+    ledger.log("job-done", session_id=session_id, id=target["id"])
+    print(f"job {target['id']} done")
+    return 0
+
+
+def cmd_pending(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return pending_locked(args, ledger)
+
+
+def pending_locked(args, ledger: Ledger) -> int:
+    """The coordinator's open threads, kept in the ledger so a compacted coordinator reads them back: approvals awaited, messages sent and unanswered, anything else it is waiting on."""
+    run = ledger.require_run()
+    pending = run.setdefault("pending", [])
+    if args.action == "list":
+        print(json.dumps([p for p in pending if args.all or p.get("status") == "open"], indent=2))
+        return 0
+    authorise(run, caller_session(args.session), args.by_user, "keep the pending list")
+    if args.action == "add":
+        if not args.text:
+            raise Refusal("pending add needs --text")
+        n = 1 + max([p.get("n", 0) for p in pending] or [0])
+        item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": args.kind or "thread", "text": args.text.strip()[:NEED_WHY_LIMIT], "session_id": resolve_session(args.ref, ledger.sessions()) if args.ref else None, "status": "open", "at": now()}
+        pending.append(item)
+        ledger.save_run(run)
+        ledger.log("pending", **item)
+        print(json.dumps(item) if args.json else f"pending #{n} ({item['kind']}): {item['text']}")
+        return 0
+    target = next((p for p in pending if str(p.get("n")) == str(args.ref) or p.get("id") == args.ref), None)
+    if target is None:
+        raise Refusal(f"no open pending item {args.ref}")
+    target["status"] = "done"
+    target["done_at"] = now()
+    if args.text:
+        target["outcome"] = args.text.strip()[:NEED_WHY_LIMIT]
+    ledger.save_run(run)
+    ledger.log("pending-done", id=target["id"], n=target["n"])
+    print(f"pending #{target['n']} done")
+    return 0
+
+
+def cmd_decide(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return decide_locked(args, ledger)
+
+
+def decide_locked(args, ledger: Ledger) -> int:
+    """What the user decided and when, appended to decisions.jsonl with the sessions told; a crew session acknowledges with `ack`."""
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    sessions = ledger.sessions()
+    if args.action == "list":
+        for d in ledger.decisions():
+            told = ", ".join(sessions.get(t, {}).get("task") or t[:8] for t in d.get("told", [])) or "nobody"
+            acked = ", ".join(sessions.get(t, {}).get("task") or t[:8] for t in d.get("acks", []))
+            print(f"{d['n']}. {clock(d.get('at'))} {d.get('text')} (told {told}{'; acked ' + acked if acked else ''})")
+        return 0
+    if args.action == "ack":
+        if not session_id or session_id not in sessions:
+            raise Refusal("ack comes from a crew session that has joined the run")
+        target = next((d for d in ledger.decisions() if str(d.get("n")) == str(args.ref)), None)
+        if target is None:
+            raise Refusal(f"no decision #{args.ref}")
+        ledger.append_decision({"n": target["n"], "ack": session_id, "at": now()})
+        ledger.log("decision-ack", n=target["n"], session_id=session_id)
+        print(f"decision #{target['n']} acknowledged by {sessions[session_id].get('task') or session_id[:8]}")
+        return 0
+    authorise(run, session_id, args.by_user, "record a decision")
+    if not args.text:
+        raise Refusal("decide add needs --text: what the user decided")
+    told = [resolve_session(ref.strip(), sessions) for ref in (args.told or "").split(",") if ref.strip()]
+    if args.told and args.told.strip().lower() == "all":
+        live = registry()
+        told = [sid for sid, r in sessions.items() if sid in live and r.get("state") != "done" and not r.get("retired")]
+    n = 1 + max([d.get("n", 0) for d in ledger.decisions()] or [0])
+    decision = {"n": n, "text": args.text.strip()[:NEED_WHY_LIMIT], "about": (args.about or "").strip()[:240], "told": told, "acks": [], "at": now(), "by": "user"}
+    ledger.append_decision(decision)
+    ledger.log("decision", **decision)
+    print(json.dumps(decision) if args.json else f"decision #{n} recorded: {decision['text']}" + (f" (told {', '.join(sessions.get(t, {}).get('task') or t[:8] for t in told)})" if told else ""))
     return 0
 
 
@@ -2082,12 +2405,37 @@ def session_start_context(payload: dict) -> str:
     if run is None:
         return ""
     coord = run.get("coordinator", {})
+    source = payload.get("source") or payload.get("matcher") or ""
     if is_coordinator(run, session_id):
+        pending = [p for p in run.get("pending", []) if p.get("status") == "open"]
+        decisions = ledger.decisions()[-5:]
+        needs = [n for n in run.get("needs", []) if n.get("status") != "done"]
+        back = ""
+        if pending or decisions or needs:
+            pending_text = "; ".join("#%s %s" % (p.get("n"), p.get("text")) for p in pending)
+            decision_text = "; ".join("#%s %s" % (d.get("n"), d.get("text")) for d in decisions)
+            back = (" Your open threads from the ledger, which a compaction does not keep: "
+                    + (f"pending: {pending_text}. " if pending else "")
+                    + (f"recent decisions: {decision_text}. " if decisions else "")
+                    + (f"{len(needs)} need{'s' if len(needs) != 1 else ''} open. " if needs else "")
+                    + "Run reconcile before saying where things stand.")
         return (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
-                f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.")
+                f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.{back}")
+    candidate = coord.get("rebind_candidate") or {}
+    if candidate.get("session_id") == session_id:
+        return (f"Mission control: this process coordinated run {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
+                "Nothing coordinator-only works until the run is rebound: ask the user once, and on a yes run `python3 mc.py adopt coordinator`; the board shows the same question, answered by /mc adopt coordinator in this session.")
     plan = crew_for(run, cwd, session_id, ledger.sessions())
     if plan is None:
         return ""
+    row = ledger.sessions().get(session_id or "", {})
+    jobs = [j for j in (row.get("jobs") or []) if j.get("status", "open") == "open"]
+    rearm = ""
+    if jobs:
+        rearm = " Scheduled work this session had, which died with the process: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+    if source == "compact" and row:
+        return (f"Mission control: still crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
+                f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).{rearm}")
     brief = plan.get("brief") or ""
     has_brief = bool(brief) and Path(brief).is_file()
     collab = run.get("collaboration") or {}
@@ -2103,6 +2451,7 @@ def session_start_context(payload: dict) -> str:
         + (f"Read your brief first: {brief}. " if has_brief else "No brief has been written yet; the coordinator will message you. ")
         + mode_line
         + "Then invoke /mission-control:crew for how to report, request a slot, watch your PR once it exists and what stays with the user."
+        + rearm
     )
 
 
@@ -2183,6 +2532,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--branch")
     sp.add_argument("--worktree")
     sp.add_argument("--migration", help="the migration timestamp assigned to this task, if any")
+    sp.add_argument("--unlisted", action="store_true", help="the task has no roadmap item: no claim is expected and the board marks it")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("join", help="register this session in the run")
     sp.add_argument("--task")
@@ -2219,6 +2569,35 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--why")
     sp.add_argument("--command")
     sp.add_argument("--cwd-hint", dest="cwd_hint", help="where the command must be typed")
+    sp.add_argument("--kind", choices=["action", "measurement", "approval"], help="measurement: the user's output comes back to the session that wants it")
+    sp.add_argument("--for", dest="for_session", help="the session the result is for (task, branch, name or id); default: the asking session")
+    sp.add_argument("--result", help="for done: the output the user pasted, or @<file> to read it; the mod forwards it to the session the need is for")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("adopt", help="bind this session to a role whose recorded id is dead: coordinator (own process after /clear, or --by-user for a fresh one) or crew (the planned worktree's old row)")
+    sp.add_argument("role", choices=["coordinator", "crew"])
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("jobs", help="this session's scheduled state in the ledger (cron, Monitor, watch), so a resume re-arms it: add, done, list")
+    sp.add_argument("action", choices=["add", "done", "list"])
+    sp.add_argument("ref", nargs="?", help="for done: the job id; for list: a session (default: this one)")
+    sp.add_argument("--kind", choices=["cron", "monitor", "watch", "other"])
+    sp.add_argument("--spec", help="the cron expression, the Monitor's condition or the watch's PR")
+    sp.add_argument("--prompt", help="what runs when it fires")
+    sp.add_argument("--reason")
+    sp.add_argument("--id", help="a stable id, so re-arming replaces rather than duplicates")
+    sp.add_argument("--all", action="store_true", help="list: every session, done jobs included")
+    sp = sub.add_parser("pending", help="the coordinator's open threads (approvals awaited, unanswered messages), kept so a compaction does not lose them: add, done, list")
+    sp.add_argument("action", choices=["add", "done", "list"])
+    sp.add_argument("ref", nargs="?", help="for add: the session it concerns; for done: the number or id")
+    sp.add_argument("--kind", choices=["approval", "message", "thread", "other"])
+    sp.add_argument("--text", help="for add: the thread; for done: the outcome")
+    sp.add_argument("--all", action="store_true")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("decide", help="the decisions record: add (coordinator or --by-user) what the user decided and who was told; ack from a crew session; list")
+    sp.add_argument("action", choices=["add", "ack", "list"])
+    sp.add_argument("ref", nargs="?", help="for ack: the decision number")
+    sp.add_argument("--text", help="what was decided, in the user's words")
+    sp.add_argument("--about", help="what it concerns: a finding, a task, a scope")
+    sp.add_argument("--told", help="comma-separated sessions told (task, branch, name or id), or all")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("assume", help="numbered shared assumptions: set, list")
     sp.add_argument("action", choices=["set", "list"])
@@ -2236,6 +2615,7 @@ COMMANDS = {
     "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire, "classify": cmd_classify, "watch": cmd_watch,
     "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
     "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "hook": cmd_hook,
+    "adopt": cmd_adopt, "jobs": cmd_jobs, "pending": cmd_pending, "decide": cmd_decide,
 }
 
 

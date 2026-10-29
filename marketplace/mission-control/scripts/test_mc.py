@@ -1180,6 +1180,179 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh(self._open(254)))
         self.assertEqual(result["prs"][0]["waiting_on"], "solo project; the merge is the user's")
 
+    # session continuity: /clear rebinds, fresh crew adopts, scheduled state and decisions live in the ledger
+
+    def _run_json(self):
+        return json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+
+    def test_a_cleared_coordinator_is_offered_as_a_rebind_and_adopts_from_its_own_process(self):
+        self.box.start()
+        # /clear: same pid and socket, new session id; the old row is gone from the registry
+        (self.box.sessions / "coord-1.json").unlink()
+        self.box.register("coord-2", "mission control", str(self.box.repo))
+        (self.box.sessions / "coord-2.json").write_text(json.dumps({**json.loads((self.box.sessions / "coord-2.json").read_text()), "messagingSocketPath": "/tmp/cc-socks/coord-1.sock"}))
+        status = json.loads(self.box.mc("--json", "status", session="coord-2").stdout)
+        self.assertEqual(status["run"]["coordinator"]["rebind_candidate"]["session_id"], "coord-2")
+        self.assertEqual(self.box.mc("assume", "set", "--text", "x", session="coord-2", expect=1).returncode, 1, "nothing coordinator-only works until the rebind")
+        hook = self.box.hook("session-start", {}, session="coord-2", cwd=self.box.repo)
+        self.assertIn("now runs as coord-2", hook)
+        self.assertIn("adopt coordinator", hook)
+        self.box.mc("adopt", "coordinator", session="coord-2")
+        run = self._run_json()
+        self.assertEqual(run["coordinator"]["session_id"], "coord-2")
+        self.assertEqual(run["coordinator"]["adopted_from"], "coord-1")
+        self.assertEqual(run["coordinator"]["adopted_by"], "same process")
+        self.box.mc("assume", "set", "--text", "x", session="coord-2")
+        result = self._reconcile_with(self._gh({}))
+        self.assertNotIn("coordinator-rebind", [item["kind"] for item in result["drift"]])
+
+    def test_a_fresh_coordinator_process_is_adopted_only_by_the_user(self):
+        self.box.start()
+        (self.box.sessions / "coord-1.json").unlink()
+        self.box.register("coord-9", "mission control", str(self.box.repo))
+        refused = self.box.mc("adopt", "coordinator", session="coord-9", expect=1)
+        self.assertIn("adopted by the user", refused.stdout)
+        self.box.mc("adopt", "coordinator", "--by-user", session="coord-9")
+        self.assertEqual(self._run_json()["coordinator"]["adopted_by"], "user")
+
+    def test_a_live_coordinator_cannot_be_adopted_away_without_the_user(self):
+        self.box.start()
+        self.box.register("coord-9", "other", str(self.box.repo))
+        refused = self.box.mc("adopt", "coordinator", session="coord-9", expect=1)
+        self.assertIn("is live", refused.stdout)
+
+    def test_a_fresh_crew_session_in_a_planned_worktree_adopts_the_old_row_and_its_slot(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "260", "--summary", "nearly there", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("request", "local-db", "--minutes", "5", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+        self.box.mc("needs", "add", "--why", "push it", session="crew-1", cwd=self.box.worktree)
+        # the session closes and a fresh one starts in the same worktree
+        (self.box.sessions / "crew-1.json").unlink()
+        self.box.register("crew-7", "10se2", str(self.box.worktree))
+        joined = self.box.mc("join", "--planned", session="crew-7", cwd=self.box.worktree).stdout
+        self.assertIn("adopted 10SE.2's row from session crew-1", joined)
+        sessions = {p.name: json.loads(p.read_text()) for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json")}
+        self.assertEqual(list(sessions), ["crew-7.json"], "one row, not a second briefing one")
+        row = sessions["crew-7.json"]
+        self.assertEqual((row["state"], row["pr"], row["summary"], row["adopted_from"]), ("in-slot", 260, "nearly there", "crew-1"))
+        self.assertTrue((next(self.box.ledger_root.glob("*/sessions")) / "crew-1.json.adopted").exists())
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        self.assertEqual(status["slots"][0]["holder"], "crew-7")
+        self.assertEqual(status["needs"][0]["session_id"], "crew-7")
+        self.assertIn('"event": "adopt"', (next(self.box.ledger_root.glob("*/log.jsonl"))).read_text())
+
+    def test_join_makes_a_fresh_row_when_the_old_session_is_still_live(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.register("crew-8", "second", str(self.box.worktree))
+        self.box.mc("join", "--planned", session="crew-8", cwd=self.box.worktree)
+        names = sorted(p.name for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json"))
+        self.assertEqual(names, ["crew-1.json", "crew-8.json"])
+
+    def test_jobs_are_kept_in_the_ledger_and_a_resume_is_told_to_re_arm_them(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * 1-5", "--prompt", "check the PR", "--reason", "morning check", "--id", "morning", session="crew-1", cwd=self.box.worktree)
+        listed = json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual([j["id"] for j in listed], ["morning"])
+        hook = self.box.hook("session-start", {"source": "resume"}, session="crew-1")
+        self.assertIn("cron morning (0 9 * * 1-5: check the PR)", hook)
+        self.assertIn("Re-arm each", hook)
+        compacted = self.box.hook("session-start", {"source": "compact"}, session="crew-1")
+        self.assertIn("still crew 10SE.2", compacted)
+        self.assertIn("Your brief:", compacted)
+        # the session goes away with its job open: reconcile names it
+        (self.box.sessions / "crew-1.json").unlink()
+        result = self._reconcile_with(self._gh({}))
+        orphan = [item for item in result["drift"] if item["kind"] == "job-orphaned"]
+        self.assertEqual(len(orphan), 1)
+        self.assertIn("morning", orphan[0]["detail"])
+        self.box.register("crew-1", "10se2", str(self.box.worktree))
+        self.box.mc("jobs", "done", "morning", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [])
+
+    def test_the_watch_keeps_its_own_job_entry(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "261", session="crew-1", cwd=self.box.worktree)
+        self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "FAILURE")])]))
+        jobs = json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual([(j["id"], j["kind"], j["status"]) for j in jobs], [("watch-261", "watch", "open")])
+        merged = self._view(state="MERGED", checks=[("ci", "FAILURE")])
+        self._watch(self._gh_watch([self._view(checks=[("ci", "FAILURE")]), merged, merged]))
+        self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [], "ended watch is done")
+
+    def test_pending_and_decisions_survive_in_the_ledger_and_reach_a_resumed_coordinator(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("pending", "add", "10SE.2", "--kind", "approval", "--text", "PR description sent back with two changes", session="coord-1")
+        self.box.mc("decide", "add", "--text", "option A: the short-record fragments keep the old endpoint", "--about", "10SE.6 finding 3", "--told", "10SE.2", session="coord-1")
+        hook = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("pending: #1 PR description sent back with two changes", hook)
+        self.assertIn("recent decisions: #1 option A", hook)
+        listed = self.box.mc("decide", "list", session="coord-1").stdout
+        self.assertIn("told 10SE.2", listed)
+        # unacknowledged for too long: reconcile says so; an ack clears it
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real = mc_module.DECISION_ACK_SECONDS
+        mc_module.DECISION_ACK_SECONDS = -1
+        try:
+            result = self._reconcile_with(self._gh({}))
+            self.assertIn("decision-unacknowledged", [item["kind"] for item in result["drift"]])
+            self.box.mc("decide", "ack", "1", session="crew-1", cwd=self.box.worktree)
+            result = self._reconcile_with(self._gh({}))
+            self.assertNotIn("decision-unacknowledged", [item["kind"] for item in result["drift"]])
+        finally:
+            mc_module.DECISION_ACK_SECONDS = real
+        self.box.mc("pending", "done", "1", "--text", "approved", session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("pending", "list", session="coord-1").stdout), [])
+        refused = self.box.mc("decide", "add", "--text", "x", session="crew-1", cwd=self.box.worktree, expect=1)
+        self.assertIn("only the coordinator", refused.stdout)
+
+    def test_a_measurement_need_names_its_session_and_done_carries_the_result(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "run the cold-cache spike on hosted and paste the timings", "--kind", "measurement", "--for", "10SE.2", "--command", "poetry run poe spike-hosted", session="coord-1")
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        self.assertEqual((status["needs"][0]["kind"], status["needs"][0]["for"], status["needs"][0]["for_task"]), ("measurement", "crew-1", "10SE.2"))
+        out = Path(self.box.tmp / "timings.txt")
+        out.write_text("p50 120ms\np95 410ms\n")
+        done = json.loads(self.box.mc("--json", "needs", "done", "1", "--result", f"@{out}", "--by-user", session="coord-1").stdout)
+        self.assertEqual(done["forward_to"], "crew-1")
+        self.assertEqual(done["result"], "p50 120ms\np95 410ms")
+        long_why = "w" * 900
+        self.box.mc("needs", "add", "--why", long_why, session="crew-1", cwd=self.box.worktree)
+        needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
+        self.assertEqual(len(needs[-1]["why"]), 900, "a why is no longer cut at 240 characters")
+
+    def test_a_grant_to_the_holder_extends_the_slot_without_force(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("grant", "local-db", "--to", "10SE.2", "--minutes", "10", session="coord-1")
+        before = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["slots"][0]["until"]
+        out = self.box.mc("grant", "local-db", "--to", "10SE.2", "--minutes", "20", session="coord-1").stdout
+        self.assertIn("extended", out)
+        after = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["slots"][0]
+        self.assertGreater(after["until"], before + 19 * 60)
+        self.assertEqual(after["holder"], "crew-1")
+        self.assertIn('"event": "extend"', next(self.box.ledger_root.glob("*/log.jsonl")).read_text())
+
+    def test_an_unlisted_crew_task_is_planned_as_such_and_the_claim_check_skips_it(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False, listed=False)
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "UXR", "--branch", "feat/a", "--unlisted", session="coord-1")
+        self.assertTrue(json.loads(self.box.mc("crew", "list", session="coord-1").stdout)[0]["unlisted"])
+        self.box.mc("join", "--task", "UXR", "--branch", "feat/a", session="crew-1")
+        self.box.mc("report", "--state", "pr-ready", "--pr", "262", session="crew-1")
+        result = self._reconcile_with(self._gh(self._open(262)))
+        self.assertEqual([item["kind"] for item in result["drift"]], [], "neither claim-missing nor the unlisted note: the plan says so")
+
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")

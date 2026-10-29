@@ -39,7 +39,19 @@ A gated command (the brief lists them: a database reset, a server, a worker) is 
 
 ## What is the user's
 
-Hosted reads (inspect queries included), hosted credentials, hosted writes, merges and anything irreversible. You never run them, never ask another session to run them and never work round a refusal. The path is `mc_need`: why, the exact command, the absolute directory it must run from. The board shows it to the user with `cd <dir> && <command>`; the coordinator rolls it up. A refusal from your own permissions is the same case: `mc_need`, then carry on with what does not depend on it.
+Hosted reads (inspect queries included), hosted credentials, hosted writes, merges and anything irreversible. You never run them, never ask another session to run them and never work round a refusal. The path is `mc_need`: why, in full (the user reads it before typing a hosted command, so the whole reason, not a clipped line), the exact command, the absolute directory it must run from. The board shows it to the user with `cd <dir> && <command>`; the coordinator rolls it up. A refusal from your own permissions is the same case, and the one response to it: a `gh` or `git push` the permission classifier refused lands on the needs list by itself, with the command and the directory (the mod records it); for anything else refused, `mc_need` with the exact commands and file paths, then carry on with what does not depend on it. Never retry a refused write in another form, never ask another session to run it.
+
+A measurement you want the user to run (a hosted spike, a cold-cache timing) is `mc_need` with `kind` `measurement`: when the user marks it done with the output pasted, the mod forwards that output to you as a message and the need closes in one step. Nothing is relayed by hand.
+
+## Your state outlives the process
+
+Three things live in the ledger so a close, a resume or a compaction does not lose them:
+
+- **Scheduled work.** Every cron job or Monitor you set up is recorded first with `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py jobs add --kind cron|monitor --spec <expression or condition> --prompt <what runs> --reason <why> --id <stable id>`, and `jobs done <id>` when it is no longer wanted; the PR watcher keeps its own entry. A resumed session is told, in its start context, which of them died with the process and re-arms each one. Nothing scheduled lives only in conversation.
+- **Your row.** A session restarted fresh (or cleared) in this worktree carries on the old row: state, summary, PR, slots and needs. Nothing to do; `join` adopts it.
+- **The brief.** Keep one line in your working notes naming the run, your task, the brief path and your state, so a compaction's summary carries it; the mod's prompt section and the post-compaction hook both name the brief path again, and you reread it.
+
+A decision the coordinator relays (`Decision #n from the user: ...`) is acknowledged with `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py decide ack <n>` once read; reconcile names a decision nobody acknowledged.
 
 ## Messages from the coordinator
 
