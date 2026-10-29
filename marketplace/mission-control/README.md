@@ -51,15 +51,17 @@ The protocol itself, with the message shapes: `references/protocol.md`.
 | `/mc` | opens or closes the board |
 | `/mc start <name> [anyway]` | starts a run with this session as coordinator; a haiku or sonnet session is warned off and `anyway` overrides |
 | `/mc grant <resource> <task\|branch\|name> [minutes]` | grants a slot, taking it from a holder if need be, and messages the grantee |
+| `/mc extend <resource> [minutes]` | gives the current holder longer and tells only them |
 | `/mc release <resource>` | releases a slot |
-| `/mc done <n>` | marks need `n` done |
+| `/mc done <n> [result or @file]` | marks need `n` done; for a measurement, the pasted output (or a file's contents) goes to the session that wanted it in the same step |
+| `/mc adopt coordinator\|crew` | from the session taking the role: rebinds the run to this session after a `/clear` or a fresh start (the board shows `rebind?` when this is waiting), or carries over a crew row |
 | `/mc retire <task> [dry]` | reclaims a merged task's worktree (section 7 has the preconditions); `dry` only prints |
 | `/mc status` | the board as text, machine probed |
 | `/mc end [force]` | ends the run; `force` ends it with slots still held |
 
 **The board's keys** are in section 3.
 
-**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `crew list`, `probe [resource]`. `--help` lists the rest.
+**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task>`, `crew list`, `crew add ... --unlisted`, `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
 
 ### 2.3. Do not
 
@@ -75,6 +77,9 @@ Each of these runs against the protocol, and most were learned on a live run.
 - **Do not pass `--by-user`, `--session` or `CLAUDE_CODE_SESSION_ID=` to a model.** The hook refuses an `mc.py` line a model runs with any of them; they are yours.
 - **Do not state a convention to the coordinator that is not written in the repository.** Put it in the config's `facts` instead, so the next run has it too.
 - **Do not expect the chat to be the truth.** The board is; a session whose row is stale is told to report, not believed.
+- **Do not fix a `/clear` by editing `run.json`.** A `/clear` gives the coordinator a new session id; the board shows `rebind?` and `/mc adopt coordinator` from that session rebinds the run, logged. A crew session restarted in its worktree adopts its own row on join.
+- **Do not relay a measurement by hand.** The need is raised with kind `measurement`; `/mc done <n>` with the output pasted (or `@<file>`) sends it to the session that wanted it and closes the need in one step.
+- **Do not let a session schedule anything only in conversation.** A cron job or Monitor is recorded with `mc.py jobs add` first, so a resume is told to re-arm it; the PR watch records itself. The coordinator's open threads go on the pending list and the user's decisions on the decisions record, so a compaction loses neither.
 
 ---
 
@@ -84,18 +89,18 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 
 | Section | Shows |
 |---|---|
-| Header | run name as the title with your role beside it, a rule, then in dim text the start time, base commit, who coordinates, how many assumptions, how many sessions are live and the ledger's age |
+| Header | run name as the title with your role beside it, a rule, a `rebind?` line in amber when the coordinator's process runs under a new session id and waits for `/mc adopt coordinator`, the count of open threads on the coordinator's pending list, then in dim text the start time, base commit, who coordinates, how many assumptions, how many sessions are live and the ledger's age |
 | Crew | grouped by state, one row per session: live and busy or idle (from Claude Code's own session registry), task, branch, worktree name, state (`gone` and dimmed once the session has left, `retired` once its worktree is reclaimed), PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
 | Slots | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
 | Requests | pending slot requests, with what will run and for how long |
-| Needs Jason | numbered, each with the complete command (`cd <dir> && ...`) |
+| Needs Jason | numbered, each with the complete command (`cd <dir> && ...`) and, for a measurement, `result → <task>` naming the session that gets the output when you mark it done |
 
 | Key | Does |
 |---|---|
 | `1` to `9` | picks a session row (shows its full summary) |
 | `q` to `p` | picks a request |
 | `g` | grants the picked request: asks the minutes, then grants as you and messages the grantee |
-| `d` | marks the picked need done |
+| `d` | marks the picked need done; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
 | `x` | releases a slot (asks which) |
 | `r` | refreshes, probing the machine |
 | Esc, or `/mc` | closes |
@@ -143,7 +148,7 @@ The boundary is honest about what it is: every session on the machine is the sam
 
 ## 7. The ledger
 
-`~/.claude/mission-control/<repo slug>/`, one JSON file per fact so sessions never clobber each other: `run.json` (name, coordinator, base, PR approval, crew plan, assumptions, needs), `sessions/<id>.json`, `slots/<resource>.json`, `requests/<resource>__<id>.json`, `briefs/<task>.md`, `guidance.md`, `log.jsonl`. `mc.py end` moves it under `runs/`. The CLI identifies a caller by `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for every Bash child; the mod passes its own id. Writes that steer the run are the coordinator's or `--by-user`.
+`~/.claude/mission-control/<repo slug>/`, one JSON file per fact so sessions never clobber each other: `run.json` (name, coordinator, base, PR approval, collaboration, crew plan, assumptions, needs, the coordinator's pending list), `sessions/<id>.json` (the row, its watch and its scheduled jobs; a row carried over to a new session id leaves `<old id>.json.adopted` behind), `slots/<resource>.json`, `requests/<resource>__<id>.json`, `decisions.jsonl` (what the user decided, appended, with each session's acknowledgement), `briefs/<task>.md`, `guidance.md`, `log.jsonl`. `mc.py end` moves it under `runs/`. The CLI identifies a caller by `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for every Bash child; the mod passes its own id. Writes that steer the run are the coordinator's or `--by-user`.
 
 `python3 <plugin-root>/scripts/mc.py --help` lists every subcommand; `status --probe` is the board as text. `reconcile` diffs the ledger against the live registry, GitHub and the branches on origin (each merged PR's own base, each open PR's own branch) and prints what drifted (gone or unjoined sessions, merged PRs whose row is not done, needs left open, a task whose roadmap carries no claim at the ref where it ought to; a task the roadmap does not list is named once, with no claim expected; a merged task's worktree still on disk an hour on) and who each PR actually waits on. `retire <task>` reclaims a finished crew worktree while the run goes on: it refuses while the session is live, the row is not done, the PR is open, the tree is dirty, a slot is held, something runs in the tree or an open PR is stacked on the branch, then removes the worktree, prunes, deletes the branch with `-d` only and records it on the row; `--dry-run` prints what would go and the disk it holds. `classify` says whether the project is solo or collaborative (stated as `collaboration` in the config or its gitignored `.local` twin, else inferred from 90 days of authors and the reviews on merged PRs) and the team's hours; `start` records the answer on the run. `watch [--pr N]` is a crew session's PR watcher, run in the background: a five-minute `gh` poll that prints the first change (reviews, decision, comments, checks, state) and exits, held outside the team's hours on a collaborative project unless the PR merged or closed.
 
