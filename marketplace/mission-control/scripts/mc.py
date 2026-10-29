@@ -1726,6 +1726,14 @@ def report_locked(args, ledger: Ledger) -> int:
         row["pr"] = args.pr or None
     if args.branch:
         row["branch"] = args.branch
+    if args.context is not None:
+        row["context_percent"] = max(0, min(100, int(args.context)))
+    only_context = args.context is not None and not any((args.state, args.summary is not None, args.pr is not None, args.branch))
+    if only_context:
+        # the mod writes the context fill on a timer; that is a gauge, not a report, so neither the log nor the row's age moves
+        ledger.save_session(row)
+        print(json.dumps(row) if args.json else f"{row.get('task') or session_id[:8]}: context {row['context_percent']}%")
+        return 0
     row["updated_at"] = now()
     ledger.save_session(row)
     ledger.log("report", session_id=session_id, state=row.get("state"), summary=row.get("summary"), pr=row.get("pr"), **({"by": by} if by else {}))
@@ -2187,6 +2195,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--summary")
     sp.add_argument("--pr", type=int)
     sp.add_argument("--branch")
+    sp.add_argument("--context", type=int, help="this session's context window fill, 0 to 100; alone it updates the gauge without a report")
     sp = sub.add_parser("request", help="ask for a resource slot")
     sp.add_argument("resource")
     sp.add_argument("--minutes", type=float)

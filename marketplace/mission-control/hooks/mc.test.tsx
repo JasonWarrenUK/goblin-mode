@@ -406,6 +406,42 @@ test('helpers: crewGroups orders by what needs attention and keeps ledger order 
 	expect(retired.sessions[1]?.retired_at).toBe(1_700_000_000)
 })
 
+test('/mc start from a haiku or sonnet session is warned off until the person says anyway', async ($, on) => {
+	const { calls } = world(on, 'coord-1', { ...STATUS, run: null })
+	on('session.model', async () => ({ value: 'claude-sonnet-5-5' }))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	const warned = await $.command.run({ ...RUN, command: 'mc', args: 'start search' })
+	expect(warned.text).toContain('This session runs claude-sonnet-5-5')
+	expect(warned.text).toContain('/mc start search anyway')
+	expect(calls.find(c => c.includes('start'))).toBeUndefined()
+	await $.command.run({ ...RUN, command: 'mc', args: 'start search anyway' })
+	const started = calls.find(c => c.includes('start'))
+	expect(started).toBeDefined()
+	expect(started).toContain('search')
+	expect(started).not.toContain('anyway')
+})
+
+test('/mc start from an opus session starts the run without a word', async ($, on) => {
+	const { calls } = world(on, 'coord-1', { ...STATUS, run: null })
+	on('session.model', async () => ({ value: 'claude-opus-5-5' }))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: 'start search' })
+	expect(calls.find(c => c.includes('start'))).toBeDefined()
+})
+
+test('a crew session writes its context fill to its row and the board draws it', async ($, on) => {
+	const { calls } = world(on, 'crew-1', { ...STATUS, sessions: [{ ...STATUS.sessions[0], context_percent: 88 }] }, undefined, { cwd: '/code/app/.claude/worktrees/10se2' })
+	on('session.usage', async () => ({ value: { startedAt: 0, context: { percent: 63.4, window: 200_000 }, rateLimits: {}, cost: {} } as never }))
+	await $.session.start({ cwd: '/code/app/.claude/worktrees/10se2', surface: 'terminal', isInteractive: true })
+	const gauge = calls.find(c => c.includes('--context'))
+	expect(gauge).toBeDefined()
+	expect(gauge?.[gauge.indexOf('--context') + 1]).toBe('63')
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /ctx 88%/ }))?.text).toBe('ctx 88%')
+	await ui.unmount()
+})
+
 test('the board groups the crew under a subheading per state', async ($, on) => {
 	world(on, 'coord-1', threeStates())
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })

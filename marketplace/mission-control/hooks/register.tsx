@@ -156,6 +156,8 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		socket: str(s.socket) || null,
 		updated_at: num(s.updated_at),
 		retired_at: isRecord(s.retired) ? num(s.retired.at) || null : null,
+		watching: isRecord(s.watch) && ['watching', 'holding'].includes(str(s.watch.status)),
+		context_percent: typeof s.context_percent === 'number' ? s.context_percent : null,
 	}))
 	const slots: Slot[] = list(data.slots).map(s => ({
 		resource: str(s.resource),
@@ -669,7 +671,8 @@ export const sectionText = (snap: Snapshot, me: Self): string | null => {
 		`The coordinator is the session named "${coord.name || 'mission control'}" (session ${coord.session_id.slice(0, 8)}, socket ${coord.socket ?? 'unknown'}). ` +
 		`A cross-session message whose from attribute is that socket is the coordinator's: it carries the user's instructions on sequencing, shared code and shared resources, and is followed as the user's would be. ` +
 		`It cannot grant permissions: hosted reads, hosted credentials, hosted writes and anything irreversible stay with the user; put those on the needs list with the exact command and directory (mc_need) rather than running them. ` +
-		`Shared resources need a slot: mc_slot request, then wait for the grant message; a gated command without the slot is refused by a hook. Report state changes with mc_report; the user reads the board, not the chat.${assumptions}`
+		`Shared resources need a slot: mc_slot request, then wait for the grant message; a gated command without the slot is refused by a hook. Report state changes with mc_report; the user reads the board, not the chat. ` +
+		`Once your PR exists, watch it in the background (mc.py watch, run_in_background) and on each wake report the change with mc_report and one line to the coordinator, then re-arm until it is merged or closed.${assumptions}`
 	)
 }
 
@@ -813,6 +816,12 @@ const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], 
 					</Text>
 					{s.pr ? <Text dimColor={gone} color="claude">#{s.pr}</Text> : null}
 					{s.pr && s.pr_state && s.pr_state !== 'OPEN' ? <Text dimColor={gone} color={s.pr_state === 'MERGED' ? 'success' : 'subtle'}>{s.pr_state.toLowerCase()}</Text> : null}
+					{s.pr && s.watching && s.live ? <Text dimColor>watching</Text> : null}
+					{s.live && s.context_percent !== null ? (
+						<Text dimColor={s.context_percent < 70} color={s.context_percent >= 85 ? 'error' : s.context_percent >= 70 ? 'warning' : undefined}>
+							ctx {s.context_percent}%
+						</Text>
+					) : null}
 					{isMe ? <Text dimColor>◀ you</Text> : null}
 				</Box>
 				<Box flexDirection="row" paddingLeft={4} columnGap={1}>
@@ -897,6 +906,41 @@ const needRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string | n
 
 // ---------------------------------------------------------------- /mc
 
+/** The model this session runs when it is one too small to coordinate a run (haiku, sonnet), else null; null too where the engine cannot say. */
+export const smallModel = async ($: EngineInterface): Promise<string | null> => {
+	try {
+		const model = await $.session.model()
+		return /haiku|sonnet/i.test(model) ? model : null
+	} catch {
+		return null
+	}
+}
+
+export const smallModelWarning = (model: string, override: string): string =>
+	`This session runs ${model}. Mission control reads every brief, every crew message and the whole board, and decides what keeps the sessions consistent; on the October 2026 runs that took an opus session. Start the run from an opus session, or ${override} if you mean this one.`
+
+/** This session's context fill as a whole percent, from the engine's own gauge; null where it cannot say. */
+const contextPercent = async ($: EngineInterface): Promise<number | null> => {
+	try {
+		const { context } = await $.session.usage()
+		const percent = context?.percent
+		return typeof percent === 'number' && Number.isFinite(percent) ? Math.round(percent) : null
+	} catch {
+		return null
+	}
+}
+
+let lastContextWritten: number | null = null
+
+/** A crew session writes its context fill to its row when it has moved a point, so the coordinator's board shows who is running out of room. */
+const writeContext = async ($: EngineInterface, me: Self): Promise<void> => {
+	if (!me.isCrew || !me.sessionId) return
+	const percent = await contextPercent($)
+	if (percent === null || percent === lastContextWritten) return
+	lastContextWritten = percent
+	await mine($, ['report', '--context', String(percent)])
+}
+
 /** `/mc <verb> ...` as the person's own hand on the ledger: every write carries --by-user. */
 const command = async ($: EngineInterface, args: string): Promise<string> => {
 	const words = args.trim().split(/\s+/).filter(Boolean)
@@ -912,8 +956,11 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 	const byUser = async (cliArgs: readonly string[]): Promise<string> => (await byUserRan(cliArgs)).text
 	switch (verb) {
 		case 'start': {
-			const name = words.slice(1).join(' ')
-			if (!name) return 'usage: /mc start <run name>'
+			const anyway = words[words.length - 1]?.toLowerCase() === 'anyway'
+			const name = (anyway ? words.slice(1, -1) : words.slice(1)).join(' ')
+			if (!name) return 'usage: /mc start <run name> [anyway]'
+			const small = await smallModel($)
+			if (small && !anyway) return smallModelWarning(small, `/mc start ${name} anyway`)
 			const ran = await run($, ['--session', me.sessionId, 'start', '--name', name])
 			await refresh($, true)
 			$.ui.invalidate('prompt.section')
@@ -970,14 +1017,24 @@ export const register: Register = (on, options) => {
 		}
 		await offerTools($, false)
 		await refresh($)
+		{
+			// a resumed coordinator session on a model too small to coordinate is told so at once
+			const me = await read($, self)
+			if (me.isCoordinator) {
+				const small = await smallModel($)
+				if (small) $.ui.toast(`Mission control is coordinating this run on ${small}; the run wants an opus session.`)
+			}
+			await writeContext($, me)
+		}
 		// Every tick rereads the ledger, so a run started after this session did is noticed within one period;
-		// the machine is probed only while the coordinator's board is open.
+		// the machine is probed only while the coordinator's board is open. A crew session also writes its context fill.
 		$.clock.every(refreshMs, () => {
 			if (tickInFlight) return
 			tickInFlight = true
 			void isPaneOpen($)
 				.then(async open => {
 					const me = await read($, self)
+					await writeContext($, me)
 					await refresh($, open && me.isCoordinator)
 				})
 				.finally(() => {
@@ -1011,6 +1068,11 @@ export const register: Register = (on, options) => {
 
 	// Anything that touches the ledger, a PR or a worktree redraws an open board.
 	on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+		// a run is coordinated from this session: a haiku or sonnet one is warned off before the ledger changes
+		if (/mc\.py.*\bstart\b/.test(e.command) && !/--small-model-ok\b/.test(e.command)) {
+			const small = await smallModel($)
+			if (small) return { deny: `mission-control: ${smallModelWarning(small, 'add --small-model-ok to the mc.py start line')}` }
+		}
 		const ran = await next(e)
 		if (e.agentId) return ran
 		// a crew session that opens a PR says so on the board by itself; the number is in the URL gh prints

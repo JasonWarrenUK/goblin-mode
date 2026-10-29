@@ -59,6 +59,10 @@ export type SessionRow = {
 	updated_at: number
 	/** When `mc.py retire` reclaimed the worktree; the row then reads under `retired` rather than `gone`. */
 	retired_at: number | null
+	/** A `mc.py watch` is running (or holding a change until the team's hours) on this row's PR. */
+	watching: boolean
+	/** The session's context window fill, 0 to 100, written by its own mod on a timer; null until it has. */
+	context_percent: number | null
 }
 
 export type Slot = {
