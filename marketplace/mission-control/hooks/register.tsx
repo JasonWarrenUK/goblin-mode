@@ -773,13 +773,16 @@ export const crewGroups = (sessions: readonly Snapshot['sessions'][number][]): {
 }
 
 const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: string | null, inner: number, now: number) => {
-	const { Text } = ui
+	const { Box, Text } = ui
 	const grouped = crewGroups(snap.sessions)
 	let nth = 0
-	return grouped.flatMap(({ group, sessions }) => [
-		<Text key={`group-${group}`} dimColor>
-			{group} · {sessions.length}
-		</Text>,
+	return grouped.flatMap(({ group, sessions }, at) => [
+		<Box key={`group-${group}`} flexDirection="row" columnGap={1} marginTop={at === 0 ? 0 : 1}>
+			<Text color={group === 'gone' ? 'subtle' : stateColour(group) ?? 'claude'}>▸</Text>
+			<Text weight="bold" dimColor={group === 'gone'} color={group === 'gone' ? undefined : stateColour(group)}>
+				{group} · {sessions.length}
+			</Text>
+		</Box>,
 		...crewRowsOf($, ui, sessions, me, picked, inner, now, () => nth++),
 	])
 }
