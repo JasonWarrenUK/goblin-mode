@@ -755,14 +755,29 @@ def waiting_on(facts: dict | None) -> str:
     return "no reviewer requested"
 
 
-def claim_on_main(main: Path, task: str, ref: str = "origin/main") -> bool | None:
-    """Whether a ref carries roadmap:claim's commit for a task; None when the repo has no rich roadmap or the ref does not resolve."""
+def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str | None:
+    """What the roadmap at a ref says about a task's claim: True when the task carries `started` there, False when it is listed without one,
+    "unlisted" when the task is not in that roadmap at all, None when the repo has no rich roadmap, the ref does not resolve or the file there is not a roadmap.
+    The state is what counts, never which commit carried it: a claim reaches the trunk through roadmap:claim, a sync batch or a `done` batch alike, and a branch rebased past its own claim commit is in order once the trunk has the claim."""
     if not (main / ".claude" / "roadmaps.json").is_file():
         return None
     if run_git(main, "rev-parse", "--verify", "--quiet", ref) is None:
         return None
-    found = run_git(main, "log", ref, "--fixed-strings", "--grep", f"chore(roadmap): claim {task}", "--format=%h", "-1")
-    return bool(found)
+    raw = run_git(main, "show", f"{ref}:.claude/roadmaps.json")
+    if raw is None:
+        return None
+    try:
+        phases = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(phases, list):
+        return None
+    for phase in phases:
+        for milestone in (phase.get("milestones") or []) if isinstance(phase, dict) else []:
+            for row in (milestone.get("tasks") or []) if isinstance(milestone, dict) else []:
+                if isinstance(row, dict) and row.get("id") == task:
+                    return bool(row.get("started"))
+    return "unlisted"
 
 
 def reconcile(ledger: Ledger) -> dict:
@@ -805,12 +820,15 @@ def reconcile(ledger: Ledger) -> dict:
             why = "its session is done" if row.get("state") == "done" else f"its PR #{row.get('pr')} is merged"
             note("need-open-after-done", f"need #{need.get('n')} ({need.get('why', '')[:60]}) is still open but {why}", need.get("task", ""), need.get("session_id", ""), row.get("pr"))
 
-    # roadmap:claim commits on the work branch, so the claim reaches the trunk only with the merge:
-    # a merged PR is checked on its own base (the run's trunk, or the parent layer of a stack), an
-    # open one on its own branch, anything else is skipped. The remote-tracking refs are only as
-    # fresh as the last fetch, and a merge the user made on GitHub minutes ago is the common case,
-    # so fetch once first; a fetch that fails leaves the stale refs to answer, as before.
+    # The claim is read from the roadmap itself, at the ref where it ought to be: a merged PR's own
+    # base (the run's trunk, or the parent layer of a stack) and, for an open PR, the trunk first and
+    # then the PR's branch, since a branch that dropped its claim commit once the trunk carried the
+    # claim is in order. A task the roadmap does not list cannot carry a claim, so it is named once
+    # and not counted as drift. The remote-tracking refs are only as fresh as the last fetch, and a
+    # merge the user made on GitHub minutes ago is the common case, so fetch once first; a fetch that
+    # fails leaves the stale refs to answer, as before.
     by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
+    trunk = run.get("base", {}).get("branch") or "main"
     if (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
         run_git(ledger.main, "fetch", "--quiet", "origin")
     for entry in run.get("crew", []):
@@ -822,13 +840,26 @@ def reconcile(ledger: Ledger) -> dict:
         if not fact:
             continue
         if fact["state"] == "MERGED":
-            base = fact.get("base") or run.get("base", {}).get("branch") or "main"
-            if claim_on_main(ledger.main, task, f"origin/{base}") is False:
-                note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/{base}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
+            base = fact.get("base") or trunk
+            claim = roadmap_claim(ledger.main, task, f"origin/{base}")
+            if claim == "unlisted":
+                note("unlisted", f"not in the roadmap on origin/{base}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
+            elif claim is False:
+                note("claim-missing", f"the roadmap on origin/{base} has no claim (`started`) for {task}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
         elif fact["state"] == "OPEN":
             branch = row.get("branch") or entry.get("branch") or ""
-            if branch and claim_on_main(ledger.main, task, f"origin/{branch}") is False:
-                note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/{branch}", task, row.get("session_id", ""), int(row["pr"]))
+            on_trunk = roadmap_claim(ledger.main, task, f"origin/{trunk}")
+            if on_trunk is True or not branch:
+                continue
+            on_branch = roadmap_claim(ledger.main, task, f"origin/{branch}")
+            if on_branch is True:
+                continue
+            if on_trunk is None and on_branch is None:
+                continue
+            if on_trunk in ("unlisted", None) and on_branch in ("unlisted", None):
+                note("unlisted", f"not in the roadmap on origin/{trunk} or origin/{branch}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
+            else:
+                note("claim-missing", f"neither the roadmap on origin/{trunk} nor the one on origin/{branch} has a claim (`started`) for {task}", task, row.get("session_id", ""), int(row["pr"]))
 
     return {"run": run.get("name"), "drift": drift, "prs": prs, "at": now()}
 
@@ -846,7 +877,9 @@ def print_reconcile(result: dict) -> None:
     if not result["prs"]:
         print("no PRs on the board")
     for pr in result["prs"]:
-        print(f"- #{pr['pr']} ({pr['task']}): {pr['state'].lower()}, {pr['waiting_on']}")
+        state = pr["state"].lower()
+        tail = "" if pr["waiting_on"] == state else f", {pr['waiting_on']}"
+        print(f"- #{pr['pr']} ({pr['task']}): {state}{tail}")
 
 
 def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:

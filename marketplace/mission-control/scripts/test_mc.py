@@ -661,19 +661,30 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual([item["kind"] for item in result["drift"]], ["need-open-after-done"])
         self.assertIn("its session is done", result["drift"][0]["detail"])
 
-    def _roadmap_repo_with_origin(self, claim_on_branch=True):
-        """A rich roadmap, a bare origin holding main, and feat/a pushed with (or without) its claim commit."""
-        (self.box.repo / ".claude" / "roadmaps.json").write_text("{}")
+    @staticmethod
+    def _roadmap(started=None, task="10SE.2"):
+        """A rich roadmap listing one task, claimed (`started` set) or not."""
+        row = {"id": task, "title": "the task", "status": "todo", "assignee": "Jason"}
+        if started:
+            row["started"] = started
+        return json.dumps([{"name": "t", "path": "", "archived": False, "milestones": [{"id": "M1", "name": "one", "tasks": [row]}]}])
+
+    def _roadmap_repo_with_origin(self, claim_on_branch=True, claim_on_main=False, listed=True):
+        """A rich roadmap, a bare origin holding main, and feat/a pushed with (or without) a commit that sets the task's `started`.
+        `claim_on_main` puts the claim on main under a sync batch's subject instead; `listed=False` leaves the task out of the roadmap."""
+        base = self._roadmap(started="2026-10-27" if claim_on_main else None) if listed else self._roadmap(task="OTHER")
+        (self.box.repo / ".claude" / "roadmaps.json").write_text(base)
         git(self.box.repo, "add", ".claude/roadmaps.json")
-        git(self.box.repo, "commit", "-q", "-m", "chore: roadmap")
+        git(self.box.repo, "commit", "-q", "-m", "chore(roadmap): sync claims from live branches" if claim_on_main else "chore: roadmap")
         bare = self.box.tmp / "origin.git"
         subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
         git(self.box.repo, "remote", "add", "origin", str(bare))
         git(self.box.repo, "push", "-q", "-u", "origin", "main")
-        if claim_on_branch:
-            (self.box.worktree / "claim.txt").write_text("x\n")
-            git(self.box.worktree, "add", "claim.txt")
-            git(self.box.worktree, "commit", "-q", "-m", "chore(roadmap): claim 10SE.2")
+        git(self.box.worktree, "merge", "-q", "--ff-only", "main")
+        if claim_on_branch and listed:
+            (self.box.worktree / ".claude" / "roadmaps.json").write_text(self._roadmap(started="2026-10-27"))
+            git(self.box.worktree, "add", ".claude/roadmaps.json")
+            git(self.box.worktree, "commit", "-q", "-m", "chore(roadmap): 10SE.2 started, dated")
         else:
             (self.box.worktree / "work.txt").write_text("x\n")
             git(self.box.worktree, "add", "work.txt")
@@ -724,7 +735,7 @@ class LedgerFlow(unittest.TestCase):
         git(elsewhere, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "origin/feat/a")
         git(elsewhere, "push", "-q", "origin", "main")
         # this checkout's origin/main still predates the merge
-        self.assertNotIn("claim 10SE.2", subprocess.run(["git", "-C", str(self.box.repo), "log", "origin/main", "--format=%s"], capture_output=True, text=True).stdout)
+        self.assertNotIn("started", subprocess.run(["git", "-C", str(self.box.repo), "show", "origin/main:.claude/roadmaps.json"], capture_output=True, text=True).stdout)
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 226, state="done")
         result = self._reconcile_with(self._gh(self._merged(226)))
