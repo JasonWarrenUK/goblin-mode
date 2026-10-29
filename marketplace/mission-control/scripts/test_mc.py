@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -37,6 +38,7 @@ class Sandbox:
         git(self.repo, "config", "user.name", "t")
         (self.repo / ".claude").mkdir()
         config = json.loads(EXAMPLE.read_text())
+        config.pop("collaboration", None)  # the example states CHIRPdb's mode; the sandbox infers its own (solo, one author)
         (self.repo / ".claude" / "mission-control.json").write_text(json.dumps(config))
         (self.repo / "README.md").write_text("x\n")
         git(self.repo, "add", "-A")
@@ -642,7 +644,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(by_kind["unjoined"]["task"], "10SE.9")
         self.assertEqual(by_kind["gone"]["task"], "10SE.2")
         self.assertEqual(by_kind["gone"]["session_id"], "crew-1")
-        self.assertEqual(result["prs"][0]["waiting_on"], "no reviewer requested")
+        self.assertEqual(result["prs"][0]["waiting_on"], "solo project; the merge is the user's", "the sandbox has one author and no reviews, so nobody is waited for")
 
     def test_reconcile_reports_unknown_when_gh_hangs(self):
         self.box.start()
@@ -978,6 +980,205 @@ class LedgerFlow(unittest.TestCase):
         fresh["240"]["mergedAt"] = "2999-01-01T00:00:00Z"
         result = self._reconcile_with(self._gh(fresh))
         self.assertNotIn("unretired", [item["kind"] for item in result["drift"]])
+
+    # classify and watch: the project's mode and the PR watcher
+
+    def _module(self, fake_sh):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
+        mc_module.sh = fake_sh
+        mc_module.LEDGER_ROOT = self.box.ledger_root
+        mc_module.SESSIONS_DIR = self.box.sessions
+        return mc_module, real
+
+    @staticmethod
+    def _restore(mc_module, real):
+        mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = real
+
+    @staticmethod
+    def _gh_list(prs):
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "list"]:
+                return 0, json.dumps(prs)
+            return 1, "not gh"
+        return fake_sh
+
+    def test_classify_reads_solo_from_one_author_and_no_reviews(self):
+        mc_module, real = self._module(self._gh_list([{"number": 1, "author": {"login": "t"}, "reviews": []}]))
+        try:
+            result = mc_module.classify(self.box.repo, None)
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual(result["mode"], "solo")
+        self.assertEqual(result["source"], "inferred")
+        self.assertIsNone(result["hours"])
+        self.assertEqual(result["authors"], ["t"])
+
+    def test_classify_reads_collaborative_from_a_second_author_or_a_review_by_another(self):
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "x", "--author", "Other <o@example.com>")
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "bot", "--author", "dependabot[bot] <bot@users.noreply.github.com>")
+        mc_module, real = self._module(self._gh_list([]))
+        try:
+            by_authors = mc_module.classify(self.box.repo, None)
+            git(self.box.repo, "reset", "-q", "--hard", "HEAD~2")
+            reviewed = [{"number": 1, "author": {"login": "t"}, "reviews": [{"author": {"login": "jaz"}, "state": "APPROVED", "submittedAt": "2026-10-28T10:30:00Z"}]}]
+            mc_module.sh = self._gh_list(reviewed)
+            by_review = mc_module.classify(self.box.repo, None)
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual(by_authors["mode"], "collaborative")
+        self.assertEqual(sorted(by_authors["authors"]), ["Other", "t"], "the bot is not an author")
+        self.assertEqual(by_review["mode"], "collaborative")
+        self.assertEqual(by_review["reviewed_by_others"], 1)
+        self.assertEqual(by_review["hours"]["days"], [0, 1, 2, 3, 4], "one review is too few to infer hours, so the weekday default stands")
+
+    def test_classify_takes_the_stated_answer_and_notes_a_disagreement(self):
+        config = {"collaboration": {"mode": "collaborative", "hours": {"start": "08:30", "end": "17:00", "days": "mon-thu"}}}
+        mc_module, real = self._module(self._gh_list([]))
+        try:
+            stated = mc_module.classify(self.box.repo, config)
+            (self.box.repo / ".claude" / "mission-control.local.json").write_text(json.dumps({"collaboration": {"mode": "solo"}}))
+            local = mc_module.classify(self.box.repo, config)
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual(stated["mode"], "collaborative")
+        self.assertEqual(stated["source"], "config")
+        self.assertEqual(stated["hours"], {"start": "08:30", "end": "17:00", "days": [0, 1, 2, 3]})
+        self.assertTrue(any("history alone reads solo" in line for line in stated["evidence"]))
+        self.assertEqual(local["mode"], "solo")
+        self.assertEqual(local["source"], "local config")
+
+    def test_helpers_window_and_snapshot_changes(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        hours = {"start": "09:00", "end": "18:00", "days": [0, 1, 2, 3, 4]}
+        import calendar
+        # a Wednesday at 10:00 and at 22:00 local
+        wed = calendar.timegm(time.strptime("2026-10-28 00:00", "%Y-%m-%d %H:%M")) + time.timezone
+        lt = time.localtime(wed)
+        wed = wed - (lt.tm_hour * 3600 + lt.tm_min * 60)
+        self.assertTrue(mc_module.in_window(hours, wed + 10 * 3600))
+        self.assertFalse(mc_module.in_window(hours, wed + 22 * 3600))
+        self.assertTrue(mc_module.in_window(None, wed + 22 * 3600))
+        opens = mc_module.window_opens(hours, wed + 22 * 3600)
+        self.assertEqual(time.localtime(opens).tm_hour, 9)
+        self.assertTrue(mc_module.in_window(hours, opens))
+        before = {"state": "OPEN", "decision": "", "reviews": [], "comments": 0, "review_comments": 0, "checks": {"ci": "in_progress"}}
+        after = {"state": "OPEN", "decision": "CHANGES_REQUESTED", "reviews": [{"login": "jaz", "state": "CHANGES_REQUESTED", "at": "t"}], "comments": 1, "review_comments": 3, "checks": {"ci": "success", "lint": "failure"}}
+        changes = mc_module.snapshot_changes(before, after)
+        self.assertEqual(changes, ["review decision none -> CHANGES_REQUESTED", "review by jaz: changes requested", "3 new review comments", "1 new comment", "check ci: in_progress -> success", "check lint: new -> failure"])
+        self.assertEqual(mc_module.snapshot_changes(after, after), [])
+        self.assertEqual(mc_module.parse_days("mon-fri"), [0, 1, 2, 3, 4])
+        self.assertEqual(mc_module.parse_days(["sat", "sun"]), [5, 6])
+        self.assertEqual(mc_module.parse_days("fri-mon"), [0, 4, 5, 6])
+
+    @staticmethod
+    def _gh_watch(views, review_comments="0"):
+        """gh answers `pr view` from a queue of snapshots (the last repeats) and the review-comments count once."""
+        queue = list(views)
+
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "view"]:
+                view = queue.pop(0) if len(queue) > 1 else queue[0]
+                return 0, json.dumps(view)
+            if argv[:2] == ["gh", "api"]:
+                return 0, review_comments
+            if argv[:3] == ["gh", "pr", "list"]:
+                return 0, "[]"
+            return 1, "not gh"
+        return fake_sh
+
+    def _watch(self, fake_sh, *cli, session="crew-1"):
+        mc_module, real = self._module(fake_sh)
+        import io
+        from contextlib import redirect_stdout
+        out = io.StringIO()
+        os.environ["CLAUDE_CODE_SESSION_ID"] = session
+        try:
+            with redirect_stdout(out):
+                code = mc_module.main(["--cwd", str(self.box.worktree), "watch", "--interval", "0.01", *cli])
+        finally:
+            os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
+            self._restore(mc_module, real)
+        return code, out.getvalue()
+
+    @staticmethod
+    def _view(state="OPEN", decision="", reviews=(), checks=(), comments=0):
+        return {"state": state, "reviewDecision": decision, "reviews": list(reviews), "comments": [{}] * comments,
+                "statusCheckRollup": [{"name": n, "status": "COMPLETED", "conclusion": c} for n, c in checks], "mergedAt": None, "url": "u", "title": "t"}
+
+    def test_watch_takes_a_baseline_then_exits_on_the_first_change_and_records_it(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "250", session="crew-1", cwd=self.box.worktree)
+        views = [self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "SUCCESS")], reviews=[{"author": {"login": "jaz"}, "state": "APPROVED", "submittedAt": "x"}], decision="APPROVED")]
+        code, out = self._watch(self._gh_watch(views))
+        self.assertEqual(code, 0, out)
+        self.assertIn("#250 changed (review decision none -> APPROVED; review by jaz: approved)", out)
+        rows = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))
+        watch = json.loads(rows[0].read_text())["watch"]
+        self.assertEqual(watch["pr"], 250)
+        self.assertEqual(watch["status"], "changed")
+        self.assertEqual(watch["seen"]["decision"], "APPROVED")
+        # the next watch starts from what it last saw, so the same change is not reported twice
+        code, out = self._watch(self._gh_watch([views[-1], views[-1], self._view(state="MERGED", decision="APPROVED", checks=[("ci", "SUCCESS")], reviews=views[-1]["reviews"])]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("state OPEN -> MERGED", out)
+        self.assertIn("watch ended", out)
+        self.assertNotIn("review by jaz", out)
+
+    def test_watch_on_a_solo_project_with_no_checks_declines_and_once_prints_the_pr(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "251", session="crew-1", cwd=self.box.worktree)
+        code, out = self._watch(self._gh_watch([self._view()]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("solo project and no checks", out)
+        code, out = self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")])]), "--once", "--pr", "252")
+        self.assertEqual(code, 0, out)
+        self.assertIn("#252: open, decision none, no reviews, 0 comments, 0 review comments, 1 check: success", out)
+
+    def test_watch_holds_a_review_outside_the_team_hours_and_still_exits_on_a_merge(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "253", session="crew-1", cwd=self.box.worktree)
+        run_path = next(self.box.ledger_root.glob("*/run.json"))
+        run = json.loads(run_path.read_text())
+        # a window that is never open: Monday to Friday at a minute that has passed, so every poll is outside hours
+        run["collaboration"] = {"mode": "collaborative", "hours": {"start": "00:00", "end": "00:01", "days": [0, 1, 2, 3, 4, 5, 6]}}
+        run_path.write_text(json.dumps(run))
+        reviewed = self._view(reviews=[{"author": {"login": "jaz"}, "state": "COMMENTED", "submittedAt": "x"}])
+        code, out = self._watch(self._gh_watch([self._view(), reviewed, reviewed]), "--max-minutes", "0.001")
+        self.assertEqual(code, 0, out)
+        self.assertIn("holding until the team's hours open", out)
+        self.assertIn("review by jaz: commented", out)
+        rows = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))
+        self.assertEqual(json.loads(rows[0].read_text())["watch"]["status"], "holding")
+        merged = self._view(state="MERGED", reviews=reviewed["reviews"])
+        code, out = self._watch(self._gh_watch([reviewed, merged, merged]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("watch ended", out)
+
+    def test_start_records_the_classification_and_a_flag_overrides_it(self):
+        self.box.start()
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual(run["collaboration"]["mode"], "solo")
+        self.assertEqual(run["collaboration"]["authors"], ["t"])
+        self.box.mc("end", session="coord-1")
+        self.box.mc("start", "--name", "two", "--collaboration", "collaborative", session="coord-1")
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual(run["collaboration"]["mode"], "collaborative")
+        self.assertEqual(run["collaboration"]["source"], "flag")
+        self.assertEqual(run["collaboration"]["hours"]["start"], "09:00")
+        said = self.box.mc("classify", session="coord-1").stdout
+        self.assertTrue(said.startswith("collaborative (flag); team hours: 09:00 to 18:00"), said)
+
+    def test_reconcile_says_solo_where_no_reviewer_is_named(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 254)
+        result = self._reconcile_with(self._gh(self._open(254)))
+        self.assertEqual(result["prs"][0]["waiting_on"], "solo project; the merge is the user's")
 
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()

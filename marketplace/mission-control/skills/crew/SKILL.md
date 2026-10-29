@@ -54,8 +54,15 @@ A message marked `[mission-control: from the coordinator session ..., verified a
    - **coordinator**: draft the description the way `pr-create` would (its template and rules), send it whole to the coordinator with `SendMessage`, wait for `PR approved` or changes, then run `/pr-create auto [base <parent>]`. The `auto` token skips the in-session pause because the coordinator's review was the gate.
    - **user**: run `/pr-create [base <parent>]` and `mc_need` with why `approve the PR description in this session`; the user comes when the list says so.
 3. `mc_report` with the PR number and state `pr-ready`, then one line to the coordinator with `SendMessage`: `<task> PR open: #<n> (<url>), <branch> -> <base>, <stacked on #m | independent>`. `pr-create` stops before the push when the base branch is not on origin; that is correct, and the push is the user's (`mc_need` with the exact command).
-4. Rebase only when told. Until the stack is linked, plain git in this worktree; after, the coordinator does it from the stack worktree.
+4. **Watch the PR, without being asked.** Straight after step 3, start the watcher as a background Bash from this worktree:
+
+   ```text
+   python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py watch
+   ```
+
+   with `run_in_background` on. It polls `gh` every five minutes (reviews, review decision, review comments, comments, each check, state), prints what changed and exits, which wakes you. On each wake: `mc_report` with the change in the summary (and `blocked` when a check failed or changes were requested), one line to the coordinator with `SendMessage` (`<task> PR #<n>: <the change>`), act on it where it is yours to act on (a failing check, a review to handle with `pr-handle_review`), then start the watcher again. Stop re-arming when it prints `watch ended` (merged or closed) or when the coordinator says the run is paused. On a collaborative project the watcher holds a change that is not a merge or close until the team's hours (from the run record, printed in your session-start context), so nothing wakes you at night; on a solo project there is no window and the watcher covers checks and state only, and it says `nothing to watch` when the PR has no checks. Never write your own poll loop, Monitor or cron for this; the watcher is the one shape the run has.
+5. Rebase only when told. Until the stack is linked, plain git in this worktree; after, the coordinator does it from the stack worktree.
 
 ## Never
 
-Run a gated command without the slot or from another directory; run a hosted command or ask anyone but the user to; merge; edit a shared surface the brief says another session owns; write a changelog or regenerate a shared artefact on your branch when the guidance says trunk; push without reading your messages first; report `pr-ready` on a rendered change nobody has looked at in a browser at the brief's widths; leave a slot held after the work is done; let the board lie about your state.
+Run a gated command without the slot or from another directory; run a hosted command or ask anyone but the user to; merge; edit a shared surface the brief says another session owns; write a changelog or regenerate a shared artefact on your branch when the guidance says trunk; push without reading your messages first; report `pr-ready` on a rendered change nobody has looked at in a browser at the brief's widths; leave a PR unwatched, or watch it with a loop of your own instead of `mc.py watch`; leave a slot held after the work is done; let the board lie about your state.

@@ -754,8 +754,8 @@ def merged_at(facts: dict | None) -> float | None:
         return None
 
 
-def waiting_on(facts: dict | None) -> str:
-    """Who a PR waits on, in the words the board may repeat; never a guess at the user."""
+def waiting_on(facts: dict | None, mode: str | None = None) -> str:
+    """Who a PR waits on, in the words the board may repeat; never a guess at the user. On a solo project nobody is waited for: the merge is the user's."""
     if not facts:
         return "unknown (gh did not answer)"
     if facts["state"] == "MERGED":
@@ -768,6 +768,8 @@ def waiting_on(facts: dict | None) -> str:
         return "changes requested by " + ", ".join(facts["changes_requested_by"])
     if facts["review_decision"] == "APPROVED" or facts["approved_by"]:
         return "approved; the merge is the user's"
+    if mode == "solo":
+        return "solo project; the merge is the user's"
     return "no reviewer requested"
 
 
@@ -823,7 +825,7 @@ def reconcile(ledger: Ledger) -> dict:
             continue
         number = int(row["pr"])
         fact = facts.get(number)
-        prs.append({"pr": number, "task": row.get("task", ""), "state": (fact or {}).get("state") or "UNKNOWN", "waiting_on": waiting_on(fact)})
+        prs.append({"pr": number, "task": row.get("task", ""), "state": (fact or {}).get("state") or "UNKNOWN", "waiting_on": waiting_on(fact, (run.get("collaboration") or {}).get("mode"))})
         if fact and fact["state"] in ("MERGED", "CLOSED") and row.get("state") != "done":
             note(f"{fact['state'].lower()}-not-done", f"PR #{number} is {fact['state'].lower()} on GitHub but the row reads {row.get('state')}", row.get("task", ""), sid, number)
         # a finished worktree holds its dependencies for nothing; after a while the coordinator is nudged to retire it
@@ -991,6 +993,268 @@ def print_status(status: dict) -> None:
         print(f"probe {probe['resource']}: {'BUSY' if probe['busy'] else 'free'} ({checks})")
 
 
+# ---------------------------------------------------------------- collaboration
+
+# A project is solo or collaborative; the answer is stated in the config (or the gitignored local
+# config beside it) or inferred from the last 90 days of history and the reviews on merged PRs.
+# The run record carries one answer so every brief, skill and watcher reads the same one.
+LOCAL_CONFIG_REL = ".claude/mission-control.local.json"
+AUTHOR_WINDOW_DAYS = 90
+REVIEW_SAMPLE = 30
+BOT_MARKERS = ("[bot]", "dependabot", "renovate", "github-actions", "actions@github.com", "noreply@github.com", "copilot")
+DAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+DEFAULT_TEAM_HOURS = {"start": "09:00", "end": "18:00", "days": [0, 1, 2, 3, 4]}
+
+
+def is_bot(name: str, email: str = "") -> bool:
+    text = f"{name} {email}".lower()
+    return any(marker in text for marker in BOT_MARKERS)
+
+
+def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
+    """Distinct human authors on the checked-out history in the window, by email, most commits first."""
+    out = run_git(main, "log", f"--since={days}.days", "--format=%an\t%ae")
+    counts: dict[str, dict] = {}
+    for line in (out or "").splitlines():
+        name, _, email = line.partition("\t")
+        if not name or is_bot(name, email):
+            continue
+        key = email.strip().lower() or name.strip().lower()
+        row = counts.setdefault(key, {"name": name.strip(), "email": email.strip(), "commits": 0})
+        row["commits"] += 1
+    return sorted(counts.values(), key=lambda r: -r["commits"])
+
+
+def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
+    """The last merged PRs with who reviewed each, other than its author; (rows, whether gh answered)."""
+    code, out = sh(["gh", "pr", "list", "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    if code != 0:
+        return [], False
+    try:
+        raw = json.loads(out)
+    except ValueError:
+        return [], False
+    rows = []
+    for pr in raw if isinstance(raw, list) else []:
+        if not isinstance(pr, dict):
+            continue
+        author = str((pr.get("author") or {}).get("login") or "")
+        others = []
+        for review in pr.get("reviews") or []:
+            if not isinstance(review, dict):
+                continue
+            login = str((review.get("author") or {}).get("login") or "")
+            if not login or login == author or is_bot(login):
+                continue
+            others.append({"login": login, "state": str(review.get("state") or ""), "at": review.get("submittedAt")})
+        rows.append({"number": pr.get("number"), "author": author, "others": others})
+    return rows, True
+
+
+def parse_days(value) -> list[int]:
+    """Weekdays as Monday=0 ints, from ints, names (`mon`) or a range (`mon-fri`)."""
+    if isinstance(value, str):
+        value = [v.strip() for v in value.split(",")]
+    days: set[int] = set()
+    for item in value or []:
+        if isinstance(item, int) and 0 <= item <= 6:
+            days.add(item)
+        elif isinstance(item, str):
+            text = item.strip().lower()[:3]
+            if "-" in item:
+                first, _, last = item.lower().partition("-")
+                a, b = DAY_NAMES.index(first.strip()[:3]), DAY_NAMES.index(last.strip()[:3])
+                days.update(range(a, b + 1) if a <= b else list(range(a, 7)) + list(range(0, b + 1)))
+            elif text in DAY_NAMES:
+                days.add(DAY_NAMES.index(text))
+    return sorted(days)
+
+
+def normalise_hours(stated) -> dict | None:
+    """A stated team-hours block as {start, end, days}; None when it is not one."""
+    if not isinstance(stated, dict):
+        return None
+    start, end = str(stated.get("start") or "09:00"), str(stated.get("end") or "18:00")
+    if not re.fullmatch(r"\d{2}:\d{2}", start) or not re.fullmatch(r"\d{2}:\d{2}", end):
+        return None
+    days = parse_days(stated.get("days")) if stated.get("days") is not None else DEFAULT_TEAM_HOURS["days"]
+    return {"start": start, "end": end, "days": days or DEFAULT_TEAM_HOURS["days"]}
+
+
+def hours_from_reviews(times: list[float]) -> dict | None:
+    """Team hours inferred from when other people reviewed, in this machine's local time, padded an hour each side; None under three samples."""
+    stamps = [time.localtime(t) for t in times if t]
+    if len(stamps) < 3:
+        return None
+    first = min(lt.tm_hour for lt in stamps)
+    last = max(lt.tm_hour for lt in stamps)
+    days = sorted({lt.tm_wday for lt in stamps}) or DEFAULT_TEAM_HOURS["days"]
+    return {"start": f"{max(0, first - 1):02d}:00", "end": f"{min(23, last + 2):02d}:00", "days": days, "from_reviews": len(stamps)}
+
+
+def iso_ts(raw) -> float | None:
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def classify(main: Path, config: dict | None) -> dict:
+    """Solo or collaborative, with the evidence: the stated answer wins when there is one and the history is read to confirm it."""
+    local = read_json(main / LOCAL_CONFIG_REL, {}) or {}
+    stated, source = None, "inferred"
+    if isinstance(local, dict) and isinstance(local.get("collaboration"), dict):
+        stated, source = local["collaboration"], "local config"
+    elif isinstance((config or {}).get("collaboration"), dict):
+        stated, source = (config or {})["collaboration"], "config"
+    authors = git_authors(main)
+    prs, answered = gh_merged_reviews(main)
+    reviewed = [p for p in prs if p["others"]]
+    review_times = [iso_ts(o["at"]) for p in reviewed for o in p["others"]]
+    inferred = "collaborative" if len(authors) >= 2 or reviewed else "solo"
+    evidence = [
+        f"{len(authors)} human author{'s' if len(authors) != 1 else ''} in the last {AUTHOR_WINDOW_DAYS} days" + (": " + ", ".join(a["name"] for a in authors[:6]) if authors else ""),
+        (f"{len(reviewed)} of the last {len(prs)} merged PRs reviewed by someone other than their author" if answered else "gh could not list merged PRs, so reviews are unknown"),
+    ]
+    mode = inferred
+    stated_mode = str((stated or {}).get("mode") or "").lower()
+    if stated_mode in ("solo", "collaborative"):
+        mode = stated_mode
+        evidence.append(f"{source} says {mode}" + ("" if mode == inferred else f"; the history alone reads {inferred}"))
+    else:
+        source = "inferred"
+    hours = normalise_hours((stated or {}).get("hours")) if stated else None
+    if hours is None and mode == "collaborative":
+        hours = hours_from_reviews([t for t in review_times if t]) or dict(DEFAULT_TEAM_HOURS)
+        hours_word = "from the timestamps of the reviews by others" if hours.get("from_reviews") else "defaulted to 09:00 to 18:00, Monday to Friday"
+        evidence.append(f"team hours {hours_word}; set collaboration.hours in the config to state them")
+    if mode == "solo":
+        hours = None
+    return {
+        "mode": mode, "source": source, "inferred": inferred, "authors": [a["name"] for a in authors], "reviewed_by_others": len(reviewed),
+        "prs_sampled": len(prs), "gh_answered": answered, "hours": hours, "timezone": time.strftime("%Z"), "evidence": evidence, "at": now(),
+    }
+
+
+def minutes_of(hhmm: str) -> int:
+    hours, _, minutes = hhmm.partition(":")
+    return int(hours) * 60 + int(minutes)
+
+
+def in_window(hours: dict | None, at: float) -> bool:
+    """Whether a reviewer could plausibly answer at this moment: no hours means always."""
+    if not hours:
+        return True
+    lt = time.localtime(at)
+    if lt.tm_wday not in hours.get("days", DEFAULT_TEAM_HOURS["days"]):
+        return False
+    return minutes_of(hours["start"]) <= lt.tm_hour * 60 + lt.tm_min < minutes_of(hours["end"])
+
+
+def window_opens(hours: dict | None, at: float) -> float:
+    """The next moment the window is open, this one included."""
+    if in_window(hours, at):
+        return at
+    probe = at - (at % 60)
+    for _ in range(8 * 24 * 60):
+        probe += 60
+        if in_window(hours, probe):
+            return probe
+    return at
+
+
+def print_classification(result: dict) -> None:
+    hours = result.get("hours")
+    window = f"{hours['start']} to {hours['end']} on {', '.join(DAY_NAMES[d] for d in hours['days'])} ({result.get('timezone')})" if hours else "none: nobody to wait for"
+    print(f"{result['mode']} ({result['source']}); team hours: {window}")
+    for line in result.get("evidence", []):
+        print(f"- {line}")
+
+
+# ---------------------------------------------------------------- PR watching
+
+WATCH_FIELDS = "state,reviewDecision,reviews,comments,statusCheckRollup,mergedAt,url,title"
+WATCH_FAILURES_TOLERATED = 3
+
+
+def check_word(entry: dict) -> str:
+    """One word for a check run or status context, as pr-land reads them."""
+    if entry.get("status") and str(entry.get("status")).upper() != "COMPLETED":
+        return str(entry["status"]).lower()
+    return str(entry.get("conclusion") or entry.get("state") or "unknown").lower()
+
+
+def pr_snapshot(main: Path, number: int) -> dict | None:
+    """What the watcher compares between polls: state, decision, the reviews by login, comment counts and each check's word. None when gh did not answer."""
+    code, out = sh(["gh", "pr", "view", str(number), "--json", WATCH_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    if code != 0:
+        return None
+    try:
+        raw = json.loads(out)
+    except ValueError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    reviews = []
+    for review in raw.get("reviews") or []:
+        if isinstance(review, dict):
+            reviews.append({"login": str((review.get("author") or {}).get("login") or "?"), "state": str(review.get("state") or ""), "at": review.get("submittedAt")})
+    checks = {}
+    for entry in raw.get("statusCheckRollup") or []:
+        if isinstance(entry, dict):
+            checks[str(entry.get("name") or entry.get("context") or entry.get("workflowName") or "check")] = check_word(entry)
+    code, out = sh(["gh", "api", f"repos/{{owner}}/{{repo}}/pulls/{number}/comments", "--jq", "length"], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    review_comments = int(out.strip()) if code == 0 and out.strip().isdigit() else None
+    return {
+        "state": str(raw.get("state") or "").upper(),
+        "decision": str(raw.get("reviewDecision") or ""),
+        "reviews": reviews,
+        "comments": len(raw.get("comments") or []),
+        "review_comments": review_comments,
+        "checks": checks,
+        "merged_at": raw.get("mergedAt"),
+        "url": str(raw.get("url") or ""),
+        "title": str(raw.get("title") or ""),
+        "at": now(),
+    }
+
+
+def snapshot_changes(before: dict, after: dict) -> list[str]:
+    """What changed between two snapshots, one line each, in the words the crew session will repeat."""
+    lines = []
+    if before.get("state") != after.get("state"):
+        lines.append(f"state {before.get('state') or '?'} -> {after.get('state')}")
+    if before.get("decision") != after.get("decision"):
+        lines.append(f"review decision {before.get('decision') or 'none'} -> {after.get('decision') or 'none'}")
+    seen = {(r["login"], r["state"], r.get("at")) for r in before.get("reviews", [])}
+    for review in after.get("reviews", []):
+        if (review["login"], review["state"], review.get("at")) not in seen:
+            lines.append(f"review by {review['login']}: {review['state'].lower().replace('_', ' ')}")
+    for key, label in (("review_comments", "review comment"), ("comments", "comment")):
+        was, is_ = before.get(key), after.get(key)
+        if isinstance(was, int) and isinstance(is_, int) and is_ > was:
+            lines.append(f"{is_ - was} new {label}{'s' if is_ - was != 1 else ''}")
+    for name, word in after.get("checks", {}).items():
+        old = before.get("checks", {}).get(name)
+        if old != word:
+            lines.append(f"check {name}: {old or 'new'} -> {word}")
+    return lines
+
+
+def terminal(snapshot: dict | None) -> bool:
+    return bool(snapshot) and snapshot.get("state") in ("MERGED", "CLOSED")
+
+
+def summarise_snapshot(snapshot: dict) -> str:
+    checks = snapshot.get("checks") or {}
+    words = sorted(set(checks.values()))
+    check_text = f"{len(checks)} check{'s' if len(checks) != 1 else ''}: {', '.join(words)}" if checks else "no checks"
+    reviews = ", ".join(f"{r['login']} {r['state'].lower().replace('_', ' ')}" for r in snapshot.get("reviews", [])) or "no reviews"
+    return f"{snapshot.get('state', '?').lower()}, decision {snapshot.get('decision') or 'none'}, {reviews}, {snapshot.get('comments', 0)} comments, {snapshot.get('review_comments') if snapshot.get('review_comments') is not None else '?'} review comments, {check_text}"
+
+
 # ---------------------------------------------------------------- commands
 
 
@@ -1040,6 +1304,16 @@ def cmd_start(args) -> int:
         archive = ledger.dir.parent / "runs" / f"{time.strftime('%Y%m%d-%H%M')}-{ledger.slug}"
         archive.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(ledger.dir), str(archive))
+    found = find_config(args.cwd)
+    collaboration = classify(ledger.main, found[1] if found else None)
+    if args.collaboration:
+        collaboration["mode"] = args.collaboration
+        collaboration["source"] = "flag"
+        collaboration["evidence"].append(f"--collaboration {args.collaboration} on start" + ("" if args.collaboration == collaboration["inferred"] else f"; the history alone reads {collaboration['inferred']}"))
+        if args.collaboration == "solo":
+            collaboration["hours"] = None
+        elif not collaboration.get("hours"):
+            collaboration["hours"] = dict(DEFAULT_TEAM_HOURS)
     run = {
         "name": args.name,
         "repo_root": str(ledger.main),
@@ -1048,6 +1322,7 @@ def cmd_start(args) -> int:
         "coordinator": who,
         "base": {"branch": base_branch, "commit": commit, "on_origin": on_origin},
         "pr_approval": args.pr_approval,
+        "collaboration": collaboration,
         "crew": [],
         "assumptions": [],
         "needs": [],
@@ -1063,7 +1338,7 @@ def cmd_start(args) -> int:
     ledger.save_run(run)
     (ledger.dir / "briefs").mkdir(parents=True, exist_ok=True)
     ledger.log("start", name=args.name, coordinator=who, base=run["base"])
-    print(json.dumps(run, indent=2) if args.json else f"Run {args.name} started; coordinator {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; ledger {ledger.dir}{warning}")
+    print(json.dumps(run, indent=2) if args.json else f"Run {args.name} started; coordinator {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; {collaboration['mode']} project ({collaboration['source']}); ledger {ledger.dir}{warning}")
     return 0
 
 
@@ -1248,6 +1523,106 @@ def cmd_reconcile(args) -> int:
     else:
         print_reconcile(result)
     return 0
+
+
+def cmd_classify(args) -> int:
+    """Solo or collaborative, from the config or the history; the run record's copy when a run is active and --fresh is not passed."""
+    ledger = ledger_for(args.cwd)
+    found = find_config(args.cwd)
+    run = ledger.run()
+    result = (run or {}).get("collaboration") if run and not args.fresh else None
+    if not isinstance(result, dict):
+        result = classify(ledger.main, found[1] if found else None)
+    if args.json:
+        print(json.dumps(result))
+    else:
+        print_classification(result)
+    return 0
+
+
+def cmd_watch(args) -> int:
+    """Watch one PR until something changes, then say what and exit: the crew session runs this in the background and is woken by the exit.
+    Outside the team's hours on a collaborative project a change that is not a merge or close is held until the window opens; on a solo project there is no window."""
+    ledger = ledger_for(args.cwd)
+    run = ledger.run()
+    found = find_config(args.cwd)
+    collab = (run or {}).get("collaboration") if run else None
+    if not isinstance(collab, dict):
+        collab = classify(ledger.main, found[1] if found else None)
+    hours = collab.get("hours") if collab.get("mode") == "collaborative" else None
+    session_id = caller_session(None)
+    row = ledger.sessions().get(session_id or "", {}) if run else {}
+    number = args.pr or (int(row["pr"]) if row.get("pr") else None)
+    if not number:
+        raise Refusal("which PR? pass the number, or report it first with mc_report")
+
+    def record(status: str, seen: dict | None, changes: list[str]) -> None:
+        if not run or not row:
+            return
+        with ledger.locked():
+            fresh = ledger.sessions().get(row["session_id"])
+            if not fresh:
+                return
+            fresh["watch"] = {"pr": number, "since": (fresh.get("watch") or {}).get("since") or now(), "status": status, "checked_at": now(), "seen": seen, "last_change": changes or (fresh.get("watch") or {}).get("last_change") or []}
+            ledger.save_session(fresh)
+        ledger.log("watch", session_id=row["session_id"], pr=number, status=status, changes=changes)
+
+    previous = (row.get("watch") or {}) if row else {}
+    seen = previous.get("seen") if previous.get("pr") == number and isinstance(previous.get("seen"), dict) else None
+    if seen is None:
+        seen = pr_snapshot(ledger.main, number)
+        if seen is None:
+            raise Refusal(f"gh could not read PR #{number}; nothing to watch")
+        record("watching", seen, [])
+        if args.once:
+            print(f"#{number}: {summarise_snapshot(seen)}")
+            return 0
+        if terminal(seen):
+            print(f"#{number} is already {seen['state'].lower()}; nothing to watch")
+            record("ended", seen, [])
+            return 0
+        if collab.get("mode") == "solo" and not seen.get("checks"):
+            print(f"#{number}: solo project and no checks, so nothing will change by itself; the merge is the user's. Not watching.")
+            record("ended", seen, [])
+            return 0
+    elif args.once:
+        print(f"#{number}: {summarise_snapshot(seen)} (as last seen)")
+        return 0
+    interval = max(1.0, float(args.interval))
+    deadline = now() + float(args.max_minutes) * 60
+    failures = 0
+    held: list[str] = []
+    while True:
+        time.sleep(interval)
+        current = pr_snapshot(ledger.main, number)
+        if current is None:
+            failures += 1
+            if failures >= WATCH_FAILURES_TOLERATED:
+                print(f"#{number}: gh did not answer {failures} polls running; the watch stops here, re-arm when gh is back")
+                record("stalled", seen, [])
+                return 2
+            continue
+        failures = 0
+        changes = snapshot_changes(seen, current)
+        if changes:
+            if terminal(current) or in_window(hours, now()):
+                record("changed", current, changes)
+                print(f"#{number} changed ({'; '.join(changes)}). Now: {summarise_snapshot(current)}")
+                if terminal(current):
+                    print(f"watch ended: PR #{number} is {current['state'].lower()}; do not re-arm")
+                    record("ended", current, changes)
+                return 0
+            if changes != held:
+                held = changes
+                record("holding", seen, changes)
+        if now() >= deadline:
+            if held:
+                record("holding", seen, held)
+                print(f"#{number}: holding until the team's hours open at {clock(window_opens(hours, now()))} ({'; '.join(held)}); re-arm the watch")
+            else:
+                record("watching", current, [])
+                print(f"#{number}: no change in {args.max_minutes} minutes; re-arm the watch")
+            return 0
 
 
 def cmd_crew(args) -> int:
@@ -1707,11 +2082,19 @@ def session_start_context(payload: dict) -> str:
         return ""
     brief = plan.get("brief") or ""
     has_brief = bool(brief) and Path(brief).is_file()
+    collab = run.get("collaboration") or {}
+    hours = collab.get("hours")
+    mode_line = (
+        f"The project is {collab['mode']} ({collab.get('source', '?')}): "
+        + (f"reviewers answer {hours['start']} to {hours['end']} on {', '.join(DAY_NAMES[d] for d in hours['days'])} ({collab.get('timezone', 'local')}), and the PR watch holds outside those hours. " if hours else "nobody is waited for, the merge is the user's and the PR watch covers checks and state only. ")
+        if collab.get("mode") else ""
+    )
     return (
         f"Mission control: this worktree is crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, started by the user with /mission-control:kickoff. "
         f"The coordinator is the session named \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}); its messages arrive as cross-session messages from that socket and carry the user's instructions on sequencing, shared code and shared resources. "
         + (f"Read your brief first: {brief}. " if has_brief else "No brief has been written yet; the coordinator will message you. ")
-        + "Then invoke /mission-control:crew for how to report, request a slot and what stays with the user."
+        + mode_line
+        + "Then invoke /mission-control:crew for how to report, request a slot, watch your PR once it exists and what stays with the user."
     )
 
 
@@ -1765,6 +2148,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--base", help="the trunk branch (default: origin's HEAD)")
     sp.add_argument("--pr-approval", dest="pr_approval", choices=["user", "coordinator"], default="user",
                     help="who approves a crew session's PR description before pr-create pushes: the user in each session (default), or the coordinator")
+    sp.add_argument("--collaboration", choices=["solo", "collaborative"], help="state the project's mode instead of taking the config's or the inferred one")
+    sp.add_argument("--small-model-ok", dest="small_model_ok", action="store_true", help="the mod refuses a start from a haiku or sonnet session; this flag says the user means it")
     sp = sub.add_parser("end", help="end the run and archive the ledger")
     sp.add_argument("--force", action="store_true")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
@@ -1773,6 +2158,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("probe", help="what the machine says about a resource")
     sp.add_argument("resource", nargs="?")
     sub.add_parser("reconcile", help="diff the ledger against the live registry, GitHub and the branches on origin (a merged PR's base, an open PR's branch); print what drifted and who each PR waits on")
+    sp = sub.add_parser("classify", help="solo or collaborative: the run record's answer, else the config's, else inferred from 90 days of authors and the reviews on merged PRs")
+    sp.add_argument("--fresh", action="store_true", help="recompute even while a run holds an answer")
+    sp = sub.add_parser("watch", help="watch a PR in the background until something changes (reviews, comments, checks, state), print what and exit; held outside the team's hours on a collaborative project unless merged or closed")
+    sp.add_argument("--pr", type=int, help="the PR number (default: this session's row)")
+    sp.add_argument("--interval", type=float, default=300, help="seconds between polls (default 300)")
+    sp.add_argument("--max-minutes", dest="max_minutes", type=float, default=720, help="give up and ask to be re-armed after this long (default 720)")
+    sp.add_argument("--once", action="store_true", help="print the PR as it stands and exit")
     sp = sub.add_parser("retire", help="reclaim a finished crew session's worktree mid-run: session closed, row done, PR landed, tree clean, nothing running in it; removes it, prunes, deletes the branch with -d only (coordinator or --by-user)")
     sp.add_argument("ref", help="the session: id, prefix, task, branch or name")
     sp.add_argument("--dry-run", dest="dry_run", action="store_true", help="print what would go and the disk it holds; change nothing")
@@ -1832,7 +2224,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 COMMANDS = {
-    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire,
+    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire, "classify": cmd_classify, "watch": cmd_watch,
     "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
     "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "hook": cmd_hook,
 }
