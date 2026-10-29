@@ -1,6 +1,6 @@
 {
 	"name": "mission-control",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Coordinate several Claude Code sessions on one repository: a ledger of shared-resource slots enforced by hooks, a /mc board pane, tools that report, request, grant and broadcast, a kick-off that writes each session's brief, and the protocol that came out of running it.",
 	"author": {
 		"name": "Jason Warren"
