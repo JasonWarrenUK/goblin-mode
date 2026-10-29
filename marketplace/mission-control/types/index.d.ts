@@ -57,6 +57,8 @@ export type SessionRow = {
 	live_status: string
 	socket: string | null
 	updated_at: number
+	/** When `mc.py retire` reclaimed the worktree; the row then reads under `retired` rather than `gone`. */
+	retired_at: number | null
 }
 
 export type Slot = {

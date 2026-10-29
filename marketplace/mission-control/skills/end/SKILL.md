@@ -27,7 +27,7 @@ Only when every PR that belongs in it exists and each base is the branch below i
 
 ## Step 3: Worktrees
 
-A feature worktree is pruned only after its session has closed: the board's `live` flag is the test, and a live session's worktree is never touched. For each closed one, from the main checkout: `git worktree remove <path>`, keeping the branch (the PR needs it), then `git worktree prune`. A dirty worktree is shown and left.
+Most worktrees are already gone by now: a merged task's worktree is retired mid-run with `mc.py retire <task>`, and a row the board reads `retired` is skipped here. For each closed session whose worktree remains, the board's `live` flag is the test and a live session's worktree is never touched. A merged or closed PR's worktree goes through `mc.py retire <task>` (it removes, prunes and deletes the branch with `-d`, refusing a dirty tree or a running process). An open PR's worktree, from the main checkout: `git worktree remove <path>`, keeping the branch (the PR needs it), then `git worktree prune`. A dirty worktree is shown and left.
 
 When a stack exists, one worktree holds it: `git worktree add <main>/<worktrees.dir>/stack-<n> <top branch>` (or keep one of the pruned ones and rename it on the user's say-so), then `gh stack checkout <top pr>` inside it. Say which worktree is the stack's and that `gh stack up`/`down` move between layers there.
 

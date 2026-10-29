@@ -778,6 +778,207 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(len(missing), 1)
         self.assertIn("on origin/feat/a", missing[0]["detail"])
 
+    def test_a_claim_that_reached_main_under_another_subject_satisfies_a_merged_pr(self):
+        """A sync batch or a `done` batch carries the claim to the trunk; the roadmap's state counts, not the commit subject."""
+        self._roadmap_repo_with_origin(claim_on_branch=False, claim_on_main=True)
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 228, state="done")
+        result = self._reconcile_with(self._gh(self._merged(228)))
+        self.assertEqual([item["kind"] for item in result["drift"]], [])
+
+    def test_an_open_branch_without_its_own_claim_is_in_order_once_main_has_the_claim(self):
+        """A branch rebased past its claim commit, as the run asks once the trunk carries the claim, is not drift."""
+        self._roadmap_repo_with_origin(claim_on_branch=False, claim_on_main=True)
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 229)
+        result = self._reconcile_with(self._gh(self._open(229)))
+        self.assertEqual([item["kind"] for item in result["drift"]], [])
+
+    def test_an_unlisted_task_is_named_once_and_is_not_claim_drift(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False, listed=False)
+        self.box.start()
+        self._crew_with_pr("UXR", "crew-1", "feat/a", 230)
+        result = self._reconcile_with(self._gh(self._open(230)))
+        self.assertEqual([item["kind"] for item in result["drift"]], ["unlisted"])
+        self.assertIn("no claim expected", result["drift"][0]["detail"])
+        self.assertEqual(result["drift"][0]["task"], "UXR")
+
+    def test_a_merged_pr_line_says_merged_once(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 231, state="done")
+        result = self._reconcile_with(self._gh(self._merged(231)))
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        import io
+        from contextlib import redirect_stdout
+        out = io.StringIO()
+        with redirect_stdout(out):
+            mc_module.print_reconcile(result)
+        self.assertIn("- #231 (10SE.2): merged\n", out.getvalue())
+        self.assertNotIn("merged, merged", out.getvalue())
+
+    # retire: reclaiming a finished crew worktree while the run goes on
+
+    def _retire_with(self, fake_sh, *cli):
+        """`mc.py retire` in-process, with gh faked and du/lsof answered by the same fake (a non-gh argv returns 1, which lsof treats as 'nothing listed')."""
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
+        mc_module.sh = fake_sh
+        mc_module.LEDGER_ROOT = self.box.ledger_root
+        mc_module.SESSIONS_DIR = self.box.sessions
+        import io
+        from contextlib import redirect_stdout
+        out = io.StringIO()
+        try:
+            with redirect_stdout(out):
+                code = mc_module.main(["--cwd", str(self.box.repo), "--session", "coord-1", "retire", *cli])
+        finally:
+            mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = real
+        return code, out.getvalue()
+
+    def _closed_crew(self, pr=240, state="done"):
+        """A crew session with a PR, joined from the worktree, reported and then closed (gone from the registry)."""
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", state, "--pr", str(pr), session="crew-1", cwd=self.box.worktree)
+        (self.box.sessions / "crew-1.json").unlink()
+
+    def test_retire_removes_the_worktree_prunes_and_deletes_the_merged_branch(self):
+        self._closed_crew()
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 0, out)
+        self.assertIn("retired 10SE.2", out)
+        self.assertIn("branch feat/a deleted", out)
+        self.assertFalse(self.box.worktree.exists())
+        self.assertNotIn("feat/a", subprocess.run(["git", "-C", str(self.box.repo), "branch", "--list", "feat/a"], capture_output=True, text=True).stdout)
+        rows = list((self.box.ledger_root).glob("*/sessions/crew-1.json"))
+        row = json.loads(rows[0].read_text())
+        self.assertEqual(row["retired"]["by"], "coordinator")
+        self.assertEqual(Path(row["retired"]["worktree"]).resolve(), self.box.worktree.resolve())
+        self.assertTrue(row["retired"]["branch_deleted"])
+        log = (rows[0].parent.parent / "log.jsonl").read_text()
+        self.assertIn('"event": "retire"', log)
+
+    def test_retire_keeps_a_branch_git_will_not_fast_delete(self):
+        """A PR squash-merged on GitHub leaves a local branch `-d` refuses; retire reports that and never forces."""
+        self._closed_crew()
+        (self.box.worktree / "work.txt").write_text("x\n")
+        git(self.box.worktree, "add", "work.txt")
+        git(self.box.worktree, "commit", "-q", "-m", "feat: work")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.box.worktree.exists())
+        self.assertIn("branch feat/a kept", out)
+        self.assertIn("feat/a", subprocess.run(["git", "-C", str(self.box.repo), "branch", "--list", "feat/a"], capture_output=True, text=True).stdout)
+
+    def test_retire_dry_run_changes_nothing(self):
+        self._closed_crew()
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2", "--dry-run")
+        self.assertEqual(code, 0, out)
+        self.assertIn("dry run", out)
+        self.assertIn("would remove worktree", out)
+        self.assertTrue(self.box.worktree.exists())
+        rows = list((self.box.ledger_root).glob("*/sessions/crew-1.json"))
+        self.assertNotIn("retired", json.loads(rows[0].read_text()))
+
+    def test_retire_refuses_a_live_session_an_unfinished_row_an_open_pr_and_a_dirty_tree(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "done", "--pr", "240", session="crew-1", cwd=self.box.worktree)
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("still live", out)
+        (self.box.sessions / "crew-1.json").unlink()
+        self.box.mc("report", "--for", "10SE.2", "--state", "pr-ready", session="coord-1")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("not done", out)
+        # a different PR number for the open case, since pr_facts caches an answer for a minute
+        self.box.mc("report", "--for", "10SE.2", "--state", "done", "--pr", "241", session="coord-1")
+        code, out = self._retire_with(self._gh(self._open(241)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("is open on GitHub", out)
+        self.box.mc("report", "--for", "10SE.2", "--pr", "240", session="coord-1")
+        (self.box.worktree / "scratch.txt").write_text("x\n")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("is dirty", out)
+        self.assertTrue(self.box.worktree.exists())
+
+    def test_retire_refuses_while_an_open_pr_is_stacked_on_the_branch(self):
+        self._closed_crew()
+        upper = self.box.repo / ".claude" / "worktrees" / "crew-b"
+        git(self.box.repo, "worktree", "add", "-q", "-b", "feat/b", str(upper), "feat/a")
+        self.box.register("crew-2", "10se3", str(upper))
+        self.box.mc("crew", "add", "--task", "10SE.3", "--branch", "feat/b", "--worktree", str(upper), session="coord-1")
+        self.box.mc("join", "--task", "10SE.3", "--branch", "feat/b", session="crew-2", cwd=upper)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "241", session="crew-2", cwd=upper)
+        answers = {**self._merged(240), **self._open(241)}
+        answers["241"]["baseRefName"] = "feat/a"
+        code, out = self._retire_with(self._gh(answers), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("#241 (10SE.3) is based on feat/a", out)
+        self.assertTrue(self.box.worktree.exists())
+
+    def test_retire_refuses_while_something_runs_in_the_worktree_and_lists_the_kill_as_a_need(self):
+        self._closed_crew()
+        gh = self._gh(self._merged(240))
+
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:2] == ["lsof", "-d"]:
+                return 0, f"p4242\ncnode\nn{self.box.worktree}/apps/api\np1\nclaunchd\nn/\n"
+            return gh(argv, timeout, cwd)
+
+        code, out = self._retire_with(fake_sh, "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("4242 (node)", out)
+        self.assertIn("`kill 4242`", out)
+        self.assertTrue(self.box.worktree.exists())
+        needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
+        self.assertEqual(needs[-1]["command"], "kill 4242")
+        self.assertEqual(needs[-1]["task"], "10SE.2")
+
+    def test_retire_asks_gh_afresh_rather_than_trusting_a_cached_open_state(self):
+        """A merge made a moment ago: reconcile cached the PR as open, retire must still see it merged."""
+        self._closed_crew()
+        self._reconcile_with(self._gh(self._open(240)))  # fills pr-facts.json with OPEN, well inside the cache window
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.box.worktree.exists())
+
+    def test_retire_twice_says_when_it_was_retired(self):
+        self._closed_crew()
+        self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("was retired at", out)
+
+    def test_reconcile_nudges_a_merged_done_row_whose_worktree_lingers(self):
+        self._closed_crew()
+        result = self._reconcile_with(self._gh(self._merged(240)))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertIn("unretired", kinds)
+        nudge = next(item for item in result["drift"] if item["kind"] == "unretired")
+        self.assertIn("`mc.py retire 10SE.2`", nudge["detail"])
+        self.assertIn("worktree still present", nudge["detail"])
+        # retired, the nudge goes
+        self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        result = self._reconcile_with(self._gh(self._merged(240)))
+        self.assertNotIn("unretired", [item["kind"] for item in result["drift"]])
+
+    def test_reconcile_does_not_nudge_a_fresh_merge(self):
+        self._closed_crew()
+        fresh = self._merged(240)
+        fresh["240"]["mergedAt"] = "2999-01-01T00:00:00Z"
+        result = self._reconcile_with(self._gh(fresh))
+        self.assertNotIn("unretired", [item["kind"] for item in result["drift"]])
+
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")

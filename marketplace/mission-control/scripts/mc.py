@@ -45,6 +45,7 @@ import subprocess
 import sys
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 CONFIG_REL = ".claude/mission-control.json"
@@ -701,8 +702,8 @@ def normalise_pr_facts(raw: dict) -> dict:
     }
 
 
-def pr_facts(ledger: Ledger, numbers: set[int]) -> dict[int, dict]:
-    """What GitHub says about each PR beyond its state: who it waits on. Cached and hang-guarded like pr_states, in its own file; a PR gh cannot read is left out."""
+def pr_facts(ledger: Ledger, numbers: set[int], fresh: set[int] | None = None) -> dict[int, dict]:
+    """What GitHub says about each PR beyond its state: who it waits on. Cached and hang-guarded like pr_states, in its own file; a PR gh cannot read is left out. A number in `fresh` is asked of gh whatever the cache holds: a decision that removes something (retire) is not taken on a minute-old answer."""
     cache_path = ledger.dir / "pr-facts.json"
     cache = read_json(cache_path, {}) or {}
     found: dict[int, dict] = {}
@@ -710,7 +711,7 @@ def pr_facts(ledger: Ledger, numbers: set[int]) -> dict[int, dict]:
     hanging = False
     for number in sorted(numbers):
         hit = cache.get(str(number)) or {}
-        if isinstance(hit.get("facts"), dict) and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
+        if number not in (fresh or set()) and isinstance(hit.get("facts"), dict) and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
             found[number] = hit["facts"]
             continue
         if hanging:
@@ -736,6 +737,21 @@ def pr_facts(ledger: Ledger, numbers: set[int]) -> dict[int, dict]:
     if changed and ledger.dir.is_dir():
         write_json(cache_path, cache)
     return found
+
+
+# how long a merged task's worktree may sit before reconcile nudges the coordinator to retire it
+RETIRE_NUDGE_SECONDS = 60 * 60
+
+
+def merged_at(facts: dict | None) -> float | None:
+    """When GitHub says the PR merged, as a timestamp; None when it has not or the date is unreadable."""
+    raw = (facts or {}).get("merged_at")
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
 
 
 def waiting_on(facts: dict | None) -> str:
@@ -810,6 +826,12 @@ def reconcile(ledger: Ledger) -> dict:
         prs.append({"pr": number, "task": row.get("task", ""), "state": (fact or {}).get("state") or "UNKNOWN", "waiting_on": waiting_on(fact)})
         if fact and fact["state"] in ("MERGED", "CLOSED") and row.get("state") != "done":
             note(f"{fact['state'].lower()}-not-done", f"PR #{number} is {fact['state'].lower()} on GitHub but the row reads {row.get('state')}", row.get("task", ""), sid, number)
+        # a finished worktree holds its dependencies for nothing; after a while the coordinator is nudged to retire it
+        landed = merged_at(fact) if fact and fact["state"] == "MERGED" else None
+        if landed is not None and row.get("state") == "done" and not row.get("retired") and sid not in live and now() - landed > RETIRE_NUDGE_SECONDS:
+            worktree = row.get("worktree") or ""
+            if worktree and Path(worktree).is_dir() and not same_path(worktree, ledger.main):
+                note("unretired", f"done since {clock(landed)}, worktree still present; `mc.py retire {row.get('task') or sid[:8]}`", row.get("task", ""), sid, number)
 
     for need in run.get("needs", []):
         if need.get("status") == "done":
@@ -1058,6 +1080,130 @@ def cmd_end(args) -> int:
     archive.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(ledger.dir), str(archive))
     print(f"Run {run['name']} ended; ledger archived to {archive}")
+    return 0
+
+
+def worktree_bytes(path: Path) -> int | None:
+    """What a worktree holds on disk, dependencies included; None when du cannot say."""
+    code, out = sh(["du", "-sk", str(path)], timeout=60)
+    if code != 0:
+        return None
+    try:
+        return int(out.split()[0]) * 1024
+    except (IndexError, ValueError):
+        return None
+
+
+def human_bytes(count: int | None) -> str:
+    if count is None:
+        return "size unknown"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    size = float(count)
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            return f"{size:.0f} {unit}" if unit in ("B", "KB") else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{count} B"
+
+
+def worktree_processes(path: Path) -> list[dict] | None:
+    """Every process whose working directory is in the worktree (a dev server left running, a watcher, a shell), by lsof; None when lsof cannot answer. Own process and parent excluded."""
+    code, out = sh(["lsof", "-d", "cwd", "-Fpcn"], timeout=20)
+    if code not in (0, 1):  # lsof exits 1 when some process could not be read, with the rest still listed
+        return None
+    mine = {os.getpid(), os.getppid()}
+    found: list[dict] = []
+    pid, cmd = 0, ""
+    for line in out.splitlines():
+        if line.startswith("p"):
+            pid, cmd = int(line[1:] or 0), ""
+        elif line.startswith("c"):
+            cmd = line[1:]
+        elif line.startswith("n") and pid not in mine and inside(line[1:], str(path)):
+            found.append({"pid": pid, "command": cmd})
+    return found
+
+
+def cmd_retire(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return retire_locked(args, ledger)
+
+
+def retire_locked(args, ledger: Ledger) -> int:
+    """Reclaim a finished crew session's worktree while the run goes on: only once the session has closed, its row is done, its PR has landed, the tree is clean, nothing runs in it, no slot is held and no open PR is based on its branch. Removes the worktree, prunes, deletes the branch with `-d` only, and records the retirement on the row."""
+    run = ledger.require_run()
+    caller = caller_session(args.session)
+    by = authorise(run, caller, args.by_user, "retire a crew worktree")
+    sessions = ledger.sessions()
+    session_id = resolve_session(args.ref, sessions)
+    row = sessions[session_id]
+    label = row.get("task") or row.get("branch") or session_id[:8]
+    if row.get("retired"):
+        raise Refusal(f"{label} was retired at {clock(row['retired'].get('at'))}")
+    if session_id in registry():
+        raise Refusal(f"{label}'s session is still live; it closes first, then retire")
+    if row.get("state") != "done":
+        raise Refusal(f"{label}'s row reads {row.get('state')}, not done")
+    if not row.get("pr"):
+        raise Refusal(f"{label} has no PR on its row; retire reclaims a worktree whose PR has landed")
+    numbers = {int(r["pr"]) for r in sessions.values() if r.get("pr")}
+    # this PR's state is asked of gh now, never read from the cache: a merge made a moment ago is the common case
+    facts = pr_facts(ledger, numbers, fresh={int(row["pr"])})
+    fact = facts.get(int(row["pr"]))
+    if not fact:
+        raise Refusal(f"gh could not say what state PR #{row['pr']} is in; retire needs it merged or closed")
+    if fact["state"] not in ("MERGED", "CLOSED"):
+        raise Refusal(f"PR #{row['pr']} is {fact['state'].lower()} on GitHub; retire needs it merged or closed")
+    branch = row.get("branch") or ""
+    stacked = [f"#{n} ({(next((r.get('task') for r in sessions.values() if str(r.get('pr')) == str(n)), '') or '?')})" for n, f in facts.items() if f["state"] == "OPEN" and branch and f.get("base") == branch]
+    if stacked:
+        raise Refusal(f"open PR {', '.join(stacked)} is based on {branch}; the branch stays until it lands")
+    held = [r for r, s in ledger.slots().items() if s.get("holder") == session_id]
+    if held:
+        raise Refusal(f"{label} still holds {', '.join(held)}; release first")
+    worktree = Path(row.get("worktree") or "")
+    if not row.get("worktree") or not worktree.is_dir():
+        raise Refusal(f"{label}'s worktree {worktree or '(none recorded)'} is not on disk; nothing to retire" + ("" if not branch else f" (the branch {branch} may still want `git branch -d`)"))
+    if same_path(worktree, ledger.main):
+        raise Refusal(f"{label}'s worktree is the main checkout; never retired")
+    dirty = run_git(worktree, "status", "--porcelain")
+    if dirty is None:
+        raise Refusal(f"{worktree} is not a git worktree git can read")
+    if dirty:
+        raise Refusal(f"{worktree} is dirty ({len(dirty.splitlines())} paths); commit, stash or discard first, then retire")
+    running = worktree_processes(worktree)
+    size = worktree_bytes(worktree)
+    if running:
+        kills = " ".join(str(p["pid"]) for p in running)
+        listed = ", ".join(f"{p['pid']} ({p['command'] or '?'})" for p in running)
+        if not args.dry_run:
+            needs = run.setdefault("needs", [])
+            n = 1 + max([x.get("n", 0) for x in needs] or [0])
+            need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""),
+                    "why": f"processes still run in {label}'s worktree ({listed}); retire removes it once they are gone",
+                    "command": f"kill {kills}", "cwd": str(ledger.main), "status": "open", "at": now()}
+            needs.append(need)
+            ledger.save_run(run)
+            ledger.log("need", **need)
+        raise Refusal(f"processes still run in {worktree}: {listed}; `kill {kills}` first" + ("" if args.dry_run else f" (need #{need['n']})"))
+    if running is None:
+        print(f"note: lsof could not list processes, so nothing is known about what runs in {worktree}")
+    merged = f"{fact['state'].lower()} via #{row['pr']}" + (f" into {fact['base']}" if fact.get("base") else "")
+    if args.dry_run:
+        print(f"retire {label} (dry run): would remove worktree {worktree} ({human_bytes(size)}), `git worktree prune`, then `git branch -d {branch}` ({merged})")
+        return 0
+    removed = run_git(ledger.main, "worktree", "remove", str(worktree))
+    if removed is None:
+        raise Refusal(f"git refused to remove {worktree}; it is left as it was")
+    run_git(ledger.main, "worktree", "prune")
+    branch_deleted = bool(branch) and run_git(ledger.main, "branch", "-d", branch) is not None
+    row["retired"] = {"at": now(), "by": by, "worktree": str(worktree), "bytes_freed": size, "branch_deleted": branch_deleted}
+    row["updated_at"] = now()
+    ledger.save_session(row)
+    ledger.log("retire", session_id=session_id, task=row.get("task", ""), branch=branch, worktree=str(worktree), bytes_freed=size, branch_deleted=branch_deleted, by=by)
+    branch_word = f"branch {branch} deleted" if branch_deleted else (f"branch {branch} kept: `git branch -d` refused it (not fully merged here; `git branch -D` is the user's call)" if branch else "no branch recorded")
+    print(json.dumps(row) if args.json else f"retired {label}: worktree {worktree} removed ({human_bytes(size)} freed), {branch_word}; {merged}")
     return 0
 
 
@@ -1627,6 +1773,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("probe", help="what the machine says about a resource")
     sp.add_argument("resource", nargs="?")
     sub.add_parser("reconcile", help="diff the ledger against the live registry, GitHub and the branches on origin (a merged PR's base, an open PR's branch); print what drifted and who each PR waits on")
+    sp = sub.add_parser("retire", help="reclaim a finished crew session's worktree mid-run: session closed, row done, PR landed, tree clean, nothing running in it; removes it, prunes, deletes the branch with -d only (coordinator or --by-user)")
+    sp.add_argument("ref", help="the session: id, prefix, task, branch or name")
+    sp.add_argument("--dry-run", dest="dry_run", action="store_true", help="print what would go and the disk it holds; change nothing")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("crew", help="the crew plan: add a task's branch, worktree and brief path, or list")
     sp.add_argument("action", choices=["add", "list"])
     sp.add_argument("--task")
@@ -1682,7 +1832,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 COMMANDS = {
-    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile,
+    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire,
     "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
     "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "hook": cmd_hook,
 }

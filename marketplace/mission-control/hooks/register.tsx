@@ -155,6 +155,7 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		live_status: str(s.live_status),
 		socket: str(s.socket) || null,
 		updated_at: num(s.updated_at),
+		retired_at: isRecord(s.retired) ? num(s.retired.at) || null : null,
 	}))
 	const slots: Slot[] = list(data.slots).map(s => ({
 		resource: str(s.resource),
@@ -758,12 +759,15 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 	)
 }
 
-/** Where a state sits on the board: what needs the coordinator first, finished and gone sessions last. */
-const CREW_GROUPS = ['in-slot', 'working', 'blocked', 'waiting-jason', 'briefing', 'pr-ready', 'done', 'gone'] as const
+/** Where a state sits on the board: what needs the coordinator first, finished, retired and gone sessions last. */
+const CREW_GROUPS = ['in-slot', 'working', 'blocked', 'waiting-jason', 'briefing', 'pr-ready', 'done', 'retired', 'gone'] as const
 
-/** The crew by the group their row reads in (a gone session is `gone` whatever it last reported); ledger order holds within a group. */
+/** Groups whose heading reads dim: nothing in them needs anyone. */
+const QUIET_GROUPS = new Set(['retired', 'gone'])
+
+/** The crew by the group their row reads in (a closed session is `retired` once its worktree is reclaimed, else `gone` whatever it last reported); ledger order holds within a group. */
 export const crewGroups = (sessions: readonly Snapshot['sessions'][number][]): { group: string; sessions: Snapshot['sessions'] }[] => {
-	const groupOf = (s: Snapshot['sessions'][number]): string => (s.live ? s.state : 'gone')
+	const groupOf = (s: Snapshot['sessions'][number]): string => (s.live ? s.state : s.retired_at ? 'retired' : 'gone')
 	const rank = (group: string): number => {
 		const at = (CREW_GROUPS as readonly string[]).indexOf(group)
 		return at === -1 ? CREW_GROUPS.length - 1 : at
@@ -778,8 +782,8 @@ const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: 
 	let nth = 0
 	return grouped.flatMap(({ group, sessions }, at) => [
 		<Box key={`group-${group}`} flexDirection="row" columnGap={1} marginTop={at === 0 ? 0 : 1}>
-			<Text color={group === 'gone' ? 'subtle' : stateColour(group) ?? 'claude'}>▸</Text>
-			<Text weight="bold" dimColor={group === 'gone'} color={group === 'gone' ? undefined : stateColour(group)}>
+			<Text color={QUIET_GROUPS.has(group) ? 'subtle' : stateColour(group) ?? 'claude'}>▸</Text>
+			<Text weight="bold" dimColor={QUIET_GROUPS.has(group)} color={QUIET_GROUPS.has(group) ? undefined : stateColour(group)}>
 				{group} · {sessions.length}
 			</Text>
 		</Box>,
@@ -795,16 +799,17 @@ const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], 
 		const isMe = s.session_id === me.sessionId
 		const label = s.task || s.branch || s.name || s.session_id.slice(0, 8)
 		const gone = !s.live
+		const retired = gone && s.retired_at !== null
 		const worktreeName = (s.worktree ?? '').split('/').filter(Boolean).pop() ?? ''
 		return (
 			<Box key={key} flexDirection="column">
 				<Box flexDirection="row" columnGap={1}>
-					<Text dimColor={gone} color={s.live ? (s.live_status === 'busy' ? 'claude' : 'success') : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
+					<Text dimColor={gone} color={s.live ? (s.live_status === 'busy' ? 'claude' : 'success') : retired ? 'subtle' : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
 					<Button key={`row-${key}`} plain hotkey={i < 9 ? String(i + 1) : undefined} dimColor={gone || (picked !== null && picked !== key)} label={label} onPress={() => update($, selected, () => key)} />
 					<Text dimColor>{s.branch && s.branch !== label ? s.branch : ''}</Text>
-					{worktreeName ? <Text dimColor>{worktreeName}</Text> : null}
-					<Text dimColor={gone} color={gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
-						{gone ? 'gone' : s.state}
+					{worktreeName && !retired ? <Text dimColor>{worktreeName}</Text> : null}
+					<Text dimColor={gone} color={retired ? undefined : gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
+						{retired ? 'retired' : gone ? 'gone' : s.state}
 					</Text>
 					{s.pr ? <Text dimColor={gone} color="claude">#{s.pr}</Text> : null}
 					{s.pr && s.pr_state && s.pr_state !== 'OPEN' ? <Text dimColor={gone} color={s.pr_state === 'MERGED' ? 'success' : 'subtle'}>{s.pr_state.toLowerCase()}</Text> : null}
@@ -813,7 +818,7 @@ const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], 
 				<Box flexDirection="row" paddingLeft={4} columnGap={1}>
 					<Box width={Math.max(10, inner - 14)}>
 						<Text dimColor wrap={picked === key ? 'wrap' : 'truncate-end'}>
-							{s.summary || (s.live ? 'no report yet' : 'session gone')}
+							{retired ? `worktree retired ${s.retired_at ? ago(now - s.retired_at * 1000) : ''} ago` : s.summary || (s.live ? 'no report yet' : 'session gone')}
 						</Text>
 					</Box>
 					<Text dimColor>{s.updated_at ? `${ago(now - s.updated_at * 1000)} ago` : ''}</Text>
@@ -933,12 +938,14 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 			return words[1] ? byUser(['release', words[1]]) : 'usage: /mc release <resource>'
 		case 'done':
 			return words[1] ? byUser(['needs', 'done', words[1]]) : 'usage: /mc done <need number>'
+		case 'retire':
+			return words[1] ? byUser(['retire', words[1], ...(words[2] === 'dry' ? ['--dry-run'] : [])]) : 'usage: /mc retire <task|branch|name> [dry]'
 		case 'status': {
 			const ran = await run($, ['status', '--probe'])
 			return ran.exitCode === 0 ? ran.stdout : reasonOf(ran, 'status refused')
 		}
 		default:
-			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc release <resource> · /mc done <n> · /mc status · /mc end [force]'
+			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc release <resource> · /mc done <n> · /mc retire <task> [dry] · /mc status · /mc end [force]'
 	}
 }
 

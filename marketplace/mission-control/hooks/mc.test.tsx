@@ -395,6 +395,15 @@ test('helpers: crewGroups orders by what needs attention and keeps ledger order 
 	// a gone session is gone whatever it last reported
 	expect(groups[2]?.sessions.map(s => s.task)).toEqual(['10SE.5'])
 	expect(crewGroups([])).toEqual([])
+	// a closed session whose worktree was retired reads under retired, after done and before gone
+	const [base] = STATUS.sessions
+	const retired = parseSnapshot(JSON.stringify({ ...STATUS, sessions: [
+		{ ...base, session_id: 'crew-4', task: '10SE.5', state: 'working', live: false },
+		{ ...base, session_id: 'crew-5', task: '10SE.6', state: 'done', live: false, retired: { at: 1_700_000_000 } },
+		{ ...base, session_id: 'crew-6', task: '10SE.7', state: 'done', live: true },
+	] }), NOON)
+	expect(crewGroups(retired.sessions).map(g => g.group)).toEqual(['done', 'retired', 'gone'])
+	expect(retired.sessions[1]?.retired_at).toBe(1_700_000_000)
 })
 
 test('the board groups the crew under a subheading per state', async ($, on) => {

@@ -94,7 +94,7 @@ Trunk moves during a run. When it does: a commit on trunk that changes a generat
 ## 10. Ending
 
 1. PRs are linked into a stack only once they exist and their bases are right, by PR number, bottom to top. Independent PRs stay off the stack.
-2. A worktree is pruned only after the user closes its session; the board shows which sessions are still live.
+2. A worktree is retired once its session has closed and its PR has landed, by `mc.py retire <task>` (or `/mc retire <task>`) while the run goes on: it refuses while the session is live, the row is not `done`, the PR is open, the tree is dirty, a slot is held, something still runs in the tree or an open PR is based on the branch; otherwise it removes the worktree, prunes, deletes the branch with `-d` only and records the retirement on the row (the board reads it `retired`). `reconcile` nudges after an hour. `end` is the backstop for whatever is left; a live session's worktree is never touched.
 3. One stack worktree stays for sync and review fixes. Tests, lint and contract regeneration run on the top layer before the final push.
 4. Follow-up work found during the run goes on the roadmap (`/roadmap:update-tasks`).
 5. `mc.py end` archives the ledger under `runs/`.

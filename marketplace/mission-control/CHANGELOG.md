@@ -4,6 +4,16 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `mc.py retire <task>` (and `/mc retire <task> [dry]` from the board) reclaims a finished crew session's worktree while the run goes on, so a long run does not keep every merged task's dependencies on disk until `end`. It refuses, naming why, while the session is live, the row is not `done`, the PR is open or unknown, the tree is dirty, the session holds a slot, an open PR is based on the branch or a process still has the worktree as its working directory (that one also lands on the needs list with the `kill`). Otherwise it removes the worktree, prunes, deletes the branch with `-d` only (a refusal is reported, never forced) and records the retirement on the row with the time, who ran it and the bytes freed. `--dry-run` prints what would go and the disk it holds. The board reads such a row `retired`, in its own group after `done`; `reconcile` nudges with an `unretired` line once a merged task's worktree has sat an hour; `end` skips what is already retired. From the CHIRPdb run, where a merged task's worktree held several hundred megabytes for a day.
+
+### Fixed
+
+- `mc.py reconcile` reads a task's claim from the roadmap itself (`started` on the task, at the ref where it ought to be) instead of grepping for a `chore(roadmap): claim <id>` commit subject. A claim that reached the trunk through a sync batch or a `done` batch now counts, and an open branch that dropped its own claim commit once the trunk carried the claim is no longer drift. A task the roadmap does not list is named once as `unlisted`, with no claim expected. Reported from the CHIRPdb run, where all three claim lines were false positives.
+- A merged PR's line no longer reads `merged, merged`.
+- The board's crew group headings (`blocked · 1`, `pr-ready · 2`) are bold, coloured by state and spaced from the group above, so the groups read as sections.
+
 ## [0.3.0] - 2026-10-28
 
 ### Added
