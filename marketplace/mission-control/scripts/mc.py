@@ -45,12 +45,18 @@ import subprocess
 import sys
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 CONFIG_REL = ".claude/mission-control.json"
 LEDGER_ROOT = Path(os.environ.get("MISSION_CONTROL_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "mission-control"))
 SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "sessions"))
 STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting-jason", "done")
+# a need's why is what the user reads before typing a hosted command, so it is not cut mid-sentence; a pasted result can be a query's whole output
+NEED_WHY_LIMIT = 1200
+RESULT_LIMIT = 20_000
+# how long a decision may go unacknowledged by a session it was told to before reconcile says so
+DECISION_ACK_SECONDS = 30 * 60
 # the states a release puts back; anything else the slot interrupted was plain work
 RESTORED_STATES = ("pr-ready", "blocked", "waiting-jason", "done")
 BY_USER = "--by-user"
@@ -174,16 +180,39 @@ def caller_session(explicit: str | None) -> str | None:
     return explicit or os.environ.get("CLAUDE_CODE_SESSION_ID") or None
 
 
+def same_identity(pid_a, socket_a, pid_b, socket_b) -> bool:
+    """One process: the pids match and, where both sides know their socket, the sockets match too (a /clear keeps both)."""
+    if not pid_a or pid_a != pid_b:
+        return False
+    return not (socket_a and socket_b) or socket_a == socket_b
+
+
+def same_process(recorded: dict, live: dict[str, dict]) -> dict | None:
+    """The live registry row that is the recorded session's own process under another id: a /clear keeps the pid and the socket and issues a new id. None when nothing matches."""
+    for sid, row in live.items():
+        if sid == recorded.get("session_id"):
+            continue
+        if same_identity(recorded.get("pid"), recorded.get("socket"), row.get("pid"), row.get("messagingSocketPath")):
+            return {"session_id": sid, "pid": row.get("pid"), "socket": row.get("messagingSocketPath"), "name": row.get("name") or ""}
+    return None
+
+
 def live_coordinator(recorded: dict) -> dict:
     """The coordinator as the registry has it now.
 
-    A session id outlives a restart, a resume or a /clear; its pid, socket and
-    name do not. The id is the identity, so the rest is read live and the
-    recorded values are only the fallback for a coordinator that is not running.
+    A session id outlives a resume and a compaction; a /clear issues a new one
+    while the pid and the socket stay. The id is the identity, so pid, socket
+    and name are read live and the recorded values are the fallback for a
+    coordinator that is not running. When the recorded id has no live row but
+    its process is live under another id, that row is offered as
+    `rebind_candidate`: never adopted silently, since every coordinator-only
+    write would otherwise follow a guess.
     """
-    row = registry().get(str(recorded.get("session_id") or ""))
+    live = registry()
+    row = live.get(str(recorded.get("session_id") or ""))
     if not row:
-        return recorded
+        candidate = same_process(recorded, live)
+        return {**recorded, "rebind_candidate": candidate} if candidate else recorded
     return {
         **recorded,
         "pid": row.get("pid"),
@@ -280,6 +309,36 @@ class Ledger:
     # requests
     def request_path(self, resource: str, session_id: str) -> Path:
         return self.dir / "requests" / f"{resource}__{session_id}.json"
+
+    # decisions: what the user decided and when, appended, never rewritten
+    @property
+    def decisions_path(self) -> Path:
+        return self.dir / "decisions.jsonl"
+
+    def decisions(self) -> list[dict]:
+        rows: dict[int, dict] = {}
+        if not self.decisions_path.is_file():
+            return []
+        for line in self.decisions_path.read_text().splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(row, dict) or "n" not in row:
+                continue
+            if row.get("ack"):
+                # an acknowledgement line adds the session to the decision it names
+                target = rows.get(int(row["n"]))
+                if target is not None and row["ack"] not in target.setdefault("acks", []):
+                    target["acks"].append(row["ack"])
+                continue
+            rows[int(row["n"])] = {**row, "acks": list(row.get("acks") or [])}
+        return [rows[n] for n in sorted(rows)]
+
+    def append_decision(self, row: dict) -> None:
+        self.dir.mkdir(parents=True, exist_ok=True)
+        with self.decisions_path.open("a") as fh:
+            fh.write(json.dumps(row) + "\n")
 
     def requests(self) -> list[dict]:
         rows = []
@@ -701,8 +760,8 @@ def normalise_pr_facts(raw: dict) -> dict:
     }
 
 
-def pr_facts(ledger: Ledger, numbers: set[int]) -> dict[int, dict]:
-    """What GitHub says about each PR beyond its state: who it waits on. Cached and hang-guarded like pr_states, in its own file; a PR gh cannot read is left out."""
+def pr_facts(ledger: Ledger, numbers: set[int], fresh: set[int] | None = None) -> dict[int, dict]:
+    """What GitHub says about each PR beyond its state: who it waits on. Cached and hang-guarded like pr_states, in its own file; a PR gh cannot read is left out. A number in `fresh` is asked of gh whatever the cache holds: a decision that removes something (retire) is not taken on a minute-old answer."""
     cache_path = ledger.dir / "pr-facts.json"
     cache = read_json(cache_path, {}) or {}
     found: dict[int, dict] = {}
@@ -710,7 +769,7 @@ def pr_facts(ledger: Ledger, numbers: set[int]) -> dict[int, dict]:
     hanging = False
     for number in sorted(numbers):
         hit = cache.get(str(number)) or {}
-        if isinstance(hit.get("facts"), dict) and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
+        if number not in (fresh or set()) and isinstance(hit.get("facts"), dict) and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
             found[number] = hit["facts"]
             continue
         if hanging:
@@ -738,8 +797,23 @@ def pr_facts(ledger: Ledger, numbers: set[int]) -> dict[int, dict]:
     return found
 
 
-def waiting_on(facts: dict | None) -> str:
-    """Who a PR waits on, in the words the board may repeat; never a guess at the user."""
+# how long a merged task's worktree may sit before reconcile nudges the coordinator to retire it
+RETIRE_NUDGE_SECONDS = 60 * 60
+
+
+def merged_at(facts: dict | None) -> float | None:
+    """When GitHub says the PR merged, as a timestamp; None when it has not or the date is unreadable."""
+    raw = (facts or {}).get("merged_at")
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def waiting_on(facts: dict | None, mode: str | None = None) -> str:
+    """Who a PR waits on, in the words the board may repeat; never a guess at the user. On a solo project nobody is waited for: the merge is the user's."""
     if not facts:
         return "unknown (gh did not answer)"
     if facts["state"] == "MERGED":
@@ -752,17 +826,34 @@ def waiting_on(facts: dict | None) -> str:
         return "changes requested by " + ", ".join(facts["changes_requested_by"])
     if facts["review_decision"] == "APPROVED" or facts["approved_by"]:
         return "approved; the merge is the user's"
+    if mode == "solo":
+        return "solo project; the merge is the user's"
     return "no reviewer requested"
 
 
-def claim_on_main(main: Path, task: str, ref: str = "origin/main") -> bool | None:
-    """Whether a ref carries roadmap:claim's commit for a task; None when the repo has no rich roadmap or the ref does not resolve."""
+def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str | None:
+    """What the roadmap at a ref says about a task's claim: True when the task carries `started` there, False when it is listed without one,
+    "unlisted" when the task is not in that roadmap at all, None when the repo has no rich roadmap, the ref does not resolve or the file there is not a roadmap.
+    The state is what counts, never which commit carried it: a claim reaches the trunk through roadmap:claim, a sync batch or a `done` batch alike, and a branch rebased past its own claim commit is in order once the trunk has the claim."""
     if not (main / ".claude" / "roadmaps.json").is_file():
         return None
     if run_git(main, "rev-parse", "--verify", "--quiet", ref) is None:
         return None
-    found = run_git(main, "log", ref, "--fixed-strings", "--grep", f"chore(roadmap): claim {task}", "--format=%h", "-1")
-    return bool(found)
+    raw = run_git(main, "show", f"{ref}:.claude/roadmaps.json")
+    if raw is None:
+        return None
+    try:
+        phases = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(phases, list):
+        return None
+    for phase in phases:
+        for milestone in (phase.get("milestones") or []) if isinstance(phase, dict) else []:
+            for row in (milestone.get("tasks") or []) if isinstance(milestone, dict) else []:
+                if isinstance(row, dict) and row.get("id") == task:
+                    return bool(row.get("started"))
+    return "unlisted"
 
 
 def reconcile(ledger: Ledger) -> dict:
@@ -792,9 +883,15 @@ def reconcile(ledger: Ledger) -> dict:
             continue
         number = int(row["pr"])
         fact = facts.get(number)
-        prs.append({"pr": number, "task": row.get("task", ""), "state": (fact or {}).get("state") or "UNKNOWN", "waiting_on": waiting_on(fact)})
+        prs.append({"pr": number, "task": row.get("task", ""), "state": (fact or {}).get("state") or "UNKNOWN", "waiting_on": waiting_on(fact, (run.get("collaboration") or {}).get("mode"))})
         if fact and fact["state"] in ("MERGED", "CLOSED") and row.get("state") != "done":
             note(f"{fact['state'].lower()}-not-done", f"PR #{number} is {fact['state'].lower()} on GitHub but the row reads {row.get('state')}", row.get("task", ""), sid, number)
+        # a finished worktree holds its dependencies for nothing; after a while the coordinator is nudged to retire it
+        landed = merged_at(fact) if fact and fact["state"] == "MERGED" else None
+        if landed is not None and row.get("state") == "done" and not row.get("retired") and sid not in live and now() - landed > RETIRE_NUDGE_SECONDS:
+            worktree = row.get("worktree") or ""
+            if worktree and Path(worktree).is_dir() and not same_path(worktree, ledger.main):
+                note("unretired", f"done since {clock(landed)}, worktree still present; `mc.py retire {row.get('task') or sid[:8]}`", row.get("task", ""), sid, number)
 
     for need in run.get("needs", []):
         if need.get("status") == "done":
@@ -805,12 +902,15 @@ def reconcile(ledger: Ledger) -> dict:
             why = "its session is done" if row.get("state") == "done" else f"its PR #{row.get('pr')} is merged"
             note("need-open-after-done", f"need #{need.get('n')} ({need.get('why', '')[:60]}) is still open but {why}", need.get("task", ""), need.get("session_id", ""), row.get("pr"))
 
-    # roadmap:claim commits on the work branch, so the claim reaches the trunk only with the merge:
-    # a merged PR is checked on its own base (the run's trunk, or the parent layer of a stack), an
-    # open one on its own branch, anything else is skipped. The remote-tracking refs are only as
-    # fresh as the last fetch, and a merge the user made on GitHub minutes ago is the common case,
-    # so fetch once first; a fetch that fails leaves the stale refs to answer, as before.
+    # The claim is read from the roadmap itself, at the ref where it ought to be: a merged PR's own
+    # base (the run's trunk, or the parent layer of a stack) and, for an open PR, the trunk first and
+    # then the PR's branch, since a branch that dropped its claim commit once the trunk carried the
+    # claim is in order. A task the roadmap does not list cannot carry a claim, so it is named once
+    # and not counted as drift. The remote-tracking refs are only as fresh as the last fetch, and a
+    # merge the user made on GitHub minutes ago is the common case, so fetch once first; a fetch that
+    # fails leaves the stale refs to answer, as before.
     by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
+    trunk = run.get("base", {}).get("branch") or "main"
     if (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
         run_git(ledger.main, "fetch", "--quiet", "origin")
     for entry in run.get("crew", []):
@@ -818,18 +918,50 @@ def reconcile(ledger: Ledger) -> dict:
         row = by_task.get(task, {})
         if not task or not row.get("pr"):
             continue
+        if entry.get("unlisted"):
+            continue  # planned as unlisted: no roadmap row, no claim, nothing to check
         fact = facts.get(int(row["pr"]))
         if not fact:
             continue
         if fact["state"] == "MERGED":
-            base = fact.get("base") or run.get("base", {}).get("branch") or "main"
-            if claim_on_main(ledger.main, task, f"origin/{base}") is False:
-                note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/{base}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
+            base = fact.get("base") or trunk
+            claim = roadmap_claim(ledger.main, task, f"origin/{base}")
+            if claim == "unlisted":
+                note("unlisted", f"not in the roadmap on origin/{base}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
+            elif claim is False:
+                note("claim-missing", f"the roadmap on origin/{base} has no claim (`started`) for {task}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
         elif fact["state"] == "OPEN":
             branch = row.get("branch") or entry.get("branch") or ""
-            if branch and claim_on_main(ledger.main, task, f"origin/{branch}") is False:
-                note("claim-missing", f"no `chore(roadmap): claim {task}` commit on origin/{branch}", task, row.get("session_id", ""), int(row["pr"]))
+            on_trunk = roadmap_claim(ledger.main, task, f"origin/{trunk}")
+            if on_trunk is True or not branch:
+                continue
+            on_branch = roadmap_claim(ledger.main, task, f"origin/{branch}")
+            if on_branch is True:
+                continue
+            if on_trunk is None and on_branch is None:
+                continue
+            if on_trunk in ("unlisted", None) and on_branch in ("unlisted", None):
+                note("unlisted", f"not in the roadmap on origin/{trunk} or origin/{branch}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
+            else:
+                note("claim-missing", f"neither the roadmap on origin/{trunk} nor the one on origin/{branch} has a claim (`started`) for {task}", task, row.get("session_id", ""), int(row["pr"]))
 
+    # a scheduled job (a watch, a cron, a Monitor) dies with its process; one whose session is gone is named so it is re-armed or dropped
+    for sid, row in sessions.items():
+        if sid in live:
+            continue
+        for job in row.get("jobs") or []:
+            if job.get("status", "open") == "open":
+                note("job-orphaned", f"{job.get('kind')} job {job.get('id')} ({job.get('reason') or job.get('spec') or ''}) belongs to a session that is gone; re-arm it from the session that adopts the row, or `mc.py jobs done {job.get('id')}`", row.get("task", ""), sid, row.get("pr"))
+    # a decision told to sessions that have not acknowledged it after a while
+    for decision in ledger.decisions():
+        told = [t for t in decision.get("told", []) if t not in decision.get("acks", [])]
+        if told and now() - decision.get("at", 0) > DECISION_ACK_SECONDS:
+            names = ", ".join(by_task.get(t, {}).get("task") or t for t in told)
+            note("decision-unacknowledged", f"decision #{decision.get('n')} ({str(decision.get('text', ''))[:80]}) not acknowledged by {names}", "", "", None)
+    # the coordinator's own backlog: a rebind waiting on the user is drift until it is answered
+    candidate = run.get("coordinator", {}).get("rebind_candidate")
+    if candidate:
+        note("coordinator-rebind", f"the coordinator's session id changed (a /clear): its process is live as {candidate['session_id'][:8]}; `/mc adopt coordinator` in that session", "", candidate["session_id"], None)
     return {"run": run.get("name"), "drift": drift, "prs": prs, "at": now()}
 
 
@@ -846,7 +978,9 @@ def print_reconcile(result: dict) -> None:
     if not result["prs"]:
         print("no PRs on the board")
     for pr in result["prs"]:
-        print(f"- #{pr['pr']} ({pr['task']}): {pr['state'].lower()}, {pr['waiting_on']}")
+        state = pr["state"].lower()
+        tail = "" if pr["waiting_on"] == state else f", {pr['waiting_on']}"
+        print(f"- #{pr['pr']} ({pr['task']}): {state}{tail}")
 
 
 def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
@@ -885,6 +1019,8 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
         "requests": requests,
         "needs": [n for n in (run or {}).get("needs", []) if n.get("status") != "done"] if run else [],
         "assumptions": (run or {}).get("assumptions", []) if run else [],
+        "pending": [p for p in (run or {}).get("pending", []) if p.get("status") == "open"] if run else [],
+        "decisions": ledger.decisions()[-20:] if run else [],
         "at": now(),
     }
     if with_probes and run:
@@ -936,6 +1072,268 @@ def print_status(status: dict) -> None:
         print(f"probe {probe['resource']}: {'BUSY' if probe['busy'] else 'free'} ({checks})")
 
 
+# ---------------------------------------------------------------- collaboration
+
+# A project is solo or collaborative; the answer is stated in the config (or the gitignored local
+# config beside it) or inferred from the last 90 days of history and the reviews on merged PRs.
+# The run record carries one answer so every brief, skill and watcher reads the same one.
+LOCAL_CONFIG_REL = ".claude/mission-control.local.json"
+AUTHOR_WINDOW_DAYS = 90
+REVIEW_SAMPLE = 30
+BOT_MARKERS = ("[bot]", "dependabot", "renovate", "github-actions", "actions@github.com", "noreply@github.com", "copilot")
+DAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+DEFAULT_TEAM_HOURS = {"start": "09:00", "end": "18:00", "days": [0, 1, 2, 3, 4]}
+
+
+def is_bot(name: str, email: str = "") -> bool:
+    text = f"{name} {email}".lower()
+    return any(marker in text for marker in BOT_MARKERS)
+
+
+def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
+    """Distinct human authors on the checked-out history in the window, by email, most commits first."""
+    out = run_git(main, "log", f"--since={days}.days", "--format=%an\t%ae")
+    counts: dict[str, dict] = {}
+    for line in (out or "").splitlines():
+        name, _, email = line.partition("\t")
+        if not name or is_bot(name, email):
+            continue
+        key = email.strip().lower() or name.strip().lower()
+        row = counts.setdefault(key, {"name": name.strip(), "email": email.strip(), "commits": 0})
+        row["commits"] += 1
+    return sorted(counts.values(), key=lambda r: -r["commits"])
+
+
+def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
+    """The last merged PRs with who reviewed each, other than its author; (rows, whether gh answered)."""
+    code, out = sh(["gh", "pr", "list", "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    if code != 0:
+        return [], False
+    try:
+        raw = json.loads(out)
+    except ValueError:
+        return [], False
+    rows = []
+    for pr in raw if isinstance(raw, list) else []:
+        if not isinstance(pr, dict):
+            continue
+        author = str((pr.get("author") or {}).get("login") or "")
+        others = []
+        for review in pr.get("reviews") or []:
+            if not isinstance(review, dict):
+                continue
+            login = str((review.get("author") or {}).get("login") or "")
+            if not login or login == author or is_bot(login):
+                continue
+            others.append({"login": login, "state": str(review.get("state") or ""), "at": review.get("submittedAt")})
+        rows.append({"number": pr.get("number"), "author": author, "others": others})
+    return rows, True
+
+
+def parse_days(value) -> list[int]:
+    """Weekdays as Monday=0 ints, from ints, names (`mon`) or a range (`mon-fri`)."""
+    if isinstance(value, str):
+        value = [v.strip() for v in value.split(",")]
+    days: set[int] = set()
+    for item in value or []:
+        if isinstance(item, int) and 0 <= item <= 6:
+            days.add(item)
+        elif isinstance(item, str):
+            text = item.strip().lower()[:3]
+            if "-" in item:
+                first, _, last = item.lower().partition("-")
+                a, b = DAY_NAMES.index(first.strip()[:3]), DAY_NAMES.index(last.strip()[:3])
+                days.update(range(a, b + 1) if a <= b else list(range(a, 7)) + list(range(0, b + 1)))
+            elif text in DAY_NAMES:
+                days.add(DAY_NAMES.index(text))
+    return sorted(days)
+
+
+def normalise_hours(stated) -> dict | None:
+    """A stated team-hours block as {start, end, days}; None when it is not one."""
+    if not isinstance(stated, dict):
+        return None
+    start, end = str(stated.get("start") or "09:00"), str(stated.get("end") or "18:00")
+    if not re.fullmatch(r"\d{2}:\d{2}", start) or not re.fullmatch(r"\d{2}:\d{2}", end):
+        return None
+    days = parse_days(stated.get("days")) if stated.get("days") is not None else DEFAULT_TEAM_HOURS["days"]
+    return {"start": start, "end": end, "days": days or DEFAULT_TEAM_HOURS["days"]}
+
+
+def hours_from_reviews(times: list[float]) -> dict | None:
+    """Team hours inferred from when other people reviewed, in this machine's local time, padded an hour each side; None under three samples."""
+    stamps = [time.localtime(t) for t in times if t]
+    if len(stamps) < 3:
+        return None
+    first = min(lt.tm_hour for lt in stamps)
+    last = max(lt.tm_hour for lt in stamps)
+    days = sorted({lt.tm_wday for lt in stamps}) or DEFAULT_TEAM_HOURS["days"]
+    return {"start": f"{max(0, first - 1):02d}:00", "end": f"{min(23, last + 2):02d}:00", "days": days, "from_reviews": len(stamps)}
+
+
+def iso_ts(raw) -> float | None:
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def classify(main: Path, config: dict | None) -> dict:
+    """Solo or collaborative, with the evidence: the stated answer wins when there is one and the history is read to confirm it."""
+    local = read_json(main / LOCAL_CONFIG_REL, {}) or {}
+    stated, source = None, "inferred"
+    if isinstance(local, dict) and isinstance(local.get("collaboration"), dict):
+        stated, source = local["collaboration"], "local config"
+    elif isinstance((config or {}).get("collaboration"), dict):
+        stated, source = (config or {})["collaboration"], "config"
+    authors = git_authors(main)
+    prs, answered = gh_merged_reviews(main)
+    reviewed = [p for p in prs if p["others"]]
+    review_times = [iso_ts(o["at"]) for p in reviewed for o in p["others"]]
+    inferred = "collaborative" if len(authors) >= 2 or reviewed else "solo"
+    evidence = [
+        f"{len(authors)} human author{'s' if len(authors) != 1 else ''} in the last {AUTHOR_WINDOW_DAYS} days" + (": " + ", ".join(a["name"] for a in authors[:6]) if authors else ""),
+        (f"{len(reviewed)} of the last {len(prs)} merged PRs reviewed by someone other than their author" if answered else "gh could not list merged PRs, so reviews are unknown"),
+    ]
+    mode = inferred
+    stated_mode = str((stated or {}).get("mode") or "").lower()
+    if stated_mode in ("solo", "collaborative"):
+        mode = stated_mode
+        evidence.append(f"{source} says {mode}" + ("" if mode == inferred else f"; the history alone reads {inferred}"))
+    else:
+        source = "inferred"
+    hours = normalise_hours((stated or {}).get("hours")) if stated else None
+    if hours is None and mode == "collaborative":
+        hours = hours_from_reviews([t for t in review_times if t]) or dict(DEFAULT_TEAM_HOURS)
+        hours_word = "from the timestamps of the reviews by others" if hours.get("from_reviews") else "defaulted to 09:00 to 18:00, Monday to Friday"
+        evidence.append(f"team hours {hours_word}; set collaboration.hours in the config to state them")
+    if mode == "solo":
+        hours = None
+    return {
+        "mode": mode, "source": source, "inferred": inferred, "authors": [a["name"] for a in authors], "reviewed_by_others": len(reviewed),
+        "prs_sampled": len(prs), "gh_answered": answered, "hours": hours, "timezone": time.strftime("%Z"), "evidence": evidence, "at": now(),
+    }
+
+
+def minutes_of(hhmm: str) -> int:
+    hours, _, minutes = hhmm.partition(":")
+    return int(hours) * 60 + int(minutes)
+
+
+def in_window(hours: dict | None, at: float) -> bool:
+    """Whether a reviewer could plausibly answer at this moment: no hours means always."""
+    if not hours:
+        return True
+    lt = time.localtime(at)
+    if lt.tm_wday not in hours.get("days", DEFAULT_TEAM_HOURS["days"]):
+        return False
+    return minutes_of(hours["start"]) <= lt.tm_hour * 60 + lt.tm_min < minutes_of(hours["end"])
+
+
+def window_opens(hours: dict | None, at: float) -> float:
+    """The next moment the window is open, this one included."""
+    if in_window(hours, at):
+        return at
+    probe = at - (at % 60)
+    for _ in range(8 * 24 * 60):
+        probe += 60
+        if in_window(hours, probe):
+            return probe
+    return at
+
+
+def print_classification(result: dict) -> None:
+    hours = result.get("hours")
+    window = f"{hours['start']} to {hours['end']} on {', '.join(DAY_NAMES[d] for d in hours['days'])} ({result.get('timezone')})" if hours else "none: nobody to wait for"
+    print(f"{result['mode']} ({result['source']}); team hours: {window}")
+    for line in result.get("evidence", []):
+        print(f"- {line}")
+
+
+# ---------------------------------------------------------------- PR watching
+
+WATCH_FIELDS = "state,reviewDecision,reviews,comments,statusCheckRollup,mergedAt,url,title"
+WATCH_FAILURES_TOLERATED = 3
+
+
+def check_word(entry: dict) -> str:
+    """One word for a check run or status context, as pr-land reads them."""
+    if entry.get("status") and str(entry.get("status")).upper() != "COMPLETED":
+        return str(entry["status"]).lower()
+    return str(entry.get("conclusion") or entry.get("state") or "unknown").lower()
+
+
+def pr_snapshot(main: Path, number: int) -> dict | None:
+    """What the watcher compares between polls: state, decision, the reviews by login, comment counts and each check's word. None when gh did not answer."""
+    code, out = sh(["gh", "pr", "view", str(number), "--json", WATCH_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    if code != 0:
+        return None
+    try:
+        raw = json.loads(out)
+    except ValueError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    reviews = []
+    for review in raw.get("reviews") or []:
+        if isinstance(review, dict):
+            reviews.append({"login": str((review.get("author") or {}).get("login") or "?"), "state": str(review.get("state") or ""), "at": review.get("submittedAt")})
+    checks = {}
+    for entry in raw.get("statusCheckRollup") or []:
+        if isinstance(entry, dict):
+            checks[str(entry.get("name") or entry.get("context") or entry.get("workflowName") or "check")] = check_word(entry)
+    code, out = sh(["gh", "api", f"repos/{{owner}}/{{repo}}/pulls/{number}/comments", "--jq", "length"], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    review_comments = int(out.strip()) if code == 0 and out.strip().isdigit() else None
+    return {
+        "state": str(raw.get("state") or "").upper(),
+        "decision": str(raw.get("reviewDecision") or ""),
+        "reviews": reviews,
+        "comments": len(raw.get("comments") or []),
+        "review_comments": review_comments,
+        "checks": checks,
+        "merged_at": raw.get("mergedAt"),
+        "url": str(raw.get("url") or ""),
+        "title": str(raw.get("title") or ""),
+        "at": now(),
+    }
+
+
+def snapshot_changes(before: dict, after: dict) -> list[str]:
+    """What changed between two snapshots, one line each, in the words the crew session will repeat."""
+    lines = []
+    if before.get("state") != after.get("state"):
+        lines.append(f"state {before.get('state') or '?'} -> {after.get('state')}")
+    if before.get("decision") != after.get("decision"):
+        lines.append(f"review decision {before.get('decision') or 'none'} -> {after.get('decision') or 'none'}")
+    seen = {(r["login"], r["state"], r.get("at")) for r in before.get("reviews", [])}
+    for review in after.get("reviews", []):
+        if (review["login"], review["state"], review.get("at")) not in seen:
+            lines.append(f"review by {review['login']}: {review['state'].lower().replace('_', ' ')}")
+    for key, label in (("review_comments", "review comment"), ("comments", "comment")):
+        was, is_ = before.get(key), after.get(key)
+        if isinstance(was, int) and isinstance(is_, int) and is_ > was:
+            lines.append(f"{is_ - was} new {label}{'s' if is_ - was != 1 else ''}")
+    for name, word in after.get("checks", {}).items():
+        old = before.get("checks", {}).get(name)
+        if old != word:
+            lines.append(f"check {name}: {old or 'new'} -> {word}")
+    return lines
+
+
+def terminal(snapshot: dict | None) -> bool:
+    return bool(snapshot) and snapshot.get("state") in ("MERGED", "CLOSED")
+
+
+def summarise_snapshot(snapshot: dict) -> str:
+    checks = snapshot.get("checks") or {}
+    words = sorted(set(checks.values()))
+    check_text = f"{len(checks)} check{'s' if len(checks) != 1 else ''}: {', '.join(words)}" if checks else "no checks"
+    reviews = ", ".join(f"{r['login']} {r['state'].lower().replace('_', ' ')}" for r in snapshot.get("reviews", [])) or "no reviews"
+    return f"{snapshot.get('state', '?').lower()}, decision {snapshot.get('decision') or 'none'}, {reviews}, {snapshot.get('comments', 0)} comments, {snapshot.get('review_comments') if snapshot.get('review_comments') is not None else '?'} review comments, {check_text}"
+
+
 # ---------------------------------------------------------------- commands
 
 
@@ -985,6 +1383,16 @@ def cmd_start(args) -> int:
         archive = ledger.dir.parent / "runs" / f"{time.strftime('%Y%m%d-%H%M')}-{ledger.slug}"
         archive.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(ledger.dir), str(archive))
+    found = find_config(args.cwd)
+    collaboration = classify(ledger.main, found[1] if found else None)
+    if args.collaboration:
+        collaboration["mode"] = args.collaboration
+        collaboration["source"] = "flag"
+        collaboration["evidence"].append(f"--collaboration {args.collaboration} on start" + ("" if args.collaboration == collaboration["inferred"] else f"; the history alone reads {collaboration['inferred']}"))
+        if args.collaboration == "solo":
+            collaboration["hours"] = None
+        elif not collaboration.get("hours"):
+            collaboration["hours"] = dict(DEFAULT_TEAM_HOURS)
     run = {
         "name": args.name,
         "repo_root": str(ledger.main),
@@ -993,6 +1401,7 @@ def cmd_start(args) -> int:
         "coordinator": who,
         "base": {"branch": base_branch, "commit": commit, "on_origin": on_origin},
         "pr_approval": args.pr_approval,
+        "collaboration": collaboration,
         "crew": [],
         "assumptions": [],
         "needs": [],
@@ -1008,7 +1417,7 @@ def cmd_start(args) -> int:
     ledger.save_run(run)
     (ledger.dir / "briefs").mkdir(parents=True, exist_ok=True)
     ledger.log("start", name=args.name, coordinator=who, base=run["base"])
-    print(json.dumps(run, indent=2) if args.json else f"Run {args.name} started; coordinator {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; ledger {ledger.dir}{warning}")
+    print(json.dumps(run, indent=2) if args.json else f"Run {args.name} started; coordinator {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; {collaboration['mode']} project ({collaboration['source']}); ledger {ledger.dir}{warning}")
     return 0
 
 
@@ -1025,6 +1434,130 @@ def cmd_end(args) -> int:
     archive.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(ledger.dir), str(archive))
     print(f"Run {run['name']} ended; ledger archived to {archive}")
+    return 0
+
+
+def worktree_bytes(path: Path) -> int | None:
+    """What a worktree holds on disk, dependencies included; None when du cannot say."""
+    code, out = sh(["du", "-sk", str(path)], timeout=60)
+    if code != 0:
+        return None
+    try:
+        return int(out.split()[0]) * 1024
+    except (IndexError, ValueError):
+        return None
+
+
+def human_bytes(count: int | None) -> str:
+    if count is None:
+        return "size unknown"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    size = float(count)
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            return f"{size:.0f} {unit}" if unit in ("B", "KB") else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{count} B"
+
+
+def worktree_processes(path: Path) -> list[dict] | None:
+    """Every process whose working directory is in the worktree (a dev server left running, a watcher, a shell), by lsof; None when lsof cannot answer. Own process and parent excluded."""
+    code, out = sh(["lsof", "-d", "cwd", "-Fpcn"], timeout=20)
+    if code not in (0, 1):  # lsof exits 1 when some process could not be read, with the rest still listed
+        return None
+    mine = {os.getpid(), os.getppid()}
+    found: list[dict] = []
+    pid, cmd = 0, ""
+    for line in out.splitlines():
+        if line.startswith("p"):
+            pid, cmd = int(line[1:] or 0), ""
+        elif line.startswith("c"):
+            cmd = line[1:]
+        elif line.startswith("n") and pid not in mine and inside(line[1:], str(path)):
+            found.append({"pid": pid, "command": cmd})
+    return found
+
+
+def cmd_retire(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return retire_locked(args, ledger)
+
+
+def retire_locked(args, ledger: Ledger) -> int:
+    """Reclaim a finished crew session's worktree while the run goes on: only once the session has closed, its row is done, its PR has landed, the tree is clean, nothing runs in it, no slot is held and no open PR is based on its branch. Removes the worktree, prunes, deletes the branch with `-d` only, and records the retirement on the row."""
+    run = ledger.require_run()
+    caller = caller_session(args.session)
+    by = authorise(run, caller, args.by_user, "retire a crew worktree")
+    sessions = ledger.sessions()
+    session_id = resolve_session(args.ref, sessions)
+    row = sessions[session_id]
+    label = row.get("task") or row.get("branch") or session_id[:8]
+    if row.get("retired"):
+        raise Refusal(f"{label} was retired at {clock(row['retired'].get('at'))}")
+    if session_id in registry():
+        raise Refusal(f"{label}'s session is still live; it closes first, then retire")
+    if row.get("state") != "done":
+        raise Refusal(f"{label}'s row reads {row.get('state')}, not done")
+    if not row.get("pr"):
+        raise Refusal(f"{label} has no PR on its row; retire reclaims a worktree whose PR has landed")
+    numbers = {int(r["pr"]) for r in sessions.values() if r.get("pr")}
+    # this PR's state is asked of gh now, never read from the cache: a merge made a moment ago is the common case
+    facts = pr_facts(ledger, numbers, fresh={int(row["pr"])})
+    fact = facts.get(int(row["pr"]))
+    if not fact:
+        raise Refusal(f"gh could not say what state PR #{row['pr']} is in; retire needs it merged or closed")
+    if fact["state"] not in ("MERGED", "CLOSED"):
+        raise Refusal(f"PR #{row['pr']} is {fact['state'].lower()} on GitHub; retire needs it merged or closed")
+    branch = row.get("branch") or ""
+    stacked = [f"#{n} ({(next((r.get('task') for r in sessions.values() if str(r.get('pr')) == str(n)), '') or '?')})" for n, f in facts.items() if f["state"] == "OPEN" and branch and f.get("base") == branch]
+    if stacked:
+        raise Refusal(f"open PR {', '.join(stacked)} is based on {branch}; the branch stays until it lands")
+    held = [r for r, s in ledger.slots().items() if s.get("holder") == session_id]
+    if held:
+        raise Refusal(f"{label} still holds {', '.join(held)}; release first")
+    worktree = Path(row.get("worktree") or "")
+    if not row.get("worktree") or not worktree.is_dir():
+        raise Refusal(f"{label}'s worktree {worktree or '(none recorded)'} is not on disk; nothing to retire" + ("" if not branch else f" (the branch {branch} may still want `git branch -d`)"))
+    if same_path(worktree, ledger.main):
+        raise Refusal(f"{label}'s worktree is the main checkout; never retired")
+    dirty = run_git(worktree, "status", "--porcelain")
+    if dirty is None:
+        raise Refusal(f"{worktree} is not a git worktree git can read")
+    if dirty:
+        raise Refusal(f"{worktree} is dirty ({len(dirty.splitlines())} paths); commit, stash or discard first, then retire")
+    running = worktree_processes(worktree)
+    size = worktree_bytes(worktree)
+    if running:
+        kills = " ".join(str(p["pid"]) for p in running)
+        listed = ", ".join(f"{p['pid']} ({p['command'] or '?'})" for p in running)
+        if not args.dry_run:
+            needs = run.setdefault("needs", [])
+            n = 1 + max([x.get("n", 0) for x in needs] or [0])
+            need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""),
+                    "why": f"processes still run in {label}'s worktree ({listed}); retire removes it once they are gone",
+                    "command": f"kill {kills}", "cwd": str(ledger.main), "status": "open", "at": now()}
+            needs.append(need)
+            ledger.save_run(run)
+            ledger.log("need", **need)
+        raise Refusal(f"processes still run in {worktree}: {listed}; `kill {kills}` first" + ("" if args.dry_run else f" (need #{need['n']})"))
+    if running is None:
+        print(f"note: lsof could not list processes, so nothing is known about what runs in {worktree}")
+    merged = f"{fact['state'].lower()} via #{row['pr']}" + (f" into {fact['base']}" if fact.get("base") else "")
+    if args.dry_run:
+        print(f"retire {label} (dry run): would remove worktree {worktree} ({human_bytes(size)}), `git worktree prune`, then `git branch -d {branch}` ({merged})")
+        return 0
+    removed = run_git(ledger.main, "worktree", "remove", str(worktree))
+    if removed is None:
+        raise Refusal(f"git refused to remove {worktree}; it is left as it was")
+    run_git(ledger.main, "worktree", "prune")
+    branch_deleted = bool(branch) and run_git(ledger.main, "branch", "-d", branch) is not None
+    row["retired"] = {"at": now(), "by": by, "worktree": str(worktree), "bytes_freed": size, "branch_deleted": branch_deleted}
+    row["updated_at"] = now()
+    ledger.save_session(row)
+    ledger.log("retire", session_id=session_id, task=row.get("task", ""), branch=branch, worktree=str(worktree), bytes_freed=size, branch_deleted=branch_deleted, by=by)
+    branch_word = f"branch {branch} deleted" if branch_deleted else (f"branch {branch} kept: `git branch -d` refused it (not fully merged here; `git branch -D` is the user's call)" if branch else "no branch recorded")
+    print(json.dumps(row) if args.json else f"retired {label}: worktree {worktree} removed ({human_bytes(size)} freed), {branch_word}; {merged}")
     return 0
 
 
@@ -1071,6 +1604,111 @@ def cmd_reconcile(args) -> int:
     return 0
 
 
+def cmd_classify(args) -> int:
+    """Solo or collaborative, from the config or the history; the run record's copy when a run is active and --fresh is not passed."""
+    ledger = ledger_for(args.cwd)
+    found = find_config(args.cwd)
+    run = ledger.run()
+    result = (run or {}).get("collaboration") if run and not args.fresh else None
+    if not isinstance(result, dict):
+        result = classify(ledger.main, found[1] if found else None)
+    if args.json:
+        print(json.dumps(result))
+    else:
+        print_classification(result)
+    return 0
+
+
+def cmd_watch(args) -> int:
+    """Watch one PR until something changes, then say what and exit: the crew session runs this in the background and is woken by the exit.
+    Outside the team's hours on a collaborative project a change that is not a merge or close is held until the window opens; on a solo project there is no window."""
+    ledger = ledger_for(args.cwd)
+    run = ledger.run()
+    found = find_config(args.cwd)
+    collab = (run or {}).get("collaboration") if run else None
+    if not isinstance(collab, dict):
+        collab = classify(ledger.main, found[1] if found else None)
+    hours = collab.get("hours") if collab.get("mode") == "collaborative" else None
+    session_id = caller_session(None)
+    row = ledger.sessions().get(session_id or "", {}) if run else {}
+    number = args.pr or (int(row["pr"]) if row.get("pr") else None)
+    if not number:
+        raise Refusal("which PR? pass the number, or report it first with mc_report")
+
+    def record(status: str, seen: dict | None, changes: list[str]) -> None:
+        if not run or not row:
+            return
+        with ledger.locked():
+            fresh = ledger.sessions().get(row["session_id"])
+            if not fresh:
+                return
+            fresh["watch"] = {"pr": number, "since": (fresh.get("watch") or {}).get("since") or now(), "status": status, "checked_at": now(), "seen": seen, "last_change": changes or (fresh.get("watch") or {}).get("last_change") or []}
+            # the watch is a scheduled job like any other: open while it should be running or re-armed, done once the PR landed
+            jobs = [j for j in (fresh.get("jobs") or []) if j.get("id") != f"watch-{number}"]
+            jobs.append({"id": f"watch-{number}", "kind": "watch", "spec": f"PR #{number}, every {int(args.interval)}s" + (f", held outside {hours['start']}-{hours['end']}" if hours else ""),
+                         "prompt": f"python3 mc.py watch --pr {number}", "reason": f"watch PR #{number} and report each change", "status": "done" if status == "ended" else "open", "at": (fresh.get("watch") or {}).get("since") or now()})
+            fresh["jobs"] = jobs
+            ledger.save_session(fresh)
+        ledger.log("watch", session_id=row["session_id"], pr=number, status=status, changes=changes)
+
+    previous = (row.get("watch") or {}) if row else {}
+    seen = previous.get("seen") if previous.get("pr") == number and isinstance(previous.get("seen"), dict) else None
+    if seen is None:
+        seen = pr_snapshot(ledger.main, number)
+        if seen is None:
+            raise Refusal(f"gh could not read PR #{number}; nothing to watch")
+        record("watching", seen, [])
+        if args.once:
+            print(f"#{number}: {summarise_snapshot(seen)}")
+            return 0
+        if terminal(seen):
+            print(f"#{number} is already {seen['state'].lower()}; nothing to watch")
+            record("ended", seen, [])
+            return 0
+        if collab.get("mode") == "solo" and not seen.get("checks"):
+            print(f"#{number}: solo project and no checks, so nothing will change by itself; the merge is the user's. Not watching.")
+            record("ended", seen, [])
+            return 0
+    elif args.once:
+        print(f"#{number}: {summarise_snapshot(seen)} (as last seen)")
+        return 0
+    interval = max(1.0, float(args.interval))
+    deadline = now() + float(args.max_minutes) * 60
+    failures = 0
+    held: list[str] = []
+    while True:
+        time.sleep(interval)
+        current = pr_snapshot(ledger.main, number)
+        if current is None:
+            failures += 1
+            if failures >= WATCH_FAILURES_TOLERATED:
+                print(f"#{number}: gh did not answer {failures} polls running; the watch stops here, re-arm when gh is back")
+                record("stalled", seen, [])
+                return 2
+            continue
+        failures = 0
+        changes = snapshot_changes(seen, current)
+        if changes:
+            if terminal(current) or in_window(hours, now()):
+                record("changed", current, changes)
+                print(f"#{number} changed ({'; '.join(changes)}). Now: {summarise_snapshot(current)}")
+                if terminal(current):
+                    print(f"watch ended: PR #{number} is {current['state'].lower()}; do not re-arm")
+                    record("ended", current, changes)
+                return 0
+            if changes != held:
+                held = changes
+                record("holding", seen, changes)
+        if now() >= deadline:
+            if held:
+                record("holding", seen, held)
+                print(f"#{number}: holding until the team's hours open at {clock(window_opens(hours, now()))} ({'; '.join(held)}); re-arm the watch")
+            else:
+                record("watching", current, [])
+                print(f"#{number}: no change in {args.max_minutes} minutes; re-arm the watch")
+            return 0
+
+
 def cmd_crew(args) -> int:
     ledger = ledger_for(args.cwd)
     with ledger.locked():
@@ -1095,11 +1733,100 @@ def crew_locked(args, ledger: Ledger) -> int:
     worktree = os.path.abspath(args.worktree) if args.worktree else None
     if worktree:
         worktree = in_main_spelling(worktree, str(ledger.main))
-    entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration}
+    entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration, "unlisted": bool(args.unlisted)}
     run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
     ledger.save_run(run)
     ledger.log("crew", **entry)
     print(json.dumps(entry) if args.json else f"crew {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; brief at {entry['brief']}")
+    return 0
+
+
+def stale_row_for(ledger: Ledger, plan: dict, who: dict) -> dict | None:
+    """The row a fresh session in a planned worktree should carry on: one for that worktree (or task) whose session is not live, or whose process is this session's own under an old id."""
+    live = registry()
+    for row in ledger.sessions().values():
+        same_place = (plan.get("worktree") and row.get("worktree") and same_path(plan["worktree"], row["worktree"])) or (plan.get("task") and row.get("task") == plan.get("task"))
+        if not same_place or row.get("retired"):
+            continue
+        old_id = row.get("session_id", "")
+        own_process = same_identity(who.get("pid"), who.get("socket"), live.get(old_id, {}).get("pid"), live.get(old_id, {}).get("messagingSocketPath"))
+        if old_id not in live or own_process:
+            return row
+    return None
+
+
+def adopt_row(ledger: Ledger, old: dict, session_id: str, who: dict) -> dict:
+    """Carry a crew row over to a new session id: task, branch, worktree, state, summary, PR, jobs and age stay; id, socket and name change; slots and pending requests move; the old file is kept as `<id>.json.adopted`."""
+    old_id = old["session_id"]
+    row = {**old, "session_id": session_id, "socket": who.get("socket"), "name": who.get("name", ""), "updated_at": now(), "adopted_from": old_id, "adopted_at": now()}
+    ledger.save_session(row)
+    old_path = ledger.session_path(old_id)
+    if old_path.exists():
+        old_path.rename(old_path.with_suffix(".json.adopted"))
+    for resource, slot in ledger.slots().items():
+        if slot.get("holder") == old_id:
+            slot["holder"] = session_id
+            write_json(ledger.slot_path(resource), slot)
+    for request in ledger.requests():
+        if request.get("session_id") == old_id:
+            old_request = ledger.request_path(request["resource"], old_id)
+            request["session_id"] = session_id
+            write_json(ledger.request_path(request["resource"], session_id), request)
+            if old_request.exists():
+                old_request.unlink()
+    run = ledger.run()
+    if run:
+        changed = False
+        for need in run.get("needs", []):
+            if need.get("session_id") == old_id:
+                need["session_id"] = session_id
+                changed = True
+        if changed:
+            ledger.save_run(run)
+    ledger.log("adopt", kind="crew", old=old_id, new=session_id, task=row.get("task", ""), by="join")
+    return row
+
+
+def cmd_adopt(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return adopt_locked(args, ledger)
+
+
+def adopt_locked(args, ledger: Ledger) -> int:
+    """Bind this session to a role whose recorded id is dead: `coordinator` rewrites the run's coordinator to the caller (its own process under a new id after /clear, or --by-user for a fresh process); `crew` carries over the planned worktree's old row."""
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    if not session_id:
+        raise Refusal("no session id: run from a Claude Code session or pass --session")
+    who = identity(session_id)
+    if args.role == "coordinator":
+        recorded = run.get("coordinator", {})
+        if recorded.get("session_id") == session_id:
+            print(f"this session already coordinates run {run['name']}")
+            return 0
+        if recorded.get("session_id") in registry() and not args.by_user:
+            raise Refusal(f"the coordinator session {recorded.get('session_id', '')[:8]} is live; adopting the run from it is the user's (/mc adopt coordinator from the new session)")
+        own_process = same_identity(who.get("pid"), who.get("socket"), recorded.get("pid"), recorded.get("socket"))
+        if not own_process and not args.by_user:
+            raise Refusal("this session is not the coordinator's process under a new id; a fresh coordinator is adopted by the user with /mc adopt coordinator")
+        by = "user" if args.by_user else "same process"
+        run["coordinator"] = {"session_id": session_id, "pid": who.get("pid"), "socket": who.get("socket"), "name": who.get("name", ""), "adopted_from": recorded.get("session_id"), "adopted_at": now(), "adopted_by": by}
+        ledger.save_run(run)
+        ledger.log("adopt", kind="coordinator", old=recorded.get("session_id"), new=session_id, by=by)
+        print(json.dumps(run["coordinator"]) if args.json else f"this session now coordinates run {run['name']} (was {str(recorded.get('session_id') or '?')[:8]}, {by})")
+        return 0
+    plan = crew_for(run, os.path.abspath(args.cwd), session_id, ledger.sessions())
+    if plan is None:
+        raise Refusal("not in a planned worktree; nothing to adopt")
+    if session_id in ledger.sessions():
+        print(f"this session already holds {plan['task']}'s row")
+        return 0
+    old = stale_row_for(ledger, plan, who)
+    if old is None:
+        raise Refusal(f"no row for {plan['task']} to adopt; `mc.py join --planned` makes a fresh one")
+    row = adopt_row(ledger, old, session_id, who)
+    print(json.dumps(row) if args.json else f"adopted {row.get('task')}'s row from session {old['session_id'][:8]} ({row.get('state')})")
     return 0
 
 
@@ -1123,6 +1850,13 @@ def join_locked(args, ledger: Ledger) -> int:
     branch = args.branch or run_git(cwd, "branch", "--show-current") or (plan or {}).get("branch") or ""
     worktree = str(toplevel(cwd) or cwd)
     row = ledger.sessions().get(session_id, {})
+    if not row and plan:
+        # a session restarted fresh or cleared in a planned worktree carries on the old row: its state, PR, summary and slots
+        old = stale_row_for(ledger, plan, who)
+        if old:
+            row = adopt_row(ledger, old, session_id, who)
+            print(json.dumps(row) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined run {run['name']}")
+            return 0
     row.update({
         "session_id": session_id,
         "task": task,
@@ -1172,6 +1906,14 @@ def report_locked(args, ledger: Ledger) -> int:
         row["pr"] = args.pr or None
     if args.branch:
         row["branch"] = args.branch
+    if args.context is not None:
+        row["context_percent"] = max(0, min(100, int(args.context)))
+    only_context = args.context is not None and not any((args.state, args.summary is not None, args.pr is not None, args.branch))
+    if only_context:
+        # the mod writes the context fill on a timer; that is a gauge, not a report, so neither the log nor the row's age moves
+        ledger.save_session(row)
+        print(json.dumps(row) if args.json else f"{row.get('task') or session_id[:8]}: context {row['context_percent']}%")
+        return 0
     row["updated_at"] = now()
     ledger.save_session(row)
     ledger.log("report", session_id=session_id, state=row.get("state"), summary=row.get("summary"), pr=row.get("pr"), **({"by": by} if by else {}))
@@ -1222,6 +1964,17 @@ def grant_locked(args, ledger: Ledger) -> int:
     sessions = ledger.sessions()
     target = resolve_session(args.to, sessions)
     holder = ledger.slots().get(args.resource)
+    if holder and holder.get("holder") == target:
+        # a grant to the holder extends the slot: more minutes, nothing else moves, and only the holder is told
+        minutes = float(args.minutes or 15)
+        holder["until"] = max(float(holder.get("until") or now()), now()) + 60 * minutes
+        holder["extended_at"] = now()
+        if args.note:
+            holder["note"] = args.note.strip()[:240]
+        write_json(ledger.slot_path(args.resource), holder)
+        ledger.log("extend", resource=args.resource, holder=target, minutes=minutes, until=holder["until"], by=by)
+        print(json.dumps({**holder, "extended": True}) if args.json else f"{args.resource} extended for {(sessions.get(target) or {}).get('task') or target[:8]} until {clock(holder['until'])}")
+        return 0
     if holder and holder.get("holder") != target and not args.force:
         raise Refusal(f"{args.resource} is held by {holder.get('holder_task') or holder.get('holder', '')[:8]} since {clock(holder.get('granted_at'))}; wait for the release or pass --force to override")
     request = read_json(ledger.request_path(args.resource, target), {}) or {}
@@ -1308,12 +2061,16 @@ def needs_locked(args, ledger: Ledger) -> int:
             raise Refusal("needs add wants --why, and --command with --cwd when there is a command to type")
         row = ledger.sessions().get(session_id or "", {})
         n = 1 + max([x.get("n", 0) for x in needs] or [0])
-        need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""), "why": args.why.strip()[:240],
-                "command": (args.command or "").strip(), "cwd": args.cwd_hint or row.get("worktree") or "", "status": "open", "at": now()}
+        # the result of a measurement goes to the session that asked for it, or the one named; the board says which
+        for_session = resolve_session(args.for_session, ledger.sessions()) if args.for_session else (session_id if row else None)
+        need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
+                "command": (args.command or "").strip(), "cwd": args.cwd_hint or row.get("worktree") or "", "status": "open", "at": now(),
+                "kind": args.kind or "action", "for": for_session, "for_task": (ledger.sessions().get(for_session or "") or {}).get("task", "")}
         needs.append(need)
         ledger.save_run(run)
         ledger.log("need", **need)
-        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else ""))
+        wants = f" (result to {need['for_task'] or (for_session or '')[:8]})" if need["kind"] == "measurement" and for_session else ""
+        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants)
         return 0
     # done
     target = next((x for x in needs if str(x.get("n")) == str(args.ref) or x.get("id") == args.ref), None)
@@ -1321,11 +2078,139 @@ def needs_locked(args, ledger: Ledger) -> int:
         raise Refusal(f"no open need {args.ref}")
     if target.get("session_id") != session_id:
         authorise(run, session_id, args.by_user, "mark another session's need done")
+    result = args.result
+    if result and result.startswith("@") and Path(result[1:]).is_file():
+        result = Path(result[1:]).read_text()
     target["status"] = "done"
     target["done_at"] = now()
+    if result is not None:
+        target["result"] = result.strip()[:RESULT_LIMIT]
     ledger.save_run(run)
-    ledger.log("need-done", id=target["id"], n=target["n"])
-    print(f"need #{target['n']} done")
+    ledger.log("need-done", id=target["id"], n=target["n"], result_chars=len(target.get("result") or ""))
+    recipient = target.get("for") or target.get("session_id") or ""
+    if args.json:
+        print(json.dumps({**target, "forward_to": recipient if result else None}))
+    else:
+        print(f"need #{target['n']} done" + (f"; result ({len(target['result'])} chars) for {target.get('for_task') or recipient[:8]}" if result else ""))
+    return 0
+
+
+def cmd_jobs(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return jobs_locked(args, ledger)
+
+
+def jobs_locked(args, ledger: Ledger) -> int:
+    """A session's scheduled state in the ledger, so a resume can re-arm it: each cron job, Monitor and watch, with its spec and reason. `mc.py watch` keeps its own entry."""
+    ledger.require_run()
+    session_id = caller_session(args.session)
+    sessions = ledger.sessions()
+    if args.action == "list":
+        target = resolve_session(args.ref, sessions) if args.ref else session_id
+        rows = [{**job, "task": r.get("task", ""), "session_id": sid} for sid, r in sessions.items() if (target is None or sid == target) for job in (r.get("jobs") or []) if args.all or job.get("status", "open") == "open"]
+        print(json.dumps(rows, indent=2))
+        return 0
+    row = sessions.get(session_id or "")
+    if row is None:
+        raise Refusal("this session has not joined the run; jobs belong to a session row")
+    jobs = row.setdefault("jobs", [])
+    if args.action == "add":
+        if not args.kind or not args.spec:
+            raise Refusal("jobs add needs --kind (cron, monitor, watch, other) and --spec (the cron expression, the Monitor's condition, the watch's PR)")
+        job = {"id": args.id or f"{args.kind}-{uuid.uuid4().hex[:6]}", "kind": args.kind, "spec": args.spec.strip(), "prompt": (args.prompt or "").strip(), "reason": (args.reason or "").strip()[:240], "status": "open", "at": now()}
+        jobs[:] = [j for j in jobs if j.get("id") != job["id"]] + [job]
+        ledger.save_session(row)
+        ledger.log("job", session_id=session_id, **job)
+        print(json.dumps(job) if args.json else f"job {job['id']} recorded ({job['kind']}: {job['spec']}); a resume of this session is told to re-arm it")
+        return 0
+    target = next((j for j in jobs if j.get("id") == args.ref), None)
+    if target is None:
+        raise Refusal(f"no job {args.ref} on this session; `jobs list` names them")
+    target["status"] = "done"
+    target["done_at"] = now()
+    ledger.save_session(row)
+    ledger.log("job-done", session_id=session_id, id=target["id"])
+    print(f"job {target['id']} done")
+    return 0
+
+
+def cmd_pending(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return pending_locked(args, ledger)
+
+
+def pending_locked(args, ledger: Ledger) -> int:
+    """The coordinator's open threads, kept in the ledger so a compacted coordinator reads them back: approvals awaited, messages sent and unanswered, anything else it is waiting on."""
+    run = ledger.require_run()
+    pending = run.setdefault("pending", [])
+    if args.action == "list":
+        print(json.dumps([p for p in pending if args.all or p.get("status") == "open"], indent=2))
+        return 0
+    authorise(run, caller_session(args.session), args.by_user, "keep the pending list")
+    if args.action == "add":
+        if not args.text:
+            raise Refusal("pending add needs --text")
+        n = 1 + max([p.get("n", 0) for p in pending] or [0])
+        item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": args.kind or "thread", "text": args.text.strip()[:NEED_WHY_LIMIT], "session_id": resolve_session(args.ref, ledger.sessions()) if args.ref else None, "status": "open", "at": now()}
+        pending.append(item)
+        ledger.save_run(run)
+        ledger.log("pending", **item)
+        print(json.dumps(item) if args.json else f"pending #{n} ({item['kind']}): {item['text']}")
+        return 0
+    target = next((p for p in pending if str(p.get("n")) == str(args.ref) or p.get("id") == args.ref), None)
+    if target is None:
+        raise Refusal(f"no open pending item {args.ref}")
+    target["status"] = "done"
+    target["done_at"] = now()
+    if args.text:
+        target["outcome"] = args.text.strip()[:NEED_WHY_LIMIT]
+    ledger.save_run(run)
+    ledger.log("pending-done", id=target["id"], n=target["n"])
+    print(f"pending #{target['n']} done")
+    return 0
+
+
+def cmd_decide(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return decide_locked(args, ledger)
+
+
+def decide_locked(args, ledger: Ledger) -> int:
+    """What the user decided and when, appended to decisions.jsonl with the sessions told; a crew session acknowledges with `ack`."""
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    sessions = ledger.sessions()
+    if args.action == "list":
+        for d in ledger.decisions():
+            told = ", ".join(sessions.get(t, {}).get("task") or t[:8] for t in d.get("told", [])) or "nobody"
+            acked = ", ".join(sessions.get(t, {}).get("task") or t[:8] for t in d.get("acks", []))
+            print(f"{d['n']}. {clock(d.get('at'))} {d.get('text')} (told {told}{'; acked ' + acked if acked else ''})")
+        return 0
+    if args.action == "ack":
+        if not session_id or session_id not in sessions:
+            raise Refusal("ack comes from a crew session that has joined the run")
+        target = next((d for d in ledger.decisions() if str(d.get("n")) == str(args.ref)), None)
+        if target is None:
+            raise Refusal(f"no decision #{args.ref}")
+        ledger.append_decision({"n": target["n"], "ack": session_id, "at": now()})
+        ledger.log("decision-ack", n=target["n"], session_id=session_id)
+        print(f"decision #{target['n']} acknowledged by {sessions[session_id].get('task') or session_id[:8]}")
+        return 0
+    authorise(run, session_id, args.by_user, "record a decision")
+    if not args.text:
+        raise Refusal("decide add needs --text: what the user decided")
+    told = [resolve_session(ref.strip(), sessions) for ref in (args.told or "").split(",") if ref.strip()]
+    if args.told and args.told.strip().lower() == "all":
+        live = registry()
+        told = [sid for sid, r in sessions.items() if sid in live and r.get("state") != "done" and not r.get("retired")]
+    n = 1 + max([d.get("n", 0) for d in ledger.decisions()] or [0])
+    decision = {"n": n, "text": args.text.strip()[:NEED_WHY_LIMIT], "about": (args.about or "").strip()[:240], "told": told, "acks": [], "at": now(), "by": "user"}
+    ledger.append_decision(decision)
+    ledger.log("decision", **decision)
+    print(json.dumps(decision) if args.json else f"decision #{n} recorded: {decision['text']}" + (f" (told {', '.join(sessions.get(t, {}).get('task') or t[:8] for t in told)})" if told else ""))
     return 0
 
 
@@ -1520,19 +2405,53 @@ def session_start_context(payload: dict) -> str:
     if run is None:
         return ""
     coord = run.get("coordinator", {})
+    source = payload.get("source") or payload.get("matcher") or ""
     if is_coordinator(run, session_id):
+        pending = [p for p in run.get("pending", []) if p.get("status") == "open"]
+        decisions = ledger.decisions()[-5:]
+        needs = [n for n in run.get("needs", []) if n.get("status") != "done"]
+        back = ""
+        if pending or decisions or needs:
+            pending_text = "; ".join("#%s %s" % (p.get("n"), p.get("text")) for p in pending)
+            decision_text = "; ".join("#%s %s" % (d.get("n"), d.get("text")) for d in decisions)
+            back = (" Your open threads from the ledger, which a compaction does not keep: "
+                    + (f"pending: {pending_text}. " if pending else "")
+                    + (f"recent decisions: {decision_text}. " if decisions else "")
+                    + (f"{len(needs)} need{'s' if len(needs) != 1 else ''} open. " if needs else "")
+                    + "Run reconcile before saying where things stand.")
         return (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
-                f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.")
+                f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.{back}")
+    candidate = coord.get("rebind_candidate") or {}
+    if candidate.get("session_id") == session_id:
+        return (f"Mission control: this process coordinated run {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
+                "Nothing coordinator-only works until the run is rebound: ask the user once, and on a yes run `python3 mc.py adopt coordinator`; the board shows the same question, answered by /mc adopt coordinator in this session.")
     plan = crew_for(run, cwd, session_id, ledger.sessions())
     if plan is None:
         return ""
+    row = ledger.sessions().get(session_id or "", {})
+    jobs = [j for j in (row.get("jobs") or []) if j.get("status", "open") == "open"]
+    rearm = ""
+    if jobs:
+        rearm = " Scheduled work this session had, which died with the process: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+    if source == "compact" and row:
+        return (f"Mission control: still crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
+                f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).{rearm}")
     brief = plan.get("brief") or ""
     has_brief = bool(brief) and Path(brief).is_file()
+    collab = run.get("collaboration") or {}
+    hours = collab.get("hours")
+    mode_line = (
+        f"The project is {collab['mode']} ({collab.get('source', '?')}): "
+        + (f"reviewers answer {hours['start']} to {hours['end']} on {', '.join(DAY_NAMES[d] for d in hours['days'])} ({collab.get('timezone', 'local')}), and the PR watch holds outside those hours. " if hours else "nobody is waited for, the merge is the user's and the PR watch covers checks and state only. ")
+        if collab.get("mode") else ""
+    )
     return (
         f"Mission control: this worktree is crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, started by the user with /mission-control:kickoff. "
         f"The coordinator is the session named \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}); its messages arrive as cross-session messages from that socket and carry the user's instructions on sequencing, shared code and shared resources. "
         + (f"Read your brief first: {brief}. " if has_brief else "No brief has been written yet; the coordinator will message you. ")
-        + "Then invoke /mission-control:crew for how to report, request a slot and what stays with the user."
+        + mode_line
+        + "Then invoke /mission-control:crew for how to report, request a slot, watch your PR once it exists and what stays with the user."
+        + rearm
     )
 
 
@@ -1586,6 +2505,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--base", help="the trunk branch (default: origin's HEAD)")
     sp.add_argument("--pr-approval", dest="pr_approval", choices=["user", "coordinator"], default="user",
                     help="who approves a crew session's PR description before pr-create pushes: the user in each session (default), or the coordinator")
+    sp.add_argument("--collaboration", choices=["solo", "collaborative"], help="state the project's mode instead of taking the config's or the inferred one")
+    sp.add_argument("--small-model-ok", dest="small_model_ok", action="store_true", help="the mod refuses a start from a haiku or sonnet session; this flag says the user means it")
     sp = sub.add_parser("end", help="end the run and archive the ledger")
     sp.add_argument("--force", action="store_true")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
@@ -1594,12 +2515,24 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("probe", help="what the machine says about a resource")
     sp.add_argument("resource", nargs="?")
     sub.add_parser("reconcile", help="diff the ledger against the live registry, GitHub and the branches on origin (a merged PR's base, an open PR's branch); print what drifted and who each PR waits on")
+    sp = sub.add_parser("classify", help="solo or collaborative: the run record's answer, else the config's, else inferred from 90 days of authors and the reviews on merged PRs")
+    sp.add_argument("--fresh", action="store_true", help="recompute even while a run holds an answer")
+    sp = sub.add_parser("watch", help="watch a PR in the background until something changes (reviews, comments, checks, state), print what and exit; held outside the team's hours on a collaborative project unless merged or closed")
+    sp.add_argument("--pr", type=int, help="the PR number (default: this session's row)")
+    sp.add_argument("--interval", type=float, default=300, help="seconds between polls (default 300)")
+    sp.add_argument("--max-minutes", dest="max_minutes", type=float, default=720, help="give up and ask to be re-armed after this long (default 720)")
+    sp.add_argument("--once", action="store_true", help="print the PR as it stands and exit")
+    sp = sub.add_parser("retire", help="reclaim a finished crew session's worktree mid-run: session closed, row done, PR landed, tree clean, nothing running in it; removes it, prunes, deletes the branch with -d only (coordinator or --by-user)")
+    sp.add_argument("ref", help="the session: id, prefix, task, branch or name")
+    sp.add_argument("--dry-run", dest="dry_run", action="store_true", help="print what would go and the disk it holds; change nothing")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("crew", help="the crew plan: add a task's branch, worktree and brief path, or list")
     sp.add_argument("action", choices=["add", "list"])
     sp.add_argument("--task")
     sp.add_argument("--branch")
     sp.add_argument("--worktree")
     sp.add_argument("--migration", help="the migration timestamp assigned to this task, if any")
+    sp.add_argument("--unlisted", action="store_true", help="the task has no roadmap item: no claim is expected and the board marks it")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("join", help="register this session in the run")
     sp.add_argument("--task")
@@ -1612,6 +2545,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--summary")
     sp.add_argument("--pr", type=int)
     sp.add_argument("--branch")
+    sp.add_argument("--context", type=int, help="this session's context window fill, 0 to 100; alone it updates the gauge without a report")
     sp = sub.add_parser("request", help="ask for a resource slot")
     sp.add_argument("resource")
     sp.add_argument("--minutes", type=float)
@@ -1635,6 +2569,35 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--why")
     sp.add_argument("--command")
     sp.add_argument("--cwd-hint", dest="cwd_hint", help="where the command must be typed")
+    sp.add_argument("--kind", choices=["action", "measurement", "approval"], help="measurement: the user's output comes back to the session that wants it")
+    sp.add_argument("--for", dest="for_session", help="the session the result is for (task, branch, name or id); default: the asking session")
+    sp.add_argument("--result", help="for done: the output the user pasted, or @<file> to read it; the mod forwards it to the session the need is for")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("adopt", help="bind this session to a role whose recorded id is dead: coordinator (own process after /clear, or --by-user for a fresh one) or crew (the planned worktree's old row)")
+    sp.add_argument("role", choices=["coordinator", "crew"])
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("jobs", help="this session's scheduled state in the ledger (cron, Monitor, watch), so a resume re-arms it: add, done, list")
+    sp.add_argument("action", choices=["add", "done", "list"])
+    sp.add_argument("ref", nargs="?", help="for done: the job id; for list: a session (default: this one)")
+    sp.add_argument("--kind", choices=["cron", "monitor", "watch", "other"])
+    sp.add_argument("--spec", help="the cron expression, the Monitor's condition or the watch's PR")
+    sp.add_argument("--prompt", help="what runs when it fires")
+    sp.add_argument("--reason")
+    sp.add_argument("--id", help="a stable id, so re-arming replaces rather than duplicates")
+    sp.add_argument("--all", action="store_true", help="list: every session, done jobs included")
+    sp = sub.add_parser("pending", help="the coordinator's open threads (approvals awaited, unanswered messages), kept so a compaction does not lose them: add, done, list")
+    sp.add_argument("action", choices=["add", "done", "list"])
+    sp.add_argument("ref", nargs="?", help="for add: the session it concerns; for done: the number or id")
+    sp.add_argument("--kind", choices=["approval", "message", "thread", "other"])
+    sp.add_argument("--text", help="for add: the thread; for done: the outcome")
+    sp.add_argument("--all", action="store_true")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("decide", help="the decisions record: add (coordinator or --by-user) what the user decided and who was told; ack from a crew session; list")
+    sp.add_argument("action", choices=["add", "ack", "list"])
+    sp.add_argument("ref", nargs="?", help="for ack: the decision number")
+    sp.add_argument("--text", help="what was decided, in the user's words")
+    sp.add_argument("--about", help="what it concerns: a finding, a task, a scope")
+    sp.add_argument("--told", help="comma-separated sessions told (task, branch, name or id), or all")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("assume", help="numbered shared assumptions: set, list")
     sp.add_argument("action", choices=["set", "list"])
@@ -1649,9 +2612,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 COMMANDS = {
-    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile,
+    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire, "classify": cmd_classify, "watch": cmd_watch,
     "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
     "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "hook": cmd_hook,
+    "adopt": cmd_adopt, "jobs": cmd_jobs, "pending": cmd_pending, "decide": cmd_decide,
 }
 
 

@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -37,6 +38,7 @@ class Sandbox:
         git(self.repo, "config", "user.name", "t")
         (self.repo / ".claude").mkdir()
         config = json.loads(EXAMPLE.read_text())
+        config.pop("collaboration", None)  # the example states CHIRPdb's mode; the sandbox infers its own (solo, one author)
         (self.repo / ".claude" / "mission-control.json").write_text(json.dumps(config))
         (self.repo / "README.md").write_text("x\n")
         git(self.repo, "add", "-A")
@@ -642,7 +644,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(by_kind["unjoined"]["task"], "10SE.9")
         self.assertEqual(by_kind["gone"]["task"], "10SE.2")
         self.assertEqual(by_kind["gone"]["session_id"], "crew-1")
-        self.assertEqual(result["prs"][0]["waiting_on"], "no reviewer requested")
+        self.assertEqual(result["prs"][0]["waiting_on"], "solo project; the merge is the user's", "the sandbox has one author and no reviews, so nobody is waited for")
 
     def test_reconcile_reports_unknown_when_gh_hangs(self):
         self.box.start()
@@ -661,19 +663,30 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual([item["kind"] for item in result["drift"]], ["need-open-after-done"])
         self.assertIn("its session is done", result["drift"][0]["detail"])
 
-    def _roadmap_repo_with_origin(self, claim_on_branch=True):
-        """A rich roadmap, a bare origin holding main, and feat/a pushed with (or without) its claim commit."""
-        (self.box.repo / ".claude" / "roadmaps.json").write_text("{}")
+    @staticmethod
+    def _roadmap(started=None, task="10SE.2"):
+        """A rich roadmap listing one task, claimed (`started` set) or not."""
+        row = {"id": task, "title": "the task", "status": "todo", "assignee": "Jason"}
+        if started:
+            row["started"] = started
+        return json.dumps([{"name": "t", "path": "", "archived": False, "milestones": [{"id": "M1", "name": "one", "tasks": [row]}]}])
+
+    def _roadmap_repo_with_origin(self, claim_on_branch=True, claim_on_main=False, listed=True):
+        """A rich roadmap, a bare origin holding main, and feat/a pushed with (or without) a commit that sets the task's `started`.
+        `claim_on_main` puts the claim on main under a sync batch's subject instead; `listed=False` leaves the task out of the roadmap."""
+        base = self._roadmap(started="2026-10-27" if claim_on_main else None) if listed else self._roadmap(task="OTHER")
+        (self.box.repo / ".claude" / "roadmaps.json").write_text(base)
         git(self.box.repo, "add", ".claude/roadmaps.json")
-        git(self.box.repo, "commit", "-q", "-m", "chore: roadmap")
+        git(self.box.repo, "commit", "-q", "-m", "chore(roadmap): sync claims from live branches" if claim_on_main else "chore: roadmap")
         bare = self.box.tmp / "origin.git"
         subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
         git(self.box.repo, "remote", "add", "origin", str(bare))
         git(self.box.repo, "push", "-q", "-u", "origin", "main")
-        if claim_on_branch:
-            (self.box.worktree / "claim.txt").write_text("x\n")
-            git(self.box.worktree, "add", "claim.txt")
-            git(self.box.worktree, "commit", "-q", "-m", "chore(roadmap): claim 10SE.2")
+        git(self.box.worktree, "merge", "-q", "--ff-only", "main")
+        if claim_on_branch and listed:
+            (self.box.worktree / ".claude" / "roadmaps.json").write_text(self._roadmap(started="2026-10-27"))
+            git(self.box.worktree, "add", ".claude/roadmaps.json")
+            git(self.box.worktree, "commit", "-q", "-m", "chore(roadmap): 10SE.2 started, dated")
         else:
             (self.box.worktree / "work.txt").write_text("x\n")
             git(self.box.worktree, "add", "work.txt")
@@ -724,7 +737,7 @@ class LedgerFlow(unittest.TestCase):
         git(elsewhere, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "origin/feat/a")
         git(elsewhere, "push", "-q", "origin", "main")
         # this checkout's origin/main still predates the merge
-        self.assertNotIn("claim 10SE.2", subprocess.run(["git", "-C", str(self.box.repo), "log", "origin/main", "--format=%s"], capture_output=True, text=True).stdout)
+        self.assertNotIn("started", subprocess.run(["git", "-C", str(self.box.repo), "show", "origin/main:.claude/roadmaps.json"], capture_output=True, text=True).stdout)
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 226, state="done")
         result = self._reconcile_with(self._gh(self._merged(226)))
@@ -766,6 +779,579 @@ class LedgerFlow(unittest.TestCase):
         missing = [item for item in result["drift"] if item["kind"] == "claim-missing"]
         self.assertEqual(len(missing), 1)
         self.assertIn("on origin/feat/a", missing[0]["detail"])
+
+    def test_a_claim_that_reached_main_under_another_subject_satisfies_a_merged_pr(self):
+        """A sync batch or a `done` batch carries the claim to the trunk; the roadmap's state counts, not the commit subject."""
+        self._roadmap_repo_with_origin(claim_on_branch=False, claim_on_main=True)
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 228, state="done")
+        result = self._reconcile_with(self._gh(self._merged(228)))
+        self.assertEqual([item["kind"] for item in result["drift"]], [])
+
+    def test_an_open_branch_without_its_own_claim_is_in_order_once_main_has_the_claim(self):
+        """A branch rebased past its claim commit, as the run asks once the trunk carries the claim, is not drift."""
+        self._roadmap_repo_with_origin(claim_on_branch=False, claim_on_main=True)
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 229)
+        result = self._reconcile_with(self._gh(self._open(229)))
+        self.assertEqual([item["kind"] for item in result["drift"]], [])
+
+    def test_an_unlisted_task_is_named_once_and_is_not_claim_drift(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False, listed=False)
+        self.box.start()
+        self._crew_with_pr("UXR", "crew-1", "feat/a", 230)
+        result = self._reconcile_with(self._gh(self._open(230)))
+        self.assertEqual([item["kind"] for item in result["drift"]], ["unlisted"])
+        self.assertIn("no claim expected", result["drift"][0]["detail"])
+        self.assertEqual(result["drift"][0]["task"], "UXR")
+
+    def test_a_merged_pr_line_says_merged_once(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 231, state="done")
+        result = self._reconcile_with(self._gh(self._merged(231)))
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        import io
+        from contextlib import redirect_stdout
+        out = io.StringIO()
+        with redirect_stdout(out):
+            mc_module.print_reconcile(result)
+        self.assertIn("- #231 (10SE.2): merged\n", out.getvalue())
+        self.assertNotIn("merged, merged", out.getvalue())
+
+    # retire: reclaiming a finished crew worktree while the run goes on
+
+    def _retire_with(self, fake_sh, *cli):
+        """`mc.py retire` in-process, with gh faked and du/lsof answered by the same fake (a non-gh argv returns 1, which lsof treats as 'nothing listed')."""
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
+        mc_module.sh = fake_sh
+        mc_module.LEDGER_ROOT = self.box.ledger_root
+        mc_module.SESSIONS_DIR = self.box.sessions
+        import io
+        from contextlib import redirect_stdout
+        out = io.StringIO()
+        try:
+            with redirect_stdout(out):
+                code = mc_module.main(["--cwd", str(self.box.repo), "--session", "coord-1", "retire", *cli])
+        finally:
+            mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = real
+        return code, out.getvalue()
+
+    def _closed_crew(self, pr=240, state="done"):
+        """A crew session with a PR, joined from the worktree, reported and then closed (gone from the registry)."""
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", state, "--pr", str(pr), session="crew-1", cwd=self.box.worktree)
+        (self.box.sessions / "crew-1.json").unlink()
+
+    def test_retire_removes_the_worktree_prunes_and_deletes_the_merged_branch(self):
+        self._closed_crew()
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 0, out)
+        self.assertIn("retired 10SE.2", out)
+        self.assertIn("branch feat/a deleted", out)
+        self.assertFalse(self.box.worktree.exists())
+        self.assertNotIn("feat/a", subprocess.run(["git", "-C", str(self.box.repo), "branch", "--list", "feat/a"], capture_output=True, text=True).stdout)
+        rows = list((self.box.ledger_root).glob("*/sessions/crew-1.json"))
+        row = json.loads(rows[0].read_text())
+        self.assertEqual(row["retired"]["by"], "coordinator")
+        self.assertEqual(Path(row["retired"]["worktree"]).resolve(), self.box.worktree.resolve())
+        self.assertTrue(row["retired"]["branch_deleted"])
+        log = (rows[0].parent.parent / "log.jsonl").read_text()
+        self.assertIn('"event": "retire"', log)
+
+    def test_retire_keeps_a_branch_git_will_not_fast_delete(self):
+        """A PR squash-merged on GitHub leaves a local branch `-d` refuses; retire reports that and never forces."""
+        self._closed_crew()
+        (self.box.worktree / "work.txt").write_text("x\n")
+        git(self.box.worktree, "add", "work.txt")
+        git(self.box.worktree, "commit", "-q", "-m", "feat: work")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.box.worktree.exists())
+        self.assertIn("branch feat/a kept", out)
+        self.assertIn("feat/a", subprocess.run(["git", "-C", str(self.box.repo), "branch", "--list", "feat/a"], capture_output=True, text=True).stdout)
+
+    def test_retire_dry_run_changes_nothing(self):
+        self._closed_crew()
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2", "--dry-run")
+        self.assertEqual(code, 0, out)
+        self.assertIn("dry run", out)
+        self.assertIn("would remove worktree", out)
+        self.assertTrue(self.box.worktree.exists())
+        rows = list((self.box.ledger_root).glob("*/sessions/crew-1.json"))
+        self.assertNotIn("retired", json.loads(rows[0].read_text()))
+
+    def test_retire_refuses_a_live_session_an_unfinished_row_an_open_pr_and_a_dirty_tree(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "done", "--pr", "240", session="crew-1", cwd=self.box.worktree)
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("still live", out)
+        (self.box.sessions / "crew-1.json").unlink()
+        self.box.mc("report", "--for", "10SE.2", "--state", "pr-ready", session="coord-1")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("not done", out)
+        # a different PR number for the open case, since pr_facts caches an answer for a minute
+        self.box.mc("report", "--for", "10SE.2", "--state", "done", "--pr", "241", session="coord-1")
+        code, out = self._retire_with(self._gh(self._open(241)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("is open on GitHub", out)
+        self.box.mc("report", "--for", "10SE.2", "--pr", "240", session="coord-1")
+        (self.box.worktree / "scratch.txt").write_text("x\n")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("is dirty", out)
+        self.assertTrue(self.box.worktree.exists())
+
+    def test_retire_refuses_while_an_open_pr_is_stacked_on_the_branch(self):
+        self._closed_crew()
+        upper = self.box.repo / ".claude" / "worktrees" / "crew-b"
+        git(self.box.repo, "worktree", "add", "-q", "-b", "feat/b", str(upper), "feat/a")
+        self.box.register("crew-2", "10se3", str(upper))
+        self.box.mc("crew", "add", "--task", "10SE.3", "--branch", "feat/b", "--worktree", str(upper), session="coord-1")
+        self.box.mc("join", "--task", "10SE.3", "--branch", "feat/b", session="crew-2", cwd=upper)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "241", session="crew-2", cwd=upper)
+        answers = {**self._merged(240), **self._open(241)}
+        answers["241"]["baseRefName"] = "feat/a"
+        code, out = self._retire_with(self._gh(answers), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("#241 (10SE.3) is based on feat/a", out)
+        self.assertTrue(self.box.worktree.exists())
+
+    def test_retire_refuses_while_something_runs_in_the_worktree_and_lists_the_kill_as_a_need(self):
+        self._closed_crew()
+        gh = self._gh(self._merged(240))
+
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:2] == ["lsof", "-d"]:
+                return 0, f"p4242\ncnode\nn{self.box.worktree}/apps/api\np1\nclaunchd\nn/\n"
+            return gh(argv, timeout, cwd)
+
+        code, out = self._retire_with(fake_sh, "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("4242 (node)", out)
+        self.assertIn("`kill 4242`", out)
+        self.assertTrue(self.box.worktree.exists())
+        needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
+        self.assertEqual(needs[-1]["command"], "kill 4242")
+        self.assertEqual(needs[-1]["task"], "10SE.2")
+
+    def test_retire_asks_gh_afresh_rather_than_trusting_a_cached_open_state(self):
+        """A merge made a moment ago: reconcile cached the PR as open, retire must still see it merged."""
+        self._closed_crew()
+        self._reconcile_with(self._gh(self._open(240)))  # fills pr-facts.json with OPEN, well inside the cache window
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.box.worktree.exists())
+
+    def test_retire_twice_says_when_it_was_retired(self):
+        self._closed_crew()
+        self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 1)
+        self.assertIn("was retired at", out)
+
+    def test_reconcile_nudges_a_merged_done_row_whose_worktree_lingers(self):
+        self._closed_crew()
+        result = self._reconcile_with(self._gh(self._merged(240)))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertIn("unretired", kinds)
+        nudge = next(item for item in result["drift"] if item["kind"] == "unretired")
+        self.assertIn("`mc.py retire 10SE.2`", nudge["detail"])
+        self.assertIn("worktree still present", nudge["detail"])
+        # retired, the nudge goes
+        self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        result = self._reconcile_with(self._gh(self._merged(240)))
+        self.assertNotIn("unretired", [item["kind"] for item in result["drift"]])
+
+    def test_reconcile_does_not_nudge_a_fresh_merge(self):
+        self._closed_crew()
+        fresh = self._merged(240)
+        fresh["240"]["mergedAt"] = "2999-01-01T00:00:00Z"
+        result = self._reconcile_with(self._gh(fresh))
+        self.assertNotIn("unretired", [item["kind"] for item in result["drift"]])
+
+    # classify and watch: the project's mode and the PR watcher
+
+    def _module(self, fake_sh):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
+        mc_module.sh = fake_sh
+        mc_module.LEDGER_ROOT = self.box.ledger_root
+        mc_module.SESSIONS_DIR = self.box.sessions
+        return mc_module, real
+
+    @staticmethod
+    def _restore(mc_module, real):
+        mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = real
+
+    @staticmethod
+    def _gh_list(prs):
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "list"]:
+                return 0, json.dumps(prs)
+            return 1, "not gh"
+        return fake_sh
+
+    def test_classify_reads_solo_from_one_author_and_no_reviews(self):
+        mc_module, real = self._module(self._gh_list([{"number": 1, "author": {"login": "t"}, "reviews": []}]))
+        try:
+            result = mc_module.classify(self.box.repo, None)
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual(result["mode"], "solo")
+        self.assertEqual(result["source"], "inferred")
+        self.assertIsNone(result["hours"])
+        self.assertEqual(result["authors"], ["t"])
+
+    def test_classify_reads_collaborative_from_a_second_author_or_a_review_by_another(self):
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "x", "--author", "Other <o@example.com>")
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "bot", "--author", "dependabot[bot] <bot@users.noreply.github.com>")
+        mc_module, real = self._module(self._gh_list([]))
+        try:
+            by_authors = mc_module.classify(self.box.repo, None)
+            git(self.box.repo, "reset", "-q", "--hard", "HEAD~2")
+            reviewed = [{"number": 1, "author": {"login": "t"}, "reviews": [{"author": {"login": "jaz"}, "state": "APPROVED", "submittedAt": "2026-10-28T10:30:00Z"}]}]
+            mc_module.sh = self._gh_list(reviewed)
+            by_review = mc_module.classify(self.box.repo, None)
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual(by_authors["mode"], "collaborative")
+        self.assertEqual(sorted(by_authors["authors"]), ["Other", "t"], "the bot is not an author")
+        self.assertEqual(by_review["mode"], "collaborative")
+        self.assertEqual(by_review["reviewed_by_others"], 1)
+        self.assertEqual(by_review["hours"]["days"], [0, 1, 2, 3, 4], "one review is too few to infer hours, so the weekday default stands")
+
+    def test_classify_takes_the_stated_answer_and_notes_a_disagreement(self):
+        config = {"collaboration": {"mode": "collaborative", "hours": {"start": "08:30", "end": "17:00", "days": "mon-thu"}}}
+        mc_module, real = self._module(self._gh_list([]))
+        try:
+            stated = mc_module.classify(self.box.repo, config)
+            (self.box.repo / ".claude" / "mission-control.local.json").write_text(json.dumps({"collaboration": {"mode": "solo"}}))
+            local = mc_module.classify(self.box.repo, config)
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual(stated["mode"], "collaborative")
+        self.assertEqual(stated["source"], "config")
+        self.assertEqual(stated["hours"], {"start": "08:30", "end": "17:00", "days": [0, 1, 2, 3]})
+        self.assertTrue(any("history alone reads solo" in line for line in stated["evidence"]))
+        self.assertEqual(local["mode"], "solo")
+        self.assertEqual(local["source"], "local config")
+
+    def test_helpers_window_and_snapshot_changes(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        hours = {"start": "09:00", "end": "18:00", "days": [0, 1, 2, 3, 4]}
+        import calendar
+        # a Wednesday at 10:00 and at 22:00 local
+        wed = calendar.timegm(time.strptime("2026-10-28 00:00", "%Y-%m-%d %H:%M")) + time.timezone
+        lt = time.localtime(wed)
+        wed = wed - (lt.tm_hour * 3600 + lt.tm_min * 60)
+        self.assertTrue(mc_module.in_window(hours, wed + 10 * 3600))
+        self.assertFalse(mc_module.in_window(hours, wed + 22 * 3600))
+        self.assertTrue(mc_module.in_window(None, wed + 22 * 3600))
+        opens = mc_module.window_opens(hours, wed + 22 * 3600)
+        self.assertEqual(time.localtime(opens).tm_hour, 9)
+        self.assertTrue(mc_module.in_window(hours, opens))
+        before = {"state": "OPEN", "decision": "", "reviews": [], "comments": 0, "review_comments": 0, "checks": {"ci": "in_progress"}}
+        after = {"state": "OPEN", "decision": "CHANGES_REQUESTED", "reviews": [{"login": "jaz", "state": "CHANGES_REQUESTED", "at": "t"}], "comments": 1, "review_comments": 3, "checks": {"ci": "success", "lint": "failure"}}
+        changes = mc_module.snapshot_changes(before, after)
+        self.assertEqual(changes, ["review decision none -> CHANGES_REQUESTED", "review by jaz: changes requested", "3 new review comments", "1 new comment", "check ci: in_progress -> success", "check lint: new -> failure"])
+        self.assertEqual(mc_module.snapshot_changes(after, after), [])
+        self.assertEqual(mc_module.parse_days("mon-fri"), [0, 1, 2, 3, 4])
+        self.assertEqual(mc_module.parse_days(["sat", "sun"]), [5, 6])
+        self.assertEqual(mc_module.parse_days("fri-mon"), [0, 4, 5, 6])
+
+    @staticmethod
+    def _gh_watch(views, review_comments="0"):
+        """gh answers `pr view` from a queue of snapshots (the last repeats) and the review-comments count once."""
+        queue = list(views)
+
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "view"]:
+                view = queue.pop(0) if len(queue) > 1 else queue[0]
+                return 0, json.dumps(view)
+            if argv[:2] == ["gh", "api"]:
+                return 0, review_comments
+            if argv[:3] == ["gh", "pr", "list"]:
+                return 0, "[]"
+            return 1, "not gh"
+        return fake_sh
+
+    def _watch(self, fake_sh, *cli, session="crew-1"):
+        mc_module, real = self._module(fake_sh)
+        import io
+        from contextlib import redirect_stdout
+        out = io.StringIO()
+        os.environ["CLAUDE_CODE_SESSION_ID"] = session
+        try:
+            with redirect_stdout(out):
+                code = mc_module.main(["--cwd", str(self.box.worktree), "watch", "--interval", "0.01", *cli])
+        finally:
+            os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
+            self._restore(mc_module, real)
+        return code, out.getvalue()
+
+    @staticmethod
+    def _view(state="OPEN", decision="", reviews=(), checks=(), comments=0):
+        return {"state": state, "reviewDecision": decision, "reviews": list(reviews), "comments": [{}] * comments,
+                "statusCheckRollup": [{"name": n, "status": "COMPLETED", "conclusion": c} for n, c in checks], "mergedAt": None, "url": "u", "title": "t"}
+
+    def test_watch_takes_a_baseline_then_exits_on_the_first_change_and_records_it(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "250", session="crew-1", cwd=self.box.worktree)
+        views = [self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "SUCCESS")], reviews=[{"author": {"login": "jaz"}, "state": "APPROVED", "submittedAt": "x"}], decision="APPROVED")]
+        code, out = self._watch(self._gh_watch(views))
+        self.assertEqual(code, 0, out)
+        self.assertIn("#250 changed (review decision none -> APPROVED; review by jaz: approved)", out)
+        rows = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))
+        watch = json.loads(rows[0].read_text())["watch"]
+        self.assertEqual(watch["pr"], 250)
+        self.assertEqual(watch["status"], "changed")
+        self.assertEqual(watch["seen"]["decision"], "APPROVED")
+        # the next watch starts from what it last saw, so the same change is not reported twice
+        code, out = self._watch(self._gh_watch([views[-1], views[-1], self._view(state="MERGED", decision="APPROVED", checks=[("ci", "SUCCESS")], reviews=views[-1]["reviews"])]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("state OPEN -> MERGED", out)
+        self.assertIn("watch ended", out)
+        self.assertNotIn("review by jaz", out)
+
+    def test_watch_on_a_solo_project_with_no_checks_declines_and_once_prints_the_pr(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "251", session="crew-1", cwd=self.box.worktree)
+        code, out = self._watch(self._gh_watch([self._view()]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("solo project and no checks", out)
+        code, out = self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")])]), "--once", "--pr", "252")
+        self.assertEqual(code, 0, out)
+        self.assertIn("#252: open, decision none, no reviews, 0 comments, 0 review comments, 1 check: success", out)
+
+    def test_watch_holds_a_review_outside_the_team_hours_and_still_exits_on_a_merge(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "253", session="crew-1", cwd=self.box.worktree)
+        run_path = next(self.box.ledger_root.glob("*/run.json"))
+        run = json.loads(run_path.read_text())
+        # a window that is never open: Monday to Friday at a minute that has passed, so every poll is outside hours
+        run["collaboration"] = {"mode": "collaborative", "hours": {"start": "00:00", "end": "00:01", "days": [0, 1, 2, 3, 4, 5, 6]}}
+        run_path.write_text(json.dumps(run))
+        reviewed = self._view(reviews=[{"author": {"login": "jaz"}, "state": "COMMENTED", "submittedAt": "x"}])
+        code, out = self._watch(self._gh_watch([self._view(), reviewed, reviewed]), "--max-minutes", "0.001")
+        self.assertEqual(code, 0, out)
+        self.assertIn("holding until the team's hours open", out)
+        self.assertIn("review by jaz: commented", out)
+        rows = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))
+        self.assertEqual(json.loads(rows[0].read_text())["watch"]["status"], "holding")
+        merged = self._view(state="MERGED", reviews=reviewed["reviews"])
+        code, out = self._watch(self._gh_watch([reviewed, merged, merged]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("watch ended", out)
+
+    def test_start_records_the_classification_and_a_flag_overrides_it(self):
+        self.box.start()
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual(run["collaboration"]["mode"], "solo")
+        self.assertEqual(run["collaboration"]["authors"], ["t"])
+        self.box.mc("end", session="coord-1")
+        self.box.mc("start", "--name", "two", "--collaboration", "collaborative", session="coord-1")
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual(run["collaboration"]["mode"], "collaborative")
+        self.assertEqual(run["collaboration"]["source"], "flag")
+        self.assertEqual(run["collaboration"]["hours"]["start"], "09:00")
+        said = self.box.mc("classify", session="coord-1").stdout
+        self.assertTrue(said.startswith("collaborative (flag); team hours: 09:00 to 18:00"), said)
+
+    def test_reconcile_says_solo_where_no_reviewer_is_named(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 254)
+        result = self._reconcile_with(self._gh(self._open(254)))
+        self.assertEqual(result["prs"][0]["waiting_on"], "solo project; the merge is the user's")
+
+    # session continuity: /clear rebinds, fresh crew adopts, scheduled state and decisions live in the ledger
+
+    def _run_json(self):
+        return json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+
+    def test_a_cleared_coordinator_is_offered_as_a_rebind_and_adopts_from_its_own_process(self):
+        self.box.start()
+        # /clear: same pid and socket, new session id; the old row is gone from the registry
+        (self.box.sessions / "coord-1.json").unlink()
+        self.box.register("coord-2", "mission control", str(self.box.repo))
+        (self.box.sessions / "coord-2.json").write_text(json.dumps({**json.loads((self.box.sessions / "coord-2.json").read_text()), "messagingSocketPath": "/tmp/cc-socks/coord-1.sock"}))
+        status = json.loads(self.box.mc("--json", "status", session="coord-2").stdout)
+        self.assertEqual(status["run"]["coordinator"]["rebind_candidate"]["session_id"], "coord-2")
+        self.assertEqual(self.box.mc("assume", "set", "--text", "x", session="coord-2", expect=1).returncode, 1, "nothing coordinator-only works until the rebind")
+        hook = self.box.hook("session-start", {}, session="coord-2", cwd=self.box.repo)
+        self.assertIn("now runs as coord-2", hook)
+        self.assertIn("adopt coordinator", hook)
+        self.box.mc("adopt", "coordinator", session="coord-2")
+        run = self._run_json()
+        self.assertEqual(run["coordinator"]["session_id"], "coord-2")
+        self.assertEqual(run["coordinator"]["adopted_from"], "coord-1")
+        self.assertEqual(run["coordinator"]["adopted_by"], "same process")
+        self.box.mc("assume", "set", "--text", "x", session="coord-2")
+        result = self._reconcile_with(self._gh({}))
+        self.assertNotIn("coordinator-rebind", [item["kind"] for item in result["drift"]])
+
+    def test_a_fresh_coordinator_process_is_adopted_only_by_the_user(self):
+        self.box.start()
+        (self.box.sessions / "coord-1.json").unlink()
+        self.box.register("coord-9", "mission control", str(self.box.repo))
+        refused = self.box.mc("adopt", "coordinator", session="coord-9", expect=1)
+        self.assertIn("adopted by the user", refused.stdout)
+        self.box.mc("adopt", "coordinator", "--by-user", session="coord-9")
+        self.assertEqual(self._run_json()["coordinator"]["adopted_by"], "user")
+
+    def test_a_live_coordinator_cannot_be_adopted_away_without_the_user(self):
+        self.box.start()
+        self.box.register("coord-9", "other", str(self.box.repo))
+        refused = self.box.mc("adopt", "coordinator", session="coord-9", expect=1)
+        self.assertIn("is live", refused.stdout)
+
+    def test_a_fresh_crew_session_in_a_planned_worktree_adopts_the_old_row_and_its_slot(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "260", "--summary", "nearly there", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("request", "local-db", "--minutes", "5", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+        self.box.mc("needs", "add", "--why", "push it", session="crew-1", cwd=self.box.worktree)
+        # the session closes and a fresh one starts in the same worktree
+        (self.box.sessions / "crew-1.json").unlink()
+        self.box.register("crew-7", "10se2", str(self.box.worktree))
+        joined = self.box.mc("join", "--planned", session="crew-7", cwd=self.box.worktree).stdout
+        self.assertIn("adopted 10SE.2's row from session crew-1", joined)
+        sessions = {p.name: json.loads(p.read_text()) for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json")}
+        self.assertEqual(list(sessions), ["crew-7.json"], "one row, not a second briefing one")
+        row = sessions["crew-7.json"]
+        self.assertEqual((row["state"], row["pr"], row["summary"], row["adopted_from"]), ("in-slot", 260, "nearly there", "crew-1"))
+        self.assertTrue((next(self.box.ledger_root.glob("*/sessions")) / "crew-1.json.adopted").exists())
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        self.assertEqual(status["slots"][0]["holder"], "crew-7")
+        self.assertEqual(status["needs"][0]["session_id"], "crew-7")
+        self.assertIn('"event": "adopt"', (next(self.box.ledger_root.glob("*/log.jsonl"))).read_text())
+
+    def test_join_makes_a_fresh_row_when_the_old_session_is_still_live(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.register("crew-8", "second", str(self.box.worktree))
+        self.box.mc("join", "--planned", session="crew-8", cwd=self.box.worktree)
+        names = sorted(p.name for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json"))
+        self.assertEqual(names, ["crew-1.json", "crew-8.json"])
+
+    def test_jobs_are_kept_in_the_ledger_and_a_resume_is_told_to_re_arm_them(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * 1-5", "--prompt", "check the PR", "--reason", "morning check", "--id", "morning", session="crew-1", cwd=self.box.worktree)
+        listed = json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual([j["id"] for j in listed], ["morning"])
+        hook = self.box.hook("session-start", {"source": "resume"}, session="crew-1")
+        self.assertIn("cron morning (0 9 * * 1-5: check the PR)", hook)
+        self.assertIn("Re-arm each", hook)
+        compacted = self.box.hook("session-start", {"source": "compact"}, session="crew-1")
+        self.assertIn("still crew 10SE.2", compacted)
+        self.assertIn("Your brief:", compacted)
+        # the session goes away with its job open: reconcile names it
+        (self.box.sessions / "crew-1.json").unlink()
+        result = self._reconcile_with(self._gh({}))
+        orphan = [item for item in result["drift"] if item["kind"] == "job-orphaned"]
+        self.assertEqual(len(orphan), 1)
+        self.assertIn("morning", orphan[0]["detail"])
+        self.box.register("crew-1", "10se2", str(self.box.worktree))
+        self.box.mc("jobs", "done", "morning", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [])
+
+    def test_the_watch_keeps_its_own_job_entry(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "261", session="crew-1", cwd=self.box.worktree)
+        self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "FAILURE")])]))
+        jobs = json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual([(j["id"], j["kind"], j["status"]) for j in jobs], [("watch-261", "watch", "open")])
+        merged = self._view(state="MERGED", checks=[("ci", "FAILURE")])
+        self._watch(self._gh_watch([self._view(checks=[("ci", "FAILURE")]), merged, merged]))
+        self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [], "ended watch is done")
+
+    def test_pending_and_decisions_survive_in_the_ledger_and_reach_a_resumed_coordinator(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("pending", "add", "10SE.2", "--kind", "approval", "--text", "PR description sent back with two changes", session="coord-1")
+        self.box.mc("decide", "add", "--text", "option A: the short-record fragments keep the old endpoint", "--about", "10SE.6 finding 3", "--told", "10SE.2", session="coord-1")
+        hook = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("pending: #1 PR description sent back with two changes", hook)
+        self.assertIn("recent decisions: #1 option A", hook)
+        listed = self.box.mc("decide", "list", session="coord-1").stdout
+        self.assertIn("told 10SE.2", listed)
+        # unacknowledged for too long: reconcile says so; an ack clears it
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        real = mc_module.DECISION_ACK_SECONDS
+        mc_module.DECISION_ACK_SECONDS = -1
+        try:
+            result = self._reconcile_with(self._gh({}))
+            self.assertIn("decision-unacknowledged", [item["kind"] for item in result["drift"]])
+            self.box.mc("decide", "ack", "1", session="crew-1", cwd=self.box.worktree)
+            result = self._reconcile_with(self._gh({}))
+            self.assertNotIn("decision-unacknowledged", [item["kind"] for item in result["drift"]])
+        finally:
+            mc_module.DECISION_ACK_SECONDS = real
+        self.box.mc("pending", "done", "1", "--text", "approved", session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("pending", "list", session="coord-1").stdout), [])
+        refused = self.box.mc("decide", "add", "--text", "x", session="crew-1", cwd=self.box.worktree, expect=1)
+        self.assertIn("only the coordinator", refused.stdout)
+
+    def test_a_measurement_need_names_its_session_and_done_carries_the_result(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "run the cold-cache spike on hosted and paste the timings", "--kind", "measurement", "--for", "10SE.2", "--command", "poetry run poe spike-hosted", session="coord-1")
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        self.assertEqual((status["needs"][0]["kind"], status["needs"][0]["for"], status["needs"][0]["for_task"]), ("measurement", "crew-1", "10SE.2"))
+        out = Path(self.box.tmp / "timings.txt")
+        out.write_text("p50 120ms\np95 410ms\n")
+        done = json.loads(self.box.mc("--json", "needs", "done", "1", "--result", f"@{out}", "--by-user", session="coord-1").stdout)
+        self.assertEqual(done["forward_to"], "crew-1")
+        self.assertEqual(done["result"], "p50 120ms\np95 410ms")
+        long_why = "w" * 900
+        self.box.mc("needs", "add", "--why", long_why, session="crew-1", cwd=self.box.worktree)
+        needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
+        self.assertEqual(len(needs[-1]["why"]), 900, "a why is no longer cut at 240 characters")
+
+    def test_a_grant_to_the_holder_extends_the_slot_without_force(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("grant", "local-db", "--to", "10SE.2", "--minutes", "10", session="coord-1")
+        before = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["slots"][0]["until"]
+        out = self.box.mc("grant", "local-db", "--to", "10SE.2", "--minutes", "20", session="coord-1").stdout
+        self.assertIn("extended", out)
+        after = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["slots"][0]
+        self.assertGreater(after["until"], before + 19 * 60)
+        self.assertEqual(after["holder"], "crew-1")
+        self.assertIn('"event": "extend"', next(self.box.ledger_root.glob("*/log.jsonl")).read_text())
+
+    def test_an_unlisted_crew_task_is_planned_as_such_and_the_claim_check_skips_it(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False, listed=False)
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "UXR", "--branch", "feat/a", "--unlisted", session="coord-1")
+        self.assertTrue(json.loads(self.box.mc("crew", "list", session="coord-1").stdout)[0]["unlisted"])
+        self.box.mc("join", "--task", "UXR", "--branch", "feat/a", session="crew-1")
+        self.box.mc("report", "--state", "pr-ready", "--pr", "262", session="crew-1")
+        result = self._reconcile_with(self._gh(self._open(262)))
+        self.assertEqual([item["kind"] for item in result["drift"]], [], "neither claim-missing nor the unlisted note: the plan says so")
 
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()

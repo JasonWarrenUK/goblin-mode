@@ -2,6 +2,8 @@
 
 Coordinator: session "{{ coordinator name }}" (its socket is read live from the ledger, never written here). Base: `{{ base branch }}@{{ base commit }}`. Written {{ date }}.
 
+Project mode: {{ solo or collaborative, from `mc.py classify` and its source }}. {{ On a collaborative project: the team's hours and timezone, and that the PR watch holds outside them. On a solo one: nobody is waited for, the merge is the user's, the watch covers checks and state. }}
+
 ## Crew
 
 | Task | Branch | Worktree | Migration |

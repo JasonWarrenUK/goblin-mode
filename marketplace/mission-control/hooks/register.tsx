@@ -137,8 +137,13 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 					socket: str((rawRun.coordinator as Record<string, unknown> | undefined)?.socket) || null,
 				},
 				base: { branch: str((rawRun.base as Record<string, unknown> | undefined)?.branch), commit: str((rawRun.base as Record<string, unknown> | undefined)?.commit) },
-				crew: list(rawRun.crew).map(c => ({ task: str(c.task), branch: str(c.branch), worktree: str(c.worktree) || null, brief: str(c.brief), migration: str(c.migration) || null })),
+				crew: list(rawRun.crew).map(c => ({ task: str(c.task), branch: str(c.branch), worktree: str(c.worktree) || null, brief: str(c.brief), migration: str(c.migration) || null, unlisted: c.unlisted === true })),
 				assumptions: list(rawRun.assumptions).map(a => ({ n: num(a.n), text: str(a.text), changed_at: num(a.changed_at) || null })),
+				rebind: isRecord((rawRun.coordinator as Record<string, unknown> | undefined)?.rebind_candidate)
+					? { session_id: str(((rawRun.coordinator as Record<string, unknown>).rebind_candidate as Record<string, unknown>).session_id), name: str(((rawRun.coordinator as Record<string, unknown>).rebind_candidate as Record<string, unknown>).name) }
+					: null,
+				pending: list(data.pending).map(p => ({ n: num(p.n), kind: str(p.kind), text: str(p.text) })),
+				decisions: list(data.decisions).map(d => ({ n: num(d.n), text: str(d.text), told: Array.isArray(d.told) ? d.told.length : 0, acks: Array.isArray(d.acks) ? d.acks.length : 0 })),
 			}
 		: null
 	const sessions: SessionRow[] = list(data.sessions).map(s => ({
@@ -155,6 +160,9 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		live_status: str(s.live_status),
 		socket: str(s.socket) || null,
 		updated_at: num(s.updated_at),
+		retired_at: isRecord(s.retired) ? num(s.retired.at) || null : null,
+		watching: isRecord(s.watch) && ['watching', 'holding'].includes(str(s.watch.status)),
+		context_percent: typeof s.context_percent === 'number' ? s.context_percent : null,
 	}))
 	const slots: Slot[] = list(data.slots).map(s => ({
 		resource: str(s.resource),
@@ -181,6 +189,9 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		session_id: str(n.session_id),
 		task: str(n.task),
 		why: str(n.why),
+		kind: str(n.kind) || 'action',
+		for: str(n.for) || null,
+		for_task: str(n.for_task),
 		command: str(n.command),
 		cwd: str(n.cwd),
 		status: str(n.status),
@@ -411,8 +422,11 @@ export const handoff = (snap: Snapshot, targets: readonly string[], text: string
 }
 
 /** Every live crew session but the ones named, for a grant notice or a changed assumption. */
-const others = (snap: Snapshot, except: readonly string[] = []): string[] =>
-	snap.sessions.filter(s => s.live && !except.includes(s.session_id) && s.session_id !== snap.run?.coordinator.session_id).map(s => s.session_id)
+/** The crew a notice goes to: live, still working (not done, not retired) and not the sender; a merged task's session has nothing to do with a resource notice. */
+export const others = (snap: Snapshot, except: readonly string[] = []): string[] =>
+	snap.sessions
+		.filter(s => s.live && s.state !== 'done' && s.retired_at === null && !except.includes(s.session_id) && s.session_id !== snap.run?.coordinator.session_id)
+		.map(s => s.session_id)
 
 const probeSummary = (probes: readonly Probe[], resource: string): string => {
 	const probe = probes.find(p => p.resource === resource)
@@ -457,11 +471,26 @@ const TOOLS = [
 		inputSchema: {
 			type: 'object',
 			properties: {
-				why: { type: 'string', description: 'one line: what and why' },
+				why: { type: 'string', description: 'what and why, in full: the user reads this before typing a hosted command' },
 				command: { type: 'string', description: 'the exact command, if there is one' },
 				cwd: { type: 'string', description: 'the absolute directory the command must run from (default: your worktree)' },
+				kind: { type: 'string', enum: ['action', 'measurement', 'approval'], description: 'measurement: the output the user pastes when marking it done is forwarded to the session the need is for' },
+				for: { type: 'string', description: 'the session the result is for (task id, branch or name); default: the asking session' },
 			},
 			required: ['why'],
+		},
+	},
+	{
+		name: 'mc_decide',
+		description: 'Coordinator only: record what the user decided (a finding’s routing, option A over B, a scope withdrawn) in the run’s decisions record, with the sessions told. The reply hands you the line to send each of them; a crew session acknowledges with `mc.py decide ack <n>`. The end skill, a compacted coordinator and reconcile read this record.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				text: { type: 'string', description: 'what was decided, in the user’s words' },
+				about: { type: 'string', description: 'what it concerns: a finding, a task, a scope' },
+				told: { type: 'string', description: 'comma-separated task ids, branches or names told, or "all" for every working crew session' },
+			},
+			required: ['text'],
 		},
 	},
 	{
@@ -559,10 +588,25 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			const args = ['needs', 'add', '--why', arg(input, 'why')]
 			if (arg(input, 'command')) args.push('--command', arg(input, 'command'))
 			if (arg(input, 'cwd')) args.push('--cwd-hint', arg(input, 'cwd'))
+			if (arg(input, 'kind')) args.push('--kind', arg(input, 'kind'))
+			if (arg(input, 'for')) args.push('--for', arg(input, 'for'))
 			const ran = await mine($, args)
 			if (ran.exitCode !== 0) return reasonOf(ran, 'need refused')
 			await refresh($)
 			return `${ran.stdout.trim()}${me.isCoordinator ? '' : handoff(snap, [snap.run.coordinator.session_id], `needs the user: ${ran.stdout.trim()}`)}`
+		}
+		case 'mc_decide': {
+			if (!me.isCoordinator) return 'only the coordinator session records decisions.'
+			const args = ['decide', 'add', '--text', arg(input, 'text')]
+			if (arg(input, 'about')) args.push('--about', arg(input, 'about'))
+			if (arg(input, 'told')) args.push('--told', arg(input, 'told'))
+			const ran = await mine($, args)
+			if (ran.exitCode !== 0) return reasonOf(ran, 'decision refused')
+			const fresh = await refresh($)
+			const number = Math.max(0, ...(fresh.run?.decisions.map(d => d.n) ?? [0]))
+			const told = arg(input, 'told').trim().toLowerCase() === 'all' ? others(fresh, [me.sessionId]) : arg(input, 'told').split(',').map(t => resolveSession(fresh, t.trim())).filter((t): t is { sessionId: string; label: string } => typeof t !== 'string').map(t => t.sessionId)
+			const line = `Decision #${number} from the user${arg(input, 'about') ? ` on ${arg(input, 'about')}` : ''}: ${arg(input, 'text')} Acknowledge with \`python3 mc.py decide ack ${number}\` once you have read it.`
+			return `${ran.stdout.trim()}${told.length ? handoff(fresh, told, line) : '\nNobody told; pass told to name the sessions.'}`
 		}
 		case 'mc_send': {
 			const text = arg(input, 'text')
@@ -580,6 +624,16 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			const resource = arg(input, 'resource')
 			const target = resolveSession(snap, arg(input, 'to'))
 			if (typeof target === 'string') return target
+			const holding = snap.slots.find(s => s.resource === resource)
+			if (holding && holding.holder === target.sessionId) {
+				// the holder keeps the slot longer: no probe (it is theirs already), no notice to anyone else
+				const minutes = argNum(input, 'minutes')
+				const ran = await mine($, ['grant', resource, '--to', target.sessionId, ...(minutes !== null ? ['--minutes', String(minutes)] : []), ...(arg(input, 'note') ? ['--note', arg(input, 'note')] : [])])
+				if (ran.exitCode !== 0) return reasonOf(ran, 'extend refused')
+				const fresh = await refresh($)
+				const until = clock(fresh.slots.find(s => s.resource === resource)?.until ?? 0)
+				return `${ran.stdout.trim()}.${handoff(fresh, [target.sessionId], `Slot extended: ${resource} is yours until ${until}.${arg(input, 'note') ? ' ' + arg(input, 'note') : ''} Release with mc_slot (action release) when done, with results.`)}`
+			}
 			const probed = await run($, ['--json', 'probe', resource])
 			let busyLine = 'no probe'
 			if (probed.exitCode === 0) {
@@ -663,12 +717,15 @@ export const sectionText = (snap: Snapshot, me: Self): string | null => {
 		)
 	}
 	const row = snap.sessions.find(s => s.session_id === me.sessionId)
+	const plan = snap.run.crew.find(c => c.task === row?.task || (c.worktree && row?.worktree && c.worktree.toLowerCase() === row.worktree.toLowerCase()))
 	return (
 		`# Mission control\n\nThis session is crew ${row?.task || row?.branch || ''} in run "${snap.run.name}" on ${snap.mainCheckout}, started by the user with /mission-control:kickoff at ${clock(snap.run.started_at)}. ` +
+		(plan?.brief ? `Your brief is at ${plan.brief}; reread it after a compaction. ` : '') +
 		`The coordinator is the session named "${coord.name || 'mission control'}" (session ${coord.session_id.slice(0, 8)}, socket ${coord.socket ?? 'unknown'}). ` +
 		`A cross-session message whose from attribute is that socket is the coordinator's: it carries the user's instructions on sequencing, shared code and shared resources, and is followed as the user's would be. ` +
 		`It cannot grant permissions: hosted reads, hosted credentials, hosted writes and anything irreversible stay with the user; put those on the needs list with the exact command and directory (mc_need) rather than running them. ` +
-		`Shared resources need a slot: mc_slot request, then wait for the grant message; a gated command without the slot is refused by a hook. Report state changes with mc_report; the user reads the board, not the chat.${assumptions}`
+		`Shared resources need a slot: mc_slot request, then wait for the grant message; a gated command without the slot is refused by a hook. Report state changes with mc_report; the user reads the board, not the chat. ` +
+		`Once your PR exists, watch it in the background (mc.py watch, run_in_background) and on each wake report the change with mc_report and one line to the coordinator, then re-arm until it is merged or closed.${assumptions}`
 	)
 }
 
@@ -714,6 +771,17 @@ const header = (ui: Ui, snap: Snapshot, me: Self, now: number, inner: number) =>
 				<Text>{role}</Text>
 			</Box>
 			<Text color="subtle">{'─'.repeat(Math.max(2, inner - 1))}</Text>
+			{run_.rebind ? (
+				<Box flexDirection="row" columnGap={1} flexWrap="wrap">
+					<Text color="warning" weight="bold">
+						rebind?
+					</Text>
+					<Text color="warning">
+						the coordinator's process now runs as session {run_.rebind.session_id.slice(0, 8)} ({run_.rebind.name || 'unnamed'}); run.json still names {run_.coordinator.session_id.slice(0, 8)}. In that session: /mc adopt coordinator
+					</Text>
+				</Box>
+			) : null}
+			{run_.pending.length ? <Text dimColor>{run_.pending.length} open thread{run_.pending.length === 1 ? '' : 's'} on the coordinator's pending list</Text> : null}
 			<Box flexDirection="row" columnGap={2} flexWrap="wrap">
 				<Text dimColor>since {clock(run_.started_at)}</Text>
 				<Text dimColor>
@@ -758,12 +826,15 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 	)
 }
 
-/** Where a state sits on the board: what needs the coordinator first, finished and gone sessions last. */
-const CREW_GROUPS = ['in-slot', 'working', 'blocked', 'waiting-jason', 'briefing', 'pr-ready', 'done', 'gone'] as const
+/** Where a state sits on the board: what needs the coordinator first, finished, retired and gone sessions last. */
+const CREW_GROUPS = ['in-slot', 'working', 'blocked', 'waiting-jason', 'briefing', 'pr-ready', 'done', 'retired', 'gone'] as const
 
-/** The crew by the group their row reads in (a gone session is `gone` whatever it last reported); ledger order holds within a group. */
+/** Groups whose heading reads dim: nothing in them needs anyone. */
+const QUIET_GROUPS = new Set(['retired', 'gone'])
+
+/** The crew by the group their row reads in (a closed session is `retired` once its worktree is reclaimed, else `gone` whatever it last reported); ledger order holds within a group. */
 export const crewGroups = (sessions: readonly Snapshot['sessions'][number][]): { group: string; sessions: Snapshot['sessions'] }[] => {
-	const groupOf = (s: Snapshot['sessions'][number]): string => (s.live ? s.state : 'gone')
+	const groupOf = (s: Snapshot['sessions'][number]): string => (s.live ? s.state : s.retired_at ? 'retired' : 'gone')
 	const rank = (group: string): number => {
 		const at = (CREW_GROUPS as readonly string[]).indexOf(group)
 		return at === -1 ? CREW_GROUPS.length - 1 : at
@@ -775,19 +846,20 @@ export const crewGroups = (sessions: readonly Snapshot['sessions'][number][]): {
 const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: string | null, inner: number, now: number) => {
 	const { Box, Text } = ui
 	const grouped = crewGroups(snap.sessions)
+	const unlisted = new Set(snap.run?.crew.filter(c => c.unlisted).map(c => c.task) ?? [])
 	let nth = 0
 	return grouped.flatMap(({ group, sessions }, at) => [
 		<Box key={`group-${group}`} flexDirection="row" columnGap={1} marginTop={at === 0 ? 0 : 1}>
-			<Text color={group === 'gone' ? 'subtle' : stateColour(group) ?? 'claude'}>▸</Text>
-			<Text weight="bold" dimColor={group === 'gone'} color={group === 'gone' ? undefined : stateColour(group)}>
+			<Text color={QUIET_GROUPS.has(group) ? 'subtle' : stateColour(group) ?? 'claude'}>▸</Text>
+			<Text weight="bold" dimColor={QUIET_GROUPS.has(group)} color={QUIET_GROUPS.has(group) ? undefined : stateColour(group)}>
 				{group} · {sessions.length}
 			</Text>
 		</Box>,
-		...crewRowsOf($, ui, sessions, me, picked, inner, now, () => nth++),
+		...crewRowsOf($, ui, sessions, me, picked, inner, now, () => nth++, unlisted),
 	])
 }
 
-const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], me: Self, picked: string | null, inner: number, now: number, nextIndex: () => number) => {
+const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], me: Self, picked: string | null, inner: number, now: number, nextIndex: () => number, unlisted: ReadonlySet<string> = new Set()) => {
 	const { Box, Text, Button } = ui
 	return sessions.map(s => {
 		const i = nextIndex()
@@ -795,25 +867,33 @@ const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], 
 		const isMe = s.session_id === me.sessionId
 		const label = s.task || s.branch || s.name || s.session_id.slice(0, 8)
 		const gone = !s.live
+		const retired = gone && s.retired_at !== null
 		const worktreeName = (s.worktree ?? '').split('/').filter(Boolean).pop() ?? ''
 		return (
 			<Box key={key} flexDirection="column">
 				<Box flexDirection="row" columnGap={1}>
-					<Text dimColor={gone} color={s.live ? (s.live_status === 'busy' ? 'claude' : 'success') : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
+					<Text dimColor={gone} color={s.live ? (s.live_status === 'busy' ? 'claude' : 'success') : retired ? 'subtle' : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
 					<Button key={`row-${key}`} plain hotkey={i < 9 ? String(i + 1) : undefined} dimColor={gone || (picked !== null && picked !== key)} label={label} onPress={() => update($, selected, () => key)} />
 					<Text dimColor>{s.branch && s.branch !== label ? s.branch : ''}</Text>
-					{worktreeName ? <Text dimColor>{worktreeName}</Text> : null}
-					<Text dimColor={gone} color={gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
-						{gone ? 'gone' : s.state}
+					{worktreeName && !retired ? <Text dimColor>{worktreeName}</Text> : null}
+					<Text dimColor={gone} color={retired ? undefined : gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
+						{retired ? 'retired' : gone ? 'gone' : s.state}
 					</Text>
 					{s.pr ? <Text dimColor={gone} color="claude">#{s.pr}</Text> : null}
 					{s.pr && s.pr_state && s.pr_state !== 'OPEN' ? <Text dimColor={gone} color={s.pr_state === 'MERGED' ? 'success' : 'subtle'}>{s.pr_state.toLowerCase()}</Text> : null}
+					{s.pr && s.watching && s.live ? <Text dimColor>watching</Text> : null}
+					{unlisted.has(s.task) ? <Text dimColor>unlisted</Text> : null}
+					{s.live && s.context_percent !== null ? (
+						<Text dimColor={s.context_percent < 70} color={s.context_percent >= 85 ? 'error' : s.context_percent >= 70 ? 'warning' : undefined}>
+							ctx {s.context_percent}%
+						</Text>
+					) : null}
 					{isMe ? <Text dimColor>◀ you</Text> : null}
 				</Box>
 				<Box flexDirection="row" paddingLeft={4} columnGap={1}>
 					<Box width={Math.max(10, inner - 14)}>
 						<Text dimColor wrap={picked === key ? 'wrap' : 'truncate-end'}>
-							{s.summary || (s.live ? 'no report yet' : 'session gone')}
+							{retired ? `worktree retired ${s.retired_at ? ago(now - s.retired_at * 1000) : ''} ago` : s.summary || (s.live ? 'no report yet' : 'session gone')}
 						</Text>
 					</Box>
 					<Text dimColor>{s.updated_at ? `${ago(now - s.updated_at * 1000)} ago` : ''}</Text>
@@ -874,7 +954,8 @@ const needRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string | n
 				<Box flexDirection="row" columnGap={1}>
 					<Button key={`row-${key}`} plain dimColor={picked !== null && picked !== key} label={`${n.n}.`} onPress={() => update($, selected, () => key)} />
 					<Text color="warning">{n.task ? `[${n.task}]` : ''}</Text>
-					<Box width={Math.max(10, inner - 10 - n.task.length)}>
+					{n.kind === 'measurement' ? <Text dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null}
+					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0))}>
 						<Text wrap="wrap">{n.why}</Text>
 					</Box>
 				</Box>
@@ -892,6 +973,56 @@ const needRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string | n
 
 // ---------------------------------------------------------------- /mc
 
+/** The model this session runs when it is one too small to coordinate a run (haiku, sonnet), else null; null too where the engine cannot say. */
+export const smallModel = async ($: EngineInterface): Promise<string | null> => {
+	try {
+		const model = await $.session.model()
+		return /haiku|sonnet/i.test(model) ? model : null
+	} catch {
+		return null
+	}
+}
+
+export const smallModelWarning = (model: string, override: string): string =>
+	`This session runs ${model}. Mission control reads every brief, every crew message and the whole board, and decides what keeps the sessions consistent; on the October 2026 runs that took an opus session. Start the run from an opus session, or ${override} if you mean this one.`
+
+/** This session's context fill as a whole percent, from the engine's own gauge; null where it cannot say. */
+const contextPercent = async ($: EngineInterface): Promise<number | null> => {
+	try {
+		const { context } = await $.session.usage()
+		const percent = context?.percent
+		return typeof percent === 'number' && Number.isFinite(percent) ? Math.round(percent) : null
+	} catch {
+		return null
+	}
+}
+
+let lastContextWritten: number | null = null
+
+/** A crew session writes its context fill to its row when it has moved a point, so the coordinator's board shows who is running out of room. */
+const writeContext = async ($: EngineInterface, me: Self): Promise<void> => {
+	if (!me.isCrew || !me.sessionId) return
+	const percent = await contextPercent($)
+	if (percent === null || percent === lastContextWritten) return
+	lastContextWritten = percent
+	await mine($, ['report', '--context', String(percent)])
+}
+
+/** A measurement's result goes to the session that wanted it, in one step with marking the need done; the suffix says where it went. */
+const forwardResult = async ($: EngineInterface, doneJson: string): Promise<string> => {
+	let done: unknown
+	try {
+		done = JSON.parse(doneJson)
+	} catch {
+		return ''
+	}
+	if (!isRecord(done) || !str(done.forward_to) || !str(done.result)) return ''
+	const to = str(done.forward_to)
+	const label = str(done.for_task) || to.slice(0, 8)
+	const delivered = await send($, to, `Result of need #${num(done.n)} (${str(done.why).slice(0, 120)}), from the user:\n\n${str(done.result)}\n\nAct on it and report with mc_report.`)
+	return `; result sent to ${label} (${delivered})`
+}
+
 /** `/mc <verb> ...` as the person's own hand on the ledger: every write carries --by-user. */
 const command = async ($: EngineInterface, args: string): Promise<string> => {
 	const words = args.trim().split(/\s+/).filter(Boolean)
@@ -907,8 +1038,11 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 	const byUser = async (cliArgs: readonly string[]): Promise<string> => (await byUserRan(cliArgs)).text
 	switch (verb) {
 		case 'start': {
-			const name = words.slice(1).join(' ')
-			if (!name) return 'usage: /mc start <run name>'
+			const anyway = words[words.length - 1]?.toLowerCase() === 'anyway'
+			const name = (anyway ? words.slice(1, -1) : words.slice(1)).join(' ')
+			if (!name) return 'usage: /mc start <run name> [anyway]'
+			const small = await smallModel($)
+			if (small && !anyway) return smallModelWarning(small, `/mc start ${name} anyway`)
 			const ran = await run($, ['--session', me.sessionId, 'start', '--name', name])
 			await refresh($, true)
 			$.ui.invalidate('prompt.section')
@@ -931,14 +1065,33 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 		case 'release':
 		case 'revoke':
 			return words[1] ? byUser(['release', words[1]]) : 'usage: /mc release <resource>'
-		case 'done':
-			return words[1] ? byUser(['needs', 'done', words[1]]) : 'usage: /mc done <need number>'
+		case 'done': {
+			if (!words[1]) return 'usage: /mc done <need number> [the result, or @<file>]'
+			const result = words.slice(2).join(' ')
+			const ran = await byUserRan(['needs', 'done', words[1], ...(result ? ['--result', result] : []), '--json'])
+			if (!ran.ok) return ran.text
+			return `need #${words[1]} done${await forwardResult($, ran.text)}`
+		}
+		case 'extend': {
+			if (!words[1]) return 'usage: /mc extend <resource> [minutes]'
+			const snap = (await read($, snapshot)) ?? (await refresh($))
+			const slot = snap.slots.find(s => s.resource === words[1])
+			if (!slot) return `${words[1]} is not held; /mc grant gives it`
+			const result = await byUserRan(['grant', words[1], '--to', slot.holder, ...(words[2] ? ['--minutes', words[2]] : [])])
+			if (result.ok) await send($, slot.holder, `Slot extended by the user: ${words[1]} is yours for another ${words[2] ?? '15'} minutes. Release with mc_slot (action release) when done.`)
+			return result.text
+		}
+		case 'adopt':
+			if (words[1] !== 'coordinator' && words[1] !== 'crew') return 'usage: /mc adopt coordinator|crew (from the session that takes the role)'
+			return byUser(['adopt', words[1]])
+		case 'retire':
+			return words[1] ? byUser(['retire', words[1], ...(words[2] === 'dry' ? ['--dry-run'] : [])]) : 'usage: /mc retire <task|branch|name> [dry]'
 		case 'status': {
 			const ran = await run($, ['status', '--probe'])
 			return ran.exitCode === 0 ? ran.stdout : reasonOf(ran, 'status refused')
 		}
 		default:
-			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc release <resource> · /mc done <n> · /mc status · /mc end [force]'
+			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc extend <resource> [minutes] · /mc release <resource> · /mc done <n> [result|@file] · /mc adopt coordinator|crew · /mc retire <task> [dry] · /mc status · /mc end [force]'
 	}
 }
 
@@ -963,14 +1116,24 @@ export const register: Register = (on, options) => {
 		}
 		await offerTools($, false)
 		await refresh($)
+		{
+			// a resumed coordinator session on a model too small to coordinate is told so at once
+			const me = await read($, self)
+			if (me.isCoordinator) {
+				const small = await smallModel($)
+				if (small) $.ui.toast(`Mission control is coordinating this run on ${small}; the run wants an opus session.`)
+			}
+			await writeContext($, me)
+		}
 		// Every tick rereads the ledger, so a run started after this session did is noticed within one period;
-		// the machine is probed only while the coordinator's board is open.
+		// the machine is probed only while the coordinator's board is open. A crew session also writes its context fill.
 		$.clock.every(refreshMs, () => {
 			if (tickInFlight) return
 			tickInFlight = true
 			void isPaneOpen($)
 				.then(async open => {
 					const me = await read($, self)
+					await writeContext($, me)
 					await refresh($, open && me.isCoordinator)
 				})
 				.finally(() => {
@@ -1004,8 +1167,23 @@ export const register: Register = (on, options) => {
 
 	// Anything that touches the ledger, a PR or a worktree redraws an open board.
 	on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+		// a run is coordinated from this session: a haiku or sonnet one is warned off before the ledger changes
+		if (/mc\.py.*\bstart\b/.test(e.command) && !/--small-model-ok\b/.test(e.command)) {
+			const small = await smallModel($)
+			if (small) return { deny: `mission-control: ${smallModelWarning(small, 'add --small-model-ok to the mc.py start line')}` }
+		}
 		const ran = await next(e)
 		if (e.agentId) return ran
+		// a GitHub write the permission classifier refused is the user's to type: it goes on the needs list by itself, with the command and the directory
+		if (ran.deny && /\bgh\b|git push/.test(e.command) && /permission|denied|refus|not allowed|classif/i.test(ran.deny)) {
+			const me = await read($, self)
+			if (me.isCrew || me.isCoordinator) {
+				const cwd = await $.session.cwd()
+				const why = `the permission classifier refused this GitHub write from the session (${ran.deny.slice(0, 200).replace(/\s+/g, ' ')}); typed by the user it runs as intended`
+				await mine($, ['needs', 'add', '--why', why, '--command', e.command, '--cwd-hint', cwd, '--kind', 'action'])
+				await refresh($)
+			}
+		}
 		// a crew session that opens a PR says so on the board by itself; the number is in the URL gh prints
 		if (/gh pr create/.test(e.command) && ran.result && !ran.isError) {
 			const number = prNumberOf(ran.result.stdout)
@@ -1161,13 +1339,14 @@ export const register: Register = (on, options) => {
 					{ask?.kind === 'done' && (
 						<Input
 							key="done-ref"
-							label={`mark need ${ask.ref} done (enter to confirm)`}
-							value={ask.ref}
+							label={`mark need ${ask.ref} done: paste the result (or @<file>) for a measurement, else enter`}
+							value=""
 							submitLabel="done"
 							autoFocus
 							onSubmit={async value => {
-								const ran = await run($, ['--session', me.sessionId, 'needs', 'done', value.trim() || ask.ref, '--by-user'])
-								$.ui.toast(ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, 'refused'))
+								const result = value.trim()
+								const ran = await run($, ['--session', me.sessionId, 'needs', 'done', ask.ref, ...(result ? ['--result', result] : []), '--by-user', '--json'])
+								$.ui.toast(ran.exitCode === 0 ? `need #${ask.ref} done${await forwardResult($, ran.stdout.trim())}` : reasonOf(ran, 'refused'))
 								await update($, asking, () => null)
 								await update($, selected, () => null)
 								await refresh($, me.isCoordinator)

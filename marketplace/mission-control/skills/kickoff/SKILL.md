@@ -32,10 +32,12 @@ Usage: /mission-control:kickoff [task ids...] [name <run name>]
 
 ## Step 1: Preconditions
 
+0. This session's model. The mod refuses `mc.py start` from a haiku or sonnet session and says so; coordinating takes an opus session (every brief, every crew message and the whole board pass through it). Do not add `--small-model-ok` on your own: that flag is the user's to type, and the right move is a fresh opus session.
 1. `mc.py detect`. Exit 2: stop and say `/mission-control:configure` writes the project config; nothing else happens without it.
 2. `mc.py --json status` (the flag goes before the subcommand). A non-null `run`: stop and name it; `/mission-control:end` closes a run.
 3. `git fetch origin` in the main checkout, then record the base: `git rev-parse origin/<default branch>` (origin's HEAD), or the branch the user names. Check it is on origin: `git ls-remote --exit-code --heads origin <base>`. A base that is not (a feature branch the PRs will stack on) cannot be a PR target until the user pushes it, and the push publishes its commits, so it is the user's: `mc.py start` puts it on the needs list as item 1 and warns; say so in the hand-over and do not expect a PR before it is done. This sha is quoted in the guidance and every brief; every shared fact is checked at it.
 4. `mc.py probe`. Relay what the machine holds (a running server, a migration on the stack from a worktree that is not in this run). It becomes a shared fact.
+5. `mc.py classify`. It says `solo` or `collaborative`, where the answer came from (`config`, `local config` or `inferred` from 90 days of authors and the reviews on merged PRs) and, on a collaborative project, the team's hours. Relay it in one line and ask the user to confirm it with AskUserQuestion when it is inferred; a correction goes to `mc.py start --collaboration <mode>` in step 5 and is offered to the config as `collaboration` (mode and hours) so the next run has it. The mode drives the rest: on a collaborative project step 3 reads every convention file and the PR template, since they bound the run; on a solo one the global config is usually the whole of it and step 3 is short. Crew sessions read it from the run record: their PR watcher holds outside the team's hours on a collaborative project and covers checks alone on a solo one.
 
 ## Step 2: Choose the tasks
 
@@ -67,9 +69,9 @@ For each task, in the main checkout:
 1. `git worktree add -b <branch> <main>/<worktrees.dir>/<name> origin/<base>`. A branch that already exists: `git worktree add <path> <branch>` and say so.
 2. `zsh "${CLAUDE_PLUGIN_ROOT}"/scripts/worktree-bootstrap.sh <path>` (it is a zsh script; `sh` fails on its array syntax): symlinks the git-ignored `.env*` files and installs every tracked lockfile. Relay its lines; a `failed` line is reported, not retried.
 3. With a roadmap: `roadmap.py claim <id> --assignee "<who>"` **inside the worktree** (the claim lives on the branch). Ask who once, for all tasks; never infer a name. Commit with `git commit -m "chore(roadmap): claim <id>" -- .claude/roadmaps.json`.
-4. `mc.py crew add --task <id> --branch <branch> --worktree <path> [--migration <timestamp>]`.
+4. `mc.py crew add --task <id> --branch <branch> --worktree <path> [--migration <timestamp>] [--unlisted]`; `--unlisted` for a task the user chose with no roadmap item, so nothing later expects a claim or a roadmap row for it.
 
-Run `mc.py start --name <run name> --pr-approval <answer>` **before** the first `crew add` (crew add needs a run). The run's coordinator is this session, read from `CLAUDE_CODE_SESSION_ID`.
+Run `mc.py start --name <run name> --pr-approval <answer> [--collaboration <mode>]` **before** the first `crew add` (crew add needs a run); the collaboration flag only when the user corrected step 1's classification. The run's coordinator is this session, read from `CLAUDE_CODE_SESSION_ID`.
 
 ## Step 6: Assumptions, guidance, briefs
 

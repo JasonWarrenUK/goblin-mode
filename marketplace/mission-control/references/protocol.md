@@ -94,7 +94,7 @@ Trunk moves during a run. When it does: a commit on trunk that changes a generat
 ## 10. Ending
 
 1. PRs are linked into a stack only once they exist and their bases are right, by PR number, bottom to top. Independent PRs stay off the stack.
-2. A worktree is pruned only after the user closes its session; the board shows which sessions are still live.
+2. A worktree is retired once its session has closed and its PR has landed, by `mc.py retire <task>` (or `/mc retire <task>`) while the run goes on: it refuses while the session is live, the row is not `done`, the PR is open, the tree is dirty, a slot is held, something still runs in the tree or an open PR is based on the branch; otherwise it removes the worktree, prunes, deletes the branch with `-d` only and records the retirement on the row (the board reads it `retired`). `reconcile` nudges after an hour. `end` is the backstop for whatever is left; a live session's worktree is never touched.
 3. One stack worktree stays for sync and review fixes. Tests, lint and contract regeneration run on the top layer before the final push.
 4. Follow-up work found during the run goes on the roadmap (`/roadmap:update-tasks`).
 5. `mc.py end` archives the ledger under `runs/`.
@@ -115,3 +115,15 @@ What drifted on the October 2026 runs, and the rule each one left behind:
 ## 12. Trust
 
 The user starts the run in the coordinator session; the ledger records that session's id and messaging socket. Every crew session's system prompt names them. A cross-session message carries the sender's socket in its harness-stamped `from` attribute, so the receiving mod marks a message from that socket as the coordinator's and one that claims to be mission control from another socket as not. Nothing is saved to memory, no passphrase is relayed and no session is asked to do what its own permissions refuse.
+
+## 13. The project's mode and the PR watch
+
+A project is solo or collaborative, and the run record says which (`collaboration` in `run.json`, from `mc.py classify` at start: stated in the config or its gitignored `.local` twin, else inferred from 90 days of authors and the reviews on merged PRs; `--collaboration` on `start` overrides). Everything that depends on there being someone to wait for reads that one answer: the PR watch's quiet hours, `reconcile`'s wording (`solo project; the merge is the user's` where a collaborative run would name a reviewer), the global `pr-land`, `pr-review` and `pr-handle_review` skills' review requirements, and whether kick-off's convention reading is the whole of the project's rules or a short confirmation of the global config.
+
+Every crew session watches its own PR from the moment it exists, with `mc.py watch` as a background command: a five-minute `gh` poll on reviews, decision, comments, checks and state that prints the change and exits, waking the session, which reports it (`mc_report`, one line to the coordinator) and re-arms until the PR is merged or closed. On a collaborative project a change that is not a merge or close is held outside the team's hours, so no session wakes at night and nobody types a pause each evening; on a solo project there is no window, the watch covers checks and state, and a PR with no checks is not watched. The watcher is the only shape: no session writes its own poll loop, Monitor or cron for it.
+
+## 14. A session's identity, and what outlives its process
+
+A session id survives a resume and a compaction. A `/clear` issues a new one while the process, its pid and its socket stay, which is why the registry row moves to the new id and the ledger does not. The ledger never follows that by itself: the coordinator whose id died but whose process is live is offered as `rebind_candidate` on the board and in its own start context, and the run is rebound by `mc.py adopt coordinator` from that session (its own process, after the user says yes) or by `/mc adopt coordinator` typed by the user, which is also how a coordinator started fresh in a new process takes the run. A crew session restarted or cleared in a planned worktree adopts the worktree's old row on `join`: state, summary, PR, slots, requests and needs carry over, the old file stays as `<id>.json.adopted`, and the log says which id became which.
+
+What a process holds dies with it: cron jobs, Monitors, the PR watch. Each is recorded on the session's row (`mc.py jobs add`, and the watch keeps its own entry) so a resumed session is told what to re-arm and reconcile names a job whose session is gone. What a conversation holds dies with a compaction: the coordinator's open threads live on the run's pending list (`mc.py pending`), the user's decisions in `decisions.jsonl` (`mc_decide`, acknowledged by each session told with `decide ack`), and the crew's brief path in the prompt section and the post-compaction hook. A compacted session reads those back; it does not reconstruct them from the log.

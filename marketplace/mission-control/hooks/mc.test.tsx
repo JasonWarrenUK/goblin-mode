@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -79,7 +79,11 @@ const world = (
 		} else if (sub === 'status') stdout = JSON.stringify(status)
 		else if (sub === 'check') stdout = JSON.stringify({ covered: args.join(' ').includes('db-reset'), decision: null, resources: ['local-db'] })
 		else if (sub === 'probe') stdout = JSON.stringify([{ resource: 'local-db', busy: false, checks: [{ kind: 'port', detail: 'free' }] }])
-		else stdout = `${sub} ok\n`
+		else if (sub === 'needs' && args.includes('done') && args.includes('--json')) {
+			// what the CLI prints for a done need: the result given and whom it is for
+			const at = args.indexOf('--result')
+			stdout = JSON.stringify({ n: 1, why: 'paste the timings', result: at === -1 ? '' : args[at + 1], forward_to: at === -1 ? null : 'crew-1', for_task: '10SE.2' })
+		} else stdout = `${sub} ok\n`
 		return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
 	})
 	return { panes, calls, sent }
@@ -395,6 +399,98 @@ test('helpers: crewGroups orders by what needs attention and keeps ledger order 
 	// a gone session is gone whatever it last reported
 	expect(groups[2]?.sessions.map(s => s.task)).toEqual(['10SE.5'])
 	expect(crewGroups([])).toEqual([])
+	// a closed session whose worktree was retired reads under retired, after done and before gone
+	const [base] = STATUS.sessions
+	const retired = parseSnapshot(JSON.stringify({ ...STATUS, sessions: [
+		{ ...base, session_id: 'crew-4', task: '10SE.5', state: 'working', live: false },
+		{ ...base, session_id: 'crew-5', task: '10SE.6', state: 'done', live: false, retired: { at: 1_700_000_000 } },
+		{ ...base, session_id: 'crew-6', task: '10SE.7', state: 'done', live: true },
+	] }), NOON)
+	expect(crewGroups(retired.sessions).map(g => g.group)).toEqual(['done', 'retired', 'gone'])
+	expect(retired.sessions[1]?.retired_at).toBe(1_700_000_000)
+})
+
+test('/mc start from a haiku or sonnet session is warned off until the person says anyway', async ($, on) => {
+	const { calls } = world(on, 'coord-1', { ...STATUS, run: null })
+	on('session.model', async () => ({ value: 'claude-sonnet-5-5' }))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	const warned = await $.command.run({ ...RUN, command: 'mc', args: 'start search' })
+	expect(warned.text).toContain('This session runs claude-sonnet-5-5')
+	expect(warned.text).toContain('/mc start search anyway')
+	expect(calls.find(c => c.includes('start'))).toBeUndefined()
+	await $.command.run({ ...RUN, command: 'mc', args: 'start search anyway' })
+	const started = calls.find(c => c.includes('start'))
+	expect(started).toBeDefined()
+	expect(started).toContain('search')
+	expect(started).not.toContain('anyway')
+})
+
+test('/mc start from an opus session starts the run without a word', async ($, on) => {
+	const { calls } = world(on, 'coord-1', { ...STATUS, run: null })
+	on('session.model', async () => ({ value: 'claude-opus-5-5' }))
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: 'start search' })
+	expect(calls.find(c => c.includes('start'))).toBeDefined()
+})
+
+test('a crew session writes its context fill to its row and the board draws it', async ($, on) => {
+	const { calls } = world(on, 'crew-1', { ...STATUS, sessions: [{ ...STATUS.sessions[0], context_percent: 88 }] }, undefined, { cwd: '/code/app/.claude/worktrees/10se2' })
+	on('session.usage', async () => ({ value: { startedAt: 0, context: { percent: 63.4, window: 200_000 }, rateLimits: {}, cost: {} } as never }))
+	await $.session.start({ cwd: '/code/app/.claude/worktrees/10se2', surface: 'terminal', isInteractive: true })
+	const gauge = calls.find(c => c.includes('--context'))
+	expect(gauge).toBeDefined()
+	expect(gauge?.[gauge.indexOf('--context') + 1]).toBe('63')
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /ctx 88%/ }))?.text).toBe('ctx 88%')
+	await ui.unmount()
+})
+
+test('parseSnapshot reads the rebind candidate, the pending list, the decisions, unlisted crew and a need’s kind', async () => {
+	const status = {
+		...STATUS,
+		run: { ...STATUS.run, coordinator: { ...STATUS.run.coordinator, rebind_candidate: { session_id: 'coord-2', name: 'mission control' } }, crew: [{ task: 'UXR', branch: 'feat/u', worktree: null, brief: '', migration: null, unlisted: true }] },
+		pending: [{ n: 1, kind: 'approval', text: 'PR description sent back' }],
+		decisions: [{ n: 1, text: 'option A', told: ['crew-1'], acks: [] }],
+		needs: [{ ...STATUS.needs[0], kind: 'measurement', for: 'crew-1', for_task: '10SE.2' }],
+	}
+	const snap = parseSnapshot(JSON.stringify(status), NOON)
+	expect(snap.run?.rebind).toEqual({ session_id: 'coord-2', name: 'mission control' })
+	expect(snap.run?.pending).toEqual([{ n: 1, kind: 'approval', text: 'PR description sent back' }])
+	expect(snap.run?.decisions).toEqual([{ n: 1, text: 'option A', told: 1, acks: 0 }])
+	expect(snap.run?.crew[0]?.unlisted).toBe(true)
+	expect(snap.needs[0]?.kind).toBe('measurement')
+	expect(snap.needs[0]?.for_task).toBe('10SE.2')
+	const plain = parseSnapshot(JSON.stringify(STATUS), NOON)
+	expect(plain.run?.rebind).toBeNull()
+	expect(plain.needs[0]?.kind).toBe('action')
+})
+
+test('helpers: a notice goes to live, working crew only, never to a done or retired session', async () => {
+	const [base] = STATUS.sessions
+	const snap = parseSnapshot(JSON.stringify({ ...STATUS, sessions: [
+		{ ...base, session_id: 'crew-1', task: '10SE.2', state: 'working' },
+		{ ...base, session_id: 'crew-2', task: '10SE.3', state: 'done' },
+		{ ...base, session_id: 'crew-3', task: '10SE.4', state: 'done', live: false, retired: { at: 1 } },
+		{ ...base, session_id: 'crew-4', task: '10SE.5', state: 'working', live: false },
+	] }), NOON)
+	expect(others(snap)).toEqual(['crew-1'])
+	expect(others(snap, ['crew-1'])).toEqual([])
+})
+
+test('/mc extend runs a grant to the holder and tells only the holder; /mc done forwards a result', async ($, on) => {
+	const { calls, sent } = world(on, 'coord-1', { ...STATUS, needs: [{ ...STATUS.needs[0], n: 1, kind: 'measurement', for: 'crew-1', for_task: '10SE.2', why: 'paste the timings' }] })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: 'extend local-db 20' })
+	const extend = calls.find(c => c.includes('grant'))
+	expect(extend).toBeDefined()
+	expect(extend).toContain('crew-1')
+	expect(extend).toContain('20')
+	expect(extend).not.toContain('--force')
+	expect(sent.some(m => m.text.startsWith('Slot extended by the user: local-db'))).toBe(true)
+	const done = await $.command.run({ ...RUN, command: 'mc', args: 'done 1 p95 410ms' })
+	expect(done.text).toContain('result sent to 10SE.2')
+	expect(sent.some(m => m.text.includes('Result of need #1') && m.text.includes('p95 410ms'))).toBe(true)
 })
 
 test('the board groups the crew under a subheading per state', async ($, on) => {
