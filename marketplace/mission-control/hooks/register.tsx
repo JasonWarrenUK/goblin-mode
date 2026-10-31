@@ -707,7 +707,7 @@ export const sectionText = (snap: Snapshot, me: Self): string | null => {
 	if (me.isCoordinator) {
 		const merged = snap.sessions.filter(s => s.pr_state === 'MERGED' && s.state !== 'done')
 		const mergedLine = merged.length
-			? `PRs merged while the crew row is not done: ${merged.map(s => `${s.task || s.branch || s.session_id.slice(0, 8)} (#${s.pr})`).join(', ')}; close each with mc_report (for, state done). `
+			? `PRs merged while the crew row is not done: ${merged.map(s => `${s.task || s.branch || s.session_id.slice(0, 8)} (#${s.pr})`).join(', ')}; close each with mc_report (for, state done), then run /roadmap:maintain from the main checkout so the roadmap says done too. `
 			: ''
 		return (
 			`# Mission control\n\nThis session coordinates run "${snap.run.name}" on ${snap.mainCheckout} (base ${snap.run.base.branch}@${snap.run.base.commit.slice(0, 8)}), started by the user. Crew: ${crewList}. ${mergedLine}` +

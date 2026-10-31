@@ -831,10 +831,8 @@ def waiting_on(facts: dict | None, mode: str | None = None) -> str:
     return "no reviewer requested"
 
 
-def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str | None:
-    """What the roadmap at a ref says about a task's claim: True when the task carries `started` there, False when it is listed without one,
-    "unlisted" when the task is not in that roadmap at all, None when the repo has no rich roadmap, the ref does not resolve or the file there is not a roadmap.
-    The state is what counts, never which commit carried it: a claim reaches the trunk through roadmap:claim, a sync batch or a `done` batch alike, and a branch rebased past its own claim commit is in order once the trunk has the claim."""
+def roadmap_task(main: Path, task: str, ref: str = "origin/main") -> dict | str | None:
+    """The task's row in the roadmap at a ref; "unlisted" when the task is not in that roadmap, None when the repo has no rich roadmap, the ref does not resolve or the file there is not a roadmap."""
     if not (main / ".claude" / "roadmaps.json").is_file():
         return None
     if run_git(main, "rev-parse", "--verify", "--quiet", ref) is None:
@@ -852,8 +850,18 @@ def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str
         for milestone in (phase.get("milestones") or []) if isinstance(phase, dict) else []:
             for row in (milestone.get("tasks") or []) if isinstance(milestone, dict) else []:
                 if isinstance(row, dict) and row.get("id") == task:
-                    return bool(row.get("started"))
+                    return row
     return "unlisted"
+
+
+def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str | None:
+    """What the roadmap at a ref says about a task's claim: True when the task carries `started` there, False when it is listed without one,
+    "unlisted" when the task is not in that roadmap at all, None when the repo has no rich roadmap, the ref does not resolve or the file there is not a roadmap.
+    The state is what counts, never which commit carried it: a claim reaches the trunk through roadmap:claim, a sync batch or a `done` batch alike, and a branch rebased past its own claim commit is in order once the trunk has the claim."""
+    row = roadmap_task(main, task, ref)
+    if row is None or row == "unlisted":
+        return row
+    return bool(row.get("started"))
 
 
 def reconcile(ledger: Ledger) -> dict:
@@ -925,11 +933,15 @@ def reconcile(ledger: Ledger) -> dict:
             continue
         if fact["state"] == "MERGED":
             base = fact.get("base") or trunk
+            listed = roadmap_task(ledger.main, task, f"origin/{base}")
             claim = roadmap_claim(ledger.main, task, f"origin/{base}")
             if claim == "unlisted":
                 note("unlisted", f"not in the roadmap on origin/{base}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
             elif claim is False:
                 note("claim-missing", f"the roadmap on origin/{base} has no claim (`started`) for {task}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
+            # the merge landed the work; until the roadmap on the trunk says done, the dashboard and the ready set are wrong
+            if isinstance(listed, dict) and str(listed.get("status") or "").lower() not in ("done", "out_of_scope"):
+                note("roadmap-stale", f"PR #{row['pr']} is merged into {base} but {task} reads {listed.get('status') or 'unset'} on the roadmap at origin/{base}; run /roadmap:maintain from the main checkout and commit it the way the project says", task, row.get("session_id", ""), int(row["pr"]))
         elif fact["state"] == "OPEN":
             branch = row.get("branch") or entry.get("branch") or ""
             on_trunk = roadmap_claim(ledger.main, task, f"origin/{trunk}")

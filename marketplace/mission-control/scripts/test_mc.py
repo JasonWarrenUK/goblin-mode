@@ -664,9 +664,9 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("its session is done", result["drift"][0]["detail"])
 
     @staticmethod
-    def _roadmap(started=None, task="10SE.2"):
+    def _roadmap(started=None, task="10SE.2", status="todo"):
         """A rich roadmap listing one task, claimed (`started` set) or not."""
-        row = {"id": task, "title": "the task", "status": "todo", "assignee": "Jason"}
+        row = {"id": task, "title": "the task", "status": status, "assignee": "Jason"}
         if started:
             row["started"] = started
         return json.dumps([{"name": "t", "path": "", "archived": False, "milestones": [{"id": "M1", "name": "one", "tasks": [row]}]}])
@@ -788,7 +788,7 @@ class LedgerFlow(unittest.TestCase):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 228, state="done")
         result = self._reconcile_with(self._gh(self._merged(228)))
-        self.assertEqual([item["kind"] for item in result["drift"]], [])
+        self.assertEqual([item["kind"] for item in result["drift"]], ["roadmap-stale"], "the claim is satisfied; only the post-merge roadmap sync remains")
 
     def test_an_open_branch_without_its_own_claim_is_in_order_once_main_has_the_claim(self):
         """A branch rebased past its claim commit, as the run asks once the trunk carries the claim, is not drift."""
@@ -1032,6 +1032,37 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(by_review["mode"], "collaborative")
         self.assertEqual(by_review["reviewed_by_others"], 1)
         self.assertEqual(by_review["hours"]["days"], [0, 1, 2, 3, 4], "one review is too few to infer hours, so the weekday default stands")
+
+    def test_classify_merges_one_person_under_two_addresses_and_ignores_a_claude_coauthor(self):
+        """goblin-mode read as collaborative on 30 October 2026: Jason under two emails plus Claude's noreply address made three authors."""
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "work", "--author", "t <t-at-work@example.com>")
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "assisted", "--author", "Claude <noreply@anthropic.com>")
+        mc_module, real = self._module(self._gh_list([]))
+        try:
+            result = mc_module.classify(self.box.repo, None)
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual(result["mode"], "solo")
+        self.assertEqual(result["authors"], ["t"])
+
+    def test_reconcile_nudges_roadmap_maintain_once_a_crew_pr_merges(self):
+        """The merge landed the work; the roadmap on the trunk still reads todo until /roadmap:maintain runs."""
+        self._roadmap_repo_with_origin(claim_on_branch=False, claim_on_main=True)
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 270, state="done")
+        result = self._reconcile_with(self._gh(self._merged(270)))
+        stale = [item for item in result["drift"] if item["kind"] == "roadmap-stale"]
+        self.assertEqual(len(stale), 1)
+        self.assertIn("reads todo on the roadmap at origin/main", stale[0]["detail"])
+        self.assertIn("/roadmap:maintain", stale[0]["detail"])
+        # maintain ran and the trunk says done: the nudge goes
+        (self.box.repo / ".claude" / "roadmaps.json").write_text(self._roadmap(started="2026-10-27", status="done"))
+        git(self.box.repo, "commit", "-q", "-am", "chore(roadmap): 10SE.2 done")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        result = self._reconcile_with(self._gh(self._merged(270)))
+        self.assertNotIn("roadmap-stale", [item["kind"] for item in result["drift"]])
 
     def test_classify_takes_the_stated_answer_and_notes_a_disagreement(self):
         config = {"collaboration": {"mode": "collaborative", "hours": {"start": "08:30", "end": "17:00", "days": "mon-thu"}}}
