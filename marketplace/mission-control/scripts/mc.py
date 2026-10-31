@@ -1080,7 +1080,7 @@ def print_status(status: dict) -> None:
 LOCAL_CONFIG_REL = ".claude/mission-control.local.json"
 AUTHOR_WINDOW_DAYS = 90
 REVIEW_SAMPLE = 30
-BOT_MARKERS = ("[bot]", "dependabot", "renovate", "github-actions", "actions@github.com", "noreply@github.com", "copilot")
+BOT_MARKERS = ("[bot]", "dependabot", "renovate", "github-actions", "actions@github.com", "noreply@github.com", "noreply@anthropic.com", "copilot")
 DAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 DEFAULT_TEAM_HOURS = {"start": "09:00", "end": "18:00", "days": [0, 1, 2, 3, 4]}
 
@@ -1091,14 +1091,14 @@ def is_bot(name: str, email: str = "") -> bool:
 
 
 def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
-    """Distinct human authors on the checked-out history in the window, by email, most commits first."""
+    """Distinct human authors on the checked-out history in the window, by name (one person commits under a work and a personal address), most commits first."""
     out = run_git(main, "log", f"--since={days}.days", "--format=%an\t%ae")
     counts: dict[str, dict] = {}
     for line in (out or "").splitlines():
         name, _, email = line.partition("\t")
         if not name or is_bot(name, email):
             continue
-        key = email.strip().lower() or name.strip().lower()
+        key = name.strip().lower()
         row = counts.setdefault(key, {"name": name.strip(), "email": email.strip(), "commits": 0})
         row["commits"] += 1
     return sorted(counts.values(), key=lambda r: -r["commits"])
