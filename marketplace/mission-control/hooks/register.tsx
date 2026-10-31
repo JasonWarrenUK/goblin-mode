@@ -1068,7 +1068,8 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 		case 'done': {
 			if (!words[1]) return 'usage: /mc done <need number> [the result, or @<file>]'
 			const result = words.slice(2).join(' ')
-			const ran = await byUserRan(['needs', 'done', words[1], ...(result ? ['--result', result] : []), '--json'])
+			// --json is a root option of the CLI: it goes before the subcommand, or argparse refuses the line
+			const ran = await byUserRan(['--json', 'needs', 'done', words[1], ...(result ? ['--result', result] : [])])
 			if (!ran.ok) return ran.text
 			return `need #${words[1]} done${await forwardResult($, ran.text)}`
 		}
@@ -1345,7 +1346,7 @@ export const register: Register = (on, options) => {
 							autoFocus
 							onSubmit={async value => {
 								const result = value.trim()
-								const ran = await run($, ['--session', me.sessionId, 'needs', 'done', ask.ref, ...(result ? ['--result', result] : []), '--by-user', '--json'])
+								const ran = await run($, ['--session', me.sessionId, '--json', 'needs', 'done', ask.ref, ...(result ? ['--result', result] : []), '--by-user'])
 								$.ui.toast(ran.exitCode === 0 ? `need #${ask.ref} done${await forwardResult($, ran.stdout.trim())}` : reasonOf(ran, 'refused'))
 								await update($, asking, () => null)
 								await update($, selected, () => null)

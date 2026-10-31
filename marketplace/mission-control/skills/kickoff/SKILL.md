@@ -76,7 +76,7 @@ Run `mc.py start --name <run name> --pr-approval <answer> [--collaboration <mode
 ## Step 6: Assumptions, guidance, briefs
 
 1. Set every shared assumption with `mc_assume` (one call each). They are numbered in order and land in the ledger and, from its first turn, in every crew session's system prompt. The ownership rules from the protocol (one author per shared definition, paste the whole body, second to merge rewrites from trunk, thresholds in one place) become assumptions whenever two tasks share code. A shared document is shared by lines, not by rows: two sessions each editing one row of the same table conflict when the rows are adjacent, so the assumption names which side rebases and keeps both.
-2. Write `<ledger dir>/guidance.md` from `${CLAUDE_PLUGIN_ROOT}/templates/guidance.md`: crew table, shared facts with where each was read, the assumptions list, the resource rules (the config's notes plus what step 1's probe found), the human gates, the conventions. The ledger dir is in `mc.py status --json` as `ledger_dir`.
+2. Write `<ledger dir>/guidance.md` from `${CLAUDE_PLUGIN_ROOT}/templates/guidance.md`: crew table, shared facts with where each was read, the assumptions list, the resource rules (the config's notes plus what step 1's probe found), the human gates, the conventions. The ledger dir is in `mc.py --json status` as `ledger_dir`.
 3. Write one brief per task at `<ledger dir>/briefs/<task id>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/brief.md`. Criteria are numbered and each names the assumption it leans on. The brief ends with the five questions; it is the whole of what the session is told.
 4. Lint both: `~/.claude/library/scripts/slop-scan.py --strict <file>` where that script exists (it is the house style gate); fix every hit.
 

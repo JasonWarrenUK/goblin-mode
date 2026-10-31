@@ -71,6 +71,8 @@ const world = (
 		const args = e.argv.slice(2)
 		const sub = args.find(a => !a.startsWith('--') && a !== sessionId && a !== '/code/app') ?? ''
 		if (failing && sub === failing.verb) return { value: { exitCode: failing.exitCode, stdout: failing.stdout, stderr: failing.stderr, isStdoutTruncated: false, isStderrTruncated: false } }
+		// argparse's rule: --json is a root option, so after the subcommand it is refused; the fake refuses the same way so a test cannot pass what the CLI would not
+		if (sub && args.indexOf('--json') > args.indexOf(sub)) return { value: { exitCode: 2, stdout: '', stderr: 'usage: mc.py [-h] [--cwd CWD] [--session SESSION] [--json]\nmc.py: error: unrecognized arguments: --json\n', isStdoutTruncated: false, isStderrTruncated: false } }
 		let stdout = ''
 		if (sub === 'status' && extra.statusFor) {
 			const answer = extra.statusFor(statusCalls++, args.includes('--probe'))
