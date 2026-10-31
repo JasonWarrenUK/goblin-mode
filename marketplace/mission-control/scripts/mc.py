@@ -1284,8 +1284,9 @@ def pr_snapshot(main: Path, number: int) -> dict | None:
     for entry in raw.get("statusCheckRollup") or []:
         if isinstance(entry, dict):
             checks[str(entry.get("name") or entry.get("context") or entry.get("workflowName") or "check")] = check_word(entry)
-    code, out = sh(["gh", "api", f"repos/{{owner}}/{{repo}}/pulls/{number}/comments", "--jq", "length"], timeout=PR_LOOKUP_SECONDS, cwd=main)
-    review_comments = int(out.strip()) if code == 0 and out.strip().isdigit() else None
+    # every page, one id per line: a single page stops at 30 and a busy PR would read a constant from then on
+    code, out = sh(["gh", "api", "--paginate", f"repos/{{owner}}/{{repo}}/pulls/{number}/comments", "--jq", ".[].id"], timeout=PR_LOOKUP_SECONDS * 2, cwd=main)
+    review_comments = len(out.split()) if code == 0 else None
     return {
         "state": str(raw.get("state") or "").upper(),
         "decision": str(raw.get("reviewDecision") or ""),

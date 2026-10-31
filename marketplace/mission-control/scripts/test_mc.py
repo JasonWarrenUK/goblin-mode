@@ -1074,8 +1074,8 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(mc_module.parse_days("fri-mon"), [0, 4, 5, 6])
 
     @staticmethod
-    def _gh_watch(views, review_comments="0"):
-        """gh answers `pr view` from a queue of snapshots (the last repeats) and the review-comments count once."""
+    def _gh_watch(views, review_comments=""):
+        """gh answers `pr view` from a queue of snapshots (the last repeats) and the paginated review-comment ids, one per line."""
         queue = list(views)
 
         def fake_sh(argv, timeout=8, cwd=None):
