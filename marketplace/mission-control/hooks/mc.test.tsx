@@ -495,6 +495,22 @@ test('/mc extend runs a grant to the holder and tells only the holder; /mc done 
 	expect(sent.some(m => m.text.includes('Result of need #1') && m.text.includes('p95 410ms'))).toBe(true)
 })
 
+test('a GitHub write the permission decision refused lands on the needs list; a hook refusal does not', async ($, on) => {
+	const { calls } = world(on, 'crew-1', STATUS, undefined, { cwd: '/code/app/.claude/worktrees/10se2' })
+	let deny = 'Permission denied: the classifier refused this command'
+	on('tool.call', { tool: 'Bash' }, async () => ({ deny }))
+	await $.session.start({ cwd: '/code/app/.claude/worktrees/10se2', surface: 'terminal', isInteractive: true })
+	await $.tool.call({ tool: 'Bash', command: 'gh pr comment 55 --body-file x.md' })
+	const need = calls.find(c => c.includes('needs') && c.includes('add'))
+	expect(need).toBeDefined()
+	expect(need).toContain('gh pr comment 55 --body-file x.md')
+	expect(need?.[need.indexOf('--why') + 1]).toContain('permission classifier refused')
+	calls.length = 0
+	deny = 'PreToolUse:Bash hook error: the gh guard refuses an inline body; write it to a file first'
+	await $.tool.call({ tool: 'Bash', command: 'gh pr comment 55 --body "inline"' })
+	expect(calls.find(c => c.includes('needs') && c.includes('add'))).toBeUndefined()
+})
+
 test('the board groups the crew under a subheading per state', async ($, on) => {
 	world(on, 'coord-1', threeStates())
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })

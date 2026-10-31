@@ -1176,7 +1176,8 @@ export const register: Register = (on, options) => {
 		const ran = await next(e)
 		if (e.agentId) return ran
 		// a GitHub write the permission classifier refused is the user's to type: it goes on the needs list by itself, with the command and the directory
-		if (ran.deny && /\bgh\b|git push/.test(e.command) && /permission|denied|refus|not allowed|classif/i.test(ran.deny)) {
+		// a refusal from a PreToolUse hook (the gh guard on an inline body, this plugin's own slot gate) is not the user's to type: only the permission decision's refusal counts
+		if (ran.deny && /\bgh\b|git push/.test(e.command) && /permission|denied|refus|not allowed|classif/i.test(ran.deny) && !/hook error|^PreToolUse/i.test(ran.deny)) {
 			const me = await read($, self)
 			if (me.isCrew || me.isCoordinator) {
 				const cwd = await $.session.cwd()
