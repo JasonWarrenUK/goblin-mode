@@ -5,6 +5,12 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- `clod-approach-types` knowledge skill: data models carry domain intent in their types (branded identifiers, closed state sets, declared shapes) in TypeScript, Python and Go, with the reasoning, the per-language fix and the one place the rule is worded (`reminder.md`). Prompted by a Google AI transcript whose Claude Code plumbing was invented and whose regex checks flagged their own recommended fixes; the checks here are tree-sitter rules.
+- `type-guard.sh` hook, backed by `library/scripts/type-guard.py` and the ast-grep rules in `library/ast-grep/`: re-injects the reminder when a type is about to be written and after every compaction (where the preference used to vanish), and after each `.ts` or `.py` write exits 2 on a bare-string identifier or status field so Claude fixes the file before moving on. Per-repo opt-out via `git config typeGuard.enforce` / `typeGuard.remind`; fail-open without ast-grep. Three `settings.json` entries, quoted in the skill. Go rules deferred until a Go project shows the reminder alone is not holding.
+- `clod-role-domain_modeller` points at the new skill from its missing-lifecycle red flag, so the design-time finding and the write-time representation stay joined.
+
 ## [6.17.0] - 2026-10-28
 
 ### Added
