@@ -238,7 +238,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_start_puts_an_unpushed_base_on_the_needs_list(self):
         bare = self.box.tmp / "origin.git"
-        subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True)  # a clone of it checks out main, whatever this machine's init.defaultBranch
         git(self.box.repo, "remote", "add", "origin", str(bare))
         out = self.box.mc("start", "--name", "search", "--base", "main", session="coord-1").stdout
         self.assertIn("WARNING: main is not on origin", out)
@@ -679,7 +679,7 @@ class LedgerFlow(unittest.TestCase):
         git(self.box.repo, "add", ".claude/roadmaps.json")
         git(self.box.repo, "commit", "-q", "-m", "chore(roadmap): sync claims from live branches" if claim_on_main else "chore: roadmap")
         bare = self.box.tmp / "origin.git"
-        subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True)  # a clone of it checks out main, whatever this machine's init.defaultBranch
         git(self.box.repo, "remote", "add", "origin", str(bare))
         git(self.box.repo, "push", "-q", "-u", "origin", "main")
         git(self.box.worktree, "merge", "-q", "--ff-only", "main")
