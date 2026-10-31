@@ -934,7 +934,7 @@ def reconcile(ledger: Ledger) -> dict:
         if fact["state"] == "MERGED":
             base = fact.get("base") or trunk
             listed = roadmap_task(ledger.main, task, f"origin/{base}")
-            claim = roadmap_claim(ledger.main, task, f"origin/{base}")
+            claim = listed if listed is None or listed == "unlisted" else bool(listed.get("started"))
             if claim == "unlisted":
                 note("unlisted", f"not in the roadmap on origin/{base}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
             elif claim is False:
