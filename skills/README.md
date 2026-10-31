@@ -38,7 +38,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
 | `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
 | `/pr-handle_review` | ᛟ opus | Work through a PR's change requests: verify each independently, fix what holds up, reply to every th… |
-| `/pr-land` | ᛟ opus | Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, clean up |
+| `/pr-land` | ᛟ opus | Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, write the… |
 | `/project-audit_deps` | ᛊ sonnet | Investigate this repo's dependencies in detail |
 | `/project-tag_version` | ᛊ sonnet | Tag the release after a merge to main, computing the next semver tag with svu |
 | `/red-branch` | ᛟ opus | Adversarial review of a branch diff written as the colleague trying to get it rejected, aimed at one… |
@@ -87,6 +87,7 @@ Ambient knowledge roles (`user-invocable: false`), loaded by Claude when relevan
 |-------|-------------|-------------|
 | `asset-conventions` | Where generated visual assets live, how project type and theme are resolved and the quality gate eve… | Loaded by every asset-* skill before it captures, renders or frames anything; also when a README needs a screenshot, GIF… |
 | `clod-approach-stud` | Studs every function of a planned feature in its real file as a runnable walking-skeleton (fake data… | >=1 of the following are true: (a) spans several functions/files; (b) touches existing code in more than one place; (c)… |
+| `clod-approach-types` | Data models carry domain intent in their types: branded identifiers, closed state sets and declared… | Writing or changing an interface, type alias, class, dataclass, pydantic model, struct or enum; reviewing a model for pr… |
 | `clod-approach-writing_style` | Writing style guide for Jason Warren. Applies whenever writing or editing substantive prose for Jaso… | Any request involving writing, drafting, editing or composing text that isn't purely code (including GitHub PR descripti… |
 | `clod-lens-empathy` | Empathy-driven design: think through how real people experience the software; surface and challenge… | When designing a user-facing flow and it's worth pausing to ask how it actually feels to a real person using it; especia… |
 | `clod-lens-ethics` | Passive ethical review: manipulation, accessibility, privacy, sustainability in user-facing features… | When designing or reviewing a user-facing feature: dark patterns, accessibility gaps, privacy overreach or sustainabilit… |

@@ -160,7 +160,7 @@ Watch for these; they usually indicate the model needs more thought:
 
 - **God entity**: One entity with 20+ properties → probably multiple entities merged
 - **Implicit relationships**: Using foreign keys where the relationship itself has meaning → model the relationship explicitly
-- **Missing lifecycle**: Entity has no clear states → you'll fight state management later
+- **Missing lifecycle**: Entity has no clear states → you'll fight state management later; once the states are named, represent them as `clod-approach-types` says (a closed set, never a cluster of booleans)
 - **Circular ownership**: A owns B owns C owns A → clarify the real hierarchy
 - **Premature normalisation**: Splitting things that always change together → keep them together
 - **Premature denormalisation**: Duplicating data that changes independently → keep it normalised
