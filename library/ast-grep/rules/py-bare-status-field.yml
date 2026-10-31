@@ -1,0 +1,17 @@
+id: py-bare-status-field
+language: Python
+severity: error
+message: status field typed as bare str; use an Enum or Literal
+rule:
+  any:
+    - pattern: '$NAME: str'
+    - pattern: '$NAME: str = $DEFAULT'
+  inside:
+    kind: expression_statement
+    inside:
+      kind: block
+      inside:
+        kind: class_definition
+constraints:
+  NAME:
+    regex: '^(status|state|[a-z0-9_]+_(status|state))$'

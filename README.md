@@ -18,10 +18,10 @@
 | Component     | Count | What it does |
 |----------------|-------|--------------|
 | **Skills (command)** | 31 | Slash commands you invoke (e.g. `/commit-one`) |
-| **Skills (role)**    | 17 | Ambient knowledge that loads automatically when relevant |
+| **Skills (role)**    | 18 | Ambient knowledge that loads automatically when relevant |
 | **Skills (model-invocable command)** | 17 | Command skills the model can also self-invoke |
 | **Agents**     | 10 | Autonomous sub-processes for multi-step work |
-| **Hooks**      | 6 global + 0 project-level | Scripts triggered by git and session events |
+| **Hooks**      | 8 global + 0 project-level | Scripts triggered by git and session events |
 <!-- gen-skills-index: counts end -->
 
 These counts are written by `gen-skills-index.py`, not hand-maintained: the skill rows come straight from its own classification, so they cannot drift from [skills/README.md](skills/README.md) the way they used to. Agents and hooks are counted the same way at generation time. See [Keeping this wiki honest](docs/README.md#keeping-this-wiki-honest).

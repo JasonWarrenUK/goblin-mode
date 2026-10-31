@@ -1,0 +1,5 @@
+# ast-grep project config for the type-guard hook (library/scripts/type-guard.py).
+# Run by hand from anywhere:
+#   ast-grep scan -c ~/.claude/library/ast-grep/sgconfig.yml <file or dir>
+ruleDirs:
+  - rules

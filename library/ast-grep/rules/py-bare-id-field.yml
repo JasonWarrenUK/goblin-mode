@@ -1,0 +1,17 @@
+id: py-bare-id-field
+language: Python
+severity: error
+message: identifier field typed as bare str; use typing.NewType
+rule:
+  any:
+    - pattern: '$NAME: str'
+    - pattern: '$NAME: str = $DEFAULT'
+  inside:
+    kind: expression_statement
+    inside:
+      kind: block
+      inside:
+        kind: class_definition
+constraints:
+  NAME:
+    regex: '^(id|[a-z0-9_]+_id)$'

@@ -37,6 +37,19 @@ Blank skeletons a doc-creating skill fills in. Human-readable, not executed.
 |---|---|
 | `skill-frontmatter.yaml` | The canonical frontmatter shape for a new skill: `name`, `description`, `when_to_use` (flagged with a `CLOD TRIGGER` comment), invocability flags, `model`, `effort`, `allowed-tools`/`disallowed-tools`. This sweep brought every existing skill up to what this template already prescribed. |
 
+## `ast-grep/`: structural rules
+
+YAML rules for [ast-grep](https://ast-grep.github.io), run by `scripts/type-guard.py` after every `.ts` or `.py` write and by hand with `ast-grep scan -c ~/.claude/library/ast-grep/sgconfig.yml <path>`. Each rule matches a tree-sitter node shape, so a function parameter, a local variable or a prose mention never trips it the way a regex would.
+
+| Rule | Matches |
+|---|---|
+| `rules/ts-bare-id-field.yml` | An interface, type-literal or class field named `id` or `*Id` whose type is the predefined `string` |
+| `rules/ts-bare-status-field.yml` | The same shapes for a field named `status`, `state`, `*Status` or `*State` |
+| `rules/py-bare-id-field.yml` | A direct class-body field (dataclass, pydantic model or plain class) named `id` or `*_id` annotated `str`, with or without a default |
+| `rules/py-bare-status-field.yml` | The same shape for `status`, `state`, `*_status` or `*_state` |
+
+Owned by `clod-approach-types`, which carries the reasoning and the per-language fix.
+
 ## `scripts/`: the deterministic halves
 
 Each script is the fact-gathering half of a skill: it does the part that has one correct answer (parsing git output, reading a lockfile, validating a schema) so the model's job is judgement on structured data, not orchestrating shell calls itself.
@@ -57,6 +70,8 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `md-lint.py` | `pr-create`, `pr-update`; `hooks/pr-body-lint.sh` (`--hook`) | Markdown typography gate for GitHub-rendered bodies: setext headings from a stray `---`, text swallowed by an HTML block, backticks in `<summary>`, doubled rules; exit 1 on a hit, or 2 in hook mode to block the `gh pr` call |
 | `gh-guard.py` | `hooks/gh-body-guard.sh` (`--hook`); `--command TEXT` by hand | Guard for what `gh` posts: blocks an inline comment, review or reply body (use `-F body=@<file>`, `--body-file <file>` or a heredoc on `-`) and a `gh release create` with no notes source, inline `--notes` or an empty notes file; exit 2 with the reason on stderr, fail-open on anything unparseable |
 | `test_gh_guard.py` | none | Tests for `gh-guard.py`: inline and file bodies for `gh api`, `gh pr comment`, `gh pr review` and `gh issue comment`, heredocs, a `gh` call quoted inside a heredoc, every release-notes shape and hook mode |
+| `type-guard.py` | `hooks/type-guard.sh` (`remind`, `scan`, `compact`); `--file PATH` by hand | The machinery behind `clod-approach-types`: `remind` and `compact` print the skill's `reminder.md` as hook context (before a type is written, and after every compaction); `scan` runs the `ast-grep/` rules over the file just written and exits 2 with `L<n> <rule> (<text>): <fix>` lines on a bare-string identifier or status field. Per-repo opt-out via `git config typeGuard.enforce` / `typeGuard.remind`; fail-open without ast-grep |
+| `test_type_guard.py` | none | Tests for `type-guard.py`: suffix and path classification, declaration detection per language, the reminder and its per-session throttle, compaction, every rule against a bad and a clean file (fields hit, parameters and locals do not), the opt-outs and the by-hand scan; the scan cases skip without ast-grep |
 | `prose-metrics.py` | `hud-prose_health` | House-rule breaches per day in Claude's own terminal output, from the session transcripts; `--record` keeps the trend in `state/prose-metrics.json` |
 | `prose-health.py` | `hud-prose_health` | PASS/WARN/FAIL per layer of the prose-gating suite (settings, style, hook, skills, frontmatter, tree scan, tests, index, output trend) |
 | `test_slop_scan.py`, `test_prose_metrics.py`, `test_commit_msg_hook.py` | none | Tests for the two scanners above and for `hooks/commit-msg`; `prose-health.py` runs all three |

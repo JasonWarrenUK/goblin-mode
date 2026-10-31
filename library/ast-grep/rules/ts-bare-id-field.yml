@@ -1,0 +1,17 @@
+id: ts-bare-id-field
+language: TypeScript
+severity: error
+message: identifier field typed as bare string; use a branded id type
+rule:
+  any:
+    - kind: property_signature
+    - kind: public_field_definition
+  all:
+    - has:
+        field: name
+        regex: '^id$|[a-z0-9]Id$'
+    - has:
+        field: type
+        has:
+          kind: predefined_type
+          regex: '^string$'
