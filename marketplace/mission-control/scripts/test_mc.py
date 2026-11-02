@@ -1408,12 +1408,34 @@ class LedgerFlow(unittest.TestCase):
         self.assertIsNone(mc_module.git_dir_of(self.box.tmp))
         self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo")
         self.assertEqual(mc_module.remote_repo(self.box.worktree), "Someone/a-repo")
-        self.assertEqual(mc_module.gh_repo_args(self.box.worktree), ["--repo", "Someone/a-repo"])
+        mc_module._GIT_PROBLEM.clear()
+        self.assertEqual(mc_module.gh_repo_args(self.box.worktree), [], "while git works, gh makes its own choice of repository")
+        self.assertEqual(mc_module.gh_api_repo(self.box.worktree), "{owner}/{repo}")
         git(self.box.repo, "remote", "set-url", "origin", "git@github.com:Someone/a-repo.git")
         self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo", "the ssh form parses too")
+        # a fork-shaped checkout: the remote chosen is the one gh would choose
+        git(self.box.repo, "remote", "add", "upstream", "https://github.com/Org/the-real-one.git")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Org/the-real-one", "upstream beats origin, as it does for gh")
+        git(self.box.repo, "remote", "add", "github", "https://github.com/Other/mirror.git")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Org/the-real-one", "upstream beats github")
+        git(self.box.repo, "config", "remote.origin.gh-resolved", "base")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo", "the remote gh repo set-default marked wins over everything")
+        git(self.box.repo, "config", "--unset", "remote.origin.gh-resolved")
+        git(self.box.repo, "remote", "remove", "upstream")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Other/mirror", "github beats origin")
+        git(self.box.repo, "remote", "remove", "github")
         git(self.box.repo, "remote", "set-url", "origin", "https://example.org/not/github.git")
         self.assertIsNone(mc_module.remote_repo(self.box.repo))
-        self.assertEqual(mc_module.gh_repo_args(self.box.repo), [])
+
+    def test_a_path_typed_in_another_case_maps_to_the_canonical_ledger_while_git_works(self):
+        """git's spelling of the checkout is what the ledger slug is built from; the .git walk returns the path as typed, so it is the fallback, never the first answer."""
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        swapped = Path(str(self.box.repo).swapcase())
+        if not swapped.is_dir():
+            self.skipTest("this volume is case-sensitive, so the other spelling is a different directory")
+        self.assertEqual(mc_module.main_checkout(swapped), self.box.repo.resolve())
+        self.assertEqual(mc_module.slug_of(mc_module.main_checkout(swapped)), mc_module.slug_of(self.box.repo.resolve()))
 
     def test_the_ledger_board_needs_and_slots_work_while_git_is_a_stub(self):
         """Apple's git stub prints an xcode-select prompt and exits 1; the run on disk is intact and every ledger command still answers."""
@@ -1461,6 +1483,19 @@ class LedgerFlow(unittest.TestCase):
             kinds = [item["kind"] for item in result["drift"]]
             self.assertIn("git-unavailable", kinds)
             self.assertNotIn("claim-missing", kinds, "the claim check waits for git instead of falling over")
+            # with git broken, gh is told the repository outright, from the config file
+            git_path = f"{stub}:{real}"
+            os.environ["PATH"] = git_path
+            try:
+                mc_module._GIT_PROBLEM.clear()
+                self.assertEqual(mc_module.gh_repo_args(self.box.repo), [], "no GitHub remote on file yet")
+                with (self.box.repo / ".git" / "config").open("a") as config:
+                    config.write('[remote "origin"]\n\turl = https://github.com/Someone/a-repo.git\n')
+                self.assertEqual(mc_module.gh_repo_args(self.box.repo), ["--repo", "Someone/a-repo"])
+                self.assertEqual(mc_module.gh_api_repo(self.box.repo), "Someone/a-repo")
+            finally:
+                os.environ["PATH"] = real
+                mc_module._GIT_PROBLEM.clear()
         finally:
             self.box.env["PATH"] = real
 

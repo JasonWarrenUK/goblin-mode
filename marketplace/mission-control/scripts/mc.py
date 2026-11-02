@@ -122,24 +122,35 @@ def git_dir_of(cwd: str | Path) -> tuple[Path, Path] | None:
 
 
 def toplevel(cwd: str | Path) -> Path | None:
-    found = git_dir_of(cwd)
-    if found:
-        return found[0]
+    """The checkout root: git's own answer while git works (its spelling of the path is the canonical one), the `.git` walk when it does not."""
     top = run_git(cwd, "rev-parse", "--show-toplevel")
-    return Path(top) if top else None
+    if top:
+        return Path(top)
+    found = git_dir_of(cwd)
+    return found[0] if found else None
 
 
 def main_checkout(cwd: str | Path) -> Path | None:
-    """The main working tree, the same answer from inside any worktree; git is only asked when the `.git` entry gives no answer."""
-    found = git_dir_of(cwd)
-    if found:
-        return found[1].parent
+    """The main working tree, the same answer from inside any worktree: git's own answer while git works, the `.git` walk when it does not.
+
+    Git goes first because its spelling of the path is what the ledger slug is built from, and a
+    path typed in another case (`/users/JASONWARREN`) would otherwise name a second ledger."""
     common = run_git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    return Path(common).parent if common else None
+    if common:
+        return Path(common).parent
+    found = git_dir_of(cwd)
+    return found[1].parent if found else None
+
+
+# the order gh itself uses when no default is set, after the remote `gh repo set-default` marked
+REMOTE_PREFERENCE = ("upstream", "github", "origin")
 
 
 def remote_repo(main: str | Path) -> str | None:
-    """`owner/repo` of origin on GitHub, read from the git config file rather than from git, so gh can be told the repository when git is not working."""
+    """`owner/repo` on GitHub, read from the git config file rather than from git, so gh can be told the repository when git is not working.
+
+    The remote is chosen the way gh chooses it: the one `gh repo set-default` marked (`gh-resolved = base`),
+    else `upstream`, else `github`, else `origin`, so a fork-shaped checkout keeps pointing at the base repository."""
     found = git_dir_of(main)
     if not found:
         return None
@@ -147,14 +158,21 @@ def remote_repo(main: str | Path) -> str | None:
         text = (found[1] / "config").read_text(errors="ignore")
     except OSError:
         return None
-    section = re.search(r'^\[remote "origin"\]\s*\n((?:[ \t]+[^\n]*\n?)*)', text, re.M)
-    if not section:
-        return None
-    url = re.search(r"^\s*url\s*=\s*(\S+)", section.group(1), re.M)
-    if not url:
-        return None
-    hit = re.search(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", url.group(1))
-    return f"{hit.group(1)}/{hit.group(2)}" if hit else None
+    remotes: dict[str, dict[str, str]] = {}
+    for section in re.finditer(r'^\[remote "([^"]+)"\]\s*\n((?:[ \t]+[^\n]*\n?)*)', text, re.M):
+        keys = dict(re.findall(r"^\s*([A-Za-z-]+)\s*=\s*(\S+)", section.group(2), re.M))
+        remotes[section.group(1)] = keys
+
+    def slug_of_remote(name: str) -> str | None:
+        hit = re.search(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", remotes.get(name, {}).get("url", ""))
+        return f"{hit.group(1)}/{hit.group(2)}" if hit else None
+
+    resolved = next((name for name, keys in remotes.items() if keys.get("gh-resolved") == "base"), None)
+    for name in ((resolved,) if resolved else ()) + REMOTE_PREFERENCE:
+        slug = slug_of_remote(name)
+        if slug:
+            return slug
+    return None
 
 
 _GIT_PROBLEM: list[str | None] = []
@@ -173,9 +191,18 @@ def git_problem() -> str | None:
 
 
 def gh_repo_args(main: str | Path) -> list[str]:
-    """`--repo owner/repo` for a gh call, so gh never shells out to git to find the repository; empty when origin is not on GitHub."""
+    """`--repo owner/repo` for a gh call only while git is not working, since gh then cannot find the repository itself; while git works gh's own choice stands. Empty when no GitHub remote is on file."""
+    if git_problem() is None:
+        return []
     slug = remote_repo(main)
     return ["--repo", slug] if slug else []
+
+
+def gh_api_repo(main: str | Path) -> str:
+    """The `owner/repo` segment of a `gh api` path: gh's placeholders while git works, the config file's answer while it does not."""
+    if git_problem() is None:
+        return "{owner}/{repo}"
+    return remote_repo(main) or "{owner}/{repo}"
 
 
 def slug_of(path: Path) -> str:
@@ -1412,8 +1439,7 @@ def pr_snapshot(main: Path, number: int) -> dict | None:
         if isinstance(entry, dict):
             checks[str(entry.get("name") or entry.get("context") or entry.get("workflowName") or "check")] = check_word(entry)
     # every page, one id per line: a single page stops at 30 and a busy PR would read a constant from then on
-    slug = remote_repo(main) or "{owner}/{repo}"
-    code, out = sh(["gh", "api", "--paginate", f"repos/{slug}/pulls/{number}/comments", "--jq", ".[].id"], timeout=PR_LOOKUP_SECONDS * 2, cwd=main)
+    code, out = sh(["gh", "api", "--paginate", f"repos/{gh_api_repo(main)}/pulls/{number}/comments", "--jq", ".[].id"], timeout=PR_LOOKUP_SECONDS * 2, cwd=main)
     review_comments = len(out.split()) if code == 0 else None
     return {
         "state": str(raw.get("state") or "").upper(),
