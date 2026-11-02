@@ -89,15 +89,93 @@ def run_git(cwd: str | Path, *args: str) -> str | None:
     return done.stdout.strip() if done.returncode == 0 else None
 
 
+def git_dir_of(cwd: str | Path) -> tuple[Path, Path] | None:
+    """(checkout root, common git dir), found by walking up for a `.git` entry without running git.
+
+    A checkout has a `.git` directory. A linked worktree has a `.git` file whose `gitdir:` line
+    names `<common>/worktrees/<name>`, so the common dir and the main checkout follow from it.
+    The ledger must not depend on a working git: a macOS update removed the Command Line Tools
+    on 30 October 2026 and every mc.py command answered "not inside a git repository" while the
+    run sat intact on disk.
+    """
+    try:
+        here = Path(cwd).resolve()
+    except OSError:
+        return None
+    for root in (here, *here.parents):
+        entry = root / ".git"
+        if entry.is_dir():
+            return root, entry
+        if entry.is_file():
+            try:
+                text = entry.read_text(errors="ignore").strip()
+            except OSError:
+                return None
+            if not text.startswith("gitdir:"):
+                return None
+            gitdir = Path(text[len("gitdir:"):].strip())
+            if not gitdir.is_absolute():
+                gitdir = (root / gitdir).resolve()
+            common = gitdir.parent.parent if gitdir.parent.name == "worktrees" else gitdir
+            return root, common
+    return None
+
+
 def toplevel(cwd: str | Path) -> Path | None:
+    found = git_dir_of(cwd)
+    if found:
+        return found[0]
     top = run_git(cwd, "rev-parse", "--show-toplevel")
     return Path(top) if top else None
 
 
 def main_checkout(cwd: str | Path) -> Path | None:
-    """The main working tree, the same answer from inside any worktree."""
+    """The main working tree, the same answer from inside any worktree; git is only asked when the `.git` entry gives no answer."""
+    found = git_dir_of(cwd)
+    if found:
+        return found[1].parent
     common = run_git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
     return Path(common).parent if common else None
+
+
+def remote_repo(main: str | Path) -> str | None:
+    """`owner/repo` of origin on GitHub, read from the git config file rather than from git, so gh can be told the repository when git is not working."""
+    found = git_dir_of(main)
+    if not found:
+        return None
+    try:
+        text = (found[1] / "config").read_text(errors="ignore")
+    except OSError:
+        return None
+    section = re.search(r'^\[remote "origin"\]\s*\n((?:[ \t]+[^\n]*\n?)*)', text, re.M)
+    if not section:
+        return None
+    url = re.search(r"^\s*url\s*=\s*(\S+)", section.group(1), re.M)
+    if not url:
+        return None
+    hit = re.search(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", url.group(1))
+    return f"{hit.group(1)}/{hit.group(2)}" if hit else None
+
+
+_GIT_PROBLEM: list[str | None] = []
+
+
+def git_problem() -> str | None:
+    """One line naming why git does not work and the fix, or None when it does; checked once per process."""
+    if not _GIT_PROBLEM:
+        if run_git(".", "--version") is not None:
+            _GIT_PROBLEM.append(None)
+        elif sys.platform == "darwin" and subprocess.run(["xcode-select", "-p"], capture_output=True).returncode != 0:
+            _GIT_PROBLEM.append("git is not working: the Command Line Tools are missing (a macOS update removes them); run `xcode-select --install`, then carry on. The ledger, the board, needs, slots and messages work meanwhile.")
+        else:
+            _GIT_PROBLEM.append("git is not working: `git --version` fails; the ledger, the board, needs, slots and messages work meanwhile, and anything that needs history waits for git.")
+    return _GIT_PROBLEM[0]
+
+
+def gh_repo_args(main: str | Path) -> list[str]:
+    """`--repo owner/repo` for a gh call, so gh never shells out to git to find the repository; empty when origin is not on GitHub."""
+    slug = remote_repo(main)
+    return ["--repo", slug] if slug else []
 
 
 def slug_of(path: Path) -> str:
@@ -716,7 +794,7 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
             continue
         if hanging:
             continue  # gh is hanging, so the rest would too; the next tick retries
-        code, out = sh(["gh", "pr", "view", str(number), "--json", "state", "-q", ".state"], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
+        code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(ledger.main), "--json", "state", "-q", ".state"], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
         if code == 124:
             hanging = True
             continue
@@ -774,7 +852,7 @@ def pr_facts(ledger: Ledger, numbers: set[int], fresh: set[int] | None = None) -
             continue
         if hanging:
             continue
-        code, out = sh(["gh", "pr", "view", str(number), "--json", PR_FACT_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
+        code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(ledger.main), "--json", PR_FACT_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
         if code == 124:
             hanging = True
             continue
@@ -919,9 +997,13 @@ def reconcile(ledger: Ledger) -> dict:
     # fails leaves the stale refs to answer, as before.
     by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
     trunk = run.get("base", {}).get("branch") or "main"
-    if (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
+    broken = git_problem()
+    if broken:
+        # everything above read the ledger and gh alone; the claim and roadmap checks below need history, so they wait for git
+        note("git-unavailable", broken)
+    if not broken and (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
         run_git(ledger.main, "fetch", "--quiet", "origin")
-    for entry in run.get("crew", []):
+    for entry in run.get("crew", []) if not broken else []:
         task = entry.get("task", "")
         row = by_task.get(task, {})
         if not task or not row.get("pr"):
@@ -1025,6 +1107,7 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
         "ledger_dir": str(ledger.dir),
         "main_checkout": str(ledger.main),
         "config": bool(config),
+        "git_problem": git_problem(),
         "run": run,
         "sessions": sessions,
         "slots": list(slots.values()),
@@ -1051,6 +1134,9 @@ def print_status(status: dict) -> None:
         print(f"No active run for {status['main_checkout']}.")
         return
     coord = run.get("coordinator", {})
+    if status.get("git_problem"):
+        print(f"WARNING: {status['git_problem']}")
+        print()
     print(f"# Run {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · coordinator {coord.get('name') or coord.get('session_id', '?')} · PR approval: {run.get('pr_approval', 'user')}")
     print()
     print("| Session | Task | Branch | State | Summary | PR |")
@@ -1145,7 +1231,7 @@ def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
 
 def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
     """The last merged PRs with who reviewed each, other than its author; (rows, whether gh answered)."""
-    code, out = sh(["gh", "pr", "list", "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    code, out = sh(["gh", "pr", "list", *gh_repo_args(main), "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
     if code != 0:
         return [], False
     try:
@@ -1233,7 +1319,8 @@ def classify(main: Path, config: dict | None) -> dict:
     review_times = [iso_ts(o["at"]) for p in reviewed for o in p["others"]]
     inferred = "collaborative" if len(authors) >= 2 or reviewed else "solo"
     evidence = [
-        f"{len(authors)} human author{'s' if len(authors) != 1 else ''} in the last {AUTHOR_WINDOW_DAYS} days" + (": " + ", ".join(a["name"] for a in authors[:6]) if authors else ""),
+        (f"authors unknown: {git_problem()}" if git_problem() else
+         f"{len(authors)} human author{'s' if len(authors) != 1 else ''} in the last {AUTHOR_WINDOW_DAYS} days" + (": " + ", ".join(a["name"] for a in authors[:6]) if authors else "")),
         (f"{len(reviewed)} of the last {len(prs)} merged PRs reviewed by someone other than their author" if answered else "gh could not list merged PRs, so reviews are unknown"),
     ]
     mode = inferred
@@ -1306,7 +1393,8 @@ def check_word(entry: dict) -> str:
 
 def pr_snapshot(main: Path, number: int) -> dict | None:
     """What the watcher compares between polls: state, decision, the reviews by login, comment counts and each check's word. None when gh did not answer."""
-    code, out = sh(["gh", "pr", "view", str(number), "--json", WATCH_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    # the repository is named outright: a `gh pr view` that has to ask git for it dies with git, and the watcher is the thing that must keep running
+    code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(main), "--json", WATCH_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=main)
     if code != 0:
         return None
     try:
@@ -1324,7 +1412,8 @@ def pr_snapshot(main: Path, number: int) -> dict | None:
         if isinstance(entry, dict):
             checks[str(entry.get("name") or entry.get("context") or entry.get("workflowName") or "check")] = check_word(entry)
     # every page, one id per line: a single page stops at 30 and a busy PR would read a constant from then on
-    code, out = sh(["gh", "api", "--paginate", f"repos/{{owner}}/{{repo}}/pulls/{number}/comments", "--jq", ".[].id"], timeout=PR_LOOKUP_SECONDS * 2, cwd=main)
+    slug = remote_repo(main) or "{owner}/{repo}"
+    code, out = sh(["gh", "api", "--paginate", f"repos/{slug}/pulls/{number}/comments", "--jq", ".[].id"], timeout=PR_LOOKUP_SECONDS * 2, cwd=main)
     review_comments = len(out.split()) if code == 0 else None
     return {
         "state": str(raw.get("state") or "").upper(),
@@ -1533,6 +1622,8 @@ def retire_locked(args, ledger: Ledger) -> int:
     session_id = resolve_session(args.ref, sessions)
     row = sessions[session_id]
     label = row.get("task") or row.get("branch") or session_id[:8]
+    if git_problem():
+        raise Refusal(f"retire needs git to remove a worktree and a branch; {git_problem()}")
     if row.get("retired"):
         raise Refusal(f"{label} was retired at {clock(row['retired'].get('at'))}")
     if session_id in registry():

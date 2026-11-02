@@ -511,6 +511,18 @@ test('a GitHub write the permission decision refused lands on the needs list; a 
 	expect(calls.find(c => c.includes('needs') && c.includes('add'))).toBeUndefined()
 })
 
+test('the board names a broken git and the fix while the run still draws', async ($, on) => {
+	const problem = 'git is not working: the Command Line Tools are missing (a macOS update removes them); run `xcode-select --install`, then carry on.'
+	world(on, 'coord-1', { ...STATUS, git_problem: problem })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /xcode-select --install/ }))?.text).toContain('Command Line Tools')
+	expect((await ui.find({ type: 'Text', text: /^10SE\.2$/ }))?.text).toBe('10SE.2')
+	await ui.unmount()
+	expect(parseSnapshot(JSON.stringify(STATUS), NOON).gitProblem).toBeNull()
+})
+
 test('the board groups the crew under a subheading per state', async ($, on) => {
 	world(on, 'coord-1', threeStates())
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })

@@ -208,6 +208,7 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		configPath: str(data.config_path),
 		ledgerDir: str(data.ledger_dir),
 		mainCheckout: str(data.main_checkout),
+		gitProblem: str(data.git_problem) || null,
 		run,
 		sessions,
 		slots,
@@ -225,6 +226,7 @@ const failed = (problem: Snapshot['problem'], reason: string, at: number): Snaps
 	configPath: '',
 	ledgerDir: '',
 	mainCheckout: '',
+	gitProblem: null,
 	run: null,
 	sessions: [],
 	slots: [],
@@ -771,6 +773,14 @@ const header = (ui: Ui, snap: Snapshot, me: Self, now: number, inner: number) =>
 				<Text>{role}</Text>
 			</Box>
 			<Text color="subtle">{'─'.repeat(Math.max(2, inner - 1))}</Text>
+			{snap.gitProblem ? (
+				<Box flexDirection="row" columnGap={1} flexWrap="wrap">
+					<Text color="error" weight="bold">
+						git
+					</Text>
+					<Text color="error">{snap.gitProblem}</Text>
+				</Box>
+			) : null}
 			{run_.rebind ? (
 				<Box flexDirection="row" columnGap={1} flexWrap="wrap">
 					<Text color="warning" weight="bold">

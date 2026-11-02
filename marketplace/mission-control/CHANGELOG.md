@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+### Fixed
+
+- The ledger no longer depends on a working git. On 30 October 2026 a macOS update removed the Command Line Tools, `/usr/bin/git` became Apple's stub, and every `mc.py` command answered "not inside a git repository" while the run sat intact on disk: no board, no needs, no slots, and the session that found the problem could not even file the fix. The checkout and the remote are now read from the `.git` entry (a directory, or a worktree's `gitdir:` file) and the git config file; every `gh` call names the repository outright with `--repo`, so the watcher and the PR facts keep working; and when git itself fails, `status`, the board and `reconcile` (as a `git-unavailable` line) print one line naming the cause and the fix (`xcode-select --install` on macOS) while needs, slots, messages and the watcher carry on. Only the claim check, `retire` and the author count wait for git, each saying so.
+
 ## [0.4.0] - 2026-11-02
 
 ### Breaking

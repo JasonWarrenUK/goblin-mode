@@ -1395,6 +1395,75 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh(self._open(262)))
         self.assertEqual([item["kind"] for item in result["drift"]], [], "neither claim-missing nor the unlisted note: the plan says so")
 
+    # the ledger without git: a macOS update removed the Command Line Tools on 30 October 2026 and every command refused
+
+    def test_the_checkout_and_the_remote_are_found_without_running_git(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        git(self.box.repo, "remote", "add", "origin", "https://github.com/Someone/a-repo.git")
+        self.assertEqual(mc_module.toplevel(self.box.worktree / "apps"), self.box.worktree.resolve()) if (self.box.worktree / "apps").is_dir() else None
+        self.assertEqual(mc_module.toplevel(self.box.worktree), self.box.worktree.resolve())
+        self.assertEqual(mc_module.main_checkout(self.box.worktree), self.box.repo.resolve(), "a linked worktree's .git file names the common dir, whose parent is the main checkout")
+        self.assertEqual(mc_module.main_checkout(self.box.repo / ".claude"), self.box.repo.resolve())
+        self.assertIsNone(mc_module.git_dir_of(self.box.tmp))
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo")
+        self.assertEqual(mc_module.remote_repo(self.box.worktree), "Someone/a-repo")
+        self.assertEqual(mc_module.gh_repo_args(self.box.worktree), ["--repo", "Someone/a-repo"])
+        git(self.box.repo, "remote", "set-url", "origin", "git@github.com:Someone/a-repo.git")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo", "the ssh form parses too")
+        git(self.box.repo, "remote", "set-url", "origin", "https://example.org/not/github.git")
+        self.assertIsNone(mc_module.remote_repo(self.box.repo))
+        self.assertEqual(mc_module.gh_repo_args(self.box.repo), [])
+
+    def test_the_ledger_board_needs_and_slots_work_while_git_is_a_stub(self):
+        """Apple's git stub prints an xcode-select prompt and exits 1; the run on disk is intact and every ledger command still answers."""
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        stub = self.box.tmp / "stub"
+        stub.mkdir()
+        (stub / "git").write_text("#!/bin/sh\necho 'xcode-select: note: no developer tools were found at /Applications/Xcode.app' >&2\nexit 1\n")
+        (stub / "git").chmod(0o755)
+        (stub / "xcode-select").write_text("#!/bin/sh\nexit 2\n")
+        (stub / "xcode-select").chmod(0o755)
+        real = self.box.env["PATH"]
+        self.box.env["PATH"] = f"{stub}:{real}"
+        try:
+            status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+            self.assertIsNotNone(status["run"], "the run is read from the ledger, not from git")
+            self.assertIn("git is not working", status["git_problem"])
+            self.assertIn("xcode-select --install", status["git_problem"])
+            self.assertEqual([s["task"] for s in status["sessions"]], ["10SE.2"])
+            self.box.mc("needs", "add", "--why", "run xcode-select --install", "--command", "xcode-select --install", session="crew-1", cwd=self.box.worktree)
+            self.box.mc("request", "local-db", "--minutes", "5", "--what", "reset", session="crew-1", cwd=self.box.worktree)
+            self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+            self.box.mc("report", "--state", "working", "--summary", "carrying on", session="crew-1", cwd=self.box.worktree)
+            text = self.box.mc("status", session="coord-1").stdout
+            self.assertTrue(text.startswith("WARNING: git is not working"), text[:80])
+            self.assertIn("| local-db |", text)
+            hook = self.box.hook("session-start", {}, session="crew-1")
+            self.assertIn("this worktree is crew 10SE.2", hook, "the hook finds the planned worktree without git")
+            self.box.mc("report", "--state", "done", "--pr", "280", session="crew-1", cwd=self.box.worktree)
+            (self.box.sessions / "crew-1.json").unlink()
+            refused = self.box.mc("retire", "10SE.2", session="coord-1", expect=1).stdout
+            self.assertIn("retire needs git", refused)
+            self.assertIn("xcode-select --install", refused)
+            self.box.env["PATH"] = f"{stub}:{real}"
+            mc_module, real_sh = self._module(self._gh(self._merged(280)))
+            mc_module._GIT_PROBLEM.clear()
+            os.environ["PATH"] = f"{stub}:{real}"
+            try:
+                result = mc_module.reconcile(mc_module.ledger_for(self.box.repo))
+            finally:
+                os.environ["PATH"] = real
+                mc_module._GIT_PROBLEM.clear()
+                self._restore(mc_module, real_sh)
+            kinds = [item["kind"] for item in result["drift"]]
+            self.assertIn("git-unavailable", kinds)
+            self.assertNotIn("claim-missing", kinds, "the claim check waits for git instead of falling over")
+        finally:
+            self.box.env["PATH"] = real
+
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")
