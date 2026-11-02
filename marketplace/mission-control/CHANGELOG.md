@@ -4,6 +4,12 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
+### Breaking
+
+- `mc.py start` from a haiku or sonnet session is refused unless the line carries `--small-model-ok`, and `/mc start` from one answers with the model and the `anyway` override. The global `pr-land`, `pr-review` and `pr-handle_review` skills now read `mc.py --json classify` to decide whether a review is required, so this plugin's script has to be on disk for them.
+
 ### Added
 
 - **A session's identity survives what used to break it.** A `/clear` issues a new session id while the process, pid and socket stay, which on 28 October 2026 left every coordinator-only write refused until run.json was edited by hand. The ledger now offers the coordinator's own process under its new id as a rebind candidate (the board's `rebind?` line, the session's start context, a reconcile line) and `mc.py adopt coordinator` rebinds it: from that session on the user's yes, or by the user with `/mc adopt coordinator`, which is also how a coordinator started fresh takes the run. A crew session restarted or cleared in a planned worktree adopts the worktree's old row on `join` (state, summary, PR, slots, requests and needs carry over; the old file stays as `<id>.json.adopted`), so no second `briefing` row and no stuck slot. The docstring and protocol now say which operations keep the id.
@@ -28,6 +34,9 @@ All notable changes to this plugin are documented here, newest first.
 - `reconcile` adds a `roadmap-stale` line when a crew PR has merged but its task still reads `todo` on the roadmap at the trunk, and the coordinate skill answers it by running `/roadmap:maintain` from the main checkout and committing the result; it goes quiet once the trunk says done, however the sync happened.
 - `mc.py reconcile` reads a task's claim from the roadmap itself (`started` on the task, at the ref where it ought to be) instead of grepping for a `chore(roadmap): claim <id>` commit subject. A claim that reached the trunk through a sync batch or a `done` batch now counts, and an open branch that dropped its own claim commit once the trunk carried the claim is no longer drift. A task the roadmap does not list is named once as `unlisted`, with no claim expected. Reported from the CHIRPdb run, where all three claim lines were false positives.
 - A merged PR's line no longer reads `merged, merged`.
+
+### Changed
+
 - The board's crew group headings (`blocked · 1`, `pr-ready · 2`) are bold, coloured by state and spaced from the group above, so the groups read as sections.
 
 ## [0.3.0] - 2026-10-28
