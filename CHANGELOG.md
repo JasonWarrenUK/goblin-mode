@@ -5,6 +5,21 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.0.0] - 2026-11-02
+
+### Breaking
+
+- The global `pr-land`, `pr-review` and `pr-handle_review` skills no longer decide whether a review is required from the repository owner's name. They read `mc.py --json classify` from the mission-control plugin, so that plugin's script must be on disk at `~/.claude/marketplace/mission-control/`, and `pr-land` requires an approved review on any project the classifier reads as collaborative, personal repositories included. A repository the history misreads sets `collaboration.mode` to `solo` in its `.claude/mission-control.json`.
+
+### Added
+
+- `mission-control` plugin 0.4.0: the ledger is now the one place a run's state lives. `mc.py classify` says whether a project is solo or collaborative and `mc.py watch` is the single PR watcher every crew session starts, quiet outside the team's hours. `mc.py retire` reclaims a merged task's worktree mid-run. A cleared coordinator is offered its role back, a restarted crew session picks up its old row, and scheduled jobs, open threads and the user's decisions are written to the ledger rather than held in conversation. Reconcile reads claims from the roadmap itself, nudges `/roadmap:maintain` after a crew PR merges and names a job whose session is gone. The board shows each crew session's context fill, warns off a haiku or sonnet coordinator, forwards a measurement's result to the session that asked for it and lets a slot be extended without `force`. Details in the plugin's changelog.
+- Every plugin's README now lists its commands, the expected workflow in order and the things that run against it: mission-control, roadmap, goblin-chrome and goblin-util.
+
+### Changed
+
+- The mission-control board's crew group headings are bold, coloured by state and spaced, so the groups read as sections.
+
 ## [6.17.0] - 2026-10-28
 
 ### Added
@@ -401,7 +416,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.17.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.0.0...HEAD
+[7.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.17.0...v7.0.0
 [6.17.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.16.0...v6.17.0
 [6.16.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.15.0...v6.16.0
 [6.15.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.14.1...v6.15.0
