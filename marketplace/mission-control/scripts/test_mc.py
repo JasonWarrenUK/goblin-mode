@@ -1033,17 +1033,28 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(by_review["reviewed_by_others"], 1)
         self.assertEqual(by_review["hours"]["days"], [0, 1, 2, 3, 4], "one review is too few to infer hours, so the weekday default stands")
 
-    def test_classify_merges_one_person_under_two_addresses_and_ignores_a_claude_coauthor(self):
-        """goblin-mode read as collaborative on 30 October 2026: Jason under two emails plus Claude's noreply address made three authors."""
+    def test_classify_merges_one_person_under_two_addresses_or_two_spellings_and_ignores_a_claude_coauthor(self):
+        """goblin-mode read as collaborative on 30 October 2026: Jason under two emails plus Claude's noreply address made three authors.
+        The mirror case, one email under two spellings of the name, chains through the shared address to the same person."""
         git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "work", "--author", "t <t-at-work@example.com>")
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "web", "--author", "T. Tester <t-at-work@example.com>")
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "web again", "--author", "T. Tester <t@example.com>")
         git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "assisted", "--author", "Claude <noreply@anthropic.com>")
         mc_module, real = self._module(self._gh_list([]))
         try:
             result = mc_module.classify(self.box.repo, None)
+            authors = mc_module.git_authors(self.box.repo)
         finally:
             self._restore(mc_module, real)
         self.assertEqual(result["mode"], "solo")
-        self.assertEqual(result["authors"], ["t"])
+        self.assertEqual(result["authors"], ["T. Tester"], "one person, named the way they commit most often")
+        self.assertEqual(authors[0]["commits"], 4, "the init commit and the three new ones")
+
+    def test_git_authors_keeps_two_people_apart(self):
+        git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "theirs", "--author", "Other <o@example.com>")
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self.assertEqual(sorted(a["name"] for a in mc_module.git_authors(self.box.repo)), ["Other", "t"])
 
     def test_reconcile_nudges_roadmap_maintain_once_a_crew_pr_merges(self):
         """The merge landed the work; the roadmap on the trunk still reads todo until /roadmap:maintain runs."""

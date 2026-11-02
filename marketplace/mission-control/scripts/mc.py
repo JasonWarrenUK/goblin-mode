@@ -1103,17 +1103,40 @@ def is_bot(name: str, email: str = "") -> bool:
 
 
 def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
-    """Distinct human authors on the checked-out history in the window, by name (one person commits under a work and a personal address), most commits first."""
+    """Distinct human authors on the checked-out history in the window, most commits first.
+
+    One person commits under a work and a personal address, and under two spellings of
+    their name (the git config on one machine, the GitHub display name on web commits),
+    so identities are merged when they share either a name or an email: a union over the
+    two keys, with the name spelt the way it appears most often.
+    """
     out = run_git(main, "log", f"--since={days}.days", "--format=%an\t%ae")
-    counts: dict[str, dict] = {}
+    parent: dict[str, str] = {}
+
+    def find(key: str) -> str:
+        while parent.setdefault(key, key) != key:
+            key = parent[key]
+        return key
+
+    def union(a: str, b: str) -> None:
+        parent[find(a)] = find(b)
+
+    seen: list[tuple[str, str]] = []
     for line in (out or "").splitlines():
         name, _, email = line.partition("\t")
+        name, email = name.strip(), email.strip().lower()
         if not name or is_bot(name, email):
             continue
-        key = name.strip().lower()
-        row = counts.setdefault(key, {"name": name.strip(), "email": email.strip(), "commits": 0})
-        row["commits"] += 1
-    return sorted(counts.values(), key=lambda r: -r["commits"])
+        name_key, email_key = f"n:{name.lower()}", f"e:{email}" if email else f"n:{name.lower()}"
+        union(name_key, email_key)
+        seen.append((name, email))
+    groups: dict[str, dict] = {}
+    for name, email in seen:
+        group = groups.setdefault(find(f"n:{name.lower()}"), {"names": {}, "email": email, "commits": 0})
+        group["names"][name] = group["names"].get(name, 0) + 1
+        group["commits"] += 1
+    rows = [{"name": max(g["names"], key=g["names"].get), "email": g["email"], "commits": g["commits"]} for g in groups.values()]
+    return sorted(rows, key=lambda r: -r["commits"])
 
 
 def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:

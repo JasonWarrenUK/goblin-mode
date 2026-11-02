@@ -22,7 +22,7 @@ All notable changes to this plugin are documented here, newest first.
 ### Fixed
 
 - `/mc done <n>` and the board's `d` key passed `--json` after the subcommand, which the CLI's argparse refuses; the flag now leads the line, the test world's fake CLI refuses the wrong order the way argparse does, and the three global PR skills and the kickoff skill spell `mc.py --json classify` and `mc.py --json status`.
-- `classify` counted `Claude <noreply@anthropic.com>` as a human author and one person under two email addresses as two, which read this repository as collaborative; authors now merge by name and Anthropic's noreply address is a bot.
+- `classify` counted `Claude <noreply@anthropic.com>` as a human author and one person under two email addresses as two, which read this repository as collaborative; authors now merge when they share either a name or an email address (so two spellings of one name collapse too), and Anthropic's noreply address is a bot.
 - The watcher's review-comment count read one page of 30; it now paginates.
 - The auto-need on a refused GitHub write ignores a PreToolUse hook's refusal (the gh guard on an inline body, this plugin's own slot gate), which is not the user's to type.
 - `reconcile` adds a `roadmap-stale` line when a crew PR has merged but its task still reads `todo` on the roadmap at the trunk, and the coordinate skill answers it by running `/roadmap:maintain` from the main checkout and committing the result; it goes quiet once the trunk says done, however the sync happened.
