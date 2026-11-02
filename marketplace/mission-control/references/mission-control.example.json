@@ -97,6 +97,10 @@
 		"A stack lives in one worktree; `gh stack merge <pr#> --merge` lands a layer and everything below it; never `git merge main` into a layer.",
 		"Shared SQL functions: one author per function per migration, a redefinition pastes the whole body, the second to merge rewrites from main, migration timestamps are assigned at kick-off."
 	],
+	"collaboration": {
+		"mode": "collaborative",
+		"hours": { "start": "09:00", "end": "18:00", "days": "mon-fri" }
+	},
 	"human_gates": [
 		"hosted reads, including inspect queries",
 		"hosted credentials (an API key, an invite)",

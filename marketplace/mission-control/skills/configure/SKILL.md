@@ -29,6 +29,7 @@ Read, where present: the task runner's definitions (`pyproject.toml` `[tool.poe.
 - **commands**: test, lint, contract or schema regeneration, a stack status printer.
 - **conventions**: the files a brief should send a session to read.
 - **human_gates**: hosted reads, credentials, writes, merges, anything irreversible; the project's own words where its rules have them.
+- **collaboration**: `mode` (`solo` or `collaborative`) and, when collaborative, `hours` (`start`, `end` as `HH:MM`, `days` as `mon-fri` or names) in the reviewers' local time. Draft it from `mc.py classify`, which reads 90 days of authors and the reviews on merged PRs; the user confirms. It can live instead in `.claude/mission-control.local.json` (gitignored, same shape, wins over the committed file) when the answer is the user's and not the repository's.
 
 ## Step 3: Interview
 

@@ -39,7 +39,19 @@ A gated command (the brief lists them: a database reset, a server, a worker) is 
 
 ## What is the user's
 
-Hosted reads (inspect queries included), hosted credentials, hosted writes, merges and anything irreversible. You never run them, never ask another session to run them and never work round a refusal. The path is `mc_need`: why, the exact command, the absolute directory it must run from. The board shows it to the user with `cd <dir> && <command>`; the coordinator rolls it up. A refusal from your own permissions is the same case: `mc_need`, then carry on with what does not depend on it.
+Hosted reads (inspect queries included), hosted credentials, hosted writes, merges and anything irreversible. You never run them, never ask another session to run them and never work round a refusal. The path is `mc_need`: why, in full (the user reads it before typing a hosted command, so the whole reason, not a clipped line), the exact command, the absolute directory it must run from. The board shows it to the user with `cd <dir> && <command>`; the coordinator rolls it up. A refusal from your own permissions is the same case, and the one response to it: a `gh` or `git push` the permission classifier refused lands on the needs list by itself, with the command and the directory (the mod records it); for anything else refused, `mc_need` with the exact commands and file paths, then carry on with what does not depend on it. Never retry a refused write in another form, never ask another session to run it.
+
+A measurement you want the user to run (a hosted spike, a cold-cache timing) is `mc_need` with `kind` `measurement`: when the user marks it done with the output pasted, the mod forwards that output to you as a message and the need closes in one step. Nothing is relayed by hand.
+
+## Your state outlives the process
+
+Three things live in the ledger so a close, a resume or a compaction does not lose them:
+
+- **Scheduled work.** Every cron job or Monitor you set up is recorded first with `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py jobs add --kind cron|monitor --spec <expression or condition> --prompt <what runs> --reason <why> --id <stable id>`, and `jobs done <id>` when it is no longer wanted; the PR watcher keeps its own entry. A resumed session is told, in its start context, which of them died with the process and re-arms each one. Nothing scheduled lives only in conversation.
+- **Your row.** A session restarted fresh (or cleared) in this worktree carries on the old row: state, summary, PR, slots and needs. Nothing to do; `join` adopts it.
+- **The brief.** Keep one line in your working notes naming the run, your task, the brief path and your state, so a compaction's summary carries it; the mod's prompt section and the post-compaction hook both name the brief path again, and you reread it.
+
+A decision the coordinator relays (`Decision #n from the user: ...`) is acknowledged with `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py decide ack <n>` once read; reconcile names a decision nobody acknowledged.
 
 ## Messages from the coordinator
 
@@ -54,8 +66,15 @@ A message marked `[mission-control: from the coordinator session ..., verified a
    - **coordinator**: draft the description the way `pr-create` would (its template and rules), send it whole to the coordinator with `SendMessage`, wait for `PR approved` or changes, then run `/pr-create auto [base <parent>]`. The `auto` token skips the in-session pause because the coordinator's review was the gate.
    - **user**: run `/pr-create [base <parent>]` and `mc_need` with why `approve the PR description in this session`; the user comes when the list says so.
 3. `mc_report` with the PR number and state `pr-ready`, then one line to the coordinator with `SendMessage`: `<task> PR open: #<n> (<url>), <branch> -> <base>, <stacked on #m | independent>`. `pr-create` stops before the push when the base branch is not on origin; that is correct, and the push is the user's (`mc_need` with the exact command).
-4. Rebase only when told. Until the stack is linked, plain git in this worktree; after, the coordinator does it from the stack worktree.
+4. **Watch the PR, without being asked.** Straight after step 3, start the watcher as a background Bash from this worktree:
+
+   ```text
+   python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py watch
+   ```
+
+   with `run_in_background` on. It polls `gh` every five minutes (reviews, review decision, review comments, comments, each check, state), prints what changed and exits, which wakes you. On each wake: `mc_report` with the change in the summary (and `blocked` when a check failed or changes were requested), one line to the coordinator with `SendMessage` (`<task> PR #<n>: <the change>`), act on it where it is yours to act on (a failing check, a review to handle with `pr-handle_review`), then start the watcher again. Stop re-arming when it prints `watch ended` (merged or closed) or when the coordinator says the run is paused. On a collaborative project the watcher holds a change that is not a merge or close until the team's hours (from the run record, printed in your session-start context), so nothing wakes you at night; on a solo project there is no window and the watcher covers checks and state only, and it says `nothing to watch` when the PR has no checks. Never write your own poll loop, Monitor or cron for this; the watcher is the one shape the run has.
+5. Rebase only when told. Until the stack is linked, plain git in this worktree; after, the coordinator does it from the stack worktree.
 
 ## Never
 
-Run a gated command without the slot or from another directory; run a hosted command or ask anyone but the user to; merge; edit a shared surface the brief says another session owns; write a changelog or regenerate a shared artefact on your branch when the guidance says trunk; push without reading your messages first; report `pr-ready` on a rendered change nobody has looked at in a browser at the brief's widths; leave a slot held after the work is done; let the board lie about your state.
+Run a gated command without the slot or from another directory; run a hosted command or ask anyone but the user to; merge; edit a shared surface the brief says another session owns; write a changelog or regenerate a shared artefact on your branch when the guidance says trunk; push without reading your messages first; report `pr-ready` on a rendered change nobody has looked at in a browser at the brief's widths; leave a PR unwatched, or watch it with a loop of your own instead of `mc.py watch`; leave a slot held after the work is done; let the board lie about your state.

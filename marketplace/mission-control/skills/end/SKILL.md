@@ -27,7 +27,7 @@ Only when every PR that belongs in it exists and each base is the branch below i
 
 ## Step 3: Worktrees
 
-A feature worktree is pruned only after its session has closed: the board's `live` flag is the test, and a live session's worktree is never touched. For each closed one, from the main checkout: `git worktree remove <path>`, keeping the branch (the PR needs it), then `git worktree prune`. A dirty worktree is shown and left.
+Most worktrees are already gone by now: a merged task's worktree is retired mid-run with `mc.py retire <task>`, and a row the board reads `retired` is skipped here. For each closed session whose worktree remains, the board's `live` flag is the test and a live session's worktree is never touched. A merged or closed PR's worktree goes through `mc.py retire <task>` (it removes, prunes and deletes the branch with `-d`, refusing a dirty tree or a running process). An open PR's worktree, from the main checkout: `git worktree remove <path>`, keeping the branch (the PR needs it), then `git worktree prune`. A dirty worktree is shown and left.
 
 When a stack exists, one worktree holds it: `git worktree add <main>/<worktrees.dir>/stack-<n> <top branch>` (or keep one of the pruned ones and rename it on the user's say-so), then `gh stack checkout <top pr>` inside it. Say which worktree is the stack's and that `gh stack up`/`down` move between layers there.
 
@@ -37,11 +37,11 @@ From the stack worktree: `gh stack sync` when trunk moved (show the layers it wi
 
 ## Step 5: Follow-ups
 
-Everything the run found and did not do (the briefs' "out of scope" lines, the coordinator's notes, a measurement that was inconclusive) is offered to the roadmap: list the items and say `/roadmap:update-tasks` adds them as a batch. Offer, do not run.
+Everything the run found and did not do (the briefs' "out of scope" lines, the coordinator's notes, a measurement that was inconclusive, a scope the user withdrew) is offered to the roadmap: read the decisions record first (`python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py decide list`), since what the user decided to defer is written there in their words, then list the items and say `/roadmap:update-tasks` adds them as a batch. A task planned `--unlisted` has no roadmap row to update; name it as a candidate for one. Offer, do not run.
 
 ## Step 6: Archive
 
-`mc.py end` from this session (it refuses while a slot is held; `/mc release <resource>` first, after asking the holder). The ledger moves to `~/.claude/mission-control/runs/<date>-<name>/`, briefs and log included. Then one closing paragraph for the user: the PRs and their stack, the worktree that remains, what `pr-land` will land in which order and the roadmap items offered.
+`mc.py end` from this session (it refuses while a slot is held; `/mc release <resource>` first, after asking the holder). The ledger moves to `~/.claude/mission-control/runs/<date>-<name>/`, briefs and log included. Then one closing paragraph for the user: the PRs and their stack, the worktree that remains, what `pr-land` will land in which order, the decisions the run recorded (from `decide list`, numbered, in the user's words) and the roadmap items offered.
 
 ## Never
 
