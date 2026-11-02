@@ -1108,7 +1108,11 @@ def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
     One person commits under a work and a personal address, and under two spellings of
     their name (the git config on one machine, the GitHub display name on web commits),
     so identities are merged when they share either a name or an email: a union over the
-    two keys, with the name spelt the way it appears most often.
+    two keys, with the name spelt the way it appears most often. The limit runs the other
+    way: two people committing under one shared address (a pairing or team `user.email`)
+    read as one, which leans the inference towards solo. A review by someone else on any
+    merged PR still reads the project as collaborative, and `collaboration.mode` in the
+    config overrides the inference either way.
     """
     out = run_git(main, "log", f"--since={days}.days", "--format=%an\t%ae")
     parent: dict[str, str] = {}
