@@ -2282,8 +2282,6 @@ def needs_locked(args, ledger: Ledger) -> int:
             raise Refusal("needs add wants --why, and --command with --cwd when there is a command to type")
         row = ledger.sessions().get(session_id or "", {})
         n = 1 + max([x.get("n", 0) for x in needs] or [0])
-        # the result of a measurement goes to the session that asked for it, or the one named; the board says which
-        for_session = resolve_session(args.for_session, ledger.sessions()) if args.for_session else (session_id if row else None)
         # a re-issue closes the need it replaces as superseded, so the trail reads old number to new on one list
         old = find_need(needs, args.supersedes) if args.supersedes else None
         if args.supersedes and old is None:
@@ -2292,9 +2290,18 @@ def needs_locked(args, ledger: Ledger) -> int:
             raise Refusal(f"need #{old['n']} is already superseded by #{old['superseded_by']}")
         if old is not None and old.get("session_id") != session_id:
             authorise(run, session_id, args.by_user, "supersede another session's need")
+        # the result of a measurement goes to the session that asked for it, or the one named; the board says which.
+        # a re-issue keeps the old need's kind, recipient and directory unless the flag says otherwise; the command is
+        # never carried over, since the first attempt usually failed on it and a missing one shows as missing on the board
+        inherited = old or {}
+        if args.for_session:
+            for_session = resolve_session(args.for_session, ledger.sessions())
+        else:
+            for_session = inherited.get("for") or (session_id if row else None)
+        for_task = (ledger.sessions().get(for_session or "") or {}).get("task", "") or (inherited.get("for_task", "") if for_session == inherited.get("for") else "")
         need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
-                "command": (args.command or "").strip(), "cwd": args.cwd_hint or row.get("worktree") or "", "status": "open", "at": now(),
-                "kind": args.kind or "action", "for": for_session, "for_task": (ledger.sessions().get(for_session or "") or {}).get("task", ""),
+                "command": (args.command or "").strip(), "cwd": args.cwd_hint or inherited.get("cwd") or row.get("worktree") or "", "status": "open", "at": now(),
+                "kind": args.kind or inherited.get("kind") or "action", "for": for_session, "for_task": for_task,
                 "supersedes": old["n"] if old else None}
         needs.append(need)
         # the new need is logged before the old one closes, so the log reads need then need-superseded, the way the link points

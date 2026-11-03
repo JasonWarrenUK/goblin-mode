@@ -1450,6 +1450,18 @@ class LedgerFlow(unittest.TestCase):
         later = json.loads(self.box.mc("--json", "needs", "done", "3", "--result", "the paste", "--by-user", session="coord-1").stdout)
         self.assertEqual((later["done_at"], later["result"]), (closed_at, "the paste"))
 
+    def test_a_reissue_keeps_the_old_needs_kind_recipient_and_directory_but_not_its_command(self):
+        # a measurement re-issued the way coordinate 3a writes it used to come back as a plain action for the coordinator
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "run the backfill and paste the count", "--kind", "measurement", "--for", "10SE.2", "--cwd-hint", "/x/apps/api", "--command", "poetry run poe backfill", session="coord-1")
+        again = json.loads(self.box.mc("--json", "needs", "add", "--why", "run it with the dependency installed", "--supersedes", "1", session="coord-1").stdout)
+        self.assertEqual((again["kind"], again["for"], again["for_task"], again["cwd"], again["command"]), ("measurement", "crew-1", "10SE.2", "/x/apps/api", ""))
+        done = json.loads(self.box.mc("--json", "needs", "done", "2", "--result", "48112 rows", "--by-user", session="coord-1").stdout)
+        self.assertEqual(done["forward_to"], "crew-1", "the result still goes to the session that wanted it")
+        third = json.loads(self.box.mc("--json", "needs", "add", "--why", "third", "--kind", "action", "--cwd-hint", "/other", "--command", "x", "--supersedes", "2", session="coord-1").stdout)
+        self.assertEqual((third["kind"], third["cwd"], third["command"], third["for"]), ("action", "/other", "x", "crew-1"), "an explicit flag wins; the recipient carries")
+
     def test_a_grant_to_the_holder_extends_the_slot_without_force(self):
         self.box.start()
         self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
