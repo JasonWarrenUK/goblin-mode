@@ -2294,10 +2294,11 @@ def needs_locked(args, ledger: Ledger) -> int:
                 "kind": args.kind or "action", "for": for_session, "for_task": (ledger.sessions().get(for_session or "") or {}).get("task", ""),
                 "supersedes": old["n"] if old else None}
         needs.append(need)
+        # the new need is logged before the old one closes, so the log reads need then need-superseded, the way the link points
+        ledger.log("need", **need)
         if old is not None:
             supersede(ledger, old, need["n"])
         ledger.save_run(run)
-        ledger.log("need", **need)
         wants = f" (result to {need['for_task'] or (for_session or '')[:8]})" if need["kind"] == "measurement" and for_session else ""
         replaces = f" (supersedes #{old['n']})" if old else ""
         print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants + replaces)
@@ -2361,7 +2362,8 @@ def find_need(needs: list, ref) -> dict | None:
 def supersede(ledger: Ledger, old: dict, by: int) -> None:
     """Close a need the next attempt replaces: done, with the successor's number on it, so the audit trail across two numbers reads in one direction."""
     old["status"] = "done"
-    old["done_at"] = now()
+    # a need the user already closed keeps its close time; only the link is new
+    old["done_at"] = old.get("done_at") or now()
     old["superseded_by"] = by
     ledger.log("need-superseded", id=old["id"], n=old["n"], by=by)
 

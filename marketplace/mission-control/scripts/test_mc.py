@@ -1420,6 +1420,15 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual((needs[1]["status"], needs[1]["superseded_by"]), ("done", 3))
         events = [json.loads(line) for line in next(self.box.ledger_root.glob("*/log.jsonl")).read_text().splitlines()]
         self.assertEqual([e["by"] for e in events if e.get("event") == "need-superseded"], [2, 3])
+        kinds = [(e["event"], e.get("n")) for e in events if e["event"] in ("need", "need-superseded")]
+        self.assertLess(kinds.index(("need", 2)), kinds.index(("need-superseded", 1)), "the reissue is logged before the need it closes")
+        # a need the user already closed keeps its close time when a later attempt names it
+        self.box.mc("needs", "done", "3", session="coord-1")
+        closed_at = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)[2]["done_at"]
+        time.sleep(0.05)
+        self.box.mc("needs", "add", "--why", "fourth try", "--supersedes", "3", session="crew-1", cwd=self.box.worktree)
+        third = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)[2]
+        self.assertEqual((third["done_at"], third["superseded_by"]), (closed_at, 4))
 
     def test_a_grant_to_the_holder_extends_the_slot_without_force(self):
         self.box.start()
