@@ -1472,10 +1472,16 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(done["forward_to"], "crew-1", "the result still goes to the session that wanted it")
         third = json.loads(self.box.mc("--json", "needs", "add", "--why", "third", "--kind", "action", "--cwd-hint", "/other", "--command", "x", "--supersedes", "2", session="coord-1").stdout)
         self.assertEqual((third["kind"], third["cwd"], third["command"], third["for"]), ("action", "/other", "x", "crew-1"), "an explicit flag wins; the recipient carries")
+        # the session a measurement is for may re-issue it, the way the crew skill says; any other session is still refused
+        self.box.mc("join", "--task", "10SE.3", "--branch", "feat/b", session="crew-2", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "run the spike and paste the timings", "--kind", "measurement", "--for", "10SE.2", "--command", "poe spike", session="coord-1")
+        self.assertEqual(self.box.mc("needs", "add", "--why", "x", "--supersedes", "4", session="crew-2", cwd=self.box.worktree, expect=1).returncode, 1)
+        mine = json.loads(self.box.mc("--json", "needs", "add", "--why", "run the spike with the index built", "--command", "poe build-index && poe spike", "--supersedes", "4", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual((mine["supersedes"], mine["for"], mine["kind"]), (4, "crew-1", "measurement"))
         # the coordinator has no session row, so a crew need it re-issues keeps the crew's task tag on the board
         self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1", cwd=self.box.worktree)
-        fourth = json.loads(self.box.mc("--json", "needs", "add", "--why", "push it after the rebase", "--command", "git push -f", "--supersedes", "4", session="coord-1").stdout)
-        self.assertEqual(fourth["task"], "10SE.2")
+        reissued = json.loads(self.box.mc("--json", "needs", "add", "--why", "push it after the rebase", "--command", "git push -f", "--supersedes", "6", session="coord-1").stdout)
+        self.assertEqual(reissued["task"], "10SE.2")
 
     def test_a_grant_to_the_holder_extends_the_slot_without_force(self):
         self.box.start()

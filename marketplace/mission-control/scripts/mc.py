@@ -2297,7 +2297,9 @@ def needs_locked(args, ledger: Ledger) -> int:
             raise Refusal(f"no need {args.supersedes} to supersede")
         if old is not None and old.get("superseded_by"):
             raise Refusal(f"need #{old['n']} is already superseded by #{old['superseded_by']}")
-        if old is not None and old.get("session_id") != session_id:
+        # the session a need is for may re-issue it too: the coordinator raises a measurement on a crew session's behalf,
+        # and the crew skill sends that crew the re-issue. an anonymous shell (no session id) stays refused
+        if old is not None and old.get("session_id") != session_id and not (session_id and old.get("for") == session_id):
             authorise(run, session_id, args.by_user, "supersede another session's need")
         # the result of a measurement goes to the session that asked for it, or the one named; the board says which.
         # a re-issue keeps the old need's kind, recipient and directory unless the flag says otherwise; the command is
