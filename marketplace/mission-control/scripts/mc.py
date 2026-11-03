@@ -1020,6 +1020,23 @@ def reconcile(ledger: Ledger) -> dict:
             if worktree and Path(worktree).is_dir() and not same_path(worktree, ledger.main):
                 note("unretired", f"done since {clock(landed)}, worktree still present; `mc.py retire {row.get('task') or sid[:8]}`", row.get("task", ""), sid, number)
 
+    # an approval the watcher noted: open until the PR lands, named until then, closed by itself once it has
+    pending_changed = False
+    for item in run.get("pending", []):
+        if item.get("kind") != "approval" or item.get("status") != "open" or not item.get("pr"):
+            continue
+        fact = facts.get(int(item["pr"]))
+        if fact and fact["state"] in ("MERGED", "CLOSED"):
+            item["status"] = "done"
+            item["done_at"] = now()
+            item["outcome"] = fact["state"].lower()
+            pending_changed = True
+            continue
+        if not fact or fact["state"] == "OPEN":
+            note("approved-unlanded", f"PR #{item['pr']} approved at {clock(item.get('at'))} and not landed; landing is authorised, so `/pr-land {item['pr']}`", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+    if pending_changed:
+        with ledger.locked():
+            ledger.save_run(run)
     for need in run.get("needs", []):
         if need.get("status") == "done":
             continue
@@ -1790,6 +1807,22 @@ def cmd_classify(args) -> int:
     return 0
 
 
+def note_approval(ledger: Ledger, run: dict, number: int, current: dict, row: dict) -> None:
+    """One open pending item per approved PR: who approved and when, so reconcile says `approved, unlanded since` until the merge."""
+    who = ", ".join(r["login"] for r in current.get("reviews", []) if r.get("state") == "APPROVED") or "a reviewer"
+    with ledger.locked():
+        fresh = ledger.run() or run
+        pending = fresh.setdefault("pending", [])
+        if any(p.get("kind") == "approval" and p.get("pr") == number and p.get("status") == "open" for p in pending):
+            return
+        n = 1 + max([p.get("n", 0) for p in pending] or [0])
+        item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": "approval", "pr": number, "text": f"PR #{number} approved by {who}; landing is authorised and waits on the coordinator",
+                "session_id": row.get("session_id") if row else None, "status": "open", "at": now()}
+        pending.append(item)
+        ledger.save_run(fresh)
+    ledger.log("pending", **item)
+
+
 def cmd_watch(args) -> int:
     """Watch one PR until something changes, then say what and exit: the crew session runs this in the background and is woken by the exit.
     Outside the team's hours on a collaborative project a change that is not a merge or close is held until the window opens; on a solo project there is no window."""
@@ -1862,6 +1895,10 @@ def cmd_watch(args) -> int:
         failures = 0
         changes = snapshot_changes(seen, current)
         if changes:
+            if current.get("decision") == "APPROVED" and seen.get("decision") != "APPROVED" and run:
+                # an approval is the coordinator's to act on, and a message can sit unread in an idle session until the next prompt;
+                # the pending list is read by reconcile and the start context, so the approval is seen even when the message is not
+                note_approval(ledger, run, number, current, row)
             if terminal(current) or in_window(hours, now()):
                 record("changed", current, changes)
                 print(f"#{number} changed ({'; '.join(changes)}). Now: {summarise_snapshot(current)}")
