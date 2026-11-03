@@ -2277,6 +2277,13 @@ def needs_locked(args, ledger: Ledger) -> int:
     if args.action == "list":
         print(json.dumps(needs, indent=2))
         return 0
+    # each link flag belongs to one action; a swap of --supersedes for --superseded-by used to pass with nothing recorded
+    if args.supersedes and args.action != "add":
+        raise Refusal("--supersedes belongs on needs add; to close a need under its successor use needs done <n> --superseded-by <successor>")
+    if args.superseded_by and args.action != "done":
+        raise Refusal("--superseded-by belongs on needs done; to re-issue a need use needs add --supersedes <n>")
+    if args.note is not None and args.action != "start":
+        raise Refusal("--note belongs on needs start")
     if args.action == "add":
         if not args.why:
             raise Refusal("needs add wants --why, and --command with --cwd when there is a command to type")
@@ -2348,6 +2355,8 @@ def needs_locked(args, ledger: Ledger) -> int:
         raise Refusal(f"need #{target['n']} is already superseded by #{target['superseded_by']}")
     if successor is not None:
         supersede(ledger, target, successor["n"])
+        # the back-link is a scalar: a successor that already re-issues one need keeps that; superseded_by on each old need is the trail
+        successor["supersedes"] = successor.get("supersedes") or target["n"]
     else:
         target["status"] = "done"
         # a second done (closed first, the result pasted later) keeps the first close time

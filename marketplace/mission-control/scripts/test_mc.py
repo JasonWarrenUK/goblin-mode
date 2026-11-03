@@ -1431,6 +1431,16 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("need #2 superseded by #3", out)
         needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
         self.assertEqual((needs[1]["status"], needs[1]["superseded_by"]), ("done", 3))
+        self.assertEqual(needs[2]["supersedes"], 2, "the done path writes the back-link too")
+        self.assertEqual(needs[1]["supersedes"], 1, "a successor that already re-issues one need keeps that link")
+        # each link flag belongs to one action; on the wrong one it is refused, and nothing is written
+        before = self.box.mc("needs", "list", session="coord-1").stdout
+        self.assertIn("--superseded-by belongs on needs done", self.box.mc("needs", "add", "--why", "x", "--superseded-by", "3", session="crew-1", cwd=self.box.worktree, expect=1).stdout)
+        self.assertIn("--supersedes belongs on needs add", self.box.mc("needs", "done", "3", "--supersedes", "2", session="coord-1", expect=1).stdout)
+        self.assertIn("--supersedes belongs on needs add", self.box.mc("needs", "start", "3", "--supersedes", "2", session="coord-1", expect=1).stdout)
+        self.assertIn("--note belongs on needs start", self.box.mc("needs", "done", "3", "--note", "x", session="coord-1", expect=1).stdout)
+        self.assertIn("--note belongs on needs start", self.box.mc("needs", "add", "--why", "x", "--note", "n", session="crew-1", cwd=self.box.worktree, expect=1).stdout)
+        self.assertEqual(self.box.mc("needs", "list", session="coord-1").stdout, before)
         events = [json.loads(line) for line in next(self.box.ledger_root.glob("*/log.jsonl")).read_text().splitlines()]
         self.assertEqual([e["by"] for e in events if e.get("event") == "need-superseded"], [2, 3])
         kinds = [(e["event"], e.get("n")) for e in events if e["event"] in ("need", "need-superseded")]
