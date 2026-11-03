@@ -483,6 +483,7 @@ const TOOLS = [
 				cwd: { type: 'string', description: 'the absolute directory the command must run from (default: your worktree)' },
 				kind: { type: 'string', enum: ['action', 'measurement', 'approval'], description: 'measurement: the output the user pastes when marking it done is forwarded to the session the need is for' },
 				for: { type: 'string', description: 'the session the result is for (task id, branch or name); default: the asking session' },
+				supersedes: { type: 'string', description: 'the number of an earlier need this one re-issues (its first attempt failed); that need closes as superseded by the new number, and the new one keeps its kind, recipient and directory unless given here' },
 			},
 			required: ['why'],
 		},
@@ -597,6 +598,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			if (arg(input, 'cwd')) args.push('--cwd-hint', arg(input, 'cwd'))
 			if (arg(input, 'kind')) args.push('--kind', arg(input, 'kind'))
 			if (arg(input, 'for')) args.push('--for', arg(input, 'for'))
+			if (arg(input, 'supersedes')) args.push('--supersedes', arg(input, 'supersedes'))
 			const ran = await mine($, args)
 			if (ran.exitCode !== 0) return reasonOf(ran, 'need refused')
 			await refresh($)

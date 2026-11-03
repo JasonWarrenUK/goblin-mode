@@ -121,7 +121,7 @@ Registered in every session where the plugin is on; the CLI refuses the coordina
 |---|---|---|
 | `mc_report` | crew | state (`briefing`, `working`, `in-slot`, `pr-ready`, `blocked`, `waiting-jason`, `done`), one-line summary, PR number |
 | `mc_slot` | crew | `request` records the request and hands over the line for the coordinator (what will run, for how long); `release` records the results and hands over the line that reports them |
-| `mc_need` | anyone | an item only the user can do: why, the exact command, the directory. Goes on the board; from crew, the line for the coordinator follows |
+| `mc_need` | anyone | an item only the user can do: why, the exact command, the directory. Goes on the board; from crew, the line for the coordinator follows. `supersedes` re-issues an earlier need that failed, keeping its kind, recipient and directory |
 | `mc_send` | anyone | resolves a task id, branch, session name, `coordinator` or `all` to the recipient names `SendMessage` takes now, so a changed name or ref does not lose a session |
 | `mc_grant` | coordinator | probes the machine, refuses while busy, grants, then hands over the grant line for the grantee and the notice line for every other crew session |
 | `mc_revoke` | coordinator | releases another session's slot and hands over the line that tells the holder |

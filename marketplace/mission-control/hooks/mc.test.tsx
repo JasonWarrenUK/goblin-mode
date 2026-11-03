@@ -369,6 +369,20 @@ test('mc_report passes --for through for the coordinator', async ($, on) => {
 	expect(report).toEqual(expect.arrayContaining(['--for', '10SE.2', '--state', 'done']))
 })
 
+test('mc_need passes --supersedes through and a crew reissue still hands the coordinator the line', async ($, on) => {
+	const { calls } = world(on, 'crew-1')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	const out = await $.tool.call({ tool: 'mcp__mission-control__mc_need', why: 'run it with the dependency installed', command: 'poetry install && poetry run poe backfill', supersedes: '3' })
+	const add = calls.find(c => c.includes('needs') && c.includes('add'))
+	expect(add).toEqual(expect.arrayContaining(['--supersedes', '3', '--command', 'poetry install && poetry run poe backfill']))
+	expect(String(out.result)).toContain('needs the user')
+	// @ts-ignore as above
+	await $.tool.call({ tool: 'mcp__mission-control__mc_need', why: 'plain' })
+	const plain = calls.filter(c => c.includes('needs') && c.includes('add')).at(-1)
+	expect(plain).not.toContain('--supersedes')
+})
+
 test('two overlapping refreshes leave the board on the one that started later, whichever finishes last', async ($, on) => {
 	const pending = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'working' }] }
 	const ready = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'pr-ready' }] }
