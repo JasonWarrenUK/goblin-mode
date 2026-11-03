@@ -1038,7 +1038,8 @@ def reconcile(ledger: Ledger) -> dict:
         with ledger.locked():
             ledger.save_run(run)
     for need in run.get("needs", []):
-        if need.get("status") == "done":
+        # a started need runs on after its session ends or its PR merges; it closes with the result, so it is never drift
+        if need.get("status") in ("done", "started"):
             continue
         row = sessions.get(need.get("session_id") or "", {})
         merged = row.get("pr") and (facts.get(int(row["pr"])) or {}).get("state") == "MERGED"

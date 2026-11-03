@@ -663,6 +663,19 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual([item["kind"] for item in result["drift"]], ["need-open-after-done"])
         self.assertIn("its session is done", result["drift"][0]["detail"])
 
+    def test_reconcile_leaves_a_started_need_alone_when_its_session_finished(self):
+        # the CHIRPdb backfill: started by the user, still running after the crew session that asked for it is done
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1")
+        self.box.mc("needs", "add", "--why", "run the backfill", "--command", "bun run backfill", session="crew-1")
+        self.box.mc("needs", "start", "1", "--note", "bg task abc", session="coord-1")
+        self.box.mc("report", "--state", "done", session="crew-1")
+        result = self._reconcile_with(self._gh({}))
+        self.assertEqual(result["drift"], [], "a started need runs on after its session ends; it closes with the result")
+        needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
+        self.assertEqual(needs[0]["status"], "started")
+
     @staticmethod
     def _roadmap(started=None, task="10SE.2", status="todo"):
         """A rich roadmap listing one task, claimed (`started` set) or not."""
