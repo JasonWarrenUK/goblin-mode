@@ -5,6 +5,17 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.1.0] - 2026-11-03
+
+### Added
+
+- `mission-control` plugin 0.5.0: an idle coordinator used to be deaf between prompts, so an approved PR could wait hours for a landing already authorised. The coordinate skill now schedules a half-hourly wake inside the team's hours and removes it at the end of the run, and the watcher writes each approval to the pending list so reconcile names it until the merge. The board's retired and gone groups are collapsed to their headings, with `c` to show them. Details in the plugin's changelog.
+
+### Fixed
+
+- `mission-control` no longer depends on a working git. When a macOS update removes the Command Line Tools, the board, needs, slots, messages and the PR watcher carry on, `status` and `reconcile` name the cause and the fix, and only what needs history waits. While git works, nothing changes: git answers for the checkout and `gh` chooses the repository as before.
+- A task id that matched a stray session's row beside the real one refused as ambiguous in `retire`, `grant` and every other resolver path; the resolver now takes the row still working, then the live one, then the one carrying the PR.
+
 ## [7.0.0] - 2026-11-02
 
 ### Breaking
@@ -416,7 +427,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.0.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.1.0...HEAD
+[7.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.0.0...v7.1.0
 [7.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.17.0...v7.0.0
 [6.17.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.16.0...v6.17.0
 [6.16.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.15.0...v6.16.0
