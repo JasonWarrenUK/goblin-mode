@@ -1373,6 +1373,51 @@ class LedgerFlow(unittest.TestCase):
         needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
         self.assertEqual(len(needs[-1]["why"]), 900, "a why is no longer cut at 240 characters")
 
+    def test_a_started_need_leaves_the_needs_count_and_closes_with_its_result(self):
+        # the CHIRPdb run: a four-hour hosted backfill the user had typed sat in the same bucket as needs they had not touched
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "run the embeddings backfill on hosted and paste the count", "--kind", "measurement", "--for", "10SE.2", "--command", "poetry run poe backfill", session="coord-1")
+        self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(self.box.mc("needs", "start", "1", session="crew-2", expect=1).returncode, 1, "another session may not mark it started")
+        started = json.loads(self.box.mc("--json", "needs", "start", "1", "--note", "background task b7; 10SE.2 watches it", "--by-user", session="coord-1").stdout)
+        self.assertEqual((started["status"], started["note"]), ("started", "background task b7; 10SE.2 watches it"))
+        self.assertGreater(started["started_at"], 0)
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        self.assertEqual([(n["n"], n["status"]) for n in status["needs"]], [(1, "started"), (2, "open")], "a started need stays on the list, apart from the open ones")
+        text = self.box.mc("status", session="coord-1").stdout
+        self.assertIn("## Running", text)
+        self.assertIn("## Needs Jason", text)
+        self.assertLess(text.index("## Needs Jason"), text.index("## Running"))
+        self.assertNotIn("poetry run poe backfill", text.split("## Running")[1], "a running need shows no command to type")
+        context = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("1 need open", context)
+        self.assertIn("running for the user: #1 since", context)
+        self.assertEqual(self.box.mc("needs", "start", "1", session="coord-1").returncode, 0, "starting again only updates the note")
+        done = json.loads(self.box.mc("--json", "needs", "done", "1", "--result", "48112 rows", "--by-user", session="coord-1").stdout)
+        self.assertEqual((done["status"], done["forward_to"], done["result"]), ("done", "crew-1", "48112 rows"))
+        self.assertEqual(self.box.mc("needs", "start", "1", session="coord-1", expect=1).returncode, 1, "a done need cannot be started")
+
+    def test_a_reissued_need_closes_the_one_it_supersedes_with_the_link(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "run the backfill", "--command", "poetry run poe backfill", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(self.box.mc("needs", "add", "--why", "x", "--supersedes", "9", session="crew-1", cwd=self.box.worktree, expect=1).returncode, 1)
+        out = self.box.mc("needs", "add", "--why", "run the backfill with the dependency installed", "--command", "poetry install && poetry run poe backfill", "--supersedes", "1", session="crew-1", cwd=self.box.worktree).stdout
+        self.assertIn("(supersedes #1)", out)
+        needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
+        self.assertEqual((needs[0]["status"], needs[0]["superseded_by"], needs[1]["supersedes"], needs[1]["status"]), ("done", 2, 1, "open"))
+        self.assertEqual([n["n"] for n in json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"]], [2])
+        # the other direction: the successor already exists, so done names it
+        self.box.mc("needs", "add", "--why", "third try", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(self.box.mc("needs", "done", "2", "--superseded-by", "9", session="coord-1", expect=1).returncode, 1)
+        out = self.box.mc("needs", "done", "2", "--superseded-by", "3", session="coord-1").stdout
+        self.assertIn("need #2 superseded by #3", out)
+        needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
+        self.assertEqual((needs[1]["status"], needs[1]["superseded_by"]), ("done", 3))
+        events = [json.loads(line) for line in next(self.box.ledger_root.glob("*/log.jsonl")).read_text().splitlines()]
+        self.assertEqual([e["by"] for e in events if e.get("event") == "need-superseded"], [2, 3])
+
     def test_a_grant_to_the_holder_extends_the_slot_without_force(self):
         self.box.start()
         self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)

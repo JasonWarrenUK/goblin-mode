@@ -18,7 +18,7 @@ The project config is <repo>/.claude/mission-control.json (the example beside
 this script documents every key). A caller is identified by CLAUDE_CODE_SESSION_ID,
 which Claude Code sets for every Bash child, or by --session when the mod
 calls on its own behalf. Writes that steer the run (start, end, grant, revoke,
-assumptions, marking a need done, the crew plan) are the coordinator session's
+assumptions, marking a need started or done, the crew plan) are the coordinator session's
 alone; `--by-user` stands for the person typing a /mc command in any session.
 The PreToolUse hook refuses `--by-user`, `--session` and a `CLAUDE_CODE_SESSION_ID=`
 assignment on a Bash line that runs this script, abbreviations and quoting
@@ -1214,15 +1214,25 @@ def print_status(status: dict) -> None:
         print("|---|---|---|---|")
         for req in status["requests"]:
             print(f"| {req['resource']} | {req.get('task') or req.get('name') or req['session_id'][:8]} | {req.get('minutes', '?')} | {req.get('what', '')} |")
-    if status["needs"]:
+    open_needs = [n for n in status["needs"] if n.get("status") != "started"]
+    running = [n for n in status["needs"] if n.get("status") == "started"]
+    if open_needs:
         print()
         print("## Needs Jason")
         print()
-        for n in status["needs"]:
+        for n in open_needs:
             where = f" (in {n['cwd']})" if n.get("cwd") else ""
             print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']}{where}")
             if n.get("command"):
                 print(f"   `{n['command']}`")
+    if running:
+        # started by the user and still going: nothing to type, the result is what closes it
+        print()
+        print("## Running")
+        print()
+        for n in running:
+            note = f" · {n['note']}" if n.get("note") else ""
+            print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']} (since {clock(n.get('started_at'))}{note})")
     for probe in status.get("probes", []) or []:
         checks = "; ".join(f"{c['kind']}: {c.get('detail', '')}" for c in probe["checks"])
         print(f"probe {probe['resource']}: {'BUSY' if probe['busy'] else 'free'} ({checks})")
@@ -2273,36 +2283,82 @@ def needs_locked(args, ledger: Ledger) -> int:
         n = 1 + max([x.get("n", 0) for x in needs] or [0])
         # the result of a measurement goes to the session that asked for it, or the one named; the board says which
         for_session = resolve_session(args.for_session, ledger.sessions()) if args.for_session else (session_id if row else None)
+        # a re-issue closes the need it replaces as superseded, so the trail reads old number to new on one list
+        old = find_need(needs, args.supersedes) if args.supersedes else None
+        if args.supersedes and old is None:
+            raise Refusal(f"no need {args.supersedes} to supersede")
+        if old is not None and old.get("session_id") != session_id:
+            authorise(run, session_id, args.by_user, "supersede another session's need")
         need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
                 "command": (args.command or "").strip(), "cwd": args.cwd_hint or row.get("worktree") or "", "status": "open", "at": now(),
-                "kind": args.kind or "action", "for": for_session, "for_task": (ledger.sessions().get(for_session or "") or {}).get("task", "")}
+                "kind": args.kind or "action", "for": for_session, "for_task": (ledger.sessions().get(for_session or "") or {}).get("task", ""),
+                "supersedes": old["n"] if old else None}
         needs.append(need)
+        if old is not None:
+            supersede(ledger, old, need["n"])
         ledger.save_run(run)
         ledger.log("need", **need)
         wants = f" (result to {need['for_task'] or (for_session or '')[:8]})" if need["kind"] == "measurement" and for_session else ""
-        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants)
+        replaces = f" (supersedes #{old['n']})" if old else ""
+        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants + replaces)
         return 0
-    # done
-    target = next((x for x in needs if str(x.get("n")) == str(args.ref) or x.get("id") == args.ref), None)
+    target = find_need(needs, args.ref)
     if target is None:
         raise Refusal(f"no open need {args.ref}")
+    if args.action == "start":
+        # the user has typed the command and it runs on; the need leaves the "needs Jason" count and keeps its number until the result is in
+        if target.get("status") == "done":
+            raise Refusal(f"need #{target['n']} is already done")
+        if target.get("session_id") != session_id:
+            authorise(run, session_id, args.by_user, "mark another session's need started")
+        target["status"] = "started"
+        target["started_at"] = now()
+        if args.note is not None:
+            target["note"] = args.note.strip()[:NEED_WHY_LIMIT]
+        ledger.save_run(run)
+        ledger.log("need-started", id=target["id"], n=target["n"], note=target.get("note", ""))
+        print(json.dumps(target) if args.json else f"need #{target['n']} running since {clock(target['started_at'])}" + (f": {target['note']}" if target.get("note") else ""))
+        return 0
+    # done
     if target.get("session_id") != session_id:
         authorise(run, session_id, args.by_user, "mark another session's need done")
     result = args.result
     if result and result.startswith("@") and Path(result[1:]).is_file():
         result = Path(result[1:]).read_text()
-    target["status"] = "done"
-    target["done_at"] = now()
+    successor = find_need(needs, args.superseded_by) if args.superseded_by else None
+    if args.superseded_by and successor is None:
+        raise Refusal(f"no need {args.superseded_by} to be superseded by")
+    if successor is not None:
+        supersede(ledger, target, successor["n"])
+    else:
+        target["status"] = "done"
+        target["done_at"] = now()
     if result is not None:
         target["result"] = result.strip()[:RESULT_LIMIT]
     ledger.save_run(run)
-    ledger.log("need-done", id=target["id"], n=target["n"], result_chars=len(target.get("result") or ""))
+    ledger.log("need-done", id=target["id"], n=target["n"], result_chars=len(target.get("result") or ""), superseded_by=target.get("superseded_by"))
     recipient = target.get("for") or target.get("session_id") or ""
     if args.json:
         print(json.dumps({**target, "forward_to": recipient if result else None}))
     else:
-        print(f"need #{target['n']} done" + (f"; result ({len(target['result'])} chars) for {target.get('for_task') or recipient[:8]}" if result else ""))
+        tail = f"; result ({len(target['result'])} chars) for {target.get('for_task') or recipient[:8]}" if result else ""
+        print(f"need #{target['n']} " + (f"superseded by #{target['superseded_by']}" if successor else "done") + tail)
     return 0
+
+
+def find_need(needs: list, ref) -> dict | None:
+    """A need by its number or its id; None when the list has neither."""
+    if ref is None:
+        return None
+    return next((x for x in needs if str(x.get("n")) == str(ref) or x.get("id") == ref), None)
+
+
+def supersede(ledger: Ledger, old: dict, by: int) -> None:
+    """Close a need the next attempt replaces: done, with the successor's number on it, so the audit trail across two numbers reads in one direction."""
+    old["status"] = "done"
+    old["done_at"] = now()
+    old["superseded_by"] = by
+    ledger.log("need-superseded", id=old["id"], n=old["n"], by=by)
 
 
 def cmd_jobs(args) -> int:
@@ -2638,15 +2694,18 @@ def session_start_context(payload: dict) -> str:
     if is_coordinator(run, session_id):
         pending = [p for p in run.get("pending", []) if p.get("status") == "open"]
         decisions = ledger.decisions()[-5:]
-        needs = [n for n in run.get("needs", []) if n.get("status") != "done"]
+        needs = [n for n in run.get("needs", []) if n.get("status") == "open"]
+        running = [n for n in run.get("needs", []) if n.get("status") == "started"]
         back = ""
-        if pending or decisions or needs:
+        if pending or decisions or needs or running:
             pending_text = "; ".join("#%s %s" % (p.get("n"), p.get("text")) for p in pending)
             decision_text = "; ".join("#%s %s" % (d.get("n"), d.get("text")) for d in decisions)
+            running_text = "; ".join("#%s since %s" % (n.get("n"), clock(n.get("started_at"))) for n in running)
             back = (" Your open threads from the ledger, which a compaction does not keep: "
                     + (f"pending: {pending_text}. " if pending else "")
                     + (f"recent decisions: {decision_text}. " if decisions else "")
                     + (f"{len(needs)} need{'s' if len(needs) != 1 else ''} open. " if needs else "")
+                    + (f"running for the user: {running_text}. " if running else "")
                     + "Run reconcile before saying where things stand.")
         return (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
                 f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.{back}")
@@ -2792,15 +2851,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("resource")
     sp.add_argument("--note")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("needs", help="the needs-Jason list: add, done, list")
-    sp.add_argument("action", choices=["add", "done", "list"])
-    sp.add_argument("ref", nargs="?", help="for done: the item number or id")
+    sp = sub.add_parser("needs", help="the needs-Jason list: add, start (the user has typed it and it runs on), done, list")
+    sp.add_argument("action", choices=["add", "start", "done", "list"])
+    sp.add_argument("ref", nargs="?", help="for start and done: the item number or id")
     sp.add_argument("--why")
     sp.add_argument("--command")
     sp.add_argument("--cwd-hint", dest="cwd_hint", help="where the command must be typed")
     sp.add_argument("--kind", choices=["action", "measurement", "approval"], help="measurement: the user's output comes back to the session that wants it")
     sp.add_argument("--for", dest="for_session", help="the session the result is for (task, branch, name or id); default: the asking session")
+    sp.add_argument("--supersedes", help="for add: the need this one re-issues; that one closes as superseded by the new number")
+    sp.add_argument("--note", help="for start: what is running and where to watch it (a background task id, the session watching)")
     sp.add_argument("--result", help="for done: the output the user pasted, or @<file> to read it; the mod forwards it to the session the need is for")
+    sp.add_argument("--superseded-by", dest="superseded_by", help="for done: the need that replaces this one, when it already exists")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("adopt", help="bind this session to a role whose recorded id is dead: coordinator (own process after /clear, or --by-user for a fresh one) or crew (the planned worktree's old row)")
     sp.add_argument("role", choices=["coordinator", "crew"])

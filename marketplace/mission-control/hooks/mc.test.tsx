@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -467,6 +467,37 @@ test('parseSnapshot reads the rebind candidate, the pending list, the decisions,
 	const plain = parseSnapshot(JSON.stringify(STATUS), NOON)
 	expect(plain.run?.rebind).toBeNull()
 	expect(plain.needs[0]?.kind).toBe('action')
+	expect(plain.needs[0]?.started_at).toBeNull()
+	expect(plain.needs[0]?.note).toBe('')
+	expect(plain.needs[0]?.superseded_by).toBeNull()
+})
+
+test('a started need sits in its own Running group with its start time, off the needs-Jason count, and s marks an open one started', async ($, on) => {
+	const running = { ...STATUS.needs[0], id: 'n2', n: 2, why: 'run the embeddings backfill on hosted', command: 'poetry run poe backfill', status: 'started', started_at: NOON / 1000 - 4 * 3600, note: 'task b7; 10SE.2 watches it' }
+	const { calls } = world(on, 'coord-1', { ...STATUS, needs: [STATUS.needs[0], running] })
+	const snap = parseSnapshot(JSON.stringify({ ...STATUS, needs: [STATUS.needs[0], running] }), NOON)
+	expect(needGroups(snap.needs).open.map(n => n.n)).toEqual([1])
+	expect(needGroups(snap.needs).running.map(n => n.n)).toEqual([2])
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^Needs Jason · 1$/ }))?.text).toBe('Needs Jason · 1')
+	expect((await ui.find({ type: 'Text', text: /^Running · 1$/ }))?.text).toBe('Running · 1')
+	expect((await ui.find({ type: 'Text', text: /since 08:00 · task b7; 10SE.2 watches it/ }))?.text).toContain('since 08:00')
+	expect(await ui.find({ type: 'Text', text: /poetry run poe backfill/ })).toBeUndefined()
+	await ui.press({ key: 'row-need:1' })
+	await ui.press({ key: 'started' })
+	await ui.input({ key: 'started-ref', text: 'task b9' })
+	const start = calls.find(c => c.includes('needs') && c.includes('start'))
+	expect(start).toBeDefined()
+	expect(start).toContain('1')
+	expect(start?.[start.indexOf('--note') + 1]).toBe('task b9')
+	expect(start).toContain('--by-user')
+	await ui.unmount()
+	const typed = await $.command.run({ ...RUN, command: 'mc', args: 'started 2 the session watches it' })
+	expect(typed.text).toContain('needs ok')
+	const second = calls.filter(c => c.includes('needs') && c.includes('start')).at(-1)
+	expect(second?.[second.indexOf('--note') + 1]).toBe('the session watches it')
 })
 
 test('helpers: a notice goes to live, working crew only, never to a done or retired session', async () => {
