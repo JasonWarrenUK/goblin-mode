@@ -2284,6 +2284,8 @@ def needs_locked(args, ledger: Ledger) -> int:
         raise Refusal("--superseded-by belongs on needs done; to re-issue a need use needs add --supersedes <n>")
     if args.note is not None and args.action != "start":
         raise Refusal("--note belongs on needs start")
+    if args.result is not None and args.action != "done":
+        raise Refusal("--result belongs on needs done")
     if args.action == "add":
         if not args.why:
             raise Refusal("needs add wants --why, and --command with --cwd when there is a command to type")

@@ -1440,6 +1440,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("--supersedes belongs on needs add", self.box.mc("needs", "start", "3", "--supersedes", "2", session="coord-1", expect=1).stdout)
         self.assertIn("--note belongs on needs start", self.box.mc("needs", "done", "3", "--note", "x", session="coord-1", expect=1).stdout)
         self.assertIn("--note belongs on needs start", self.box.mc("needs", "add", "--why", "x", "--note", "n", session="crew-1", cwd=self.box.worktree, expect=1).stdout)
+        self.assertIn("--result belongs on needs done", self.box.mc("needs", "start", "3", "--result", "48112 rows", session="coord-1", expect=1).stdout, "start typed where done was meant does not drop the paste")
         self.assertEqual(self.box.mc("needs", "list", session="coord-1").stdout, before)
         events = [json.loads(line) for line in next(self.box.ledger_root.glob("*/log.jsonl")).read_text().splitlines()]
         self.assertEqual([e["by"] for e in events if e.get("event") == "need-superseded"], [2, 3])
