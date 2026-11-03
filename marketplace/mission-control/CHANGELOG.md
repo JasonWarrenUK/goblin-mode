@@ -4,6 +4,8 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-03
+
 ### Added
 
 - An idle coordinator is deaf between prompts: a crew message sits in its inbox until the next turn, and on 2 November 2026 an approved PR waited two and a half hours for a landing already authorised. The coordinate skill now schedules a recurring wake inside the collaboration hours (a cron every 30 minutes, recorded with `jobs add`) whose turn reads the crew messages and acts, and the watcher writes an `approval` item to the pending list the moment a PR is approved, so `reconcile` says `approved-unlanded` with the time until the merge, which closes the item by itself.
