@@ -1518,6 +1518,67 @@ class LedgerFlow(unittest.TestCase):
         finally:
             self.box.env["PATH"] = real
 
+    def test_a_task_id_shared_with_a_ghost_row_resolves_to_the_row_still_working(self):
+        """17SE.1 on 3 November 2026: a stray session joined the worktree, closed and was marked done; retire and grant then refused the task id as ambiguous."""
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "17SE.1", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        # a stray session starts in the same worktree while the real one is live, so it gets a row of its own, then closes
+        self.box.register("ghost", "stray", str(self.box.worktree))
+        self.box.mc("join", "--planned", session="ghost", cwd=self.box.worktree)
+        (self.box.sessions / "ghost.json").unlink()
+        self.box.mc("report", "--for", "ghost", "--state", "done", session="coord-1")
+        mc_module.SESSIONS_DIR = self.box.sessions
+        try:
+            sessions = {p.stem: json.loads(p.read_text()) for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json")}
+            self.assertEqual(mc_module.resolve_session("17SE.1", sessions), "crew-1", "the done ghost is passed over")
+            # a real tie: two rows still working, and the refusal names each with its state and worktree
+            self.box.register("crew-2", "second", str(self.box.repo))
+            sessions["crew-2"] = {**sessions["crew-1"], "session_id": "crew-2", "worktree": str(self.box.repo)}
+            with self.assertRaises(mc_module.Refusal) as refused:
+                mc_module.resolve_session("17SE.1", sessions)
+            self.assertIn("crew-1 (", str(refused.exception))
+            self.assertIn("crew-2 (", str(refused.exception))
+            self.assertIn("name the one you mean by its id", str(refused.exception))
+        finally:
+            mc_module.SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR", str(mc_module.SESSIONS_DIR)))
+        # the CLI paths that hit it on the live run
+        out = self.box.mc("grant", "local-db", "--to", "17SE.1", session="coord-1").stdout
+        self.assertIn("granted to 17SE.1", out)
+
+    def test_an_approval_the_watcher_sees_is_pending_until_the_pr_lands(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "290", session="crew-1", cwd=self.box.worktree)
+        approved = self._view(reviews=[{"author": {"login": "maxitect"}, "state": "APPROVED", "submittedAt": "x"}], decision="APPROVED", checks=[("ci", "SUCCESS")])
+        code, out = self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "SUCCESS")]), approved]))
+        self.assertEqual(code, 0, out)
+        pending = json.loads(self.box.mc("pending", "list", session="coord-1").stdout)
+        self.assertEqual([(p["kind"], p["pr"]) for p in pending], [("approval", 290)])
+        self.assertIn("approved by maxitect", pending[0]["text"])
+        result = self._reconcile_with(self._gh(self._open(290)))
+        unlanded = [item for item in result["drift"] if item["kind"] == "approved-unlanded"]
+        self.assertEqual(len(unlanded), 1)
+        self.assertIn("`/pr-land 290`", unlanded[0]["detail"])
+        # the merge closes it without anyone marking it done
+        result = self._reconcile_with(self._gh(self._merged(291)))  # a different number keeps the facts cache out of the way
+        self.box.mc("report", "--state", "done", "--pr", "291", session="crew-1", cwd=self.box.worktree)
+        pending = json.loads(self.box.mc("pending", "list", session="coord-1").stdout)
+        self.assertEqual(len(pending), 1, "the item is for 290, which is still open")
+        merged_290 = self._merged(290)
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        mc_module.PR_CACHE_SECONDS, real_cache = 0, mc_module.PR_CACHE_SECONDS
+        try:
+            self.box.mc("report", "--state", "done", "--pr", "290", session="crew-1", cwd=self.box.worktree)
+            result = self._reconcile_with(self._gh(merged_290))
+        finally:
+            mc_module.PR_CACHE_SECONDS = real_cache
+        self.assertNotIn("approved-unlanded", [item["kind"] for item in result["drift"]])
+        self.assertEqual(json.loads(self.box.mc("pending", "list", session="coord-1").stdout), [], "closed by the merge")
+
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")

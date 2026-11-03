@@ -2430,7 +2430,21 @@ def resolve_session(ref: str, sessions: dict[str, dict]) -> str:
     if not hits:
         known = ", ".join(f"{row.get('task') or sid[:8]}" for sid, row in sessions.items()) or "none joined yet"
         raise Refusal(f"no session matches {ref}; joined sessions: {known}")
-    raise Refusal(f"{ref} matches several sessions: {', '.join(sorted(hits))}")
+    # a task id matched by several rows: a ghost that joined and closed, a row already done or retired, and the one that
+    # still owns the work; the one still working is meant, and only a real tie refuses
+    working = {sid for sid in hits if sessions[sid].get("state") != "done" and not sessions[sid].get("retired")}
+    if len(working) == 1:
+        return working.pop()
+    pool = working or hits
+    owners = {sid for sid in pool if sid in live and sessions[sid].get("worktree")}
+    if len(owners) == 1:
+        return owners.pop()
+
+    def describe(sid: str) -> str:
+        row = sessions[sid]
+        where = (row.get("worktree") or "").rstrip("/").rsplit("/", 1)[-1] or "no worktree"
+        return f"{sid[:8]} ({row.get('state')}{', live' if sid in live else ', gone'}{', retired' if row.get('retired') else ''}, {where})"
+    raise Refusal(f"{ref} matches several sessions: {', '.join(describe(sid) for sid in sorted(hits))}; name the one you mean by its id")
 
 
 # ---------------------------------------------------------------- hooks
