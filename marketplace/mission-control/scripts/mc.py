@@ -2329,6 +2329,10 @@ def needs_locked(args, ledger: Ledger) -> int:
     successor = find_need(needs, args.superseded_by) if args.superseded_by else None
     if args.superseded_by and successor is None:
         raise Refusal(f"no need {args.superseded_by} to be superseded by")
+    if successor is not None and successor is target:
+        raise Refusal(f"need #{target['n']} cannot supersede itself")
+    if successor is not None and successor.get("status") == "done":
+        raise Refusal(f"need #{successor['n']} is done; a need is superseded by one still open or running")
     if successor is not None:
         supersede(ledger, target, successor["n"])
     else:

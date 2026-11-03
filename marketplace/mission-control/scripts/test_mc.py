@@ -1412,6 +1412,8 @@ class LedgerFlow(unittest.TestCase):
         # the other direction: the successor already exists, so done names it
         self.box.mc("needs", "add", "--why", "third try", session="crew-1", cwd=self.box.worktree)
         self.assertEqual(self.box.mc("needs", "done", "2", "--superseded-by", "9", session="coord-1", expect=1).returncode, 1)
+        self.assertIn("cannot supersede itself", self.box.mc("needs", "done", "2", "--superseded-by", "2", session="coord-1", expect=1).stdout)
+        self.assertIn("is done", self.box.mc("needs", "done", "2", "--superseded-by", "1", session="coord-1", expect=1).stdout, "a done need cannot be the successor")
         out = self.box.mc("needs", "done", "2", "--superseded-by", "3", session="coord-1").stdout
         self.assertIn("need #2 superseded by #3", out)
         needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
