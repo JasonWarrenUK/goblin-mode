@@ -2308,7 +2308,7 @@ def needs_locked(args, ledger: Ledger) -> int:
         else:
             for_session = inherited.get("for") or (session_id if row else None)
         for_task = (ledger.sessions().get(for_session or "") or {}).get("task", "") or (inherited.get("for_task", "") if for_session == inherited.get("for") else "")
-        need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
+        need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", "") or inherited.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
                 "command": (args.command or "").strip(), "cwd": args.cwd_hint or inherited.get("cwd") or row.get("worktree") or "", "status": "open", "at": now(),
                 "kind": args.kind or inherited.get("kind") or "action", "for": for_session, "for_task": for_task,
                 "supersedes": old["n"] if old else None}

@@ -1472,6 +1472,10 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(done["forward_to"], "crew-1", "the result still goes to the session that wanted it")
         third = json.loads(self.box.mc("--json", "needs", "add", "--why", "third", "--kind", "action", "--cwd-hint", "/other", "--command", "x", "--supersedes", "2", session="coord-1").stdout)
         self.assertEqual((third["kind"], third["cwd"], third["command"], third["for"]), ("action", "/other", "x", "crew-1"), "an explicit flag wins; the recipient carries")
+        # the coordinator has no session row, so a crew need it re-issues keeps the crew's task tag on the board
+        self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1", cwd=self.box.worktree)
+        fourth = json.loads(self.box.mc("--json", "needs", "add", "--why", "push it after the rebase", "--command", "git push -f", "--supersedes", "4", session="coord-1").stdout)
+        self.assertEqual(fourth["task"], "10SE.2")
 
     def test_a_grant_to_the_holder_extends_the_slot_without_force(self):
         self.box.start()
