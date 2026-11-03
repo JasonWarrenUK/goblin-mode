@@ -1395,6 +1395,209 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh(self._open(262)))
         self.assertEqual([item["kind"] for item in result["drift"]], [], "neither claim-missing nor the unlisted note: the plan says so")
 
+    # the ledger without git: a macOS update removed the Command Line Tools on 30 October 2026 and every command refused
+
+    def test_the_checkout_and_the_remote_are_found_without_running_git(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        git(self.box.repo, "remote", "add", "origin", "https://github.com/Someone/a-repo.git")
+        # the walk itself, asked by name: toplevel and main_checkout go through git while it works
+        root, common = mc_module.git_dir_of(self.box.worktree)
+        self.assertEqual(root, self.box.worktree.resolve())
+        self.assertEqual(common, (self.box.repo / ".git").resolve(), "a linked worktree's .git file names the common dir")
+        self.assertEqual(common.parent, self.box.repo.resolve(), "whose parent is the main checkout")
+        root, common = mc_module.git_dir_of(self.box.repo / ".claude")
+        self.assertEqual((root, common), (self.box.repo.resolve(), (self.box.repo / ".git").resolve()))
+        self.assertIsNone(mc_module.git_dir_of(self.box.tmp))
+        self.assertEqual(mc_module.main_checkout(self.box.worktree), self.box.repo.resolve())
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo")
+        self.assertEqual(mc_module.remote_repo(self.box.worktree), "Someone/a-repo")
+        mc_module._GIT_PROBLEM.clear()
+        self.assertEqual(mc_module.gh_repo_args(self.box.worktree), [], "while git works, gh makes its own choice of repository")
+        self.assertEqual(mc_module.gh_api_repo(self.box.worktree), "{owner}/{repo}")
+        git(self.box.repo, "remote", "set-url", "origin", "git@github.com:Someone/a-repo.git")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo", "the ssh form parses too")
+        # a fork-shaped checkout: the remote chosen is the one gh would choose
+        git(self.box.repo, "remote", "add", "upstream", "https://github.com/Org/the-real-one.git")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Org/the-real-one", "upstream beats origin, as it does for gh")
+        git(self.box.repo, "remote", "add", "github", "https://github.com/Other/mirror.git")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Org/the-real-one", "upstream beats github")
+        git(self.box.repo, "config", "remote.origin.gh-resolved", "base")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo", "the remote gh repo set-default marked wins over everything")
+        # the base is not a remote at all (a fork clone whose parent was picked): gh writes the base's owner/repo as the marker
+        git(self.box.repo, "config", "remote.origin.gh-resolved", "Org/the-parent")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Org/the-parent", "a spelt-out marker names the base itself")
+        git(self.box.repo, "config", "--unset", "remote.origin.gh-resolved")
+        git(self.box.repo, "remote", "remove", "upstream")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Other/mirror", "github beats origin")
+        # a second section for one remote merges with the first, as git reads it; a key at column one still parses
+        with (self.box.repo / ".git" / "config").open("a") as config:
+            config.write('[remote "github"]\ngh-resolved = base\n')
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Other/mirror", "the url from the first section and the marker from the second belong to one remote")
+        # a comment line inside a section does not end it: the marker after it still counts
+        git(self.box.repo, "config", "--unset", "remote.github.gh-resolved")
+        git(self.box.repo, "remote", "set-url", "origin", "https://github.com/Someone/a-repo.git")
+        with (self.box.repo / ".git" / "config").open("a") as config:
+            config.write('[remote "origin"]\n\t# chosen by hand\n\tgh-resolved = base\n')
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo", "the marker after a comment line is read")
+        # a lone remote under a name gh does not rank is still the one gh takes when it cannot prompt
+        (self.box.repo / ".git" / "config").write_text('[core]\n\tbare = false\n[remote "fork"]\n\turl = https://github.com/A/b.git\n\tfetch = +refs/heads/*:refs/remotes/fork/*\n')
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "A/b", "an unranked remote is taken ahead of none")
+        (self.box.repo / ".git" / "config").write_text('[core]\n\tbare = false\n[remote "origin"]\n\turl = https://example.org/not/github.git\n')
+        self.assertIsNone(mc_module.remote_repo(self.box.repo), "a remote that is not on GitHub names nothing")
+
+    def test_a_path_typed_in_another_case_maps_to_the_canonical_ledger_while_git_works(self):
+        """git's spelling of the checkout is what the ledger slug is built from; the .git walk returns the path as typed, so it is the fallback, never the first answer."""
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        swapped = Path(str(self.box.repo).swapcase())
+        if not swapped.is_dir():
+            self.skipTest("this volume is case-sensitive, so the other spelling is a different directory")
+        self.assertEqual(mc_module.main_checkout(swapped), self.box.repo.resolve())
+        self.assertEqual(mc_module.slug_of(mc_module.main_checkout(swapped)), mc_module.slug_of(self.box.repo.resolve()))
+
+    def test_the_ledger_board_needs_and_slots_work_while_git_is_a_stub(self):
+        """Apple's git stub prints an xcode-select prompt and exits 1; the run on disk is intact and every ledger command still answers."""
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        stub = self.box.tmp / "stub"
+        stub.mkdir()
+        (stub / "git").write_text("#!/bin/sh\necho 'xcode-select: note: no developer tools were found at /Applications/Xcode.app' >&2\nexit 1\n")
+        (stub / "git").chmod(0o755)
+        (stub / "xcode-select").write_text("#!/bin/sh\nexit 2\n")
+        (stub / "xcode-select").chmod(0o755)
+        real = self.box.env["PATH"]
+        self.box.env["PATH"] = f"{stub}:{real}"
+        try:
+            status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+            self.assertIsNotNone(status["run"], "the run is read from the ledger, not from git")
+            self.assertIn("git is not working", status["git_problem"])
+            self.assertIn("xcode-select --install", status["git_problem"])
+            self.assertEqual([s["task"] for s in status["sessions"]], ["10SE.2"])
+            self.box.mc("needs", "add", "--why", "run xcode-select --install", "--command", "xcode-select --install", session="crew-1", cwd=self.box.worktree)
+            self.box.mc("request", "local-db", "--minutes", "5", "--what", "reset", session="crew-1", cwd=self.box.worktree)
+            self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+            self.box.mc("report", "--state", "working", "--summary", "carrying on", session="crew-1", cwd=self.box.worktree)
+            text = self.box.mc("status", session="coord-1").stdout
+            self.assertTrue(text.startswith("WARNING: git is not working"), text[:80])
+            self.assertIn("| local-db |", text)
+            hook = self.box.hook("session-start", {}, session="crew-1")
+            self.assertIn("this worktree is crew 10SE.2", hook, "the hook finds the planned worktree without git")
+            self.box.mc("report", "--state", "done", "--pr", "280", session="crew-1", cwd=self.box.worktree)
+            (self.box.sessions / "crew-1.json").unlink()
+            refused = self.box.mc("retire", "10SE.2", session="coord-1", expect=1).stdout
+            self.assertIn("retire needs git", refused)
+            self.assertIn("xcode-select --install", refused)
+            self.box.env["PATH"] = f"{stub}:{real}"
+            mc_module, real_sh = self._module(self._gh(self._merged(280)))
+            mc_module._GIT_PROBLEM.clear()
+            os.environ["PATH"] = f"{stub}:{real}"
+            try:
+                result = mc_module.reconcile(mc_module.ledger_for(self.box.repo))
+            finally:
+                os.environ["PATH"] = real
+                mc_module._GIT_PROBLEM.clear()
+                self._restore(mc_module, real_sh)
+            kinds = [item["kind"] for item in result["drift"]]
+            self.assertIn("git-unavailable", kinds)
+            self.assertNotIn("claim-missing", kinds, "the claim check waits for git instead of falling over")
+            # with git broken, gh is told the repository outright, from the config file
+            git_path = f"{stub}:{real}"
+            os.environ["PATH"] = git_path
+            try:
+                mc_module._GIT_PROBLEM.clear()
+                self.assertEqual(mc_module.gh_repo_args(self.box.repo), [], "no GitHub remote on file yet")
+                with (self.box.repo / ".git" / "config").open("a") as config:
+                    config.write('[remote "origin"]\n\turl = https://github.com/Someone/a-repo.git\n')
+                self.assertEqual(mc_module.gh_repo_args(self.box.repo), ["--repo", "Someone/a-repo"])
+                self.assertEqual(mc_module.gh_api_repo(self.box.repo), "Someone/a-repo")
+            finally:
+                os.environ["PATH"] = real
+                mc_module._GIT_PROBLEM.clear()
+        finally:
+            self.box.env["PATH"] = real
+
+    def test_a_task_id_shared_with_a_ghost_row_resolves_to_the_row_still_working(self):
+        """17SE.1 on 3 November 2026: a stray session joined the worktree, closed and was marked done; retire and grant then refused the task id as ambiguous."""
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "17SE.1", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        # a stray session starts in the same worktree while the real one is live, so it gets a row of its own, then closes
+        self.box.register("ghost", "stray", str(self.box.worktree))
+        self.box.mc("join", "--planned", session="ghost", cwd=self.box.worktree)
+        (self.box.sessions / "ghost.json").unlink()
+        self.box.mc("report", "--for", "ghost", "--state", "done", session="coord-1")
+        mc_module.SESSIONS_DIR = self.box.sessions
+        try:
+            sessions = {p.stem: json.loads(p.read_text()) for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json")}
+            self.assertEqual(mc_module.resolve_session("17SE.1", sessions), "crew-1", "the done ghost is passed over")
+            # a real tie: two rows still working, and the refusal names each with its state and worktree
+            self.box.register("crew-2", "second", str(self.box.repo))
+            sessions["crew-2"] = {**sessions["crew-1"], "session_id": "crew-2", "worktree": str(self.box.repo)}
+            with self.assertRaises(mc_module.Refusal) as refused:
+                mc_module.resolve_session("17SE.1", sessions)
+            self.assertIn("crew-1 (", str(refused.exception))
+            self.assertIn("crew-2 (", str(refused.exception))
+            self.assertIn("name the one you mean by its id", str(refused.exception))
+            # both still working, the PR-bearing session gone and the other live in its worktree: the live one can hear a grant, so it wins
+            (self.box.sessions / "crew-1.json").unlink()
+            sessions["crew-1"]["pr"] = 301
+            self.assertEqual(mc_module.resolve_session("17SE.1", sessions), "crew-2", "the live owner is taken before the PR-bearing row")
+            sessions["crew-1"]["pr"] = None
+            self.box.register("crew-1", "17se1", str(self.box.worktree))
+        finally:
+            mc_module.SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR", str(mc_module.SESSIONS_DIR)))
+        # the CLI paths that hit it on the live run
+        out = self.box.mc("grant", "local-db", "--to", "17SE.1", session="coord-1").stdout
+        self.assertIn("granted to 17SE.1", out)
+        # retire's shape: the real row is done too, and the ghost has no PR; the task id still names the real row
+        self.box.mc("release", "local-db", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "done", "--pr", "300", session="crew-1", cwd=self.box.worktree)
+        (self.box.sessions / "crew-1.json").unlink()
+        sessions = {p.stem: json.loads(p.read_text()) for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json")}
+        self.assertEqual({s["state"] for s in sessions.values()}, {"done"})
+        mc_module.SESSIONS_DIR = self.box.sessions
+        try:
+            self.assertEqual(mc_module.resolve_session("17SE.1", sessions), "crew-1", "the PR-bearing row is the one that did the work")
+        finally:
+            mc_module.SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR", str(mc_module.SESSIONS_DIR)))
+        refused = self.box.mc("retire", "17SE.1", "--dry-run", session="coord-1", expect=None)
+        self.assertNotIn("matches several sessions", refused.stdout, "retire resolves the task; whatever it then says is about the row itself")
+
+    def test_an_approval_the_watcher_sees_is_pending_until_the_pr_lands(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", "290", session="crew-1", cwd=self.box.worktree)
+        approved = self._view(reviews=[{"author": {"login": "maxitect"}, "state": "APPROVED", "submittedAt": "x"}], decision="APPROVED", checks=[("ci", "SUCCESS")])
+        code, out = self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")]), self._view(checks=[("ci", "SUCCESS")]), approved]))
+        self.assertEqual(code, 0, out)
+        pending = json.loads(self.box.mc("pending", "list", session="coord-1").stdout)
+        self.assertEqual([(p["kind"], p["pr"]) for p in pending], [("approval", 290)])
+        self.assertIn("approved by maxitect", pending[0]["text"])
+        result = self._reconcile_with(self._gh(self._open(290)))
+        unlanded = [item for item in result["drift"] if item["kind"] == "approved-unlanded"]
+        self.assertEqual(len(unlanded), 1)
+        self.assertIn("`/pr-land 290`", unlanded[0]["detail"])
+        # the merge closes it without anyone marking it done
+        result = self._reconcile_with(self._gh(self._merged(291)))  # a different number keeps the facts cache out of the way
+        self.box.mc("report", "--state", "done", "--pr", "291", session="crew-1", cwd=self.box.worktree)
+        pending = json.loads(self.box.mc("pending", "list", session="coord-1").stdout)
+        self.assertEqual(len(pending), 1, "the item is for 290, which is still open")
+        merged_290 = self._merged(290)
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        mc_module.PR_CACHE_SECONDS, real_cache = 0, mc_module.PR_CACHE_SECONDS
+        try:
+            self.box.mc("report", "--state", "done", "--pr", "290", session="crew-1", cwd=self.box.worktree)
+            result = self._reconcile_with(self._gh(merged_290))
+        finally:
+            mc_module.PR_CACHE_SECONDS = real_cache
+        self.assertNotIn("approved-unlanded", [item["kind"] for item in result["drift"]])
+        self.assertEqual(json.loads(self.box.mc("pending", "list", session="coord-1").stdout), [], "closed by the merge")
+
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")

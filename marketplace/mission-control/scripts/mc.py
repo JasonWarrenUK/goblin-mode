@@ -89,15 +89,134 @@ def run_git(cwd: str | Path, *args: str) -> str | None:
     return done.stdout.strip() if done.returncode == 0 else None
 
 
+def git_dir_of(cwd: str | Path) -> tuple[Path, Path] | None:
+    """(checkout root, common git dir), found by walking up for a `.git` entry without running git.
+
+    A checkout has a `.git` directory. A linked worktree has a `.git` file whose `gitdir:` line
+    names `<common>/worktrees/<name>`, so the common dir and the main checkout follow from it.
+    The ledger must not depend on a working git: a macOS update removed the Command Line Tools
+    on 30 October 2026 and every mc.py command answered "not inside a git repository" while the
+    run sat intact on disk.
+    """
+    try:
+        here = Path(cwd).resolve()
+    except OSError:
+        return None
+    for root in (here, *here.parents):
+        entry = root / ".git"
+        if entry.is_dir():
+            return root, entry
+        if entry.is_file():
+            try:
+                text = entry.read_text(errors="ignore").strip()
+            except OSError:
+                return None
+            if not text.startswith("gitdir:"):
+                return None
+            gitdir = Path(text[len("gitdir:"):].strip())
+            if not gitdir.is_absolute():
+                gitdir = (root / gitdir).resolve()
+            common = gitdir.parent.parent if gitdir.parent.name == "worktrees" else gitdir
+            return root, common
+    return None
+
+
 def toplevel(cwd: str | Path) -> Path | None:
+    """The checkout root: git's own answer while git works (its spelling of the path is the canonical one), the `.git` walk when it does not."""
     top = run_git(cwd, "rev-parse", "--show-toplevel")
-    return Path(top) if top else None
+    if top:
+        return Path(top)
+    found = git_dir_of(cwd)
+    return found[0] if found else None
 
 
 def main_checkout(cwd: str | Path) -> Path | None:
-    """The main working tree, the same answer from inside any worktree."""
+    """The main working tree, the same answer from inside any worktree: git's own answer while git works, the `.git` walk when it does not.
+
+    Git goes first because its spelling of the path is what the ledger slug is built from, and a
+    path typed in another case (`/users/JASONWARREN`) would otherwise name a second ledger."""
     common = run_git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    return Path(common).parent if common else None
+    if common:
+        return Path(common).parent
+    found = git_dir_of(cwd)
+    return found[1].parent if found else None
+
+
+# the order gh itself uses when no default is set, after the remote `gh repo set-default` marked
+REMOTE_PREFERENCE = ("upstream", "github", "origin")
+
+
+def remote_repo(main: str | Path) -> str | None:
+    """`owner/repo` on GitHub, read from the git config file rather than from git, so gh can be told the repository when git is not working.
+
+    The remote is chosen the way gh chooses it: the one `gh repo set-default` marked (`gh-resolved = base`),
+    else `upstream`, else `github`, else `origin`, so a fork-shaped checkout keeps pointing at the base repository."""
+    found = git_dir_of(main)
+    if not found:
+        return None
+    try:
+        text = (found[1] / "config").read_text(errors="ignore")
+    except OSError:
+        return None
+    remotes: dict[str, dict[str, str]] = {}
+    # a section's key lines start with whitespace as git writes them, or at column one in a hand-edited file;
+    # two sections for one remote merge, as git's own parser merges them
+    for section in re.finditer(r'^\[remote "([^"]+)"\]\s*\n((?:[ \t]*[A-Za-z#;][^\n]*\n?)*)', text, re.M):
+        keys = dict(re.findall(r"^\s*([A-Za-z-]+)\s*=\s*(\S+)", section.group(2), re.M))
+        remotes.setdefault(section.group(1), {}).update(keys)
+
+    def slug_of_remote(name: str) -> str | None:
+        hit = re.search(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", remotes.get(name, {}).get("url", ""))
+        return f"{hit.group(1)}/{hit.group(2)}" if hit else None
+
+    def rank(name: str) -> int:
+        return REMOTE_PREFERENCE.index(name) if name in REMOTE_PREFERENCE else len(REMOTE_PREFERENCE)
+
+    # gh walks its remotes in preference order and takes the first one `gh repo set-default` marked: `base` means that
+    # remote's own repository; any other value is the base's `owner/repo` spelt out, written when the base (a fork's
+    # parent, say) is not a remote at all
+    for name in sorted(remotes, key=rank):
+        marked = remotes[name].get("gh-resolved", "")
+        if marked and marked != "base":
+            return marked
+        if marked and slug_of_remote(name):
+            return slug_of_remote(name)
+    # unmarked: the first GitHub remote in gh's order, whatever its name, as gh takes it when it cannot prompt
+    for name in sorted(remotes, key=rank):
+        slug = slug_of_remote(name)
+        if slug:
+            return slug
+    return None
+
+
+_GIT_PROBLEM: list[str | None] = []
+
+
+def git_problem() -> str | None:
+    """One line naming why git does not work and the fix, or None when it does; checked once per process."""
+    if not _GIT_PROBLEM:
+        if run_git(".", "--version") is not None:
+            _GIT_PROBLEM.append(None)
+        elif sys.platform == "darwin" and subprocess.run(["xcode-select", "-p"], capture_output=True).returncode != 0:
+            _GIT_PROBLEM.append("git is not working: the Command Line Tools are missing (a macOS update removes them); run `xcode-select --install`, then carry on. The ledger, the board, needs, slots and messages work meanwhile.")
+        else:
+            _GIT_PROBLEM.append("git is not working: `git --version` fails; the ledger, the board, needs, slots and messages work meanwhile, and anything that needs history waits for git.")
+    return _GIT_PROBLEM[0]
+
+
+def gh_repo_args(main: str | Path) -> list[str]:
+    """`--repo owner/repo` for a gh call only while git is not working, since gh then cannot find the repository itself; while git works gh's own choice stands. Empty when no GitHub remote is on file."""
+    if git_problem() is None:
+        return []
+    slug = remote_repo(main)
+    return ["--repo", slug] if slug else []
+
+
+def gh_api_repo(main: str | Path) -> str:
+    """The `owner/repo` segment of a `gh api` path: gh's placeholders while git works, the config file's answer while it does not."""
+    if git_problem() is None:
+        return "{owner}/{repo}"
+    return remote_repo(main) or "{owner}/{repo}"
 
 
 def slug_of(path: Path) -> str:
@@ -716,7 +835,7 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
             continue
         if hanging:
             continue  # gh is hanging, so the rest would too; the next tick retries
-        code, out = sh(["gh", "pr", "view", str(number), "--json", "state", "-q", ".state"], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
+        code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(ledger.main), "--json", "state", "-q", ".state"], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
         if code == 124:
             hanging = True
             continue
@@ -774,7 +893,7 @@ def pr_facts(ledger: Ledger, numbers: set[int], fresh: set[int] | None = None) -
             continue
         if hanging:
             continue
-        code, out = sh(["gh", "pr", "view", str(number), "--json", PR_FACT_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
+        code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(ledger.main), "--json", PR_FACT_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
         if code == 124:
             hanging = True
             continue
@@ -901,6 +1020,23 @@ def reconcile(ledger: Ledger) -> dict:
             if worktree and Path(worktree).is_dir() and not same_path(worktree, ledger.main):
                 note("unretired", f"done since {clock(landed)}, worktree still present; `mc.py retire {row.get('task') or sid[:8]}`", row.get("task", ""), sid, number)
 
+    # an approval the watcher noted: open until the PR lands, named until then, closed by itself once it has
+    pending_changed = False
+    for item in run.get("pending", []):
+        if item.get("kind") != "approval" or item.get("status") != "open" or not item.get("pr"):
+            continue
+        fact = facts.get(int(item["pr"]))
+        if fact and fact["state"] in ("MERGED", "CLOSED"):
+            item["status"] = "done"
+            item["done_at"] = now()
+            item["outcome"] = fact["state"].lower()
+            pending_changed = True
+            continue
+        if not fact or fact["state"] == "OPEN":
+            note("approved-unlanded", f"PR #{item['pr']} approved at {clock(item.get('at'))} and not landed; landing is authorised, so `/pr-land {item['pr']}`", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+    if pending_changed:
+        with ledger.locked():
+            ledger.save_run(run)
     for need in run.get("needs", []):
         if need.get("status") == "done":
             continue
@@ -919,9 +1055,13 @@ def reconcile(ledger: Ledger) -> dict:
     # fails leaves the stale refs to answer, as before.
     by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
     trunk = run.get("base", {}).get("branch") or "main"
-    if (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
+    broken = git_problem()
+    if broken:
+        # everything above read the ledger and gh alone; the claim and roadmap checks below need history, so they wait for git
+        note("git-unavailable", broken)
+    if not broken and (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
         run_git(ledger.main, "fetch", "--quiet", "origin")
-    for entry in run.get("crew", []):
+    for entry in run.get("crew", []) if not broken else []:
         task = entry.get("task", "")
         row = by_task.get(task, {})
         if not task or not row.get("pr"):
@@ -1025,6 +1165,7 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
         "ledger_dir": str(ledger.dir),
         "main_checkout": str(ledger.main),
         "config": bool(config),
+        "git_problem": git_problem(),
         "run": run,
         "sessions": sessions,
         "slots": list(slots.values()),
@@ -1051,6 +1192,9 @@ def print_status(status: dict) -> None:
         print(f"No active run for {status['main_checkout']}.")
         return
     coord = run.get("coordinator", {})
+    if status.get("git_problem"):
+        print(f"WARNING: {status['git_problem']}")
+        print()
     print(f"# Run {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · coordinator {coord.get('name') or coord.get('session_id', '?')} · PR approval: {run.get('pr_approval', 'user')}")
     print()
     print("| Session | Task | Branch | State | Summary | PR |")
@@ -1145,7 +1289,7 @@ def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
 
 def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
     """The last merged PRs with who reviewed each, other than its author; (rows, whether gh answered)."""
-    code, out = sh(["gh", "pr", "list", "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    code, out = sh(["gh", "pr", "list", *gh_repo_args(main), "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
     if code != 0:
         return [], False
     try:
@@ -1233,7 +1377,8 @@ def classify(main: Path, config: dict | None) -> dict:
     review_times = [iso_ts(o["at"]) for p in reviewed for o in p["others"]]
     inferred = "collaborative" if len(authors) >= 2 or reviewed else "solo"
     evidence = [
-        f"{len(authors)} human author{'s' if len(authors) != 1 else ''} in the last {AUTHOR_WINDOW_DAYS} days" + (": " + ", ".join(a["name"] for a in authors[:6]) if authors else ""),
+        (f"authors unknown: {git_problem()}" if git_problem() else
+         f"{len(authors)} human author{'s' if len(authors) != 1 else ''} in the last {AUTHOR_WINDOW_DAYS} days" + (": " + ", ".join(a["name"] for a in authors[:6]) if authors else "")),
         (f"{len(reviewed)} of the last {len(prs)} merged PRs reviewed by someone other than their author" if answered else "gh could not list merged PRs, so reviews are unknown"),
     ]
     mode = inferred
@@ -1306,7 +1451,8 @@ def check_word(entry: dict) -> str:
 
 def pr_snapshot(main: Path, number: int) -> dict | None:
     """What the watcher compares between polls: state, decision, the reviews by login, comment counts and each check's word. None when gh did not answer."""
-    code, out = sh(["gh", "pr", "view", str(number), "--json", WATCH_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    # the repository is named outright: a `gh pr view` that has to ask git for it dies with git, and the watcher is the thing that must keep running
+    code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(main), "--json", WATCH_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=main)
     if code != 0:
         return None
     try:
@@ -1324,7 +1470,7 @@ def pr_snapshot(main: Path, number: int) -> dict | None:
         if isinstance(entry, dict):
             checks[str(entry.get("name") or entry.get("context") or entry.get("workflowName") or "check")] = check_word(entry)
     # every page, one id per line: a single page stops at 30 and a busy PR would read a constant from then on
-    code, out = sh(["gh", "api", "--paginate", f"repos/{{owner}}/{{repo}}/pulls/{number}/comments", "--jq", ".[].id"], timeout=PR_LOOKUP_SECONDS * 2, cwd=main)
+    code, out = sh(["gh", "api", "--paginate", f"repos/{gh_api_repo(main)}/pulls/{number}/comments", "--jq", ".[].id"], timeout=PR_LOOKUP_SECONDS * 2, cwd=main)
     review_comments = len(out.split()) if code == 0 else None
     return {
         "state": str(raw.get("state") or "").upper(),
@@ -1533,6 +1679,8 @@ def retire_locked(args, ledger: Ledger) -> int:
     session_id = resolve_session(args.ref, sessions)
     row = sessions[session_id]
     label = row.get("task") or row.get("branch") or session_id[:8]
+    if git_problem():
+        raise Refusal(f"retire needs git to remove a worktree and a branch; {git_problem()}")
     if row.get("retired"):
         raise Refusal(f"{label} was retired at {clock(row['retired'].get('at'))}")
     if session_id in registry():
@@ -1659,6 +1807,22 @@ def cmd_classify(args) -> int:
     return 0
 
 
+def note_approval(ledger: Ledger, run: dict, number: int, current: dict, row: dict) -> None:
+    """One open pending item per approved PR: who approved and when, so reconcile says `approved, unlanded since` until the merge."""
+    who = ", ".join(r["login"] for r in current.get("reviews", []) if r.get("state") == "APPROVED") or "a reviewer"
+    with ledger.locked():
+        fresh = ledger.run() or run
+        pending = fresh.setdefault("pending", [])
+        if any(p.get("kind") == "approval" and p.get("pr") == number and p.get("status") == "open" for p in pending):
+            return
+        n = 1 + max([p.get("n", 0) for p in pending] or [0])
+        item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": "approval", "pr": number, "text": f"PR #{number} approved by {who}; landing is authorised and waits on the coordinator",
+                "session_id": row.get("session_id") if row else None, "status": "open", "at": now()}
+        pending.append(item)
+        ledger.save_run(fresh)
+    ledger.log("pending", **item)
+
+
 def cmd_watch(args) -> int:
     """Watch one PR until something changes, then say what and exit: the crew session runs this in the background and is woken by the exit.
     Outside the team's hours on a collaborative project a change that is not a merge or close is held until the window opens; on a solo project there is no window."""
@@ -1721,6 +1885,8 @@ def cmd_watch(args) -> int:
         current = pr_snapshot(ledger.main, number)
         if current is None:
             failures += 1
+            # git may have broken since this watch started (the 30 October shape: a long watch, then the update); the next poll re-probes it and names the repository outright if so
+            _GIT_PROBLEM.clear()
             if failures >= WATCH_FAILURES_TOLERATED:
                 print(f"#{number}: gh did not answer {failures} polls running; the watch stops here, re-arm when gh is back")
                 record("stalled", seen, [])
@@ -1729,6 +1895,10 @@ def cmd_watch(args) -> int:
         failures = 0
         changes = snapshot_changes(seen, current)
         if changes:
+            if current.get("decision") == "APPROVED" and seen.get("decision") != "APPROVED" and run:
+                # an approval is the coordinator's to act on, and a message can sit unread in an idle session until the next prompt;
+                # the pending list is read by reconcile and the start context, so the approval is seen even when the message is not
+                note_approval(ledger, run, number, current, row)
             if terminal(current) or in_window(hours, now()):
                 record("changed", current, changes)
                 print(f"#{number} changed ({'; '.join(changes)}). Now: {summarise_snapshot(current)}")
@@ -2297,7 +2467,26 @@ def resolve_session(ref: str, sessions: dict[str, dict]) -> str:
     if not hits:
         known = ", ".join(f"{row.get('task') or sid[:8]}" for sid, row in sessions.items()) or "none joined yet"
         raise Refusal(f"no session matches {ref}; joined sessions: {known}")
-    raise Refusal(f"{ref} matches several sessions: {', '.join(sorted(hits))}")
+    # a task id matched by several rows: a ghost that joined and closed, a row already done or retired, and the one that
+    # still owns the work; the one still working is meant, and only a real tie refuses
+    working = {sid for sid in hits if sessions[sid].get("state") != "done" and not sessions[sid].get("retired")}
+    if len(working) == 1:
+        return working.pop()
+    pool = working or hits
+    # still working and one of them live in a worktree: that one can hear a grant, a gone one cannot
+    owners = {sid for sid in pool if sid in live and sessions[sid].get("worktree")}
+    if len(owners) == 1:
+        return owners.pop()
+    # nobody live (the shape retire meets, both rows done): the one that carried the PR did the work; a ghost that joined and closed has none
+    with_pr = {sid for sid in pool if sessions[sid].get("pr")}
+    if len(with_pr) == 1:
+        return with_pr.pop()
+
+    def describe(sid: str) -> str:
+        row = sessions[sid]
+        where = (row.get("worktree") or "").rstrip("/").rsplit("/", 1)[-1] or "no worktree"
+        return f"{sid[:8]} ({row.get('state')}{', live' if sid in live else ', gone'}{', retired' if row.get('retired') else ''}, {where})"
+    raise Refusal(f"{ref} matches several sessions: {', '.join(describe(sid) for sid in sorted(hits))}; name the one you mean by its id")
 
 
 # ---------------------------------------------------------------- hooks

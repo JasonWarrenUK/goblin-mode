@@ -34,6 +34,8 @@ const snapshot = atom({ plugin: 'mission-control', key: 'snapshot' } as const, n
 const self = atom({ plugin: 'mission-control', key: 'self' } as const, { sessionId: '', isCoordinator: false, isCrew: false } as Self)
 const selected = atom({ plugin: 'mission-control', key: 'selected' } as const, null as string | null)
 const asking = atom({ plugin: 'mission-control', key: 'asking' } as const, null as Asking | null)
+/** Whether the retired and gone groups show their rows; collapsed to their headings by default, since nothing in them needs anyone. */
+const quietShown = atom({ plugin: 'mission-control', key: 'quietShown' } as const, false)
 
 // Module-level because the validator holds `$` to top-level functions; set by
 // `register` from the options and the plugin root. Nothing drawn reads them.
@@ -208,6 +210,7 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		configPath: str(data.config_path),
 		ledgerDir: str(data.ledger_dir),
 		mainCheckout: str(data.main_checkout),
+		gitProblem: str(data.git_problem) || null,
 		run,
 		sessions,
 		slots,
@@ -225,6 +228,7 @@ const failed = (problem: Snapshot['problem'], reason: string, at: number): Snaps
 	configPath: '',
 	ledgerDir: '',
 	mainCheckout: '',
+	gitProblem: null,
 	run: null,
 	sessions: [],
 	slots: [],
@@ -771,6 +775,14 @@ const header = (ui: Ui, snap: Snapshot, me: Self, now: number, inner: number) =>
 				<Text>{role}</Text>
 			</Box>
 			<Text color="subtle">{'─'.repeat(Math.max(2, inner - 1))}</Text>
+			{snap.gitProblem ? (
+				<Box flexDirection="row" columnGap={1} flexWrap="wrap">
+					<Text color="error" weight="bold">
+						git
+					</Text>
+					<Text color="error">{snap.gitProblem}</Text>
+				</Box>
+			) : null}
 			{run_.rebind ? (
 				<Box flexDirection="row" columnGap={1} flexWrap="wrap">
 					<Text color="warning" weight="bold">
@@ -843,20 +855,25 @@ export const crewGroups = (sessions: readonly Snapshot['sessions'][number][]): {
 	return names.map(group => ({ group, sessions: sessions.filter(s => groupOf(s) === group) }))
 }
 
-const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: string | null, inner: number, now: number) => {
+const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: string | null, inner: number, now: number, showQuiet = false) => {
 	const { Box, Text } = ui
 	const grouped = crewGroups(snap.sessions)
 	const unlisted = new Set(snap.run?.crew.filter(c => c.unlisted).map(c => c.task) ?? [])
 	let nth = 0
-	return grouped.flatMap(({ group, sessions }, at) => [
-		<Box key={`group-${group}`} flexDirection="row" columnGap={1} marginTop={at === 0 ? 0 : 1}>
-			<Text color={QUIET_GROUPS.has(group) ? 'subtle' : stateColour(group) ?? 'claude'}>▸</Text>
-			<Text weight="bold" dimColor={QUIET_GROUPS.has(group)} color={QUIET_GROUPS.has(group) ? undefined : stateColour(group)}>
-				{group} · {sessions.length}
-			</Text>
-		</Box>,
-		...crewRowsOf($, ui, sessions, me, picked, inner, now, () => nth++, unlisted),
-	])
+	return grouped.flatMap(({ group, sessions }, at) => {
+		const quiet = QUIET_GROUPS.has(group)
+		const collapsed = quiet && !showQuiet
+		return [
+			<Box key={`group-${group}`} flexDirection="row" columnGap={1} marginTop={at === 0 ? 0 : 1}>
+				<Text color={quiet ? 'subtle' : stateColour(group) ?? 'claude'}>{collapsed ? '▹' : '▸'}</Text>
+				<Text weight="bold" dimColor={quiet} color={quiet ? undefined : stateColour(group)}>
+					{group} · {sessions.length}
+				</Text>
+				{collapsed ? <Text dimColor>c shows</Text> : null}
+			</Box>,
+			...(collapsed ? [] : crewRowsOf($, ui, sessions, me, picked, inner, now, () => nth++, unlisted)),
+		]
+	})
 }
 
 const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], me: Self, picked: string | null, inner: number, now: number, nextIndex: () => number, unlisted: ReadonlySet<string> = new Set()) => {
@@ -1242,7 +1259,7 @@ export const register: Register = (on, options) => {
 		if (e.surface !== 'terminal') return next(e)
 		const ui = $.ui.resolve(e)
 		const { Box, Text, Button, Input } = ui
-		const [snap, me, picked, ask, now] = await Promise.all([read($, snapshot), read($, self), read($, selected), read($, asking), $.clock.now()])
+		const [snap, me, picked, ask, now, showQuiet] = await Promise.all([read($, snapshot), read($, self), read($, selected), read($, asking), $.clock.now(), read($, quietShown)])
 		if (!snap) return <Text dimColor>reading the ledger…</Text>
 		const width = Math.max(44, e.props.bodyColumns)
 		if (!snap.run) return emptyState($, ui, snap, width - 1)
@@ -1257,7 +1274,7 @@ export const register: Register = (on, options) => {
 				<Box flexDirection="column" paddingX={1}>
 					{heading(ui, `Crew · ${snap.sessions.length}`, inner)}
 					{snap.sessions.length === 0 && <Text dimColor>nobody has joined yet; a session starting in a planned worktree joins by itself.</Text>}
-					{crewRows($, ui, snap, me, picked, inner, now)}
+					{crewRows($, ui, snap, me, picked, inner, now, showQuiet)}
 				</Box>
 				<Box flexDirection="column" paddingX={1}>
 					{heading(ui, `Slots · ${snap.slots.length} held`, inner)}
@@ -1299,6 +1316,7 @@ export const register: Register = (on, options) => {
 							)}
 							{pickedNeed && <Button key="done" label={`done ${pickedNeed.n}`} hotkey="d" variant="primary" onPress={() => update($, asking, () => ({ kind: 'done', resource: '', sessionId: pickedNeed.session_id, ref: String(pickedNeed.n) }))} />}
 							{snap.slots.length > 0 && <Button key="release" label="release a slot" hotkey="x" onPress={() => update($, asking, () => ({ kind: 'release', resource: snap.slots[0]?.resource ?? '', sessionId: '', ref: '' }))} />}
+							{snap.sessions.some(s => !s.live) && <Button key="quiet" label={showQuiet ? 'hide retired and gone' : 'show retired and gone'} hotkey="c" onPress={() => update($, quietShown, shown => !shown)} />}
 							<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($, true)} />
 						</Box>
 					)}
@@ -1355,7 +1373,7 @@ export const register: Register = (on, options) => {
 							}}
 						/>
 					)}
-					<Text dimColor>1-9 pick a session · q-p pick a request · g grant · d need done · x release · r refresh · esc or /mc closes</Text>
+					<Text dimColor>1-9 pick a session · q-p pick a request · g grant · d need done · x release · c retired and gone · r refresh · esc or /mc closes</Text>
 				</Box>
 			</Box>
 		)

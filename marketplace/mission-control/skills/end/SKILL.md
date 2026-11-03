@@ -9,7 +9,7 @@ metadata:
   family: mission-control
   goblin-spinner: linking the stack|pruning worktrees|archiving the ledger
 disable-model-invocation: true
-allowed-tools: ["Read", "Bash(python3:*)", "Bash(git:*)", "Bash(gh:*)", "Bash(sh:*)", "Bash(zsh:*)", "AskUserQuestion", "mcp__mission-control__mc_board", "mcp__mission-control__mc_send"]
+allowed-tools: ["Read", "Bash(python3:*)", "Bash(git:*)", "Bash(gh:*)", "Bash(sh:*)", "Bash(zsh:*)", "CronList", "CronDelete", "AskUserQuestion", "mcp__mission-control__mc_board", "mcp__mission-control__mc_send"]
 argument-hint: "(no arguments)"
 ---
 
@@ -41,7 +41,9 @@ Everything the run found and did not do (the briefs' "out of scope" lines, the c
 
 ## Step 6: Archive
 
-`mc.py end` from this session (it refuses while a slot is held; `/mc release <resource>` first, after asking the holder). The ledger moves to `~/.claude/mission-control/runs/<date>-<name>/`, briefs and log included. Then one closing paragraph for the user: the PRs and their stack, the worktree that remains, what `pr-land` will land in which order, the decisions the run recorded (from `decide list`, numbered, in the user's words) and the roadmap items offered.
+First the scheduled work this session still holds, so nothing fires against a run that no longer exists: `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py jobs list` names each job on this session's row (the coordinator's `wake` cron from the coordinate skill, any other cron or Monitor it recorded); delete each cron with CronDelete (CronList shows the ids) and mark each `jobs done <id>`. A wake left running would prompt an empty session every half hour.
+
+Then `mc.py end` from this session (it refuses while a slot is held; `/mc release <resource>` first, after asking the holder). The ledger moves to `~/.claude/mission-control/runs/<date>-<name>/`, briefs and log included. Then one closing paragraph for the user: the PRs and their stack, the worktree that remains, what `pr-land` will land in which order, the decisions the run recorded (from `decide list`, numbered, in the user's words) and the roadmap items offered.
 
 ## Never
 

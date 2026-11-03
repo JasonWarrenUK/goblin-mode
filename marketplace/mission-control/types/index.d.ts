@@ -128,6 +128,8 @@ export type Snapshot = {
 	configPath: string
 	ledgerDir: string
 	mainCheckout: string
+	/** One line naming why git is not working and the fix, from the CLI; null while git works. The ledger, the board, needs, slots and messages carry on without it. */
+	gitProblem: string | null
 	run: Run | null
 	sessions: SessionRow[]
 	slots: Slot[]
@@ -159,6 +161,8 @@ declare module 'claude-code' {
 			self: Self
 			selected: string | null
 			asking: Asking | null
+			/** Whether the board shows the rows of its retired and gone groups; collapsed to the headings by default. */
+			quietShown: boolean
 		}
 	}
 }
