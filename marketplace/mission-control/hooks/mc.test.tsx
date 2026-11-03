@@ -280,6 +280,7 @@ test('a gone session reads gone, dim, with its worktree name and the age of its 
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'mc', args: '' })
 	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'quiet' }) // the gone group is collapsed by default; c shows it
 	expect((await ui.find({ type: 'Text', text: /^wt-live$/ }))?.text).toBe('wt-live')
 	expect((await ui.find({ type: 'Text', text: /^wt-gone$/ }))?.text).toBe('wt-gone')
 	expect((await ui.find({ type: 'Text', text: /^gone$/ }))?.text).toBe('gone')
@@ -388,7 +389,7 @@ const threeStates = () => {
 			{ ...base, session_id: 'crew-1', task: '10SE.2', state: 'pr-ready' },
 			{ ...base, session_id: 'crew-2', task: '10SE.3', state: 'working' },
 			{ ...base, session_id: 'crew-3', task: '10SE.4', state: 'working' },
-			{ ...base, session_id: 'crew-4', task: '10SE.5', state: 'working', live: false },
+			{ ...base, session_id: 'crew-4', task: '10SE.5', state: 'working', live: false, worktree: '/code/app/.claude/worktrees/wt-5' },
 		],
 	}
 }
@@ -523,7 +524,7 @@ test('the board names a broken git and the fix while the run still draws', async
 	expect(parseSnapshot(JSON.stringify(STATUS), NOON).gitProblem).toBeNull()
 })
 
-test('the board groups the crew under a subheading per state', async ($, on) => {
+test('the board groups the crew under a subheading per state, with retired and gone collapsed to their headings', async ($, on) => {
 	world(on, 'coord-1', threeStates())
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'mc', args: '' })
@@ -531,6 +532,13 @@ test('the board groups the crew under a subheading per state', async ($, on) => 
 	expect((await ui.find({ type: 'Text', text: /^working · 2$/ }))?.text).toBe('working · 2')
 	expect((await ui.find({ type: 'Text', text: /^pr-ready · 1$/ }))?.text).toBe('pr-ready · 1')
 	expect((await ui.find({ type: 'Text', text: /^gone · 1$/ }))?.text).toBe('gone · 1')
+	// the gone row itself (its worktree name is the one Text unique to it) is not drawn until c shows it
+	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
+	expect((await ui.find({ type: 'Text', text: /^c shows$/ }))?.text).toBe('c shows')
+	await ui.press({ key: 'quiet' })
+	expect((await ui.find({ type: 'Text', text: /^wt-5$/ }))?.text).toBe('wt-5')
+	await ui.press({ key: 'quiet' })
+	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
 	await ui.unmount()
 })
 

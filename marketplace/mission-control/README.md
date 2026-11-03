@@ -102,6 +102,7 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | `g` | grants the picked request: asks the minutes, then grants as you and messages the grantee |
 | `d` | marks the picked need done; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
 | `x` | releases a slot (asks which) |
+| `c` | shows or hides the `retired` and `gone` groups, collapsed by default to their headings and counts |
 | `r` | refreshes, probing the machine |
 | Esc, or `/mc` | closes |
 

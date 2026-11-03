@@ -161,6 +161,8 @@ declare module 'claude-code' {
 			self: Self
 			selected: string | null
 			asking: Asking | null
+			/** Whether the board shows the rows of its retired and gone groups; collapsed to the headings by default. */
+			quietShown: boolean
 		}
 	}
 }
