@@ -161,7 +161,7 @@ def remote_repo(main: str | Path) -> str | None:
     remotes: dict[str, dict[str, str]] = {}
     # a section's key lines start with whitespace as git writes them, or at column one in a hand-edited file;
     # two sections for one remote merge, as git's own parser merges them
-    for section in re.finditer(r'^\[remote "([^"]+)"\]\s*\n((?:[ \t]*[A-Za-z][^\n]*\n?)*)', text, re.M):
+    for section in re.finditer(r'^\[remote "([^"]+)"\]\s*\n((?:[ \t]*[A-Za-z#;][^\n]*\n?)*)', text, re.M):
         keys = dict(re.findall(r"^\s*([A-Za-z-]+)\s*=\s*(\S+)", section.group(2), re.M))
         remotes.setdefault(section.group(1), {}).update(keys)
 
@@ -181,7 +181,8 @@ def remote_repo(main: str | Path) -> str | None:
             return marked
         if marked and slug_of_remote(name):
             return slug_of_remote(name)
-    for name in REMOTE_PREFERENCE:
+    # unmarked: the first GitHub remote in gh's order, whatever its name, as gh takes it when it cannot prompt
+    for name in sorted(remotes, key=rank):
         slug = slug_of_remote(name)
         if slug:
             return slug

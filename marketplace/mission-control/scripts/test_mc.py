@@ -1434,9 +1434,17 @@ class LedgerFlow(unittest.TestCase):
         with (self.box.repo / ".git" / "config").open("a") as config:
             config.write('[remote "github"]\ngh-resolved = base\n')
         self.assertEqual(mc_module.remote_repo(self.box.repo), "Other/mirror", "the url from the first section and the marker from the second belong to one remote")
-        git(self.box.repo, "remote", "remove", "github")
-        git(self.box.repo, "remote", "set-url", "origin", "https://example.org/not/github.git")
-        self.assertIsNone(mc_module.remote_repo(self.box.repo))
+        # a comment line inside a section does not end it: the marker after it still counts
+        git(self.box.repo, "config", "--unset", "remote.github.gh-resolved")
+        git(self.box.repo, "remote", "set-url", "origin", "https://github.com/Someone/a-repo.git")
+        with (self.box.repo / ".git" / "config").open("a") as config:
+            config.write('[remote "origin"]\n\t# chosen by hand\n\tgh-resolved = base\n')
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo", "the marker after a comment line is read")
+        # a lone remote under a name gh does not rank is still the one gh takes when it cannot prompt
+        (self.box.repo / ".git" / "config").write_text('[core]\n\tbare = false\n[remote "fork"]\n\turl = https://github.com/A/b.git\n\tfetch = +refs/heads/*:refs/remotes/fork/*\n')
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "A/b", "an unranked remote is taken ahead of none")
+        (self.box.repo / ".git" / "config").write_text('[core]\n\tbare = false\n[remote "origin"]\n\turl = https://example.org/not/github.git\n')
+        self.assertIsNone(mc_module.remote_repo(self.box.repo), "a remote that is not on GitHub names nothing")
 
     def test_a_path_typed_in_another_case_maps_to_the_canonical_ledger_while_git_works(self):
         """git's spelling of the checkout is what the ledger slug is built from; the .git walk returns the path as typed, so it is the fallback, never the first answer."""
