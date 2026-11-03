@@ -1401,11 +1401,15 @@ class LedgerFlow(unittest.TestCase):
         sys.path.insert(0, str(HERE))
         import mc as mc_module
         git(self.box.repo, "remote", "add", "origin", "https://github.com/Someone/a-repo.git")
-        self.assertEqual(mc_module.toplevel(self.box.worktree / "apps"), self.box.worktree.resolve()) if (self.box.worktree / "apps").is_dir() else None
-        self.assertEqual(mc_module.toplevel(self.box.worktree), self.box.worktree.resolve())
-        self.assertEqual(mc_module.main_checkout(self.box.worktree), self.box.repo.resolve(), "a linked worktree's .git file names the common dir, whose parent is the main checkout")
-        self.assertEqual(mc_module.main_checkout(self.box.repo / ".claude"), self.box.repo.resolve())
+        # the walk itself, asked by name: toplevel and main_checkout go through git while it works
+        root, common = mc_module.git_dir_of(self.box.worktree)
+        self.assertEqual(root, self.box.worktree.resolve())
+        self.assertEqual(common, (self.box.repo / ".git").resolve(), "a linked worktree's .git file names the common dir")
+        self.assertEqual(common.parent, self.box.repo.resolve(), "whose parent is the main checkout")
+        root, common = mc_module.git_dir_of(self.box.repo / ".claude")
+        self.assertEqual((root, common), (self.box.repo.resolve(), (self.box.repo / ".git").resolve()))
         self.assertIsNone(mc_module.git_dir_of(self.box.tmp))
+        self.assertEqual(mc_module.main_checkout(self.box.worktree), self.box.repo.resolve())
         self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo")
         self.assertEqual(mc_module.remote_repo(self.box.worktree), "Someone/a-repo")
         mc_module._GIT_PROBLEM.clear()
