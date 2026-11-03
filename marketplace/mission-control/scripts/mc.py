@@ -2312,7 +2312,8 @@ def needs_locked(args, ledger: Ledger) -> int:
         if target.get("session_id") != session_id:
             authorise(run, session_id, args.by_user, "mark another session's need started")
         target["status"] = "started"
-        target["started_at"] = now()
+        # a second start only adds or changes the note; the time the user first typed it is the one the board shows
+        target["started_at"] = target.get("started_at") or now()
         if args.note is not None:
             target["note"] = args.note.strip()[:NEED_WHY_LIMIT]
         ledger.save_run(run)
