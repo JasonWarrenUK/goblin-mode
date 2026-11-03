@@ -4,6 +4,11 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- A need has a `started` state between `open` and `done`. On the CHIRPdb run of 3 November 2026 a four-hour hosted backfill the user had typed at 15:16 stayed in the needs-Jason bucket beside needs they had not opened, because the only move was open to done and done is where the result is pasted; asked whether to remove it, the answer was no. Now `mc.py needs start <n> [--note <where it is watched>]`, the board's `s` on a picked need or `/mc started <n> [note]` marks it on the user's word, the way done is. A started need draws under its own `Running` heading with its start time and note (no command to type), is left out of the `Needs Jason` count that the check-in, the text board and the coordinator's start context read (which now says `running for the user: #n since hh:mm`) and closes as before with `/mc done <n>` and the result. The check-in list gains a `Running` bucket, and the coordinate skill says to set the state when the user says they have run something.
+- A re-issued need links to the one it replaces: `needs add --supersedes <n>` closes the old need as done with `superseded_by` the new number in one step (and `supersedes` on the new one), and `needs done <n> --superseded-by <m>` does the same when the successor already exists, so a need that failed on its first attempt and was raised again reads in one direction across the two numbers. The log carries a `need-superseded` event.
+
 ## [0.5.0] - 2026-11-03
 
 ### Added
