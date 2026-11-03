@@ -1542,6 +1542,12 @@ class LedgerFlow(unittest.TestCase):
             self.assertIn("crew-1 (", str(refused.exception))
             self.assertIn("crew-2 (", str(refused.exception))
             self.assertIn("name the one you mean by its id", str(refused.exception))
+            # both still working, the PR-bearing session gone and the other live in its worktree: the live one can hear a grant, so it wins
+            (self.box.sessions / "crew-1.json").unlink()
+            sessions["crew-1"]["pr"] = 301
+            self.assertEqual(mc_module.resolve_session("17SE.1", sessions), "crew-2", "the live owner is taken before the PR-bearing row")
+            sessions["crew-1"]["pr"] = None
+            self.box.register("crew-1", "17se1", str(self.box.worktree))
         finally:
             mc_module.SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR", str(mc_module.SESSIONS_DIR)))
         # the CLI paths that hit it on the live run
