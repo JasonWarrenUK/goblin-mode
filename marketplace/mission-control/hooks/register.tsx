@@ -977,16 +977,24 @@ const needRows = ($: EngineInterface, ui: Ui, needs: readonly Need[], picked: st
 		const key = `need:${n.n}`
 		const running = n.status === 'started'
 		const tail = running ? `since ${n.started_at ? clock(n.started_at) : '?'}${n.note ? ` · ${n.note}` : ''}` : ''
+		// a note can run to the CLI's 1200-character cap; the tail takes at most half the row and truncates, so why keeps its columns
+		const tailWidth = running ? Math.min(tail.length, Math.max(16, Math.floor(inner / 2))) : 0
 		return (
 			<Box key={key} flexDirection="column">
 				<Box flexDirection="row" columnGap={1}>
 					<Button key={`row-${key}`} plain dimColor={picked !== null && picked !== key} label={`${n.n}.`} onPress={() => update($, selected, () => key)} />
 					<Text color="warning">{n.task ? `[${n.task}]` : ''}</Text>
 					{n.kind === 'measurement' ? <Text dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null}
-					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0) - (running ? tail.length + 1 : 0))}>
+					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0) - (running ? tailWidth + 1 : 0))}>
 						<Text wrap="wrap">{n.why}</Text>
 					</Box>
-					{running ? <Text dimColor>{tail}</Text> : null}
+					{running ? (
+						<Box width={tailWidth}>
+							<Text dimColor wrap="truncate-end">
+								{tail}
+							</Text>
+						</Box>
+					) : null}
 				</Box>
 				{n.command && !running ? (
 					<Box flexDirection="row" paddingLeft={4} columnGap={1}>
