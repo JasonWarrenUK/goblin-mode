@@ -2287,6 +2287,8 @@ def needs_locked(args, ledger: Ledger) -> int:
         old = find_need(needs, args.supersedes) if args.supersedes else None
         if args.supersedes and old is None:
             raise Refusal(f"no need {args.supersedes} to supersede")
+        if old is not None and old.get("superseded_by"):
+            raise Refusal(f"need #{old['n']} is already superseded by #{old['superseded_by']}")
         if old is not None and old.get("session_id") != session_id:
             authorise(run, session_id, args.by_user, "supersede another session's need")
         need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
@@ -2334,11 +2336,14 @@ def needs_locked(args, ledger: Ledger) -> int:
         raise Refusal(f"need #{target['n']} cannot supersede itself")
     if successor is not None and successor.get("status") == "done":
         raise Refusal(f"need #{successor['n']} is done; a need is superseded by one still open or running")
+    if successor is not None and target.get("superseded_by"):
+        raise Refusal(f"need #{target['n']} is already superseded by #{target['superseded_by']}")
     if successor is not None:
         supersede(ledger, target, successor["n"])
     else:
         target["status"] = "done"
-        target["done_at"] = now()
+        # a second done (closed first, the result pasted later) keeps the first close time
+        target["done_at"] = target.get("done_at") or now()
     if result is not None:
         target["result"] = result.strip()[:RESULT_LIMIT]
     ledger.save_run(run)

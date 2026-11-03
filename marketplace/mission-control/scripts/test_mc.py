@@ -1429,6 +1429,13 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("needs", "add", "--why", "fourth try", "--supersedes", "3", session="crew-1", cwd=self.box.worktree)
         third = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)[2]
         self.assertEqual((third["done_at"], third["superseded_by"]), (closed_at, 4))
+        # a need already superseded is not re-pointed by either path
+        self.assertIn("already superseded by #4", self.box.mc("needs", "add", "--why", "fifth", "--supersedes", "3", session="crew-1", cwd=self.box.worktree, expect=1).stdout)
+        self.assertIn("already superseded by #4", self.box.mc("needs", "done", "3", "--superseded-by", "4", session="coord-1", expect=1).stdout)
+        # a second plain done (closed first, the result pasted later) keeps the first close time
+        time.sleep(0.05)
+        later = json.loads(self.box.mc("--json", "needs", "done", "3", "--result", "the paste", "--by-user", session="coord-1").stdout)
+        self.assertEqual((later["done_at"], later["result"]), (closed_at, "the paste"))
 
     def test_a_grant_to_the_holder_extends_the_slot_without_force(self):
         self.box.start()
