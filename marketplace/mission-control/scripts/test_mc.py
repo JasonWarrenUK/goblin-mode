@@ -1547,6 +1547,19 @@ class LedgerFlow(unittest.TestCase):
         # the CLI paths that hit it on the live run
         out = self.box.mc("grant", "local-db", "--to", "17SE.1", session="coord-1").stdout
         self.assertIn("granted to 17SE.1", out)
+        # retire's shape: the real row is done too, and the ghost has no PR; the task id still names the real row
+        self.box.mc("release", "local-db", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "done", "--pr", "300", session="crew-1", cwd=self.box.worktree)
+        (self.box.sessions / "crew-1.json").unlink()
+        sessions = {p.stem: json.loads(p.read_text()) for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json")}
+        self.assertEqual({s["state"] for s in sessions.values()}, {"done"})
+        mc_module.SESSIONS_DIR = self.box.sessions
+        try:
+            self.assertEqual(mc_module.resolve_session("17SE.1", sessions), "crew-1", "the PR-bearing row is the one that did the work")
+        finally:
+            mc_module.SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR", str(mc_module.SESSIONS_DIR)))
+        refused = self.box.mc("retire", "17SE.1", "--dry-run", session="coord-1", expect=None)
+        self.assertNotIn("matches several sessions", refused.stdout, "retire resolves the task; whatever it then says is about the row itself")
 
     def test_an_approval_the_watcher_sees_is_pending_until_the_pr_lands(self):
         self.box.start()

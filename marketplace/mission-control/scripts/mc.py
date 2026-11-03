@@ -2473,6 +2473,10 @@ def resolve_session(ref: str, sessions: dict[str, dict]) -> str:
     if len(working) == 1:
         return working.pop()
     pool = working or hits
+    # both rows done (the shape retire meets): the one that carried the PR did the work; a ghost that joined and closed has none
+    with_pr = {sid for sid in pool if sessions[sid].get("pr")}
+    if len(with_pr) == 1:
+        return with_pr.pop()
     owners = {sid for sid in pool if sid in live and sessions[sid].get("worktree")}
     if len(owners) == 1:
         return owners.pop()
