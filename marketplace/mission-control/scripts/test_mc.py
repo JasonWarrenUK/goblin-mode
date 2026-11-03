@@ -1420,9 +1420,16 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(mc_module.remote_repo(self.box.repo), "Org/the-real-one", "upstream beats github")
         git(self.box.repo, "config", "remote.origin.gh-resolved", "base")
         self.assertEqual(mc_module.remote_repo(self.box.repo), "Someone/a-repo", "the remote gh repo set-default marked wins over everything")
+        # the base is not a remote at all (a fork clone whose parent was picked): gh writes the base's owner/repo as the marker
+        git(self.box.repo, "config", "remote.origin.gh-resolved", "Org/the-parent")
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Org/the-parent", "a spelt-out marker names the base itself")
         git(self.box.repo, "config", "--unset", "remote.origin.gh-resolved")
         git(self.box.repo, "remote", "remove", "upstream")
         self.assertEqual(mc_module.remote_repo(self.box.repo), "Other/mirror", "github beats origin")
+        # a second section for one remote merges with the first, as git reads it; a key at column one still parses
+        with (self.box.repo / ".git" / "config").open("a") as config:
+            config.write('[remote "github"]\ngh-resolved = base\n')
+        self.assertEqual(mc_module.remote_repo(self.box.repo), "Other/mirror", "the url from the first section and the marker from the second belong to one remote")
         git(self.box.repo, "remote", "remove", "github")
         git(self.box.repo, "remote", "set-url", "origin", "https://example.org/not/github.git")
         self.assertIsNone(mc_module.remote_repo(self.box.repo))

@@ -159,16 +159,29 @@ def remote_repo(main: str | Path) -> str | None:
     except OSError:
         return None
     remotes: dict[str, dict[str, str]] = {}
-    for section in re.finditer(r'^\[remote "([^"]+)"\]\s*\n((?:[ \t]+[^\n]*\n?)*)', text, re.M):
+    # a section's key lines start with whitespace as git writes them, or at column one in a hand-edited file;
+    # two sections for one remote merge, as git's own parser merges them
+    for section in re.finditer(r'^\[remote "([^"]+)"\]\s*\n((?:[ \t]*[A-Za-z][^\n]*\n?)*)', text, re.M):
         keys = dict(re.findall(r"^\s*([A-Za-z-]+)\s*=\s*(\S+)", section.group(2), re.M))
-        remotes[section.group(1)] = keys
+        remotes.setdefault(section.group(1), {}).update(keys)
 
     def slug_of_remote(name: str) -> str | None:
         hit = re.search(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", remotes.get(name, {}).get("url", ""))
         return f"{hit.group(1)}/{hit.group(2)}" if hit else None
 
-    resolved = next((name for name, keys in remotes.items() if keys.get("gh-resolved") == "base"), None)
-    for name in ((resolved,) if resolved else ()) + REMOTE_PREFERENCE:
+    def rank(name: str) -> int:
+        return REMOTE_PREFERENCE.index(name) if name in REMOTE_PREFERENCE else len(REMOTE_PREFERENCE)
+
+    # gh walks its remotes in preference order and takes the first one `gh repo set-default` marked: `base` means that
+    # remote's own repository; any other value is the base's `owner/repo` spelt out, written when the base (a fork's
+    # parent, say) is not a remote at all
+    for name in sorted(remotes, key=rank):
+        marked = remotes[name].get("gh-resolved", "")
+        if marked and marked != "base":
+            return marked
+        if marked and slug_of_remote(name):
+            return slug_of_remote(name)
+    for name in REMOTE_PREFERENCE:
         slug = slug_of_remote(name)
         if slug:
             return slug
