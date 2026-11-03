@@ -9,7 +9,7 @@ metadata:
   family: mission-control
   goblin-spinner: coordinating|granting slots|counting assumptions|rolling up needs
 disable-model-invocation: false # the SessionStart hook names this skill to the coordinator session; every write it leads to goes through the ledger CLI, which authorises the coordinator alone; nothing here merges, resets or touches hosted
-allowed-tools: ["Read", "Write", "Glob", "Grep", "Bash(python3:*)", "Bash(git:*)", "Bash(gh:*)", "Bash(lsof:*)", "Bash(pgrep:*)", "Bash(psql:*)", "AskUserQuestion", "mcp__mission-control__mc_board", "mcp__mission-control__mc_grant", "mcp__mission-control__mc_revoke", "mcp__mission-control__mc_assume", "mcp__mission-control__mc_send", "mcp__mission-control__mc_need", "mcp__mission-control__mc_report"]
+allowed-tools: ["Read", "Write", "Glob", "Grep", "Bash(python3:*)", "Bash(git:*)", "Bash(gh:*)", "Bash(lsof:*)", "Bash(pgrep:*)", "Bash(psql:*)", "AskUserQuestion", "CronCreate", "CronList", "CronDelete", "mcp__mission-control__mc_board", "mcp__mission-control__mc_grant", "mcp__mission-control__mc_revoke", "mcp__mission-control__mc_assume", "mcp__mission-control__mc_send", "mcp__mission-control__mc_need", "mcp__mission-control__mc_report"]
 argument-hint: "(no arguments)"
 ---
 
