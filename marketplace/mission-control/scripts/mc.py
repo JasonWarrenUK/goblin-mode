@@ -1851,6 +1851,8 @@ def cmd_watch(args) -> int:
         current = pr_snapshot(ledger.main, number)
         if current is None:
             failures += 1
+            # git may have broken since this watch started (the 30 October shape: a long watch, then the update); the next poll re-probes it and names the repository outright if so
+            _GIT_PROBLEM.clear()
             if failures >= WATCH_FAILURES_TOLERATED:
                 print(f"#{number}: gh did not answer {failures} polls running; the watch stops here, re-arm when gh is back")
                 record("stalled", seen, [])
