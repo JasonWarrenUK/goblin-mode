@@ -58,8 +58,8 @@ export type Need = {
 	started_at: number | null
 	/** What is running and where to watch it, recorded with the start. */
 	note: string
-	/** The need that re-issued this one, once it closed as superseded. */
-	superseded_by: number | null
+	/** The earlier need this one re-issues, when its first attempt failed; the one it replaced is done and off the board. */
+	supersedes: number | null
 }
 
 export type Run = {

@@ -483,11 +483,13 @@ test('parseSnapshot reads the rebind candidate, the pending list, the decisions,
 	expect(plain.needs[0]?.kind).toBe('action')
 	expect(plain.needs[0]?.started_at).toBeNull()
 	expect(plain.needs[0]?.note).toBe('')
-	expect(plain.needs[0]?.superseded_by).toBeNull()
+	expect(plain.needs[0]?.supersedes).toBeNull()
+	const reissued = parseSnapshot(JSON.stringify({ ...STATUS, needs: [{ ...STATUS.needs[0], supersedes: 1 }] }), NOON)
+	expect(reissued.needs[0]?.supersedes).toBe(1)
 })
 
 test('a started need sits in its own Running group with its start time, off the needs-Jason count, and s marks an open one started', async ($, on) => {
-	const running = { ...STATUS.needs[0], id: 'n2', n: 2, why: 'run the embeddings backfill on hosted', command: 'poetry run poe backfill', status: 'started', started_at: NOON / 1000 - 4 * 3600, note: 'task b7; 10SE.2 watches it' }
+	const running = { ...STATUS.needs[0], id: 'n2', n: 2, why: 'run the embeddings backfill on hosted', command: 'poetry run poe backfill', status: 'started', started_at: NOON / 1000 - 4 * 3600, note: 'task b7; 10SE.2 watches it', supersedes: 1 }
 	const { calls } = world(on, 'coord-1', { ...STATUS, needs: [STATUS.needs[0], running] })
 	const snap = parseSnapshot(JSON.stringify({ ...STATUS, needs: [STATUS.needs[0], running] }), NOON)
 	expect(needGroups(snap.needs).open.map(n => n.n)).toEqual([1])
@@ -499,6 +501,7 @@ test('a started need sits in its own Running group with its start time, off the 
 	expect((await ui.find({ type: 'Text', text: /^Running · 1$/ }))?.text).toBe('Running · 1')
 	expect((await ui.find({ type: 'Text', text: /since 08:00 · task b7; 10SE.2 watches it/ }))?.text).toContain('since 08:00')
 	expect(await ui.find({ type: 'Text', text: /poetry run poe backfill/ })).toBeUndefined()
+	expect((await ui.find({ type: 'Text', text: /^re-issues #1$/ }))?.text).toBe('re-issues #1')
 	await ui.press({ key: 'row-need:1' })
 	await ui.press({ key: 'started' })
 	await ui.input({ key: 'started-ref', text: 'task b9' })

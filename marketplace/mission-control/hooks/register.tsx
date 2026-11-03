@@ -199,7 +199,7 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		status: str(n.status) || 'open',
 		started_at: num(n.started_at) || null,
 		note: str(n.note),
-		superseded_by: num(n.superseded_by) || null,
+		supersedes: num(n.supersedes) || null,
 	}))
 	const probes: Probe[] = list(data.probes).map(p => ({
 		resource: str(p.resource),
@@ -987,7 +987,8 @@ const needRows = ($: EngineInterface, ui: Ui, needs: readonly Need[], picked: st
 					<Button key={`row-${key}`} plain dimColor={picked !== null && picked !== key} label={`${n.n}.`} onPress={() => update($, selected, () => key)} />
 					<Text color="warning">{n.task ? `[${n.task}]` : ''}</Text>
 					{n.kind === 'measurement' ? <Text dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null}
-					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0) - (running ? tailWidth + 1 : 0))}>
+					{n.supersedes !== null ? <Text dimColor>re-issues #{n.supersedes}</Text> : null}
+					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0) - (n.supersedes !== null ? 12 + String(n.supersedes).length : 0) - (running ? tailWidth + 1 : 0))}>
 						<Text wrap="wrap">{n.why}</Text>
 					</Box>
 					{running ? (
