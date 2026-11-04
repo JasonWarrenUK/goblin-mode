@@ -157,7 +157,7 @@ A run with a single batch drops the `Batch 1 of 1 ·` prefix: `## M5: Filtering 
 - Full descriptions always, never truncated; the table wraps them inside the Task cell.
 - Print the grammar reference below in full once, under `### Reply Grammar` in `## Preparation` (after the Working Set, before the first batch). Batches then carry only the one-line reminder shown above.
 
-**Reply grammar**
+### Reply Grammar
 
 | Reply                | Effect |
 |----------------------|--------|

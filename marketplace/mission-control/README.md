@@ -20,14 +20,14 @@ Requires `python3` (3.9+, stdlib only) on `PATH`, `lsof` and `pgrep` for the pro
 
 ### 2.1. The workflow, in order
 
-| Moment | Who | What |
-|---|---|---|
-| Once per project | the user, any session | `/mission-control:configure` writes `.claude/mission-control.json`: the shared resources, the commands that touch them, how to tell each one is busy, the check commands, the convention files, the conventions that live only in the user's head, and `collaboration` (solo or collaborative, with the team's hours) |
-| Kick-off | the user, in an **opus** session that becomes the coordinator | `/mission-control:kickoff 10SE.2 10SE.4 name search` picks the tasks (from the roadmap when there is one), classifies the project solo or collaborative and asks you to confirm, chooses each session's model and effort with a reason, creates a worktree per task, starts the run in the ledger, asks every convention it cannot read, sets numbered shared assumptions, writes the guidance and one brief per session, and puts one launch line per session on the needs list |
-| Launch | the user | opens the board (`/mc`) and runs each `launch` need in a new terminal window, one per session. The line carries `cd <worktree>`, `--model` (which beats `ANTHROPIC_MODEL`), `--effort` (which beats your settings but not `CLAUDE_CODE_EFFORT_LEVEL`, if you export it) and the opening prompt, which starts the session's first turn; nothing else is typed into it. The need closes when the session joins; the `SessionStart` hook names its brief and the coordinator, the mod puts it on the board |
-| The run | crew and coordinator, by themselves | crew answer the five questions, report state changes, request slots, watch their PR once it exists and put anything only you can do on the needs list; the coordinator reconciles before every status, grants slots from the machine's state, settles assumptions, reviews draft PRs when the run says so, checks in and retires merged tasks' worktrees |
-| Whenever | the user | `/mc` in any session shows the board; the needs list has complete commands with their directories, and that list is the whole of what the run needs from you |
-| End | the user, in the coordinator session | `/mission-control:end` links the stack, prunes what `retire` left, runs the checks on the top layer, offers the roadmap follow-ups and archives the ledger |
+| Moment           | Who                                                           | What |
+|------------------|---------------------------------------------------------------|------|
+| Once per project | the user, any session                                         | `/mission-control:configure` writes `.claude/mission-control.json`: the shared resources, the commands that touch them, how to tell each one is busy, the check commands, the convention files, the conventions that live only in the user's head, and `collaboration` (solo or collaborative, with the team's hours) |
+| Kick-off         | the user, in an **opus** session that becomes the coordinator | `/mission-control:kickoff 10SE.2 10SE.4 name search` picks the tasks (from the roadmap when there is one), classifies the project solo or collaborative and asks you to confirm, chooses each session's model and effort with a reason, creates a worktree per task, starts the run in the ledger, asks every convention it cannot read, sets numbered shared assumptions, writes the guidance and one brief per session, and puts one launch line per session on the needs list |
+| Launch           | the user                                                      | opens the board (`/mc`) and runs each `launch` need in a new terminal window, one per session. The line carries `cd <worktree>`, `--model` (which beats `ANTHROPIC_MODEL`), `--effort` (which beats your settings but not `CLAUDE_CODE_EFFORT_LEVEL`, if you export it) and the opening prompt, which starts the session's first turn; nothing else is typed into it. The need closes when the session joins; the `SessionStart` hook names its brief and the coordinator, the mod puts it on the board |
+| The run          | crew and coordinator, by themselves                           | crew answer the five questions, report state changes, request slots, watch their PR once it exists and put anything only you can do on the needs list; the coordinator reconciles before every status, grants slots from the machine's state, settles assumptions, reviews draft PRs when the run says so, checks in and retires merged tasks' worktrees |
+| Whenever         | the user                                                      | `/mc` in any session shows the board; the needs list has complete commands with their directories, and that list is the whole of what the run needs from you |
+| End              | the user, in the coordinator session                          | `/mission-control:end` links the stack, prunes what `retire` left, runs the checks on the top layer, offers the roadmap follow-ups and archives the ledger |
 
 The protocol itself, with the message shapes: `references/protocol.md`.
 
@@ -35,30 +35,30 @@ The protocol itself, with the message shapes: `references/protocol.md`.
 
 **Slash commands.** Each runs in the session named; the skill refuses or misbehaves elsewhere.
 
-| Command | Where | Does |
-|---|---|---|
-| `/mission-control:configure` | any session in the project | writes or revises the project config by interview |
-| `/mission-control:kickoff [ids...] [name <run>]` | the session that will coordinate (opus) | starts the run; refuses while one is active |
-| `/mission-control:coordinate` | the coordinator session | the running protocol: reconcile, grant, check in, retire, escalate |
-| `/mission-control:checkin` | the coordinator session | asks every crew session the three questions and gives you one list of what you need to do |
-| `/mission-control:crew` | a crew session, once, at its first turn (the launch line does this) | how that session reports, asks for slots, watches its PR and what stays with you |
-| `/mission-control:end` | the coordinator session | closes the run |
+| Command                                          | Where                                                               | Does |
+|--------------------------------------------------|---------------------------------------------------------------------|------|
+| `/mission-control:configure`                     | any session in the project                                          | writes or revises the project config by interview |
+| `/mission-control:kickoff [ids...] [name <run>]` | the session that will coordinate (opus)                             | starts the run; refuses while one is active |
+| `/mission-control:coordinate`                    | the coordinator session                                             | the running protocol: reconcile, grant, check in, retire, escalate |
+| `/mission-control:checkin`                       | the coordinator session                                             | asks every crew session the three questions and gives you one list of what you need to do |
+| `/mission-control:crew`                          | a crew session, once, at its first turn (the launch line does this) | how that session reports, asks for slots, watches its PR and what stays with you |
+| `/mission-control:end`                           | the coordinator session                                             | closes the run |
 
 **`/mc`.** Your own hand on the ledger from any session, with no turn and no model. Every write carries `--by-user`.
 
-| Form | Does |
-|---|---|
-| `/mc` | opens or closes the board |
-| `/mc start <name> [anyway]` | starts a run with this session as coordinator; a haiku or sonnet session is warned off and `anyway` overrides |
+| Form                                                  | Does |
+|-------------------------------------------------------|------|
+| `/mc`                                                 | opens or closes the board |
+| `/mc start <name> [anyway]`                           | starts a run with this session as coordinator; a haiku or sonnet session is warned off and `anyway` overrides |
 | `/mc grant <resource> <task\|branch\|name> [minutes]` | grants a slot, taking it from a holder if need be, and messages the grantee |
-| `/mc extend <resource> [minutes]` | gives the current holder longer and tells only them |
-| `/mc release <resource>` | releases a slot |
-| `/mc started <n> [note]` | marks need `n` started: you typed it and it runs on (a backfill, a long measurement); the note says where it is watched. It moves to the board's `Running` group and leaves the needs-Jason count until `/mc done` closes it with the result |
-| `/mc done <n> [result or @file]` | marks need `n` done; for a measurement, the pasted output (or a file's contents) goes to the session that wanted it in the same step |
-| `/mc adopt coordinator\|crew` | from the session taking the role: rebinds the run to this session after a `/clear` or a fresh start (the board shows `rebind?` when this is waiting), or carries over a crew row |
-| `/mc retire <task> [dry]` | reclaims a merged task's worktree (section 7 has the preconditions); `dry` only prints |
-| `/mc status` | the board as text, machine probed |
-| `/mc end [force]` | ends the run; `force` ends it with slots still held |
+| `/mc extend <resource> [minutes]`                     | gives the current holder longer and tells only them |
+| `/mc release <resource>`                              | releases a slot |
+| `/mc started <n> [note]`                              | marks need `n` started: you typed it and it runs on (a backfill, a long measurement); the note says where it is watched. It moves to the board's `Running` group and leaves the needs-Jason count until `/mc done` closes it with the result |
+| `/mc done <n> [result or @file]`                      | marks need `n` done; for a measurement, the pasted output (or a file's contents) goes to the session that wanted it in the same step |
+| `/mc adopt coordinator\|crew`                         | from the session taking the role: rebinds the run to this session after a `/clear` or a fresh start (the board shows `rebind?` when this is waiting), or carries over a crew row |
+| `/mc retire <task> [dry]`                             | reclaims a merged task's worktree (section 7 has the preconditions); `dry` only prints |
+| `/mc status`                                          | the board as text, machine probed |
+| `/mc end [force]`                                     | ends the run; `force` ends it with slots still held |
 
 **The board's keys** are in section 3.
 
@@ -88,26 +88,26 @@ Each of these runs against the protocol, and most were learned on a live run.
 
 Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns or more it docks beside the transcript; narrower, it sits above the prompt. It runs with no turn, so it works while Claude is busy. While open it refreshes itself every `refresh_seconds`.
 
-| Section | Shows |
-|---|---|
-| Header | run name as the title with your role beside it, a rule, a `rebind?` line in amber when the coordinator's process runs under a new session id and waits for `/mc adopt coordinator`, the count of open threads on the coordinator's pending list, then in dim text the start time, base commit, who coordinates, how many assumptions, how many sessions are live and the ledger's age |
-| Crew | the live sessions grouped by state, one row each: busy or idle (from Claude Code's own session registry), task, branch, worktree name, state, PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
+| Section     | Shows |
+|-------------|-------|
+| Header      | run name as the title with your role beside it, a rule, a `rebind?` line in amber when the coordinator's process runs under a new session id and waits for `/mc adopt coordinator`, the count of open threads on the coordinator's pending list, then in dim text the start time, base commit, who coordinates, how many assumptions, how many sessions are live and the ledger's age |
+| Crew        | the live sessions grouped by state, one row each: busy or idle (from Claude Code's own session registry), task, branch, worktree name, state, PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
 | Needs Jason | drawn only while something is open. Numbered; the complete line to type comes first (`cd <dir> && ...`) and the reason beneath it, with `result → <task>` on a measurement naming the session that gets the output when you mark it done and `launch` on a crew session's launch line, which runs in a new terminal window and closes by itself when the session joins; the count is what the run needs from you now |
-| Running | needs you have started that run on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
-| Slots | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
-| Requests | pending slot requests, with what will run and for how long |
-| Archive | drawn only once a session is over: `retired` (its worktree reclaimed) and `gone` (the session left; its last state dimmed beside it), each group collapsed to its heading and count until `c` shows the rows |
+| Running     | needs you have started that run on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
+| Slots       | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
+| Requests    | pending slot requests, with what will run and for how long |
+| Archive     | drawn only once a session is over: `retired` (its worktree reclaimed) and `gone` (the session left; its last state dimmed beside it), each group collapsed to its heading and count until `c` shows the rows |
 
-| Key | Does |
-|---|---|
-| `1` to `9` | picks a session row (shows its full summary) |
-| `q` to `p` | picks a request |
-| `g` | grants the picked request: asks the minutes, then grants as you and messages the grantee |
-| `s` | marks the picked need started: you typed it and it runs on; the input takes a note on where it is watched |
-| `d` | marks the picked need done; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
-| `x` | releases a slot (asks which) |
-| `c` | shows or collapses the Archive's rows (`retired` and `gone`), collapsed by default to their headings and counts |
-| `r` | refreshes, probing the machine |
+| Key           | Does |
+|---------------|------|
+| `1` to `9`    | picks a session row (shows its full summary) |
+| `q` to `p`    | picks a request |
+| `g`           | grants the picked request: asks the minutes, then grants as you and messages the grantee |
+| `s`           | marks the picked need started: you typed it and it runs on; the input takes a note on where it is watched |
+| `d`           | marks the picked need done; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
+| `x`           | releases a slot (asks which) |
+| `c`           | shows or collapses the Archive's rows (`retired` and `gone`), collapsed by default to their headings and counts |
+| `r`           | refreshes, probing the machine |
 | Esc, or `/mc` | closes |
 
 `/mc` with arguments is your hand on the ledger from any session, no turn, no model: `/mc start <name> [anyway]`, `/mc grant <resource> <task|branch|name> [minutes]`, `/mc release <resource>`, `/mc done <n>`, `/mc retire <task> [dry]`, `/mc status`, `/mc end [force]` (the full table is in section 2.2). Every write it makes carries `--by-user`, which the hook refuses on any `mc.py` command a model runs, along with `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment. That is a guard against accidents: a variable expanded later, a copied script or a hand-written ledger file get past it.
@@ -118,16 +118,16 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 
 Registered in every session where the plugin is on; the CLI refuses the coordinator-only ones from anywhere else. Each tool writes the ledger and then hands the model the exact `SendMessage` call to make, recipient named as `ListAgents` lists it: a message the mod sent itself got no verdict from the auto-mode classifier in every session of the first live run, while the model's own `SendMessage` is judged as usual.
 
-| Tool | Who | Does |
-|---|---|---|
-| `mc_report` | crew | state (`briefing`, `working`, `in-slot`, `pr-ready`, `blocked`, `waiting-jason`, `done`), one-line summary, PR number |
-| `mc_slot` | crew | `request` records the request and hands over the line for the coordinator (what will run, for how long); `release` records the results and hands over the line that reports them |
-| `mc_need` | anyone | an item only the user can do: why, the exact command, the directory. Goes on the board; from crew, the line for the coordinator follows. `supersedes` re-issues an earlier need that failed, keeping its kind, recipient and directory |
-| `mc_send` | anyone | resolves a task id, branch, session name, `coordinator` or `all` to the recipient names `SendMessage` takes now, so a changed name or ref does not lose a session |
-| `mc_grant` | coordinator | probes the machine, refuses while busy, grants, then hands over the grant line for the grantee and the notice line for every other crew session |
+| Tool        | Who         | Does |
+|-------------|-------------|------|
+| `mc_report` | crew        | state (`briefing`, `working`, `in-slot`, `pr-ready`, `blocked`, `waiting-jason`, `done`), one-line summary, PR number |
+| `mc_slot`   | crew        | `request` records the request and hands over the line for the coordinator (what will run, for how long); `release` records the results and hands over the line that reports them |
+| `mc_need`   | anyone      | an item only the user can do: why, the exact command, the directory. Goes on the board; from crew, the line for the coordinator follows. `supersedes` re-issues an earlier need that failed, keeping its kind, recipient and directory |
+| `mc_send`   | anyone      | resolves a task id, branch, session name, `coordinator` or `all` to the recipient names `SendMessage` takes now, so a changed name or ref does not lose a session |
+| `mc_grant`  | coordinator | probes the machine, refuses while busy, grants, then hands over the grant line for the grantee and the notice line for every other crew session |
 | `mc_revoke` | coordinator | releases another session's slot and hands over the line that tells the holder |
 | `mc_assume` | coordinator | sets or changes a numbered shared assumption; every crew prompt carries the list, and the broadcast line follows for each live crew session |
-| `mc_board` | coordinator | the board as text, probes included |
+| `mc_board`  | coordinator | the board as text, probes included |
 
 ---
 
@@ -161,26 +161,26 @@ The boundary is honest about what it is: every session on the machine is the sam
 
 ## 8. Options
 
-| Option | Default | What it does |
-|---|---|---|
-| `enabled` | true | The one switch. Off, nothing is registered; the command hooks still run |
-| `approve_in_slot` | true | Answer a project hook's `ask` with `allow` while this session holds the slot and runs from its worktree |
-| `refresh_seconds` | 15 | How often an open board rereads the ledger |
+| Option            | Default | What it does |
+|-------------------|---------|--------------|
+| `enabled`         | true    | The one switch. Off, nothing is registered; the command hooks still run |
+| `approve_in_slot` | true    | Answer a project hook's `ask` with `allow` while this session holds the slot and runs from its worktree |
+| `refresh_seconds` | 15      | How often an open board rereads the ledger |
 
 ---
 
 ## 9. Files
 
-| File | Holds |
-|---|---|
-| `scripts/mc.py` | The ledger CLI and both command hooks; `python3 -m unittest test_mc` in that directory runs its tests |
-| `scripts/worktree-bootstrap.sh` | Symlinks git-ignored `.env*` files and installs every tracked lockfile in a fresh worktree |
-| `hooks/register.tsx` | The board, `/mc`, the tools, the prompt section, the message mark, the slot approval; `claude plugin test <plugin-root>` runs `hooks/mc.test.tsx` |
-| `types/index.d.ts` | The `$.state` contract |
-| `references/protocol.md` | The protocol, with the message shapes |
-| `references/config.md` | The project config schema |
-| `references/mission-control.example.json` | CHIRPdb's config |
+| File                                          | Holds |
+|-----------------------------------------------|-------|
+| `scripts/mc.py`                               | The ledger CLI and both command hooks; `python3 -m unittest test_mc` in that directory runs its tests |
+| `scripts/worktree-bootstrap.sh`               | Symlinks git-ignored `.env*` files and installs every tracked lockfile in a fresh worktree |
+| `hooks/register.tsx`                          | The board, `/mc`, the tools, the prompt section, the message mark, the slot approval; `claude plugin test <plugin-root>` runs `hooks/mc.test.tsx` |
+| `types/index.d.ts`                            | The `$.state` contract |
+| `references/protocol.md`                      | The protocol, with the message shapes |
+| `references/config.md`                        | The project config schema |
+| `references/mission-control.example.json`     | CHIRPdb's config |
 | `templates/brief.md`, `templates/guidance.md` | What kick-off writes per session and per run |
-| `skills/` | `kickoff`, `coordinate`, `crew`, `checkin`, `end`, `configure` |
+| `skills/`                                     | `kickoff`, `coordinate`, `crew`, `checkin`, `end`, `configure` |
 
 Check it with `claude plugin validate <plugin-root> --strict` and `claude plugin test <plugin-root>`.
