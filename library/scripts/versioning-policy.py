@@ -48,6 +48,24 @@ def toplevel() -> Path:
 	return Path(done.stdout.strip())
 
 
+def main_checkout(top: Path) -> Path:
+	"""The directory holding the gitignored twin: the main checkout, shared by every linked worktree.
+
+	The parent of the common git dir is the main checkout for a plain repository and its linked
+	worktrees. A submodule or a --separate-git-dir repository keeps its common dir elsewhere and
+	records the work tree in core.worktree, relative to that dir. A bare repository has no main
+	checkout, and git before 2.31 has no --path-format; both fall back to the checkout given.
+	"""
+	done = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True)
+	if done.returncode != 0:
+		return top
+	common = Path(done.stdout.strip())
+	configured = subprocess.run(["git", "--git-dir", str(common), "config", "--get", "core.worktree"], capture_output=True, text=True)
+	if configured.returncode == 0 and configured.stdout.strip():
+		return (common / configured.stdout.strip()).resolve()
+	return common.parent if common.name == ".git" else top
+
+
 def fail(message: str) -> int:
 	print(f"✗ {message}", file=sys.stderr)
 	return 2
@@ -76,7 +94,7 @@ def read(path: Path) -> dict[str, list[str]]:
 
 def merged(root: Path) -> dict[str, list[str]]:
 	tracked = read(root / ".claude" / "versioning.json")
-	local = read(root / ".claude" / "versioning.local.json")
+	local = read(main_checkout(root) / ".claude" / "versioning.local.json")
 	return {key: sorted(set(tracked[key]) | set(local[key])) for key in ORDER}
 
 
@@ -132,7 +150,8 @@ def cmd_set(args: argparse.Namespace) -> int:
 	known = targets(root)
 	if known is not None and args.target not in known:
 		return fail(f"unknown target {args.target}; the targets are {', '.join(known)}")
-	path = root / ".claude" / ("versioning.local.json" if args.local else "versioning.json")
+	# the twin lives in the main checkout whichever worktree this runs from; a copy inside a linked worktree would die with it
+	path = (main_checkout(root) if args.local else root) / ".claude" / ("versioning.local.json" if args.local else "versioning.json")
 	policy = read(path)
 	key = KEYS[args.kind]
 	before = set(policy[key])

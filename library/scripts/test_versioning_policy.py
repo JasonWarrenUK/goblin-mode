@@ -35,6 +35,39 @@ class VersioningPolicy(unittest.TestCase):
 	def policy(self) -> dict:
 		return json.loads((self.repo / ".claude" / "versioning.json").read_text())
 
+	def _git(self, *args: str) -> None:
+		subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=self.repo, check=True, capture_output=True)
+
+	def _linked_worktree(self) -> Path:
+		"""Commit the ignore rule, then add a detached linked worktree, as pr-land's landing worktree is."""
+		(self.repo / ".gitignore").write_text(".claude/versioning.local.json\n")
+		self._git("add", "-A")
+		self._git("commit", "-qm", "init")
+		linked = self.repo / "linked"
+		self._git("worktree", "add", "-q", "--detach", str(linked), "HEAD")
+		return linked
+
+	def test_the_local_twin_is_shared_with_linked_worktrees(self) -> None:
+		# pr-land tags from a detached landing worktree; the gitignored twin exists only in the main checkout
+		linked = self._linked_worktree()
+		_run(self.repo, "set", "omit", "tag", "root", "--local")
+		self.assertFalse((linked / ".claude" / "versioning.local.json").exists(), "the twin is gitignored, so a worktree has no copy of its own")
+		self.assertEqual(_run(linked, "check", "tag", "root").returncode, 0, "a landing worktree sees the main checkout's local omission")
+
+	def test_set_local_from_a_linked_worktree_writes_to_the_main_checkout(self) -> None:
+		linked = self._linked_worktree()
+		out = _run(linked, "set", "omit", "tag", "root", "--local")
+		self.assertEqual(out.returncode, 0, out.stderr)
+		self.assertTrue((self.repo / ".claude" / "versioning.local.json").is_file())
+		self.assertFalse((linked / ".claude" / "versioning.local.json").exists(), "a file in the worktree would die with it")
+		self.assertEqual(_run(self.repo, "check", "tag", "root").returncode, 0)
+
+	def test_the_tracked_file_is_read_from_the_worktree_that_runs_the_check(self) -> None:
+		linked = self._linked_worktree()
+		_run(self.repo, "set", "omit", "changelog", "root")
+		self.assertEqual(_run(self.repo, "check", "changelog", "root").returncode, 0)
+		self.assertEqual(_run(linked, "check", "changelog", "root").returncode, 1, "the worktree's checkout of the tracked file governs, not the main checkout's")
+
 	def test_no_policy_file_omits_nothing(self) -> None:
 		for kind in ("tag", "release", "changelog"):
 			self.assertEqual(_run(self.repo, "check", kind, "root").returncode, 1, kind)
