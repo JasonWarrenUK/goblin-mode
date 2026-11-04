@@ -6,9 +6,9 @@ Project mode: {{ solo or collaborative, from `mc.py classify` and its source }}.
 
 ## Crew
 
-| Task | Branch | Worktree | Migration |
-|---|---|---|---|
-| {{ id }} {{ title }} | `{{ branch }}` | `{{ worktree }}` | {{ timestamp or none }} |
+| Task | Branch | Worktree | Migration | Model |
+|---|---|---|---|---|
+| {{ id }} {{ title }} | `{{ branch }}` | `{{ worktree }}` | {{ timestamp or none }} | {{ model, effort }} |
 
 ## Shared facts (checked against `{{ base branch }}@{{ base commit }}`)
 

@@ -10,6 +10,7 @@
 | Migration timestamp | {{ assigned timestamp, or "none expected; tell the coordinator before writing one" }} |
 | PR approval | {{ "the coordinator reviews your draft description, then you run /pr-create auto" or "the user approves in this session" }} |
 | Verify at | {{ the viewports and devices every rendered change is checked at before pr-ready, from the scope document or the user, e.g. "1280 and 390, every open state"; or "nothing rendered in this task" }} |
+| Model | {{ model }}, {{ effort }}: {{ the reason in one line, the same one crew add was given, e.g. "reworks the shared ranking query and three tasks depend on it"; or "the default" }} |
 
 ## What this task ships
 

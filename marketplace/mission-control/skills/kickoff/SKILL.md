@@ -53,7 +53,9 @@ For each task, read enough of the codebase to answer: which files it will touch,
 
 ## Step 4: Plan, then confirm
 
-Build the table: task, title, branch (project naming: `feat/`, `fix/`, lowercase, hyphens), worktree name (`<task id lowercased without the dot>-<two words>`, under the config's `worktrees.dir`), migration timestamp if needed (the config's `migrations.timestamp_format`, one per task, in the merge order you propose, distinct by at least an hour) and the shared resources each will need.
+Build the table: task, title, branch (project naming: `feat/`, `fix/`, lowercase, hyphens), worktree name (`<task id lowercased without the dot>-<two words>`, under the config's `worktrees.dir`), migration timestamp if needed (the config's `migrations.timestamp_format`, one per task, in the merge order you propose, distinct by at least an hour), the shared resources each will need, and the model and effort the session launches on with the reason in one line.
+
+**Model and effort.** `sonnet` at `medium` unless there is a reason you can write in one line, and that line goes on the launch need and in the brief's Model row. Reasons that earn `opus` at `high`: an adversarial review, a design still open, a shared surface other tasks lean on, a migration. Nothing else does. The flags go on the launch line (`--model`, `--effort`), where they beat the terminal's `ANTHROPIC_MODEL` and settings, so the session runs what this table says whatever the terminal would default to; the crew skill inherits them rather than setting its own.
 
 Ask two things with AskUserQuestion:
 
@@ -69,7 +71,7 @@ For each task, in the main checkout:
 1. `git worktree add -b <branch> <main>/<worktrees.dir>/<name> origin/<base>`. A branch that already exists: `git worktree add <path> <branch>` and say so.
 2. `zsh "${CLAUDE_PLUGIN_ROOT}"/scripts/worktree-bootstrap.sh <path>` (it is a zsh script; `sh` fails on its array syntax): symlinks the git-ignored `.env*` files and installs every tracked lockfile. Relay its lines; a `failed` line is reported, not retried.
 3. With a roadmap: `roadmap.py claim <id> --assignee "<who>"` **inside the worktree** (the claim lives on the branch). Ask who once, for all tasks; never infer a name. Commit with `git commit -m "chore(roadmap): claim <id>" -- .claude/roadmaps.json`.
-4. `mc.py crew add --task <id> --branch <branch> --worktree <path> [--migration <timestamp>] [--unlisted]`; `--unlisted` for a task the user chose with no roadmap item, so nothing later expects a claim or a roadmap row for it.
+4. `mc.py crew add --task <id> --branch <branch> --worktree <path> --model <model> --effort <effort> --name "<task id lowercased> <two words>" --reason "<the one line from the table>" [--migration <timestamp>] [--unlisted] [--plugin-dir <plugin root>]`; `--unlisted` for a task the user chose with no roadmap item, so nothing later expects a claim or a roadmap row for it; `--plugin-dir` when the plugin is being run from a working tree rather than installed. It composes the session's launch line and puts it on the needs list (kind `launch`, `cd <worktree>` first), which is where the user reads it; a second `crew add` for the task replaces the line.
 
 Run `mc.py start --name <run name> --pr-approval <answer> [--collaboration <mode>]` **before** the first `crew add` (crew add needs a run); the collaboration flag only when the user corrected step 1's classification. The run's coordinator is this session, read from `CLAUDE_CODE_SESSION_ID`.
 
@@ -82,18 +84,14 @@ Run `mc.py start --name <run name> --pr-approval <answer> [--collaboration <mode
 
 ## Step 7: Hand over
 
-Print one line per session for the user to run in a fresh terminal:
+The launch lines are on the board, not in this chat: step 5's `crew add` put one per session on the needs list, numbered, each with `cd <worktree>` first. Tell the user, in two lines: open the board with `/mc`, and run each `launch` need **in a new terminal window**, one window per session, nothing else typed into it afterwards. Each need closes by itself when its session joins; `reconcile` names the number of any still open.
 
-```text
-cd <worktree> && claude --name "<task id lowercased> <two words>" "Start: you are crew <task id> in run <run name>. Read your brief at <brief path>, invoke /mission-control:crew and answer its five questions to the coordinator."
-```
+What the line carries, for when the user asks: `--model` and `--effort` from the plan (they beat the terminal's `ANTHROPIC_MODEL` and settings), `--name`, `--plugin-dir` when step 5 passed it, and the opening prompt. The prompt is what starts the session's first turn. Without it an interactive session sits idle at an empty prompt: the `SessionStart` hook only adds context, and the board would show the session as `briefing` with nothing happening (this is what the first board-visuals run did).
 
-The trailing prompt is what starts the session's first turn. Without it an interactive session sits idle at an empty prompt: the `SessionStart` hook only adds context, and the board would show the session as `briefing` with nothing happening (this is what the first board-visuals run did). Add `--plugin-dir <plugin root>` to each line when the plugin is being run from a working tree rather than installed.
-
-Then: nothing else is typed into the session. The `SessionStart` hook names the brief and the coordinator; the mod registers the session on the board when it starts inside its worktree; the brief tells it to answer the five questions. Open the board with `/mc` and invoke `/mission-control:coordinate` for the rest of the run.
+Then: nothing else is typed into the session. The `SessionStart` hook names the brief and the coordinator; the mod registers the session on the board when it starts inside its worktree; the brief tells it to answer the five questions. Invoke `/mission-control:coordinate` for the rest of the run.
 
 ## Red flags
 
-**Never:** start a run while one is active; state a convention you did not read or hear from the user; create a worktree for a branch checked out elsewhere; infer a roadmap assignee; run a gated command from here (the coordinator has no worktree and no slot); write a brief that asks a session to run a hosted read or write; skip the PR-approval question (it is the user's choice, and it changes what every crew session does at PR time).
+**Never:** start a run while one is active; state a convention you did not read or hear from the user; create a worktree for a branch checked out elsewhere; infer a roadmap assignee; run a gated command from here (the coordinator has no worktree and no slot); write a brief that asks a session to run a hosted read or write; skip the PR-approval question (it is the user's choice, and it changes what every crew session does at PR time); launch a crew on opus without a reason the brief's Model row carries; print a launch line in chat (the board has it with its directory and closes it when the session joins).
 
 <raw-arguments value="$ARGUMENTS" />
