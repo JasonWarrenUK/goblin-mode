@@ -31,7 +31,7 @@ TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" && git tag "$TAG" 
 
 Push the single tag, never `git push --tags`; that publishes every local tag you've ever made, strays included.
 
-Script exit codes: **3** = nothing to release (no version-bumping commits since the current tag): say so and stop, don't force a tag. **2** = environment error; report it.
+Script exit codes: **3** = nothing to release (no version-bumping commits since the current tag): say so and stop, don't force a tag. **4** = omitted by policy: the repository's `.claude/versioning.json` lists this target in `omit-gh-tag`, so it is never tagged; say so and stop (`project-versioning_policy` shows and changes the policy). **2** = environment error; report it.
 
 ## Mid-branch: report, never tag
 
