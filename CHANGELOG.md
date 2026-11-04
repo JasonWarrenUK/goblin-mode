@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.4.0] - 2026-11-04
+
+### Added
+
+- `mission-control` plugin 0.7.0: kick-off chooses the model and effort each crew session launches on, with a one-line reason the brief carries (Sonnet at medium unless the reason earns Opus at high), and puts each launch line on the board's needs list instead of printing it in chat. The line sets `--model` and `--effort` outright, which is what stops a terminal's `ANTHROPIC_MODEL=opusplan` quietly running every crew on Sonnet, and it closes itself when the session joins. The crew skill inherits the model rather than pinning its own.
+
+### Changed
+
+- `mission-control`'s board reads top to bottom in the order the user acts on it: the live crew, then `Needs Jason` (drawn only while something is open, each need's command line above its reason), then `Running`, `Slots`, `Requests` and an `Archive` of retired and gone sessions that appears only once there is one. The directory in every `cd` the board prints is shell-quoted, so a checkout under a path with a space pastes whole.
+
 ## [7.3.0] - 2026-11-04
 
 ### Added
