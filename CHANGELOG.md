@@ -5,6 +5,12 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.3.0] - 2026-11-04
+
+### Added
+
+- A per-repository versioning policy. `.claude/versioning.json` names the targets (the root, or a plugin) that skip a GitHub tag, a release or a changelog; a target with no tag gets no release either. `pr-land`, `doc-changelog` and `project-tag_version` read it at `origin/main` before tagging, releasing or writing a section, so a landing follows what main committed whichever branch the shell stands on; `safe-version-next.sh` exits 4 for a target the policy keeps untagged. The new `project-versioning_policy` skill shows and changes the file, and a local twin in the repository's git directory lets one machine override it without committing anything. This repository's root keeps its `v*` tags and its changelog and no longer gets GitHub releases, since nothing installable is attached to the root; its 32 root releases were deleted and the plugin series keep theirs.
+
 ## [7.2.0] - 2026-11-04
 
 ### Added
@@ -437,7 +443,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.2.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.3.0...HEAD
+[7.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.2.0...v7.3.0
 [7.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.1.0...v7.2.0
 [7.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.0.0...v7.1.0
 [7.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.17.0...v7.0.0
