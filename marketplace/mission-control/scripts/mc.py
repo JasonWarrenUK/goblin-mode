@@ -1261,7 +1261,7 @@ def print_status(status: dict) -> None:
         print()
     print(f"# Run {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · coordinator {coord.get('name') or coord.get('session_id', '?')} · PR approval: {run.get('pr_approval', 'user')}")
     print()
-    # the same order as the board: what the user has to type (only while something is open), the live crew, what runs on, the machine, then the sessions that are over
+    # the window the user must visit first, then the board's order: what the user has to type (only while something is open), the live crew, what runs on, the machine, then the sessions that are over
     def pr_cell(s: dict) -> str:
         return f"{s.get('pr') or ''}{' ' + s['pr_state'].lower() if s.get('pr_state') and s['pr_state'] != 'OPEN' else ''}"
 
@@ -1269,6 +1269,16 @@ def print_status(status: dict) -> None:
     gone_rows = [s for s in status["sessions"] if not s.get("live")]
     open_needs = [n for n in status["needs"] if n.get("status") != "started"]
     running = [n for n in status["needs"] if n.get("status") == "started"]
+    waiting = [s for s in live_rows if s.get("live_status") == "waiting"]
+    if waiting:
+        # the registry marks a session `waiting` while it sits on a permission prompt or a question in its own
+        # window; nothing it reported shows that, and only the user can move it, so it comes before the needs
+        print("## Waiting on you")
+        print()
+        for s in waiting:
+            since = f" since {clock(s['live_since'])}" if s.get("live_since") else ""
+            print(f"- {s.get('task') or s.get('name') or s['session_id'][:8]} ({s.get('name') or s['session_id'][:8]}) sits on a permission prompt or a question in its own window{since}; answer it there")
+        print()
     if open_needs:
         # the line to type first, the why beneath it; a need with no line shows its why on the row
         print("## Needs Jason")
@@ -1288,16 +1298,6 @@ def print_status(status: dict) -> None:
     for s in live_rows:
         state = f"{s.get('state', '')}{' · waiting on you' if s.get('live_status') == 'waiting' else ''}"
         print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {state} | {s.get('summary', '')} | {pr_cell(s)} |")
-    waiting = [s for s in live_rows if s.get("live_status") == "waiting"]
-    if waiting:
-        # the registry marks a session `waiting` while it sits on a permission prompt or a question in its own
-        # window; nothing it reported shows that, and only the user can move it, so it comes before the needs
-        print()
-        print("## Waiting on you")
-        print()
-        for s in waiting:
-            since = f" since {clock(s['live_since'])}" if s.get("live_since") else ""
-            print(f"- {s.get('task') or s.get('name') or s['session_id'][:8]} ({s.get('name') or s['session_id'][:8]}) sits on a permission prompt or a question in its own window{since}; answer it there")
     if running:
         # started by the user and still going: nothing to type, the result is what closes it
         print()

@@ -1362,12 +1362,17 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
         text = self.box.mc("status", session="coord-1").stdout
         self.assertNotIn("Waiting on you", text)
+        self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1", cwd=self.box.worktree)
         row = json.loads((self.box.sessions / "crew-1.json").read_text())
         (self.box.sessions / "crew-1.json").write_text(json.dumps({**row, "status": "waiting", "statusUpdatedAt": 1793826386060}))
         text = self.box.mc("status", session="coord-1").stdout
         self.assertIn("| 10se2 | 10SE.2 | feat/a | briefing · waiting on you |", text)
         self.assertIn("## Waiting on you", text)
         self.assertIn("- 10SE.2 (10se2) sits on a permission prompt or a question in its own window since ", text)
+        # the window the user must visit is the first section: ahead of the needs, the crew table and the slots
+        self.assertIn("## Needs Jason", text)
+        self.assertLess(text.index("## Waiting on you"), text.index("## Needs Jason"))
+        self.assertLess(text.index("## Waiting on you"), text.index("| Session |"))
         self.assertLess(text.index("## Waiting on you"), text.index("| Slot |"))
         status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
         self.assertEqual((status["sessions"][0]["live_status"], status["sessions"][0]["live_since"]), ("waiting", 1793826386.06))
