@@ -64,6 +64,27 @@ class SafeVersionNext(unittest.TestCase):
 		self.assertEqual(result.returncode, 0, result.stderr)
 		self.assertEqual(result.stdout.strip(), "v0.0.1")
 
+	def test_a_target_in_omit_gh_tag_exits_4_before_any_version_is_computed(self) -> None:
+		_commit(self.repo, "a", "fix: thing")
+		_commit(self.repo, "pkg/f", "feat(pkg): init")
+		(self.repo / ".claude").mkdir()
+		(self.repo / ".claude" / "versioning.json").write_text('{\n\t"omit-gh-tag": ["root"],\n\t"omit-release": [],\n\t"omit-changelog": []\n}\n')
+		result = _run(self.repo)
+		self.assertEqual(result.returncode, 4, result.stderr)
+		self.assertEqual(result.stdout, "", "no tag is printed for an omitted target")
+		self.assertIn("omitted by policy: root is in omit-gh-tag", result.stderr)
+		plugin = _run(self.repo, "--plugin", "pkg", "--dir", "pkg")
+		self.assertEqual(plugin.returncode, 0, "the plugin series is unaffected by the root's omission")
+		self.assertEqual(plugin.stdout.strip(), "pkg-v0.1.0")
+		(self.repo / ".claude" / "versioning.json").write_text('{\n\t"omit-gh-tag": [],\n\t"omit-release": ["root"],\n\t"omit-changelog": []\n}\n')
+		self.assertEqual(_run(self.repo).returncode, 0, "a release omission alone still tags")
+		# a broken policy file fails open, and says so: the reader's refusal reaches stderr beside the tag
+		(self.repo / ".claude" / "versioning.json").write_text('{"omit-release": "root"}')
+		broken = _run(self.repo)
+		self.assertEqual(broken.returncode, 0, broken.stderr)
+		self.assertTrue(broken.stdout.startswith("v"), "a tag is still printed")
+		self.assertIn("omit-release must be a list of target names", broken.stderr)
+
 	def test_plugin_bootstrap_with_no_tag_and_no_built_manifest_starts_at_0_1_0(self) -> None:
 		_commit(self.repo, "pkg/f", "feat(pkg): init")
 		result = _run(self.repo, "--plugin", "pkg", "--dir", "pkg")

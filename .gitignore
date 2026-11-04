@@ -50,6 +50,12 @@ library/scripts/**/bun.lock
 !/.claude-plugin/
 marketplace/*/.claude-plugin/types/
 
+# The repository's versioning policy is tracked; everything else under .claude/
+# (mission-control's project config, worktrees) stays local
+!/.claude/
+/.claude/*
+!/.claude/versioning.json
+
 # === EXCLUDE INSIDE INCLUDED DIRS ===
 .DS_Store
 __pycache__/
