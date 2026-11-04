@@ -664,8 +664,11 @@ class LedgerFlow(unittest.TestCase):
     def test_reconcile_names_a_playwright_browser_a_slotless_session_left_open(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 214, state="working")
-        # the sandbox registers every session under the test's own pid; the crew gets its parent's, which is alive too, so the chain has one owner
-        crew_pid = os.getppid()
+        # the sandbox registers every session under the test's own pid; the crew gets a child the test owns, so the chain has one
+        # owner and the registry's kill(pid, 0) probe cannot be refused (a detached runner's parent is launchd, which refuses it)
+        crew = subprocess.Popen(["sleep", "300"])
+        self.addCleanup(crew.kill)
+        crew_pid = crew.pid
         row = json.loads((self.box.sessions / "crew-1.json").read_text())
         (self.box.sessions / "crew-1.json").write_text(json.dumps({**row, "pid": crew_pid}))
         table = "\n".join([
