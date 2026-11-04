@@ -1391,6 +1391,18 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual((len(plan), plan[0]["migration"]), (1, "20261104120000"))
         added = json.loads(self.box.mc("--json", "crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1").stdout)
         self.assertIsNone(added["launch_need"])
+        log = next(self.box.ledger_root.glob("*/log.jsonl")).read_text()
+        self.assertIn('"by": "join"', log, "the join closed the first line")
+
+    def test_re_adding_a_task_without_its_worktree_closes_the_stale_launch_line(self):
+        # by hand only (kick-off always passes the worktree), but the board and the plan must not disagree
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"], [])
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual((run["needs"][0]["status"], run["needs"][0]["note"]), ("done", "plan edited with no worktree; no line to type"))
+        self.assertIn('"by": "crew-add"', next(self.box.ledger_root.glob("*/log.jsonl")).read_text())
 
     def test_every_value_on_the_launch_line_is_quoted(self):
         self.box.start()

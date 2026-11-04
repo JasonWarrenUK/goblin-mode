@@ -1986,7 +1986,10 @@ def crew_locked(args, ledger: Ledger) -> int:
     if worktree and running is None:
         launch = raise_launch_need(ledger, run, entry, args.reason, args.plugin_dir)
     elif running is not None:
-        close_launch_needs_in(ledger, run, args.task, f"session {running['session_id'][:8]} is live; plan edited", running["session_id"])
+        close_launch_needs_in(ledger, run, args.task, f"session {running['session_id'][:8]} is live; plan edited", "crew-add", running["session_id"])
+    else:
+        # the plan dropped the worktree: the line on the board named a directory the plan no longer does
+        close_launch_needs_in(ledger, run, args.task, "plan edited with no worktree; no line to type", "crew-add", "")
     ledger.save_run(run)
     ledger.log("crew", **entry)
     if args.json:
@@ -2027,15 +2030,15 @@ def raise_launch_need(ledger: Ledger, run: dict, entry: dict, reason: str | None
     return need
 
 
-def close_launch_needs_in(ledger: Ledger, run: dict, task: str, note: str, session_id: str) -> bool:
-    """Close every open launch need for a task on the run given, with the note saying why; the caller saves the run."""
+def close_launch_needs_in(ledger: Ledger, run: dict, task: str, note: str, by: str, session_id: str) -> bool:
+    """Close every open launch need for a task on the run given, with the note saying why and `by` naming what closed it (join, crew-add); the caller saves the run."""
     closed = False
     for need in run.get("needs", []):
         if need.get("kind") == "launch" and need.get("task") == task and need.get("status") != "done":
             need["status"] = "done"
             need["done_at"] = now()
             need["note"] = note
-            ledger.log("need-done", id=need["id"], n=need["n"], by="join", session_id=session_id)
+            ledger.log("need-done", id=need["id"], n=need["n"], by=by, session_id=session_id)
             closed = True
     return closed
 
@@ -2045,7 +2048,7 @@ def close_launch_need(ledger: Ledger, task: str, session_id: str) -> bool:
     run = ledger.run()
     if not run or not task:
         return False
-    closed = close_launch_needs_in(ledger, run, task, f"joined as session {session_id[:8]}", session_id)
+    closed = close_launch_needs_in(ledger, run, task, f"joined as session {session_id[:8]}", "join", session_id)
     if closed:
         ledger.save_run(run)
     return closed
