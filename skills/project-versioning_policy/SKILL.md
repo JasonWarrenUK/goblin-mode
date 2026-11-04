@@ -33,10 +33,10 @@ Parse `show | omit <tag|release|changelog> <target> [local] | allow <tag|release
 
 | Form | Does |
 |---|---|
-| `show`, or nothing | prints the merged policy: the tracked file plus the gitignored `.claude/versioning.local.json` |
+| `show`, or nothing | prints the merged policy: the tracked file plus the local twin |
 | `omit <kind> <target>` | adds the target to that kind's list |
 | `allow <kind> <target>` | removes it |
-| a trailing `local` | writes the `.local` twin instead of the tracked file, for a policy that is one machine's and not the repository's |
+| a trailing `local` | writes the local twin instead of the tracked file, for a policy that is one machine's and not the repository's. The twin is `versioning.local.json` inside the repository's git directory (`.git/versioning.local.json` for a plain checkout), so every worktree shares it and nothing can commit it |
 
 `<kind>` is `tag`, `release` or `changelog`. Any other first word is an error, never a guess.
 

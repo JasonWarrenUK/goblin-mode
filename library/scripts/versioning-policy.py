@@ -2,7 +2,8 @@
 """versioning-policy.py: which targets of this repository skip a tag, a release or a changelog.
 
 The policy lives in `.claude/versioning.json` at the repository root, with an
-optional gitignored `.claude/versioning.local.json` beside it whose lists are
+optional local twin, `versioning.local.json` inside the repository's git
+directory (`.git/versioning.local.json` for a plain checkout), whose lists are
 unioned in. Three lists, each naming targets (`root`, or a plugin name from
 `.claude-plugin/marketplace.json`):
 
@@ -19,9 +20,9 @@ changelog with no tag, or its tag with no changelog.
 Where each file is read from. The tracked file comes from the checkout the
 script runs in (a landing worktree on origin/main reads main's copy, which is
 what should govern a landing), or from a ref with `--ref`, for a caller whose
-checkout may sit on any branch. The gitignored twin exists only in the main
-checkout, so it is always read from there and written there, whichever linked
-worktree the script runs in.
+checkout may sit on any branch. The twin lives in the common git directory,
+which every linked worktree of the repository shares and which git never
+commits, so a landing worktree sees it without a gitignore line anywhere.
 
 usage:
 	versioning-policy.py show [--json] [--ref REF]
@@ -47,7 +48,7 @@ KINDS = ("tag", "release", "changelog")
 KEYS = {"tag": "omit-gh-tag", "release": "omit-release", "changelog": "omit-changelog"}
 ORDER = ("omit-gh-tag", "omit-release", "omit-changelog")
 POLICY = ".claude/versioning.json"
-TWIN = ".claude/versioning.local.json"
+TWIN = "versioning.local.json"
 MANIFEST = ".claude-plugin/marketplace.json"
 
 
@@ -62,22 +63,17 @@ def toplevel() -> Path:
 	return Path(done.stdout.strip())
 
 
-def main_checkout(top: Path) -> Path:
-	"""The directory holding the gitignored twin: the main checkout, shared by every linked worktree.
+def twin_path(top: Path) -> Path:
+	"""The local twin: in the common git directory, which every linked worktree shares.
 
-	The parent of the common git dir is the main checkout for a plain repository and its linked
-	worktrees. A submodule or a --separate-git-dir repository keeps its common dir elsewhere and
-	records the work tree in core.worktree, relative to that dir. A bare repository has no main
-	checkout, and git before 2.31 has no --path-format; both fall back to the checkout given.
+	A plain checkout keeps it at <checkout>/.git/versioning.local.json; a linked worktree, a
+	submodule and a --separate-git-dir repository all resolve to the same common dir, so one
+	twin governs every worktree of the repository. git before 2.31 lacks --path-format and
+	falls back to the checkout's own .git.
 	"""
 	done = git("rev-parse", "--path-format=absolute", "--git-common-dir")
-	if done.returncode != 0:
-		return top
-	common = Path(done.stdout.strip())
-	configured = git("--git-dir", str(common), "config", "--get", "core.worktree")
-	if configured.returncode == 0 and configured.stdout.strip():
-		return (common / configured.stdout.strip()).resolve()
-	return common.parent if common.name == ".git" else top
+	common = Path(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip() else top / ".git"
+	return common / TWIN
 
 
 def fail(message: str) -> int:
@@ -120,7 +116,7 @@ def read(path: Path) -> dict[str, list[str]]:
 
 def merged(root: Path, ref: str | None = None) -> dict[str, list[str]]:
 	tracked = parse(blob(ref, POLICY), f"{ref}:{POLICY}") if ref else read(root / POLICY)
-	local = read(main_checkout(root) / TWIN)
+	local = read(twin_path(root))
 	return {key: sorted(set(tracked[key]) | set(local[key])) for key in ORDER}
 
 
@@ -157,7 +153,7 @@ def cmd_show(args: argparse.Namespace) -> int:
 	source = f"{args.ref}:{POLICY}" if args.ref else str(root / POLICY)
 	present = blob(args.ref, POLICY) is not None if args.ref else (root / POLICY).is_file()
 	print(f"policy: {source if present else 'none (every target is tagged, released and given a changelog)'}")
-	twin = main_checkout(root) / TWIN
+	twin = twin_path(root)
 	if twin.is_file():
 		print(f"local twin: {twin}")
 	for key in ORDER:
@@ -180,8 +176,8 @@ def cmd_set(args: argparse.Namespace) -> int:
 	known = targets(root)
 	if known is not None and args.target not in known:
 		return fail(f"unknown target {args.target}; the targets are {', '.join(known)}")
-	# the twin lives in the main checkout whichever worktree this runs from; a copy inside a linked worktree would die with it
-	path = main_checkout(root) / TWIN if args.local else root / POLICY
+	# the twin sits in the common git dir whichever worktree this runs from; a copy inside a linked worktree would die with it
+	path = twin_path(root) if args.local else root / POLICY
 	policy = read(path)
 	key = KEYS[args.kind]
 	before = set(policy[key])
@@ -200,7 +196,7 @@ def cmd_set(args: argparse.Namespace) -> int:
 		if args.kind == "release" and args.target in still["omit-gh-tag"]:
 			print(f"note: {args.target} is still in omit-gh-tag, which omits its release too; allow tag as well to release it")
 		if args.target in still[key]:
-			other = Path(POLICY).name if args.local else Path(TWIN).name
+			other = Path(POLICY).name if args.local else TWIN
 			print(f"note: {args.target} is still in {key} in {other}; allow it there as well")
 	return 0
 
@@ -215,13 +211,13 @@ def build_parser() -> argparse.ArgumentParser:
 	check = sub.add_parser("check", help="exit 0 when the target is omitted from the kind, 1 when it is not")
 	check.add_argument("kind", choices=KINDS)
 	check.add_argument("target")
-	check.add_argument("--ref", help="read the tracked file and the marketplace manifest at this ref instead of the checkout; the local twin is read from the main checkout as always")
+	check.add_argument("--ref", help="read the tracked file and the marketplace manifest at this ref instead of the checkout; the local twin is read from the git directory as always")
 	check.set_defaults(run=cmd_check)
 	setter = sub.add_parser("set", help="omit or allow a target for a kind")
 	setter.add_argument("verb", choices=("omit", "allow"))
 	setter.add_argument("kind", choices=KINDS)
 	setter.add_argument("target")
-	setter.add_argument("--local", action="store_true", help="write the gitignored .local twin in the main checkout instead of the tracked file")
+	setter.add_argument("--local", action="store_true", help="write the local twin in the git directory (never committed, shared by every worktree) instead of the tracked file")
 	setter.set_defaults(run=cmd_set)
 	return parser
 

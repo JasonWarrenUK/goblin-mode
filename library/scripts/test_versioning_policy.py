@@ -48,19 +48,37 @@ class VersioningPolicy(unittest.TestCase):
 		return linked
 
 	def test_the_local_twin_is_shared_with_linked_worktrees(self) -> None:
-		# pr-land tags from a detached landing worktree; the gitignored twin exists only in the main checkout
+		# pr-land tags from a detached landing worktree; the twin lives in the git directory every worktree shares
 		linked = self._linked_worktree()
 		_run(self.repo, "set", "omit", "tag", "root", "--local")
-		self.assertFalse((linked / ".claude" / "versioning.local.json").exists(), "the twin is gitignored, so a worktree has no copy of its own")
-		self.assertEqual(_run(linked, "check", "tag", "root").returncode, 0, "a landing worktree sees the main checkout's local omission")
+		self.assertTrue((self.repo / ".git" / "versioning.local.json").is_file(), "the twin sits in the common git dir, which nothing can commit")
+		self.assertFalse((self.repo / ".claude" / "versioning.local.json").exists())
+		self.assertEqual(_run(linked, "check", "tag", "root").returncode, 0, "a landing worktree sees the local omission")
 
-	def test_set_local_from_a_linked_worktree_writes_to_the_main_checkout(self) -> None:
+	def test_set_local_from_a_linked_worktree_writes_to_the_shared_git_dir(self) -> None:
 		linked = self._linked_worktree()
 		out = _run(linked, "set", "omit", "tag", "root", "--local")
 		self.assertEqual(out.returncode, 0, out.stderr)
-		self.assertTrue((self.repo / ".claude" / "versioning.local.json").is_file())
-		self.assertFalse((linked / ".claude" / "versioning.local.json").exists(), "a file in the worktree would die with it")
+		self.assertTrue((self.repo / ".git" / "versioning.local.json").is_file())
+		self.assertFalse((linked / ".claude").exists(), "a file in the worktree would die with it")
 		self.assertEqual(_run(self.repo, "check", "tag", "root").returncode, 0)
+
+	def test_a_separate_git_dir_repository_shares_the_twin_with_its_worktrees(self) -> None:
+		# git sets no core.worktree for --separate-git-dir and a linked worktree has no pointer back to the checkout, so only the git dir itself is a home every layout can find
+		gitdir = self.repo / "gitdir"
+		sep = self.repo / "sep"
+		subprocess.run(["git", "init", "-q", "--separate-git-dir", str(gitdir), str(sep)], check=True, capture_output=True)
+		(sep / ".claude").mkdir()
+		(sep / ".claude" / "versioning.json").write_text('{\n\t"omit-gh-tag": [],\n\t"omit-release": [],\n\t"omit-changelog": []\n}\n')
+		subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A"], cwd=sep, check=True, capture_output=True)
+		subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"], cwd=sep, check=True, capture_output=True)
+		linked = self.repo / "sep-linked"
+		subprocess.run(["git", "worktree", "add", "-q", "--detach", str(linked), "HEAD"], cwd=sep, check=True, capture_output=True)
+		_run(sep, "set", "omit", "tag", "root", "--local")
+		self.assertTrue((gitdir / "versioning.local.json").is_file())
+		self.assertEqual(_run(linked, "check", "tag", "root").returncode, 0)
+		_run(linked, "set", "omit", "changelog", "root", "--local")
+		self.assertEqual(_run(sep, "check", "changelog", "root").returncode, 0, "a write from the worktree lands in the one shared twin")
 
 	def test_the_tracked_file_is_read_from_the_worktree_that_runs_the_check(self) -> None:
 		linked = self._linked_worktree()
@@ -165,7 +183,7 @@ class VersioningPolicy(unittest.TestCase):
 		_run(self.repo, "set", "omit", "release", "root")
 		out = _run(self.repo, "set", "omit", "changelog", "mission-control", "--local")
 		self.assertEqual(out.returncode, 0, out.stderr)
-		self.assertTrue((self.repo / ".claude" / "versioning.local.json").is_file())
+		self.assertTrue((self.repo / ".git" / "versioning.local.json").is_file())
 		self.assertEqual(self.policy()["omit-changelog"], [], "the tracked file is untouched by a local write")
 		self.assertEqual(json.loads(_run(self.repo, "show", "--json").stdout), {"omit-gh-tag": [], "omit-release": ["root"], "omit-changelog": ["mission-control"]})
 		self.assertEqual(_run(self.repo, "check", "changelog", "mission-control").returncode, 0)

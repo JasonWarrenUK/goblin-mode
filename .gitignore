@@ -51,7 +51,7 @@ library/scripts/**/bun.lock
 marketplace/*/.claude-plugin/types/
 
 # The repository's versioning policy is tracked; everything else under .claude/
-# (mission-control's project config, the .local twin, worktrees) stays local
+# (mission-control's project config, worktrees) stays local
 !/.claude/
 /.claude/*
 !/.claude/versioning.json
