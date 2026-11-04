@@ -104,11 +104,18 @@ class GateMatching(unittest.TestCase):
             "  600   700    01:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
             "  800   801 02:00:00 node /x/.bin/playwright-mcp",
             "  802   800 01:59:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/Users/j/Library/Caches/ms-playwright/mcp-chrome-9f0e11d --remote-debugging-pipe",
+            "  900   999 00:10:00 npm exec @playwright/mcp@latest --browser firefox",
+            "  901   900 00:09:58 node /Users/j/.npm/_npx/x/node_modules/.bin/playwright-mcp --browser firefox",
+            "  902   901 00:02:30 /Users/j/Library/Caches/ms-playwright/firefox-1500/firefox/Nightly.app/Contents/MacOS/firefox -no-remote -wait-for-browser -foreground -profile /Users/j/Library/Caches/ms-playwright/mcp-firefox-2ae1b0c -juggler-pipe about:blank",
         ])
         procs = self.mc.parse_process_table(table)
-        self.assertEqual(len(procs), 9)
+        self.assertEqual(len(procs), 12)
         live = {"crew-3": {"pid": 100}, "coord-1": {"pid": 999}}
-        self.assertEqual(self.mc.open_browsers(procs, live), [{"session_id": "crew-3", "pid": 400, "etime": "05:55", "browser": "Google Chrome"}])
+        # Chromium's flags are double-dash and Firefox's single-dash; both carry the profile path, and neither may name the browser
+        self.assertEqual(self.mc.open_browsers(procs, live), [
+            {"session_id": "crew-3", "pid": 400, "etime": "05:55", "browser": "Google Chrome"},
+            {"session_id": "coord-1", "pid": 902, "etime": "00:02:30", "browser": "firefox"},
+        ])
         self.assertEqual(self.mc.parse_process_table("garbage\n"), [])
 
     def test_reset_through_poetry_is_gated_as_local_db(self):
