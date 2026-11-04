@@ -103,6 +103,18 @@ class VersioningPolicy(unittest.TestCase):
 		self.assertEqual(_run(self.repo, "check", "release", "roadmap").returncode, 2, "unknown in this checkout")
 		self.assertEqual(_run(self.repo, "check", "release", "roadmap", "--ref", "main").returncode, 1, "known at the ref")
 
+	def test_allow_notes_an_omission_the_other_file_still_holds(self) -> None:
+		_run(self.repo, "set", "omit", "tag", "root")
+		_run(self.repo, "set", "omit", "release", "root", "--local")
+		out = _run(self.repo, "set", "allow", "release", "root", "--local")
+		self.assertIn("still in omit-gh-tag", out.stdout, "the tag omission sits in the other file")
+		self.assertEqual(_run(self.repo, "check", "release", "root").returncode, 0)
+		_run(self.repo, "set", "omit", "changelog", "root")
+		_run(self.repo, "set", "omit", "changelog", "root", "--local")
+		out = _run(self.repo, "set", "allow", "changelog", "root", "--local")
+		self.assertIn("still in omit-changelog in versioning.json", out.stdout)
+		self.assertEqual(_run(self.repo, "check", "changelog", "root").returncode, 0)
+
 	def test_no_policy_file_omits_nothing(self) -> None:
 		for kind in ("tag", "release", "changelog"):
 			self.assertEqual(_run(self.repo, "check", kind, "root").returncode, 1, kind)

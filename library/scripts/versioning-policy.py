@@ -194,8 +194,14 @@ def cmd_set(args: argparse.Namespace) -> int:
 	print(f"{args.target} {'added to' if args.verb == 'omit' else 'removed from'} {key} in {path}")
 	if args.verb == "omit" and args.kind == "tag":
 		print(f"{args.target} gets no release either: a release needs a tag")
-	if args.verb == "allow" and args.kind == "release" and args.target in read(path)["omit-gh-tag"]:
-		print(f"note: {args.target} is still in omit-gh-tag, which omits its release too; allow tag as well to release it")
+	if args.verb == "allow":
+		# the merged policy is what the readers see: an omission the other file still holds, or the tag omission that covers a release, keeps the target omitted
+		still = merged(root)
+		if args.kind == "release" and args.target in still["omit-gh-tag"]:
+			print(f"note: {args.target} is still in omit-gh-tag, which omits its release too; allow tag as well to release it")
+		if args.target in still[key]:
+			other = Path(POLICY).name if args.local else Path(TWIN).name
+			print(f"note: {args.target} is still in {key} in {other}; allow it there as well")
 	return 0
 
 
