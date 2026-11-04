@@ -10,7 +10,7 @@ Roles: **the user** starts sessions, types what only a person may type and decid
 2. One task, one branch, one worktree, created by the coordinator before any crew session starts. Migration timestamps, when the project has migrations, are assigned here, one per task, in merge order.
 3. Conventions are read from the files the project config lists and distilled into the shared guidance. A convention that is not written anywhere is **asked of the user**, never asserted. (The changelog rule cost three sessions a revert because the coordinator stated it from memory.)
 4. Each crew session gets a brief (`templates/brief.md`): what the task ships, the files it owns, the shared surfaces it must not touch alone, the resources it will need, the criteria it must meet and the five questions to answer back. The session reads it at its first turn; the `SessionStart` hook names the file.
-5. The user starts each session from its launch line, read off the board: `crew add` put it on the needs list (kind `launch`) with `cd <worktree>` first, the model and effort kick-off chose for the task (`--model`, `--effort`, which beat the terminal's environment) and the opening prompt. One new terminal window per session; the need closes when the session joins. Nothing else is typed into it.
+5. The user starts each session from its launch line, read off the board: `crew add` put it on the needs list (kind `launch`) with `cd <worktree>` first, the model and effort kick-off chose for the task (`--model` beats `ANTHROPIC_MODEL`; `--effort` beats the settings but not `CLAUDE_CODE_EFFORT_LEVEL`) and the opening prompt. One new terminal window per session; the need closes when the session joins. Nothing else is typed into it.
 
 ## 2. The five-question brief
 
