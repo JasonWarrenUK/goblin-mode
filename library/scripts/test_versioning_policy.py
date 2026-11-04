@@ -39,8 +39,7 @@ class VersioningPolicy(unittest.TestCase):
 		subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=self.repo, check=True, capture_output=True)
 
 	def _linked_worktree(self) -> Path:
-		"""Commit the ignore rule, then add a detached linked worktree, as pr-land's landing worktree is."""
-		(self.repo / ".gitignore").write_text(".claude/versioning.local.json\n")
+		"""Commit a base, then add a detached linked worktree, as pr-land's landing worktree is."""
 		self._git("add", "-A")
 		self._git("commit", "-qm", "init")
 		linked = self.repo / "linked"
@@ -105,6 +104,11 @@ class VersioningPolicy(unittest.TestCase):
 		out = _run(self.repo, "check", "release", "anything")
 		self.assertEqual(out.returncode, 2, "a manifest with no plugins names root alone, so any other name is refused, not crashed on")
 		self.assertIn("the targets are root", out.stderr)
+		for corrupt in ('{"plugins": 5}', '{"plugins": "mission-control"}'):
+			(self.repo / ".claude-plugin" / "marketplace.json").write_text(corrupt)
+			out = _run(self.repo, "check", "release", "anything")
+			self.assertEqual(out.returncode, 1, f"{corrupt}: a plugins value that is not a list reads as no manifest, so any name is accepted")
+			self.assertNotIn("Traceback", out.stderr)
 
 	def test_ref_still_unions_the_local_twin_from_the_working_tree(self) -> None:
 		self._git("add", "-A")

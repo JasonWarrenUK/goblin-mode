@@ -129,6 +129,9 @@ def targets(root: Path, ref: str | None = None) -> list[str] | None:
 		plugins = json.loads(text).get("plugins") or []
 	except (json.JSONDecodeError, AttributeError):
 		return None
+	if not isinstance(plugins, list):
+		# a hand-corrupted manifest reads as no manifest, the same as one that does not parse
+		return None
 	return ["root"] + sorted(str(p.get("name")) for p in plugins if isinstance(p, dict) and p.get("name"))
 
 
