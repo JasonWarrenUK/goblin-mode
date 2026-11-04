@@ -42,7 +42,7 @@ Parse `show | omit <tag|release|changelog> <target> [local] | allow <tag|release
 
 ## Steps
 
-1. `python3 ~/.claude/library/scripts/versioning-policy.py show` first, whatever the arguments, so the change is shown against what stands.
+1. `python3 ~/.claude/library/scripts/versioning-policy.py show` first, whatever the arguments, so the change is shown against what stands; when the checkout is not on main, `show --ref origin/main` beside it, since that is the policy the next landing reads.
 2. For `omit` or `allow`: say in one line what will change and what it means at the next landing (`omit release root`: the root keeps its `v*` tags and its changelog, and `pr-land` creates no GitHub release for it), then run `python3 ~/.claude/library/scripts/versioning-policy.py set <omit|allow> <kind> <target> [--local]`. The script prints what it wrote, or that nothing changed; relay it, and relay its note when a tag omission still covers a release the user just allowed.
 3. Show the file as it now stands (`git diff -- .claude/versioning.json` for the tracked file). The write is the user's to commit: a policy change is a `chore(versioning): ...` commit on its own, and it reaches `main` the way any change to this repository does.
 
