@@ -99,6 +99,13 @@ class VersioningPolicy(unittest.TestCase):
 		self.assertEqual(_run(self.repo, "check", "release", "root", "--ref", "main").returncode, 0)
 		self.assertEqual(json.loads(_run(self.repo, "show", "--json", "--ref", "main").stdout)["omit-release"], ["root"])
 
+	def test_a_null_plugins_list_in_the_manifest_reads_as_no_manifest(self) -> None:
+		(self.repo / ".claude-plugin" / "marketplace.json").write_text('{"plugins": null}')
+		self.assertEqual(_run(self.repo, "check", "release", "root").returncode, 1, "no traceback: root is still a target")
+		out = _run(self.repo, "check", "release", "anything")
+		self.assertEqual(out.returncode, 2, "a manifest with no plugins names root alone, so any other name is refused, not crashed on")
+		self.assertIn("the targets are root", out.stderr)
+
 	def test_ref_still_unions_the_local_twin_from_the_working_tree(self) -> None:
 		self._git("add", "-A")
 		self._git("commit", "-qm", "base")

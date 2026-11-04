@@ -126,7 +126,7 @@ def targets(root: Path, ref: str | None = None) -> list[str] | None:
 	if text is None:
 		return None
 	try:
-		plugins = json.loads(text).get("plugins", [])
+		plugins = json.loads(text).get("plugins") or []
 	except (json.JSONDecodeError, AttributeError):
 		return None
 	return ["root"] + sorted(str(p.get("name")) for p in plugins if isinstance(p, dict) and p.get("name"))
