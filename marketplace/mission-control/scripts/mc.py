@@ -1199,11 +1199,39 @@ def print_status(status: dict) -> None:
         print()
     print(f"# Run {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · coordinator {coord.get('name') or coord.get('session_id', '?')} · PR approval: {run.get('pr_approval', 'user')}")
     print()
+    # the same order as the board: the live crew, what the user has to type, what runs on, the machine, then the sessions that are over
+    def pr_cell(s: dict) -> str:
+        return f"{s.get('pr') or ''}{' ' + s['pr_state'].lower() if s.get('pr_state') and s['pr_state'] != 'OPEN' else ''}"
+
+    live_rows = [s for s in status["sessions"] if s.get("live")]
+    gone_rows = [s for s in status["sessions"] if not s.get("live")]
     print("| Session | Task | Branch | State | Summary | PR |")
     print("|---|---|---|---|---|---|")
-    for s in status["sessions"]:
-        live = "" if s.get("live") else " (gone)"
-        print(f"| {s.get('name') or s['session_id'][:8]}{live} | {s.get('task', '')} | {s.get('branch', '')} | {s.get('state', '')} | {s.get('summary', '')} | {s.get('pr') or ''}{' ' + s['pr_state'].lower() if s.get('pr_state') and s['pr_state'] != 'OPEN' else ''} |")
+    for s in live_rows:
+        print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {s.get('state', '')} | {s.get('summary', '')} | {pr_cell(s)} |")
+    open_needs = [n for n in status["needs"] if n.get("status") != "started"]
+    running = [n for n in status["needs"] if n.get("status") == "started"]
+    if open_needs:
+        # the line to type first, the why beneath it; a need with no line shows its why on the row
+        print()
+        print("## Needs Jason")
+        print()
+        for n in open_needs:
+            tag = f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}]"
+            if n.get("command"):
+                print(f"{tag} `{'cd ' + n['cwd'] + ' && ' if n.get('cwd') else ''}{n['command']}`")
+                print(f"   {n['why']}")
+            else:
+                where = f" (in {n['cwd']})" if n.get("cwd") else ""
+                print(f"{tag} {n['why']}{where}")
+    if running:
+        # started by the user and still going: nothing to type, the result is what closes it
+        print()
+        print("## Running")
+        print()
+        for n in running:
+            note = f" · {n['note']}" if n.get("note") else ""
+            print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']} (since {clock(n.get('started_at'))}{note})")
     print()
     print("| Slot | Holder | Since | Until | What |")
     print("|---|---|---|---|---|")
@@ -1216,25 +1244,16 @@ def print_status(status: dict) -> None:
         print("|---|---|---|---|")
         for req in status["requests"]:
             print(f"| {req['resource']} | {req.get('task') or req.get('name') or req['session_id'][:8]} | {req.get('minutes', '?')} | {req.get('what', '')} |")
-    open_needs = [n for n in status["needs"] if n.get("status") != "started"]
-    running = [n for n in status["needs"] if n.get("status") == "started"]
-    if open_needs:
+    if gone_rows:
+        # sessions that are over: retired once the worktree is reclaimed, else gone with the last state they reported
         print()
-        print("## Needs Jason")
+        print("## Archive")
         print()
-        for n in open_needs:
-            where = f" (in {n['cwd']})" if n.get("cwd") else ""
-            print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']}{where}")
-            if n.get("command"):
-                print(f"   `{n['command']}`")
-    if running:
-        # started by the user and still going: nothing to type, the result is what closes it
-        print()
-        print("## Running")
-        print()
-        for n in running:
-            note = f" · {n['note']}" if n.get("note") else ""
-            print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']} (since {clock(n.get('started_at'))}{note})")
+        print("| Session | Task | Branch | Last state | PR |")
+        print("|---|---|---|---|---|")
+        for s in gone_rows:
+            last = "retired" if s.get("retired") else f"gone ({s.get('state', '')})"
+            print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {last} | {pr_cell(s)} |")
     for probe in status.get("probes", []) or []:
         checks = "; ".join(f"{c['kind']}: {c.get('detail', '')}" for c in probe["checks"])
         print(f"probe {probe['resource']}: {'BUSY' if probe['busy'] else 'free'} ({checks})")

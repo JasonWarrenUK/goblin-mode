@@ -1308,6 +1308,28 @@ class LedgerFlow(unittest.TestCase):
         names = sorted(p.name for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json"))
         self.assertEqual(names, ["crew-1.json", "crew-8.json"])
 
+    def test_the_text_board_reads_in_the_boards_order_and_archives_sessions_that_are_over(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "approve the PR description in this session", session="crew-1", cwd=self.box.worktree)
+        text = self.box.mc("status", session="coord-1").stdout
+        # the line to type comes first, the why beneath it; a need with no line keeps its why on the row
+        line = f"1. [10SE.2] `cd {self.box.worktree.resolve()} && git push -u origin feat/a`\n   push the branch\n"
+        self.assertIn(line, text)
+        self.assertIn("2. [10SE.2] approve the PR description in this session (in ", text)
+        self.assertLess(text.index("| Session |"), text.index("## Needs Jason"))
+        self.assertLess(text.index("## Needs Jason"), text.index("| Slot |"))
+        self.assertNotIn("## Archive", text)
+        # the session goes: its row leaves the crew table for an Archive table at the end, with the state it last reported
+        (self.box.sessions / "crew-1.json").unlink()
+        text = self.box.mc("status", session="coord-1").stdout
+        self.assertNotIn("(gone)", text)
+        self.assertIn("## Archive", text)
+        self.assertIn("| 10se2 | 10SE.2 | feat/a | gone (briefing) |", text)
+        self.assertLess(text.index("| Slot |"), text.index("## Archive"))
+        self.assertNotIn("| 10se2 | 10SE.2 | feat/a | briefing |", text, "a gone session is not in the crew table")
+
     # the launch line: kick-off used to print it in chat; now crew add puts it on the needs list, and the join closes it
 
     def test_crew_add_puts_the_launch_line_on_the_needs_list_and_the_join_closes_it(self):
