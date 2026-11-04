@@ -98,12 +98,12 @@ class GateMatching(unittest.TestCase):
             "  100     1 03:01:52 claude --name 12rt3 overflow menu",
             "  200   100 03:01:50 npm exec @playwright/mcp@latest",
             "  300   200 03:01:48 node /Users/j/.npm/_npx/x/node_modules/.bin/playwright-mcp",
-            "  400   300    05:55 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --disable-field-trial-config --remote-debugging-pipe",
+            "  400   300    05:55 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --disable-field-trial-config --user-data-dir=/Users/j/Library/Caches/ms-playwright/mcp-chrome-2ae1b0c --remote-debugging-pipe",
             "  401   400    05:53 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Helpers/Google Chrome Helper (GPU).app/Contents/MacOS/Google Chrome Helper (GPU) --type=gpu-process",
             "  500     1 20-07:02:25 /Applications/Discord.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --no-rate-limit",
             "  600   700    01:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
             "  800   801 02:00:00 node /x/.bin/playwright-mcp",
-            "  802   800 01:59:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-pipe",
+            "  802   800 01:59:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/Users/j/Library/Caches/ms-playwright/mcp-chrome-9f0e11d --remote-debugging-pipe",
         ])
         procs = self.mc.parse_process_table(table)
         self.assertEqual(len(procs), 9)
@@ -665,7 +665,7 @@ class LedgerFlow(unittest.TestCase):
             f"{crew_pid} 1 03:01:52 claude --name 10se2",
             f"77001 {crew_pid} 03:01:50 npm exec @playwright/mcp@latest",
             "77002 77001 03:01:48 node /x/node_modules/.bin/playwright-mcp",
-            "77003 77002 02:41:09 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-pipe",
+            "77003 77002 02:41:09 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/Users/j/Library/Caches/ms-playwright/mcp-chrome-2ae1b0c --remote-debugging-pipe",
         ])
         gh = self._gh({"214": {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}})
 

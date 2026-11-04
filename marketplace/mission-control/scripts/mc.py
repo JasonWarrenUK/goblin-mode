@@ -813,7 +813,8 @@ def open_browsers(procs: list[dict], live: dict[str, dict]) -> list[dict]:
             seen.add(pid)
             pid = by_pid[pid]["ppid"]
         if pid in owners:
-            browser = proc["command"].split("/")[-1].split(" --")[0].strip()
+            # the arguments go first: Playwright passes `--user-data-dir=<path>`, so the last `/` of the whole line lands inside the profile
+            browser = proc["command"].split(" --")[0].split("/")[-1].strip()
             hits.append({"session_id": owners[pid], "pid": proc["pid"], "etime": proc["etime"], "browser": browser})
     return hits
 
