@@ -289,6 +289,20 @@ test('a gone session reads gone, dim, with its worktree name and the age of its 
 	await ui.unmount()
 })
 
+test('a session the registry marks waiting reads waiting on you, and the coordinator section names it first', async ($, on) => {
+	const waiting = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'in-slot', live_status: 'waiting' }] }
+	const snap = parseSnapshot(JSON.stringify(waiting), NOON)
+	expect(sectionText(snap, { sessionId: 'coord-1', isCoordinator: true, isCrew: false }) ?? '').toMatch(/only the user can answer: 10SE\.2; tell the user which window/)
+	expect(sectionText(parseSnapshot(JSON.stringify(STATUS), NOON), { sessionId: 'coord-1', isCoordinator: true, isCrew: false }) ?? '').not.toMatch(/only the user can answer/)
+	world(on, 'coord-1', waiting)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^in-slot$/ }))?.text).toBe('in-slot')
+	expect((await ui.find({ type: 'Text', text: /^waiting on you \(prompt\)$/ }))?.text).toBe('waiting on you (prompt)')
+	await ui.unmount()
+})
+
 const withPr = (prState: string | null) => ({ ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'pr-ready', pr: 209, pr_state: prState }] })
 
 test('helpers: prNumberOf and carryPrState', async () => {
@@ -605,8 +619,8 @@ test('the board groups the live crew under a subheading per state and the retire
 	expect((await ui.find({ type: 'Text', text: /^pr-ready · 1$/ }))?.text).toBe('pr-ready · 1')
 	expect((await ui.find({ type: 'Text', text: /^Archive · 1$/ }))?.text).toBe('Archive · 1')
 	expect((await ui.find({ type: 'Text', text: /^gone · 1$/ }))?.text).toBe('gone · 1')
-	// the sections in order: the live crew, what the user types, the machine, then the archive last
-	expect((await ui.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Crew', 'Needs Jason', 'Slots', 'Requests', 'Archive'])
+	// the sections in order: what the user types first, the live crew, the machine, then the archive last
+	expect((await ui.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Needs Jason', 'Crew', 'Slots', 'Requests', 'Archive'])
 	// the gone row itself (its worktree name is the one Text unique to it) is not drawn until c shows it
 	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
 	expect((await ui.find({ type: 'Text', text: /^c shows$/ }))?.text).toBe('c shows')
