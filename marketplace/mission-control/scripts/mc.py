@@ -2356,8 +2356,10 @@ def grant_locked(args, ledger: Ledger) -> int:
     target = resolve_session(args.to, sessions)
     holder = ledger.slots().get(args.resource)
     if holder and holder.get("holder") == target:
-        # a grant to the holder extends the slot: more minutes, nothing else moves, and only the holder is told
-        minutes = float(args.minutes or 15)
+        # a grant to the holder extends the slot: more minutes, nothing else moves, and only the holder is told;
+        # the minutes come from the flag, then from the holder's own request, the way a first grant reads them
+        request = read_json(ledger.request_path(args.resource, target), {}) or {}
+        minutes = float(args.minutes or request.get("minutes") or 15)
         holder["until"] = max(float(holder.get("until") or now()), now()) + 60 * minutes
         holder["extended_at"] = now()
         if args.note:

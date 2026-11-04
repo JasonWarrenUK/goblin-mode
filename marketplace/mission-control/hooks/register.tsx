@@ -1152,7 +1152,9 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 			const slot = snap.slots.find(s => s.resource === words[1])
 			if (!slot) return `${words[1]} is not held; /mc grant gives it`
 			const result = await byUserRan(['grant', words[1], '--to', slot.holder, ...(words[2] ? ['--minutes', words[2]] : [])])
-			if (result.ok) await send($, slot.holder, `Slot extended by the user: ${words[1]} is yours for another ${words[2] ?? '15'} minutes. Release with mc_slot (action release) when done.`)
+			// the CLI's line ends with the new deadline; with no minutes typed, the extension took the holder's own request, so the deadline is the fact and not 15
+			const until = /until (\S+)$/.exec(result.text)?.[1]
+			if (result.ok) await send($, slot.holder, `Slot extended by the user: ${words[1]} is yours ${until ? `until ${until}` : `for another ${words[2] ?? '15'} minutes`}. Release with mc_slot (action release) when done.`)
 			return result.text
 		}
 		case 'adopt':

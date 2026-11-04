@@ -1689,11 +1689,15 @@ class LedgerFlow(unittest.TestCase):
         self.assertGreater(after["until"], before + 19 * 60)
         self.assertEqual(after["holder"], "crew-1")
         self.assertIn('"event": "extend"', next(self.box.ledger_root.glob("*/log.jsonl")).read_text())
-        # the holder asks for more time the way the crew skill says, with a request; the extension answers it, so the request leaves the board
+        # the holder asks for more time the way the crew skill says, with a request; the extension answers it, so the request leaves the board,
+        # and a grant with no minutes of its own takes the request's rather than the default 15 (the request is gone by then)
         self.box.mc("request", "local-db", "--minutes", "20", "--what", "more time for the second reset", session="crew-1", cwd=self.box.worktree)
         self.assertEqual(len(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["requests"]), 1)
-        self.box.mc("grant", "local-db", "--to", "10SE.2", "--minutes", "20", session="coord-1")
-        self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["requests"], [], "16ID.1's request sat an hour after its extension and release in November 2026")
+        before = after["until"]
+        self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        self.assertEqual(status["requests"], [], "16ID.1's request sat an hour after its extension and release in November 2026")
+        self.assertGreater(status["slots"][0]["until"], before + 19 * 60)
         # a request still open at the release goes with the slot
         self.box.mc("request", "local-db", "--minutes", "5", "--what", "one more", session="crew-1", cwd=self.box.worktree)
         self.box.mc("release", "local-db", session="crew-1", cwd=self.box.worktree)
