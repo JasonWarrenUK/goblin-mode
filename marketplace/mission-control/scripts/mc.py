@@ -2361,6 +2361,9 @@ def grant_locked(args, ledger: Ledger) -> int:
         if args.note:
             holder["note"] = args.note.strip()[:240]
         write_json(ledger.slot_path(args.resource), holder)
+        # the holder asked for the time with mc_slot request; granted, the request is answered and leaves the board
+        # (one sat as "requested" for an hour after its release in November 2026 and read as a session queueing for a free slot)
+        ledger.request_path(args.resource, target).unlink(missing_ok=True)
         ledger.log("extend", resource=args.resource, holder=target, minutes=minutes, until=holder["until"], by=by)
         print(json.dumps({**holder, "extended": True}) if args.json else f"{args.resource} extended for {(sessions.get(target) or {}).get('task') or target[:8]} until {clock(holder['until'])}")
         return 0
@@ -2422,6 +2425,8 @@ def release_locked(args, ledger: Ledger) -> int:
     if slot.get("holder") != session_id:
         authorise(run, session_id, args.by_user, f"release {args.resource} held by another session")
     ledger.slot_path(args.resource).unlink(missing_ok=True)
+    # a request the holder still had open for this resource (more time asked and not yet granted) is moot once the slot goes
+    ledger.request_path(args.resource, slot["holder"]).unlink(missing_ok=True)
     row = ledger.sessions().get(slot["holder"])
     if row and row.get("state") == "in-slot" and not holds_a_slot(ledger, slot["holder"]):
         row["state"] = slot.get("prior_state") or "working"
