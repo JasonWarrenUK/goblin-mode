@@ -68,6 +68,41 @@ class VersioningPolicy(unittest.TestCase):
 		self.assertEqual(_run(self.repo, "check", "changelog", "root").returncode, 0)
 		self.assertEqual(_run(linked, "check", "changelog", "root").returncode, 1, "the worktree's checkout of the tracked file governs, not the main checkout's")
 
+	def test_ref_reads_the_policy_as_committed_not_the_working_tree(self) -> None:
+		# pr-land Step 6 stands in the main checkout, which may be on any branch; origin/main's policy is the one that governs a landing
+		self._git("add", "-A")
+		self._git("commit", "-qm", "base")
+		self._git("branch", "-M", "main")
+		_run(self.repo, "set", "omit", "release", "root")
+		self._git("add", "-A")
+		self._git("commit", "-qm", "policy")
+		self._git("checkout", "-q", "-b", "old", "HEAD~1")
+		self.assertEqual(_run(self.repo, "check", "release", "root").returncode, 1, "the old branch has no policy file")
+		self.assertEqual(_run(self.repo, "check", "release", "root", "--ref", "main").returncode, 0)
+		self.assertEqual(json.loads(_run(self.repo, "show", "--json", "--ref", "main").stdout)["omit-release"], ["root"])
+
+	def test_ref_still_unions_the_local_twin_from_the_working_tree(self) -> None:
+		self._git("add", "-A")
+		self._git("commit", "-qm", "base")
+		_run(self.repo, "set", "omit", "changelog", "root", "--local")
+		self.assertEqual(_run(self.repo, "check", "changelog", "root", "--ref", "HEAD").returncode, 0)
+
+	def test_ref_reads_the_manifest_at_the_ref_and_an_unknown_ref_is_an_error(self) -> None:
+		self._git("add", "-A")
+		self._git("commit", "-qm", "base")
+		self._git("branch", "-M", "main")
+		self.assertEqual(_run(self.repo, "check", "release", "root", "--ref", "HEAD").returncode, 1, "a ref without the file omits nothing")
+		out = _run(self.repo, "check", "release", "root", "--ref", "nope")
+		self.assertEqual(out.returncode, 2)
+		self.assertIn("unknown ref nope", out.stderr)
+		# a plugin added at the ref but absent from the checkout is a known target under --ref
+		(self.repo / ".claude-plugin" / "marketplace.json").write_text(json.dumps({"plugins": [{"name": "mission-control"}, {"name": "roadmap"}]}))
+		self._git("add", "-A")
+		self._git("commit", "-qm", "roadmap plugin")
+		self._git("checkout", "-q", "HEAD~1")
+		self.assertEqual(_run(self.repo, "check", "release", "roadmap").returncode, 2, "unknown in this checkout")
+		self.assertEqual(_run(self.repo, "check", "release", "roadmap", "--ref", "main").returncode, 1, "known at the ref")
+
 	def test_no_policy_file_omits_nothing(self) -> None:
 		for kind in ("tag", "release", "changelog"):
 			self.assertEqual(_run(self.repo, "check", kind, "root").returncode, 1, kind)
