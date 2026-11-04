@@ -1,0 +1,5 @@
+{
+	"omit-gh-tag": [],
+	"omit-release": ["root"],
+	"omit-changelog": []
+}
