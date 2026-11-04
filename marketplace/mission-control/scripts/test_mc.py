@@ -1319,6 +1319,9 @@ class LedgerFlow(unittest.TestCase):
         line = f"1. [10SE.2] `cd {self.box.worktree.resolve()} && git push -u origin feat/a`\n   push the branch\n"
         self.assertIn(line, text)
         self.assertIn("2. [10SE.2] approve the PR description in this session (in ", text)
+        # a checkout under a path with a space: the cd is quoted, so the pasted line reaches the command
+        self.box.mc("needs", "add", "--why", "start it", "--command", "claude --model opus", "--cwd-hint", "/Users/j/Documents/My App/.claude/worktrees/b", session="crew-1", cwd=self.box.worktree)
+        self.assertIn("3. [10SE.2] `cd '/Users/j/Documents/My App/.claude/worktrees/b' && claude --model opus`\n   start it\n", self.box.mc("status", session="coord-1").stdout)
         self.assertLess(text.index("| Session |"), text.index("## Needs Jason"))
         self.assertLess(text.index("## Needs Jason"), text.index("| Slot |"))
         self.assertNotIn("## Archive", text)

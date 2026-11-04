@@ -1219,7 +1219,8 @@ def print_status(status: dict) -> None:
         for n in open_needs:
             tag = f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}]"
             if n.get("command"):
-                print(f"{tag} `{'cd ' + n['cwd'] + ' && ' if n.get('cwd') else ''}{n['command']}`")
+                # the directory is quoted for the shell: a checkout under a path with a space would otherwise split the cd
+                print(f"{tag} `{'cd ' + shlex.quote(n['cwd']) + ' && ' if n.get('cwd') else ''}{n['command']}`")
                 print(f"   {n['why']}")
             else:
                 where = f" (in {n['cwd']})" if n.get("cwd") else ""

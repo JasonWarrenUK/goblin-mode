@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, shellWord, socketOf } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -631,14 +631,24 @@ test('Needs Jason and Archive draw only when they hold something, and a need sho
 	await quiet.unmount()
 })
 
+test('helpers: shellWord leaves a plain path alone and quotes one the shell would split', async () => {
+	expect(shellWord('/code/app/.claude/worktrees/a')).toBe('/code/app/.claude/worktrees/a')
+	expect(shellWord('/Users/j/Documents/My App/.claude/worktrees/a')).toBe("'/Users/j/Documents/My App/.claude/worktrees/a'")
+	expect(shellWord("/x/it's here")).toBe("'/x/it'\\''s here'")
+	expect(shellWord('/x/$HOME')).toBe("'/x/$HOME'")
+})
+
 test('a need shows the line to paste first and its why beneath; one with no line keeps its why on the row', async ($, on) => {
 	const bare = { ...STATUS.needs[0], id: 'n2', n: 2, why: 'approve the PR description in this session', command: '' }
-	world(on, 'coord-1', { ...STATUS, needs: [STATUS.needs[0], bare] })
+	const spaced = { ...STATUS.needs[0], id: 'n3', n: 3, why: 'start it', command: 'claude --model opus', cwd: '/Users/j/Documents/My App/.claude/worktrees/b', kind: 'launch' }
+	world(on, 'coord-1', { ...STATUS, needs: [STATUS.needs[0], bare, spaced] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'mc', args: '' })
 	const ui = await $.ui.mount(PANE)
 	const texts = (await ui.findAll({ type: 'Text', text: /type the reset|cd \/code\/app|approve the PR/ })).map(t => t.text)
 	expect(texts).toEqual(['cd /code/app/.claude/worktrees/a/apps/api && poetry run poe db-reset-local-anyway', 'type the reset', 'approve the PR description in this session'])
+	// a checkout under a path with a space: the cd is quoted, so the pasted line reaches the command
+	expect((await ui.find({ type: 'Text', text: /^cd '\/Users\/j\/Documents\/My App\/.claude\/worktrees\/b' && claude --model opus$/ }))?.text).toBeDefined()
 	await ui.unmount()
 })
 

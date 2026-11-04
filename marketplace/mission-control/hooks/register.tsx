@@ -969,6 +969,9 @@ const requestRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string 
 	})
 }
 
+/** A path as a shell word: untouched while it holds nothing the shell reads, else single-quoted, the way shlex.quote does it; a checkout under a path with a space would otherwise split the `cd` the board prints. */
+export const shellWord = (word: string): string => (/^[A-Za-z0-9_@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, "'\\''")}'`)
+
 /** The needs the user has yet to type, and the ones they started that run on: the count the board and the check-in read is the first alone. */
 export const needGroups = (needs: readonly Need[]): { open: Need[]; running: Need[] } => ({
 	open: needs.filter(n => n.status !== 'started'),
@@ -984,7 +987,7 @@ const needRows = ($: EngineInterface, ui: Ui, needs: readonly Need[], picked: st
 		// a note can run to the CLI's 1200-character cap; the tail takes at most half the row and truncates, so why keeps its columns
 		const tailWidth = running ? Math.min(tail.length, Math.max(16, Math.floor(inner / 2))) : 0
 		// the line to paste comes first and the why beneath it: the user reads the board for what to type; a need with no line, or one running, shows its why on the row
-		const line = n.command && !running ? (n.cwd ? `cd ${n.cwd} && ${n.command}` : n.command) : ''
+		const line = n.command && !running ? (n.cwd ? `cd ${shellWord(n.cwd)} && ${n.command}` : n.command) : ''
 		const marks = [
 			n.kind === 'measurement' ? <Text key="measurement" dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null,
 			n.kind === 'launch' ? <Text key="launch" dimColor>launch</Text> : null,
