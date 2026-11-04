@@ -43,10 +43,11 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { print -u2 -- "not insid
 # with no installable thing attached, say). The check runs before svu so an
 # omitted target never has a version computed for it; check exits 0 when the
 # target is omitted, 1 when it is not and 2 on an error, which reads as not
-# omitted so a broken policy file never silently stops a release.
+# omitted so a broken policy file never silently stops a release; the reader's
+# own line on stderr says why, so the fail-open is never an unreported one.
 target="${plugin:-root}"
 policy="${0:A:h}/versioning-policy.py"
-if [[ -f "$policy" ]] && python3 "$policy" check tag "$target" >/dev/null 2>&1; then
+if [[ -f "$policy" ]] && python3 "$policy" check tag "$target" >/dev/null; then
 	print -u2 -- "omitted by policy: $target is in omit-gh-tag (.claude/versioning.json), so no tag is computed for it"
 	exit 4
 fi
