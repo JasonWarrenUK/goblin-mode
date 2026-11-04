@@ -1977,28 +1977,36 @@ def crew_locked(args, ledger: Ledger) -> int:
     entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration, "unlisted": bool(args.unlisted),
              "model": args.model, "effort": args.effort, "name": args.name or f"{args.task.lower()} crew"}
     run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
-    # the launch line is the first thing the user types for this task, so it goes on the needs list from here, closed by the join
-    launch = raise_launch_need(ledger, run, entry, args.reason, args.plugin_dir) if worktree else None
+    # the launch line is the first thing the user types for this task, so it goes on the needs list from here, closed by the join.
+    # a plan edit for a task whose session is already live (a migration timestamp assigned later, say) raises none: the session
+    # exists, and a line left open would tell the user to start a second one in a worktree the first holds
+    live = registry()
+    running = next((row for row in ledger.sessions().values() if row.get("task") == args.task and row.get("session_id") in live), None)
+    launch = None
+    if worktree and running is None:
+        launch = raise_launch_need(ledger, run, entry, args.reason, args.plugin_dir)
+    elif running is not None:
+        close_launch_needs_in(ledger, run, args.task, f"session {running['session_id'][:8]} is live; plan edited", running["session_id"])
     ledger.save_run(run)
     ledger.log("crew", **entry)
     if args.json:
         print(json.dumps({**entry, "launch_need": launch["n"] if launch else None}))
     else:
-        print(f"crew {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; brief at {entry['brief']}"
-              + (f"; launch line is need #{launch['n']} on the board" if launch else "; no worktree, so no launch line"))
+        tail = f"; launch line is need #{launch['n']} on the board" if launch else ("; its session is live, so no launch line" if running else "; no worktree, so no launch line")
+        print(f"crew {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; brief at {entry['brief']}{tail}")
     return 0
 
 
 def launch_line(run: dict, entry: dict, plugin_dir: str | None) -> str:
-    """The line the user runs in a fresh terminal for one crew session: `--model` beats ANTHROPIC_MODEL and `--effort` beats the settings, so the session runs what kick-off chose whatever the terminal would default to; the trailing prompt starts the first turn, since a session with nothing to do sits idle at an empty prompt."""
+    """The line the user runs in a fresh terminal for one crew session. `--model` beats ANTHROPIC_MODEL; `--effort` beats the settings but not CLAUDE_CODE_EFFORT_LEVEL (the resolution order at https://code.claude.com/docs/en/model-config), so the model is what kick-off chose whatever the terminal would default to, and the effort is unless that variable is exported. The trailing prompt starts the first turn, since a session with nothing to do sits idle at an empty prompt. Every value is quoted: a plugin root under `Application Support` splits in two when pasted bare."""
     task = entry["task"]
     flags: list[str] = []
     if entry.get("model"):
-        flags += ["--model", entry["model"]]
+        flags += ["--model", shlex.quote(entry["model"])]
     if entry.get("effort"):
-        flags += ["--effort", entry["effort"]]
+        flags += ["--effort", shlex.quote(entry["effort"])]
     if plugin_dir:
-        flags += ["--plugin-dir", plugin_dir]
+        flags += ["--plugin-dir", shlex.quote(plugin_dir)]
     prompt = f"Start: you are crew {task} in run {run['name']}. Read your brief at {entry['brief']}, invoke /mission-control:crew and answer its five questions to the coordinator."
     return " ".join(["claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} crew"), shlex.quote(prompt)])
 
@@ -2019,19 +2027,25 @@ def raise_launch_need(ledger: Ledger, run: dict, entry: dict, reason: str | None
     return need
 
 
-def close_launch_need(ledger: Ledger, task: str, session_id: str) -> bool:
-    """A session joining as a task closes that task's open launch need: the line was typed. Reads the run afresh, since the caller may have saved rows in between; runs under the caller's lock."""
-    run = ledger.run()
-    if not run or not task:
-        return False
+def close_launch_needs_in(ledger: Ledger, run: dict, task: str, note: str, session_id: str) -> bool:
+    """Close every open launch need for a task on the run given, with the note saying why; the caller saves the run."""
     closed = False
     for need in run.get("needs", []):
         if need.get("kind") == "launch" and need.get("task") == task and need.get("status") != "done":
             need["status"] = "done"
             need["done_at"] = now()
-            need["note"] = f"joined as session {session_id[:8]}"
+            need["note"] = note
             ledger.log("need-done", id=need["id"], n=need["n"], by="join", session_id=session_id)
             closed = True
+    return closed
+
+
+def close_launch_need(ledger: Ledger, task: str, session_id: str) -> bool:
+    """A session joining as a task closes that task's open launch need: the line was typed. Reads the run afresh, since the caller may have saved rows in between; runs under the caller's lock."""
+    run = ledger.run()
+    if not run or not task:
+        return False
+    closed = close_launch_needs_in(ledger, run, task, f"joined as session {session_id[:8]}", session_id)
     if closed:
         ledger.save_run(run)
     return closed

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -1377,6 +1378,27 @@ class LedgerFlow(unittest.TestCase):
         unjoined = [item for item in result["drift"] if item["kind"] == "unjoined"]
         self.assertEqual(len(unjoined), 1)
         self.assertIn("its launch line is need #2 on the board", unjoined[0]["detail"])
+
+    def test_re_adding_a_task_whose_session_is_live_edits_the_plan_and_raises_no_launch_need(self):
+        # found on PR 59's review: a migration timestamp assigned after the session had joined left a launch need open for a session that was running
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        out = self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", "--migration", "20261104120000", session="coord-1").stdout
+        self.assertIn("its session is live, so no launch line", out)
+        self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"], [])
+        plan = json.loads(self.box.mc("crew", "list", session="coord-1").stdout)
+        self.assertEqual((len(plan), plan[0]["migration"]), (1, "20261104120000"))
+        added = json.loads(self.box.mc("--json", "crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1").stdout)
+        self.assertIsNone(added["launch_need"])
+
+    def test_every_value_on_the_launch_line_is_quoted(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "opus", "--effort", "high", "--plugin-dir", "/Users/j/Library/Application Support/mission-control", session="coord-1")
+        command = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]["command"]
+        self.assertIn("--plugin-dir '/Users/j/Library/Application Support/mission-control'", command)
+        self.assertIn("--model opus --effort high", command, "a bare word needs no quotes and gets none")
+        self.assertEqual(shlex.split(command)[shlex.split(command).index("--plugin-dir") + 1], "/Users/j/Library/Application Support/mission-control")
 
     def test_a_crew_session_adopting_the_old_row_closes_the_launch_need_too(self):
         self.box.start()
