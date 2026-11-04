@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.2.0] - 2026-11-04
+
+### Added
+
+- `mission-control` plugin 0.6.0: a need the user has started now has its own state. A long job they have typed (a four-hour hosted backfill on the CHIRPdb run) used to sit in the needs-Jason bucket beside needs they had not opened, because the only move was open to done. `needs start`, `/mc started <n>` or `s` on the board marks it on the user's word; the board draws it under `Running` with its start time, the check-in and the coordinator's start context leave it out of the needs count, and it closes as before with the result. A need that failed on its first attempt is re-issued with `--supersedes` (or `mc_need` with `supersedes`), which closes the old one with a link to the new number and carries its kind, recipient and directory over. Details in the plugin's changelog.
+
+### Fixed
+
+- `mission-control`'s reconcile no longer reports a started need as still open when its session finishes or its PR merges, which had told the coordinator to close a job still running. A second `needs start` or `needs done` keeps the first recorded time, each link flag refuses on the wrong action instead of being dropped, and the board reads the link an open need carries.
+
 ## [7.1.0] - 2026-11-03
 
 ### Added
@@ -427,7 +437,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.1.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.2.0...HEAD
+[7.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.1.0...v7.2.0
 [7.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.0.0...v7.1.0
 [7.0.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.17.0...v7.0.0
 [6.17.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v6.16.0...v6.17.0
