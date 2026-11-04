@@ -91,11 +91,12 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | Section | Shows |
 |---|---|
 | Header | run name as the title with your role beside it, a rule, a `rebind?` line in amber when the coordinator's process runs under a new session id and waits for `/mc adopt coordinator`, the count of open threads on the coordinator's pending list, then in dim text the start time, base commit, who coordinates, how many assumptions, how many sessions are live and the ledger's age |
-| Crew | grouped by state, one row per session: live and busy or idle (from Claude Code's own session registry), task, branch, worktree name, state (`gone` and dimmed once the session has left, `retired` once its worktree is reclaimed), PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
+| Crew | the live sessions grouped by state, one row each: busy or idle (from Claude Code's own session registry), task, branch, worktree name, state, PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
+| Needs Jason | drawn only while something is open. Numbered; the complete line to type comes first (`cd <dir> && ...`) and the reason beneath it, with `result → <task>` on a measurement naming the session that gets the output when you mark it done and `launch` on a crew session's launch line, which runs in a new terminal window and closes by itself when the session joins; the count is what the run needs from you now |
+| Running | needs you have started that run on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
 | Slots | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
 | Requests | pending slot requests, with what will run and for how long |
-| Needs Jason | numbered, each with the complete command (`cd <dir> && ...`) and, for a measurement, `result → <task>` naming the session that gets the output when you mark it done; a `launch` need is a crew session's launch line to run in a new terminal window; it closes by itself when the session joins; the count is what the run needs from you now |
-| Running | needs you have started that run on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
+| Archive | drawn only once a session is over: `retired` (its worktree reclaimed) and `gone` (the session left; its last state dimmed beside it), each group collapsed to its heading and count until `c` shows the rows |
 
 | Key | Does |
 |---|---|
@@ -105,7 +106,7 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | `s` | marks the picked need started: you typed it and it runs on; the input takes a note on where it is watched |
 | `d` | marks the picked need done; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
 | `x` | releases a slot (asks which) |
-| `c` | shows or hides the `retired` and `gone` groups, collapsed by default to their headings and counts |
+| `c` | shows or collapses the Archive's rows (`retired` and `gone`), collapsed by default to their headings and counts |
 | `r` | refreshes, probing the machine |
 | Esc, or `/mc` | closes |
 
