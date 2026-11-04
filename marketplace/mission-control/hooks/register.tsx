@@ -196,7 +196,10 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		for_task: str(n.for_task),
 		command: str(n.command),
 		cwd: str(n.cwd),
-		status: str(n.status),
+		status: str(n.status) || 'open',
+		started_at: num(n.started_at) || null,
+		note: str(n.note),
+		supersedes: num(n.supersedes) || null,
 	}))
 	const probes: Probe[] = list(data.probes).map(p => ({
 		resource: str(p.resource),
@@ -480,6 +483,7 @@ const TOOLS = [
 				cwd: { type: 'string', description: 'the absolute directory the command must run from (default: your worktree)' },
 				kind: { type: 'string', enum: ['action', 'measurement', 'approval'], description: 'measurement: the output the user pastes when marking it done is forwarded to the session the need is for' },
 				for: { type: 'string', description: 'the session the result is for (task id, branch or name); default: the asking session' },
+				supersedes: { type: 'string', description: 'the number of an earlier need this one re-issues (its first attempt failed); that need closes as superseded by the new number, and the new one keeps its kind, recipient and directory unless given here' },
 			},
 			required: ['why'],
 		},
@@ -594,6 +598,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			if (arg(input, 'cwd')) args.push('--cwd-hint', arg(input, 'cwd'))
 			if (arg(input, 'kind')) args.push('--kind', arg(input, 'kind'))
 			if (arg(input, 'for')) args.push('--for', arg(input, 'for'))
+			if (arg(input, 'supersedes')) args.push('--supersedes', arg(input, 'supersedes'))
 			const ran = await mine($, args)
 			if (ran.exitCode !== 0) return reasonOf(ran, 'need refused')
 			await refresh($)
@@ -716,7 +721,7 @@ export const sectionText = (snap: Snapshot, me: Self): string | null => {
 		return (
 			`# Mission control\n\nThis session coordinates run "${snap.run.name}" on ${snap.mainCheckout} (base ${snap.run.base.branch}@${snap.run.base.commit.slice(0, 8)}), started by the user. Crew: ${crewList}. ${mergedLine}` +
 			`Shared resources are granted one holder at a time with mc_grant, which probes the machine first; mc_assume numbers shared assumptions; mc_send resolves a session's current name; mc_board reads the board. Each tool ends its reply with the exact SendMessage calls to make; every message between sessions goes through the SendMessage tool, as written there. ` +
-			`Decide anything that only keeps the sessions consistent; escalate product, cost and hosted-configuration choices to the user with a recommendation, and put every command only the user can type on the needs list (mc_need). ` +
+			`Decide anything that only keeps the sessions consistent; escalate product, cost and hosted-configuration choices to the user with a recommendation, and put every command only the user can type on the needs list (mc_need). When the user says they have typed one that runs on, mark it started on their word (\`mc.py needs start <n> --note <where to watch it>\`): it leaves the needs-Jason count and closes as now, with the result, when they paste it. ` +
 			`Never state a project convention you have not read in the repository or had from the user; ask instead.${assumptions}`
 		)
 	}
@@ -962,21 +967,39 @@ const requestRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string 
 	})
 }
 
-const needRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string | null, inner: number) => {
+/** The needs the user has yet to type, and the ones they started that run on: the count the board and the check-in read is the first alone. */
+export const needGroups = (needs: readonly Need[]): { open: Need[]; running: Need[] } => ({
+	open: needs.filter(n => n.status !== 'started'),
+	running: needs.filter(n => n.status === 'started'),
+})
+
+const needRows = ($: EngineInterface, ui: Ui, needs: readonly Need[], picked: string | null, inner: number) => {
 	const { Box, Text, Button } = ui
-	return snap.needs.slice(0, NEED_DIGITS).map(n => {
+	return needs.slice(0, NEED_DIGITS).map(n => {
 		const key = `need:${n.n}`
+		const running = n.status === 'started'
+		const tail = running ? `since ${n.started_at ? clock(n.started_at) : '?'}${n.note ? ` · ${n.note}` : ''}` : ''
+		// a note can run to the CLI's 1200-character cap; the tail takes at most half the row and truncates, so why keeps its columns
+		const tailWidth = running ? Math.min(tail.length, Math.max(16, Math.floor(inner / 2))) : 0
 		return (
 			<Box key={key} flexDirection="column">
 				<Box flexDirection="row" columnGap={1}>
 					<Button key={`row-${key}`} plain dimColor={picked !== null && picked !== key} label={`${n.n}.`} onPress={() => update($, selected, () => key)} />
 					<Text color="warning">{n.task ? `[${n.task}]` : ''}</Text>
 					{n.kind === 'measurement' ? <Text dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null}
-					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0))}>
+					{n.supersedes !== null ? <Text dimColor>re-issues #{n.supersedes}</Text> : null}
+					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0) - (n.supersedes !== null ? 12 + String(n.supersedes).length : 0) - (running ? tailWidth + 1 : 0))}>
 						<Text wrap="wrap">{n.why}</Text>
 					</Box>
+					{running ? (
+						<Box width={tailWidth}>
+							<Text dimColor wrap="truncate-end">
+								{tail}
+							</Text>
+						</Box>
+					) : null}
 				</Box>
-				{n.command ? (
+				{n.command && !running ? (
 					<Box flexDirection="row" paddingLeft={4} columnGap={1}>
 						<Text color="claude" bold>
 							{n.cwd ? `cd ${n.cwd} && ${n.command}` : n.command}
@@ -1090,6 +1113,12 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 			if (!ran.ok) return ran.text
 			return `need #${words[1]} done${await forwardResult($, ran.text)}`
 		}
+		case 'started':
+		case 'running': {
+			if (!words[1]) return 'usage: /mc started <need number> [a note: the task id or session watching it]'
+			const note = words.slice(2).join(' ')
+			return byUser(['needs', 'start', words[1], ...(note ? ['--note', note] : [])])
+		}
 		case 'extend': {
 			if (!words[1]) return 'usage: /mc extend <resource> [minutes]'
 			const snap = (await read($, snapshot)) ?? (await refresh($))
@@ -1109,7 +1138,7 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 			return ran.exitCode === 0 ? ran.stdout : reasonOf(ran, 'status refused')
 		}
 		default:
-			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc extend <resource> [minutes] · /mc release <resource> · /mc done <n> [result|@file] · /mc adopt coordinator|crew · /mc retire <task> [dry] · /mc status · /mc end [force]'
+			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc extend <resource> [minutes] · /mc release <resource> · /mc started <n> [note] · /mc done <n> [result|@file] · /mc adopt coordinator|crew · /mc retire <task> [dry] · /mc status · /mc end [force]'
 	}
 }
 
@@ -1266,6 +1295,7 @@ export const register: Register = (on, options) => {
 		const inner = width - 3
 		const pickedRequest = picked?.startsWith('req:') ? snap.requests.find(r => `req:${r.resource}:${r.session_id}` === picked) : undefined
 		const pickedNeed = picked?.startsWith('need:') ? snap.needs.find(n => `need:${n.n}` === picked) : undefined
+		const needs = needGroups(snap.needs)
 		const pickedSlot = pickedRequest ? snap.slots.find(s => s.resource === pickedRequest.resource) : undefined
 		const freeResources = snap.probes.filter(p => !snap.slots.some(s => s.resource === p.resource))
 		return (
@@ -1298,10 +1328,17 @@ export const register: Register = (on, options) => {
 					</Box>
 				)}
 				<Box flexDirection="column" paddingX={1}>
-					{heading(ui, `Needs Jason · ${snap.needs.length}`, inner)}
-					{snap.needs.length === 0 && <Text dimColor>nothing. every command here is one you type, from the directory shown.</Text>}
-					{needRows($, ui, snap, picked, inner)}
+					{heading(ui, `Needs Jason · ${needs.open.length}`, inner)}
+					{needs.open.length === 0 && <Text dimColor>nothing. every command here is one you type, from the directory shown.</Text>}
+					{needRows($, ui, needs.open, picked, inner)}
 				</Box>
+				{needs.running.length > 0 && (
+					<Box flexDirection="column" paddingX={1}>
+						{heading(ui, `Running · ${needs.running.length}`, inner)}
+						<Text dimColor>started by you and still going; d with the result closes each.</Text>
+						{needRows($, ui, needs.running, picked, inner)}
+					</Box>
+				)}
 				<Box flexDirection="column" paddingX={1}>
 					{ask === null && (
 						<Box flexDirection="row" columnGap={2} flexWrap="wrap">
@@ -1315,6 +1352,7 @@ export const register: Register = (on, options) => {
 								/>
 							)}
 							{pickedNeed && <Button key="done" label={`done ${pickedNeed.n}`} hotkey="d" variant="primary" onPress={() => update($, asking, () => ({ kind: 'done', resource: '', sessionId: pickedNeed.session_id, ref: String(pickedNeed.n) }))} />}
+							{pickedNeed && pickedNeed.status !== 'started' && <Button key="started" label={`started ${pickedNeed.n}`} hotkey="s" onPress={() => update($, asking, () => ({ kind: 'started', resource: '', sessionId: pickedNeed.session_id, ref: String(pickedNeed.n) }))} />}
 							{snap.slots.length > 0 && <Button key="release" label="release a slot" hotkey="x" onPress={() => update($, asking, () => ({ kind: 'release', resource: snap.slots[0]?.resource ?? '', sessionId: '', ref: '' }))} />}
 							{snap.sessions.some(s => !s.live) && <Button key="quiet" label={showQuiet ? 'hide retired and gone' : 'show retired and gone'} hotkey="c" onPress={() => update($, quietShown, shown => !shown)} />}
 							<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($, true)} />
@@ -1373,7 +1411,24 @@ export const register: Register = (on, options) => {
 							}}
 						/>
 					)}
-					<Text dimColor>1-9 pick a session · q-p pick a request · g grant · d need done · x release · c retired and gone · r refresh · esc or /mc closes</Text>
+					{ask?.kind === 'started' && (
+						<Input
+							key="started-ref"
+							label={`need ${ask.ref} is running: a note on where to watch it (a task id, the session), else enter`}
+							value=""
+							submitLabel="started"
+							autoFocus
+							onSubmit={async value => {
+								const note = value.trim()
+								const ran = await run($, ['--session', me.sessionId, 'needs', 'start', ask.ref, ...(note ? ['--note', note] : []), '--by-user'])
+								$.ui.toast(ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, 'refused'))
+								await update($, asking, () => null)
+								await update($, selected, () => null)
+								await refresh($, me.isCoordinator)
+							}}
+						/>
+					)}
+					<Text dimColor>1-9 pick a session · q-p pick a request · g grant · s need started · d need done · x release · c retired and gone · r refresh · esc or /mc closes</Text>
 				</Box>
 			</Box>
 		)

@@ -53,6 +53,7 @@ The protocol itself, with the message shapes: `references/protocol.md`.
 | `/mc grant <resource> <task\|branch\|name> [minutes]` | grants a slot, taking it from a holder if need be, and messages the grantee |
 | `/mc extend <resource> [minutes]` | gives the current holder longer and tells only them |
 | `/mc release <resource>` | releases a slot |
+| `/mc started <n> [note]` | marks need `n` started: you typed it and it runs on (a backfill, a long measurement); the note says where it is watched. It moves to the board's `Running` group and leaves the needs-Jason count until `/mc done` closes it with the result |
 | `/mc done <n> [result or @file]` | marks need `n` done; for a measurement, the pasted output (or a file's contents) goes to the session that wanted it in the same step |
 | `/mc adopt coordinator\|crew` | from the session taking the role: rebinds the run to this session after a `/clear` or a fresh start (the board shows `rebind?` when this is waiting), or carries over a crew row |
 | `/mc retire <task> [dry]` | reclaims a merged task's worktree (section 7 has the preconditions); `dry` only prints |
@@ -61,7 +62,7 @@ The protocol itself, with the message shapes: `references/protocol.md`.
 
 **The board's keys** are in section 3.
 
-**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task>`, `crew list`, `crew add ... --unlisted`, `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
+**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task> [--supersedes <n>]`, `needs start <n> --note ...`, `needs done <n> [--result ...|--superseded-by <m>]`, `crew list`, `crew add ... --unlisted`, `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
 
 ### 2.3. Do not
 
@@ -93,13 +94,15 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | Crew | grouped by state, one row per session: live and busy or idle (from Claude Code's own session registry), task, branch, worktree name, state (`gone` and dimmed once the session has left, `retired` once its worktree is reclaimed), PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
 | Slots | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
 | Requests | pending slot requests, with what will run and for how long |
-| Needs Jason | numbered, each with the complete command (`cd <dir> && ...`) and, for a measurement, `result → <task>` naming the session that gets the output when you mark it done |
+| Needs Jason | numbered, each with the complete command (`cd <dir> && ...`) and, for a measurement, `result → <task>` naming the session that gets the output when you mark it done; the count is what the run needs from you now |
+| Running | needs you have started that run on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
 
 | Key | Does |
 |---|---|
 | `1` to `9` | picks a session row (shows its full summary) |
 | `q` to `p` | picks a request |
 | `g` | grants the picked request: asks the minutes, then grants as you and messages the grantee |
+| `s` | marks the picked need started: you typed it and it runs on; the input takes a note on where it is watched |
 | `d` | marks the picked need done; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
 | `x` | releases a slot (asks which) |
 | `c` | shows or hides the `retired` and `gone` groups, collapsed by default to their headings and counts |
@@ -118,7 +121,7 @@ Registered in every session where the plugin is on; the CLI refuses the coordina
 |---|---|---|
 | `mc_report` | crew | state (`briefing`, `working`, `in-slot`, `pr-ready`, `blocked`, `waiting-jason`, `done`), one-line summary, PR number |
 | `mc_slot` | crew | `request` records the request and hands over the line for the coordinator (what will run, for how long); `release` records the results and hands over the line that reports them |
-| `mc_need` | anyone | an item only the user can do: why, the exact command, the directory. Goes on the board; from crew, the line for the coordinator follows |
+| `mc_need` | anyone | an item only the user can do: why, the exact command, the directory. Goes on the board; from crew, the line for the coordinator follows. `supersedes` re-issues an earlier need that failed, keeping its kind, recipient and directory |
 | `mc_send` | anyone | resolves a task id, branch, session name, `coordinator` or `all` to the recipient names `SendMessage` takes now, so a changed name or ref does not lose a session |
 | `mc_grant` | coordinator | probes the machine, refuses while busy, grants, then hands over the grant line for the grantee and the notice line for every other crew session |
 | `mc_revoke` | coordinator | releases another session's slot and hands over the line that tells the holder |

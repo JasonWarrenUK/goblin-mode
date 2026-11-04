@@ -47,12 +47,19 @@ export type Need = {
 	why: string
 	command: string
 	cwd: string
+	/** open (the user has yet to type it), started (they typed it and it runs on) or done. */
 	status: string
 	/** action (the default), measurement (its result goes back to a session) or approval. */
 	kind: string
 	/** The session the result is for, when the need is a measurement. */
 	for: string | null
 	for_task: string
+	/** When the user started it, in seconds; null until they do. */
+	started_at: number | null
+	/** What is running and where to watch it, recorded with the start. */
+	note: string
+	/** The earlier need this one re-issues, when its first attempt failed; the one it replaced is done and off the board. */
+	supersedes: number | null
 }
 
 export type Run = {
@@ -148,7 +155,7 @@ export type Self = {
 
 /** What the pane is waiting on: a grant's minutes for a request, or a note for a release. */
 export type Asking = {
-	kind: 'grant' | 'release' | 'done'
+	kind: 'grant' | 'release' | 'done' | 'started'
 	resource: string
 	sessionId: string
 	ref: string

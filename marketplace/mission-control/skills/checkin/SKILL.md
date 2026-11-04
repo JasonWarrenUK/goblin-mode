@@ -48,13 +48,17 @@ Record every item from a reply's answer 2 with `mc_need` (why, the exact command
 
 2. ...
 
+### Running
+
+- <task>: need <n>, <what it is>, since <start time>; <where it is watched>. Paste the result with `/mc done <n>` when it finishes.
+
 ### Nothing from you
 
 - <task>: <state, one line>.
 ```
 
-Rules for the list: every command is complete, with its `cd`, because the user's `!` shell may be standing in another checkout; a hosted command says `read-only` or `writes` in the line; an approval names the session to visit; a slot that the coordinator will grant on a release is stated as such, with who it waits on; a PR waits on the reviewer `reconcile` names, never on "the user" unless the user is that reviewer or the merge is theirs. A bucket with nothing in it is left out, `Drift` included.
+Rules for the list: every command is complete, with its `cd`, because the user's `!` shell may be standing in another checkout; a hosted command says `read-only` or `writes` in the line; an approval names the session to visit; a slot that the coordinator will grant on a release is stated as such, with who it waits on; a PR waits on the reviewer `reconcile` names, never on "the user" unless the user is that reviewer or the merge is theirs. A need whose status is `started` (the user typed it and it runs on; the board's `Running` group) goes under `Running` and never under `Now`: it needs nothing typed until its result is in. A bucket with nothing in it is left out, `Drift` and `Running` included.
 
 ## Step 4: Keep it true
 
-When the user does an item, they press `d` on it in the board or run `/mc done <n>`; the session that asked can also clear it with the next `mc_report`. An item that stays open past the next check-in is repeated at the top of the new list, marked `still open`.
+When the user does an item, they press `d` on it in the board or run `/mc done <n>`; the session that asked can also clear it with the next `mc_report`. When the user says they have typed one that runs on (a backfill, a long hosted measurement), mark it started on their word: `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py needs start <n> --note "<the background task id, or the session watching it>"` from here, or the user's own `s` on the board or `/mc started <n> [note]`. It then leaves the `Now` bucket and the needs-Jason count and closes as every need does, with `/mc done <n>` and the result. An open item that stays past the next check-in is repeated at the top of the new list, marked `still open`.
