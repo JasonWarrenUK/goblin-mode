@@ -15,7 +15,9 @@
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
 #             2 environment error,
 #             3 nothing to release (no version-bumping commits since the
-#               current tag: creating a tag would fail on a duplicate)
+#               current tag: creating a tag would fail on a duplicate),
+#             4 omitted by policy (the target is in omit-gh-tag in the
+#               repository's .claude/versioning.json; see versioning-policy.py)
 set -u
 
 plugin=""
@@ -36,6 +38,18 @@ fi
 
 command -v svu >/dev/null 2>&1 || { print -u2 -- "svu not installed"; exit 2 }
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { print -u2 -- "not inside a git repository"; exit 2 }
+
+# The repository's policy can take a target out of tagging altogether (a root
+# with no installable thing attached, say). The check runs before svu so an
+# omitted target never has a version computed for it; check exits 0 when the
+# target is omitted, 1 when it is not and 2 on an error, which reads as not
+# omitted so a broken policy file never silently stops a release.
+target="${plugin:-root}"
+policy="${0:A:h}/versioning-policy.py"
+if [[ -f "$policy" ]] && python3 "$policy" check tag "$target" >/dev/null 2>&1; then
+	print -u2 -- "omitted by policy: $target is in omit-gh-tag (.claude/versioning.json), so no tag is computed for it"
+	exit 4
+fi
 
 # svu current has no --log.directory (it only needs the latest matching tag,
 # not a commit scan); svu next needs it to limit which commits count towards
