@@ -2,10 +2,8 @@
 name: "Mission Control: Crew"
 description: "How a crew session works inside a mission-control run: read the brief, answer the five questions, report state changes, request and release slots, put everything only the user can type on the needs list, and open the PR the way the run decided"
 when_to_use: "In a session that started inside a run's worktree: the SessionStart hook says 'this worktree is crew ... in run ...' and names the brief. Also when such a session is unsure whether it may run a reset, a server or a hosted command: it may not without a slot, and hosted is never its to run."
-model: sonnet
-effort: medium
+model: inherit # kick-off chooses each crew's model and effort and puts them on its launch line (--model, --effort; the brief's Model row says why). A value here would override that for the whole of this skill's turn, which is the first one: the brief and the five questions, where the chosen model matters most. The glyph goes with the model, as the convention says.
 metadata:
-  glyph: ᛊ
   family: mission-control
   goblin-spinner: reading the brief|requesting a slot|reporting in
 disable-model-invocation: false # the SessionStart hook names this skill to a crew session; it changes nothing but the session's own row on the board and sends messages, and the slot and hosted gates are enforced by hooks, not by this text

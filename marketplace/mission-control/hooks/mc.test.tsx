@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, socketOf } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, shellWord, socketOf } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -486,6 +486,29 @@ test('parseSnapshot reads the rebind candidate, the pending list, the decisions,
 	expect(plain.needs[0]?.supersedes).toBeNull()
 	const reissued = parseSnapshot(JSON.stringify({ ...STATUS, needs: [{ ...STATUS.needs[0], supersedes: 1 }] }), NOON)
 	expect(reissued.needs[0]?.supersedes).toBe(1)
+	// the plan's model, effort and session name, from crew add; absent on a plan written before they existed
+	const planned = parseSnapshot(JSON.stringify({ ...STATUS, run: { ...STATUS.run, crew: [{ ...STATUS.run.crew[0], model: 'opus', effort: 'high', name: '10se.2 search ranking' }] } }), NOON)
+	expect(planned.run?.crew[0]).toMatchObject({ model: 'opus', effort: 'high', name: '10se.2 search ranking' })
+	expect(plain.run?.crew[0]).toMatchObject({ model: null, effort: null, name: '' })
+})
+
+test('a launch need draws its whole line, cd to the worktree first, with a launch marker', async ($, on) => {
+	const launch = {
+		id: 'n3', n: 3, session_id: 'coord-1', task: '10SE.4', kind: 'launch', status: 'open', at: NOON / 1000,
+		why: 'start crew 10SE.4 in a new terminal window (opus, high: reworks the shared ranking query)',
+		command: "claude --model opus --effort high --name '10se.4 ranking' 'Start: you are crew 10SE.4 in run search. Read your brief at /x/briefs/10SE.4.md, invoke /mission-control:crew and answer its five questions to the coordinator.'",
+		cwd: '/code/app/.claude/worktrees/b',
+	}
+	world(on, 'coord-1', { ...STATUS, needs: [launch] })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^Needs Jason · 1$/ }))?.text).toBe('Needs Jason · 1')
+	expect((await ui.find({ type: 'Text', text: /^launch$/ }))?.text).toBe('launch')
+	expect((await ui.find({ type: 'Text', text: /new terminal window/ }))?.text).toContain('opus, high: reworks the shared ranking query')
+	const line = await ui.find({ type: 'Text', text: /^cd \/code\/app\/.claude\/worktrees\/b && claude --model opus --effort high --name/ })
+	expect(line?.text).toContain('answer its five questions to the coordinator.')
+	await ui.unmount()
 })
 
 test('a started need sits in its own Running group with its start time, off the needs-Jason count, and s marks an open one started', async ($, on) => {
@@ -572,14 +595,18 @@ test('the board names a broken git and the fix while the run still draws', async
 	expect(parseSnapshot(JSON.stringify(STATUS), NOON).gitProblem).toBeNull()
 })
 
-test('the board groups the crew under a subheading per state, with retired and gone collapsed to their headings', async ($, on) => {
+test('the board groups the live crew under a subheading per state and the retired and gone under Archive, collapsed to their headings', async ($, on) => {
 	world(on, 'coord-1', threeStates())
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'mc', args: '' })
 	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^Crew · 3$/ }))?.text).toBe('Crew · 3')
 	expect((await ui.find({ type: 'Text', text: /^working · 2$/ }))?.text).toBe('working · 2')
 	expect((await ui.find({ type: 'Text', text: /^pr-ready · 1$/ }))?.text).toBe('pr-ready · 1')
+	expect((await ui.find({ type: 'Text', text: /^Archive · 1$/ }))?.text).toBe('Archive · 1')
 	expect((await ui.find({ type: 'Text', text: /^gone · 1$/ }))?.text).toBe('gone · 1')
+	// the sections in order: the live crew, what the user types, the machine, then the archive last
+	expect((await ui.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Crew', 'Needs Jason', 'Slots', 'Requests', 'Archive'])
 	// the gone row itself (its worktree name is the one Text unique to it) is not drawn until c shows it
 	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
 	expect((await ui.find({ type: 'Text', text: /^c shows$/ }))?.text).toBe('c shows')
@@ -587,6 +614,41 @@ test('the board groups the crew under a subheading per state, with retired and g
 	expect((await ui.find({ type: 'Text', text: /^wt-5$/ }))?.text).toBe('wt-5')
 	await ui.press({ key: 'quiet' })
 	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
+	await ui.unmount()
+})
+
+test('Needs Jason and Archive draw only when they hold something, and a need shows its line before its why', async ($, on) => {
+	// one live session, nothing to type: neither section is drawn, and nothing says "nothing"
+	world(on, 'coord-1', { ...STATUS, needs: [] })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const quiet = await $.ui.mount(PANE)
+	expect(await quiet.find({ type: 'Text', text: /^Needs Jason/ })).toBeUndefined()
+	expect(await quiet.find({ type: 'Text', text: /^Archive/ })).toBeUndefined()
+	expect(await quiet.find({ type: 'Text', text: /^nothing\./ })).toBeUndefined()
+	expect(await quiet.find({ key: 'quiet' })).toBeUndefined()
+	expect((await quiet.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Crew', 'Slots', 'Requests'])
+	await quiet.unmount()
+})
+
+test('helpers: shellWord leaves a plain path alone and quotes one the shell would split', async () => {
+	expect(shellWord('/code/app/.claude/worktrees/a')).toBe('/code/app/.claude/worktrees/a')
+	expect(shellWord('/Users/j/Documents/My App/.claude/worktrees/a')).toBe("'/Users/j/Documents/My App/.claude/worktrees/a'")
+	expect(shellWord("/x/it's here")).toBe("'/x/it'\\''s here'")
+	expect(shellWord('/x/$HOME')).toBe("'/x/$HOME'")
+})
+
+test('a need shows the line to paste first and its why beneath; one with no line keeps its why on the row', async ($, on) => {
+	const bare = { ...STATUS.needs[0], id: 'n2', n: 2, why: 'approve the PR description in this session', command: '' }
+	const spaced = { ...STATUS.needs[0], id: 'n3', n: 3, why: 'start it', command: 'claude --model opus', cwd: '/Users/j/Documents/My App/.claude/worktrees/b', kind: 'launch' }
+	world(on, 'coord-1', { ...STATUS, needs: [STATUS.needs[0], bare, spaced] })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	const texts = (await ui.findAll({ type: 'Text', text: /type the reset|cd \/code\/app|approve the PR/ })).map(t => t.text)
+	expect(texts).toEqual(['cd /code/app/.claude/worktrees/a/apps/api && poetry run poe db-reset-local-anyway', 'type the reset', 'approve the PR description in this session'])
+	// a checkout under a path with a space: the cd is quoted, so the pasted line reaches the command
+	expect((await ui.find({ type: 'Text', text: /^cd '\/Users\/j\/Documents\/My App\/.claude\/worktrees\/b' && claude --model opus$/ }))?.text).toBeDefined()
 	await ui.unmount()
 })
 

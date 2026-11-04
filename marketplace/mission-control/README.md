@@ -23,8 +23,8 @@ Requires `python3` (3.9+, stdlib only) on `PATH`, `lsof` and `pgrep` for the pro
 | Moment | Who | What |
 |---|---|---|
 | Once per project | the user, any session | `/mission-control:configure` writes `.claude/mission-control.json`: the shared resources, the commands that touch them, how to tell each one is busy, the check commands, the convention files, the conventions that live only in the user's head, and `collaboration` (solo or collaborative, with the team's hours) |
-| Kick-off | the user, in an **opus** session that becomes the coordinator | `/mission-control:kickoff 10SE.2 10SE.4 name search` picks the tasks (from the roadmap when there is one), classifies the project solo or collaborative and asks you to confirm, creates a worktree per task, starts the run in the ledger, asks every convention it cannot read, sets numbered shared assumptions, writes the guidance and one brief per session, and prints a launch line per session |
-| Launch | the user | runs each launch line in a fresh terminal. The line ends with the opening prompt, which starts the session's first turn; nothing else is typed into it. The `SessionStart` hook names its brief and the coordinator, the mod puts it on the board |
+| Kick-off | the user, in an **opus** session that becomes the coordinator | `/mission-control:kickoff 10SE.2 10SE.4 name search` picks the tasks (from the roadmap when there is one), classifies the project solo or collaborative and asks you to confirm, chooses each session's model and effort with a reason, creates a worktree per task, starts the run in the ledger, asks every convention it cannot read, sets numbered shared assumptions, writes the guidance and one brief per session, and puts one launch line per session on the needs list |
+| Launch | the user | opens the board (`/mc`) and runs each `launch` need in a new terminal window, one per session. The line carries `cd <worktree>`, `--model` (which beats `ANTHROPIC_MODEL`), `--effort` (which beats your settings but not `CLAUDE_CODE_EFFORT_LEVEL`, if you export it) and the opening prompt, which starts the session's first turn; nothing else is typed into it. The need closes when the session joins; the `SessionStart` hook names its brief and the coordinator, the mod puts it on the board |
 | The run | crew and coordinator, by themselves | crew answer the five questions, report state changes, request slots, watch their PR once it exists and put anything only you can do on the needs list; the coordinator reconciles before every status, grants slots from the machine's state, settles assumptions, reviews draft PRs when the run says so, checks in and retires merged tasks' worktrees |
 | Whenever | the user | `/mc` in any session shows the board; the needs list has complete commands with their directories, and that list is the whole of what the run needs from you |
 | End | the user, in the coordinator session | `/mission-control:end` links the stack, prunes what `retire` left, runs the checks on the top layer, offers the roadmap follow-ups and archives the ledger |
@@ -62,14 +62,14 @@ The protocol itself, with the message shapes: `references/protocol.md`.
 
 **The board's keys** are in section 3.
 
-**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task> [--supersedes <n>]`, `needs start <n> --note ...`, `needs done <n> [--result ...|--superseded-by <m>]`, `crew list`, `crew add ... --unlisted`, `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
+**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task> [--supersedes <n>]`, `needs start <n> --note ...`, `needs done <n> [--result ...|--superseded-by <m>]`, `crew list`, `crew add --task ... --model <m> --effort <e> --name ... --reason ... [--unlisted] [--plugin-dir <root>]` (which puts the session's launch line on the needs list), `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
 
 ### 2.3. Do not
 
 Each of these runs against the protocol, and most were learned on a live run.
 
 - **Do not coordinate from a haiku or sonnet session.** The mod refuses `mc.py start` from one; `--small-model-ok` and `anyway` exist for the case where you mean it, and that case has not come up.
-- **Do not type into a crew session after its launch line.** Its instructions come from its brief and the coordinator's messages. A decision goes to the coordinator session, which broadcasts it; a command only you can run goes on the needs list, which tells you the directory.
+- **Do not type into a crew session after its launch line**, and do not strip `--model` or `--effort` from the line: kick-off chose them for the task and the brief's Model row says why; without the flag the terminal's `ANTHROPIC_MODEL` decides, which is how every crew session ran Sonnet in October 2026. Its instructions come from its brief and the coordinator's messages. A decision goes to the coordinator session, which broadcasts it; a command only you can run goes on the needs list, which tells you the directory.
 - **Do not run a gated command yourself in a worktree another session holds the slot for**, and do not run one from the main checkout during a run. The slot is what keeps two resets apart.
 - **Do not run hosted reads, hosted writes or merges from any session.** They are human gates; a session that is refused is behaving correctly. Type them yourself from the needs list.
 - **Do not prune a worktree by hand mid-run.** `retire` checks the session is closed, the PR landed, the tree clean and nothing running in it; `end` is the backstop.
@@ -91,11 +91,12 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | Section | Shows |
 |---|---|
 | Header | run name as the title with your role beside it, a rule, a `rebind?` line in amber when the coordinator's process runs under a new session id and waits for `/mc adopt coordinator`, the count of open threads on the coordinator's pending list, then in dim text the start time, base commit, who coordinates, how many assumptions, how many sessions are live and the ledger's age |
-| Crew | grouped by state, one row per session: live and busy or idle (from Claude Code's own session registry), task, branch, worktree name, state (`gone` and dimmed once the session has left, `retired` once its worktree is reclaimed), PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
+| Crew | the live sessions grouped by state, one row each: busy or idle (from Claude Code's own session registry), task, branch, worktree name, state, PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
+| Needs Jason | drawn only while something is open. Numbered; the complete line to type comes first (`cd <dir> && ...`) and the reason beneath it, with `result → <task>` on a measurement naming the session that gets the output when you mark it done and `launch` on a crew session's launch line, which runs in a new terminal window and closes by itself when the session joins; the count is what the run needs from you now |
+| Running | needs you have started that run on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
 | Slots | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
 | Requests | pending slot requests, with what will run and for how long |
-| Needs Jason | numbered, each with the complete command (`cd <dir> && ...`) and, for a measurement, `result → <task>` naming the session that gets the output when you mark it done; the count is what the run needs from you now |
-| Running | needs you have started that run on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
+| Archive | drawn only once a session is over: `retired` (its worktree reclaimed) and `gone` (the session left; its last state dimmed beside it), each group collapsed to its heading and count until `c` shows the rows |
 
 | Key | Does |
 |---|---|
@@ -105,7 +106,7 @@ Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns
 | `s` | marks the picked need started: you typed it and it runs on; the input takes a note on where it is watched |
 | `d` | marks the picked need done; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
 | `x` | releases a slot (asks which) |
-| `c` | shows or hides the `retired` and `gone` groups, collapsed by default to their headings and counts |
+| `c` | shows or collapses the Archive's rows (`retired` and `gone`), collapsed by default to their headings and counts |
 | `r` | refreshes, probing the machine |
 | Esc, or `/mc` | closes |
 

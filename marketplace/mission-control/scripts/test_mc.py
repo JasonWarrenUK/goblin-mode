@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -1307,6 +1308,124 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("join", "--planned", session="crew-8", cwd=self.box.worktree)
         names = sorted(p.name for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json"))
         self.assertEqual(names, ["crew-1.json", "crew-8.json"])
+
+    def test_the_text_board_reads_in_the_boards_order_and_archives_sessions_that_are_over(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("needs", "add", "--why", "approve the PR description in this session", session="crew-1", cwd=self.box.worktree)
+        text = self.box.mc("status", session="coord-1").stdout
+        # the line to type comes first, the why beneath it; a need with no line keeps its why on the row
+        line = f"1. [10SE.2] `cd {self.box.worktree.resolve()} && git push -u origin feat/a`\n   push the branch\n"
+        self.assertIn(line, text)
+        self.assertIn("2. [10SE.2] approve the PR description in this session (in ", text)
+        # a checkout under a path with a space: the cd is quoted, so the pasted line reaches the command
+        self.box.mc("needs", "add", "--why", "start it", "--command", "claude --model opus", "--cwd-hint", "/Users/j/Documents/My App/.claude/worktrees/b", session="crew-1", cwd=self.box.worktree)
+        self.assertIn("3. [10SE.2] `cd '/Users/j/Documents/My App/.claude/worktrees/b' && claude --model opus`\n   start it\n", self.box.mc("status", session="coord-1").stdout)
+        self.assertLess(text.index("| Session |"), text.index("## Needs Jason"))
+        self.assertLess(text.index("## Needs Jason"), text.index("| Slot |"))
+        self.assertNotIn("## Archive", text)
+        # the session goes: its row leaves the crew table for an Archive table at the end, with the state it last reported
+        (self.box.sessions / "crew-1.json").unlink()
+        text = self.box.mc("status", session="coord-1").stdout
+        self.assertNotIn("(gone)", text)
+        self.assertIn("## Archive", text)
+        self.assertIn("| 10se2 | 10SE.2 | feat/a | gone (briefing) |", text)
+        self.assertLess(text.index("| Slot |"), text.index("## Archive"))
+        self.assertNotIn("| 10se2 | 10SE.2 | feat/a | briefing |", text, "a gone session is not in the crew table")
+
+    # the launch line: kick-off used to print it in chat; now crew add puts it on the needs list, and the join closes it
+
+    def test_crew_add_puts_the_launch_line_on_the_needs_list_and_the_join_closes_it(self):
+        self.box.start()
+        added = json.loads(self.box.mc("--json", "crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree),
+                                       "--model", "opus", "--effort", "high", "--name", "10se.2 search ranking", "--reason", "reworks the shared ranking query", session="coord-1").stdout)
+        self.assertEqual((added["model"], added["effort"], added["name"], added["launch_need"]), ("opus", "high", "10se.2 search ranking", 1))
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        need = status["needs"][0]
+        self.assertEqual((need["kind"], need["task"], need["session_id"], need["status"]), ("launch", "10SE.2", "coord-1", "open"))
+        self.assertEqual(Path(need["cwd"]).resolve(), self.box.worktree.resolve(), "the line runs from the worktree, so the board prints cd there first")
+        self.assertEqual(need["why"], "start crew 10SE.2 in a new terminal window (opus, high: reworks the shared ranking query)")
+        self.assertTrue(need["command"].startswith("claude --model opus --effort high --name '10se.2 search ranking' 'Start: you are crew 10SE.2 in run search. Read your brief at "), need["command"])
+        self.assertIn("invoke /mission-control:crew and answer its five questions to the coordinator.'", need["command"])
+        self.assertNotIn("--plugin-dir", need["command"])
+        self.assertIn("## Needs Jason", self.box.mc("status", session="coord-1").stdout)
+        # the session starts in the worktree: the line was typed, so the need closes by itself
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"], [])
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual((run["needs"][0]["status"], run["needs"][0]["note"]), ("done", "joined as session crew-1"))
+        self.assertEqual(run["crew"][0]["model"], "opus")
+
+    def test_a_launch_line_without_a_model_says_so_and_a_plugin_dir_is_added_when_asked(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "UXR", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--plugin-dir", "/p/mission-control", session="coord-1")
+        need = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]
+        self.assertEqual(need["why"], "start crew UXR in a new terminal window (the terminal's model)")
+        self.assertTrue(need["command"].startswith("claude --plugin-dir /p/mission-control --name 'uxr crew' "), need["command"])
+        # no worktree, no line to type yet
+        out = self.box.mc("crew", "add", "--task", "B", "--branch", "feat/b", session="coord-1").stdout
+        self.assertIn("no worktree, so no launch line", out)
+        self.assertEqual(len(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"]), 1)
+
+    def test_a_second_crew_add_for_the_task_supersedes_its_launch_need(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", session="coord-1")
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "opus", "--effort", "high", session="coord-1")
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual([(n["n"], n["status"], n.get("superseded_by"), n.get("supersedes")) for n in run["needs"]], [(1, "done", 2, None), (2, "open", None, 1)])
+        self.assertIn("--model opus --effort high", run["needs"][1]["command"])
+        self.assertEqual(len(run["crew"]), 1)
+        # reconcile names the line while nobody has joined
+        result = self._reconcile_with(self._gh({}))
+        unjoined = [item for item in result["drift"] if item["kind"] == "unjoined"]
+        self.assertEqual(len(unjoined), 1)
+        self.assertIn("its launch line is need #2 on the board", unjoined[0]["detail"])
+
+    def test_re_adding_a_task_whose_session_is_live_edits_the_plan_and_raises_no_launch_need(self):
+        # found on PR 59's review: a migration timestamp assigned after the session had joined left a launch need open for a session that was running
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        out = self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", "--migration", "20261104120000", session="coord-1").stdout
+        self.assertIn("its session is live, so no launch line", out)
+        self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"], [])
+        plan = json.loads(self.box.mc("crew", "list", session="coord-1").stdout)
+        self.assertEqual((len(plan), plan[0]["migration"]), (1, "20261104120000"))
+        added = json.loads(self.box.mc("--json", "crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1").stdout)
+        self.assertIsNone(added["launch_need"])
+        log = next(self.box.ledger_root.glob("*/log.jsonl")).read_text()
+        self.assertIn('"by": "join"', log, "the join closed the first line")
+
+    def test_re_adding_a_task_without_its_worktree_closes_the_stale_launch_line(self):
+        # by hand only (kick-off always passes the worktree), but the board and the plan must not disagree
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"], [])
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual((run["needs"][0]["status"], run["needs"][0]["note"]), ("done", "plan edited with no worktree; no line to type"))
+        self.assertIn('"by": "crew-add"', next(self.box.ledger_root.glob("*/log.jsonl")).read_text())
+
+    def test_every_value_on_the_launch_line_is_quoted(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "opus", "--effort", "high", "--plugin-dir", "/Users/j/Library/Application Support/mission-control", session="coord-1")
+        command = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]["command"]
+        self.assertIn("--plugin-dir '/Users/j/Library/Application Support/mission-control'", command)
+        self.assertIn("--model opus --effort high", command, "a bare word needs no quotes and gets none")
+        self.assertEqual(shlex.split(command)[shlex.split(command).index("--plugin-dir") + 1], "/Users/j/Library/Application Support/mission-control")
+
+    def test_a_crew_session_adopting_the_old_row_closes_the_launch_need_too(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        # the plan is re-added (a new launch line) after the first session closed; the next session adopts the row and closes it
+        (self.box.sessions / "crew-1.json").unlink()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "opus", session="coord-1")
+        self.assertEqual(len(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"]), 1)
+        self.box.register("crew-7", "10se2", str(self.box.worktree))
+        self.assertIn("adopted 10SE.2's row", self.box.mc("join", "--planned", session="crew-7", cwd=self.box.worktree).stdout)
+        self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"], [])
 
     def test_jobs_are_kept_in_the_ledger_and_a_resume_is_told_to_re_arm_them(self):
         self.box.start()

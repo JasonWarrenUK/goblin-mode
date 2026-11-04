@@ -1000,7 +1000,8 @@ def reconcile(ledger: Ledger) -> dict:
     for entry in run.get("crew", []):
         task = entry.get("task", "")
         if task and task not in joined_tasks:
-            note("unjoined", f"crew task {task} is in the plan but no session has joined the ledger for it", task)
+            launch = next((n for n in run.get("needs", []) if n.get("kind") == "launch" and n.get("task") == task and n.get("status") != "done"), None)
+            note("unjoined", f"crew task {task} is in the plan but no session has joined the ledger for it" + (f"; its launch line is need #{launch['n']} on the board" if launch else ""), task)
 
     numbers = {int(row["pr"]) for row in sessions.values() if row.get("pr")}
     facts = pr_facts(ledger, numbers)
@@ -1198,11 +1199,40 @@ def print_status(status: dict) -> None:
         print()
     print(f"# Run {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · coordinator {coord.get('name') or coord.get('session_id', '?')} · PR approval: {run.get('pr_approval', 'user')}")
     print()
+    # the same order as the board: the live crew, what the user has to type, what runs on, the machine, then the sessions that are over
+    def pr_cell(s: dict) -> str:
+        return f"{s.get('pr') or ''}{' ' + s['pr_state'].lower() if s.get('pr_state') and s['pr_state'] != 'OPEN' else ''}"
+
+    live_rows = [s for s in status["sessions"] if s.get("live")]
+    gone_rows = [s for s in status["sessions"] if not s.get("live")]
     print("| Session | Task | Branch | State | Summary | PR |")
     print("|---|---|---|---|---|---|")
-    for s in status["sessions"]:
-        live = "" if s.get("live") else " (gone)"
-        print(f"| {s.get('name') or s['session_id'][:8]}{live} | {s.get('task', '')} | {s.get('branch', '')} | {s.get('state', '')} | {s.get('summary', '')} | {s.get('pr') or ''}{' ' + s['pr_state'].lower() if s.get('pr_state') and s['pr_state'] != 'OPEN' else ''} |")
+    for s in live_rows:
+        print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {s.get('state', '')} | {s.get('summary', '')} | {pr_cell(s)} |")
+    open_needs = [n for n in status["needs"] if n.get("status") != "started"]
+    running = [n for n in status["needs"] if n.get("status") == "started"]
+    if open_needs:
+        # the line to type first, the why beneath it; a need with no line shows its why on the row
+        print()
+        print("## Needs Jason")
+        print()
+        for n in open_needs:
+            tag = f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}]"
+            if n.get("command"):
+                # the directory is quoted for the shell: a checkout under a path with a space would otherwise split the cd
+                print(f"{tag} `{'cd ' + shlex.quote(n['cwd']) + ' && ' if n.get('cwd') else ''}{n['command']}`")
+                print(f"   {n['why']}")
+            else:
+                where = f" (in {n['cwd']})" if n.get("cwd") else ""
+                print(f"{tag} {n['why']}{where}")
+    if running:
+        # started by the user and still going: nothing to type, the result is what closes it
+        print()
+        print("## Running")
+        print()
+        for n in running:
+            note = f" · {n['note']}" if n.get("note") else ""
+            print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']} (since {clock(n.get('started_at'))}{note})")
     print()
     print("| Slot | Holder | Since | Until | What |")
     print("|---|---|---|---|---|")
@@ -1215,25 +1245,16 @@ def print_status(status: dict) -> None:
         print("|---|---|---|---|")
         for req in status["requests"]:
             print(f"| {req['resource']} | {req.get('task') or req.get('name') or req['session_id'][:8]} | {req.get('minutes', '?')} | {req.get('what', '')} |")
-    open_needs = [n for n in status["needs"] if n.get("status") != "started"]
-    running = [n for n in status["needs"] if n.get("status") == "started"]
-    if open_needs:
+    if gone_rows:
+        # sessions that are over: retired once the worktree is reclaimed, else gone with the last state they reported
         print()
-        print("## Needs Jason")
+        print("## Archive")
         print()
-        for n in open_needs:
-            where = f" (in {n['cwd']})" if n.get("cwd") else ""
-            print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']}{where}")
-            if n.get("command"):
-                print(f"   `{n['command']}`")
-    if running:
-        # started by the user and still going: nothing to type, the result is what closes it
-        print()
-        print("## Running")
-        print()
-        for n in running:
-            note = f" · {n['note']}" if n.get("note") else ""
-            print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']} (since {clock(n.get('started_at'))}{note})")
+        print("| Session | Task | Branch | Last state | PR |")
+        print("|---|---|---|---|---|")
+        for s in gone_rows:
+            last = "retired" if s.get("retired") else f"gone ({s.get('state', '')})"
+            print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {last} | {pr_cell(s)} |")
     for probe in status.get("probes", []) or []:
         checks = "; ".join(f"{c['kind']}: {c.get('detail', '')}" for c in probe["checks"])
         print(f"probe {probe['resource']}: {'BUSY' if probe['busy'] else 'free'} ({checks})")
@@ -1954,12 +1975,84 @@ def crew_locked(args, ledger: Ledger) -> int:
     worktree = os.path.abspath(args.worktree) if args.worktree else None
     if worktree:
         worktree = in_main_spelling(worktree, str(ledger.main))
-    entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration, "unlisted": bool(args.unlisted)}
+    entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration, "unlisted": bool(args.unlisted),
+             "model": args.model, "effort": args.effort, "name": args.name or f"{args.task.lower()} crew"}
     run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
+    # the launch line is the first thing the user types for this task, so it goes on the needs list from here, closed by the join.
+    # a plan edit for a task whose session is already live (a migration timestamp assigned later, say) raises none: the session
+    # exists, and a line left open would tell the user to start a second one in a worktree the first holds
+    live = registry()
+    running = next((row for row in ledger.sessions().values() if row.get("task") == args.task and row.get("session_id") in live), None)
+    launch = None
+    if worktree and running is None:
+        launch = raise_launch_need(ledger, run, entry, args.reason, args.plugin_dir)
+    elif running is not None:
+        close_launch_needs_in(ledger, run, args.task, f"session {running['session_id'][:8]} is live; plan edited", "crew-add", running["session_id"])
+    else:
+        # the plan dropped the worktree: the line on the board named a directory the plan no longer does
+        close_launch_needs_in(ledger, run, args.task, "plan edited with no worktree; no line to type", "crew-add", "")
     ledger.save_run(run)
     ledger.log("crew", **entry)
-    print(json.dumps(entry) if args.json else f"crew {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; brief at {entry['brief']}")
+    if args.json:
+        print(json.dumps({**entry, "launch_need": launch["n"] if launch else None}))
+    else:
+        tail = f"; launch line is need #{launch['n']} on the board" if launch else ("; its session is live, so no launch line" if running else "; no worktree, so no launch line")
+        print(f"crew {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; brief at {entry['brief']}{tail}")
     return 0
+
+
+def launch_line(run: dict, entry: dict, plugin_dir: str | None) -> str:
+    """The line the user runs in a fresh terminal for one crew session. `--model` beats ANTHROPIC_MODEL; `--effort` beats the settings but not CLAUDE_CODE_EFFORT_LEVEL (the resolution order at https://code.claude.com/docs/en/model-config), so the model is what kick-off chose whatever the terminal would default to, and the effort is unless that variable is exported. The trailing prompt starts the first turn, since a session with nothing to do sits idle at an empty prompt. Every value is quoted: a plugin root under `Application Support` splits in two when pasted bare."""
+    task = entry["task"]
+    flags: list[str] = []
+    if entry.get("model"):
+        flags += ["--model", shlex.quote(entry["model"])]
+    if entry.get("effort"):
+        flags += ["--effort", shlex.quote(entry["effort"])]
+    if plugin_dir:
+        flags += ["--plugin-dir", shlex.quote(plugin_dir)]
+    prompt = f"Start: you are crew {task} in run {run['name']}. Read your brief at {entry['brief']}, invoke /mission-control:crew and answer its five questions to the coordinator."
+    return " ".join(["claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} crew"), shlex.quote(prompt)])
+
+
+def raise_launch_need(ledger: Ledger, run: dict, entry: dict, reason: str | None, plugin_dir: str | None) -> dict:
+    """Put a crew task's launch line on the needs list as the coordinator's, kind `launch`, in the worktree it must run from; a second `crew add` for the task supersedes the open one rather than adding a second. The caller saves the run."""
+    needs = run.setdefault("needs", [])
+    old = next((n for n in needs if n.get("kind") == "launch" and n.get("task") == entry["task"] and n.get("status") != "done"), None)
+    chosen = ", ".join(x for x in (entry.get("model"), entry.get("effort")) if x) or "the terminal's model"
+    why = f"start crew {entry['task']} in a new terminal window ({chosen}" + (f": {reason.strip()}" if reason else "") + ")"
+    need = {"id": uuid.uuid4().hex[:8], "n": 1 + max([x.get("n", 0) for x in needs] or [0]), "session_id": run.get("coordinator", {}).get("session_id"), "task": entry["task"],
+            "why": why[:NEED_WHY_LIMIT], "command": launch_line(run, entry, plugin_dir), "cwd": entry.get("worktree") or "", "status": "open", "at": now(),
+            "kind": "launch", "for": None, "for_task": "", "supersedes": old["n"] if old else None}
+    needs.append(need)
+    ledger.log("need", **need)
+    if old is not None:
+        supersede(ledger, old, need["n"])
+    return need
+
+
+def close_launch_needs_in(ledger: Ledger, run: dict, task: str, note: str, by: str, session_id: str) -> bool:
+    """Close every open launch need for a task on the run given, with the note saying why and `by` naming what closed it (join, crew-add); the caller saves the run."""
+    closed = False
+    for need in run.get("needs", []):
+        if need.get("kind") == "launch" and need.get("task") == task and need.get("status") != "done":
+            need["status"] = "done"
+            need["done_at"] = now()
+            need["note"] = note
+            ledger.log("need-done", id=need["id"], n=need["n"], by=by, session_id=session_id)
+            closed = True
+    return closed
+
+
+def close_launch_need(ledger: Ledger, task: str, session_id: str) -> bool:
+    """A session joining as a task closes that task's open launch need: the line was typed. Reads the run afresh, since the caller may have saved rows in between; runs under the caller's lock."""
+    run = ledger.run()
+    if not run or not task:
+        return False
+    closed = close_launch_needs_in(ledger, run, task, f"joined as session {session_id[:8]}", "join", session_id)
+    if closed:
+        ledger.save_run(run)
+    return closed
 
 
 def stale_row_for(ledger: Ledger, plan: dict, who: dict) -> dict | None:
@@ -2047,6 +2140,7 @@ def adopt_locked(args, ledger: Ledger) -> int:
     if old is None:
         raise Refusal(f"no row for {plan['task']} to adopt; `mc.py join --planned` makes a fresh one")
     row = adopt_row(ledger, old, session_id, who)
+    close_launch_need(ledger, row.get("task") or plan.get("task") or "", session_id)
     print(json.dumps(row) if args.json else f"adopted {row.get('task')}'s row from session {old['session_id'][:8]} ({row.get('state')})")
     return 0
 
@@ -2076,6 +2170,7 @@ def join_locked(args, ledger: Ledger) -> int:
         old = stale_row_for(ledger, plan, who)
         if old:
             row = adopt_row(ledger, old, session_id, who)
+            close_launch_need(ledger, row.get("task") or task, session_id)
             print(json.dumps(row) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined run {run['name']}")
             return 0
     row.update({
@@ -2093,6 +2188,7 @@ def join_locked(args, ledger: Ledger) -> int:
     })
     ledger.save_session(row)
     ledger.log("join", session_id=session_id, task=task, branch=branch)
+    close_launch_need(ledger, task, session_id)
     print(json.dumps(row) if args.json else f"joined run {run['name']} as {task or branch or session_id[:8]} ({worktree})")
     return 0
 
@@ -2854,6 +2950,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--worktree")
     sp.add_argument("--migration", help="the migration timestamp assigned to this task, if any")
     sp.add_argument("--unlisted", action="store_true", help="the task has no roadmap item: no claim is expected and the board marks it")
+    sp.add_argument("--model", help="the model the crew session launches on (sonnet, opus, ...); goes on its launch line as --model, which beats ANTHROPIC_MODEL")
+    sp.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], help="the effort the crew session launches at; goes on its launch line as --effort")
+    sp.add_argument("--name", help="the session name on the launch line (default: the task id lowercased plus 'crew')")
+    sp.add_argument("--reason", help="why this model and effort, in one line; shown with the launch line on the board")
+    sp.add_argument("--plugin-dir", dest="plugin_dir", help="add --plugin-dir to the launch line, for a plugin run from a working tree rather than installed")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("join", help="register this session in the run")
     sp.add_argument("--task")
@@ -2890,7 +2991,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--why")
     sp.add_argument("--command")
     sp.add_argument("--cwd-hint", dest="cwd_hint", help="where the command must be typed")
-    sp.add_argument("--kind", choices=["action", "measurement", "approval"], help="measurement: the user's output comes back to the session that wants it")
+    sp.add_argument("--kind", choices=["action", "measurement", "approval", "launch"], help="measurement: the user's output comes back to the session that wants it; launch: a crew session's launch line, closed when that session joins (crew add raises these)")
     sp.add_argument("--for", dest="for_session", help="the session the result is for (task, branch, name or id); default: the asking session")
     sp.add_argument("--supersedes", help="for add: the need this one re-issues; that one closes as superseded by the new number")
     sp.add_argument("--note", help="for start: what is running and where to watch it (a background task id, the session watching)")
