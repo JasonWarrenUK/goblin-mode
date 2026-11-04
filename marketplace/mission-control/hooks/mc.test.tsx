@@ -486,6 +486,29 @@ test('parseSnapshot reads the rebind candidate, the pending list, the decisions,
 	expect(plain.needs[0]?.supersedes).toBeNull()
 	const reissued = parseSnapshot(JSON.stringify({ ...STATUS, needs: [{ ...STATUS.needs[0], supersedes: 1 }] }), NOON)
 	expect(reissued.needs[0]?.supersedes).toBe(1)
+	// the plan's model, effort and session name, from crew add; absent on a plan written before they existed
+	const planned = parseSnapshot(JSON.stringify({ ...STATUS, run: { ...STATUS.run, crew: [{ ...STATUS.run.crew[0], model: 'opus', effort: 'high', name: '10se.2 search ranking' }] } }), NOON)
+	expect(planned.run?.crew[0]).toMatchObject({ model: 'opus', effort: 'high', name: '10se.2 search ranking' })
+	expect(plain.run?.crew[0]).toMatchObject({ model: null, effort: null, name: '' })
+})
+
+test('a launch need draws its whole line, cd to the worktree first, with a launch marker', async ($, on) => {
+	const launch = {
+		id: 'n3', n: 3, session_id: 'coord-1', task: '10SE.4', kind: 'launch', status: 'open', at: NOON / 1000,
+		why: 'start crew 10SE.4 in a new terminal window (opus, high: reworks the shared ranking query)',
+		command: "claude --model opus --effort high --name '10se.4 ranking' 'Start: you are crew 10SE.4 in run search. Read your brief at /x/briefs/10SE.4.md, invoke /mission-control:crew and answer its five questions to the coordinator.'",
+		cwd: '/code/app/.claude/worktrees/b',
+	}
+	world(on, 'coord-1', { ...STATUS, needs: [launch] })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^Needs Jason · 1$/ }))?.text).toBe('Needs Jason · 1')
+	expect((await ui.find({ type: 'Text', text: /^launch$/ }))?.text).toBe('launch')
+	expect((await ui.find({ type: 'Text', text: /new terminal window/ }))?.text).toContain('opus, high: reworks the shared ranking query')
+	const line = await ui.find({ type: 'Text', text: /^cd \/code\/app\/.claude\/worktrees\/b && claude --model opus --effort high --name/ })
+	expect(line?.text).toContain('answer its five questions to the coordinator.')
+	await ui.unmount()
 })
 
 test('a started need sits in its own Running group with its start time, off the needs-Jason count, and s marks an open one started', async ($, on) => {

@@ -16,6 +16,11 @@ export type CrewPlan = {
 	migration: string | null
 	/** Planned with no roadmap item: no claim is expected and the board says so. */
 	unlisted: boolean
+	/** The model and effort kick-off chose for the session, on its launch line as --model and --effort; null when the terminal's default is left to decide. */
+	model: string | null
+	effort: string | null
+	/** The session name on the launch line. */
+	name: string
 }
 
 /** A decision the user made, from decisions.jsonl: how many sessions were told and how many acknowledged. */
@@ -49,7 +54,7 @@ export type Need = {
 	cwd: string
 	/** open (the user has yet to type it), started (they typed it and it runs on) or done. */
 	status: string
-	/** action (the default), measurement (its result goes back to a session) or approval. */
+	/** action (the default), measurement (its result goes back to a session), approval or launch (a crew session's launch line, closed when it joins). */
 	kind: string
 	/** The session the result is for, when the need is a measurement. */
 	for: string | null

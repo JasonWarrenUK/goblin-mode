@@ -139,7 +139,7 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 					socket: str((rawRun.coordinator as Record<string, unknown> | undefined)?.socket) || null,
 				},
 				base: { branch: str((rawRun.base as Record<string, unknown> | undefined)?.branch), commit: str((rawRun.base as Record<string, unknown> | undefined)?.commit) },
-				crew: list(rawRun.crew).map(c => ({ task: str(c.task), branch: str(c.branch), worktree: str(c.worktree) || null, brief: str(c.brief), migration: str(c.migration) || null, unlisted: c.unlisted === true })),
+				crew: list(rawRun.crew).map(c => ({ task: str(c.task), branch: str(c.branch), worktree: str(c.worktree) || null, brief: str(c.brief), migration: str(c.migration) || null, unlisted: c.unlisted === true, model: str(c.model) || null, effort: str(c.effort) || null, name: str(c.name) })),
 				assumptions: list(rawRun.assumptions).map(a => ({ n: num(a.n), text: str(a.text), changed_at: num(a.changed_at) || null })),
 				rebind: isRecord((rawRun.coordinator as Record<string, unknown> | undefined)?.rebind_candidate)
 					? { session_id: str(((rawRun.coordinator as Record<string, unknown>).rebind_candidate as Record<string, unknown>).session_id), name: str(((rawRun.coordinator as Record<string, unknown>).rebind_candidate as Record<string, unknown>).name) }
@@ -987,8 +987,9 @@ const needRows = ($: EngineInterface, ui: Ui, needs: readonly Need[], picked: st
 					<Button key={`row-${key}`} plain dimColor={picked !== null && picked !== key} label={`${n.n}.`} onPress={() => update($, selected, () => key)} />
 					<Text color="warning">{n.task ? `[${n.task}]` : ''}</Text>
 					{n.kind === 'measurement' ? <Text dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null}
+					{n.kind === 'launch' ? <Text dimColor>launch</Text> : null}
 					{n.supersedes !== null ? <Text dimColor>re-issues #{n.supersedes}</Text> : null}
-					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0) - (n.supersedes !== null ? 12 + String(n.supersedes).length : 0) - (running ? tailWidth + 1 : 0))}>
+					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0) - (n.kind === 'launch' ? 7 : 0) - (n.supersedes !== null ? 12 + String(n.supersedes).length : 0) - (running ? tailWidth + 1 : 0))}>
 						<Text wrap="wrap">{n.why}</Text>
 					</Box>
 					{running ? (
