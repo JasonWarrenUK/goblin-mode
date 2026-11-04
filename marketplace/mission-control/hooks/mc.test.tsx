@@ -595,14 +595,18 @@ test('the board names a broken git and the fix while the run still draws', async
 	expect(parseSnapshot(JSON.stringify(STATUS), NOON).gitProblem).toBeNull()
 })
 
-test('the board groups the crew under a subheading per state, with retired and gone collapsed to their headings', async ($, on) => {
+test('the board groups the live crew under a subheading per state and the retired and gone under Archive, collapsed to their headings', async ($, on) => {
 	world(on, 'coord-1', threeStates())
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'mc', args: '' })
 	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^Crew · 3$/ }))?.text).toBe('Crew · 3')
 	expect((await ui.find({ type: 'Text', text: /^working · 2$/ }))?.text).toBe('working · 2')
 	expect((await ui.find({ type: 'Text', text: /^pr-ready · 1$/ }))?.text).toBe('pr-ready · 1')
+	expect((await ui.find({ type: 'Text', text: /^Archive · 1$/ }))?.text).toBe('Archive · 1')
 	expect((await ui.find({ type: 'Text', text: /^gone · 1$/ }))?.text).toBe('gone · 1')
+	// the sections in order: the live crew, what the user types, the machine, then the archive last
+	expect((await ui.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Crew', 'Needs Jason', 'Slots', 'Requests', 'Archive'])
 	// the gone row itself (its worktree name is the one Text unique to it) is not drawn until c shows it
 	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
 	expect((await ui.find({ type: 'Text', text: /^c shows$/ }))?.text).toBe('c shows')
@@ -610,6 +614,31 @@ test('the board groups the crew under a subheading per state, with retired and g
 	expect((await ui.find({ type: 'Text', text: /^wt-5$/ }))?.text).toBe('wt-5')
 	await ui.press({ key: 'quiet' })
 	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
+	await ui.unmount()
+})
+
+test('Needs Jason and Archive draw only when they hold something, and a need shows its line before its why', async ($, on) => {
+	// one live session, nothing to type: neither section is drawn, and nothing says "nothing"
+	world(on, 'coord-1', { ...STATUS, needs: [] })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const quiet = await $.ui.mount(PANE)
+	expect(await quiet.find({ type: 'Text', text: /^Needs Jason/ })).toBeUndefined()
+	expect(await quiet.find({ type: 'Text', text: /^Archive/ })).toBeUndefined()
+	expect(await quiet.find({ type: 'Text', text: /^nothing\./ })).toBeUndefined()
+	expect(await quiet.find({ key: 'quiet' })).toBeUndefined()
+	expect((await quiet.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Crew', 'Slots', 'Requests'])
+	await quiet.unmount()
+})
+
+test('a need shows the line to paste first and its why beneath; one with no line keeps its why on the row', async ($, on) => {
+	const bare = { ...STATUS.needs[0], id: 'n2', n: 2, why: 'approve the PR description in this session', command: '' }
+	world(on, 'coord-1', { ...STATUS, needs: [STATUS.needs[0], bare] })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	const texts = (await ui.findAll({ type: 'Text', text: /type the reset|cd \/code\/app|approve the PR/ })).map(t => t.text)
+	expect(texts).toEqual(['cd /code/app/.claude/worktrees/a/apps/api && poetry run poe db-reset-local-anyway', 'type the reset', 'approve the PR description in this session'])
 	await ui.unmount()
 })
 

@@ -755,12 +755,14 @@ const stateColour = (state: string): string | undefined => {
 	}
 }
 
-const heading = (ui: Ui, label: string, inner: number) => {
+const heading = (ui: Ui, label: string, inner: number, dim = false) => {
 	const { Box, Text } = ui
 	return (
 		<Box flexDirection="row" columnGap={1}>
 			<Text dimColor>──</Text>
-			<Text bold>{label}</Text>
+			<Text bold dimColor={dim}>
+				{label}
+			</Text>
 			<Text dimColor>{'─'.repeat(Math.max(2, inner - label.length - 4))}</Text>
 		</Box>
 	)
@@ -860,11 +862,11 @@ export const crewGroups = (sessions: readonly Snapshot['sessions'][number][]): {
 	return names.map(group => ({ group, sessions: sessions.filter(s => groupOf(s) === group) }))
 }
 
-const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: string | null, inner: number, now: number, showQuiet = false) => {
+/** The crew rows of one section: `active` draws the live groups, `archive` the retired and gone ones (collapsed to their headings until c shows them). One index counter runs across both, so the 1 to 9 keys stay unique. */
+const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: string | null, inner: number, now: number, nextIndex: () => number, which: 'active' | 'archive', showQuiet = false) => {
 	const { Box, Text } = ui
-	const grouped = crewGroups(snap.sessions)
+	const grouped = crewGroups(snap.sessions).filter(({ group }) => QUIET_GROUPS.has(group) === (which === 'archive'))
 	const unlisted = new Set(snap.run?.crew.filter(c => c.unlisted).map(c => c.task) ?? [])
-	let nth = 0
 	return grouped.flatMap(({ group, sessions }, at) => {
 		const quiet = QUIET_GROUPS.has(group)
 		const collapsed = quiet && !showQuiet
@@ -876,7 +878,7 @@ const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: 
 				</Text>
 				{collapsed ? <Text dimColor>c shows</Text> : null}
 			</Box>,
-			...(collapsed ? [] : crewRowsOf($, ui, sessions, me, picked, inner, now, () => nth++, unlisted)),
+			...(collapsed ? [] : crewRowsOf($, ui, sessions, me, picked, inner, now, nextIndex, unlisted)),
 		]
 	})
 }
@@ -981,16 +983,28 @@ const needRows = ($: EngineInterface, ui: Ui, needs: readonly Need[], picked: st
 		const tail = running ? `since ${n.started_at ? clock(n.started_at) : '?'}${n.note ? ` · ${n.note}` : ''}` : ''
 		// a note can run to the CLI's 1200-character cap; the tail takes at most half the row and truncates, so why keeps its columns
 		const tailWidth = running ? Math.min(tail.length, Math.max(16, Math.floor(inner / 2))) : 0
+		// the line to paste comes first and the why beneath it: the user reads the board for what to type; a need with no line, or one running, shows its why on the row
+		const line = n.command && !running ? (n.cwd ? `cd ${n.cwd} && ${n.command}` : n.command) : ''
+		const marks = [
+			n.kind === 'measurement' ? <Text key="measurement" dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null,
+			n.kind === 'launch' ? <Text key="launch" dimColor>launch</Text> : null,
+			n.supersedes !== null ? <Text key="supersedes" dimColor>re-issues #{n.supersedes}</Text> : null,
+		].filter(mark => mark !== null)
+		const marksWidth = (n.kind === 'measurement' ? 12 + n.for_task.length : 0) + (n.kind === 'launch' ? 7 : 0) + (n.supersedes !== null ? 12 + String(n.supersedes).length : 0)
 		return (
 			<Box key={key} flexDirection="column">
 				<Box flexDirection="row" columnGap={1}>
 					<Button key={`row-${key}`} plain dimColor={picked !== null && picked !== key} label={`${n.n}.`} onPress={() => update($, selected, () => key)} />
 					<Text color="warning">{n.task ? `[${n.task}]` : ''}</Text>
-					{n.kind === 'measurement' ? <Text dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null}
-					{n.kind === 'launch' ? <Text dimColor>launch</Text> : null}
-					{n.supersedes !== null ? <Text dimColor>re-issues #{n.supersedes}</Text> : null}
-					<Box width={Math.max(10, inner - 10 - n.task.length - (n.kind === 'measurement' ? 12 + n.for_task.length : 0) - (n.kind === 'launch' ? 7 : 0) - (n.supersedes !== null ? 12 + String(n.supersedes).length : 0) - (running ? tailWidth + 1 : 0))}>
-						<Text wrap="wrap">{n.why}</Text>
+					{line ? null : marks}
+					<Box width={Math.max(10, inner - 10 - n.task.length - (line ? 0 : marksWidth) - (running ? tailWidth + 1 : 0))}>
+						{line ? (
+							<Text color="claude" bold wrap="wrap">
+								{line}
+							</Text>
+						) : (
+							<Text wrap="wrap">{n.why}</Text>
+						)}
 					</Box>
 					{running ? (
 						<Box width={tailWidth}>
@@ -1000,11 +1014,14 @@ const needRows = ($: EngineInterface, ui: Ui, needs: readonly Need[], picked: st
 						</Box>
 					) : null}
 				</Box>
-				{n.command && !running ? (
+				{line ? (
 					<Box flexDirection="row" paddingLeft={4} columnGap={1}>
-						<Text color="claude" bold>
-							{n.cwd ? `cd ${n.cwd} && ${n.command}` : n.command}
-						</Text>
+						{marks}
+						<Box width={Math.max(10, inner - 6 - marksWidth)}>
+							<Text dimColor wrap="wrap">
+								{n.why}
+							</Text>
+						</Box>
 					</Box>
 				) : null}
 			</Box>
@@ -1299,14 +1316,33 @@ export const register: Register = (on, options) => {
 		const needs = needGroups(snap.needs)
 		const pickedSlot = pickedRequest ? snap.slots.find(s => s.resource === pickedRequest.resource) : undefined
 		const freeResources = snap.probes.filter(p => !snap.slots.some(s => s.resource === p.resource))
+		// top to bottom: the live crew by state, what the user has to type, what runs on, the machine, the sessions that are over
+		const live = snap.sessions.filter(s => s.live).length
+		const archived = snap.sessions.length - live
+		let nth = 0
+		const nextIndex = () => nth++
 		return (
 			<Box flexDirection="column" width={width} rowGap={1}>
 				{header(ui, snap, me, now, inner)}
 				<Box flexDirection="column" paddingX={1}>
-					{heading(ui, `Crew · ${snap.sessions.length}`, inner)}
+					{heading(ui, `Crew · ${live}`, inner)}
 					{snap.sessions.length === 0 && <Text dimColor>nobody has joined yet; a session starting in a planned worktree joins by itself.</Text>}
-					{crewRows($, ui, snap, me, picked, inner, now, showQuiet)}
+					{snap.sessions.length > 0 && live === 0 && <Text dimColor>nobody live; the archive below has the rest.</Text>}
+					{crewRows($, ui, snap, me, picked, inner, now, nextIndex, 'active', showQuiet)}
 				</Box>
+				{needs.open.length > 0 && (
+					<Box flexDirection="column" paddingX={1}>
+						{heading(ui, `Needs Jason · ${needs.open.length}`, inner)}
+						{needRows($, ui, needs.open, picked, inner)}
+					</Box>
+				)}
+				{needs.running.length > 0 && (
+					<Box flexDirection="column" paddingX={1}>
+						{heading(ui, `Running · ${needs.running.length}`, inner)}
+						<Text dimColor>started by you and still going; d with the result closes each.</Text>
+						{needRows($, ui, needs.running, picked, inner)}
+					</Box>
+				)}
 				<Box flexDirection="column" paddingX={1}>
 					{heading(ui, `Slots · ${snap.slots.length} held`, inner)}
 					{slotRows(ui, snap)}
@@ -1328,16 +1364,10 @@ export const register: Register = (on, options) => {
 						{requestRows($, ui, snap, picked)}
 					</Box>
 				)}
-				<Box flexDirection="column" paddingX={1}>
-					{heading(ui, `Needs Jason · ${needs.open.length}`, inner)}
-					{needs.open.length === 0 && <Text dimColor>nothing. every command here is one you type, from the directory shown.</Text>}
-					{needRows($, ui, needs.open, picked, inner)}
-				</Box>
-				{needs.running.length > 0 && (
+				{archived > 0 && (
 					<Box flexDirection="column" paddingX={1}>
-						{heading(ui, `Running · ${needs.running.length}`, inner)}
-						<Text dimColor>started by you and still going; d with the result closes each.</Text>
-						{needRows($, ui, needs.running, picked, inner)}
+						{heading(ui, `Archive · ${archived}`, inner, true)}
+						{crewRows($, ui, snap, me, picked, inner, now, nextIndex, 'archive', showQuiet)}
 					</Box>
 				)}
 				<Box flexDirection="column" paddingX={1}>
@@ -1355,7 +1385,7 @@ export const register: Register = (on, options) => {
 							{pickedNeed && <Button key="done" label={`done ${pickedNeed.n}`} hotkey="d" variant="primary" onPress={() => update($, asking, () => ({ kind: 'done', resource: '', sessionId: pickedNeed.session_id, ref: String(pickedNeed.n) }))} />}
 							{pickedNeed && pickedNeed.status !== 'started' && <Button key="started" label={`started ${pickedNeed.n}`} hotkey="s" onPress={() => update($, asking, () => ({ kind: 'started', resource: '', sessionId: pickedNeed.session_id, ref: String(pickedNeed.n) }))} />}
 							{snap.slots.length > 0 && <Button key="release" label="release a slot" hotkey="x" onPress={() => update($, asking, () => ({ kind: 'release', resource: snap.slots[0]?.resource ?? '', sessionId: '', ref: '' }))} />}
-							{snap.sessions.some(s => !s.live) && <Button key="quiet" label={showQuiet ? 'hide retired and gone' : 'show retired and gone'} hotkey="c" onPress={() => update($, quietShown, shown => !shown)} />}
+							{archived > 0 && <Button key="quiet" label={showQuiet ? 'collapse the archive' : 'show the archive'} hotkey="c" onPress={() => update($, quietShown, shown => !shown)} />}
 							<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($, true)} />
 						</Box>
 					)}
@@ -1429,7 +1459,7 @@ export const register: Register = (on, options) => {
 							}}
 						/>
 					)}
-					<Text dimColor>1-9 pick a session · q-p pick a request · g grant · s need started · d need done · x release · c retired and gone · r refresh · esc or /mc closes</Text>
+					<Text dimColor>1-9 pick a session · q-p pick a request · g grant · s need started · d need done · x release · c archive · r refresh · esc or /mc closes</Text>
 				</Box>
 			</Box>
 		)
