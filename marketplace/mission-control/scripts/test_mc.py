@@ -1258,8 +1258,9 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("report", "--state", "pr-ready", "--pr", "253", session="crew-1", cwd=self.box.worktree)
         run_path = next(self.box.ledger_root.glob("*/run.json"))
         run = json.loads(run_path.read_text())
-        # a window that is never open: Monday to Friday at a minute that has passed, so every poll is outside hours
-        run["collaboration"] = {"mode": "collaborative", "hours": {"start": "00:00", "end": "00:01", "days": [0, 1, 2, 3, 4, 5, 6]}}
+        # a window that is never open: start and end coincide, so no minute of any day satisfies start <= now < end
+        # (a 00:00 to 00:01 window was open for the one minute a suite running across midnight polled in, on 5 November 2026)
+        run["collaboration"] = {"mode": "collaborative", "hours": {"start": "00:00", "end": "00:00", "days": [0, 1, 2, 3, 4, 5, 6]}}
         run_path.write_text(json.dumps(run))
         reviewed = self._view(reviews=[{"author": {"login": "jaz"}, "state": "COMMENTED", "submittedAt": "x"}])
         code, out = self._watch(self._gh_watch([self._view(), reviewed, reviewed]), "--max-minutes", "0.001")
