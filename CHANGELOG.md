@@ -5,6 +5,17 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.5.0] - 2026-11-05
+
+### Added
+
+- `mission-control` plugin 0.8.0: a crew session that has stopped on a permission prompt or a question in its own window now shows as `waiting on you` on the pane, the text board and the coordinator's briefing, with the window the user has to visit named first. Reconcile reads the process table and names any browser a session left open outside a slot as `browser-open` drift, so a Playwright Chrome no longer sits unnoticed for hours. Details in the plugin's changelog.
+
+### Fixed
+
+- `pr-create` sends the PR body to `gh` exactly as approved, never through `sed`, `awk` or `tail`, and reads the posted body back for its Summary heading before reporting the URL; two PRs had gone up with a body holding only the watermark line after BSD `sed` rejected a GNU form and emptied the file.
+- `mission-control`: a slot request now clears when the extension is granted and when the holder releases the slot, so it no longer reads as a queue for a free slot afterwards.
+
 ## [7.4.0] - 2026-11-04
 
 ### Added
@@ -453,7 +464,9 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.3.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.0...HEAD
+[7.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.4.0...v7.5.0
+[7.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.3.0...v7.4.0
 [7.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.2.0...v7.3.0
 [7.2.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.1.0...v7.2.0
 [7.1.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.0.0...v7.1.0
