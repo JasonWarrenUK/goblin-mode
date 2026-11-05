@@ -4,6 +4,22 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-05
+
+### Added
+
+- A crew session that stops on a permission prompt or a question in its own window used to look like any other working session. The registry already carried a waiting status the pane ignored; now a live row with it gains a red `waiting on you (prompt)` tag and dot, the text board opens with a `Waiting on you` section naming the window and how long the session has sat there, the coordinator's context section leads with those sessions and coordinate step 0a says to name the window to the user before any other status. The check-in skips such a row and opens its list with the window, `mc_send` to `all` names any recipient sat on a prompt so the sender knows not to wait on a reply, and the crew skill says to report `waiting-jason` and tell the coordinator before asking anything in-window.
+- Reconcile traces every open browser back to the session that launched it: it reads the process table, finds each browser under a Playwright MCP server, walks the parent chain to a pid the registry knows and prints a `browser-open` drift line naming the browser (`Google Chrome`, `firefox`) when that session holds no slot. Inside a slot the browser is the check in progress and is left alone. The crew skill says to close the browser before releasing a slot, with the drift line as the backstop; three browsers sat open for hours on the 4 November run and were only found by hand.
+
+### Changed
+
+- The text board prints `Waiting on you`, then `Needs Jason`, then the crew table, in the order the user acts on it; the pane already read that way.
+- `/mc extend` tells the holder the deadline the CLI reports rather than a fixed 15 minutes, since an extension granted without a number takes the minutes the holder asked for.
+
+### Fixed
+
+- A slot request cleared neither when the extension was granted nor when the holder released the slot, so it stayed on the board reading as a queue for a free resource. It now clears on both, and a grant with no `--minutes` extends by the request's own figure.
+
 ## [0.7.0] - 2026-11-04
 
 ### Added
