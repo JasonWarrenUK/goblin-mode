@@ -622,7 +622,12 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			if (!text.trim()) return 'nothing to send'
 			if (arg(input, 'to').trim().toLowerCase() === 'all') {
 				const targets = others(snap, [me.sessionId])
-				return targets.length ? handoff(snap, targets, text).trim() : 'nobody else is live in the run'
+				if (!targets.length) return 'nobody else is live in the run'
+				// a session sat on a prompt in its own window reads the message only once the user has been there: the sender
+				// decides whether to send anyway (a freeze, a notice) or drop the call (a question it would wait on, as the check-in does)
+				const waiting = targets.filter(id => snap.sessions.find(s => s.session_id === id)?.live_status === 'waiting').map(id => addressOf(snap, id))
+				const note = waiting.length ? `\n${waiting.join(', ')} ${waiting.length > 1 ? 'sit' : 'sits'} on a permission prompt or a question in its own window and will read this only when the user has answered there; do not wait on a reply.` : ''
+				return `${handoff(snap, targets, text).trim()}${note}`
 			}
 			const target = resolveSession(snap, arg(input, 'to'))
 			if (typeof target === 'string') return target

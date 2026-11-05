@@ -303,6 +303,29 @@ test('a session the registry marks waiting reads waiting on you, and the coordin
 	await ui.unmount()
 })
 
+test('mc_send to all still hands over the waiting session and says it cannot answer', async ($, on) => {
+	const waiting = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'in-slot', live_status: 'waiting' }] }
+	world(on, 'coord-1', waiting)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	const reply = await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'check-in' })
+	// a plugin's own tool answers through its hook, so the text is in result (a string, or MCP content blocks), never in text
+	const said = (r: { text?: string; result?: unknown }): string => r.text ?? (typeof r.result === 'string' ? r.result : ((r.result as { content?: { text?: string }[] } | undefined)?.content ?? []).map(c => c.text ?? '').join('\n'))
+	// the call is still handed over (a freeze or a notice must reach it once the user has been there); the sender decides whether to drop it
+	expect(said(reply)).toContain('SendMessage to "10se2": check-in')
+	expect(said(reply)).toMatch(/10se2 sits on a permission prompt or a question in its own window.*do not wait on a reply/)
+})
+
+test('mc_send to all says nothing about prompts when every session is working', async ($, on) => {
+	world(on, 'coord-1', STATUS)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	const busy = await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'check-in' })
+	const text = busy.text ?? (typeof busy.result === 'string' ? busy.result : JSON.stringify(busy.result))
+	expect(text).toContain('10se2')
+	expect(text).not.toMatch(/permission prompt/)
+})
+
 const withPr = (prState: string | null) => ({ ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'pr-ready', pr: 209, pr_state: prState }] })
 
 test('helpers: prNumberOf and carryPrState', async () => {
