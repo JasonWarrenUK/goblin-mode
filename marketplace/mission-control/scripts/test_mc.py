@@ -2000,6 +2000,46 @@ class LedgerFlow(unittest.TestCase):
         self.assertNotIn("Re-arm the watch", out)
         self.assertEqual(self._crew_watch_record()["status"], "stopped")
 
+    def test_watch_stop_clears_its_marker_when_the_watcher_had_already_exited(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self._watching_session(270)
+        self._set_watch(270, "watching", 424242)
+        real = (mc_module.sh, mc_module.os.kill, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
+
+        def gone(_pid, _sig):
+            raise ProcessLookupError
+        mc_module.sh = lambda argv, timeout=8, cwd=None: (0, "python3 mc.py watch")
+        mc_module.os.kill = gone
+        mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = self.box.ledger_root, self.box.sessions
+        try:
+            ledger = mc_module.ledger_for(self.box.repo)
+            code = mc_module.stop_watch(ledger, ledger.sessions()["crew-1"], 270)
+        finally:
+            mc_module.sh, mc_module.os.kill, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = real
+        self.assertEqual(code, 0)
+        self.assertNotIn("stopping", self._crew_watch_record(), "a marker nothing will read is not left behind")
+
+    def test_a_stopping_marker_from_an_earlier_watcher_is_not_inherited(self):
+        import signal
+        self._watching_session(271)
+        row_path = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0]
+        row = json.loads(row_path.read_text())
+        row["watch"] = {"pr": 271, "status": "idle", "pid": None, "stopping": True, "seen": None}
+        row_path.write_text(json.dumps(row))
+        base = self._gh_watch([self._view(checks=[("ci", "SUCCESS")])])
+
+        def killing_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "view"] and getattr(killing_sh, "calls", 0) >= 1:
+                os.kill(os.getpid(), signal.SIGTERM)
+            if argv[:3] == ["gh", "pr", "view"]:
+                killing_sh.calls = getattr(killing_sh, "calls", 0) + 1
+            return base(argv, timeout, cwd)
+        code, out = self._watch(killing_sh)
+        self.assertEqual(code, 128 + signal.SIGTERM)
+        self.assertIn("Re-arm the watch", out, "an outside kill is still an outside kill")
+        self.assertEqual(self._crew_watch_record()["status"], "killed")
+
     def test_a_signal_that_lands_while_the_ledger_lock_is_held_does_not_hang_the_watcher(self):
         import fcntl
         import signal
