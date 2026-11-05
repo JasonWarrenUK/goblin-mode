@@ -667,6 +667,8 @@ class LedgerFlow(unittest.TestCase):
         # the sandbox registers every session under the test's own pid; the crew gets a child the test owns, so the chain has one
         # owner and the registry's kill(pid, 0) probe cannot be refused (a detached runner's parent is launchd, which refuses it)
         crew = subprocess.Popen(["sleep", "300"])
+        # cleanups run last in, first out: kill, then reap, or the interpreter warns that the child is still running
+        self.addCleanup(crew.wait)
         self.addCleanup(crew.kill)
         crew_pid = crew.pid
         row = json.loads((self.box.sessions / "crew-1.json").read_text())
