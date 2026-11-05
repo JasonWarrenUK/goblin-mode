@@ -1959,13 +1959,22 @@ def stop_watch(ledger: Ledger, row: dict, number: int) -> int:
     """Stop this session's own watcher by the pid on its row. Never matches by name, so one session cannot reach another's watcher the way a `pkill -f` does."""
     watch = (row or {}).get("watch") or {}
     pid = watch.get("pid")
-    if not row or watch.get("pr") != number or not pid:
+    if not row or watch.get("pr") != number or not (pid or watch.get("status")):
         raise Refusal(f"this session has no watcher recorded for PR #{number}")
-    try:
-        os.kill(int(pid), 0)
-    except (ProcessLookupError, PermissionError):
-        print(f"#{number}: the recorded watcher (pid {pid}) is not running; nothing to stop")
+    # pids are recycled: signal only a row that reads as a live loop and a process whose command line is this watcher
+    if watch.get("status") not in ("watching", "holding") or not pid:
+        print(f"#{number}: no watcher is running for this PR (status {watch.get('status')}); nothing to stop")
         return 0
+    code, command = sh(["ps", "-o", "command=", "-p", str(int(pid))])
+    if code != 0 or "mc.py" not in command or "watch" not in command:
+        print(f"#{number}: the recorded pid {pid} is not an mc.py watcher; nothing to stop")
+        return 0
+    with ledger.locked():
+        fresh = ledger.sessions().get(row["session_id"])
+        if fresh and isinstance(fresh.get("watch"), dict):
+            # tells the watcher's unwinding that this signal was meant, so it says `do not re-arm`
+            fresh["watch"]["stopping"] = True
+            ledger.save_session(fresh)
     os.kill(int(pid), signal.SIGTERM)
     print(f"#{number}: stopped the watcher (pid {pid})")
     return 0
@@ -1990,7 +1999,8 @@ def cmd_watch(args) -> int:
     if args.stop:
         return stop_watch(ledger, row, number)
 
-    def record(status: str, seen: dict | None, changes: list[str], signal_number: int | None = None) -> None:
+    def record(status: str, seen: dict | None, changes: list[str], signal_number: int | None = None, running: bool = False) -> None:
+        """`running` is true only while this process is polling: a row that keeps a pid after the process has exited would read as a dead watcher and invite a stray signal at a recycled pid."""
         if not run or not row:
             return
         with ledger.locked():
@@ -1998,7 +2008,7 @@ def cmd_watch(args) -> int:
             if not fresh:
                 return
             fresh["watch"] = {"pr": number, "since": (fresh.get("watch") or {}).get("since") or now(), "status": status, "checked_at": now(), "seen": seen, "last_change": changes or (fresh.get("watch") or {}).get("last_change") or [],
-                              "pid": os.getpid(), "signal": signal_number}
+                              "pid": os.getpid() if running else None, "signal": signal_number}
             # the watch is a scheduled job like any other: open while it should be running or re-armed, done once the PR landed
             jobs = [j for j in (fresh.get("jobs") or []) if j.get("id") != f"watch-{number}"]
             jobs.append({"id": f"watch-{number}", "kind": "watch", "spec": f"PR #{number}, every {int(args.interval)}s" + (f", held outside {hours['start']}-{hours['end']}" if hours else ""),
@@ -2033,16 +2043,17 @@ def cmd_watch(args) -> int:
     failures = 0
     held: list[str] = []
 
+    caught: list[int] = []
+
     def killed(signal_number, _frame) -> None:
-        # exit 144 with no output was the shape of a watcher stopped from outside; say so in the ledger and on stdout so the wake explains itself
-        record("killed", seen, [], signal_number)
-        print(f"#{number}: the watch was stopped by signal {signal_number} ({signal.Signals(signal_number).name}); something outside it ended the process. Re-arm the watch; stop one on purpose with `mc.py watch --stop`")
-        sys.stdout.flush()
+        # no I/O here: the handler can fire while this process holds the ledger lock, and a second flock on a fresh file description
+        # would wait on the first for ever. The unwinding releases the lock; the `finally` below writes the record.
+        caught.append(signal_number)
         raise SystemExit(128 + signal_number)
 
     caught_signals = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
-    previous_handlers = {caught: signal.signal(caught, killed) for caught in caught_signals}
-    record("watching", seen, [])
+    previous_handlers = {sig: signal.signal(sig, killed) for sig in caught_signals}
+    record("watching", seen, [], running=True)
     try:
         while True:
             time.sleep(interval)
@@ -2072,18 +2083,30 @@ def cmd_watch(args) -> int:
                     return 0
                 if changes != held:
                     held = changes
-                    record("holding", seen, changes)
+                    record("holding", seen, changes, running=True)
             if now() >= deadline:
+                # the process is about to exit, so the row keeps no pid; a watch with nothing held reads `idle` (re-arm), and one with held
+                # changes keeps `holding`, which the board and the session-start context already read
                 if held:
                     record("holding", seen, held)
                     print(f"#{number}: holding until the team's hours open at {clock(window_opens(hours, now()))} ({'; '.join(held)}); re-arm the watch")
                 else:
-                    record("watching", current, [])
+                    record("idle", current, [])
                     print(f"#{number}: no change in {args.max_minutes} minutes; re-arm the watch")
                 return 0
     finally:
-        for caught, handler in previous_handlers.items():
-            signal.signal(caught, handler)
+        for sig, handler in previous_handlers.items():
+            signal.signal(sig, handler)
+        if caught:
+            # a deliberate `watch --stop` leaves a marker on the row; any other signal came from outside
+            stopping = bool((((ledger.sessions().get(row["session_id"]) or {}).get("watch")) or {}).get("stopping")) if row else False
+            if stopping:
+                record("stopped", seen, [], caught[0])
+                print(f"#{number}: watch stopped on request; do not re-arm")
+            else:
+                record("killed", seen, [], caught[0])
+                print(f"#{number}: the watch was stopped by signal {caught[0]} ({signal.Signals(caught[0]).name}); something outside it ended the process. Re-arm the watch; stop one on purpose with `mc.py watch --stop`")
+            sys.stdout.flush()
 
 
 def cmd_crew(args) -> int:
