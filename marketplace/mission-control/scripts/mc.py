@@ -1975,7 +1975,11 @@ def stop_watch(ledger: Ledger, row: dict, number: int) -> int:
             # tells the watcher's unwinding that this signal was meant, so it says `do not re-arm`
             fresh["watch"]["stopping"] = True
             ledger.save_session(fresh)
-    os.kill(int(pid), signal.SIGTERM)
+    try:
+        os.kill(int(pid), signal.SIGTERM)
+    except ProcessLookupError:  # it exited between the check and the signal
+        print(f"#{number}: the watcher (pid {pid}) had already exited; nothing to stop")
+        return 0
     print(f"#{number}: stopped the watcher (pid {pid})")
     return 0
 
@@ -2007,8 +2011,12 @@ def cmd_watch(args) -> int:
             fresh = ledger.sessions().get(row["session_id"])
             if not fresh:
                 return
+            fresh_before = fresh.get("watch") if isinstance(fresh.get("watch"), dict) else None
             fresh["watch"] = {"pr": number, "since": (fresh.get("watch") or {}).get("since") or now(), "status": status, "checked_at": now(), "seen": seen, "last_change": changes or (fresh.get("watch") or {}).get("last_change") or [],
                               "pid": os.getpid() if running else None, "signal": signal_number}
+            if running and (fresh_before or {}).get("stopping"):
+                # a stop requested while this record waited on the lock: keep the marker so the signal that follows reads as meant
+                fresh["watch"]["stopping"] = True
             # the watch is a scheduled job like any other: open while it should be running or re-armed, done once the PR landed
             jobs = [j for j in (fresh.get("jobs") or []) if j.get("id") != f"watch-{number}"]
             jobs.append({"id": f"watch-{number}", "kind": "watch", "spec": f"PR #{number}, every {int(args.interval)}s" + (f", held outside {hours['start']}-{hours['end']}" if hours else ""),
