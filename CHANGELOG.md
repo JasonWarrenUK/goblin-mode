@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.5.1] - 2026-11-05
+
+### Added
+
+- `mission-control` plugin 0.8.1: the PR watcher can be stopped on purpose with `mc.py watch --stop`, which signals only the calling session's own watcher, where a `pkill` by name had been reaching every session's. A watcher that dies now records its pid and the signal and prints a line saying so, and reconcile names a watcher that reads `watching` with no process. An approval records the head commit it was given on, so reconcile marks one that predates a rewrite as `approved-stale`, and `mc.py pending hold` keeps an approved PR back from landing on purpose. A project config key `claims: "trunk-sync"` skips the claim commit on each branch for repos whose sync writes claims to main. The crew, coordinate and kick-off skills carry the rest of the Tertiary Blast findings: read and fix review comments yourself and leave `pr-handle_review` to the user, check `git diff --check` before a push, message resumed sessions and regenerate shared generated files whole.
+
+### Fixed
+
+- `mission-control` plugin 0.8.1: the watcher's signal handler no longer waits on the ledger lock its own process holds, which could hang the watcher and block every other `mc.py` command on the run. A watcher that returns no longer leaves a pid on its row, so reconcile stops reporting a normal exit as a dead watcher.
+
 ## [7.5.0] - 2026-11-05
 
 ### Added
