@@ -289,6 +289,43 @@ test('a gone session reads gone, dim, with its worktree name and the age of its 
 	await ui.unmount()
 })
 
+test('a session the registry marks waiting reads waiting on you, and the coordinator section names it first', async ($, on) => {
+	const waiting = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'in-slot', live_status: 'waiting' }] }
+	const snap = parseSnapshot(JSON.stringify(waiting), NOON)
+	expect(sectionText(snap, { sessionId: 'coord-1', isCoordinator: true, isCrew: false }) ?? '').toMatch(/only the user can answer: 10SE\.2; tell the user which window/)
+	expect(sectionText(parseSnapshot(JSON.stringify(STATUS), NOON), { sessionId: 'coord-1', isCoordinator: true, isCrew: false }) ?? '').not.toMatch(/only the user can answer/)
+	world(on, 'coord-1', waiting)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^in-slot$/ }))?.text).toBe('in-slot')
+	expect((await ui.find({ type: 'Text', text: /^waiting on you \(prompt\)$/ }))?.text).toBe('waiting on you (prompt)')
+	await ui.unmount()
+})
+
+test('mc_send to all still hands over the waiting session and says it cannot answer', async ($, on) => {
+	const waiting = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'in-slot', live_status: 'waiting' }] }
+	world(on, 'coord-1', waiting)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	const reply = await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'check-in' })
+	// a plugin's own tool answers through its hook, so the text is in result (a string, or MCP content blocks), never in text
+	const said = (r: { text?: string; result?: unknown }): string => r.text ?? (typeof r.result === 'string' ? r.result : ((r.result as { content?: { text?: string }[] } | undefined)?.content ?? []).map(c => c.text ?? '').join('\n'))
+	// the call is still handed over (a freeze or a notice must reach it once the user has been there); the sender decides whether to drop it
+	expect(said(reply)).toContain('SendMessage to "10se2": check-in')
+	expect(said(reply)).toMatch(/10se2 sits on a permission prompt or a question in its own window.*do not wait on a reply/)
+})
+
+test('mc_send to all says nothing about prompts when every session is working', async ($, on) => {
+	world(on, 'coord-1', STATUS)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
+	const busy = await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'check-in' })
+	const text = busy.text ?? (typeof busy.result === 'string' ? busy.result : JSON.stringify(busy.result))
+	expect(text).toContain('10se2')
+	expect(text).not.toMatch(/permission prompt/)
+})
+
 const withPr = (prState: string | null) => ({ ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'pr-ready', pr: 209, pr_state: prState }] })
 
 test('helpers: prNumberOf and carryPrState', async () => {
@@ -605,8 +642,8 @@ test('the board groups the live crew under a subheading per state and the retire
 	expect((await ui.find({ type: 'Text', text: /^pr-ready · 1$/ }))?.text).toBe('pr-ready · 1')
 	expect((await ui.find({ type: 'Text', text: /^Archive · 1$/ }))?.text).toBe('Archive · 1')
 	expect((await ui.find({ type: 'Text', text: /^gone · 1$/ }))?.text).toBe('gone · 1')
-	// the sections in order: the live crew, what the user types, the machine, then the archive last
-	expect((await ui.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Crew', 'Needs Jason', 'Slots', 'Requests', 'Archive'])
+	// the sections in order: what the user types first, the live crew, the machine, then the archive last
+	expect((await ui.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Needs Jason', 'Crew', 'Slots', 'Requests', 'Archive'])
 	// the gone row itself (its worktree name is the one Text unique to it) is not drawn until c shows it
 	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
 	expect((await ui.find({ type: 'Text', text: /^c shows$/ }))?.text).toBe('c shows')

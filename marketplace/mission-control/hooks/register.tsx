@@ -622,7 +622,12 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			if (!text.trim()) return 'nothing to send'
 			if (arg(input, 'to').trim().toLowerCase() === 'all') {
 				const targets = others(snap, [me.sessionId])
-				return targets.length ? handoff(snap, targets, text).trim() : 'nobody else is live in the run'
+				if (!targets.length) return 'nobody else is live in the run'
+				// a session sat on a prompt in its own window reads the message only once the user has been there: the sender
+				// decides whether to send anyway (a freeze, a notice) or drop the call (a question it would wait on, as the check-in does)
+				const waiting = targets.filter(id => snap.sessions.find(s => s.session_id === id)?.live_status === 'waiting').map(id => addressOf(snap, id))
+				const note = waiting.length ? `\n${waiting.join(', ')} ${waiting.length > 1 ? 'sit' : 'sits'} on a permission prompt or a question in its own window and will read this only when the user has answered there; do not wait on a reply.` : ''
+				return `${handoff(snap, targets, text).trim()}${note}`
 			}
 			const target = resolveSession(snap, arg(input, 'to'))
 			if (typeof target === 'string') return target
@@ -718,8 +723,13 @@ export const sectionText = (snap: Snapshot, me: Self): string | null => {
 		const mergedLine = merged.length
 			? `PRs merged while the crew row is not done: ${merged.map(s => `${s.task || s.branch || s.session_id.slice(0, 8)} (#${s.pr})`).join(', ')}; close each with mc_report (for, state done), then run /roadmap:maintain from the main checkout so the roadmap says done too. `
 			: ''
+		// the registry marks a session `waiting` while it sits on a permission prompt or a question in its own window: the user has to go there
+		const waiting = snap.sessions.filter(s => s.live && s.live_status === 'waiting')
+		const waitingLine = waiting.length
+			? `Sat on a permission prompt or a question in their own window, which only the user can answer: ${waiting.map(s => s.task || s.branch || s.name || s.session_id.slice(0, 8)).join(', ')}; tell the user which window, in one line, before anything else. `
+			: ''
 		return (
-			`# Mission control\n\nThis session coordinates run "${snap.run.name}" on ${snap.mainCheckout} (base ${snap.run.base.branch}@${snap.run.base.commit.slice(0, 8)}), started by the user. Crew: ${crewList}. ${mergedLine}` +
+			`# Mission control\n\nThis session coordinates run "${snap.run.name}" on ${snap.mainCheckout} (base ${snap.run.base.branch}@${snap.run.base.commit.slice(0, 8)}), started by the user. Crew: ${crewList}. ${waitingLine}${mergedLine}` +
 			`Shared resources are granted one holder at a time with mc_grant, which probes the machine first; mc_assume numbers shared assumptions; mc_send resolves a session's current name; mc_board reads the board. Each tool ends its reply with the exact SendMessage calls to make; every message between sessions goes through the SendMessage tool, as written there. ` +
 			`Decide anything that only keeps the sessions consistent; escalate product, cost and hosted-configuration choices to the user with a recommendation, and put every command only the user can type on the needs list (mc_need). When the user says they have typed one that runs on, mark it started on their word (\`mc.py needs start <n> --note <where to watch it>\`): it leaves the needs-Jason count and closes as now, with the result, when they paste it. ` +
 			`Never state a project convention you have not read in the repository or had from the user; ask instead.${assumptions}`
@@ -896,13 +906,14 @@ const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], 
 		return (
 			<Box key={key} flexDirection="column">
 				<Box flexDirection="row" columnGap={1}>
-					<Text dimColor={gone} color={s.live ? (s.live_status === 'busy' ? 'claude' : 'success') : retired ? 'subtle' : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
+					<Text dimColor={gone} color={s.live ? (s.live_status === 'busy' ? 'claude' : s.live_status === 'waiting' ? 'error' : 'success') : retired ? 'subtle' : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
 					<Button key={`row-${key}`} plain hotkey={i < 9 ? String(i + 1) : undefined} dimColor={gone || (picked !== null && picked !== key)} label={label} onPress={() => update($, selected, () => key)} />
 					<Text dimColor>{s.branch && s.branch !== label ? s.branch : ''}</Text>
 					{worktreeName && !retired ? <Text dimColor>{worktreeName}</Text> : null}
 					<Text dimColor={gone} color={retired ? undefined : gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
 						{retired ? 'retired' : gone ? 'gone' : s.state}
 					</Text>
+					{s.live && s.live_status === 'waiting' ? <Text color="error">waiting on you (prompt)</Text> : null}
 					{s.pr ? <Text dimColor={gone} color="claude">#{s.pr}</Text> : null}
 					{s.pr && s.pr_state && s.pr_state !== 'OPEN' ? <Text dimColor={gone} color={s.pr_state === 'MERGED' ? 'success' : 'subtle'}>{s.pr_state.toLowerCase()}</Text> : null}
 					{s.pr && s.watching && s.live ? <Text dimColor>watching</Text> : null}
@@ -1146,7 +1157,9 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 			const slot = snap.slots.find(s => s.resource === words[1])
 			if (!slot) return `${words[1]} is not held; /mc grant gives it`
 			const result = await byUserRan(['grant', words[1], '--to', slot.holder, ...(words[2] ? ['--minutes', words[2]] : [])])
-			if (result.ok) await send($, slot.holder, `Slot extended by the user: ${words[1]} is yours for another ${words[2] ?? '15'} minutes. Release with mc_slot (action release) when done.`)
+			// the CLI's line ends with the new deadline; with no minutes typed, the extension took the holder's own request, so the deadline is the fact and not 15
+			const until = /until (\S+)$/.exec(result.text)?.[1]
+			if (result.ok) await send($, slot.holder, `Slot extended by the user: ${words[1]} is yours ${until ? `until ${until}` : `for another ${words[2] ?? '15'} minutes`}. Release with mc_slot (action release) when done.`)
 			return result.text
 		}
 		case 'adopt':
@@ -1319,7 +1332,7 @@ export const register: Register = (on, options) => {
 		const needs = needGroups(snap.needs)
 		const pickedSlot = pickedRequest ? snap.slots.find(s => s.resource === pickedRequest.resource) : undefined
 		const freeResources = snap.probes.filter(p => !snap.slots.some(s => s.resource === p.resource))
-		// top to bottom: the live crew by state, what the user has to type, what runs on, the machine, the sessions that are over
+		// top to bottom: what the user has to type (drawn only while something is open), the live crew by state, what runs on, the machine, the sessions that are over
 		const live = snap.sessions.filter(s => s.live).length
 		const archived = snap.sessions.length - live
 		let nth = 0
@@ -1327,18 +1340,18 @@ export const register: Register = (on, options) => {
 		return (
 			<Box flexDirection="column" width={width} rowGap={1}>
 				{header(ui, snap, me, now, inner)}
-				<Box flexDirection="column" paddingX={1}>
-					{heading(ui, `Crew · ${live}`, inner)}
-					{snap.sessions.length === 0 && <Text dimColor>nobody has joined yet; a session starting in a planned worktree joins by itself.</Text>}
-					{snap.sessions.length > 0 && live === 0 && <Text dimColor>nobody live; the archive below has the rest.</Text>}
-					{crewRows($, ui, snap, me, picked, inner, now, nextIndex, 'active', showQuiet)}
-				</Box>
 				{needs.open.length > 0 && (
 					<Box flexDirection="column" paddingX={1}>
 						{heading(ui, `Needs Jason · ${needs.open.length}`, inner)}
 						{needRows($, ui, needs.open, picked, inner)}
 					</Box>
 				)}
+				<Box flexDirection="column" paddingX={1}>
+					{heading(ui, `Crew · ${live}`, inner)}
+					{snap.sessions.length === 0 && <Text dimColor>nobody has joined yet; a session starting in a planned worktree joins by itself.</Text>}
+					{snap.sessions.length > 0 && live === 0 && <Text dimColor>nobody live; the archive below has the rest.</Text>}
+					{crewRows($, ui, snap, me, picked, inner, now, nextIndex, 'active', showQuiet)}
+				</Box>
 				{needs.running.length > 0 && (
 					<Box flexDirection="column" paddingX={1}>
 						{heading(ui, `Running · ${needs.running.length}`, inner)}

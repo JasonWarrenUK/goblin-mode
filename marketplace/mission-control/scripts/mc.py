@@ -767,6 +767,59 @@ def sh(argv: list[str], timeout: int = 8, cwd: str | Path | None = None) -> tupl
     return done.returncode, (done.stdout + done.stderr).strip()
 
 
+# ---------------------------------------------------------------- browsers a session left open
+
+# The Playwright MCP plugin runs as `npm exec @playwright/mcp` under the session's claude process, starts a
+# `playwright-mcp` node server, and that server launches the browser; the browser lives until the session
+# calls browser_close or exits. So a browser is traced to its session by walking the parent chain from the
+# process whose parent is the server up to a pid the registry knows.
+PLAYWRIGHT_SERVER = "playwright-mcp"
+BROWSER_WORDS = ("Google Chrome", "Chromium", "chrome", "Microsoft Edge", "firefox", "Firefox", "webkit", "WebKit")
+
+
+def parse_process_table(text: str) -> list[dict]:
+    """`ps -axo pid=,ppid=,etime=,command=` as rows of {pid, ppid, etime, command}; etime stays as ps prints it (mm:ss, hh:mm:ss or d-hh:mm:ss)."""
+    rows = []
+    for line in text.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) < 4 or not parts[0].isdigit() or not parts[1].isdigit():
+            continue
+        rows.append({"pid": int(parts[0]), "ppid": int(parts[1]), "etime": parts[2], "command": parts[3]})
+    return rows
+
+
+def process_table() -> list[dict]:
+    """Every process on the machine; empty when ps is unavailable or refused."""
+    code, out = sh(["ps", "-axo", "pid=,ppid=,etime=,command="])
+    return parse_process_table(out) if code == 0 else []
+
+
+def open_browsers(procs: list[dict], live: dict[str, dict]) -> list[dict]:
+    """Browsers a Playwright server launched for a live session: {session_id, pid, etime, browser} per browser.
+
+    Only the browser's main process counts (its parent is the server); its helpers have the browser as
+    parent and are skipped, as is any browser whose chain reaches no registered session.
+    """
+    by_pid = {p["pid"]: p for p in procs}
+    owners = {int(row["pid"]): sid for sid, row in live.items() if row.get("pid")}
+    hits = []
+    for proc in procs:
+        parent = by_pid.get(proc["ppid"])
+        if not parent or PLAYWRIGHT_SERVER not in parent["command"] or not any(word in proc["command"] for word in BROWSER_WORDS):
+            continue
+        pid = parent["ppid"]
+        seen: set[int] = set()
+        while pid in by_pid and pid not in owners and pid not in seen:
+            seen.add(pid)
+            pid = by_pid[pid]["ppid"]
+        if pid in owners:
+            # the arguments go first and carry the profile path (Chromium's `--user-data-dir=<dir>`, Firefox's single-dash
+            # `-profile <dir>`), so cut at the first flag of either shape before taking the executable's last path segment
+            browser = re.split(r" --?[A-Za-z]", proc["command"], maxsplit=1)[0].split("/")[-1].strip()
+            hits.append({"session_id": owners[pid], "pid": proc["pid"], "etime": proc["etime"], "browser": browser})
+    return hits
+
+
 # two psql probes plus the gh lookups share the mod's 20-second limit on `status --probe`
 PSQL_PROBE_SECONDS = 3
 
@@ -1106,6 +1159,14 @@ def reconcile(ledger: Ledger) -> dict:
         for job in row.get("jobs") or []:
             if job.get("status", "open") == "open":
                 note("job-orphaned", f"{job.get('kind')} job {job.get('id')} ({job.get('reason') or job.get('spec') or ''}) belongs to a session that is gone; re-arm it from the session that adopts the row, or `mc.py jobs done {job.get('id')}`", row.get("task", ""), sid, row.get("pr"))
+    # a browser the Playwright plugin launched lives until browser_close or the session's exit; one still open
+    # under a session that holds no slot is a check that was never closed (three sat open for hours in November 2026)
+    holders = {slot.get("holder") for slot in ledger.slots().values()}
+    for hit in open_browsers(process_table(), live):
+        row = sessions.get(hit["session_id"])
+        if not row or hit["session_id"] in holders:
+            continue
+        note("browser-open", f"{hit['browser']} (pid {hit['pid']}, open {hit['etime']}) launched by {row.get('name') or hit['session_id'][:8]}'s Playwright server is still running and the session holds no slot; tell it to close the browser (browser_close)", row.get("task", ""), hit["session_id"], row.get("pr"))
     # a decision told to sessions that have not acknowledged it after a while
     for decision in ledger.decisions():
         told = [t for t in decision.get("told", []) if t not in decision.get("acks", [])]
@@ -1149,6 +1210,8 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
             "name": reg.get("name") or row.get("name") or "",
             "socket": reg.get("messagingSocketPath") or row.get("socket"),
             "live_status": reg.get("status"),
+            # when the registry last changed its mind about the session (ms there, seconds here): a `waiting` session has sat on its prompt since then
+            "live_since": (reg.get("statusUpdatedAt") or 0) / 1000 or None,
             "live_cwd": reg.get("cwd"),
         })
     slots = ledger.slots()
@@ -1199,21 +1262,26 @@ def print_status(status: dict) -> None:
         print()
     print(f"# Run {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · coordinator {coord.get('name') or coord.get('session_id', '?')} · PR approval: {run.get('pr_approval', 'user')}")
     print()
-    # the same order as the board: the live crew, what the user has to type, what runs on, the machine, then the sessions that are over
+    # the window the user must visit first, then the board's order: what the user has to type (only while something is open), the live crew, what runs on, the machine, then the sessions that are over
     def pr_cell(s: dict) -> str:
         return f"{s.get('pr') or ''}{' ' + s['pr_state'].lower() if s.get('pr_state') and s['pr_state'] != 'OPEN' else ''}"
 
     live_rows = [s for s in status["sessions"] if s.get("live")]
     gone_rows = [s for s in status["sessions"] if not s.get("live")]
-    print("| Session | Task | Branch | State | Summary | PR |")
-    print("|---|---|---|---|---|---|")
-    for s in live_rows:
-        print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {s.get('state', '')} | {s.get('summary', '')} | {pr_cell(s)} |")
     open_needs = [n for n in status["needs"] if n.get("status") != "started"]
     running = [n for n in status["needs"] if n.get("status") == "started"]
+    waiting = [s for s in live_rows if s.get("live_status") == "waiting"]
+    if waiting:
+        # the registry marks a session `waiting` while it sits on a permission prompt or a question in its own
+        # window; nothing it reported shows that, and only the user can move it, so it comes before the needs
+        print("## Waiting on you")
+        print()
+        for s in waiting:
+            since = f" since {clock(s['live_since'])}" if s.get("live_since") else ""
+            print(f"- {s.get('task') or s.get('name') or s['session_id'][:8]} ({s.get('name') or s['session_id'][:8]}) sits on a permission prompt or a question in its own window{since}; answer it there")
+        print()
     if open_needs:
         # the line to type first, the why beneath it; a need with no line shows its why on the row
-        print()
         print("## Needs Jason")
         print()
         for n in open_needs:
@@ -1225,6 +1293,12 @@ def print_status(status: dict) -> None:
             else:
                 where = f" (in {n['cwd']})" if n.get("cwd") else ""
                 print(f"{tag} {n['why']}{where}")
+        print()
+    print("| Session | Task | Branch | State | Summary | PR |")
+    print("|---|---|---|---|---|---|")
+    for s in live_rows:
+        state = f"{s.get('state', '')}{' · waiting on you' if s.get('live_status') == 'waiting' else ''}"
+        print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {state} | {s.get('summary', '')} | {pr_cell(s)} |")
     if running:
         # started by the user and still going: nothing to type, the result is what closes it
         print()
@@ -2282,13 +2356,18 @@ def grant_locked(args, ledger: Ledger) -> int:
     target = resolve_session(args.to, sessions)
     holder = ledger.slots().get(args.resource)
     if holder and holder.get("holder") == target:
-        # a grant to the holder extends the slot: more minutes, nothing else moves, and only the holder is told
-        minutes = float(args.minutes or 15)
+        # a grant to the holder extends the slot: more minutes, nothing else moves, and only the holder is told;
+        # the minutes come from the flag, then from the holder's own request, the way a first grant reads them
+        request = read_json(ledger.request_path(args.resource, target), {}) or {}
+        minutes = float(args.minutes or request.get("minutes") or 15)
         holder["until"] = max(float(holder.get("until") or now()), now()) + 60 * minutes
         holder["extended_at"] = now()
         if args.note:
             holder["note"] = args.note.strip()[:240]
         write_json(ledger.slot_path(args.resource), holder)
+        # the holder asked for the time with mc_slot request; granted, the request is answered and leaves the board
+        # (one sat as "requested" for an hour after its release in November 2026 and read as a session queueing for a free slot)
+        ledger.request_path(args.resource, target).unlink(missing_ok=True)
         ledger.log("extend", resource=args.resource, holder=target, minutes=minutes, until=holder["until"], by=by)
         print(json.dumps({**holder, "extended": True}) if args.json else f"{args.resource} extended for {(sessions.get(target) or {}).get('task') or target[:8]} until {clock(holder['until'])}")
         return 0
@@ -2350,6 +2429,8 @@ def release_locked(args, ledger: Ledger) -> int:
     if slot.get("holder") != session_id:
         authorise(run, session_id, args.by_user, f"release {args.resource} held by another session")
     ledger.slot_path(args.resource).unlink(missing_ok=True)
+    # a request the holder still had open for this resource (more time asked and not yet granted) is moot once the slot goes
+    ledger.request_path(args.resource, slot["holder"]).unlink(missing_ok=True)
     row = ledger.sessions().get(slot["holder"])
     if row and row.get("state") == "in-slot" and not holds_a_slot(ledger, slot["holder"]):
         row["state"] = slot.get("prior_state") or "working"

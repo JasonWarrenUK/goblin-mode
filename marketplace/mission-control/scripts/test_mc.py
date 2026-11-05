@@ -92,6 +92,32 @@ class GateMatching(unittest.TestCase):
         self.mc = mc
         self.config = json.loads(EXAMPLE.read_text())
 
+    def test_open_browsers_walks_a_playwright_chrome_up_to_its_session(self):
+        """The browser whose parent is the playwright-mcp server is traced to the claude pid above it; helpers, strangers and chains that reach no session are skipped."""
+        table = "\n".join([
+            "  100     1 03:01:52 claude --name 12rt3 overflow menu",
+            "  200   100 03:01:50 npm exec @playwright/mcp@latest",
+            "  300   200 03:01:48 node /Users/j/.npm/_npx/x/node_modules/.bin/playwright-mcp",
+            "  400   300    05:55 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --disable-field-trial-config --user-data-dir=/Users/j/Library/Caches/ms-playwright/mcp-chrome-2ae1b0c --remote-debugging-pipe",
+            "  401   400    05:53 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Helpers/Google Chrome Helper (GPU).app/Contents/MacOS/Google Chrome Helper (GPU) --type=gpu-process",
+            "  500     1 20-07:02:25 /Applications/Discord.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --no-rate-limit",
+            "  600   700    01:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "  800   801 02:00:00 node /x/.bin/playwright-mcp",
+            "  802   800 01:59:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/Users/j/Library/Caches/ms-playwright/mcp-chrome-9f0e11d --remote-debugging-pipe",
+            "  900   999 00:10:00 npm exec @playwright/mcp@latest --browser firefox",
+            "  901   900 00:09:58 node /Users/j/.npm/_npx/x/node_modules/.bin/playwright-mcp --browser firefox",
+            "  902   901 00:02:30 /Users/j/Library/Caches/ms-playwright/firefox-1500/firefox/Nightly.app/Contents/MacOS/firefox -no-remote -wait-for-browser -foreground -profile /Users/j/Library/Caches/ms-playwright/mcp-firefox-2ae1b0c -juggler-pipe about:blank",
+        ])
+        procs = self.mc.parse_process_table(table)
+        self.assertEqual(len(procs), 12)
+        live = {"crew-3": {"pid": 100}, "coord-1": {"pid": 999}}
+        # Chromium's flags are double-dash and Firefox's single-dash; both carry the profile path, and neither may name the browser
+        self.assertEqual(self.mc.open_browsers(procs, live), [
+            {"session_id": "crew-3", "pid": 400, "etime": "05:55", "browser": "Google Chrome"},
+            {"session_id": "coord-1", "pid": 902, "etime": "00:02:30", "browser": "firefox"},
+        ])
+        self.assertEqual(self.mc.parse_process_table("garbage\n"), [])
+
     def test_reset_through_poetry_is_gated_as_local_db(self):
         hits = self.mc.gated(self.config, "cd apps/api && poetry run poe db-reset-local-anyway")
         self.assertEqual([h["resource"] for h in hits], ["local-db"])
@@ -634,6 +660,39 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(waits[210], "waiting on maxime, backend")
         self.assertEqual(waits[211], "changes requested by jess")
         self.assertEqual(result["drift"], [])
+
+    def test_reconcile_names_a_playwright_browser_a_slotless_session_left_open(self):
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 214, state="working")
+        # the sandbox registers every session under the test's own pid; the crew gets a child the test owns, so the chain has one
+        # owner and the registry's kill(pid, 0) probe cannot be refused (a detached runner's parent is launchd, which refuses it)
+        crew = subprocess.Popen(["sleep", "300"])
+        # cleanups run last in, first out: kill, then reap, or the interpreter warns that the child is still running
+        self.addCleanup(crew.wait)
+        self.addCleanup(crew.kill)
+        crew_pid = crew.pid
+        row = json.loads((self.box.sessions / "crew-1.json").read_text())
+        (self.box.sessions / "crew-1.json").write_text(json.dumps({**row, "pid": crew_pid}))
+        table = "\n".join([
+            f"{crew_pid} 1 03:01:52 claude --name 10se2",
+            f"77001 {crew_pid} 03:01:50 npm exec @playwright/mcp@latest",
+            "77002 77001 03:01:48 node /x/node_modules/.bin/playwright-mcp",
+            "77003 77002 02:41:09 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/Users/j/Library/Caches/ms-playwright/mcp-chrome-2ae1b0c --remote-debugging-pipe",
+        ])
+        gh = self._gh({"214": {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}})
+
+        def fake_sh(argv, timeout=8, cwd=None):
+            return (0, table) if argv[:1] == ["ps"] else gh(argv, timeout, cwd)
+
+        hit = next(item for item in self._reconcile_with(fake_sh)["drift"] if item["kind"] == "browser-open")
+        self.assertEqual((hit["task"], hit["session_id"], hit["pr"]), ("10SE.2", "crew-1", 214))
+        self.assertIn("Google Chrome (pid 77003, open 02:41:09) launched by 10se2's Playwright server", hit["detail"])
+        self.assertIn("browser_close", hit["detail"])
+        # ps unavailable: nothing to say, nothing breaks
+        self.assertNotIn("browser-open", [item["kind"] for item in self._reconcile_with(gh)["drift"]])
+        # inside a slot the browser is the check in progress, not drift
+        self.box.mc("grant", "api-port", "--to", "10SE.2", session="coord-1")
+        self.assertNotIn("browser-open", [item["kind"] for item in self._reconcile_with(fake_sh)["drift"]])
 
     def test_reconcile_flags_a_planned_task_nobody_joined_and_a_session_that_went_away(self):
         self.box.start()
@@ -1201,8 +1260,9 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("report", "--state", "pr-ready", "--pr", "253", session="crew-1", cwd=self.box.worktree)
         run_path = next(self.box.ledger_root.glob("*/run.json"))
         run = json.loads(run_path.read_text())
-        # a window that is never open: Monday to Friday at a minute that has passed, so every poll is outside hours
-        run["collaboration"] = {"mode": "collaborative", "hours": {"start": "00:00", "end": "00:01", "days": [0, 1, 2, 3, 4, 5, 6]}}
+        # a window that is never open: start and end coincide, so no minute of any day satisfies start <= now < end
+        # (a 00:00 to 00:01 window was open for the one minute a suite running across midnight polled in, on 5 November 2026)
+        run["collaboration"] = {"mode": "collaborative", "hours": {"start": "00:00", "end": "00:00", "days": [0, 1, 2, 3, 4, 5, 6]}}
         run_path.write_text(json.dumps(run))
         reviewed = self._view(reviews=[{"author": {"login": "jaz"}, "state": "COMMENTED", "submittedAt": "x"}])
         code, out = self._watch(self._gh_watch([self._view(), reviewed, reviewed]), "--max-minutes", "0.001")
@@ -1309,6 +1369,27 @@ class LedgerFlow(unittest.TestCase):
         names = sorted(p.name for p in next(self.box.ledger_root.glob("*/sessions")).glob("*.json"))
         self.assertEqual(names, ["crew-1.json", "crew-8.json"])
 
+    def test_a_session_sat_on_a_prompt_reads_waiting_on_you(self):
+        """The registry marks a session `waiting` on a permission prompt or an AskUserQuestion; the board says so, since nothing the session reported does."""
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        text = self.box.mc("status", session="coord-1").stdout
+        self.assertNotIn("Waiting on you", text)
+        self.box.mc("needs", "add", "--why", "push the branch", "--command", "git push -u origin feat/a", session="crew-1", cwd=self.box.worktree)
+        row = json.loads((self.box.sessions / "crew-1.json").read_text())
+        (self.box.sessions / "crew-1.json").write_text(json.dumps({**row, "status": "waiting", "statusUpdatedAt": 1793826386060}))
+        text = self.box.mc("status", session="coord-1").stdout
+        self.assertIn("| 10se2 | 10SE.2 | feat/a | briefing · waiting on you |", text)
+        self.assertIn("## Waiting on you", text)
+        self.assertIn("- 10SE.2 (10se2) sits on a permission prompt or a question in its own window since ", text)
+        # the window the user must visit is the first section: ahead of the needs, the crew table and the slots
+        self.assertIn("## Needs Jason", text)
+        self.assertLess(text.index("## Waiting on you"), text.index("## Needs Jason"))
+        self.assertLess(text.index("## Waiting on you"), text.index("| Session |"))
+        self.assertLess(text.index("## Waiting on you"), text.index("| Slot |"))
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        self.assertEqual((status["sessions"][0]["live_status"], status["sessions"][0]["live_since"]), ("waiting", 1793826386.06))
+
     def test_the_text_board_reads_in_the_boards_order_and_archives_sessions_that_are_over(self):
         self.box.start()
         self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
@@ -1322,8 +1403,9 @@ class LedgerFlow(unittest.TestCase):
         # a checkout under a path with a space: the cd is quoted, so the pasted line reaches the command
         self.box.mc("needs", "add", "--why", "start it", "--command", "claude --model opus", "--cwd-hint", "/Users/j/Documents/My App/.claude/worktrees/b", session="crew-1", cwd=self.box.worktree)
         self.assertIn("3. [10SE.2] `cd '/Users/j/Documents/My App/.claude/worktrees/b' && claude --model opus`\n   start it\n", self.box.mc("status", session="coord-1").stdout)
-        self.assertLess(text.index("| Session |"), text.index("## Needs Jason"))
-        self.assertLess(text.index("## Needs Jason"), text.index("| Slot |"))
+        # what the user has to type comes first, then the crew, then the machine
+        self.assertLess(text.index("## Needs Jason"), text.index("| Session |"))
+        self.assertLess(text.index("| Session |"), text.index("| Slot |"))
         self.assertNotIn("## Archive", text)
         # the session goes: its row leaves the crew table for an Archive table at the end, with the state it last reported
         (self.box.sessions / "crew-1.json").unlink()
@@ -1613,6 +1695,19 @@ class LedgerFlow(unittest.TestCase):
         self.assertGreater(after["until"], before + 19 * 60)
         self.assertEqual(after["holder"], "crew-1")
         self.assertIn('"event": "extend"', next(self.box.ledger_root.glob("*/log.jsonl")).read_text())
+        # the holder asks for more time the way the crew skill says, with a request; the extension answers it, so the request leaves the board,
+        # and a grant with no minutes of its own takes the request's rather than the default 15 (the request is gone by then)
+        self.box.mc("request", "local-db", "--minutes", "20", "--what", "more time for the second reset", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(len(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["requests"]), 1)
+        before = after["until"]
+        self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
+        status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
+        self.assertEqual(status["requests"], [], "16ID.1's request sat an hour after its extension and release in November 2026")
+        self.assertGreater(status["slots"][0]["until"], before + 19 * 60)
+        # a request still open at the release goes with the slot
+        self.box.mc("request", "local-db", "--minutes", "5", "--what", "one more", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("release", "local-db", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["requests"], [])
 
     def test_an_unlisted_crew_task_is_planned_as_such_and_the_claim_check_skips_it(self):
         self._roadmap_repo_with_origin(claim_on_branch=False, listed=False)
