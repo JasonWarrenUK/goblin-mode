@@ -853,6 +853,31 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(len(missing), 1)
         self.assertIn("on origin/feat/a", missing[0]["detail"])
 
+    def test_trunk_sync_projects_do_not_flag_an_open_pr_for_a_missing_branch_claim(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False)
+        config_path = self.box.repo / ".claude" / "mission-control.json"
+        config = json.loads(config_path.read_text())
+        config["claims"] = "trunk-sync"
+        config_path.write_text(json.dumps(config))
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 223)
+        result = self._reconcile_with(self._gh(self._open(223)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
+
+    def test_a_held_approval_is_named_held_until_released(self):
+        self._watching_session(265)
+        run_path = list(self.box.ledger_root.glob("*/run.json"))[0]
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).append({"id": "a2", "n": 1, "kind": "approval", "pr": 265, "text": "t", "session_id": "crew-1", "head": "", "status": "open", "at": 1.0})
+        run_path.write_text(json.dumps(run))
+        self.box.mc("pending", "hold", "265", "--text", "every review comment first", session="coord-1")
+        kinds = [item["kind"] for item in self._reconcile_with(self._gh(self._open(265)))["drift"]]
+        self.assertIn("approved-held", kinds)
+        self.assertNotIn("approved-unlanded", kinds)
+        self.box.mc("pending", "release", "265", session="coord-1")
+        kinds = [item["kind"] for item in self._reconcile_with(self._gh(self._open(265)))["drift"]]
+        self.assertIn("approved-unlanded", kinds)
+
     def test_a_claim_that_reached_main_under_another_subject_satisfies_a_merged_pr(self):
         """A sync batch or a `done` batch carries the claim to the trunk; the roadmap's state counts, not the commit subject."""
         self._roadmap_repo_with_origin(claim_on_branch=False, claim_on_main=True)
@@ -1212,7 +1237,10 @@ class LedgerFlow(unittest.TestCase):
         os.environ["CLAUDE_CODE_SESSION_ID"] = session
         try:
             with redirect_stdout(out):
-                code = mc_module.main(["--cwd", str(self.box.worktree), "watch", "--interval", "0.01", *cli])
+                try:
+                    code = mc_module.main(["--cwd", str(self.box.worktree), "watch", "--interval", "0.01", *cli])
+                except SystemExit as exited:  # a signalled watcher exits 128 plus the signal after its `finally` has said so
+                    code = exited.code
         finally:
             os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
             self._restore(mc_module, real)
@@ -1270,7 +1298,9 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("holding until the team's hours open", out)
         self.assertIn("review by jaz: commented", out)
         rows = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))
-        self.assertEqual(json.loads(rows[0].read_text())["watch"]["status"], "holding")
+        watch = json.loads(rows[0].read_text())["watch"]
+        self.assertEqual((watch["status"], watch["pid"]), ("idle", None), "the process has exited, so the board must not count a watcher")
+        self.assertIn("review by jaz: commented", "; ".join(watch["last_change"]), "the held change is kept for the coordinator")
         merged = self._view(state="MERGED", reviews=reviewed["reviews"])
         code, out = self._watch(self._gh_watch([reviewed, merged, merged]))
         self.assertEqual(code, 0, out)
@@ -1921,6 +1951,211 @@ class LedgerFlow(unittest.TestCase):
             mc_module.PR_CACHE_SECONDS = real_cache
         self.assertNotIn("approved-unlanded", [item["kind"] for item in result["drift"]])
         self.assertEqual(json.loads(self.box.mc("pending", "list", session="coord-1").stdout), [], "closed by the merge")
+
+    def _watching_session(self, pr):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", str(pr), session="crew-1", cwd=self.box.worktree)
+
+    def _crew_watch_record(self):
+        return json.loads(list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0].read_text())["watch"]
+
+    def test_a_signalled_watcher_records_the_signal_and_says_so(self):
+        import signal
+        self._watching_session(260)
+        checks = [("ci", "SUCCESS")]
+        base = self._gh_watch([self._view(checks=checks)])
+
+        def killing_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "view"] and getattr(killing_sh, "calls", 0) >= 1:
+                os.kill(os.getpid(), signal.SIGTERM)
+            if argv[:3] == ["gh", "pr", "view"]:
+                killing_sh.calls = getattr(killing_sh, "calls", 0) + 1
+            return base(argv, timeout, cwd)
+        before = signal.getsignal(signal.SIGTERM)
+        code, out = self._watch(killing_sh)
+        self.assertEqual(code, 128 + signal.SIGTERM)
+        self.assertIn("something outside it ended the process", out)
+        self.assertIs(signal.getsignal(signal.SIGTERM), before, "the handler is put back once the watch returns")
+        watch = self._crew_watch_record()
+        self.assertEqual((watch["status"], watch["signal"], watch["pid"]), ("killed", int(signal.SIGTERM), None))
+
+    def test_a_watcher_stopped_on_request_says_not_to_re_arm(self):
+        import signal
+        self._watching_session(267)
+        base = self._gh_watch([self._view(checks=[("ci", "SUCCESS")])])
+
+        def stopping_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "view"] and getattr(stopping_sh, "calls", 0) >= 1:
+                # what `watch --stop` does: mark the row, then signal
+                row_path = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0]
+                row = json.loads(row_path.read_text())
+                row["watch"]["stopping"] = True
+                row_path.write_text(json.dumps(row))
+                os.kill(os.getpid(), signal.SIGTERM)
+            if argv[:3] == ["gh", "pr", "view"]:
+                stopping_sh.calls = getattr(stopping_sh, "calls", 0) + 1
+            return base(argv, timeout, cwd)
+        code, out = self._watch(stopping_sh)
+        self.assertEqual(code, 128 + signal.SIGTERM)
+        self.assertIn("do not re-arm", out)
+        self.assertNotIn("Re-arm the watch", out)
+        self.assertEqual(self._crew_watch_record()["status"], "stopped")
+
+    def test_watch_stop_clears_its_marker_when_the_watcher_had_already_exited(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self._watching_session(270)
+        self._set_watch(270, "watching", 424242)
+        real = (mc_module.sh, mc_module.os.kill, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
+
+        def gone(_pid, _sig):
+            raise ProcessLookupError
+        mc_module.sh = lambda argv, timeout=8, cwd=None: (0, "python3 mc.py watch")
+        mc_module.os.kill = gone
+        mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = self.box.ledger_root, self.box.sessions
+        try:
+            ledger = mc_module.ledger_for(self.box.repo)
+            code = mc_module.stop_watch(ledger, ledger.sessions()["crew-1"], 270)
+        finally:
+            mc_module.sh, mc_module.os.kill, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = real
+        self.assertEqual(code, 0)
+        self.assertNotIn("stopping", self._crew_watch_record(), "a marker nothing will read is not left behind")
+
+    def test_a_stopping_marker_from_an_earlier_watcher_is_not_inherited(self):
+        import signal
+        self._watching_session(271)
+        row_path = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0]
+        row = json.loads(row_path.read_text())
+        row["watch"] = {"pr": 271, "status": "idle", "pid": None, "stopping": True, "seen": None}
+        row_path.write_text(json.dumps(row))
+        base = self._gh_watch([self._view(checks=[("ci", "SUCCESS")])])
+
+        def killing_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "view"] and getattr(killing_sh, "calls", 0) >= 1:
+                os.kill(os.getpid(), signal.SIGTERM)
+            if argv[:3] == ["gh", "pr", "view"]:
+                killing_sh.calls = getattr(killing_sh, "calls", 0) + 1
+            return base(argv, timeout, cwd)
+        code, out = self._watch(killing_sh)
+        self.assertEqual(code, 128 + signal.SIGTERM)
+        self.assertIn("Re-arm the watch", out, "an outside kill is still an outside kill")
+        self.assertEqual(self._crew_watch_record()["status"], "killed")
+
+    def test_a_signal_that_lands_while_the_ledger_lock_is_held_does_not_hang_the_watcher(self):
+        import fcntl
+        import signal
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self._watching_session(268)
+        real_save, calls = mc_module.Ledger.save_session, {"n": 0}
+
+        def signalling_save(ledger, row):
+            calls["n"] += 1
+            if calls["n"] == 2:  # the record just before the poll loop, made while the lock is held
+                os.kill(os.getpid(), signal.SIGTERM)
+            return real_save(ledger, row)
+
+        def too_slow(_number, _frame):
+            raise AssertionError("the handler waited on the ledger lock its own process holds")
+        mc_module.Ledger.save_session = signalling_save
+        old_alarm = signal.signal(signal.SIGALRM, too_slow)
+        signal.alarm(5)
+        try:
+            code, _out = self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")])]))
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_alarm)
+            mc_module.Ledger.save_session = real_save
+        self.assertEqual(code, 128 + signal.SIGTERM)
+        with list(self.box.ledger_root.glob("*/run.lock"))[0].open("a") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)  # raises if the watcher still holds it
+
+    def test_a_watcher_that_returned_leaves_no_pid_and_no_watch_dead(self):
+        self._watching_session(266)
+        code, _out = self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")])]), "--once")
+        self.assertEqual(code, 0)
+        self.assertIsNone(self._crew_watch_record()["pid"])
+        code, out = self._watch(self._gh_watch([self._view(checks=[("ci", "SUCCESS")])]), "--max-minutes", "0.0001")
+        self.assertEqual(code, 0, out)
+        self.assertIn("re-arm the watch", out)
+        watch = self._crew_watch_record()
+        self.assertEqual((watch["status"], watch["pid"]), ("idle", None))
+        self.assertNotIn("watch-dead", [item["kind"] for item in self._reconcile_with(self._gh(self._open(266)))["drift"]])
+
+    def test_watch_stop_refuses_a_session_with_no_watcher_of_its_own(self):
+        self._watching_session(261)
+        done = self.box.mc("watch", "--stop", "--pr", "261", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("no watcher recorded", done.stdout + done.stderr)
+
+    def test_watch_stop_signals_only_the_pid_on_the_callers_own_row(self):
+        self._watching_session(262)
+        # a process whose command line reads `mc.py watch`, as a real watcher's does
+        victim = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "mc.py", "watch"])
+        bystander = subprocess.Popen(["sleep", "61"])
+        try:
+            self._set_watch(262, "watching", victim.pid)
+            done = self.box.mc("watch", "--stop", "--pr", "262", session="crew-1", cwd=self.box.worktree)
+            self.assertIn(f"pid {victim.pid}", done.stdout)
+            victim.wait(timeout=5)
+            self.assertIsNone(bystander.poll(), "another process is untouched")
+            self.assertTrue(self._crew_watch_record()["stopping"], "the row says the stop was meant")
+        finally:
+            for proc in (victim, bystander):
+                proc.kill()
+                proc.wait()
+
+    def _set_watch(self, pr, status, pid):
+        row_path = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0]
+        row = json.loads(row_path.read_text())
+        row["watch"] = {"pr": pr, "status": status, "pid": pid}
+        row_path.write_text(json.dumps(row))
+
+    def test_watch_stop_leaves_a_finished_watch_and_a_foreign_command_line_alone(self):
+        self._watching_session(269)
+        matching = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "mc.py", "watch"])
+        plain = subprocess.Popen(["sleep", "62"])
+        try:
+            self._set_watch(269, "ended", matching.pid)  # the watcher finished; a recycled pid must not be signalled
+            done = self.box.mc("watch", "--stop", "--pr", "269", session="crew-1", cwd=self.box.worktree)
+            self.assertIn("nothing to stop", done.stdout)
+            self._set_watch(269, "watching", plain.pid)  # a live pid that is not an mc.py watcher
+            done = self.box.mc("watch", "--stop", "--pr", "269", session="crew-1", cwd=self.box.worktree)
+            self.assertIn("not an mc.py watcher", done.stdout)
+            time.sleep(0.3)
+            self.assertIsNone(matching.poll())
+            self.assertIsNone(plain.poll())
+        finally:
+            for proc in (matching, plain):
+                proc.kill()
+                proc.wait()
+
+    def test_reconcile_names_a_watcher_that_reads_watching_but_has_died(self):
+        self._watching_session(263)
+        gone = subprocess.Popen(["true"])
+        gone.wait()
+        row_path = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0]
+        row = json.loads(row_path.read_text())
+        row["watch"] = {"pr": 263, "status": "watching", "pid": gone.pid}
+        row_path.write_text(json.dumps(row))
+        result = self._reconcile_with(self._gh(self._open(263)))
+        dead = [item for item in result["drift"] if item["kind"] == "watch-dead"]
+        self.assertEqual(len(dead), 1)
+        self.assertIn(f"pid {gone.pid}", dead[0]["detail"])
+
+    def test_an_approval_given_on_an_older_head_is_not_called_authorised(self):
+        self._watching_session(264)
+        run_path = list(self.box.ledger_root.glob("*/run.json"))[0]
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).append({"id": "a1", "n": 1, "kind": "approval", "pr": 264, "text": "t", "session_id": "crew-1", "head": "aaaaaaa1111", "status": "open", "at": 1.0})
+        run_path.write_text(json.dumps(run))
+        answer = self._open(264)
+        answer["264"]["headRefOid"] = "bbbbbbb2222"
+        result = self._reconcile_with(self._gh(answer))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertIn("approved-stale", kinds)
+        self.assertNotIn("approved-unlanded", kinds)
 
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()

@@ -11,6 +11,7 @@ One file per repository, committed, found by walking up from the session's direc
 | `resources.<name>` | One shared resource; see below |
 | `commands.test`, `.lint`, `.contract`, `.schema`, ... | The commands the end-of-run checks and the briefs quote, as typed from the repository root |
 | `commands.stack_status` | A command printing the open PRs with their stack verdicts, for the board and the end skill |
+| `claims` | `"trunk-sync"` when the project's roadmap or Jira sync writes claims to the trunk: kick-off then makes no claim commit on a branch (a branch claim conflicted twice with the sync in November 2026) and reconcile does not flag an open PR for a missing claim. Absent or `"branch"`: the default, claim on the branch |
 | `conventions` | Files kick-off reads and distils into the shared guidance; every crew brief points at them |
 | `facts` | Conventions that are not written in the repository, in the user's words, so the coordinator never has to assert one from memory. Kick-off asks before adding to this list |
 | `human_gates` | What stays with the user, in words every brief repeats |
