@@ -4,6 +4,24 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-05
+
+### Added
+
+- `mc.py watch --stop` stops this session's own PR watcher by the pid on its row, and only when the row reads `watching` or `holding` and the process's command line is an `mc.py` watch. It never matches by name. Sessions on the Tertiary Blast run found their watchers exiting 144 with no output, three times on one PR; a background command killed with `pkill -TERM` reports exactly that, and a name match from one session reaches every session's watcher. The watcher now records its pid, catches SIGTERM, SIGHUP and SIGINT; it also says so: `stopped` with `do not re-arm` when `--stop` marked the row, `killed` with the signal and `Re-arm the watch` when something outside did. Reconcile gains `watch-dead` for a watcher that reads `watching` with no process behind it, since SIGKILL leaves no other trace.
+- An approval records the PR's head commit when the watcher sees it. Reconcile prints `approved-stale` when the head has moved since, so an approval that predates a rewrite is no longer called ready to land (#231 was approved before its rewrite). `mc.py pending hold <pr> --text <why>` and `pending release <pr>` keep an approved PR back on purpose; reconcile then prints `approved-held` with the reason, and `approved-unlanded` reads as a landing to offer, not one the user authorised.
+- A project config key `claims: "trunk-sync"` for repos whose roadmap or Jira sync writes claims to the trunk. Kick-off then makes no claim commit on the branch, which conflicted twice with the sync on the Tertiary Blast run, and reconcile no longer flags an open PR for a missing branch claim.
+
+### Changed
+
+- A watcher that returns drops its pid, and a deadline records `idle` whether or not changes are held, so the board stops counting a watcher that has exited and `watch-dead` stays quiet after a normal exit. Held changes stay in the row and the next watch reports them again.
+- The crew skill says to read and fix review comments yourself and put `pr-handle_review` on the needs list, because the skill is the user's to type; to run `git diff --check` before any push; and to put a refused force-push, comment edit or reviewer add on the needs list with the exact command. The coordinate skill says to message each session the user resumed with `claude --continue`, since a resumed session sits at its prompt until it hears something. The kick-off skill says a shared generated file is regenerated whole, never hand-picked by hunk.
+
+### Fixed
+
+- The signal handler no longer writes to the ledger. A signal landing while the watcher held the run lock made the handler wait on a lock its own process held, hanging the watcher and blocking every other `mc.py` command on the run. The record is now written after the lock has been released.
+- A stop that races the watcher's exit no longer prints a traceback or leaves a stop marker behind that would make a later outside kill read as meant.
+
 ## [0.8.0] - 2026-11-05
 
 ### Added
