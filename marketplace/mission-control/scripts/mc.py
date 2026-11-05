@@ -2100,10 +2100,11 @@ def cmd_watch(args) -> int:
                     held = changes
                     record("holding", seen, changes, running=True)
             if now() >= deadline:
-                # the process is about to exit, so the row keeps no pid; a watch with nothing held reads `idle` (re-arm), and one with held
-                # changes keeps `holding`, which the board and the session-start context already read
+                # the process is about to exit, so the row keeps no pid and reads `idle` (re-arm), whether or not changes are held:
+                # `holding` means a live loop, which the board counts as a watcher. Held changes stay in last_change, and the next
+                # watch starts from the same baseline, so it reports them again
                 if held:
-                    record("holding", seen, held)
+                    record("idle", seen, held)
                     print(f"#{number}: holding until the team's hours open at {clock(window_opens(hours, now()))} ({'; '.join(held)}); re-arm the watch")
                 else:
                     record("idle", current, [])

@@ -1298,7 +1298,9 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("holding until the team's hours open", out)
         self.assertIn("review by jaz: commented", out)
         rows = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))
-        self.assertEqual(json.loads(rows[0].read_text())["watch"]["status"], "holding")
+        watch = json.loads(rows[0].read_text())["watch"]
+        self.assertEqual((watch["status"], watch["pid"]), ("idle", None), "the process has exited, so the board must not count a watcher")
+        self.assertIn("review by jaz: commented", "; ".join(watch["last_change"]), "the held change is kept for the coordinator")
         merged = self._view(state="MERGED", reviews=reviewed["reviews"])
         code, out = self._watch(self._gh_watch([reviewed, merged, merged]))
         self.assertEqual(code, 0, out)
