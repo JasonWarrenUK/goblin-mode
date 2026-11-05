@@ -41,6 +41,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -902,7 +903,7 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
     return found
 
 
-PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt,baseRefName"
+PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt,baseRefName,headRefOid"
 
 
 def normalise_pr_facts(raw: dict) -> dict:
@@ -929,6 +930,7 @@ def normalise_pr_facts(raw: dict) -> dict:
         "approved_by": by_state["APPROVED"],
         "merged_at": raw.get("mergedAt"),
         "base": str(raw.get("baseRefName") or ""),
+        "head": str(raw.get("headRefOid") or ""),
     }
 
 
@@ -1087,7 +1089,15 @@ def reconcile(ledger: Ledger) -> dict:
             pending_changed = True
             continue
         if not fact or fact["state"] == "OPEN":
-            note("approved-unlanded", f"PR #{item['pr']} approved at {clock(item.get('at'))} and not landed; landing is authorised, so `/pr-land {item['pr']}`", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+            approved_head = item.get("head") or ""
+            current_head = (fact or {}).get("head") or ""
+            if approved_head and current_head and approved_head != current_head:
+                # the approval was given on a commit the branch no longer points at: a rebase or a rewrite since
+                note("approved-stale", f"PR #{item['pr']} was approved at {clock(item.get('at'))} on {approved_head[:7]} and the head is now {current_head[:7]}; the approval may predate a rewrite, so read the diff since before landing and ask the reviewer if it changed what they approved", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+            elif item.get("hold"):
+                note("approved-held", f"PR #{item['pr']} approved at {clock(item.get('at'))} and held: {item['hold']}; `mc.py pending release {item['pr']}` when it can land", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+            else:
+                note("approved-unlanded", f"PR #{item['pr']} approved at {clock(item.get('at'))} and not landed; landing is authorised, so `/pr-land {item['pr']}`", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
     if pending_changed:
         with ledger.locked():
             ledger.save_run(run)
@@ -1116,6 +1126,8 @@ def reconcile(ledger: Ledger) -> dict:
         note("git-unavailable", broken)
     if not broken and (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
         run_git(ledger.main, "fetch", "--quiet", "origin")
+    found_config = find_config(ledger.main)
+    claims_on_trunk = bool(found_config) and (found_config[1] or {}).get("claims") == "trunk-sync"
     for entry in run.get("crew", []) if not broken else []:
         task = entry.get("task", "")
         row = by_task.get(task, {})
@@ -1138,6 +1150,8 @@ def reconcile(ledger: Ledger) -> dict:
             if isinstance(listed, dict) and str(listed.get("status") or "").lower() not in ("done", "out_of_scope"):
                 note("roadmap-stale", f"PR #{row['pr']} is merged into {base} but {task} reads {listed.get('status') or 'unset'} on the roadmap at origin/{base}; run /roadmap:maintain from the main checkout and commit it the way the project says", task, row.get("session_id", ""), int(row["pr"]))
         elif fact["state"] == "OPEN":
+            if claims_on_trunk:
+                continue  # the project's sync writes claims to the trunk, so a branch carries none and the open PR is not drift
             branch = row.get("branch") or entry.get("branch") or ""
             on_trunk = roadmap_claim(ledger.main, task, f"origin/{trunk}")
             if on_trunk is True or not branch:
@@ -1159,6 +1173,17 @@ def reconcile(ledger: Ledger) -> dict:
         for job in row.get("jobs") or []:
             if job.get("status", "open") == "open":
                 note("job-orphaned", f"{job.get('kind')} job {job.get('id')} ({job.get('reason') or job.get('spec') or ''}) belongs to a session that is gone; re-arm it from the session that adopts the row, or `mc.py jobs done {job.get('id')}`", row.get("task", ""), sid, row.get("pr"))
+    # a watcher that reads `watching` but whose process is gone was killed without a word (SIGKILL cannot be caught); the session has to re-arm it
+    for sid, row in sessions.items():
+        watch = row.get("watch") or {}
+        if sid not in live or watch.get("status") != "watching" or not watch.get("pid"):
+            continue
+        try:
+            os.kill(int(watch["pid"]), 0)
+        except ProcessLookupError:
+            note("watch-dead", f"the watcher for PR #{watch.get('pr')} (pid {watch['pid']}) reads `watching` but is not running; tell the session to re-arm it", row.get("task", ""), sid, row.get("pr"))
+        except PermissionError:
+            pass
     # a browser the Playwright plugin launched lives until browser_close or the session's exit; one still open
     # under a session that holds no slot is a check that was never closed (three sat open for hours in November 2026)
     holders = {slot.get("holder") for slot in ledger.slots().values()}
@@ -1544,7 +1569,7 @@ def print_classification(result: dict) -> None:
 
 # ---------------------------------------------------------------- PR watching
 
-WATCH_FIELDS = "state,reviewDecision,reviews,comments,statusCheckRollup,mergedAt,url,title"
+WATCH_FIELDS = "state,reviewDecision,reviews,comments,statusCheckRollup,mergedAt,url,title,headRefOid"
 WATCH_FAILURES_TOLERATED = 3
 
 
@@ -1586,6 +1611,7 @@ def pr_snapshot(main: Path, number: int) -> dict | None:
         "review_comments": review_comments,
         "checks": checks,
         "merged_at": raw.get("mergedAt"),
+        "head": str(raw.get("headRefOid") or ""),
         "url": str(raw.get("url") or ""),
         "title": str(raw.get("title") or ""),
         "at": now(),
@@ -1923,10 +1949,26 @@ def note_approval(ledger: Ledger, run: dict, number: int, current: dict, row: di
             return
         n = 1 + max([p.get("n", 0) for p in pending] or [0])
         item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": "approval", "pr": number, "text": f"PR #{number} approved by {who}; landing is authorised and waits on the coordinator",
-                "session_id": row.get("session_id") if row else None, "status": "open", "at": now()}
+                "session_id": row.get("session_id") if row else None, "head": current.get("head") or "", "status": "open", "at": now()}
         pending.append(item)
         ledger.save_run(fresh)
     ledger.log("pending", **item)
+
+
+def stop_watch(ledger: Ledger, row: dict, number: int) -> int:
+    """Stop this session's own watcher by the pid on its row. Never matches by name, so one session cannot reach another's watcher the way a `pkill -f` does."""
+    watch = (row or {}).get("watch") or {}
+    pid = watch.get("pid")
+    if not row or watch.get("pr") != number or not pid:
+        raise Refusal(f"this session has no watcher recorded for PR #{number}")
+    try:
+        os.kill(int(pid), 0)
+    except (ProcessLookupError, PermissionError):
+        print(f"#{number}: the recorded watcher (pid {pid}) is not running; nothing to stop")
+        return 0
+    os.kill(int(pid), signal.SIGTERM)
+    print(f"#{number}: stopped the watcher (pid {pid})")
+    return 0
 
 
 def cmd_watch(args) -> int:
@@ -1945,14 +1987,18 @@ def cmd_watch(args) -> int:
     if not number:
         raise Refusal("which PR? pass the number, or report it first with mc_report")
 
-    def record(status: str, seen: dict | None, changes: list[str]) -> None:
+    if args.stop:
+        return stop_watch(ledger, row, number)
+
+    def record(status: str, seen: dict | None, changes: list[str], signal_number: int | None = None) -> None:
         if not run or not row:
             return
         with ledger.locked():
             fresh = ledger.sessions().get(row["session_id"])
             if not fresh:
                 return
-            fresh["watch"] = {"pr": number, "since": (fresh.get("watch") or {}).get("since") or now(), "status": status, "checked_at": now(), "seen": seen, "last_change": changes or (fresh.get("watch") or {}).get("last_change") or []}
+            fresh["watch"] = {"pr": number, "since": (fresh.get("watch") or {}).get("since") or now(), "status": status, "checked_at": now(), "seen": seen, "last_change": changes or (fresh.get("watch") or {}).get("last_change") or [],
+                              "pid": os.getpid(), "signal": signal_number}
             # the watch is a scheduled job like any other: open while it should be running or re-armed, done once the PR landed
             jobs = [j for j in (fresh.get("jobs") or []) if j.get("id") != f"watch-{number}"]
             jobs.append({"id": f"watch-{number}", "kind": "watch", "spec": f"PR #{number}, every {int(args.interval)}s" + (f", held outside {hours['start']}-{hours['end']}" if hours else ""),
@@ -1986,43 +2032,58 @@ def cmd_watch(args) -> int:
     deadline = now() + float(args.max_minutes) * 60
     failures = 0
     held: list[str] = []
-    while True:
-        time.sleep(interval)
-        current = pr_snapshot(ledger.main, number)
-        if current is None:
-            failures += 1
-            # git may have broken since this watch started (the 30 October shape: a long watch, then the update); the next poll re-probes it and names the repository outright if so
-            _GIT_PROBLEM.clear()
-            if failures >= WATCH_FAILURES_TOLERATED:
-                print(f"#{number}: gh did not answer {failures} polls running; the watch stops here, re-arm when gh is back")
-                record("stalled", seen, [])
-                return 2
-            continue
-        failures = 0
-        changes = snapshot_changes(seen, current)
-        if changes:
-            if current.get("decision") == "APPROVED" and seen.get("decision") != "APPROVED" and run:
-                # an approval is the coordinator's to act on, and a message can sit unread in an idle session until the next prompt;
-                # the pending list is read by reconcile and the start context, so the approval is seen even when the message is not
-                note_approval(ledger, run, number, current, row)
-            if terminal(current) or in_window(hours, now()):
-                record("changed", current, changes)
-                print(f"#{number} changed ({'; '.join(changes)}). Now: {summarise_snapshot(current)}")
-                if terminal(current):
-                    print(f"watch ended: PR #{number} is {current['state'].lower()}; do not re-arm")
-                    record("ended", current, changes)
+
+    def killed(signal_number, _frame) -> None:
+        # exit 144 with no output was the shape of a watcher stopped from outside; say so in the ledger and on stdout so the wake explains itself
+        record("killed", seen, [], signal_number)
+        print(f"#{number}: the watch was stopped by signal {signal_number} ({signal.Signals(signal_number).name}); something outside it ended the process. Re-arm the watch; stop one on purpose with `mc.py watch --stop`")
+        sys.stdout.flush()
+        raise SystemExit(128 + signal_number)
+
+    caught_signals = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
+    previous_handlers = {caught: signal.signal(caught, killed) for caught in caught_signals}
+    record("watching", seen, [])
+    try:
+        while True:
+            time.sleep(interval)
+            current = pr_snapshot(ledger.main, number)
+            if current is None:
+                failures += 1
+                # git may have broken since this watch started (the 30 October shape: a long watch, then the update); the next poll re-probes it and names the repository outright if so
+                _GIT_PROBLEM.clear()
+                if failures >= WATCH_FAILURES_TOLERATED:
+                    print(f"#{number}: gh did not answer {failures} polls running; the watch stops here, re-arm when gh is back")
+                    record("stalled", seen, [])
+                    return 2
+                continue
+            failures = 0
+            changes = snapshot_changes(seen, current)
+            if changes:
+                if current.get("decision") == "APPROVED" and seen.get("decision") != "APPROVED" and run:
+                    # an approval is the coordinator's to act on, and a message can sit unread in an idle session until the next prompt;
+                    # the pending list is read by reconcile and the start context, so the approval is seen even when the message is not
+                    note_approval(ledger, run, number, current, row)
+                if terminal(current) or in_window(hours, now()):
+                    record("changed", current, changes)
+                    print(f"#{number} changed ({'; '.join(changes)}). Now: {summarise_snapshot(current)}")
+                    if terminal(current):
+                        print(f"watch ended: PR #{number} is {current['state'].lower()}; do not re-arm")
+                        record("ended", current, changes)
+                    return 0
+                if changes != held:
+                    held = changes
+                    record("holding", seen, changes)
+            if now() >= deadline:
+                if held:
+                    record("holding", seen, held)
+                    print(f"#{number}: holding until the team's hours open at {clock(window_opens(hours, now()))} ({'; '.join(held)}); re-arm the watch")
+                else:
+                    record("watching", current, [])
+                    print(f"#{number}: no change in {args.max_minutes} minutes; re-arm the watch")
                 return 0
-            if changes != held:
-                held = changes
-                record("holding", seen, changes)
-        if now() >= deadline:
-            if held:
-                record("holding", seen, held)
-                print(f"#{number}: holding until the team's hours open at {clock(window_opens(hours, now()))} ({'; '.join(held)}); re-arm the watch")
-            else:
-                record("watching", current, [])
-                print(f"#{number}: no change in {args.max_minutes} minutes; re-arm the watch")
-            return 0
+    finally:
+        for caught, handler in previous_handlers.items():
+            signal.signal(caught, handler)
 
 
 def cmd_crew(args) -> int:
@@ -2635,6 +2696,21 @@ def pending_locked(args, ledger: Ledger) -> int:
         ledger.log("pending", **item)
         print(json.dumps(item) if args.json else f"pending #{n} ({item['kind']}): {item['text']}")
         return 0
+    if args.action in ("hold", "release"):
+        # the ref is the PR number: an approved PR can be held back from landing (reconcile says `approved-held`, not `landing is authorised`) until released
+        target = next((p for p in pending if p.get("kind") == "approval" and p.get("status") == "open" and str(p.get("pr")) == str(args.ref).lstrip("#")), None)
+        if target is None:
+            raise Refusal(f"no open approval for PR {args.ref}; the watcher records one when it sees the approval")
+        if args.action == "hold":
+            if not args.text:
+                raise Refusal("pending hold needs --text, the reason the landing waits")
+            target["hold"] = args.text.strip()[:NEED_WHY_LIMIT]
+        else:
+            target.pop("hold", None)
+        ledger.save_run(run)
+        ledger.log("pending-" + args.action, id=target["id"], n=target["n"], pr=target.get("pr"))
+        print(f"PR #{target['pr']} {'held: ' + target['hold'] if args.action == 'hold' else 'released'}")
+        return 0
     target = next((p for p in pending if str(p.get("n")) == str(args.ref) or p.get("id") == args.ref), None)
     if target is None:
         raise Refusal(f"no open pending item {args.ref}")
@@ -3020,6 +3096,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--interval", type=float, default=300, help="seconds between polls (default 300)")
     sp.add_argument("--max-minutes", dest="max_minutes", type=float, default=720, help="give up and ask to be re-armed after this long (default 720)")
     sp.add_argument("--once", action="store_true", help="print the PR as it stands and exit")
+    sp.add_argument("--stop", action="store_true", help="stop this session's own watcher for the PR, by the pid on its row (never by name)")
     sp = sub.add_parser("retire", help="reclaim a finished crew session's worktree mid-run: session closed, row done, PR landed, tree clean, nothing running in it; removes it, prunes, deletes the branch with -d only (coordinator or --by-user)")
     sp.add_argument("ref", help="the session: id, prefix, task, branch or name")
     sp.add_argument("--dry-run", dest="dry_run", action="store_true", help="print what would go and the disk it holds; change nothing")
@@ -3092,8 +3169,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--id", help="a stable id, so re-arming replaces rather than duplicates")
     sp.add_argument("--all", action="store_true", help="list: every session, done jobs included")
     sp = sub.add_parser("pending", help="the coordinator's open threads (approvals awaited, unanswered messages), kept so a compaction does not lose them: add, done, list")
-    sp.add_argument("action", choices=["add", "done", "list"])
-    sp.add_argument("ref", nargs="?", help="for add: the session it concerns; for done: the number or id")
+    sp.add_argument("action", choices=["add", "done", "list", "hold", "release"])
+    sp.add_argument("ref", nargs="?", help="for add: the session it concerns; for done: the number or id; for hold and release: the PR number")
     sp.add_argument("--kind", choices=["approval", "message", "thread", "other"])
     sp.add_argument("--text", help="for add: the thread; for done: the outcome")
     sp.add_argument("--all", action="store_true")

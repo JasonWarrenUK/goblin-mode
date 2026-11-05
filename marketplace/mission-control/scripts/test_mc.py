@@ -853,6 +853,31 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(len(missing), 1)
         self.assertIn("on origin/feat/a", missing[0]["detail"])
 
+    def test_trunk_sync_projects_do_not_flag_an_open_pr_for_a_missing_branch_claim(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False)
+        config_path = self.box.repo / ".claude" / "mission-control.json"
+        config = json.loads(config_path.read_text())
+        config["claims"] = "trunk-sync"
+        config_path.write_text(json.dumps(config))
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 223)
+        result = self._reconcile_with(self._gh(self._open(223)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
+
+    def test_a_held_approval_is_named_held_until_released(self):
+        self._watching_session(265)
+        run_path = list(self.box.ledger_root.glob("*/run.json"))[0]
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).append({"id": "a2", "n": 1, "kind": "approval", "pr": 265, "text": "t", "session_id": "crew-1", "head": "", "status": "open", "at": 1.0})
+        run_path.write_text(json.dumps(run))
+        self.box.mc("pending", "hold", "265", "--text", "every review comment first", session="coord-1")
+        kinds = [item["kind"] for item in self._reconcile_with(self._gh(self._open(265)))["drift"]]
+        self.assertIn("approved-held", kinds)
+        self.assertNotIn("approved-unlanded", kinds)
+        self.box.mc("pending", "release", "265", session="coord-1")
+        kinds = [item["kind"] for item in self._reconcile_with(self._gh(self._open(265)))["drift"]]
+        self.assertIn("approved-unlanded", kinds)
+
     def test_a_claim_that_reached_main_under_another_subject_satisfies_a_merged_pr(self):
         """A sync batch or a `done` batch carries the claim to the trunk; the roadmap's state counts, not the commit subject."""
         self._roadmap_repo_with_origin(claim_on_branch=False, claim_on_main=True)
@@ -1921,6 +1946,84 @@ class LedgerFlow(unittest.TestCase):
             mc_module.PR_CACHE_SECONDS = real_cache
         self.assertNotIn("approved-unlanded", [item["kind"] for item in result["drift"]])
         self.assertEqual(json.loads(self.box.mc("pending", "list", session="coord-1").stdout), [], "closed by the merge")
+
+    def _watching_session(self, pr):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "pr-ready", "--pr", str(pr), session="crew-1", cwd=self.box.worktree)
+
+    def _crew_watch_record(self):
+        return json.loads(list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0].read_text())["watch"]
+
+    def test_a_signalled_watcher_records_the_signal_and_says_so(self):
+        import signal
+        self._watching_session(260)
+        checks = [("ci", "SUCCESS")]
+        base = self._gh_watch([self._view(checks=checks)])
+
+        def killing_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "view"] and getattr(killing_sh, "calls", 0) >= 1:
+                os.kill(os.getpid(), signal.SIGTERM)
+            if argv[:3] == ["gh", "pr", "view"]:
+                killing_sh.calls = getattr(killing_sh, "calls", 0) + 1
+            return base(argv, timeout, cwd)
+        before = signal.getsignal(signal.SIGTERM)
+        with self.assertRaises(SystemExit) as raised:
+            self._watch(killing_sh)
+        self.assertEqual(raised.exception.code, 128 + signal.SIGTERM)
+        self.assertIs(signal.getsignal(signal.SIGTERM), before, "the handler is put back once the watch returns")
+        watch = self._crew_watch_record()
+        self.assertEqual((watch["status"], watch["signal"], watch["pid"]), ("killed", int(signal.SIGTERM), os.getpid()))
+
+    def test_watch_stop_refuses_a_session_with_no_watcher_of_its_own(self):
+        self._watching_session(261)
+        done = self.box.mc("watch", "--stop", "--pr", "261", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("no watcher recorded", done.stdout + done.stderr)
+
+    def test_watch_stop_signals_only_the_pid_on_the_callers_own_row(self):
+        self._watching_session(262)
+        victim = subprocess.Popen(["sleep", "60"])
+        bystander = subprocess.Popen(["sleep", "61"])
+        try:
+            row_path = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0]
+            row = json.loads(row_path.read_text())
+            row["watch"] = {"pr": 262, "status": "watching", "pid": victim.pid}
+            row_path.write_text(json.dumps(row))
+            done = self.box.mc("watch", "--stop", "--pr", "262", session="crew-1", cwd=self.box.worktree)
+            self.assertIn(f"pid {victim.pid}", done.stdout)
+            victim.wait(timeout=5)
+            self.assertIsNone(bystander.poll(), "another process is untouched")
+        finally:
+            for proc in (victim, bystander):
+                proc.kill()
+                proc.wait()
+
+    def test_reconcile_names_a_watcher_that_reads_watching_but_has_died(self):
+        self._watching_session(263)
+        gone = subprocess.Popen(["true"])
+        gone.wait()
+        row_path = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0]
+        row = json.loads(row_path.read_text())
+        row["watch"] = {"pr": 263, "status": "watching", "pid": gone.pid}
+        row_path.write_text(json.dumps(row))
+        result = self._reconcile_with(self._gh(self._open(263)))
+        dead = [item for item in result["drift"] if item["kind"] == "watch-dead"]
+        self.assertEqual(len(dead), 1)
+        self.assertIn(f"pid {gone.pid}", dead[0]["detail"])
+
+    def test_an_approval_given_on_an_older_head_is_not_called_authorised(self):
+        self._watching_session(264)
+        run_path = list(self.box.ledger_root.glob("*/run.json"))[0]
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).append({"id": "a1", "n": 1, "kind": "approval", "pr": 264, "text": "t", "session_id": "crew-1", "head": "aaaaaaa1111", "status": "open", "at": 1.0})
+        run_path.write_text(json.dumps(run))
+        answer = self._open(264)
+        answer["264"]["headRefOid"] = "bbbbbbb2222"
+        result = self._reconcile_with(self._gh(answer))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertIn("approved-stale", kinds)
+        self.assertNotIn("approved-unlanded", kinds)
 
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
