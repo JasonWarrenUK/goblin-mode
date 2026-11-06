@@ -13,6 +13,9 @@ source, each one seen in a real PR:
     summary-backtick  backticks inside <summary> print literally; use <code>
     double-rule       two --- rules with only blank lines between them,
                       left behind when an optional block is dropped
+    watermark-only    a body whose only content is the pr-update watermark
+                      comment: what a failed BSD sed leaves behind when it
+                      should have written the whole description
 
 Usage:
     md-lint.py TARGET [TARGET...]     file, or - for stdin
@@ -60,6 +63,7 @@ HTML_LINE = re.compile(
 	re.I,
 )
 COMMENT = re.compile(r"^\s{0,3}<!--")
+WHOLE_COMMENT = re.compile(r"^\s*<!--.*-->\s*$")
 SUMMARY = re.compile(r"<summary>(.*?)</summary>", re.I)
 
 
@@ -158,6 +162,10 @@ def lint(raw: str) -> list[tuple[int, str, str]]:
 		elif paragraph_start is None:
 			paragraph_start = line
 		previous = line
+
+	lines = [line for line in raw.splitlines() if line.strip()]
+	if lines and all(WHOLE_COMMENT.match(line) for line in lines) and any("pr-update-watermark" in line for line in lines):
+		hits.append((1, "watermark-only", excerpt(lines[0])))
 
 	return hits
 

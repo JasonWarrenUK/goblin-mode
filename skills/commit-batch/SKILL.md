@@ -9,7 +9,7 @@ metadata:
   family: commit
   goblin-spinner: sorting the commits|splitting hunks|grouping changes
 disable-model-invocation: false
-allowed-tools: ["Bash(git:*)"]
+allowed-tools: ["Bash(git:*)", "Bash(python3 \"$HOME\"/.claude/library/scripts/slop-scan.py:*)"]
 arguments: ["hints"]
 argument-hint: "[grouping hints (optional), e.g. 'docs together, config separate']"
 ---
@@ -28,6 +28,8 @@ git rev-parse --verify HEAD >/dev/null 2>&1 && git diff --stat HEAD || echo "(no
 3. Present the proposed commit plan as a numbered list:
    - Group name / files involved
    - Suggested commit message (conventional commits format)
+
+   Scan every suggested message before the plan is shown, with the scanner the hook uses: `python3 "$HOME"/.claude/library/scripts/slop-scan.py --strict - <<'MSG'` followed by the message and `MSG`. On exit 1 each `L<n> <rule>: <excerpt>` line names a hit; rewrite the message to clear all of them and scan again. A plan the user approves then holds only messages that pass, and a rejection by the hook mid-batch (which leaves a staged file in the wrong commit) stops being the first time a message is checked.
 4. Await approval: **stop here and do not proceed until the user responds**:
    - If approved, execute commits sequentially. For each group:
      1. Stage **only** the files listed for that group (`git add <files>`)

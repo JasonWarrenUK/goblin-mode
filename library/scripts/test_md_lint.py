@@ -154,6 +154,27 @@ class Hook(unittest.TestCase):
 		result = subprocess.run([sys.executable, str(SCRIPT), "--hook"], input="not json", capture_output=True, text=True)
 		self.assertEqual(result.returncode, 0)
 
+	def test_a_body_that_is_only_the_watermark_blocks(self):
+		# CHIRPdb, 4 November 2026: a failed BSD sed left the PR body as the watermark alone, twice
+		result = run_hook("gh pr edit 5 --body-file - <<'PR_EOF'\n<!-- pr-update-watermark: 1a2b3c4 -->\nPR_EOF")
+		self.assertEqual(result.returncode, 2)
+		self.assertIn("watermark-only", result.stderr)
+
+
+class WatermarkOnly(unittest.TestCase):
+	MARK = "<!-- pr-update-watermark: 1a2b3c4 -->"
+
+	def test_a_lone_watermark_is_flagged(self):
+		self.assertEqual(rules(self.MARK + "\n"), ["watermark-only"])
+		self.assertEqual(rules("\n\n" + self.MARK), ["watermark-only"])
+
+	def test_a_body_with_content_and_the_watermark_passes(self):
+		self.assertEqual(rules("## Summary\n\nA real description.\n\n" + self.MARK + "\n"), [])
+
+	def test_an_empty_body_and_other_comments_are_not_this_rules_business(self):
+		self.assertEqual(rules(""), [])
+		self.assertEqual(rules("<!-- pr-review -->\n"), [])
+
 
 if __name__ == "__main__":
 	unittest.main()
