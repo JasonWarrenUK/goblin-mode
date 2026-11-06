@@ -1,7 +1,7 @@
 ---
 name: "PR: Land"
-description: "Land an approved PR: merge to main, delete the branch, tag the version, sync the roadmap, write the changelog and release, read every artefact back, clean up"
-when_to_use: "When a PR is approved with checks green and the user wants it merged and the aftermath handled."
+description: "Land an approved PR, or several in one run: merge to main, delete the branch, tag the version, sync the roadmap, write the changelog and release, read every artefact back, clean up"
+when_to_use: "When a PR is approved with checks green and the user wants it merged and the aftermath handled. Name several PRs to land them in order under one plan approval, each keeping its own merge approval."
 model: opus
 effort: medium
 metadata:
@@ -11,7 +11,7 @@ metadata:
 disable-model-invocation: true
 allowed-tools: ["Read", "Edit", "Bash(git:*)", "Bash(gh:*)", "Bash(cd:*)", "Bash(grep:*)", "Bash(~/.claude/library/scripts/safe-version-next.sh:*)", "Bash(~/.claude/library/scripts/checkout-occupied.sh:*)", "Bash(~/.claude/library/scripts/stack-status.py:*)", "Bash(python3:*)"]
 arguments: ["pr"]
-argument-hint: "[PR number | URL]"
+argument-hint: "[PR number | URL] [more PRs to land in the same run]"
 ---
 
 # PR: Land
@@ -24,9 +24,22 @@ The post-approval sequence as one skill: verify the PR is genuinely ready, merge
 
 The same line holds where CI does the tagging. A repo with `.github/release-packages.json` runs several tag series at once (one per `packages[]` entry, each with its own `prefix` such as `api/v`), and its CI tags each of them on push to main. **Nobody creates or suggests a 1.x tag in a manifest series by hand.** Only the repo's Declare Stable workflow, a manual dispatch by a signer listed in the manifest's `signers[]`, moves a package to 1.0.0; this skill neither runs that workflow nor recommends it.
 
+## Step 0: One PR or a queue
+
+`$ARGUMENTS` names one PR, or several separated by spaces (`/pr-land 230 233 234`; each a number or a URL). One PR: skip this step; everything below is exactly as written. Several: this skill lands them one after another, each through Steps 1 to 6 in full, with one plan approval up front and every merge keeping its own Step 2 approval. Nothing below is skipped, merged or batched into a single command; what the queue adds is the ordering, the plan and the stop rules.
+
+1. **Resolve and check every PR first, read-only.** Per PR: `gh pr view --json state,reviewDecision,mergeable,statusCheckRollup,headRefName,baseRefName,title,files`, `stack-status.py {number}` and Step 1's readiness test (nothing pushed, nothing rebased: Steps 1.1, 1.5 and 1.6 wait for the PR's own turn). A PR that fails readiness is dropped from the queue with its reason, and so is every queued PR stacked above it.
+2. **Order.** A stack goes bottom-up. Everything else goes by ascending PR number, so tags and changelog sections read in the order the PRs were opened. A queued PR that an earlier stacked merge will land anyway (`gh stack merge {number}` takes every unmerged layer below it, Step 2) is dropped from the queue as `lands with #{n}`, never merged twice.
+3. **Flag collisions before they happen.** Two queued PRs whose diffs touch the same plugin's subtree (Step 1.5's test) will compute the same bump: the second PR's branch does not hold the tag the first landing creates, so `safe-version-next.sh` run from it proposes the version the first one just took. Name each such pair in the plan. When the second one's turn comes and the tag exists, Step 1.5 stops for that PR: it is skipped with `needs a rebase onto main first` and `/branch-integrate rebase main` offered; it is not rebased here (Step 1.1's one exception does not cover it).
+4. **One plan approval.** Show a table, one row per PR: order, number, title, head → base, review state, checks, stack verdict, plugins it will bump, collisions and anything dropped with why. **Await approval.** An edit to the list (remove one, change the order within what the rules allow) is free here; after approval the queue does not change.
+5. **Land each PR in turn**, Steps 1 to 4 and 6 for that PR before the next one starts: the tag, the plugin version and the changelog section are read back (Step 6) while the next PR still waits, so versions stay ordered and no tag is computed from a main that has not finished absorbing the last. Step 2's own approval comes first for each PR; the plan approval does not stand in for it. Before each later PR starts, re-run Step 1's readiness check on it against the new main (a merge can leave a sibling `CONFLICTING` or restart its checks).
+6. **Stop rules.** A merge that fails, a tag that mismatches Step 1.5's version, a failed read-back or a refused approval ends the queue where it stands: the PR in flight is reported as Step 7 reports it, and every PR not yet started is listed untouched with `not started` and the reason. A PR that merely turned unready (conflict, red check, needs a rebase) is skipped with its reason and the queue carries on with the PRs that do not depend on it. Never retry a PR in the same run.
+7. **Roadmap sync once.** Step 5's offer is made once, after the last landing, and covers every landed PR.
+8. **One digest.** Step 7's report becomes a single table: per PR its result (`landed`, `skipped`, `not started`), tags, the Step 6 read-backs and the reason for anything not landed, then the roadmap and cleanup lines once.
+
 ## Step 1: Verify readiness
 
-Resolve the PR from `$ARGUMENTS`, then `gh pr view --json state,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,headRefName,baseRefName,title`.
+Resolve the PR from `$ARGUMENTS` (the one PR being landed now, when Step 0 is running a queue), then `gh pr view --json state,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,headRefName,baseRefName,title`.
 
 Proceed only when: state `OPEN`, every entry in `statusCheckRollup` has finished and passed, and `mergeable` isn't `CONFLICTING`. Both halves of the rollup are default-deny, so an enum value this text doesn't name still blocks. A check run whose `status` isn't `COMPLETED` (`QUEUED`, `IN_PROGRESS`, `PENDING`, `WAITING`, `REQUESTED`) counts as not passed, as does a status context whose `state` isn't `SUCCESS` (`PENDING` and `EXPECTED` are the non-terminal ones); a `conclusion` or `state` of `FAILURE`, `ERROR`, `CANCELLED`, `TIMED_OUT` or `ACTION_REQUIRED` fails outright. A completed check run passes on a `conclusion` of `SUCCESS`, `NEUTRAL` or `SKIPPED`; a status context passes only on `state` `SUCCESS`. `reviewDecision` must additionally be `APPROVED` unless the project is solo: `python3 "$HOME"/.claude/marketplace/mission-control/scripts/mc.py --json classify` from the checkout (the flag goes before the subcommand), whose `mode` is `solo` or `collaborative` (stated in `.claude/mission-control.json` or its gitignored `.local` twin, else inferred from 90 days of authors and the reviews on merged PRs; a solo project has no reviewer, so `APPROVED` never appears). Quote the mode and its `source` in the readiness line. Anything short of that: report exactly what's unmet and stop, with one exception. A failure that comes only from the roadmap's rendered dashboards goes through Step 1.1 first, because a rebase onto main usually clears it without anyone reading a log. This skill lands ready PRs; it doesn't chase approvals (`pr-handle_review`) or fix branches.
 
@@ -193,10 +206,12 @@ A target whose Step 3 script exited 4 produced no tag, so it has no section to w
 
 ## Step 7: Report
 
+A queue (Step 0) reports once, as the table Step 0 item 8 describes, with the lines below filled per PR.
+
 PR merged (URL), every tag created (root, any bumped plugin and each tag CI returned in Step 3), branch/worktree state after cleanup, roadmap synced or skipped, the task IDs given an end date by Step 1.6, and the Step 6 read-backs: changelog section per tag, release created or deliberately skipped (and why) per series, each verification line. Offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
 
 ## Red flags
 
-**Never:** cross 0.x → 1.x on any tag series, root or plugin (the guard script is the only tag source); create or suggest a 1.x tag in a `release-packages.json` series (only the Declare Stable workflow, dispatched by a listed signer, does that); squash or rebase-merge; merge with failing or pending checks "because they'll pass"; rebase a branch for any failure other than the roadmap dashboard check, rebase it twice in one landing, or rebase it in a worktree another session holds; hand-merge a conflicted dashboard instead of re-rendering it; run `git checkout`, `git switch` or a bare `git pull` in the main checkout; create a tag on a repo whose CI tags; remove a worktree from inside it; use `git branch -D`; tag before the merge has actually landed on main; run plain `gh pr merge` on a stacked PR, or run `gh stack merge` with no PR number, with a stack number, or with `--yes` alone (use `gh stack merge {number} --merge`); delete a branch that is still the base of an open PR; hand-edit a plugin's `version` field or its build output instead of running `safe-version-next.sh` and the plugin's own build script.
+**Never:** cross 0.x → 1.x on any tag series, root or plugin (the guard script is the only tag source); create or suggest a 1.x tag in a `release-packages.json` series (only the Declare Stable workflow, dispatched by a listed signer, does that); squash or rebase-merge; merge with failing or pending checks "because they'll pass"; rebase a branch for any failure other than the roadmap dashboard check, rebase it twice in one landing, or rebase it in a worktree another session holds; hand-merge a conflicted dashboard instead of re-rendering it; run `git checkout`, `git switch` or a bare `git pull` in the main checkout; create a tag on a repo whose CI tags; remove a worktree from inside it; use `git branch -D`; tag before the merge has actually landed on main; run plain `gh pr merge` on a stacked PR, or run `gh stack merge` with no PR number, with a stack number, or with `--yes` alone (use `gh stack merge {number} --merge`); delete a branch that is still the base of an open PR; hand-edit a plugin's `version` field or its build output instead of running `safe-version-next.sh` and the plugin's own build script; in a queue, merge a PR the approved plan did not list, treat the plan approval as Step 2's approval, start the next PR before the last one's tag and changelog are read back, rebase a queued PR to clear a version collision, or carry on past a failed merge, tag mismatch or read-back.
 
 <raw-arguments value="$ARGUMENTS" />
