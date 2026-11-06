@@ -2547,6 +2547,32 @@ def cmd_needs(args) -> int:
         return needs_locked(args, ledger)
 
 
+def touches_human_gate(cwd: str, command: str) -> bool:
+    """True when the command is one the project's config gates behind a human-gated resource (the hosted project)."""
+    try:
+        found = find_config(cwd)
+    except Refusal:
+        return False
+    if not found or not command:
+        return False
+    return any(isinstance(resources(found[1]).get(hit["resource"]), dict) and resources(found[1])[hit["resource"]].get("human_gate") for hit in gated(found[1], command))
+
+
+def main_rooted(cwd: str, main: Path) -> str:
+    """The same place in the main checkout when `cwd` lies in a linked worktree; any other directory comes back as given.
+
+    A hosted command is typed by the user, and the link to the hosted project (`supabase/.temp`,
+    git-ignored) exists only in the main checkout: typed from a crew's worktree it fails with
+    LegacyProjectNotLinkedError, as eight calls did on 3 November 2026."""
+    if not cwd or not Path(cwd).is_dir():
+        return cwd
+    top = toplevel(cwd)
+    if top is None or same_path(top, main):
+        return cwd
+    # git answers with the canonical path and `cwd` may be spelled through a symlink (/var for /private/var), so both are resolved first
+    return os.path.normpath(os.path.join(main, os.path.relpath(Path(cwd).resolve(), Path(top).resolve())))
+
+
 def needs_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
     session_id = caller_session(args.session)
@@ -2587,10 +2613,20 @@ def needs_locked(args, ledger: Ledger) -> int:
         else:
             for_session = inherited.get("for") or (session_id if row else None)
         for_task = (ledger.sessions().get(for_session or "") or {}).get("task", "") or (inherited.get("for_task", "") if for_session == inherited.get("for") else "")
+        command = (args.command or "").strip()
+        cwd = args.cwd_hint or inherited.get("cwd") or row.get("worktree") or ""
+        # a hosted command runs from the main checkout whatever directory was given: only that tree is linked to the hosted project
+        moved_from = None
+        if touches_human_gate(args.cwd, command):
+            rooted = main_rooted(cwd, ledger.main)
+            if rooted != cwd:
+                moved_from, cwd = cwd, rooted
         need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", "") or inherited.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
-                "command": (args.command or "").strip(), "cwd": args.cwd_hint or inherited.get("cwd") or row.get("worktree") or "", "status": "open", "at": now(),
+                "command": command, "cwd": cwd, "status": "open", "at": now(),
                 "kind": args.kind or inherited.get("kind") or "action", "for": for_session, "for_task": for_task,
                 "supersedes": old["n"] if old else None}
+        if moved_from:
+            need["cwd_moved_from"] = moved_from
         needs.append(need)
         # the new need is logged before the old one closes, so the log reads need then need-superseded, the way the link points
         ledger.log("need", **need)
@@ -2599,7 +2635,8 @@ def needs_locked(args, ledger: Ledger) -> int:
         ledger.save_run(run)
         wants = f" (result to {need['for_task'] or (for_session or '')[:8]})" if need["kind"] == "measurement" and for_session else ""
         replaces = f" (supersedes #{old['n']})" if old else ""
-        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants + replaces)
+        moved = f" (directory moved from {moved_from} to the main checkout, the only tree linked to the hosted project)" if moved_from else ""
+        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants + replaces + moved)
         return 0
     target = find_need(needs, args.ref)
     if target is None:
@@ -2914,6 +2951,164 @@ def overrides_identity(command: str, depth: int = 0) -> bool:
     return False
 
 
+# ---------------------------------------------------------------- the push gate
+
+# A repo opts in with `push_gate` in its config: the keys of its `commands` block that must pass
+# for a commit before that commit may be pushed. `mc.py gate` runs them and writes a record under the
+# git common dir, one file per commit; the PreToolUse hook refuses a `git push` while HEAD has no green
+# record. Like the rest of the guard it stops accidents: a hand-written record gets past it.
+GATE_DIR = ("mission-control", "gate")
+# pushes that carry no branch tip: nothing to have tested
+PUSH_NO_BRANCH = ("--dry-run", "-n", "--delete", "-d", "--tags")
+# `git push` options that take a separate value, so the value is not mistaken for the remote or a refspec
+PUSH_VALUE_FLAGS = ("--repo", "-o", "--push-option", "--receive-pack", "--exec", "--signed")
+
+
+def push_gate(config: dict) -> dict | None:
+    """The config's push gate as {"commands": [(key, shell line)], "missing": [key], "exempt": [glob]}, or None when the repo has not opted in.
+
+    `push_gate` is a list of keys of the config's `commands` block, or {"commands": [...], "exempt": [globs]}.
+    A change that touches only exempt paths (docs straight to main) needs no record."""
+    raw = config.get("push_gate")
+    if isinstance(raw, list):
+        raw = {"commands": raw}
+    if not isinstance(raw, dict):
+        return None
+    table = config.get("commands") if isinstance(config.get("commands"), dict) else {}
+    keys = [key for key in raw.get("commands") or [] if isinstance(key, str)]
+    if not keys:
+        return None
+    return {
+        "commands": [(key, table[key]) for key in keys if isinstance(table.get(key), str)],
+        "missing": [key for key in keys if not isinstance(table.get(key), str)],
+        "exempt": [glob_ for glob_ in raw.get("exempt") or [] if isinstance(glob_, str)],
+    }
+
+
+def gate_dir(cwd: str | Path) -> Path | None:
+    common = run_git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return Path(common, *GATE_DIR) if common else None
+
+
+def process_alive(pid) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except (OSError, ValueError, TypeError):
+        return False
+    return True
+
+
+def gate_running(lock: Path) -> bool:
+    row = read_json(lock)
+    return isinstance(row, dict) and process_alive(row.get("pid"))
+
+
+def git_pushes(command: str) -> list[dict]:
+    """Each `git push` on a shell line as {"args": words after push, "cd": cd target seen before it, "git_dir": the -C directory}."""
+    out = []
+    for words, cd_target in simple_commands(command):
+        if not words or os.path.basename(words[0]) != "git":
+            continue
+        i, git_dir = 1, None
+        while i < len(words) and words[i].startswith("-"):
+            if words[i] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace"):
+                if words[i] == "-C" and i + 1 < len(words):
+                    git_dir = words[i + 1]
+                i += 2
+            else:
+                i += 1
+        if i < len(words) and words[i] == "push":
+            out.append({"args": words[i + 1:], "cd": cd_target, "git_dir": git_dir})
+    return out
+
+
+def push_refspecs(args: list[str]) -> list[str]:
+    """The refspecs of a `git push` line: the positionals after the remote."""
+    positional, skip = [], False
+    for word in args:
+        if skip:
+            skip = False
+        elif word in PUSH_VALUE_FLAGS:
+            skip = True
+        elif not word.startswith("-"):
+            positional.append(word)
+    return positional[1:]
+
+
+def carries_no_branch(where: str, refspec: str) -> bool:
+    """A deletion (`:branch`) or a tag: a push of either has no tip to have tested."""
+    source = refspec.lstrip("+").split(":", 1)[0]
+    if not source:
+        return True
+    return source.startswith("refs/tags/") or run_git(where, "rev-parse", "-q", "--verify", f"refs/tags/{source}") is not None
+
+
+def only_exempt_paths(where: str, globs: list[str]) -> bool:
+    """True when everything HEAD adds beyond the branch's upstream (else origin's HEAD) is under an exempt glob."""
+    base = run_git(where, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}") or run_git(where, "rev-parse", "--abbrev-ref", "origin/HEAD")
+    if not base:
+        return False
+    names = run_git(where, "diff", "--name-only", f"{base}..HEAD")
+    if names is None:
+        return False
+    return all(any(fnmatch.fnmatchcase(name, glob_) for glob_ in globs) for name in names.splitlines())
+
+
+def gate_refusal(gate: dict, push: dict, where: str) -> str | None:
+    """Why this push may not go, or None."""
+    args = push["args"]
+    if any(arg in PUSH_NO_BRANCH for arg in args):
+        return None
+    refspecs = push_refspecs(args)
+    if refspecs and all(carries_no_branch(where, spec) for spec in refspecs):
+        return None
+    sha = run_git(where, "rev-parse", "HEAD")
+    if not sha:
+        return None  # git cannot say what is being pushed: the hook never blocks on its own failure
+    if gate["exempt"] and only_exempt_paths(where, gate["exempt"]):
+        return None
+    keys = ", ".join(key for key, _ in gate["commands"]) or "(nothing runnable)"
+    if gate["missing"]:
+        return f"push_gate names {', '.join(gate['missing'])}, and the config's `commands` block has no such key. Fix {CONFIG_REL}, then run the gate."
+    folder = gate_dir(where)
+    if folder is None:
+        return None
+    if gate_running(folder / f"{sha}.running"):
+        return f"the push gate is still running for {sha[:8]}. Wait for it to finish before pushing; never push while a suite is in flight."
+    record = read_json(folder / f"{sha}.json")
+    if isinstance(record, dict) and record.get("result") == "green":
+        return None
+    run_it = f"python3 {Path(__file__).resolve()} gate"
+    if isinstance(record, dict):
+        failed = next((step["key"] for step in record.get("steps", []) if step.get("code")), "a step")
+        return f"the push gate was red for {sha[:8]} ({failed}). Fix it, commit, and run `{run_it}` from {where}; push when it prints green."
+    return f"this repo gates pushes on {keys}, and {sha[:8]} has no green record. Run `{run_it}` from {where}, wait for it to finish, then push."
+
+
+def push_gate_reason(command: str, cwd: str) -> str | None:
+    """The refusal for a `git push` on this line when the repo gates pushes, else None."""
+    if "push" not in command:
+        return None
+    pushes = git_pushes(command)
+    if not pushes:
+        return None
+    try:
+        found = find_config(cwd)
+    except Refusal:
+        return None
+    gate = push_gate(found[1]) if found else None
+    if gate is None:
+        return None
+    for push in pushes:
+        where = runs_in(cwd, push["cd"]) or cwd
+        if push["git_dir"]:
+            where = os.path.normpath(os.path.join(where, push["git_dir"]))
+        reason = gate_refusal(gate, push, where)
+        if reason:
+            return reason
+    return None
+
+
 def assess(payload: dict) -> dict:
     """What mission control says about a Bash command: the verdict and whether a held slot covers it.
 
@@ -2933,6 +3128,10 @@ def assess(payload: dict) -> dict:
     session_id = payload.get("session_id")
     if overrides_identity(command):
         return {**out, "decision": "deny", "reason": f"`{BY_USER}` stands for the person typing /mc, and `--session` or `{SESSION_ENV}=` on an mc.py line would make a session someone else; a session passes none of them. Ask mission control, or the person runs /mc."}
+    # the push gate applies with or without a run: a session outside any run pushed three commits into a red suite on 4 November 2026
+    gate_reason = push_gate_reason(command, cwd)
+    if gate_reason:
+        return {**out, "decision": "deny", "reason": gate_reason}
     try:
         ledger = ledger_for(cwd)
     except Refusal:
@@ -2994,6 +3193,52 @@ def guard(payload: dict) -> dict | None:
     if verdict["decision"] is None and not verdict["context"]:
         return None
     return hook_output(verdict["decision"], verdict["reason"], verdict["context"])
+
+
+def cmd_gate(args) -> int:
+    """Run the config's push gate against the committed HEAD and record the result, so `git push` is allowed only on green."""
+    found = find_config(args.cwd)
+    if not found:
+        raise Refusal(f"no {CONFIG_REL} above {args.cwd}")
+    gate = push_gate(found[1])
+    if gate is None:
+        raise Refusal(f"{found[0]} sets no `push_gate`; nothing to run")
+    if gate["missing"]:
+        raise Refusal(f"push_gate names {', '.join(gate['missing'])}, and `commands` in {found[0]} has no such key")
+    top = toplevel(args.cwd)
+    sha = run_git(args.cwd, "rev-parse", "HEAD")
+    folder = gate_dir(args.cwd)
+    if top is None or not sha or folder is None:
+        raise Refusal(f"not inside a git repository with a commit: {args.cwd}")
+    if run_git(top, "status", "--porcelain", "--untracked-files=no"):
+        raise Refusal(f"tracked changes are uncommitted in {top}; the record is for HEAD {sha[:8]}, so commit or set them aside first")
+    folder.mkdir(parents=True, exist_ok=True)
+    lock = folder / f"{sha}.running"
+    if gate_running(lock):
+        raise Refusal(f"the gate is already running for {sha[:8]} (pid {read_json(lock).get('pid')})")
+    write_json(lock, {"pid": os.getpid(), "started": now()})
+    started, steps, result = now(), [], "red"  # red until every step passes, so an interrupted run never reads green
+    try:
+        for key, line in gate["commands"]:
+            if not args.json:
+                print(f"== gate {key}: {line}", flush=True)
+            code = subprocess.run(line, shell=True, cwd=top, stdout=sys.stderr if args.json else None).returncode
+            steps.append({"key": key, "command": line, "code": code})
+            if code != 0:
+                break
+        else:
+            result = "green"
+    finally:
+        record = {"sha": sha, "result": result, "steps": steps, "started": started, "finished": now()}
+        write_json(folder / f"{sha}.json", record)
+        lock.unlink(missing_ok=True)
+    if args.json:
+        print(json.dumps(record))
+    elif result == "green":
+        print(f"✓ push gate green for {sha[:8]}: {', '.join(step['key'] for step in steps)}")
+    else:
+        print(f"✗ push gate red for {sha[:8]}: {steps[-1]['key']} exited {steps[-1]['code']}")
+    return 0 if result == "green" else 1
 
 
 def cmd_check(args) -> int:
@@ -3228,6 +3473,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("check", help="what the guard would say about a Bash command, and whether a held slot covers it (JSON)")
     sp.add_argument("--command", required=True)
+    sub.add_parser("gate", help="run the config's push_gate commands against the committed HEAD and record the result; the PreToolUse hook then lets `git push` through only on green")
     sp = sub.add_parser("hook", help="Claude Code hook entry point; reads the payload on stdin")
     sp.add_argument("event", choices=["pre-tool-use", "session-start"])
     return parser
@@ -3236,7 +3482,7 @@ def build_parser() -> argparse.ArgumentParser:
 COMMANDS = {
     "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire, "classify": cmd_classify, "watch": cmd_watch,
     "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
-    "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "hook": cmd_hook,
+    "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "gate": cmd_gate, "hook": cmd_hook,
     "adopt": cmd_adopt, "jobs": cmd_jobs, "pending": cmd_pending, "decide": cmd_decide,
 }
 
