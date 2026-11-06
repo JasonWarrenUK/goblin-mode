@@ -62,7 +62,7 @@ The protocol itself, with the message shapes: `references/protocol.md`.
 
 **The board's keys** are in section 3.
 
-**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task> [--supersedes <n>]`, `needs start <n> --note ...`, `needs done <n> [--result ...|--superseded-by <m>]`, `crew list`, `crew add --task ... --model <m> --effort <e> --name ... --reason ... [--unlisted] [--plugin-dir <root>]` (which puts the session's launch line on the needs list), `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
+**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `gate` (run the project's push gate on HEAD, section 5.1), `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task> [--supersedes <n>]`, `needs start <n> --note ...`, `needs done <n> [--result ...|--superseded-by <m>]`, `crew list`, `crew add --task ... --model <m> --effort <e> --name ... --reason ... [--unlisted] [--plugin-dir <root>]` (which puts the session's launch line on the needs list), `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
 
 ### 2.3. Do not
 
@@ -139,7 +139,11 @@ Three things enforce the slot; none asks a session to do what its own permission
 - **The mod's `tool.check` on Bash**: when the project's own hook answers `ask` on a gated command (CHIRPdb's `db-reset-local-anyway`, say), and this session holds the slot, runs from its worktree and the resource is `approve_in_slot`, the mod answers `allow`. A `deny` is never loosened. Off with the `approve_in_slot` option.
 - **`SessionStart`** (`scripts/mc.py hook session-start`): a session starting inside a planned worktree is told its task, the coordinator's name and socket, where its brief is and to invoke `/mission-control:crew`.
 
-Hosted reads, credentials, writes, merges and anything irreversible stay with the user: the config marks them `human_gate`, no slot covers them, and the path is the needs list with the exact command.
+Hosted reads, credentials, writes, merges and anything irreversible stay with the user: the config marks them `human_gate`, no slot covers them, and the path is the needs list with the exact command. A hosted command's directory is the main checkout: only that tree is linked to the hosted project (the link is in a git-ignored folder a worktree does not get), so `needs add` moves a worktree directory to the same place in the main checkout and says so on the need.
+
+### 5.1. The push gate
+
+A project opts in with `push_gate` in its config (see `references/config.md`). The same `PreToolUse` hook then refuses a `git push` until `python3 <plugin-root>/scripts/mc.py gate` has printed green for the commit being pushed. The gate runs the named `commands` entries in order from the checkout root against the committed HEAD, stops at the first failure and writes a record under the git common dir; it refuses to run over uncommitted tracked changes, because the record is for the commit. A push while a gate run is in flight is refused, and a new commit makes the old record stale. Dry runs, tag pushes and deletions carry no branch tip and pass; `exempt` globs let a docs-only push through. It applies in any session of the repository, run or no run. Like the rest of the guard it stops accidents: a hand-written record gets past it.
 
 ---
 

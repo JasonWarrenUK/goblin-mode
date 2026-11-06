@@ -48,7 +48,8 @@
  * failures (non-zero exit, nothing written): no auto-strip, no silent fix.
  */
 
-import { readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 
@@ -112,15 +113,37 @@ function assertNoBannedEmoji(text, label) {
   }
 }
 
-/** Full prose gate for the summary: dash ban + emoji ban. */
+// The house rules beyond dashes (Oxford comma, American spellings) are the commit-msg
+// hook's scanner's business: one rule set, so a review body is held to what a commit
+// message is. The scanner sits at ../../library/scripts in the ~/.claude layout; where
+// it or python3 is missing the gate is skipped rather than blocking a review.
+const SLOP_SCAN = fileURLToPath(new URL('../../library/scripts/slop-scan.py', import.meta.url));
+
+/**
+ * Throws when slop-scan's strict mode (house rules only; it masks code and quotations)
+ * reports a hit in `text`. Each hit line is `L<n> <rule>: <excerpt>`.
+ */
+function assertHouseRules(text, label) {
+  if (!existsSync(SLOP_SCAN)) return;
+  const scan = spawnSync('python3', ['-I', SLOP_SCAN, '--strict', '-'], { input: text, encoding: 'utf-8' });
+  if (scan.error || scan.status !== 1) return; // 0 clean; anything else is the scanner failing, not the prose
+  throw new Error(
+    `${label} breaks the house rules:\n${scan.stdout.trim()}\n` +
+    `Rewrite each hit (no Oxford commas, British spelling) and run again.`,
+  );
+}
+
+/** Full prose gate for the summary: dash ban + emoji ban + house rules. */
 function validateSummary(summaryText) {
   assertNoDashes(summaryText, 'Summary');
   assertNoBannedEmoji(summaryText, 'Summary');
+  assertHouseRules(summaryText, 'Summary');
 }
 
-/** Prose gate for a single comment body: dash ban only (finding-type emoji is validated separately by VALID_TYPES). */
+/** Prose gate for a single comment body: dashes and house rules (finding-type emoji is validated separately by VALID_TYPES). */
 function validateCommentBody(body, path, line) {
   assertNoDashes(body, `Comment on ${path}:${line}`);
+  assertHouseRules(body, `Comment on ${path}:${line}`);
 }
 
 /** Runs the dash gate over every assembled inline comment. */
@@ -609,6 +632,15 @@ function selfTest() {
   test('summary with a horizontal bar or figure dash is rejected', () => {
     assert.throws(() => validateSummary('Section one ― section two.'), /horizontal bar/);
     assert.throws(() => validateSummary('Value: 5‒10.'), /figure dash/);
+  });
+
+  test('summary with an Oxford comma is rejected by the house-rule scanner', () => {
+    assert.throws(() => validateSummary('The change touches parsing, caching, and retries.'), /Oxford comma/);
+  });
+
+  test('comment body with an American spelling is rejected, and a clean one passes', () => {
+    assert.throws(() => validateCommentBody('Please normalize the colour values.', 'a.ts', 3), /house rules/);
+    assert.doesNotThrow(() => validateCommentBody('Please normalise the colour values.', 'a.ts', 3));
   });
 
   test('summary with 🆕 is rejected (renders as a GitHub badge)', () => {

@@ -1617,6 +1617,32 @@ class LedgerFlow(unittest.TestCase):
         needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
         self.assertEqual(len(needs[-1]["why"]), 900, "a why is no longer cut at 240 characters")
 
+    def test_a_hosted_need_is_typed_from_the_main_checkout_not_the_crews_worktree(self):
+        # 3 November 2026: the need named the crew's worktree, and all eight hosted calls failed with LegacyProjectNotLinkedError
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        (self.box.worktree / "apps" / "api").mkdir(parents=True)
+        hosted = "supabase db query --linked 'select 1'"
+        asked = json.loads(self.box.mc("--json", "needs", "add", "--why", "read the plan on hosted", "--command", hosted, "--cwd-hint", str(self.box.worktree / "apps" / "api"), session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual(Path(asked["cwd"]).resolve(), (self.box.repo / "apps" / "api").resolve(), "the same place in the linked tree")
+        self.assertEqual(Path(asked["cwd_moved_from"]).resolve(), (self.box.worktree / "apps" / "api").resolve())
+        default = json.loads(self.box.mc("--json", "needs", "add", "--why", "read the plan on hosted", "--command", "poetry run poe spike-hosted", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual(Path(default["cwd"]).resolve(), self.box.repo.resolve(), "no hint: the worktree default is moved too")
+        said = self.box.mc("needs", "add", "--why", "x", "--command", hosted, session="crew-1", cwd=self.box.worktree).stdout
+        self.assertIn("moved from", said)
+
+    def test_a_need_that_is_not_hosted_keeps_its_directory(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        kept = json.loads(self.box.mc("--json", "needs", "add", "--why", "push it", "--command", "git push -u origin feat/a", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual(Path(kept["cwd"]).resolve(), self.box.worktree.resolve())
+        self.assertNotIn("cwd_moved_from", kept)
+        # a hosted command already aimed at the main checkout, or at a directory outside any repo, is left alone
+        for place in (self.box.repo, self.box.tmp):
+            again = json.loads(self.box.mc("--json", "needs", "add", "--why", "read hosted", "--command", "poe spike-hosted", "--cwd-hint", str(place), session="crew-1", cwd=self.box.worktree).stdout)
+            self.assertEqual(again["cwd"], str(place))
+            self.assertNotIn("cwd_moved_from", again)
+
     def test_a_started_need_leaves_the_needs_count_and_closes_with_its_result(self):
         # the CHIRPdb run: a four-hour hosted backfill the user had typed sat in the same bucket as needs they had not touched
         self.box.start()
@@ -2351,6 +2377,129 @@ class Hooks(unittest.TestCase):
         coord = self.box.hook("session-start", {}, session="coord-1", cwd=self.box.repo)
         self.assertIn("coordinates run search", coord)
         self.assertEqual(self.box.hook("session-start", {}, session="x", cwd=self.box.repo), "")
+
+
+class PushGate(unittest.TestCase):
+    """`git push` is refused until `mc.py gate` has recorded green for the commit; no run is needed."""
+
+    def setUp(self):
+        self.box = Sandbox()
+        self.repo = self.box.repo
+
+    def set_gate(self, commands, exempt=None):
+        path = self.repo / ".claude" / "mission-control.json"
+        config = json.loads(path.read_text())
+        config["commands"] = commands
+        config["push_gate"] = {"commands": list(commands), "exempt": exempt or []}
+        path.write_text(json.dumps(config))
+        git(self.repo, "commit", "-qam", "gate config")
+
+    def verdict(self, command):
+        out = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": command}}, session="coord-1", cwd=self.repo)
+        return json.loads(out)["hookSpecificOutput"] if out.strip() else None
+
+    def refused(self, command="git push origin main"):
+        verdict = self.verdict(command)
+        return verdict["permissionDecisionReason"] if verdict and verdict.get("permissionDecision") == "deny" else None
+
+    def head(self):
+        return subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+
+    def test_a_repo_without_push_gate_pushes_freely(self):
+        path = self.repo / ".claude" / "mission-control.json"
+        config = json.loads(path.read_text())
+        config.pop("push_gate", None)  # the example config the sandbox copies opts in
+        path.write_text(json.dumps(config))
+        git(self.repo, "commit", "-qam", "no gate")
+        self.assertIsNone(self.refused())
+
+    def test_a_push_without_a_record_is_refused_and_names_the_command(self):
+        self.set_gate({"test": "true"})
+        reason = self.refused()
+        self.assertIn("no green record", reason)
+        self.assertIn("mc.py gate", reason)
+
+    def test_green_gate_lets_the_push_through_until_the_next_commit(self):
+        self.set_gate({"test": "true", "lint": "true"})
+        done = self.box.mc("gate", cwd=self.repo)
+        self.assertIn("push gate green", done.stdout)
+        self.assertIsNone(self.refused())
+        (self.repo / "README.md").write_text("changed\n")
+        git(self.repo, "commit", "-qam", "next")
+        self.assertIn("no green record", self.refused())
+
+    def test_red_gate_refuses_names_the_failing_step_and_stops_there(self):
+        self.set_gate({"test": "false", "lint": "touch ran-lint"})
+        done = self.box.mc("gate", cwd=self.repo, expect=1)
+        self.assertIn("push gate red", done.stdout)
+        self.assertFalse((self.repo / "ran-lint").exists(), "steps after a failure do not run")
+        self.assertIn("was red", self.refused())
+        self.assertIn("(test)", self.refused())
+
+    def test_a_push_while_the_gate_runs_is_refused(self):
+        self.set_gate({"test": "true"})
+        folder = self.repo / ".git" / "mission-control" / "gate"
+        folder.mkdir(parents=True)
+        (folder / f"{self.head()}.running").write_text(json.dumps({"pid": os.getpid()}))
+        self.assertIn("still running", self.refused())
+
+    def test_a_dead_lock_does_not_block(self):
+        self.set_gate({"test": "true"})
+        self.box.mc("gate", cwd=self.repo)
+        folder = self.repo / ".git" / "mission-control" / "gate"
+        (folder / f"{self.head()}.running").write_text(json.dumps({"pid": 99999999}))
+        self.assertIsNone(self.refused())
+
+    def test_the_gate_refuses_to_run_over_uncommitted_changes(self):
+        self.set_gate({"test": "true"})
+        (self.repo / "README.md").write_text("dirty\n")
+        done = self.box.mc("gate", cwd=self.repo, expect=1)
+        self.assertIn("uncommitted", done.stdout)
+
+    def test_a_key_the_commands_block_lacks_is_refused_not_skipped(self):
+        path = self.repo / ".claude" / "mission-control.json"
+        config = json.loads(path.read_text())
+        config["commands"] = {"test": "true"}
+        config["push_gate"] = ["test", "typecheck"]
+        path.write_text(json.dumps(config))
+        git(self.repo, "commit", "-qam", "gate config")
+        self.assertIn("typecheck", self.refused())
+        self.assertIn("typecheck", self.box.mc("gate", cwd=self.repo, expect=1).stdout)
+
+    def test_dry_runs_tags_and_deletions_carry_no_tip(self):
+        self.set_gate({"test": "true"})
+        git(self.repo, "tag", "v1.0.0")
+        for command in ("git push --dry-run origin main", "git push origin v1.0.0", "git push origin refs/tags/v1.0.0", "git push --tags", "git push origin :old-branch", "git push origin --delete old-branch"):
+            self.assertIsNone(self.refused(command), command)
+        self.assertIn("no green record", self.refused("git push origin main"))
+
+    def test_every_spelling_of_the_push_is_seen(self):
+        self.set_gate({"test": "true"})
+        for command in ("git push", "git -C . push origin main", "cd . && git push -u origin HEAD", "git push --force-with-lease origin main", "echo ok; git push origin main", "bash -c 'git push origin main'"):
+            self.assertIn("no green record", self.refused(command) or "", command)
+
+    def test_docs_only_changes_are_exempt_when_the_config_says_so(self):
+        origin = self.box.tmp / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
+        git(self.repo, "remote", "add", "origin", str(origin))
+        self.set_gate({"test": "true"}, exempt=["*.md", "docs/*"])
+        git(self.repo, "push", "-q", "-u", "origin", "main")
+        (self.repo / "docs").mkdir()
+        (self.repo / "docs" / "note.md").write_text("n\n")
+        git(self.repo, "add", "docs")  # not -A: the sandbox's worktree directory sits inside the repo
+        git(self.repo, "commit", "-qm", "docs")
+        self.assertIsNone(self.refused())
+        (self.repo / "code.py").write_text("x = 1\n")
+        git(self.repo, "add", "code.py")
+        git(self.repo, "commit", "-qm", "code")
+        self.assertIn("no green record", self.refused())
+
+    def test_the_gate_cli_json_record_names_the_commit(self):
+        self.set_gate({"test": "true"})
+        record = json.loads(self.box.mc("--json", "gate", cwd=self.repo).stdout)
+        self.assertEqual(record["sha"], self.head())
+        self.assertEqual(record["result"], "green")
+        self.assertEqual([step["key"] for step in record["steps"]], ["test"])
 
 
 if __name__ == "__main__":

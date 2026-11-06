@@ -9,7 +9,7 @@ metadata:
   family: next-task
   goblin-spinner: running the loop|shipping|picking the next task
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(python3:*)", "Bash(node:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)"]
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash(git:*)", "Bash(gh:*)", "Bash(python3:*)", "Bash(node:*)", "Bash(jq:*)", "Bash(npm:*)", "Bash(bun:*)", "Bash(pnpm:*)", "Bash(deno:*)", "Agent"]
 argument-hint: "[assignee] [focus area] [loop [N]] (all optional; assignee/focus area forwarded to roadmap:next-suggest)"
 ---
 
@@ -73,6 +73,17 @@ Commit the implementation and the `roadmaps.json` change (plus its synced projec
 
 Every commit passes through the global `commit-msg` hook (British spelling, no em dashes, no Oxford commas). If `git commit` exits non-zero and stderr contains `commit-msg:` lines, read each `L<n> <rule>: <excerpt>` line, rewrite the message to clear every hit (keeping the meaning) and retry the commit once. If the retry fails too, stop and write `BLOCKED.md` (Step 8) with the hook's stderr verbatim: nobody is watching this run, and a message that fails twice needs a human. Never pass `--no-verify` and never change git config to get past the hook.
 
+**The push gate.** When the project's `.claude/mission-control.json` sets `push_gate`, a `PreToolUse` hook refuses every `git push` until the committed HEAD has a green record. After the commits land, run `python3 ~/.claude/marketplace/mission-control/scripts/mc.py gate` from the worktree and let it finish; it runs the configured commands (test, typecheck and lint, as that project names them) in order and records the result. Red: fix, commit, run it again. A new commit makes the old record stale, so every later push (Step 6's roadmap commit, Step 7's fix) needs its own green run first. When the project sets no `push_gate`, Step 3's own green runs are the bar.
+
+## Step 5.5: Fresh-eyes review before the PR
+
+The review in Step 7 happens after the PR exists, in the same context that wrote the code. Get one adversarial read first, from a reader with no stake in the diff:
+
+1. Dispatch one subagent (the `Agent` tool, session model, no override). Its prompt carries only the branch name, the base and the task's description from `roadmaps.json`; none of this session's reasoning. It reads `~/.claude/skills/branch-qa_review/SKILL.md` and follows it against this branch (`branch-qa_review` is a command skill, so it is read by path rather than invoked). Tell it to report findings and the verdict and to edit and push nothing.
+2. Verify each 🔴, 🟠 or 🟡 yourself against the code before acting (a subagent can be wrong); fix the ones that hold, each with a failing regression test written first, in follow-up commits.
+3. Re-run the gate (Step 5's push gate, or Step 3.4 without one) and dispatch again. Two rounds at most; a finding still open after the second goes into the PR description under a heading `Known gaps`, with the reason.
+4. A `Blocked` verdict stops the run (Step 8).
+
 ## Step 6: Open the PR
 
 Invoke the `pr-create` skill from this branch with the `auto` token: the user's veto already happened at task selection, so the PR is created without a second pause. When Step 2 branched from a stacking parent, also pass `base <parent-branch>` so the PR opens as a stacked layer, and `pr-create` links it into the parent's stack itself, since `/branch-stack` is a command skill and cannot be invoked from here: `gh stack link <stack#> <new-pr-number>` appends it to the top of an existing stack, and `gh stack link <bottom...> <parent-pr-number> <new-pr-number>` links the parent's whole unlinked chain with the new PR (just the parent when it sits alone). Capture the PR URL/number.
@@ -83,7 +94,7 @@ Then record the PR number on the task in `roadmaps.json` as its `pr` field (a di
 
 1. Invoke `pr-review` against the PR just opened. It posts a real GitHub review (inline comments + verdict); let it run its full methodology (via `pr-review-dry_run` underneath) rather than re-deriving findings here. The PR's author is this run's own login, so GitHub only accepts a comment review: pr-review posts the verdict as the first line of the review body instead of as an approve/request-changes event.
 2. Read back the posted findings. Anything marked actionable and correctness/quality-bearing (not stylistic bikeshedding, not a finding the review itself flags as low-confidence) gets fixed in a **follow-up commit** on the same branch; never amend the commits already reviewed.
-3. Re-run the full test/typecheck/lint gate (Step 3.4) after the fix commit, same bar: all green.
+3. Re-run the full test/typecheck/lint gate (Step 3.4) after the fix commit, same bar: all green. Where the project sets `push_gate`, run `mc.py gate` on the fix commit (Step 5) before pushing it.
 4. Push the follow-up commit, then re-invoke `pr-review` once so the newest review's verdict line reflects the fixed state rather than leaving a pre-fix "Request Changes" as the PR's last word from this run. Findings from this second review are reported in the final summary, never fixed in this run: one fix cycle per run is the cap.
 
 ## Step 8: BLOCKED.md (only if a hard rule triggers a stop)
@@ -120,6 +131,6 @@ Report at the end of the whole `loop` run: how many cycles completed, which stop
 
 ## Red flags
 
-**Never:** hand-edit the PHASE file, Mermaid block, `ROADMAP_OVERVIEW.md` or HTML artefact directly: `roadmap:maintain` only. **Never:** `git stash` without checking `git status` and `git stash list` first. **Never:** invent a resolution to an unmet dependency or genuine ambiguity: write `BLOCKED.md` instead. **Never:** push with a red test/typecheck/lint gate. **Never:** amend a commit `pr-review` already reviewed; fix findings in a new commit. **Never:** skip `pr-create`'s own approval pause for the PR description. **Never:** branch a dependent task from `main` while its parent's PR is unmerged; stack on the parent branch or stop. **Never:** `git commit --no-verify` or `-c slop.commitMsg=off`; a rejected message gets rewritten once, then the run stops.
+**Never:** hand-edit the PHASE file, Mermaid block, `ROADMAP_OVERVIEW.md` or HTML artefact directly: `roadmap:maintain` only. **Never:** `git stash` without checking `git status` and `git stash list` first. **Never:** invent a resolution to an unmet dependency or genuine ambiguity: write `BLOCKED.md` instead. **Never:** push with a red test/typecheck/lint gate, or while one is still running. **Never:** open the PR before Step 5.5's fresh-eyes review has run. **Never:** amend a commit `pr-review` already reviewed; fix findings in a new commit. **Never:** skip `pr-create`'s own approval pause for the PR description. **Never:** branch a dependent task from `main` while its parent's PR is unmerged; stack on the parent branch or stop. **Never:** `git commit --no-verify` or `-c slop.commitMsg=off`; a rejected message gets rewritten once, then the run stops.
 
 <raw-arguments value="$ARGUMENTS" />

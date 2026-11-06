@@ -26,7 +26,7 @@
 
 ## Resources you will need
 
-{{ For each shared resource (`local-db`, `api-port`, `hosted`, ...): what you will need it for and roughly when. Then the slot rule: request with mc_slot, wait for the grant, run only from this worktree, release with results. Hosted reads and writes are the user's: put the exact command on the needs list with mc_need. }}
+{{ For each shared resource (`local-db`, `api-port`, `hosted`, ...): what you will need it for and roughly when. Then the slot rule: request with mc_slot as soon as implementation starts (not when the code is done), write the verification script while the grant is pending, run only from this worktree, release with results. Hosted reads and writes are the user's: put the exact command on the needs list with mc_need; its directory is the main checkout, the only tree linked to the hosted project. }}
 
 ## Criteria
 

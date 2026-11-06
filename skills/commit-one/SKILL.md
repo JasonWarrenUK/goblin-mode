@@ -9,7 +9,7 @@ metadata:
   family: commit
   goblin-spinner: writing the message|staging|committing
 disable-model-invocation: false
-allowed-tools: ["Bash(git:*)"]
+allowed-tools: ["Bash(git:*)", "Bash(python3 \"$HOME\"/.claude/library/scripts/slop-scan.py:*)"]
 arguments: ["hint"]
 argument-hint: "[message emphasis (optional), e.g. a type, scope or the why]"
 ---
@@ -24,7 +24,7 @@ git diff --cached --stat
 ## Steps
 
 1. Per the state above: if no changes staged, stage all. If files are already staged, *do not* stage more files.
-2. Generate commit message per conventional commits format, honouring `$hint` (a type, scope or emphasis nudge) when given.
+2. Generate commit message per conventional commits format, honouring `$hint` (a type, scope or emphasis nudge) when given. Scan the draft before showing it, with the scanner the hook uses: `python3 "$HOME"/.claude/library/scripts/slop-scan.py --strict - <<'MSG'` followed by the message and `MSG`. Exit 0 is clean; on exit 1 each `L<n> <rule>: <excerpt>` line names a hit, so rewrite the message to clear every one and scan again. The user then approves a message that already passes, and the hook's rejection becomes a backstop, not the first check.
 3. Show the message and await approval:
     - If approved, commit with it
     - If `git commit` exits non-zero and stderr contains `commit-msg:` lines, read each `L<n> <rule>: <excerpt>` line, rewrite the message to clear every hit (keeping the meaning) and retry the commit once. If the retry fails too, stop and report the stderr verbatim. Never pass `--no-verify` and never change git config to get past the hook.
