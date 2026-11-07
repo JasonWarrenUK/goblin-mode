@@ -3132,9 +3132,14 @@ def tip_refusal(gate: dict, where: str, sha: str, exempt_applies: bool) -> str |
     if gate_running(folder / f"{sha}.running"):
         return f"the push gate is still running for {sha[:8]}. Wait for it to finish before pushing; never push while a suite is in flight."
     record = read_json(folder / f"{sha}.json")
-    if isinstance(record, dict) and record.get("result") == "green":
-        return None
     run_it = f"python3 {Path(__file__).resolve()} gate"
+    if isinstance(record, dict) and record.get("result") == "green":
+        # the config is shared and untracked, so a key added to `push_gate` changes no sha: a record counts only for the steps it ran
+        ran = {step.get("key") for step in record.get("steps", []) if isinstance(step, dict)}
+        unrun = [key for key, _ in gate["commands"] if key not in ran]
+        if not unrun:
+            return None
+        return f"the green record for {sha[:8]} predates {', '.join(unrun)} joining push_gate. Run `{run_it}` from {where}, wait for it to finish, then push."
     if isinstance(record, dict):
         failed = next((step["key"] for step in record.get("steps", []) if step.get("code")), "a step")
         return f"the push gate was red for {sha[:8]} ({failed}). Fix it, commit, and run `{run_it}` from {where}; push when it prints green."

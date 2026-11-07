@@ -2555,6 +2555,23 @@ class PushGate(unittest.TestCase):
         refused = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "git push origin HEAD:other"}}, session="coord-1", cwd=detached)
         self.assertIn("no green record", refused)
 
+    def test_a_green_record_from_a_shorter_gate_does_not_count(self):
+        # re-review of PR 62: the config is untracked and shared, so a key added to it changes no sha
+        self.set_gate({"test": "true"})
+        self.box.mc("gate", cwd=self.repo)
+        self.assertIsNone(self.refused())
+        path = self.repo / ".claude" / "mission-control.json"
+        git(self.repo, "update-index", "--assume-unchanged", ".claude/mission-control.json")  # the real config is untracked
+        config = json.loads(path.read_text())
+        config["commands"]["lint"] = "true"
+        config["push_gate"]["commands"].append("lint")
+        path.write_text(json.dumps(config))
+        reason = self.refused()
+        self.assertIn("lint", reason)
+        self.assertIn("mc.py gate", reason)
+        self.box.mc("gate", cwd=self.repo)
+        self.assertIsNone(self.refused())
+
     def test_a_tag_pushed_as_a_branch_is_gated(self):
         # re-review of PR 62: a tag's commit sent to refs/heads/ is a branch tip like any other
         self.set_gate({"test": "true"})
