@@ -997,20 +997,58 @@ const shellCommands = (line: string): string[][] => {
 		if (words.length) commands.push(words)
 		words = []
 	}
+	// heredocs opened on the current line: their bodies start on the next one and are text, not commands
+	const heredocs: { delimiter: string; stripTabs: boolean }[] = []
 	for (let i = 0; i < line.length; i++) {
 		const ch = line[i]!
 		if (quote) {
 			if (ch === quote) quote = ''
-			else if (ch === '\\' && quote === '"' && i + 1 < line.length) word += line[++i]
-			else word += ch
+			else if (ch === '\\' && quote === '"' && i + 1 < line.length) {
+				if (line[i + 1] === '\n') i++ // a backslash before a newline joins the lines
+				else word += line[++i]
+			} else word += ch
 		} else if (ch === "'" || ch === '"') {
 			quote = ch
 			inWord = true
 		} else if (ch === '\\' && i + 1 < line.length) {
-			word += line[++i]
-			inWord = true
-		} else if (/\s/.test(ch) && ch !== '\n') endWord()
-		else if (/[;&|()\n]/.test(ch)) endCommand()
+			if (line[i + 1] === '\n') i++
+			else {
+				word += line[++i]
+				inWord = true
+			}
+		} else if (ch === '#' && !inWord) {
+			while (i + 1 < line.length && line[i + 1] !== '\n') i++ // a comment runs to the end of its line
+		} else if (ch === '<' && line[i + 1] === '<' && line[i + 2] !== '<') {
+			endWord()
+			let at = i + 2
+			const stripTabs = line[at] === '-'
+			if (stripTabs) at++
+			while (line[at] === ' ' || line[at] === '\t') at++
+			const opener = line[at]
+			let delimiter = ''
+			if (opener === "'" || opener === '"') {
+				for (at++; at < line.length && line[at] !== opener; at++) delimiter += line[at]
+				at++
+			} else {
+				for (; at < line.length && !/[\s;&|()<>]/.test(line[at]!); at++) delimiter += line[at]
+			}
+			heredocs.push({ delimiter, stripTabs })
+			i = at - 1
+		} else if (ch === '\n') {
+			endCommand()
+			let next = i + 1
+			for (const { delimiter, stripTabs } of heredocs.splice(0)) {
+				while (next < line.length) {
+					let end = line.indexOf('\n', next)
+					if (end < 0) end = line.length
+					const text = line.slice(next, end)
+					next = end + 1
+					if ((stripTabs ? text.replace(/^\t+/, '') : text) === delimiter) break
+				}
+			}
+			i = next - 1
+		} else if (/\s/.test(ch)) endWord()
+		else if (/[;&|()`]/.test(ch)) endCommand()
 		else {
 			word += ch
 			inWord = true
@@ -1020,8 +1058,28 @@ const shellCommands = (line: string): string[][] => {
 	return commands
 }
 
-// words that may stand before the script on a command line: a VAR=value assignment, a wrapper, an interpreter and its flags
-const BEFORE_SCRIPT = /^(?:[A-Za-z_][A-Za-z0-9_]*=.*|env|sudo|command|exec|nohup|time|-.*|(?:.*\/)?python[0-9.]*)$/
+// words that may stand before the command word: wrappers, runners and the keywords that open a compound statement
+const WRAPPERS = new Set(['env', 'sudo', 'command', 'exec', 'nohup', 'time', 'timeout', 'nice', 'uv', 'poetry', 'run', 'then', 'do', 'else', '{', '!'])
+// the flags of a wrapper that take a value (`env -u NAME`, `nice -n 5`), so the value is not mistaken for the command
+const WRAPPER_VALUE_FLAGS: Record<string, RegExp> = { env: /^-u$/, sudo: /^-[ugCp]$/, nice: /^-n$/, timeout: /^-[sk]$/ }
+
+/** The index of the command word: past assignments, wrappers, an interpreter, their flags and a timeout's duration. */
+const commandWordAt = (words: string[]): number => {
+	let at = 0
+	let last = ''
+	while (at < words.length) {
+		const word = words[at]!
+		const base = word.split('/').pop() ?? ''
+		if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) at++
+		else if (WRAPPERS.has(base) || /^python[0-9.]*$/.test(base)) {
+			last = base
+			at++
+		} else if (word.startsWith('-')) at += WRAPPER_VALUE_FLAGS[last]?.test(word) ? 2 : 1
+		else if (/^\d+(?:\.\d+)?[smhd]?$/.test(word) && (last === 'timeout' || last === 'nice')) at++
+		else break
+	}
+	return at
+}
 
 /**
  * A shell line that runs `mc.py start`: the script as a command word (after any wrappers and an interpreter), its global options, then `start`;
@@ -1030,11 +1088,13 @@ const BEFORE_SCRIPT = /^(?:[A-Za-z_][A-Za-z0-9_]*=.*|env|sudo|command|exec|nohup
  */
 export const startsRun = (command: string, depth = 0): boolean =>
 	shellCommands(command).some(words => {
-		const shell = words[0]?.split('/').pop() ?? ''
-		const body = words.indexOf('-c')
-		if (/^(?:ba|z|da|k)?sh$/.test(shell) && body > 0 && words[body + 1] !== undefined) return depth < 3 && startsRun(words[body + 1]!, depth + 1)
-		const at = words.findIndex(word => word.split('/').pop() === 'mc.py')
-		if (at < 0 || !words.slice(0, at).every(word => BEFORE_SCRIPT.test(word))) return false
+		const at = commandWordAt(words)
+		const shell = words[at]?.split('/').pop() ?? ''
+		if (/^(?:ba|z|da|k)?sh$/.test(shell)) {
+			const flag = words.findIndex((word, index) => index > at && /^-[A-Za-z]*c$/.test(word)) // `-c`, or a cluster such as `-lc`
+			return flag > 0 && words[flag + 1] !== undefined && depth < 3 && startsRun(words[flag + 1]!, depth + 1)
+		}
+		if (words[at]?.split('/').pop() !== 'mc.py') return false
 		let next = at + 1
 		for (;;) {
 			const option = words[next]

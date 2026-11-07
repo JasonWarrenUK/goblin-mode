@@ -490,6 +490,25 @@ test('helpers: startsRun sees a real mc.py start and nothing that only mentions 
 		`bash -c 'python3 /h/mc.py start'`,
 		'env A=1 python3 mc.py start',
 		'sudo python3 /h/mc.py start',
+		// PR 62 round 2: a continued line, the common wrappers, a shell with clustered flags, a compound statement, a substitution
+		'cd /r && \\\n  python3 mc.py start',
+		'python3 mc.py \\\nstart',
+		'uv run python mc.py start',
+		'uv run mc.py start',
+		'poetry run python mc.py start',
+		'timeout 5 python3 mc.py start',
+		'nice -n 5 python3 mc.py start',
+		'env -u FOO python3 mc.py start',
+		`bash -lc 'python3 mc.py start'`,
+		`sudo bash -c 'python3 mc.py start'`,
+		`env X=1 bash -c 'python3 mc.py start'`,
+		'if true; then python3 mc.py start; fi',
+		'{ python3 mc.py start; }',
+		'x=`python3 mc.py start`',
+		// a comment with an apostrophe must not swallow the line after it; a heredoc ends at its delimiter
+		`# don't\npython3 mc.py start`,
+		'cat <<EOF\nnotes\nEOF\npython3 mc.py start',
+		`cat <<'EOF' > /tmp/x\nnotes\nEOF\npython3 mc.py start`,
 	]) {
 		expect(startsRun(line)).toBe(true)
 	}
@@ -502,7 +521,20 @@ test('helpers: startsRun sees a real mc.py start and nothing that only mentions 
 		`git push origin start`,
 		`git commit -m "fix mc.py start bug"`,
 		'echo mc.py start',
+		// PR 62 round 2: the body of a heredoc is text, whatever it looks like; so is a comment
+		'cat <<EOF\npython3 mc.py start\nEOF',
+		`git commit -F - <<'EOF'\npython3 mc.py start\nEOF`,
+		'cat <<-EOF\n\tpython3 mc.py start\n\tEOF',
+		'cat <<EOF <<EOT\npython3 mc.py start\nEOF\nmc.py start\nEOT',
+		'# run this; python3 mc.py start',
+		'uv run pytest mc.py start',
 	]) {
+		expect(startsRun(line)).toBe(false)
+	}
+})
+
+test('helpers: startsRun survives input a shell would reject', async () => {
+	for (const line of ['', "echo 'unterminated", 'echo "unterminated \\', 'cat <<', 'cat <<EOF\nnever closed', 'cat <<"EOF', 'echo \\', '#', '`', 'bash -c', `bash -c 'bash -c "bash -c \\"bash -c mc.py\\""'`]) {
 		expect(startsRun(line)).toBe(false)
 	}
 })
