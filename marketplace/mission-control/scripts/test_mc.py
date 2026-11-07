@@ -2505,6 +2505,22 @@ class PushGate(unittest.TestCase):
         for command in ("git push --tags", "git push --tags origin"):
             self.assertIsNone(self.refused(command), command)
 
+    def test_the_exempt_shortcut_holds_only_for_the_upstream_branch(self):
+        # re-review of PR 62: a docs-only diff against the upstream says nothing about a different destination branch
+        origin = self.box.tmp / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
+        git(self.repo, "remote", "add", "origin", str(origin))
+        self.set_gate({"test": "true"}, exempt=["*.md", "docs/*"])
+        git(self.repo, "push", "-q", "-u", "origin", "main")
+        (self.repo / "docs").mkdir()
+        (self.repo / "docs" / "note.md").write_text("n\n")
+        git(self.repo, "add", "docs")
+        git(self.repo, "commit", "-qm", "docs")
+        for command in ("git push", "git push origin", "git push origin main", "git push origin HEAD:main", "git push origin HEAD:refs/heads/main"):
+            self.assertIsNone(self.refused(command), command)
+        for command in ("git push origin HEAD:other", "git push origin HEAD:refs/heads/other"):
+            self.assertIn("no green record", self.refused(command) or "", command)
+
     def test_a_tag_pushed_as_a_branch_is_gated(self):
         # re-review of PR 62: a tag's commit sent to refs/heads/ is a branch tip like any other
         self.set_gate({"test": "true"})

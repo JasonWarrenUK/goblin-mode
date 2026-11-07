@@ -3077,17 +3077,30 @@ def gate_refusal(gate: dict, push: dict, where: str) -> str | None:
     for spec in branch_specs or ["HEAD"]:
         source = spec.lstrip("+").split(":", 1)[0] or "HEAD"
         tips[run_git(where, "rev-parse", "-q", "--verify", f"{source}^{{commit}}") or head] = source
+    exempt_ok = pushes_to_upstream(where, branch_specs)
     for sha in tips:
-        reason = tip_refusal(gate, where, sha, sha == head)
+        reason = tip_refusal(gate, where, sha, sha == head and exempt_ok)
         if reason:
             return reason
     return None
 
 
-def tip_refusal(gate: dict, where: str, sha: str, is_head: bool) -> str | None:
+def pushes_to_upstream(where: str, specs: list[str]) -> bool:
+    """True when no refspec names a destination branch other than the current branch's upstream.
+
+    `only_exempt_paths` diffs HEAD against that upstream, so a docs-only result says nothing about a push to another branch."""
+    upstream = run_git(where, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    for spec in specs:
+        destination = spec.lstrip("+").partition(":")[2]
+        if destination and (not upstream or destination.removeprefix("refs/heads/") != upstream.split("/", 1)[-1]):
+            return False
+    return True
+
+
+def tip_refusal(gate: dict, where: str, sha: str, exempt_applies: bool) -> str | None:
     """Why the commit `sha` may not be pushed, or None."""
-    # the exempt-paths check diffs HEAD against its upstream, so it speaks only for HEAD
-    if is_head and gate["exempt"] and only_exempt_paths(where, gate["exempt"]):
+    # the exempt-paths check diffs HEAD against its upstream, so it speaks only for HEAD pushed to that upstream
+    if exempt_applies and gate["exempt"] and only_exempt_paths(where, gate["exempt"]):
         return None
     keys = ", ".join(key for key, _ in gate["commands"]) or "(nothing runnable)"
     if gate["missing"]:
