@@ -3022,8 +3022,8 @@ def git_pushes(command: str) -> list[dict]:
     return out
 
 
-def push_refspecs(args: list[str]) -> list[str]:
-    """The refspecs of a `git push` line: the positionals after the remote."""
+def push_positionals(args: list[str]) -> list[str]:
+    """The words of a `git push` line that are neither options nor option values: the remote, then the refspecs."""
     positional, skip = [], False
     for word in args:
         if skip:
@@ -3032,7 +3032,12 @@ def push_refspecs(args: list[str]) -> list[str]:
             skip = True
         elif not word.startswith("-"):
             positional.append(word)
-    return positional[1:]
+    return positional
+
+
+def push_refspecs(args: list[str]) -> list[str]:
+    """The refspecs of a `git push` line: the positionals after the remote."""
+    return push_positionals(args)[1:]
 
 
 def carries_no_branch(where: str, refspec: str) -> bool:
@@ -3047,9 +3052,14 @@ def carries_no_branch(where: str, refspec: str) -> bool:
     return source.startswith("refs/tags/") or run_git(where, "rev-parse", "-q", "--verify", f"refs/tags/{source}") is not None
 
 
+def push_base(where: str) -> str | None:
+    """The ref the exempt-paths check diffs against: the branch's upstream, else origin's HEAD (a detached worktree has no upstream)."""
+    return run_git(where, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}") or run_git(where, "rev-parse", "--abbrev-ref", "origin/HEAD")
+
+
 def only_exempt_paths(where: str, globs: list[str]) -> bool:
     """True when everything HEAD adds beyond the branch's upstream (else origin's HEAD) is under an exempt glob."""
-    base = run_git(where, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}") or run_git(where, "rev-parse", "--abbrev-ref", "origin/HEAD")
+    base = push_base(where)
     if not base:
         return False
     names = run_git(where, "diff", "--name-only", f"{base}..HEAD")
@@ -3077,7 +3087,7 @@ def gate_refusal(gate: dict, push: dict, where: str) -> str | None:
     for spec in branch_specs or ["HEAD"]:
         source = spec.lstrip("+").split(":", 1)[0] or "HEAD"
         tips[run_git(where, "rev-parse", "-q", "--verify", f"{source}^{{commit}}") or head] = source
-    exempt_ok = pushes_to_upstream(where, branch_specs)
+    exempt_ok = pushes_to_base(where, args, branch_specs)
     for sha in tips:
         reason = tip_refusal(gate, where, sha, sha == head and exempt_ok)
         if reason:
@@ -3085,14 +3095,25 @@ def gate_refusal(gate: dict, push: dict, where: str) -> str | None:
     return None
 
 
-def pushes_to_upstream(where: str, specs: list[str]) -> bool:
-    """True when no refspec names a destination branch other than the current branch's upstream.
+def pushes_to_base(where: str, args: list[str], specs: list[str]) -> bool:
+    """True when the push goes only to the ref `only_exempt_paths` diffs against (`push_base`): its remote and its branch.
 
-    `only_exempt_paths` diffs HEAD against that upstream, so a docs-only result says nothing about a push to another branch."""
-    upstream = run_git(where, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    A docs-only diff says nothing about another branch or another remote. A bare name is its own destination
+    (`push origin other` sends to `other`), `HEAD` stands for the current branch, and no refspec means the upstream."""
+    base = push_base(where)
+    if not base:
+        return False
+    remote, _, branch = base.partition("/")
+    named = push_positionals(args)[:1]
+    if named and named[0] != remote:
+        return False
+    current = run_git(where, "rev-parse", "--abbrev-ref", "HEAD")
     for spec in specs:
-        destination = spec.lstrip("+").partition(":")[2]
-        if destination and (not upstream or destination.removeprefix("refs/heads/") != upstream.split("/", 1)[-1]):
+        source, colon, destination = spec.lstrip("+").partition(":")
+        destination = (destination if colon else source).removeprefix("refs/heads/")
+        if destination == "HEAD":
+            destination = current or ""
+        if destination != branch:
             return False
     return True
 

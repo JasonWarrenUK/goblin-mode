@@ -2521,6 +2521,40 @@ class PushGate(unittest.TestCase):
         for command in ("git push origin HEAD:other", "git push origin HEAD:refs/heads/other"):
             self.assertIn("no green record", self.refused(command) or "", command)
 
+    def with_origin(self):
+        origin = self.box.tmp / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
+        git(self.repo, "remote", "add", "origin", str(origin))
+        self.set_gate({"test": "true"}, exempt=["*.md", "docs/*"])
+        git(self.repo, "push", "-q", "-u", "origin", "main")
+        git(self.repo, "remote", "set-head", "origin", "main")
+
+    def test_a_bare_branch_name_and_a_second_remote_are_not_exempt(self):
+        # re-review of PR 62: `push origin other` sends to `other`, and `upstream` is not the remote that was diffed against
+        self.with_origin()
+        (self.repo / "docs").mkdir()
+        (self.repo / "docs" / "note.md").write_text("n\n")
+        git(self.repo, "add", "docs")
+        git(self.repo, "commit", "-qm", "docs")
+        git(self.repo, "branch", "other")
+        for command in ("git push origin other", "git push upstream HEAD:main", "git push upstream main"):
+            self.assertIn("no green record", self.refused(command) or "", command)
+        for command in ("git push origin main", "git push origin HEAD", "git push origin +main", "git push origin main:main"):
+            self.assertIsNone(self.refused(command), command)
+
+    def test_docs_straight_to_main_from_a_detached_worktree_is_exempt(self):
+        # re-review of PR 62: the doc-changelog recipe pushes HEAD:main from a detached worktree with no upstream
+        self.with_origin()
+        detached = self.box.tmp / "docs-main"
+        git(self.repo, "worktree", "add", "-q", "--detach", str(detached), "origin/main")
+        (detached / "CHANGELOG.md").write_text("notes\n")
+        git(detached, "add", "CHANGELOG.md")
+        git(detached, "commit", "-qm", "docs")
+        verdict = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "git push origin HEAD:main"}}, session="coord-1", cwd=detached)
+        self.assertEqual(verdict.strip(), "")
+        refused = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "git push origin HEAD:other"}}, session="coord-1", cwd=detached)
+        self.assertIn("no green record", refused)
+
     def test_a_tag_pushed_as_a_branch_is_gated(self):
         # re-review of PR 62: a tag's commit sent to refs/heads/ is a branch tip like any other
         self.set_gate({"test": "true"})
