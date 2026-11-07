@@ -981,6 +981,11 @@ const requestRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string 
 }
 
 /** A path as a shell word: untouched while it holds nothing the shell reads, else single-quoted, the way shlex.quote does it; a checkout under a path with a space would otherwise split the `cd` the board prints. */
+// A shell line that runs `mc.py start`: the script as a command word (a bare name or a path, never inside quotes), its global options, then `start`.
+// A line that merely mentions both words (a grep, a JSON payload, a `cd` before another script) is not a start.
+export const startsRun = (command: string): boolean =>
+	/(?:^|[\s;&|(])(?:\S*\/)?mc\.py(?:\s+(?:--json|--(?:cwd|session)[=\s]\S+))*\s+start\b/.test(command)
+
 export const shellWord = (word: string): string => (/^[A-Za-z0-9_@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, "'\\''")}'`)
 
 /** The needs the user has yet to type, and the ones they started that run on: the count the board and the check-in read is the first alone. */
@@ -1249,7 +1254,7 @@ export const register: Register = (on, options) => {
 	// Anything that touches the ledger, a PR or a worktree redraws an open board.
 	on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
 		// a run is coordinated from this session: a haiku or sonnet one is warned off before the ledger changes
-		if (/mc\.py.*\bstart\b/.test(e.command) && !/--small-model-ok\b/.test(e.command)) {
+		if (startsRun(e.command) && !/--small-model-ok\b/.test(e.command)) {
 			const small = await smallModel($)
 			if (small) return { deny: `mission-control: ${smallModelWarning(small, 'add --small-model-ok to the mc.py start line')}` }
 		}

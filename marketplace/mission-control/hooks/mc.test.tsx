@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, shellWord, socketOf } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, shellWord, socketOf, startsRun } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -477,6 +477,22 @@ test('/mc start from a haiku or sonnet session is warned off until the person sa
 	expect(started).toBeDefined()
 	expect(started).toContain('search')
 	expect(started).not.toContain('anyway')
+})
+
+test('helpers: startsRun sees a real mc.py start and nothing that only mentions both words', async () => {
+	for (const line of ['python3 mc.py start --name x', 'python3 /h/mc.py --json start --name x', 'cd /r && python3 /h/scripts/mc.py --cwd /r start --name x', 'x; mc.py --session abc start']) {
+		expect(startsRun(line)).toBe(true)
+	}
+	// PR 62: each of these was refused from a sonnet session while it only read or wrote around the script
+	for (const line of [
+		`sed -n '/^def build_parser/,/add_subparsers/p' /h/scripts/mc.py; grep -n 'sp = sub.add_parser("start"' -A8 /h/scripts/mc.py`,
+		`jq '{start_line}' < /tmp/x.json | node mc.py-wrapper.mjs`,
+		`grep -n "mc.py start" README.md`,
+		`python3 /h/scripts/mc.py status --json`,
+		`git push origin start`,
+	]) {
+		expect(startsRun(line)).toBe(false)
+	}
 })
 
 test('/mc start from an opus session starts the run without a word', async ($, on) => {
