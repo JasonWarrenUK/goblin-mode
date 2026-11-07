@@ -2505,6 +2505,15 @@ class PushGate(unittest.TestCase):
         for command in ("git push --tags", "git push --tags origin"):
             self.assertIsNone(self.refused(command), command)
 
+    def test_a_tag_pushed_as_a_branch_is_gated(self):
+        # re-review of PR 62: a tag's commit sent to refs/heads/ is a branch tip like any other
+        self.set_gate({"test": "true"})
+        git(self.repo, "tag", "v1.0.0")
+        for command in ("git push origin v1.0.0:refs/heads/x", "git push origin refs/tags/v1.0.0:refs/heads/x"):
+            self.assertIn("no green record", self.refused(command) or "", command)
+        for command in ("git push origin v1.0.0", "git push origin v1.0.0:refs/tags/v1.0.0", "git push origin refs/tags/v1.0.0"):
+            self.assertIsNone(self.refused(command), command)
+
     def test_the_record_read_is_the_one_for_the_commit_the_refspec_names(self):
         # PR 62 review: a green main must not carry a push of a branch that was never gated
         self.set_gate({"test": "true"})

@@ -3036,10 +3036,14 @@ def push_refspecs(args: list[str]) -> list[str]:
 
 
 def carries_no_branch(where: str, refspec: str) -> bool:
-    """A deletion (`:branch`) or a tag: a push of either has no tip to have tested."""
-    source = refspec.lstrip("+").split(":", 1)[0]
+    """A deletion (`:branch`) or a tag: a push of either has no tip to have tested.
+
+    A tag sent to `refs/heads/` is a branch tip like any other, so it is not excused."""
+    source, _, destination = refspec.lstrip("+").partition(":")
     if not source:
         return True
+    if destination.startswith("refs/heads/"):
+        return False
     return source.startswith("refs/tags/") or run_git(where, "rev-parse", "-q", "--verify", f"refs/tags/{source}") is not None
 
 
@@ -3068,7 +3072,7 @@ def gate_refusal(gate: dict, push: dict, where: str) -> str | None:
     if not head:
         return None  # git cannot say what is being pushed: the hook never blocks on its own failure
     # each pushed source resolves to its own commit; no refspec, `HEAD` or a source git cannot resolve here means HEAD.
-    # Glob refspecs, `--all`, `--branches`, `--mirror` and `push.default=matching` name no single tip and are not gated.
+    # Glob refspecs, `--all`, `--branches`, `--mirror` and `push.default=matching` name no single tip, so only HEAD's record is read and the other tips they send go unchecked.
     tips = {}
     for spec in branch_specs or ["HEAD"]:
         source = spec.lstrip("+").split(":", 1)[0] or "HEAD"
