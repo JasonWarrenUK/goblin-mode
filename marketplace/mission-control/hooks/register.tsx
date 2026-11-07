@@ -980,12 +980,72 @@ const requestRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string 
 	})
 }
 
-/** A path as a shell word: untouched while it holds nothing the shell reads, else single-quoted, the way shlex.quote does it; a checkout under a path with a space would otherwise split the `cd` the board prints. */
-// A shell line that runs `mc.py start`: the script as a command word (a bare name or a path, never inside quotes), its global options, then `start`.
-// A line that merely mentions both words (a grep, a JSON payload, a `cd` before another script) is not a start.
-export const startsRun = (command: string): boolean =>
-	/(?:^|[\s;&|(])(?:\S*\/)?mc\.py(?:\s+(?:--json|--(?:cwd|session)[=\s]\S+))*\s+start\b/.test(command)
+/** The simple commands of a shell line as lists of words: split on `;`, `&`, `|`, parentheses and newlines outside quotes, with quotes and backslashes resolved. */
+const shellCommands = (line: string): string[][] => {
+	const commands: string[][] = []
+	let words: string[] = []
+	let word = ''
+	let inWord = false
+	let quote = ''
+	const endWord = () => {
+		if (inWord) words.push(word)
+		word = ''
+		inWord = false
+	}
+	const endCommand = () => {
+		endWord()
+		if (words.length) commands.push(words)
+		words = []
+	}
+	for (let i = 0; i < line.length; i++) {
+		const ch = line[i]!
+		if (quote) {
+			if (ch === quote) quote = ''
+			else if (ch === '\\' && quote === '"' && i + 1 < line.length) word += line[++i]
+			else word += ch
+		} else if (ch === "'" || ch === '"') {
+			quote = ch
+			inWord = true
+		} else if (ch === '\\' && i + 1 < line.length) {
+			word += line[++i]
+			inWord = true
+		} else if (/\s/.test(ch) && ch !== '\n') endWord()
+		else if (/[;&|()\n]/.test(ch)) endCommand()
+		else {
+			word += ch
+			inWord = true
+		}
+	}
+	endCommand()
+	return commands
+}
 
+// words that may stand before the script on a command line: a VAR=value assignment, a wrapper, an interpreter and its flags
+const BEFORE_SCRIPT = /^(?:[A-Za-z_][A-Za-z0-9_]*=.*|env|sudo|command|exec|nohup|time|-.*|(?:.*\/)?python[0-9.]*)$/
+
+/**
+ * A shell line that runs `mc.py start`: the script as a command word (after any wrappers and an interpreter), its global options, then `start`;
+ * `sh -c` and `bash -c` bodies are read too. A line that merely mentions both words (a grep, a commit message, an `echo`, a JSON payload,
+ * a `cd` before another script) is not a start, whatever its quoting.
+ */
+export const startsRun = (command: string, depth = 0): boolean =>
+	shellCommands(command).some(words => {
+		const shell = words[0]?.split('/').pop() ?? ''
+		const body = words.indexOf('-c')
+		if (/^(?:ba|z|da|k)?sh$/.test(shell) && body > 0 && words[body + 1] !== undefined) return depth < 3 && startsRun(words[body + 1]!, depth + 1)
+		const at = words.findIndex(word => word.split('/').pop() === 'mc.py')
+		if (at < 0 || !words.slice(0, at).every(word => BEFORE_SCRIPT.test(word))) return false
+		let next = at + 1
+		for (;;) {
+			const option = words[next]
+			if (option === '--json' || (option && /^--(?:cwd|session)=/.test(option))) next += 1
+			else if (option === '--cwd' || option === '--session') next += 2
+			else break
+		}
+		return words[next] === 'start'
+	})
+
+/** A path as a shell word: untouched while it holds nothing the shell reads, else single-quoted, the way shlex.quote does it; a checkout under a path with a space would otherwise split the `cd` the board prints. */
 export const shellWord = (word: string): string => (/^[A-Za-z0-9_@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, "'\\''")}'`)
 
 /** The needs the user has yet to type, and the ones they started that run on: the count the board and the check-in read is the first alone. */

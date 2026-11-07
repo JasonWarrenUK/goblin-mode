@@ -480,7 +480,17 @@ test('/mc start from a haiku or sonnet session is warned off until the person sa
 })
 
 test('helpers: startsRun sees a real mc.py start and nothing that only mentions both words', async () => {
-	for (const line of ['python3 mc.py start --name x', 'python3 /h/mc.py --json start --name x', 'cd /r && python3 /h/scripts/mc.py --cwd /r start --name x', 'x; mc.py --session abc start']) {
+	for (const line of [
+		'python3 mc.py start --name x',
+		'python3 /h/mc.py --json start --name x',
+		'cd /r && python3 /h/scripts/mc.py --cwd /r start --name x',
+		'x; mc.py --session abc start',
+		'python3 "${CLAUDE_PLUGIN_ROOT}/scripts/mc.py" start --name x',
+		'python3 /h/mc.py --cwd "/a b" start',
+		`bash -c 'python3 /h/mc.py start'`,
+		'env A=1 python3 mc.py start',
+		'sudo python3 /h/mc.py start',
+	]) {
 		expect(startsRun(line)).toBe(true)
 	}
 	// PR 62: each of these was refused from a sonnet session while it only read or wrote around the script
@@ -490,6 +500,8 @@ test('helpers: startsRun sees a real mc.py start and nothing that only mentions 
 		`grep -n "mc.py start" README.md`,
 		`python3 /h/scripts/mc.py status --json`,
 		`git push origin start`,
+		`git commit -m "fix mc.py start bug"`,
+		'echo mc.py start',
 	]) {
 		expect(startsRun(line)).toBe(false)
 	}
