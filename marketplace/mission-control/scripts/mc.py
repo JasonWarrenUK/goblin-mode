@@ -3057,15 +3057,33 @@ def only_exempt_paths(where: str, globs: list[str]) -> bool:
 def gate_refusal(gate: dict, push: dict, where: str) -> str | None:
     """Why this push may not go, or None."""
     args = push["args"]
-    if any(arg in PUSH_NO_BRANCH for arg in args):
-        return None
     refspecs = push_refspecs(args)
-    if refspecs and all(carries_no_branch(where, spec) for spec in refspecs):
+    # `--tags` pushes the listed refspecs as well, so it carries no branch tip only when none is listed
+    if any(arg in PUSH_NO_BRANCH for arg in args if arg != "--tags") or ("--tags" in args and not refspecs):
         return None
-    sha = run_git(where, "rev-parse", "HEAD")
-    if not sha:
+    branch_specs = [spec for spec in refspecs if not carries_no_branch(where, spec)]
+    if refspecs and not branch_specs:
+        return None
+    head = run_git(where, "rev-parse", "HEAD")
+    if not head:
         return None  # git cannot say what is being pushed: the hook never blocks on its own failure
-    if gate["exempt"] and only_exempt_paths(where, gate["exempt"]):
+    # each pushed source resolves to its own commit; no refspec, `HEAD` or a source git cannot resolve here means HEAD.
+    # Glob refspecs, `--all`, `--branches`, `--mirror` and `push.default=matching` name no single tip and are not gated.
+    tips = {}
+    for spec in branch_specs or ["HEAD"]:
+        source = spec.lstrip("+").split(":", 1)[0] or "HEAD"
+        tips[run_git(where, "rev-parse", "-q", "--verify", f"{source}^{{commit}}") or head] = source
+    for sha in tips:
+        reason = tip_refusal(gate, where, sha, sha == head)
+        if reason:
+            return reason
+    return None
+
+
+def tip_refusal(gate: dict, where: str, sha: str, is_head: bool) -> str | None:
+    """Why the commit `sha` may not be pushed, or None."""
+    # the exempt-paths check diffs HEAD against its upstream, so it speaks only for HEAD
+    if is_head and gate["exempt"] and only_exempt_paths(where, gate["exempt"]):
         return None
     keys = ", ".join(key for key, _ in gate["commands"]) or "(nothing runnable)"
     if gate["missing"]:
@@ -3212,6 +3230,11 @@ def cmd_gate(args) -> int:
         raise Refusal(f"not inside a git repository with a commit: {args.cwd}")
     if run_git(top, "status", "--porcelain", "--untracked-files=no"):
         raise Refusal(f"tracked changes are uncommitted in {top}; the record is for HEAD {sha[:8]}, so commit or set them aside first")
+    # a suite can import a file the commit lacks, so a green run over untracked files would record green for a HEAD that fails in a clean clone
+    untracked = (run_git(top, "ls-files", "--others", "--exclude-standard") or "").splitlines()
+    if untracked and not args.allow_untracked:
+        shown = ", ".join(untracked[:5]) + (f" and {len(untracked) - 5} more" if len(untracked) > 5 else "")
+        raise Refusal(f"untracked files in {top} ({shown}); a suite can import them, and the record is for the committed HEAD {sha[:8]}. Commit or ignore them, or pass --allow-untracked")
     folder.mkdir(parents=True, exist_ok=True)
     lock = folder / f"{sha}.running"
     if gate_running(lock):
@@ -3473,7 +3496,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("check", help="what the guard would say about a Bash command, and whether a held slot covers it (JSON)")
     sp.add_argument("--command", required=True)
-    sub.add_parser("gate", help="run the config's push_gate commands against the committed HEAD and record the result; the PreToolUse hook then lets `git push` through only on green")
+    sp = sub.add_parser("gate", help="run the config's push_gate commands against the committed HEAD and record the result; the PreToolUse hook then lets `git push` through only on green")
+    sp.add_argument("--allow-untracked", dest="allow_untracked", action="store_true", help="run even with untracked, non-ignored files present")
     sp = sub.add_parser("hook", help="Claude Code hook entry point; reads the payload on stdin")
     sp.add_argument("event", choices=["pre-tool-use", "session-start"])
     return parser

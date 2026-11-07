@@ -2385,6 +2385,9 @@ class PushGate(unittest.TestCase):
     def setUp(self):
         self.box = Sandbox()
         self.repo = self.box.repo
+        # the sandbox's worktree directory sits inside the repo and would count as untracked noise to the gate
+        with open(self.repo / ".git" / "info" / "exclude", "a") as handle:
+            handle.write("/.claude/worktrees/\n")
 
     def set_gate(self, commands, exempt=None):
         path = self.repo / ".claude" / "mission-control.json"
@@ -2493,6 +2496,40 @@ class PushGate(unittest.TestCase):
         git(self.repo, "add", "code.py")
         git(self.repo, "commit", "-qm", "code")
         self.assertIn("no green record", self.refused())
+
+    def test_tags_do_not_excuse_a_branch_listed_beside_them(self):
+        # PR 62 review: `--tags` pushes the listed refspecs as well, so only a bare `--tags` carries no branch tip
+        self.set_gate({"test": "true"})
+        for command in ("git push --tags origin main", "git push origin main --tags"):
+            self.assertIn("no green record", self.refused(command) or "", command)
+        for command in ("git push --tags", "git push --tags origin"):
+            self.assertIsNone(self.refused(command), command)
+
+    def test_the_record_read_is_the_one_for_the_commit_the_refspec_names(self):
+        # PR 62 review: a green main must not carry a push of a branch that was never gated
+        self.set_gate({"test": "true"})
+        git(self.repo, "branch", "feat/other")
+        git(self.repo, "checkout", "-q", "feat/other")
+        (self.repo / "x.txt").write_text("x\n")
+        git(self.repo, "add", "x.txt")
+        git(self.repo, "commit", "-qm", "other work")
+        other = self.head()
+        git(self.repo, "checkout", "-q", "main")
+        self.box.mc("gate", cwd=self.repo)  # green for main only
+        self.assertIsNone(self.refused("git push origin main"))
+        self.assertIsNone(self.refused("git push origin HEAD:refs/heads/x"))
+        for command in ("git push origin feat/other", "git push origin +feat/other:refs/heads/x", "git push origin main feat/other", "git push --tags origin feat/other"):
+            self.assertIn(other[:8], self.refused(command) or "", command)
+        self.assertIsNone(self.refused("git push origin :feat/other"))
+
+    def test_the_gate_refuses_over_untracked_files_and_names_them(self):
+        # PR 62 review: a suite can import a file the commit lacks, and the record would still read green
+        self.set_gate({"test": "true"})
+        (self.repo / "helper.py").write_text("X = 1\n")
+        done = self.box.mc("gate", cwd=self.repo, expect=1)
+        self.assertIn("untracked", done.stdout)
+        self.assertIn("helper.py", done.stdout)
+        self.assertIn("push gate green", self.box.mc("gate", "--allow-untracked", cwd=self.repo).stdout)
 
     def test_the_gate_cli_json_record_names_the_commit(self):
         self.set_gate({"test": "true"})
