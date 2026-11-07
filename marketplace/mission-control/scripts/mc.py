@@ -3103,8 +3103,13 @@ def pushes_to_base(where: str, args: list[str], specs: list[str]) -> bool:
     base = push_base(where)
     if not base:
         return False
-    remote, _, branch = base.partition("/")
-    named = push_positionals(args)[:1]
+    # a remote name may hold a slash (`team/fork`), so the remote is the longest known one the base starts with
+    remotes = (run_git(where, "remote") or "").splitlines()
+    remote = max((name for name in remotes if base.startswith(f"{name}/")), key=len, default=base.partition("/")[0])
+    branch = base[len(remote) + 1:]
+    # the positional remote wins over `--repo`, which names the same thing
+    named = push_positionals(args)[:1] or [word.removeprefix("--repo=") for word in args if word.startswith("--repo=")]
+    named = named or [args[i + 1] for i, word in enumerate(args[:-1]) if word == "--repo"]
     if named and named[0] != remote:
         return False
     current = run_git(where, "rev-parse", "--abbrev-ref", "HEAD")

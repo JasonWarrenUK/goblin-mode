@@ -2542,6 +2542,29 @@ class PushGate(unittest.TestCase):
         for command in ("git push origin main", "git push origin HEAD", "git push origin +main", "git push origin main:main"):
             self.assertIsNone(self.refused(command), command)
 
+    def test_the_remote_named_by_repo_counts_as_the_remote(self):
+        # re-review of PR 62: `--repo` names the remote when no positional does
+        self.with_origin()
+        (self.repo / "docs").mkdir()
+        (self.repo / "docs" / "note.md").write_text("n\n")
+        git(self.repo, "add", "docs")
+        git(self.repo, "commit", "-qm", "docs")
+        for command in ("git push --repo upstream", "git push --repo=upstream"):
+            self.assertIn("no green record", self.refused(command) or "", command)
+        for command in ("git push --repo origin", "git push --repo=origin"):
+            self.assertIsNone(self.refused(command), command)
+
+    def test_a_remote_whose_name_holds_a_slash_is_still_the_base_remote(self):
+        # re-review of PR 62: the upstream reads `team/fork/main`, whose remote is `team/fork`
+        self.with_origin()
+        git(self.repo, "remote", "rename", "origin", "team/fork")
+        (self.repo / "docs").mkdir()
+        (self.repo / "docs" / "note.md").write_text("n\n")
+        git(self.repo, "add", "docs")
+        git(self.repo, "commit", "-qm", "docs")
+        self.assertIsNone(self.refused("git push team/fork main"))
+        self.assertIn("no green record", self.refused("git push other main") or "")
+
     def test_docs_straight_to_main_from_a_detached_worktree_is_exempt(self):
         # re-review of PR 62: the doc-changelog recipe pushes HEAD:main from a detached worktree with no upstream
         self.with_origin()
