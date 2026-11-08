@@ -3113,6 +3113,12 @@ def pushes_to_base(where: str, args: list[str], specs: list[str]) -> bool:
     if named and named[0] != remote:
         return False
     current = run_git(where, "rev-parse", "--abbrev-ref", "HEAD")
+    # a bare push goes to branch.<name>.pushRemote, else remote.pushDefault, when set; that can differ from the upstream the diff was taken against
+    # (`@{push}` cannot say: with push.default=simple git refuses to resolve it once the push remote differs from the pull remote)
+    if not named:
+        configured = run_git(where, "config", "--get", f"branch.{current}.pushRemote") or run_git(where, "config", "--get", "remote.pushDefault")
+        if configured and configured != remote:
+            return False
     for spec in specs:
         source, colon, destination = spec.lstrip("+").partition(":")
         destination = (destination if colon else source).removeprefix("refs/heads/")

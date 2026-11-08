@@ -2554,6 +2554,24 @@ class PushGate(unittest.TestCase):
         for command in ("git push --repo origin", "git push --repo=origin"):
             self.assertIsNone(self.refused(command), command)
 
+    def test_a_configured_push_remote_is_not_the_base_remote(self):
+        # re-review of PR 62: a bare push goes to branch.<name>.pushRemote, which the diff against the upstream says nothing about
+        self.with_origin()
+        fork = self.box.tmp / "fork.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(fork)], check=True)
+        git(self.repo, "remote", "add", "fork", str(fork))
+        git(self.repo, "push", "-q", "fork", "main")
+        git(self.repo, "fetch", "-q", "fork")
+        (self.repo / "docs").mkdir()
+        (self.repo / "docs" / "note.md").write_text("n\n")
+        git(self.repo, "add", "docs")
+        git(self.repo, "commit", "-qm", "docs")
+        self.assertIsNone(self.refused("git push"))
+        git(self.repo, "config", "branch.main.pushRemote", "fork")
+        for command in ("git push", "git push --force-with-lease"):
+            self.assertIn("no green record", self.refused(command) or "", command)
+        self.assertIsNone(self.refused("git push origin main"))
+
     def test_a_remote_whose_name_holds_a_slash_is_still_the_base_remote(self):
         # re-review of PR 62: the upstream reads `team/fork/main`, whose remote is `team/fork`
         self.with_origin()
