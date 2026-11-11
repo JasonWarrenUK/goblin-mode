@@ -2,7 +2,7 @@
 name: test-gap-scanner
 description: "Use this agent to identify code that should have tests but doesn't, using risk-based prioritisation from the clod-role-testing_obsessive skill. Analyses branch diff against main, applies impact × complexity × change frequency matrix, and produces a prioritised list with test stubs for critical items. Invoke with \"What should I test?\" or used as a subagent of ship-checker."
 model: sonnet
-effort: medium
+effort: high
 color: purple
 goblin-minion: '@.@'
 ---
