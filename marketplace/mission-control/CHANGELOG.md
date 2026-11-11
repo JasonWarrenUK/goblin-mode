@@ -4,6 +4,23 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-11
+
+### Added
+
+- A push gate. A repository opts in with `push_gate` in `.claude/mission-control.json`: a list of keys of `commands`, or `{"commands": [...], "exempt": [globs]}`. `mc.py gate` runs those commands in order from the checkout root against the committed HEAD, stops at the first failure and writes a per-commit record under the git common dir, with a lock while it runs. It refuses over uncommitted tracked changes and over untracked files that are not ignored (`--allow-untracked` overrides the second), because a suite can import a file the commit lacks. The PreToolUse hook then denies a `git push` unless the commit being pushed has a green record and no gate run is in flight, in any session of the repo, run or no run; a session outside any run had pushed three commits into a red suite on 4 November.
+- What the gate reads: a push naming a refspec is checked against that ref's commit, and dry runs, bare tag pushes and deletions pass. `--tags` beside a branch refspec does not pass, and neither does a tag sent to a branch ref. A green record counts only when it ran every key `push_gate` lists now. `exempt` globs let a docs-only push through only when it goes to the remote and branch it was diffed against (the upstream, else origin's HEAD); a configured `pushRemote` or `remote.pushDefault` counts as another remote. A key missing from `commands` refuses the push. Glob refspecs, `--all`, `--branches`, `--mirror` and `push.default=matching` name no single tip, so the tips they send beyond HEAD's go unchecked.
+- `needs add` moves a worktree directory to the same place in the main checkout when the command sits behind a human-gated resource, records the original in `cwd_moved_from` and says so. Eight hosted calls typed from crew worktrees had failed with `LegacyProjectNotLinkedError`, because the link to the hosted project lives in a git-ignored folder that worktrees do not get.
+
+### Changed
+
+- The crew skill runs typecheck with test, lint and contract before a push and lets each run to the end. It names the gate where a project sets one. A new step 1b has a fresh subagent review the branch with `branch-qa_review` before `pr-ready`, two rounds at most. Step 1a gains role or `aria-label` selectors, signing in again when a shot lands on the login page and scrolling the target into view. A push-gate refusal stays off the needs list and goes back to the session that hit it. The crew skill and brief template tell crews to request a slot when implementation starts and to write the verification script while waiting.
+- The coordinate skill points at `pr-land`'s queue for several `approved-unlanded` lines.
+
+### Fixed
+
+- The warning that refuses a run start from a haiku or sonnet session splits the line into commands and words the way a shell does and asks whether the script is the command word. It no longer fires on greps, JSON filters and commit messages that only mention the script, and it catches a quoted script path. It looks past `env`, `sudo`, `uv run`, `timeout` and `nice`, reads `bash -c` bodies and skips heredoc bodies and comments.
+
 ## [0.8.1] - 2026-11-05
 
 ### Added
