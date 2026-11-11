@@ -1799,12 +1799,27 @@ def worktree_processes(path: Path) -> list[dict] | None:
     return found
 
 
-def rearm_line(holder: dict | None, whose: str = "this session had, which died with the process") -> str:
-    """The sentence that names a holder's open jobs to a session whose process does not run them; empty when it holds none. `whose` says whose work it was: the default is a resumed session's own."""
+def rearm_line(holder: dict | None, whose: str = "this session had", restored: bool = True) -> str:
+    """The sentence that names a holder's open jobs to a session whose process does not run them; empty when it holds none. `whose` says whose work it was: the default is a resumed session's own.
+
+    `restored` is true for a resume: Claude Code brings unexpired cron jobs back by itself (its changelog, 2.1.110),
+    so a cron is checked against CronList and never created blind, while a Monitor and a watch died with the process.
+    Pass false for a different session taking the work over, whose crons nothing restored.
+    """
     jobs = [j for j in ((holder or {}).get("jobs") or []) if j.get("status", "open") == "open"]
     if not jobs:
         return ""
-    return f" Scheduled work {whose}: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+    if restored:
+        parts = []
+        if any(j.get("kind") == "cron" for j in jobs):
+            parts.append("Claude Code restores cron jobs on a resume by itself: read CronList first and create only a cron it does not show (a second copy fires twice).")
+        if any(j.get("kind") != "cron" for j in jobs):
+            parts.append("Re-arm each Monitor or watch, which died with the process.")
+        parts.append("`mc.py jobs done <id>` for one that is no longer wanted.")
+        tail = ". " + " ".join(parts)
+    else:
+        tail = ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+    return f" Scheduled work {whose}: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + tail
 
 
 def adopted_rearm(old: dict, who: dict, live: dict[str, dict]) -> str:
@@ -1816,7 +1831,7 @@ def adopted_rearm(old: dict, who: dict, live: dict[str, dict]) -> str:
         same = bool(old.get("socket")) and old.get("socket") == who.get("socket")
     if same:
         return ""
-    return rearm_line(old, f"{old.get('task') or old_id[:8]}'s previous session ({old_id[:8]}) had, which died with its process")
+    return rearm_line(old, f"{old.get('task') or old_id[:8]}'s previous session ({old_id[:8]}) had, which died with its process", restored=False)
 
 
 def close_jobs(holder: dict, note: str) -> list[dict]:
@@ -2350,7 +2365,7 @@ def adopt_locked(args, ledger: Ledger) -> int:
         # the user can take the run from a coordinator that is still live, whose process keeps firing what it scheduled
         whose = (f"the run's previous coordinator ({before}) had; that session's process is still live and its crons still fire there, so stop them there or each fires twice" if still_live
                  else f"the run's previous coordinator ({before}) had, which died with its process")
-        rearm = "" if own_process else rearm_line(run, whose)
+        rearm = "" if own_process else rearm_line(run, whose, restored=False)
         # the re-arm line rides on the printed record only; run.json never stores it
         print(json.dumps({**run["coordinator"], **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"this session now coordinates run {run['name']} (was {before}, {by})" + (f".{rearm}" if rearm else ""))
         return 0

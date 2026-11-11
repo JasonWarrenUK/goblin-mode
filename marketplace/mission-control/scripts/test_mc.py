@@ -1436,7 +1436,7 @@ class LedgerFlow(unittest.TestCase):
         path = self.box.sessions / "crew-1.json"
         path.write_text(json.dumps({**json.loads(path.read_text()), "messagingSocketPath": "/tmp/cc-socks/process-b.sock"}))
         resumed = self.box.hook("session-start", {"source": "resume"}, session="crew-1", cwd=self.box.worktree)
-        self.assertIn("Re-arm each", resumed)
+        self.assertIn("read CronList first", resumed)
         self.assertEqual(self._row()["socket"], "/tmp/cc-socks/process-b.sock", "the row follows the process the session now runs in")
         # /clear in process B: a new id, the same process and socket
         path.unlink()
@@ -1606,7 +1606,8 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual([j["id"] for j in listed], ["morning"])
         hook = self.box.hook("session-start", {"source": "resume"}, session="crew-1")
         self.assertIn("cron morning (0 9 * * 1-5: check the PR)", hook)
-        self.assertIn("Re-arm each", hook)
+        self.assertIn("read CronList first", hook)
+        self.assertNotIn("Re-arm each", hook, "a resume restores a cron by itself, so a blind re-arm would fire it twice")
         compacted = self.box.hook("session-start", {"source": "compact"}, session="crew-1")
         self.assertIn("still crew 10SE.2", compacted)
         self.assertIn("Your brief:", compacted)
@@ -1805,12 +1806,28 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(run["jobs"][0]["id"], "wake")
         resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
         self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", resumed)
-        self.assertIn("Re-arm each", resumed)
-        self.assertNotIn("Re-arm each", self.box.hook("session-start", {"source": "compact"}, session="coord-1", cwd=self.box.repo), "a compaction keeps the process and its cron")
+        self.assertIn("read CronList first", resumed)
+        self.assertNotIn("Re-arm each", resumed, "Claude Code restores a cron on --resume, so creating it again fires it twice")
+        self.assertNotIn("Scheduled work", self.box.hook("session-start", {"source": "compact"}, session="coord-1", cwd=self.box.repo), "a compaction keeps the process and its cron")
         self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [], "a crew session's list is its own row")
         self.box.mc("jobs", "done", "wake", session="coord-1")
         self.assertEqual(json.loads(self.box.mc("jobs", "list", session="coord-1").stdout), [])
-        self.assertNotIn("Re-arm each", self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo))
+        self.assertNotIn("Scheduled work", self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo))
+
+    def test_a_resume_re_arms_a_monitor_and_a_watch_but_only_checks_a_cron(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 * * * *", session="coord-1")
+        self.box.mc("jobs", "add", "--kind", "monitor", "--id", "tail", "--spec", "build output", session="coord-1")
+        self.box.mc("jobs", "add", "--kind", "watch", "--id", "watch-9", "--spec", "PR 9", session="coord-1")
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("read CronList first", resumed)
+        self.assertIn("Re-arm each Monitor or watch", resumed, "these died with the process")
+        self.assertIn("monitor tail (build output)", resumed)
+        # with no cron on the list there is nothing to check
+        self.box.mc("jobs", "done", "wake", session="coord-1")
+        later = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertNotIn("CronList", later)
+        self.assertIn("Re-arm each Monitor or watch", later)
 
     def test_a_crew_below_high_effort_launches_with_its_subagents_raised_to_high(self):
         self.box.start()
