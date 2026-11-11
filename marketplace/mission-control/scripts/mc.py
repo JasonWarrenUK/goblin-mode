@@ -61,6 +61,9 @@ DECISION_ACK_SECONDS = 30 * 60
 # the states a release puts back; anything else the slot interrupted was plain work
 RESTORED_STATES = ("pr-ready", "blocked", "waiting-jason", "done")
 BY_USER = "--by-user"
+SUBAGENT_EFFORT_ENV = "CLAUDE_CODE_SUBAGENT_EFFORT"
+SUBAGENT_EFFORT_FLOOR = "high"
+SUBAGENT_EFFORT_RAISED = ("low", "medium")  # the crew efforts whose launch line raises its subagents to the floor
 SEPARATORS = re.compile(r"^[();<>|&\n]+$")
 REDIRECT = re.compile(r"^&?[<>]+&?$")
 ASSIGNMENT = re.compile(r"^[A-Za-z_]\w*=")
@@ -2200,7 +2203,11 @@ def launch_line(run: dict, entry: dict, plugin_dir: str | None) -> str:
     if plugin_dir:
         flags += ["--plugin-dir", shlex.quote(plugin_dir)]
     prompt = f"Start: you are crew {task} in run {run['name']}. Read your brief at {entry['brief']}, invoke /mission-control:crew and answer its five questions to the coordinator."
-    return " ".join(["claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} crew"), shlex.quote(prompt)])
+    # A subagent on the session's model runs at the session's effort, so a crew launched at low or medium would hand its
+    # fresh-eyes review (crew skill step 1b) to a reviewer at that level. CLAUDE_CODE_SUBAGENT_EFFORT (Claude Code 2.1.316)
+    # names the level for subagents nothing else sets one for; a crew at high or above is left alone, since the variable would lower its reviewer.
+    env = [f"{SUBAGENT_EFFORT_ENV}={SUBAGENT_EFFORT_FLOOR}"] if entry.get("effort") in SUBAGENT_EFFORT_RAISED else []
+    return " ".join([*env, "claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} crew"), shlex.quote(prompt)])
 
 
 def raise_launch_need(ledger: Ledger, run: dict, entry: dict, reason: str | None, plugin_dir: str | None) -> dict:

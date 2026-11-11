@@ -1643,6 +1643,17 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(json.loads(self.box.mc("jobs", "list", session="coord-1").stdout), [])
         self.assertNotIn("Re-arm each", self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo))
 
+    def test_a_crew_below_high_effort_launches_with_its_subagents_raised_to_high(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", "--effort", "medium", session="coord-1")
+        need = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]
+        self.assertTrue(need["command"].startswith("CLAUDE_CODE_SUBAGENT_EFFORT=high claude --model sonnet --effort medium --name "), need["command"])
+        for effort in ("high", "xhigh", None):
+            flags = ["--effort", effort] if effort else []
+            self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "opus", *flags, session="coord-1")
+            need = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]
+            self.assertTrue(need["command"].startswith("claude --model opus "), f"{effort}: {need['command']}")
+
     def test_the_watch_keeps_its_own_job_entry(self):
         self.box.start()
         self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
