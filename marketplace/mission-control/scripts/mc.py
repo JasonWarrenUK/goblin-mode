@@ -1799,12 +1799,12 @@ def worktree_processes(path: Path) -> list[dict] | None:
     return found
 
 
-def rearm_line(holder: dict | None) -> str:
-    """The sentence that names a holder's open jobs to a session whose process no longer runs them; empty when it holds none."""
+def rearm_line(holder: dict | None, whose: str = "this session had, which died with the process") -> str:
+    """The sentence that names a holder's open jobs to a session whose process does not run them; empty when it holds none. `whose` says whose work it was: the default is a resumed session's own."""
     jobs = [j for j in ((holder or {}).get("jobs") or []) if j.get("status", "open") == "open"]
     if not jobs:
         return ""
-    return " Scheduled work this session had, which died with the process: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+    return f" Scheduled work {whose}: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
 
 
 def close_jobs(holder: dict, note: str) -> list[dict]:
@@ -2328,12 +2328,18 @@ def adopt_locked(args, ledger: Ledger) -> int:
         if not own_process and not args.by_user:
             raise Refusal("this session is not the coordinator's process under a new id; a fresh coordinator is adopted by the user with /mc adopt coordinator")
         by = "user" if args.by_user else "same process"
+        before = str(recorded.get("session_id") or "?")[:8]
+        still_live = recorded.get("session_id") in registry()
         run["coordinator"] = {"session_id": session_id, "pid": who.get("pid"), "socket": who.get("socket"), "name": who.get("name", ""), "adopted_from": recorded.get("session_id"), "adopted_at": now(), "adopted_by": by}
         ledger.save_run(run)
         ledger.log("adopt", kind="coordinator", old=recorded.get("session_id"), new=session_id, by=by)
         # a fresh process inherits the run's jobs without the crons behind them, and its start hook ran before it was the coordinator
-        rearm = "" if own_process else rearm_line(run)
-        print(json.dumps(run["coordinator"]) if args.json else f"this session now coordinates run {run['name']} (was {str(recorded.get('session_id') or '?')[:8]}, {by})" + (f".{rearm}" if rearm else ""))
+        # the user can take the run from a coordinator that is still live, whose process keeps firing what it scheduled
+        whose = (f"the run's previous coordinator ({before}) had; that session is still live and its crons still fire there, so stop them there or each fires twice" if still_live
+                 else f"the run's previous coordinator ({before}) had, which died with its process")
+        rearm = "" if own_process else rearm_line(run, whose)
+        # the re-arm line rides on the printed record only; run.json never stores it
+        print(json.dumps({**run["coordinator"], **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"this session now coordinates run {run['name']} (was {before}, {by})" + (f".{rearm}" if rearm else ""))
         return 0
     plan = crew_for(run, os.path.abspath(args.cwd), session_id, ledger.sessions())
     if plan is None:

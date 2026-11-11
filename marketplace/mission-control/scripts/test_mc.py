@@ -1660,6 +1660,20 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("this session now coordinates run search", adopted.stdout)
         self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", adopted.stdout)
         self.assertIn("Re-arm each", adopted.stdout)
+        self.assertIn("the run's previous coordinator (coord-1) had, which died with its process", adopted.stdout)
+        self.assertNotIn("this session had", adopted.stdout, "the adopting session never had the work")
+
+    def test_adopting_from_a_live_coordinator_says_its_crons_still_fire_and_json_carries_the_line(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", session="coord-1")
+        self.box.register("coord-2", "mission control 2", str(self.box.repo))
+        adopted = json.loads(self.box.mc("--json", "adopt", "coordinator", "--by-user", session="coord-2").stdout)
+        self.assertEqual(adopted["session_id"], "coord-2")
+        self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", adopted["rearm"])
+        self.assertIn("still live", adopted["rearm"])
+        self.assertNotIn("died with", adopted["rearm"], "the old process and its cron are still running")
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertNotIn("rearm", run["coordinator"], "the line is printed, never stored")
 
     def test_a_live_sessions_job_is_its_own_to_close(self):
         self.box.start()
