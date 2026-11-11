@@ -5,6 +5,23 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.6.0] - 2026-11-11
+
+### Added
+
+- `mission-control` plugin 0.9.0: a repository can gate `git push` on its own checks. `mc.py gate` runs the `push_gate` commands from `.claude/mission-control.json` against the committed HEAD and records the result per commit; the PreToolUse hook then refuses a push whose commit has no green record or whose gate run is still going, in any session of the repo, run or no run. `exempt` globs let a docs-only push through when it goes to the branch it was diffed against. A hosted command a crew session hands to the user now names the main checkout, where the link to the hosted project lives. Details in the plugin's changelog.
+- `pr-land` lands several PRs in one run from one read-only plan, merging a stack once from its top layer. Each PR still asks before its merge and reads back its tag, plugin version and changelog before the next one starts.
+- `next-task-ship` and the `mission-control` crew skill send the branch to a fresh reviewer before the PR is opened.
+
+### Changed
+
+- `commit-one`, `commit-batch`, `pr-handle_review` and `pr-review` scan their messages, replies and review text for house-rule breaches before sending them, and `pr-review` fails the run on a hit. `pr-handle_review` writes a failing regression test before each fix and pushes only once the suite has finished green.
+- `pr-update` reads the PR body back after editing it, and the PR body lint rejects a body holding nothing but its watermark.
+
+### Fixed
+
+- `mission-control`'s warning against a small model starting a run reads the command line the way a shell does, so it no longer fires on greps, JSON filters or commit messages that mention the script, and it catches a quoted script path.
+
 ## [7.5.1] - 2026-11-05
 
 ### Added
@@ -474,7 +491,9 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.0...HEAD
+[7.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.1...v7.6.0
+[7.5.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.0...v7.5.1
 [7.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.4.0...v7.5.0
 [7.4.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.3.0...v7.4.0
 [7.3.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.2.0...v7.3.0
