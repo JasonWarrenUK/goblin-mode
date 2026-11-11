@@ -55,6 +55,7 @@ SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.ge
 STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting-jason", "done")
 # a need's why is what the user reads before typing a hosted command, so it is not cut mid-sentence; a pasted result can be a query's whole output
 NEED_WHY_LIMIT = 1200
+HOOK_CONTEXT_LIMIT = 9500  # the harness caps a hook's output at 10,000 characters; past that the model gets a file path and a 2,000-character preview
 RESULT_LIMIT = 20_000
 # how long a decision may go unacknowledged by a session it was told to before reconcile says so
 DECISION_ACK_SECONDS = 30 * 60
@@ -3460,6 +3461,29 @@ def cmd_check(args) -> int:
     return 0
 
 
+def clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def pending_line(item: dict) -> str:
+    """One open thread as the start context says it. A held approval says held and why: its stored text still reads `landing is authorised`."""
+    if item.get("hold"):
+        return f"#{item.get('n')} PR #{item.get('pr')} approved and held, not to land yet: {item['hold']}"
+    return f"#{item.get('n')} {item.get('text')}"
+
+
+def fit_items(items: list[str], budget: int, where: str) -> str:
+    """As many items as fit the budget, joined, and a count of the rest with where to read them."""
+    kept: list[str] = []
+    for index, item in enumerate(items):
+        left = len(items) - index
+        tail = f"; and {left} more in {where}"
+        if len("; ".join(kept + [item])) + (len(tail) if left > 1 else 0) > budget:
+            return "; ".join(kept) + tail if kept else f"{left} open, too long to list here: {where}"
+        kept.append(item)
+    return "; ".join(kept)
+
+
 def session_start_context(payload: dict) -> str:
     """One paragraph for a session that starts inside a run's worktree or as its coordinator."""
     cwd = payload.get("cwd") or os.getcwd()
@@ -3479,19 +3503,21 @@ def session_start_context(payload: dict) -> str:
         needs = [n for n in run.get("needs", []) if n.get("status") == "open"]
         running = [n for n in run.get("needs", []) if n.get("status") == "started"]
         rearm = "" if source == "compact" else rearm_line(run)  # a compaction keeps the process, so what it scheduled still runs
+        head = (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
+                "Invoke /mission-control:coordinate for the protocol; /mc opens the board.")
         back = ""
         if pending or decisions or needs or running:
-            pending_text = "; ".join("#%s %s" % (p.get("n"), p.get("text")) for p in pending)
-            decision_text = "; ".join("#%s %s" % (d.get("n"), d.get("text")) for d in decisions)
+            decision_text = "; ".join(clip("#%s %s%s" % (d.get("n"), d.get("text"), f" (about {d['about']})" if d.get("about") else ""), 600) for d in decisions)
             running_text = "; ".join("#%s since %s" % (n.get("n"), clock(n.get("started_at"))) for n in running)
-            back = (" Your open threads from the ledger, which a compaction does not keep: "
-                    + (f"pending: {pending_text}. " if pending else "")
-                    + (f"recent decisions: {decision_text}. " if decisions else "")
+            opening = " Your open threads from the ledger, which a compaction does not keep: "
+            rest = ((f"recent decisions: {decision_text}. " if decisions else "")
                     + (f"{len(needs)} need{'s' if len(needs) != 1 else ''} open. " if needs else "")
                     + (f"running for the user: {running_text}. " if running else "")
                     + "Run reconcile before saying where things stand.")
-        return (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
-                f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.{back}{rearm}")
+            # the harness cuts a hook's output at 10,000 characters and shows the model only a preview of the rest, so the pending list takes what the other parts leave
+            pending_text = fit_items([pending_line(p) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`mc.py pending list`")
+            back = opening + (f"pending: {pending_text}. " if pending else "") + rest
+        return f"{head}{back}{rearm}"
     candidate = coord.get("rebind_candidate") or {}
     if candidate.get("session_id") == session_id:
         return (f"Mission control: this process coordinated run {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
