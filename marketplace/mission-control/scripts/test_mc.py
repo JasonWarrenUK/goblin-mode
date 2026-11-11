@@ -1429,6 +1429,25 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("adopted 10SE.2's row from session crew-1", joined)
         self.assertNotIn("Re-arm each", joined)
 
+    def test_a_resume_in_a_new_process_then_a_clear_does_not_re_arm_what_the_resume_already_did(self):
+        self._crew_with_morning_cron_then_gone()
+        # the user resumes the same session id in a new process, whose socket differs; the resume hook names the job
+        self.box.register("crew-1", "10se2", str(self.box.worktree))
+        path = self.box.sessions / "crew-1.json"
+        path.write_text(json.dumps({**json.loads(path.read_text()), "messagingSocketPath": "/tmp/cc-socks/process-b.sock"}))
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="crew-1", cwd=self.box.worktree)
+        self.assertIn("Re-arm each", resumed)
+        self.assertEqual(self._row()["socket"], "/tmp/cc-socks/process-b.sock", "the row follows the process the session now runs in")
+        # /clear in process B: a new id, the same process and socket
+        path.unlink()
+        self.box.register("crew-2", "10se2", str(self.box.worktree))
+        cleared = self.box.sessions / "crew-2.json"
+        cleared.write_text(json.dumps({**json.loads(cleared.read_text()), "messagingSocketPath": "/tmp/cc-socks/process-b.sock"}))
+        self.assertNotIn("Re-arm each", self.box.hook("session-start", {"source": "startup"}, session="crew-2", cwd=self.box.worktree))
+        joined = self.box.mc("join", "--planned", session="crew-2", cwd=self.box.worktree).stdout
+        self.assertIn("adopted 10SE.2's row from session crew-1", joined)
+        self.assertNotIn("Re-arm each", joined, "the cron was re-armed in process B and is still there")
+
     def test_join_makes_a_fresh_row_when_the_old_session_is_still_live(self):
         self.box.start()
         self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")

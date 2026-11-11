@@ -3468,6 +3468,15 @@ def session_start_context(payload: dict) -> str:
     if plan is None:
         return ""
     row = ledger.sessions().get(session_id or "", {})
+    if row and session_id:
+        # a resume in a new process keeps the id but not the socket, and join writes it only once: follow the process, or a later /clear reads as a different one
+        socket = identity(session_id).get("socket")
+        if socket and row.get("socket") != socket:
+            with ledger.locked():
+                current = ledger.sessions().get(session_id)
+                if current:
+                    current["socket"] = socket
+                    ledger.save_session(current)
     if source == "compact" and row:  # a compaction keeps the process, so what it scheduled still runs: no re-arm line
         return (f"Mission control: still crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
                 f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).")
