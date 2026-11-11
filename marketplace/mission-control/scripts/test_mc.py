@@ -1879,6 +1879,20 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("Run reconcile before saying where things stand.", hook)
         self.assertIn("Re-arm each", hook)
 
+    def test_the_pre_compact_hook_tells_the_summary_what_only_the_conversation_holds(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        coordinator = self.box.hook("pre-compact", {"trigger": "manual", "custom_instructions": None}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("coordinates mission-control run", coordinator)
+        self.assertIn("not yet answered", coordinator)
+        self.assertIn("freeze or hold still in force", coordinator)
+        self.assertLess(len(coordinator), 10_000)
+        crew = self.box.hook("pre-compact", {"trigger": "auto"}, session="crew-1", cwd=self.box.worktree)
+        self.assertIn("crew 10SE.2", crew)
+        self.assertIn("its brief is", crew)
+        self.assertEqual(self.box.hook("pre-compact", {"trigger": "manual"}, session="stranger", cwd=self.box.repo), "", "a session outside the run gets no instructions")
+
     def test_a_crew_below_high_effort_launches_with_its_subagents_raised_to_high(self):
         self.box.start()
         self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", "--effort", "medium", session="coord-1")

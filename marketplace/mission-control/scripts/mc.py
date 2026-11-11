@@ -3484,6 +3484,41 @@ def fit_items(items: list[str], budget: int, where: str) -> str:
     return "; ".join(kept)
 
 
+def pre_compact_instructions(payload: dict) -> str:
+    """What the compaction summary must keep for a session in a run: the harness uses a PreCompact hook's stdout as instructions for the summary.
+
+    The ledger keeps slots, needs, decisions and the pending list; this names what only the conversation holds.
+    """
+    cwd = payload.get("cwd") or os.getcwd()
+    session_id = payload.get("session_id")
+    try:
+        ledger = ledger_for(cwd)
+    except Refusal:
+        return ""
+    run = ledger.run()
+    if run is None:
+        return ""
+    if is_coordinator(run, session_id):
+        return (f"This session coordinates mission-control run {run['name']}. The run ledger keeps the board, slots, needs, the pending list and the user's decisions, so do not spend the summary restating them. "
+                "Keep what only this conversation holds, each with the session or person it concerns and the time: "
+                "every message sent to a crew session and not yet answered, with what was asked; "
+                "every freeze or hold still in force (hold your pushes, a hosted window, a rebase held back), who it binds and what lifts it; "
+                "every review, PR description or check-in still in flight and whose reply is awaited; "
+                "every question or proposal put to the user and not yet answered, slicing included; "
+                "the user's standing instructions for this run in their own words; "
+                "the ids of the cron jobs and Monitors this session created; "
+                "and anything promised to a session or to the user and not yet done. "
+                "State that the coordinator invokes /mission-control:coordinate and runs reconcile before its next status.")
+    plan = crew_for(run, cwd, session_id, ledger.sessions())
+    if plan is None:
+        return ""
+    return (f"This session is crew {plan['task']} ({plan.get('branch')}) in mission-control run {run['name']}; its brief is {plan.get('brief')}. "
+            "Keep: the brief path and the task; the branch, its last commit and anything uncommitted; the PR number and its state; "
+            "any slot held or requested and its deadline; the watch, cron jobs and Monitors this session started, with their ids; "
+            "every question sent to the coordinator and not yet answered; every numbered decision received and whether it was acknowledged; "
+            "and what was being done when the summary was made.")
+
+
 def session_start_context(payload: dict) -> str:
     """One paragraph for a session that starts inside a run's worktree or as its coordinator."""
     cwd = payload.get("cwd") or os.getcwd()
@@ -3581,6 +3616,10 @@ def cmd_hook(args) -> int:
                 json.dump(out, sys.stdout)
         elif args.event == "session-start":
             text = session_start_context(payload)
+            if text:
+                print(text)
+        elif args.event == "pre-compact":
+            text = pre_compact_instructions(payload)
             if text:
                 print(text)
     except Exception as error:  # a hook never breaks a session
@@ -3728,7 +3767,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("gate", help="run the config's push_gate commands against the committed HEAD and record the result; the PreToolUse hook then lets `git push` through only on green")
     sp.add_argument("--allow-untracked", dest="allow_untracked", action="store_true", help="run even with untracked, non-ignored files present")
     sp = sub.add_parser("hook", help="Claude Code hook entry point; reads the payload on stdin")
-    sp.add_argument("event", choices=["pre-tool-use", "session-start"])
+    sp.add_argument("event", choices=["pre-tool-use", "session-start", "pre-compact"])
     return parser
 
 
