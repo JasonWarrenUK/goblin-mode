@@ -40,6 +40,8 @@ describe('tiers', () => {
 		expect(tierOf('sonnet')).toBe('mid')
 		expect(tierOf('claude-opus-5-5')).toBe('top')
 		expect(tierOf('claude-fable-5-1')).toBe('fable')
+		expect(tierOf('claude-fable-5-2')).toBe('fable')
+		expect(tierOf('fable')).toBe('fable')
 		expect(tierOf('something-new')).toBe('mid')
 	})
 
