@@ -2319,6 +2319,15 @@ class Hooks(unittest.TestCase):
         out = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": command}}, **kw)
         return json.loads(out)["hookSpecificOutput"] if out.strip() else None
 
+    def test_a_gated_command_started_through_monitor_is_denied_like_a_bash_one(self):
+        # Claude Code 2.1.314 runs hooks that match Bash on the Monitor tool's shell commands; its input carries the same `command` key
+        out = self.box.hook("pre-tool-use", {"tool_name": "Monitor", "tool_input": {"command": "cd apps/api && poetry run poe db-reset-local-anyway", "description": "reset", "timeout_ms": 300000}})
+        verdict = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual(verdict["permissionDecision"], "deny")
+        self.assertIn("free, but not granted to you", verdict["permissionDecisionReason"])
+        # a WebSocket watch has no shell command, so there is nothing to gate
+        self.assertEqual(self.box.hook("pre-tool-use", {"tool_name": "Monitor", "tool_input": {"ws": {"url": "wss://example.com/stream"}, "description": "events", "timeout_ms": 300000}}).strip(), "")
+
     def test_gated_command_without_slot_is_denied_and_recorded(self):
         verdict = self.decision("cd apps/api && poetry run poe db-reset-local-anyway")
         self.assertEqual(verdict["permissionDecision"], "deny")
