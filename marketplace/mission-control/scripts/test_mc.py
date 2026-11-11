@@ -1390,6 +1390,45 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(status["needs"][0]["session_id"], "crew-7")
         self.assertIn('"event": "adopt"', (next(self.box.ledger_root.glob("*/log.jsonl"))).read_text())
 
+    def _crew_with_morning_cron_then_gone(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "morning", "--prompt", "stand up", session="crew-1", cwd=self.box.worktree)
+        (self.box.sessions / "crew-1.json").unlink()
+
+    def test_a_crew_session_in_a_fresh_process_adopting_the_old_row_is_told_to_re_arm_its_jobs(self):
+        self._crew_with_morning_cron_then_gone()
+        self.box.register("crew-7", "10se2", str(self.box.worktree))
+        # the start hook runs before the session has a row, so it must name the jobs the row will carry
+        hook = self.box.hook("session-start", {"source": "startup"}, session="crew-7", cwd=self.box.worktree)
+        self.assertIn("cron morning (0 9 * * *: stand up)", hook)
+        joined = self.box.mc("join", "--planned", session="crew-7", cwd=self.box.worktree).stdout
+        self.assertIn("adopted 10SE.2's row from session crew-1", joined)
+        self.assertIn("10SE.2's previous session (crew-1) had, which died with its process", joined)
+        self.assertIn("Re-arm each", joined)
+        self.assertNotIn("this session had", joined, "the adopting session never had the work")
+
+    def test_adopt_crew_in_a_fresh_process_is_told_to_re_arm_and_json_carries_the_line(self):
+        self._crew_with_morning_cron_then_gone()
+        self.box.register("crew-7", "10se2", str(self.box.worktree))
+        adopted = json.loads(self.box.mc("--json", "adopt", "crew", session="crew-7", cwd=self.box.worktree).stdout)
+        self.assertIn("cron morning (0 9 * * *: stand up)", adopted["rearm"])
+        row = json.loads(next(self.box.ledger_root.glob("*/sessions/crew-7.json")).read_text())
+        self.assertNotIn("rearm", row, "the line is printed, never stored")
+
+    def test_a_cleared_crew_session_keeps_its_crons_and_is_not_told_to_re_arm(self):
+        self._crew_with_morning_cron_then_gone()
+        # /clear: a new session id on the same process and socket
+        self.box.register("crew-2", "10se2", str(self.box.worktree))
+        path = self.box.sessions / "crew-2.json"
+        path.write_text(json.dumps({**json.loads(path.read_text()), "messagingSocketPath": "/tmp/cc-socks/crew-1.sock"}))
+        hook = self.box.hook("session-start", {"source": "startup"}, session="crew-2", cwd=self.box.worktree)
+        self.assertNotIn("Re-arm each", hook)
+        joined = self.box.mc("join", "--planned", session="crew-2", cwd=self.box.worktree).stdout
+        self.assertIn("adopted 10SE.2's row from session crew-1", joined)
+        self.assertNotIn("Re-arm each", joined)
+
     def test_join_makes_a_fresh_row_when_the_old_session_is_still_live(self):
         self.box.start()
         self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")

@@ -1807,6 +1807,18 @@ def rearm_line(holder: dict | None, whose: str = "this session had, which died w
     return f" Scheduled work {whose}: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
 
 
+def adopted_rearm(old: dict, who: dict, live: dict[str, dict]) -> str:
+    """The re-arm sentence for a crew session about to adopt `old`'s row: empty when it is the row's own process under a new id (a /clear keeps the process and what it scheduled), otherwise the row's open jobs, which died with the old process. A crew row stores its socket but no pid, so a gone session is matched by socket."""
+    old_id = old.get("session_id", "")
+    if old_id in live:
+        same = same_identity(who.get("pid"), who.get("socket"), live[old_id].get("pid"), live[old_id].get("messagingSocketPath"))
+    else:
+        same = bool(old.get("socket")) and old.get("socket") == who.get("socket")
+    if same:
+        return ""
+    return rearm_line(old, f"{old.get('task') or old_id[:8]}'s previous session ({old_id[:8]}) had, which died with its process")
+
+
 def close_jobs(holder: dict, note: str) -> list[dict]:
     """Mark every open job on a session row (or on the run, for the coordinator's) done, and return the ones it closed. The caller saves and logs."""
     closed = [j for j in (holder.get("jobs") or []) if j.get("status", "open") == "open"]
@@ -2351,9 +2363,11 @@ def adopt_locked(args, ledger: Ledger) -> int:
     old = stale_row_for(ledger, plan, who)
     if old is None:
         raise Refusal(f"no row for {plan['task']} to adopt; `mc.py join --planned` makes a fresh one")
+    rearm = adopted_rearm(old, who, registry())
     row = adopt_row(ledger, old, session_id, who)
     close_launch_need(ledger, row.get("task") or plan.get("task") or "", session_id)
-    print(json.dumps(row) if args.json else f"adopted {row.get('task')}'s row from session {old['session_id'][:8]} ({row.get('state')})")
+    # the re-arm line rides on the printed row only; the ledger never stores it
+    print(json.dumps({**row, **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"adopted {row.get('task')}'s row from session {old['session_id'][:8]} ({row.get('state')})" + (f".{rearm}" if rearm else ""))
     return 0
 
 
@@ -2381,9 +2395,10 @@ def join_locked(args, ledger: Ledger) -> int:
         # a session restarted fresh or cleared in a planned worktree carries on the old row: its state, PR, summary and slots
         old = stale_row_for(ledger, plan, who)
         if old:
+            rearm = adopted_rearm(old, who, registry())
             row = adopt_row(ledger, old, session_id, who)
             close_launch_need(ledger, row.get("task") or task, session_id)
-            print(json.dumps(row) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined run {run['name']}")
+            print(json.dumps({**row, **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined run {run['name']}" + (f".{rearm}" if rearm else ""))
             return 0
     row.update({
         "session_id": session_id,
@@ -3457,6 +3472,12 @@ def session_start_context(payload: dict) -> str:
         return (f"Mission control: still crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
                 f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).")
     rearm = rearm_line(row)
+    if not row and session_id:
+        # this hook runs before the session joins: a fresh process that is about to adopt a gone session's row is told what the row carries
+        who = identity(session_id)
+        old = stale_row_for(ledger, plan, who)
+        if old:
+            rearm = adopted_rearm(old, who, registry())
     brief = plan.get("brief") or ""
     has_brief = bool(brief) and Path(brief).is_file()
     collab = run.get("collaboration") or {}
