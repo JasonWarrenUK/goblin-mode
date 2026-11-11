@@ -1562,6 +1562,87 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("jobs", "done", "morning", session="crew-1", cwd=self.box.worktree)
         self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [])
 
+    def _crew_with_job_then_closed(self, job="watch-240"):
+        """A crew session that recorded a job, reported done with PR #240 and closed with the job still open."""
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "watch", "--spec", "PR #240", "--id", job, session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "done", "--pr", "240", session="crew-1", cwd=self.box.worktree)
+        (self.box.sessions / "crew-1.json").unlink()
+
+    def _row(self, session="crew-1"):
+        return json.loads(next(self.box.ledger_root.glob(f"*/sessions/{session}.json")).read_text())
+
+    def _orphans(self):
+        return [item for item in self._reconcile_with(self._gh(self._merged(240)))["drift"] if item["kind"] == "job-orphaned"]
+
+    def test_retire_closes_the_jobs_on_the_row_it_retires(self):
+        self._crew_with_job_then_closed()
+        self.assertEqual(len(self._orphans()), 1, "before the retire the open watch on a closed session is drift")
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 0, out)
+        job = self._row()["jobs"][0]
+        self.assertEqual((job["id"], job["status"], job["note"]), ("watch-240", "done", "retired by coordinator"))
+        self.assertEqual(self._orphans(), [])
+        log = next(self.box.ledger_root.glob("*/log.jsonl")).read_text()
+        self.assertIn('"event": "job-done"', log)
+
+    def test_a_row_retired_with_a_job_still_open_is_not_drift(self):
+        # a row retired by a version whose retire left jobs alone
+        self._crew_with_job_then_closed()
+        path = next(self.box.ledger_root.glob("*/sessions/crew-1.json"))
+        row = json.loads(path.read_text())
+        row["retired"] = {"at": row["updated_at"], "by": "coordinator"}
+        path.write_text(json.dumps(row))
+        self.assertEqual(self._orphans(), [])
+
+    def test_the_coordinator_or_the_user_closes_a_job_whose_session_is_gone(self):
+        self._crew_with_job_then_closed()
+        self.box.register("crew-2", "bystander", str(self.box.repo))
+        refused = self.box.mc("jobs", "done", "watch-240", session="crew-2", expect=None)
+        self.assertNotEqual(refused.returncode, 0, "a session that is neither the owner nor the coordinator closes nothing")
+        done = self.box.mc("jobs", "done", "watch-240", session="coord-1")
+        self.assertIn("it was 10SE.2's, whose session is gone", done.stdout)
+        job = self._row()["jobs"][0]
+        self.assertEqual((job["status"], job["note"]), ("done", "closed by coordinator: its session is gone"))
+        self.assertEqual(self._orphans(), [])
+        # the person, from a session that is not the coordinator
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "morning", session="coord-1")
+        row_path = next(self.box.ledger_root.glob("*/sessions/crew-1.json"))
+        row = json.loads(row_path.read_text())
+        row["jobs"].append({"id": "nightly", "kind": "cron", "spec": "0 2 * * *", "status": "open"})
+        row_path.write_text(json.dumps(row))
+        self.box.mc("jobs", "done", "nightly", "--by-user", session="crew-2")
+        self.assertEqual(self._row()["jobs"][1]["note"], "closed by user: its session is gone")
+
+    def test_a_live_sessions_job_is_its_own_to_close(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "morning", session="crew-1", cwd=self.box.worktree)
+        refused = self.box.mc("jobs", "done", "morning", session="coord-1", expect=None)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("whose session is live", refused.stdout + refused.stderr)
+        self.assertEqual(self._row()["jobs"][0]["status"], "open")
+
+    def test_the_coordinator_records_its_own_jobs_on_the_run_and_a_resume_re_arms_them(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", "--reason", "wake for crew messages", session="coord-1")
+        listed = json.loads(self.box.mc("jobs", "list", session="coord-1").stdout)
+        self.assertEqual([(j["id"], j["task"], j["session_id"]) for j in listed], [("wake", "coordinator", "coord-1")])
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual(run["jobs"][0]["id"], "wake")
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", resumed)
+        self.assertIn("Re-arm each", resumed)
+        self.assertNotIn("Re-arm each", self.box.hook("session-start", {"source": "compact"}, session="coord-1", cwd=self.box.repo), "a compaction keeps the process and its cron")
+        self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [], "a crew session's list is its own row")
+        self.box.mc("jobs", "done", "wake", session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("jobs", "list", session="coord-1").stdout), [])
+        self.assertNotIn("Re-arm each", self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo))
+
     def test_the_watch_keeps_its_own_job_entry(self):
         self.box.start()
         self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
