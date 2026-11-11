@@ -1650,6 +1650,34 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(self._row()["jobs"][0]["status"], "done")
         nothing = self.box.mc("jobs", "done", "poll", session="coord-1", expect=None)
         self.assertNotEqual(nothing.returncode, 0, "with nothing open under that id, done says so and does not report success")
+        self.assertIn("job poll is already done", nothing.stdout + nothing.stderr)
+
+    def test_a_repeated_done_is_refused_as_already_done_and_leaves_the_job_alone(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "morning", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "done", "morning", session="crew-1", cwd=self.box.worktree)
+        closed_at = self._row()["jobs"][0]["done_at"]
+        again = self.box.mc("jobs", "done", "morning", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertNotEqual(again.returncode, 0)
+        self.assertIn("job morning is already done", again.stdout + again.stderr)
+        self.assertEqual(self._row()["jobs"][0]["done_at"], closed_at)
+        log = next(self.box.ledger_root.glob("*/log.jsonl")).read_text()
+        self.assertEqual(log.count('"event": "job-done"'), 1, "the repeat logs nothing")
+        typo = self.box.mc("jobs", "done", "mourning", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertIn("no job mourning on this session", typo.stdout + typo.stderr)
+
+    def test_a_gone_row_with_no_task_is_named_by_its_session_and_not_as_the_coordinator(self):
+        self.box.start()
+        self.box.register("crew-5", "unplanned", str(self.box.repo))
+        self.box.mc("join", "--branch", "feat/z", session="crew-5")
+        self.assertEqual(self._row("crew-5")["task"], "")
+        self.box.mc("jobs", "add", "--kind", "watch", "--spec", "PR 250", "--id", "watch-250", session="crew-5")
+        (self.box.sessions / "crew-5.json").unlink()
+        done = self.box.mc("jobs", "done", "watch-250", session="coord-1")
+        self.assertIn("it was crew-5's, whose session is gone", done.stdout)
+        self.assertNotIn("the coordinator's", done.stdout)
 
     def test_a_fresh_coordinator_adopted_by_the_user_is_told_to_re_arm_the_runs_jobs(self):
         self.box.start()

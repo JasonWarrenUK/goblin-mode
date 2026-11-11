@@ -2794,8 +2794,8 @@ def jobs_locked(args, ledger: Ledger) -> int:
         return next((j for j in ((holder or {}).get("jobs") or []) if j.get("id") == args.ref and (not only_open or j.get("status", "open") == "open")), None)
 
     holder, owner, by = own, session_id, "session"
-    # the coordinator can reach a gone session's job under the same id, so a finished one of its own must not stand in front of it
-    target = None if args.by_user else named(own, coordinating)
+    # open jobs only: the coordinator can reach a gone session's job under the same id, so a finished one of its own must not stand in front of it, and a repeat closes nothing
+    target = None if args.by_user else named(own, True)
     if target is None and (coordinating or args.by_user):
         # nobody is left to close a job whose session is gone: the coordinator may, and so may the person
         by = authorise(run, session_id, args.by_user, "close another session's job")
@@ -2815,6 +2815,9 @@ def jobs_locked(args, ledger: Ledger) -> int:
     if target is None or holder is None:
         if own is None and not args.by_user:
             raise Refusal("this session has not joined the run; jobs belong to a session row, or to the run for its coordinator")
+        # the id exists and nothing under it is open: say that, since plain `jobs list` hides a finished job
+        if any(named(h) for h in (own, *(sessions.values() if coordinating or args.by_user else ()))):
+            raise Refusal(f"job {args.ref} is already done; `jobs list --all` shows it")
         raise Refusal(f"no job {args.ref} on this session; `jobs list` names them")
     target["status"] = "done"
     target["done_at"] = now()
@@ -2825,7 +2828,7 @@ def jobs_locked(args, ledger: Ledger) -> int:
     else:
         ledger.save_session(holder)
     ledger.log("job-done", session_id=owner, id=target["id"], by=by)
-    print(f"job {target['id']} done" + ("" if by == "session" else f" (it was {holder.get('task') or 'the coordinator'}'s, whose session is gone)"))
+    print(f"job {target['id']} done" + ("" if by == "session" else f" (it was {'the coordinator' if holder is run else (holder.get('task') or owner[:8])}'s, whose session is gone)"))
     return 0
 
 
