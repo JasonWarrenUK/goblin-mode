@@ -1552,6 +1552,7 @@ class LedgerFlow(unittest.TestCase):
         compacted = self.box.hook("session-start", {"source": "compact"}, session="crew-1")
         self.assertIn("still crew 10SE.2", compacted)
         self.assertIn("Your brief:", compacted)
+        self.assertNotIn("Re-arm each", compacted, "a compaction keeps the process and its cron")
         # the session goes away with its job open: reconcile names it
         (self.box.sessions / "crew-1.json").unlink()
         result = self._reconcile_with(self._gh({}))
@@ -1609,13 +1610,56 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual((job["status"], job["note"]), ("done", "closed by coordinator: its session is gone"))
         self.assertEqual(self._orphans(), [])
         # the person, from a session that is not the coordinator
-        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "morning", session="coord-1")
         row_path = next(self.box.ledger_root.glob("*/sessions/crew-1.json"))
         row = json.loads(row_path.read_text())
         row["jobs"].append({"id": "nightly", "kind": "cron", "spec": "0 2 * * *", "status": "open"})
         row_path.write_text(json.dumps(row))
         self.box.mc("jobs", "done", "nightly", "--by-user", session="crew-2")
         self.assertEqual(self._row()["jobs"][1]["note"], "closed by user: its session is gone")
+
+    def test_the_user_closes_the_job_of_a_coordinator_that_is_gone(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "*/30 * * * *", "--id", "wake", session="coord-1")
+        refused = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("belongs to the coordinator, whose session is live", refused.stdout + refused.stderr)
+        (self.box.sessions / "coord-1.json").unlink()
+        done = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree)
+        self.assertIn("it was the coordinator's, whose session is gone", done.stdout)
+        job = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())["jobs"][0]
+        self.assertEqual((job["status"], job["note"]), ("done", "closed by user: its session is gone"))
+
+    def test_a_job_id_open_on_two_gone_rows_is_refused_and_neither_is_closed(self):
+        self._crew_with_job_then_closed()
+        twin = {**self._row(), "session_id": "crew-9", "task": "10SE.3"}
+        next(self.box.ledger_root.glob("*/sessions/crew-1.json")).with_name("crew-9.json").write_text(json.dumps(twin))
+        refused = self.box.mc("jobs", "done", "watch-240", session="coord-1", expect=None)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("open on 2 rows whose sessions are gone", refused.stdout + refused.stderr)
+        self.assertEqual([self._row(s)["jobs"][0]["status"] for s in ("crew-1", "crew-9")], ["open", "open"])
+
+    def test_the_coordinators_own_job_does_not_shadow_a_gone_sessions_job_with_the_same_id(self):
+        self._crew_with_job_then_closed(job="poll")
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "poll", session="coord-1")
+        own = self.box.mc("jobs", "done", "poll", session="coord-1")
+        self.assertEqual(own.stdout.strip(), "job poll done", "its own open job is closed first")
+        self.assertEqual(self._row()["jobs"][0]["status"], "open")
+        # the coordinator's is now done; the same id reaches the gone session's
+        gone = self.box.mc("jobs", "done", "poll", session="coord-1")
+        self.assertIn("it was 10SE.2's, whose session is gone", gone.stdout)
+        self.assertEqual(self._row()["jobs"][0]["status"], "done")
+        nothing = self.box.mc("jobs", "done", "poll", session="coord-1", expect=None)
+        self.assertNotEqual(nothing.returncode, 0, "with nothing open under that id, done says so and does not report success")
+
+    def test_a_fresh_coordinator_adopted_by_the_user_is_told_to_re_arm_the_runs_jobs(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", session="coord-1")
+        (self.box.sessions / "coord-1.json").unlink()
+        self.box.register("coord-2", "mission control 2", str(self.box.repo))
+        adopted = self.box.mc("adopt", "coordinator", "--by-user", session="coord-2")
+        self.assertIn("this session now coordinates run search", adopted.stdout)
+        self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", adopted.stdout)
+        self.assertIn("Re-arm each", adopted.stdout)
 
     def test_a_live_sessions_job_is_its_own_to_close(self):
         self.box.start()

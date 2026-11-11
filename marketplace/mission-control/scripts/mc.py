@@ -1799,6 +1799,14 @@ def worktree_processes(path: Path) -> list[dict] | None:
     return found
 
 
+def rearm_line(holder: dict | None) -> str:
+    """The sentence that names a holder's open jobs to a session whose process no longer runs them; empty when it holds none."""
+    jobs = [j for j in ((holder or {}).get("jobs") or []) if j.get("status", "open") == "open"]
+    if not jobs:
+        return ""
+    return " Scheduled work this session had, which died with the process: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+
+
 def close_jobs(holder: dict, note: str) -> list[dict]:
     """Mark every open job on a session row (or on the run, for the coordinator's) done, and return the ones it closed. The caller saves and logs."""
     closed = [j for j in (holder.get("jobs") or []) if j.get("status", "open") == "open"]
@@ -2323,7 +2331,9 @@ def adopt_locked(args, ledger: Ledger) -> int:
         run["coordinator"] = {"session_id": session_id, "pid": who.get("pid"), "socket": who.get("socket"), "name": who.get("name", ""), "adopted_from": recorded.get("session_id"), "adopted_at": now(), "adopted_by": by}
         ledger.save_run(run)
         ledger.log("adopt", kind="coordinator", old=recorded.get("session_id"), new=session_id, by=by)
-        print(json.dumps(run["coordinator"]) if args.json else f"this session now coordinates run {run['name']} (was {str(recorded.get('session_id') or '?')[:8]}, {by})")
+        # a fresh process inherits the run's jobs without the crons behind them, and its start hook ran before it was the coordinator
+        rearm = "" if own_process else rearm_line(run)
+        print(json.dumps(run["coordinator"]) if args.json else f"this session now coordinates run {run['name']} (was {str(recorded.get('session_id') or '?')[:8]}, {by})" + (f".{rearm}" if rearm else ""))
         return 0
     plan = crew_for(run, os.path.abspath(args.cwd), session_id, ledger.sessions())
     if plan is None:
@@ -2778,7 +2788,8 @@ def jobs_locked(args, ledger: Ledger) -> int:
         return next((j for j in ((holder or {}).get("jobs") or []) if j.get("id") == args.ref and (not only_open or j.get("status", "open") == "open")), None)
 
     holder, owner, by = own, session_id, "session"
-    target = None if args.by_user else named(own)
+    # the coordinator can reach a gone session's job under the same id, so a finished one of its own must not stand in front of it
+    target = None if args.by_user else named(own, coordinating)
     if target is None and (coordinating or args.by_user):
         # nobody is left to close a job whose session is gone: the coordinator may, and so may the person
         by = authorise(run, session_id, args.by_user, "close another session's job")
@@ -3407,10 +3418,7 @@ def session_start_context(payload: dict) -> str:
         decisions = ledger.decisions()[-5:]
         needs = [n for n in run.get("needs", []) if n.get("status") == "open"]
         running = [n for n in run.get("needs", []) if n.get("status") == "started"]
-        own_jobs = [j for j in (run.get("jobs") or []) if j.get("status", "open") == "open"]
-        rearm = ""
-        if own_jobs and source != "compact":  # a compaction keeps the process, so what it scheduled still runs
-            rearm = " Scheduled work this session had, which died with the process: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in own_jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+        rearm = "" if source == "compact" else rearm_line(run)  # a compaction keeps the process, so what it scheduled still runs
         back = ""
         if pending or decisions or needs or running:
             pending_text = "; ".join("#%s %s" % (p.get("n"), p.get("text")) for p in pending)
@@ -3432,13 +3440,10 @@ def session_start_context(payload: dict) -> str:
     if plan is None:
         return ""
     row = ledger.sessions().get(session_id or "", {})
-    jobs = [j for j in (row.get("jobs") or []) if j.get("status", "open") == "open"]
-    rearm = ""
-    if jobs:
-        rearm = " Scheduled work this session had, which died with the process: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
-    if source == "compact" and row:
+    if source == "compact" and row:  # a compaction keeps the process, so what it scheduled still runs: no re-arm line
         return (f"Mission control: still crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
-                f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).{rearm}")
+                f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).")
+    rearm = rearm_line(row)
     brief = plan.get("brief") or ""
     has_brief = bool(brief) and Path(brief).is_file()
     collab = run.get("collaboration") or {}
