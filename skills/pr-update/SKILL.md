@@ -106,4 +106,6 @@ gh pr edit {pr} --body-file - <<'PR_EOF'
 PR_EOF
 ```
 
-Confirm success.
+The body reaches `gh` exactly as approved: never pipe it through `sed`, `awk`, `tail` or any other filter, and never edit a PR body in place with `sed -i`. A failed BSD `sed` leaves the PR with nothing but the watermark; that happened to two PRs on 4 November 2026, and another edit never reached GitHub at all. To change a body, `gh pr view {pr} --json body -q .body` into a file in the scratchpad, change it with the Edit tool, then `gh pr edit {pr} --body-file <file>`.
+
+**Read it back.** Exit 0 from `gh pr edit` proves nothing about the body. Run `gh pr view {pr} --json body -q .body` and check three things: it opens with the approved body's first heading (not a lone watermark), it holds a line only the update added, and it ends with the new `<!-- pr-update-watermark: <sha> -->`. If any check fails, the edit did not land; redo it from the approved text and read back again. Report success only after the read-back passes.

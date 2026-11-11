@@ -980,6 +980,131 @@ const requestRows = ($: EngineInterface, ui: Ui, snap: Snapshot, picked: string 
 	})
 }
 
+/** The simple commands of a shell line as lists of words: split on `;`, `&`, `|`, parentheses and newlines outside quotes, with quotes and backslashes resolved. */
+const shellCommands = (line: string): string[][] => {
+	const commands: string[][] = []
+	let words: string[] = []
+	let word = ''
+	let inWord = false
+	let quote = ''
+	const endWord = () => {
+		if (inWord) words.push(word)
+		word = ''
+		inWord = false
+	}
+	const endCommand = () => {
+		endWord()
+		if (words.length) commands.push(words)
+		words = []
+	}
+	// heredocs opened on the current line: their bodies start on the next one and are text, not commands
+	const heredocs: { delimiter: string; stripTabs: boolean }[] = []
+	for (let i = 0; i < line.length; i++) {
+		const ch = line[i]!
+		if (quote) {
+			if (ch === quote) quote = ''
+			else if (ch === '\\' && quote === '"' && i + 1 < line.length) {
+				if (line[i + 1] === '\n') i++ // a backslash before a newline joins the lines
+				else word += line[++i]
+			} else word += ch
+		} else if (ch === "'" || ch === '"') {
+			quote = ch
+			inWord = true
+		} else if (ch === '\\' && i + 1 < line.length) {
+			if (line[i + 1] === '\n') i++
+			else {
+				word += line[++i]
+				inWord = true
+			}
+		} else if (ch === '#' && !inWord) {
+			while (i + 1 < line.length && line[i + 1] !== '\n') i++ // a comment runs to the end of its line
+		} else if (ch === '<' && line[i + 1] === '<' && line[i + 2] !== '<') {
+			endWord()
+			let at = i + 2
+			const stripTabs = line[at] === '-'
+			if (stripTabs) at++
+			while (line[at] === ' ' || line[at] === '\t') at++
+			const opener = line[at]
+			let delimiter = ''
+			if (opener === "'" || opener === '"') {
+				for (at++; at < line.length && line[at] !== opener; at++) delimiter += line[at]
+				at++
+			} else {
+				for (; at < line.length && !/[\s;&|()<>]/.test(line[at]!); at++) delimiter += line[at]
+			}
+			heredocs.push({ delimiter, stripTabs })
+			i = at - 1
+		} else if (ch === '\n') {
+			endCommand()
+			let next = i + 1
+			for (const { delimiter, stripTabs } of heredocs.splice(0)) {
+				while (next < line.length) {
+					let end = line.indexOf('\n', next)
+					if (end < 0) end = line.length
+					const text = line.slice(next, end)
+					next = end + 1
+					if ((stripTabs ? text.replace(/^\t+/, '') : text) === delimiter) break
+				}
+			}
+			i = next - 1
+		} else if (/\s/.test(ch)) endWord()
+		else if (/[;&|()`]/.test(ch)) endCommand()
+		else {
+			word += ch
+			inWord = true
+		}
+	}
+	endCommand()
+	return commands
+}
+
+// words that may stand before the command word: wrappers, runners and the keywords that open a compound statement
+const WRAPPERS = new Set(['env', 'sudo', 'command', 'exec', 'nohup', 'time', 'timeout', 'nice', 'uv', 'poetry', 'run', 'then', 'do', 'else', '{', '!'])
+// the flags of a wrapper that take a value (`env -u NAME`, `nice -n 5`), so the value is not mistaken for the command
+const WRAPPER_VALUE_FLAGS: Record<string, RegExp> = { env: /^-u$/, sudo: /^-[ugCp]$/, nice: /^-n$/, timeout: /^-[sk]$/ }
+
+/** The index of the command word: past assignments, wrappers, an interpreter, their flags and a timeout's duration. */
+const commandWordAt = (words: string[]): number => {
+	let at = 0
+	let last = ''
+	while (at < words.length) {
+		const word = words[at]!
+		const base = word.split('/').pop() ?? ''
+		if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) at++
+		else if (WRAPPERS.has(base) || /^python[0-9.]*$/.test(base)) {
+			last = base
+			at++
+		} else if (word.startsWith('-')) at += WRAPPER_VALUE_FLAGS[last]?.test(word) ? 2 : 1
+		else if (/^\d+(?:\.\d+)?[smhd]?$/.test(word) && (last === 'timeout' || last === 'nice')) at++
+		else break
+	}
+	return at
+}
+
+/**
+ * A shell line that runs `mc.py start`: the script as a command word (after any wrappers and an interpreter), its global options, then `start`;
+ * `sh -c` and `bash -c` bodies are read too. A line that merely mentions both words (a grep, a commit message, an `echo`, a JSON payload,
+ * a `cd` before another script) is not a start, whatever its quoting.
+ */
+export const startsRun = (command: string, depth = 0): boolean =>
+	shellCommands(command).some(words => {
+		const at = commandWordAt(words)
+		const shell = words[at]?.split('/').pop() ?? ''
+		if (/^(?:ba|z|da|k)?sh$/.test(shell)) {
+			const flag = words.findIndex((word, index) => index > at && /^-[A-Za-z]*c$/.test(word)) // `-c`, or a cluster such as `-lc`
+			return flag > 0 && words[flag + 1] !== undefined && depth < 3 && startsRun(words[flag + 1]!, depth + 1)
+		}
+		if (words[at]?.split('/').pop() !== 'mc.py') return false
+		let next = at + 1
+		for (;;) {
+			const option = words[next]
+			if (option === '--json' || (option && /^--(?:cwd|session)=/.test(option))) next += 1
+			else if (option === '--cwd' || option === '--session') next += 2
+			else break
+		}
+		return words[next] === 'start'
+	})
+
 /** A path as a shell word: untouched while it holds nothing the shell reads, else single-quoted, the way shlex.quote does it; a checkout under a path with a space would otherwise split the `cd` the board prints. */
 export const shellWord = (word: string): string => (/^[A-Za-z0-9_@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, "'\\''")}'`)
 
@@ -1249,7 +1374,7 @@ export const register: Register = (on, options) => {
 	// Anything that touches the ledger, a PR or a worktree redraws an open board.
 	on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
 		// a run is coordinated from this session: a haiku or sonnet one is warned off before the ledger changes
-		if (/mc\.py.*\bstart\b/.test(e.command) && !/--small-model-ok\b/.test(e.command)) {
+		if (startsRun(e.command) && !/--small-model-ok\b/.test(e.command)) {
 			const small = await smallModel($)
 			if (small) return { deny: `mission-control: ${smallModelWarning(small, 'add --small-model-ok to the mc.py start line')}` }
 		}

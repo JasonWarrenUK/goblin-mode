@@ -77,7 +77,12 @@
 		"lint": "cd apps/api && poetry run poe lint",
 		"contract": "bun run contract",
 		"schema": "cd apps/api && poetry run poe schema",
+		"typecheck": "bun run check",
 		"stack_status": "python3 .claude/scripts/stack-status.py --open --json"
+	},
+	"push_gate": {
+		"commands": ["test", "typecheck", "lint"],
+		"exempt": ["*.md", "docs/*"]
 	},
 	"conventions": [
 		"CLAUDE.md",
