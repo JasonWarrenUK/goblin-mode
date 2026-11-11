@@ -1672,6 +1672,15 @@ class LedgerFlow(unittest.TestCase):
         typo = self.box.mc("jobs", "done", "mourning", session="crew-1", cwd=self.box.worktree, expect=None)
         self.assertIn("no job mourning on this session", typo.stdout + typo.stderr)
 
+    def test_a_missing_job_id_is_not_found_on_the_run_for_the_coordinator_and_the_person(self):
+        self.box.start()
+        for who in (["--by-user"], []):
+            session = "crew-1" if who else "coord-1"
+            missing = self.box.mc("jobs", "done", "zz", *who, session=session, cwd=self.box.worktree if who else None, expect=None)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn("no job zz on any session in this run", missing.stdout + missing.stderr)
+            self.assertNotIn("jobs list", missing.stdout + missing.stderr, "their own list would not show it")
+
     def test_a_gone_row_with_no_task_is_named_by_its_session_and_not_as_the_coordinator(self):
         self.box.start()
         self.box.register("crew-5", "unplanned", str(self.box.repo))

@@ -2817,8 +2817,11 @@ def jobs_locked(args, ledger: Ledger) -> int:
         if own is None and not args.by_user:
             raise Refusal("this session has not joined the run; jobs belong to a session row, or to the run for its coordinator")
         # the id exists and nothing under it is open: say that, and name no listing, since `jobs list` is the caller's own and hides a finished job
-        if any(named(h) for h in (own, *((run, *sessions.values()) if coordinating or args.by_user else ()))):
+        reaches_all = coordinating or args.by_user
+        if any(named(h) for h in (own, *((run, *sessions.values()) if reaches_all else ()))):
             raise Refusal(f"job {args.ref} is already done")
+        if reaches_all:
+            raise Refusal(f"no job {args.ref} on any session in this run")
         raise Refusal(f"no job {args.ref} on this session; `jobs list` names them")
     target["status"] = "done"
     target["done_at"] = now()
