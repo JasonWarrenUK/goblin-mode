@@ -1628,6 +1628,9 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("it was the coordinator's, whose session is gone", done.stdout)
         job = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())["jobs"][0]
         self.assertEqual((job["status"], job["note"]), ("done", "closed by user: its session is gone"))
+        again = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertNotEqual(again.returncode, 0)
+        self.assertIn("job wake is already done", again.stdout + again.stderr, "a finished job on run.json is found for the person too")
 
     def test_a_job_id_open_on_two_gone_rows_is_refused_and_neither_is_closed(self):
         self._crew_with_job_then_closed()
@@ -1651,6 +1654,7 @@ class LedgerFlow(unittest.TestCase):
         nothing = self.box.mc("jobs", "done", "poll", session="coord-1", expect=None)
         self.assertNotEqual(nothing.returncode, 0, "with nothing open under that id, done says so and does not report success")
         self.assertIn("job poll is already done", nothing.stdout + nothing.stderr)
+        self.assertNotIn("jobs list", nothing.stdout + nothing.stderr, "the coordinator's own list would not show a gone session's job")
 
     def test_a_repeated_done_is_refused_as_already_done_and_leaves_the_job_alone(self):
         self.box.start()
@@ -1702,6 +1706,18 @@ class LedgerFlow(unittest.TestCase):
         self.assertNotIn("died with", adopted["rearm"], "the old process and its cron are still running")
         run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
         self.assertNotIn("rearm", run["coordinator"], "the line is printed, never stored")
+
+    def test_adopting_from_a_cleared_coordinator_whose_process_lives_on_says_it_is_still_live(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", session="coord-1")
+        # /clear in the old coordinator: its id leaves the registry, its process and socket carry on under a new one
+        (self.box.sessions / "coord-1.json").unlink()
+        self.box.register("coord-1b", "mission control", str(self.box.repo))
+        (self.box.sessions / "coord-1b.json").write_text(json.dumps({**json.loads((self.box.sessions / "coord-1b.json").read_text()), "messagingSocketPath": "/tmp/cc-socks/coord-1.sock"}))
+        self.box.register("coord-2", "mission control 2", str(self.box.repo))
+        adopted = self.box.mc("adopt", "coordinator", "--by-user", session="coord-2")
+        self.assertIn("still live", adopted.stdout)
+        self.assertNotIn("died with", adopted.stdout)
 
     def test_a_live_sessions_job_is_its_own_to_close(self):
         self.box.start()

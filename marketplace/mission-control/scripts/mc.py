@@ -2329,13 +2329,14 @@ def adopt_locked(args, ledger: Ledger) -> int:
             raise Refusal("this session is not the coordinator's process under a new id; a fresh coordinator is adopted by the user with /mc adopt coordinator")
         by = "user" if args.by_user else "same process"
         before = str(recorded.get("session_id") or "?")[:8]
-        still_live = recorded.get("session_id") in registry()
+        # live under its recorded id, or under a new one after a /clear, which keeps the process and what it scheduled
+        still_live = recorded.get("session_id") in registry() or same_process(recorded, registry()) is not None
         run["coordinator"] = {"session_id": session_id, "pid": who.get("pid"), "socket": who.get("socket"), "name": who.get("name", ""), "adopted_from": recorded.get("session_id"), "adopted_at": now(), "adopted_by": by}
         ledger.save_run(run)
         ledger.log("adopt", kind="coordinator", old=recorded.get("session_id"), new=session_id, by=by)
         # a fresh process inherits the run's jobs without the crons behind them, and its start hook ran before it was the coordinator
         # the user can take the run from a coordinator that is still live, whose process keeps firing what it scheduled
-        whose = (f"the run's previous coordinator ({before}) had; that session is still live and its crons still fire there, so stop them there or each fires twice" if still_live
+        whose = (f"the run's previous coordinator ({before}) had; that session's process is still live and its crons still fire there, so stop them there or each fires twice" if still_live
                  else f"the run's previous coordinator ({before}) had, which died with its process")
         rearm = "" if own_process else rearm_line(run, whose)
         # the re-arm line rides on the printed record only; run.json never stores it
@@ -2815,9 +2816,9 @@ def jobs_locked(args, ledger: Ledger) -> int:
     if target is None or holder is None:
         if own is None and not args.by_user:
             raise Refusal("this session has not joined the run; jobs belong to a session row, or to the run for its coordinator")
-        # the id exists and nothing under it is open: say that, since plain `jobs list` hides a finished job
-        if any(named(h) for h in (own, *(sessions.values() if coordinating or args.by_user else ()))):
-            raise Refusal(f"job {args.ref} is already done; `jobs list --all` shows it")
+        # the id exists and nothing under it is open: say that, and name no listing, since `jobs list` is the caller's own and hides a finished job
+        if any(named(h) for h in (own, *((run, *sessions.values()) if coordinating or args.by_user else ()))):
+            raise Refusal(f"job {args.ref} is already done")
         raise Refusal(f"no job {args.ref} on this session; `jobs list` names them")
     target["status"] = "done"
     target["done_at"] = now()
