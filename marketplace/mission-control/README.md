@@ -80,7 +80,7 @@ Each of these runs against the protocol, and most were learned on a live run.
 - **Do not expect the chat to be the truth.** The board is; a session whose row is stale is told to report, not believed.
 - **Do not fix a `/clear` by editing `run.json`.** A `/clear` gives the coordinator a new session id; the board shows `rebind?` and `/mc adopt coordinator` from that session rebinds the run, logged. A crew session restarted in its worktree adopts its own row on join.
 - **Do not relay a measurement by hand.** The need is raised with kind `measurement`; `/mc done <n>` with the output pasted (or `@<file>`) sends it to the session that wanted it and closes the need in one step.
-- **Do not let a session schedule anything only in conversation.** A cron job or Monitor is recorded with `mc.py jobs add` first, so a resume is told to re-arm it; the PR watch records itself. The coordinator's open threads go on the pending list and the user's decisions on the decisions record, so a compaction loses neither.
+- **Do not let a session schedule anything only in conversation.** A cron job or Monitor is recorded with `mc.py jobs add` first, so a resume is told what it had and re-arms what is missing (CronList first, since a resume restores cron jobs); the PR watch records itself. The coordinator's open threads go on the pending list and the user's decisions on the decisions record, so a compaction loses neither.
 
 ---
 
