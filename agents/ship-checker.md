@@ -2,6 +2,7 @@
 name: ship-checker
 description: "Use this agent before shipping to run a multi-dimensional quality check. Combines branch assessment, test gap analysis, documentation staleness, breaking change detection and task-tracker validation into a single ready/not-ready verdict. Invoke with \"Am I ready to ship?\", \"check this branch\", or when conversation suggests shipping intent (PR, merge, push, ship)."
 model: opus
+effort: high
 color: red
 goblin-minion: '0.0'
 ---

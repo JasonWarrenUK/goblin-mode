@@ -2,6 +2,7 @@
 name: scope-guard
 description: "Use this agent to proactively monitor scope during planning and implementation. Detects when plans grow beyond the original ask, when branches touch unrelated files and when step counts signal complexity creep. Fires on checkpoints rather than keywords; intervenes before scope creep becomes entrenched. Invoke with \"Is this getting too big?\" or \"Check scope\"."
 model: sonnet
+effort: medium
 color: amber
 goblin-minion: '>.<'
 ---

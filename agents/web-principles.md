@@ -2,6 +2,7 @@
 name: web-principles
 description: "The judgement half of the web principles check. Reads the eleven principles in skills/web-conventions/principles.md against a wireframe, a scope document, built pages or captures, and returns findings in the observation store contract plus any amendment it wants to propose. Spawned by the web-check skill in wireframe, pass or signoff mode; invoke directly with \"check this against the web principles\"."
 model: opus
+effort: high
 color: cyan
 goblin-minion: ಠ_ರೃ
 ---
