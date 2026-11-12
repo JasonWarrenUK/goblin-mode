@@ -1877,7 +1877,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("#1 thread 1 ", hook)
         self.assertRegex(hook, r"and \d+ more in `mc\.py pending list`")
         self.assertIn("Run reconcile before saying where things stand.", hook)
-        self.assertIn("Re-arm each", hook)
+        self.assertIn("read CronList first", hook)
 
     def test_the_pre_compact_hook_tells_the_summary_what_only_the_conversation_holds(self):
         self.box.start()
