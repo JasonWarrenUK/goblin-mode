@@ -5,6 +5,25 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.7.0] - 2026-11-12
+
+### Added
+
+- Every agent in `agents/` now pins an `effort` level. Since Claude Code 2.1.317 a subagent on a model other than its session's takes that model's own default, which had left the four Opus agents reviewing at `medium` under a `high` session. The Opus agents and the four Sonnet agents pin `high`; the two Haiku agents pin `medium`, which is their default.
+- `mission-control` plugin 0.10.0: a crew launched at `low` or `medium` effort starts its launch line with `CLAUDE_CODE_SUBAGENT_EFFORT=high`, so the independent branch reviewer it dispatches runs at high effort. A crew at `high` or above gets no prefix, which would only lower its reviewer.
+- `mission-control` plugin 0.10.0: the coordinator records its own scheduled jobs (its wake cron) on `run.json` with `jobs add`, and a resumed coordinator is told about them.
+- `mission-control` plugin 0.10.0: a coordinator adopted in a new process and a crew session restarted in a fresh process are told which scheduled jobs the role carries. The start hook names them before the session joins, and `adopt` and `join` print the same line, with a `rearm` key under `--json` that the ledger never stores. A `/clear` keeps the process and its crons, so it prints nothing. The start hook also writes the process's current socket onto a crew row, so a `/clear` after a resume is still recognised as the same process.
+
+### Changed
+
+- `mission-control` plugin 0.10.0: a resumed session is told to read `CronList` first and create only a cron it does not show, because Claude Code restores cron jobs on `--resume` by itself and a blind re-arm fired a resumed coordinator's wake twice. A Monitor and a watch die with the process and are still re-armed. The re-arm line clips a job's spec to 120 characters and its prompt to 200, with `mc.py jobs list` for the rest, so twelve long jobs cannot push a resume context past the hook's 10,000 character cap.
+- `mission-control` plugin 0.10.0: `jobs done` takes open jobs only and refuses a repeat with `job <id> is already done`. A crew session's second call used to report success and rewrite `done_at`. An id that no session holds reads `no job <id> on any session in this run` for the coordinator and the person.
+
+### Fixed
+
+- `mission-control` plugin 0.10.0: the scheduled jobs of a session that has gone no longer nag on every status check. `retire` closes the jobs on the row it retires, reconcile ignores jobs on a row retired by 0.9.0 or earlier, and the coordinator or the person (`--by-user`) can close the job of a session that is gone. A run on CHIRPdb hit this with a `watch-246` job.
+- `mission-control` plugin 0.10.0: a finished job of the coordinator's no longer hides the same id open on a gone crew row, a gone crew row with no task is named by its session id and not as the coordinator, and a compacted crew session is no longer told to re-arm.
+
 ## [7.6.1] - 2026-11-12
 
 ### Fixed
@@ -499,7 +518,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.1...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.7.0...HEAD
+[7.7.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.1...v7.7.0
 [7.6.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.0...v7.6.1
 [7.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.1...v7.6.0
 [7.5.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.0...v7.5.1
