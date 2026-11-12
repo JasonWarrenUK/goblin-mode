@@ -55,6 +55,7 @@ SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.ge
 STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting-jason", "done")
 # a need's why is what the user reads before typing a hosted command, so it is not cut mid-sentence; a pasted result can be a query's whole output
 NEED_WHY_LIMIT = 1200
+HOOK_CONTEXT_LIMIT = 9500  # the harness caps a hook's output at 10,000 characters; past that the model gets a file path and a 2,000-character preview
 RESULT_LIMIT = 20_000
 # how long a decision may go unacknowledged by a session it was told to before reconcile says so
 DECISION_ACK_SECONDS = 30 * 60
@@ -3460,6 +3461,64 @@ def cmd_check(args) -> int:
     return 0
 
 
+def clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def pending_line(item: dict) -> str:
+    """One open thread as the start context says it. A held approval says held and why: its stored text still reads `landing is authorised`."""
+    if item.get("hold"):
+        return f"#{item.get('n')} PR #{item.get('pr')} approved and held, not to land yet: {item['hold']}"
+    return f"#{item.get('n')} {item.get('text')}"
+
+
+def fit_items(items: list[str], budget: int, where: str) -> str:
+    """As many items as fit the budget, joined, and a count of the rest with where to read them."""
+    kept: list[str] = []
+    for index, item in enumerate(items):
+        left = len(items) - index
+        tail = f"; and {left} more in {where}"
+        if len("; ".join(kept + [item])) + (len(tail) if left > 1 else 0) > budget:
+            return "; ".join(kept) + tail if kept else f"{left} open, too long to list here: {where}"
+        kept.append(item)
+    return "; ".join(kept)
+
+
+def pre_compact_instructions(payload: dict) -> str:
+    """What the compaction summary must keep for a session in a run: the harness uses a PreCompact hook's stdout as instructions for the summary.
+
+    The ledger keeps slots, needs, decisions and the pending list; this names what only the conversation holds.
+    """
+    cwd = payload.get("cwd") or os.getcwd()
+    session_id = payload.get("session_id")
+    try:
+        ledger = ledger_for(cwd)
+    except Refusal:
+        return ""
+    run = ledger.run()
+    if run is None:
+        return ""
+    if is_coordinator(run, session_id):
+        return (f"This session coordinates mission-control run {run['name']}. The run ledger keeps the board, slots, needs, the pending list and the user's decisions, so do not spend the summary restating them. "
+                "Keep what only this conversation holds, each with the session or person it concerns and the time: "
+                "every message sent to a crew session and not yet answered, with what was asked; "
+                "every freeze or hold still in force (hold your pushes, a hosted window, a rebase held back), who it binds and what lifts it; "
+                "every review, PR description or check-in still in flight and whose reply is awaited; "
+                "every question or proposal put to the user and not yet answered, slicing included; "
+                "the user's standing instructions for this run in their own words; "
+                "the ids of the cron jobs and Monitors this session created; "
+                "and anything promised to a session or to the user and not yet done. "
+                "State that the coordinator invokes /mission-control:coordinate and runs reconcile before its next status.")
+    plan = crew_for(run, cwd, session_id, ledger.sessions())
+    if plan is None:
+        return ""
+    return (f"This session is crew {plan['task']} ({plan.get('branch')}) in mission-control run {run['name']}; its brief is {plan.get('brief')}. "
+            "Keep: the brief path and the task; the branch, its last commit and anything uncommitted; the PR number and its state; "
+            "any slot held or requested and its deadline; the watch, cron jobs and Monitors this session started, with their ids; "
+            "every question sent to the coordinator and not yet answered; every numbered decision received and whether it was acknowledged; "
+            "and what was being done when the summary was made.")
+
+
 def session_start_context(payload: dict) -> str:
     """One paragraph for a session that starts inside a run's worktree or as its coordinator."""
     cwd = payload.get("cwd") or os.getcwd()
@@ -3479,19 +3538,21 @@ def session_start_context(payload: dict) -> str:
         needs = [n for n in run.get("needs", []) if n.get("status") == "open"]
         running = [n for n in run.get("needs", []) if n.get("status") == "started"]
         rearm = "" if source == "compact" else rearm_line(run)  # a compaction keeps the process, so what it scheduled still runs
+        head = (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
+                "Invoke /mission-control:coordinate for the protocol; /mc opens the board.")
         back = ""
         if pending or decisions or needs or running:
-            pending_text = "; ".join("#%s %s" % (p.get("n"), p.get("text")) for p in pending)
-            decision_text = "; ".join("#%s %s" % (d.get("n"), d.get("text")) for d in decisions)
+            decision_text = "; ".join("#%s %s%s" % (d.get("n"), clip(str(d.get("text")), 600), f" (about {d['about']})" if d.get("about") else "") for d in decisions)
             running_text = "; ".join("#%s since %s" % (n.get("n"), clock(n.get("started_at"))) for n in running)
-            back = (" Your open threads from the ledger, which a compaction does not keep: "
-                    + (f"pending: {pending_text}. " if pending else "")
-                    + (f"recent decisions: {decision_text}. " if decisions else "")
+            opening = " Your open threads from the ledger, which a compaction does not keep: "
+            rest = ((f"recent decisions: {decision_text}. " if decisions else "")
                     + (f"{len(needs)} need{'s' if len(needs) != 1 else ''} open. " if needs else "")
                     + (f"running for the user: {running_text}. " if running else "")
                     + "Run reconcile before saying where things stand.")
-        return (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
-                f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.{back}{rearm}")
+            # the harness cuts a hook's output at 10,000 characters and shows the model only a preview of the rest, so the pending list takes what the other parts leave
+            pending_text = fit_items([pending_line(p) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`mc.py pending list`")
+            back = opening + (f"pending: {pending_text}. " if pending else "") + rest
+        return f"{head}{back}{rearm}"
     candidate = coord.get("rebind_candidate") or {}
     if candidate.get("session_id") == session_id:
         return (f"Mission control: this process coordinated run {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
@@ -3555,6 +3616,10 @@ def cmd_hook(args) -> int:
                 json.dump(out, sys.stdout)
         elif args.event == "session-start":
             text = session_start_context(payload)
+            if text:
+                print(text)
+        elif args.event == "pre-compact":
+            text = pre_compact_instructions(payload)
             if text:
                 print(text)
     except Exception as error:  # a hook never breaks a session
@@ -3702,7 +3767,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("gate", help="run the config's push_gate commands against the committed HEAD and record the result; the PreToolUse hook then lets `git push` through only on green")
     sp.add_argument("--allow-untracked", dest="allow_untracked", action="store_true", help="run even with untracked, non-ignored files present")
     sp = sub.add_parser("hook", help="Claude Code hook entry point; reads the payload on stdin")
-    sp.add_argument("event", choices=["pre-tool-use", "session-start"])
+    sp.add_argument("event", choices=["pre-tool-use", "session-start", "pre-compact"])
     return parser
 
 

@@ -1847,6 +1847,60 @@ class LedgerFlow(unittest.TestCase):
         self.assertNotIn("CronList", later)
         self.assertIn("Re-arm each Monitor or watch", later)
 
+    def _add_pending(self, *items):
+        run_path = next(self.box.ledger_root.glob("*/run.json"))
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).extend(items)
+        run_path.write_text(json.dumps(run))
+
+    def test_a_compacted_coordinator_reads_a_held_approval_as_held_and_a_decision_with_its_subject(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self._add_pending(
+            {"id": "a1", "n": 1, "kind": "approval", "pr": 242, "text": "PR #242 approved by max; landing is authorised and waits on the coordinator", "status": "open", "at": 1.0},
+            {"id": "a2", "n": 2, "kind": "approval", "pr": 243, "text": "PR #243 approved by max; landing is authorised and waits on the coordinator", "status": "open", "at": 2.0},
+        )
+        self.box.mc("pending", "hold", "242", "--text", "lands once #240 is approved", session="coord-1")
+        self.box.mc("decide", "add", "--text", "No rerequest.", "--about", "re-requesting review on #242", "--told", "10SE.2", session="coord-1")
+        hook = self.box.hook("session-start", {"source": "compact"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("#1 PR #242 approved and held, not to land yet: lands once #240 is approved", hook)
+        self.assertNotIn("PR #242 approved by max; landing is authorised", hook, "a held approval must not read as one to land")
+        self.assertIn("#2 PR #243 approved by max; landing is authorised", hook)
+        self.assertIn("#1 No rerequest. (about re-requesting review on #242)", hook)
+
+    def test_a_long_decision_is_cut_before_its_subject_not_through_it(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("decide", "add", "--text", "y" * 700, "--about", "the merge order", "--told", "10SE.2", session="coord-1")
+        hook = self.box.hook("session-start", {"source": "compact"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("… (about the merge order)", hook, "the subject is what makes a clipped decision usable")
+        self.assertNotIn("y" * 601, hook)
+
+    def test_the_start_context_stays_under_the_hook_output_cap_and_keeps_its_last_sentence(self):
+        self.box.start()
+        self._add_pending(*[{"id": f"t{n}", "n": n, "kind": "thread", "text": f"thread {n} " + "x" * 1100, "status": "open", "at": float(n)} for n in range(1, 21)])
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", "--reason", "wake", session="coord-1")
+        hook = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertLess(len(hook), 10_000, "past 10,000 characters the harness shows the model a 2,000-character preview")
+        self.assertIn("#1 thread 1 ", hook)
+        self.assertRegex(hook, r"and \d+ more in `mc\.py pending list`")
+        self.assertIn("Run reconcile before saying where things stand.", hook)
+        self.assertIn("read CronList first", hook)
+
+    def test_the_pre_compact_hook_tells_the_summary_what_only_the_conversation_holds(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        coordinator = self.box.hook("pre-compact", {"trigger": "manual", "custom_instructions": None}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("coordinates mission-control run", coordinator)
+        self.assertIn("not yet answered", coordinator)
+        self.assertIn("freeze or hold still in force", coordinator)
+        self.assertLess(len(coordinator), 10_000)
+        crew = self.box.hook("pre-compact", {"trigger": "auto"}, session="crew-1", cwd=self.box.worktree)
+        self.assertIn("crew 10SE.2", crew)
+        self.assertIn("its brief is", crew)
+        self.assertEqual(self.box.hook("pre-compact", {"trigger": "manual"}, session="stranger", cwd=self.box.repo), "", "a session outside the run gets no instructions")
+
     def test_a_crew_below_high_effort_launches_with_its_subagents_raised_to_high(self):
         self.box.start()
         self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", "--effort", "medium", session="coord-1")

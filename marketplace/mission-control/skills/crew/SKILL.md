@@ -50,7 +50,7 @@ A question only the user can answer (an AskUserQuestion, a choice of positions o
 
 Three things live in the ledger so a close, a resume or a compaction does not lose them:
 
-- **Scheduled work.** Every cron job or Monitor you set up is recorded first with `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py jobs add --kind cron|monitor --spec <expression or condition> --prompt <what runs> --reason <why> --id <stable id>`, and `jobs done <id>` when it is no longer wanted; the PR watcher keeps its own entry. A resumed session is told, in its start context, which of them died with the process and re-arms each one. Nothing scheduled lives only in conversation.
+- **Scheduled work.** Every cron job or Monitor you set up is recorded first with `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py jobs add --kind cron|monitor --spec <expression or condition> --prompt <what runs> --reason <why> --id <stable id>`, and `jobs done <id>` when it is no longer wanted; the PR watcher keeps its own entry. A resumed session is told, in its start context, what it had: a resume restores cron jobs by itself, so read CronList first and re-create only a cron it does not show, while a Monitor or a watch is re-armed. Nothing scheduled lives only in conversation.
 - **Your row.** A session restarted fresh (or cleared) in this worktree carries on the old row: state, summary, PR, slots and needs. Nothing to do; `join` adopts it.
 - **The brief.** Keep one line in your working notes naming the run, your task, the brief path and your state, so a compaction's summary carries it; the mod's prompt section and the post-compaction hook both name the brief path again, and you reread it.
 

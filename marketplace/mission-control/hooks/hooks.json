@@ -13,6 +13,17 @@
 				]
 			}
 		],
+		"PreCompact": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "command -v python3 >/dev/null 2>&1 || exit 0; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/mc.py\" hook pre-compact",
+						"timeout": 10
+					}
+				]
+			}
+		],
 		"PreToolUse": [
 			{
 				"matcher": "Bash",

@@ -80,7 +80,7 @@ Each of these runs against the protocol, and most were learned on a live run.
 - **Do not expect the chat to be the truth.** The board is; a session whose row is stale is told to report, not believed.
 - **Do not fix a `/clear` by editing `run.json`.** A `/clear` gives the coordinator a new session id; the board shows `rebind?` and `/mc adopt coordinator` from that session rebinds the run, logged. A crew session restarted in its worktree adopts its own row on join.
 - **Do not relay a measurement by hand.** The need is raised with kind `measurement`; `/mc done <n>` with the output pasted (or `@<file>`) sends it to the session that wanted it and closes the need in one step.
-- **Do not let a session schedule anything only in conversation.** A cron job or Monitor is recorded with `mc.py jobs add` first, so a resume is told to re-arm it; the PR watch records itself. The coordinator's open threads go on the pending list and the user's decisions on the decisions record, so a compaction loses neither.
+- **Do not let a session schedule anything only in conversation.** A cron job or Monitor is recorded with `mc.py jobs add` first, so a resume is told what it had and re-arms what is missing (CronList first, since a resume restores cron jobs); the PR watch records itself. The coordinator's open threads go on the pending list and the user's decisions on the decisions record, so a compaction loses neither.
 
 ---
 
@@ -138,6 +138,8 @@ Three things enforce the slot; none asks a session to do what its own permission
 - **`PreToolUse` on Bash** (`scripts/mc.py hook pre-tool-use`): during a run, a command matching a resource's `gate` is refused unless this session holds the slot and runs it from its own worktree. The refusal says who holds it and how to ask, and the attempt appears on the board as a request. A `human_gate` resource gets context instead of a verdict. The same hook gates a command inside `sh -c`, `bash -c` or `zsh -c`, and a subagent's calls count as its parent's. `--by-user`, `--session` and `CLAUDE_CODE_SESSION_ID=` on a model's `mc.py` command line are refused.
 - **The mod's `tool.check` on Bash**: when the project's own hook answers `ask` on a gated command (CHIRPdb's `db-reset-local-anyway`, say), and this session holds the slot, runs from its worktree and the resource is `approve_in_slot`, the mod answers `allow`. A `deny` is never loosened. Off with the `approve_in_slot` option.
 - **`SessionStart`** (`scripts/mc.py hook session-start`): a session starting inside a planned worktree is told its task, the coordinator's name and socket, where its brief is and to invoke `/mission-control:crew`.
+
+A fourth hook has nothing to do with slots: `PreCompact` (`scripts/mc.py hook pre-compact`) tells the compaction summary what a session in a run must keep. `references/config.md` says what each hook does.
 
 Hosted reads, credentials, writes, merges and anything irreversible stay with the user: the config marks them `human_gate`, no slot covers them, and the path is the needs list with the exact command. A hosted command's directory is the main checkout: only that tree is linked to the hosted project (the link is in a git-ignored folder a worktree does not get), so `needs add` moves a worktree directory to the same place in the main checkout and says so on the need.
 
