@@ -5,6 +5,14 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.6.1] - 2026-11-12
+
+### Fixed
+
+- `pr-review` no longer leaves an empty draft review on a pull request when its own prose checks reject the summary. Step 5 now captures the findings script's output first and posts to GitHub only when the script succeeded and produced a payload, where the old single pipe started posting before the script's failure could stop it. The explanation crediting `pipefail` with the protection is corrected, and `gh api` now prints just the review id that step 6 needs.
+- `pr-review` can post from a worktree-isolated session. Claude Code refuses a Bash call whose heredoc body holds a brace, so step 5 gains a fallback that writes the findings JSON to the scratchpad and runs the same capture-then-post shape with no heredoc.
+- The usage comment in `partition-findings.mjs` and the `pr-review` intro no longer describe the one-pipe posting method.
+
 ## [7.6.0] - 2026-11-11
 
 ### Added
@@ -491,7 +499,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.1...HEAD
+[7.6.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.0...v7.6.1
 [7.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.1...v7.6.0
 [7.5.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.0...v7.5.1
 [7.5.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.4.0...v7.5.0
