@@ -977,6 +977,8 @@ def pr_facts(ledger: Ledger, numbers: set[int], fresh: set[int] | None = None) -
 
 # how long a merged task's worktree may sit before reconcile nudges the coordinator to retire it
 RETIRE_NUDGE_SECONDS = 60 * 60
+# the context fill from which reconcile asks for a compaction: the pane's amber threshold
+CONTEXT_NUDGE_PERCENT = 70
 
 
 def merged_at(facts: dict | None) -> float | None:
@@ -1055,6 +1057,11 @@ def reconcile(ledger: Ledger) -> dict:
     for sid, row in sessions.items():
         if sid not in live and row.get("state") != "done":
             note("gone", f"session {row.get('name') or sid[:8]} is no longer running but its row reads {row.get('state')}", row.get("task", ""), sid, row.get("pr"))
+    for sid, row in sessions.items():
+        # a coordinator cannot compact a crew session; only the user can. A gone session's figure is stale, and `gone` already covers it
+        fill = row.get("context_percent")
+        if sid in live and row.get("state") != "done" and isinstance(fill, int) and fill >= CONTEXT_NUDGE_PERCENT:
+            note("context-high", f"context {fill}%; only the user can compact it, so ask them to before its next long task (a PR description, a pool pass)", row.get("task", ""), sid, row.get("pr"))
     joined_tasks = {row.get("task") for row in sessions.values()}
     for entry in run.get("crew", []):
         task = entry.get("task", "")
@@ -1326,7 +1333,9 @@ def print_status(status: dict) -> None:
     print("| Session | Task | Branch | State | Summary | PR |")
     print("|---|---|---|---|---|---|")
     for s in live_rows:
-        state = f"{s.get('state', '')}{' · waiting on you' if s.get('live_status') == 'waiting' else ''}"
+        # the fill is shown for live rows only: a gone session's last figure would read as current
+        fill = f" · ctx {s['context_percent']}%" if isinstance(s.get("context_percent"), int) else ""
+        state = f"{s.get('state', '')}{' · waiting on you' if s.get('live_status') == 'waiting' else ''}{fill}"
         print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {state} | {s.get('summary', '')} | {pr_cell(s)} |")
     if running:
         # started by the user and still going: nothing to type, the result is what closes it
