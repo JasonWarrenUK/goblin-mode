@@ -1814,6 +1814,24 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(json.loads(self.box.mc("jobs", "list", session="coord-1").stdout), [])
         self.assertNotIn("Scheduled work", self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo))
 
+    def test_a_dozen_long_jobs_cannot_push_the_resume_context_past_the_hook_cap(self):
+        self.box.start()
+        for n in range(12):
+            self.box.mc("jobs", "add", "--kind", "monitor", "--id", f"tail-{n}", "--spec", f"spec{n}-" + "s" * 400, "--prompt", f"prompt{n}-" + "p" * 400, session="coord-1")
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertNotIn("p" * 300, resumed, "a prompt is clipped, not printed whole")
+        self.assertNotIn("s" * 300, resumed, "a spec is clipped, not printed whole")
+        self.assertIn("prompt11-", resumed, "every job is still named")
+        self.assertIn("jobs list", resumed, "the clipped text is one command away")
+        self.assertLess(len(resumed), 5000, "twelve long jobs leave the rest of the context its room under the 10,000 character hook cap")
+
+    def test_a_short_job_prints_whole_and_says_nothing_about_a_clip(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", session="coord-1")
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", resumed)
+        self.assertNotIn("jobs list", resumed)
+
     def test_a_resume_re_arms_a_monitor_and_a_watch_but_only_checks_a_cron(self):
         self.box.start()
         self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 * * * *", session="coord-1")

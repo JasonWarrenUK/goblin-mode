@@ -1799,6 +1799,10 @@ def worktree_processes(path: Path) -> list[dict] | None:
     return found
 
 
+REARM_SPEC_LIMIT = 120  # characters of a job's spec the re-arm line prints
+REARM_PROMPT_LIMIT = 200  # characters of a job's prompt the re-arm line prints
+
+
 def rearm_line(holder: dict | None, whose: str = "this session had", restored: bool = True) -> str:
     """The sentence that names a holder's open jobs to a session whose process does not run them; empty when it holds none. `whose` says whose work it was: the default is a resumed session's own.
 
@@ -1819,7 +1823,20 @@ def rearm_line(holder: dict | None, whose: str = "this session had", restored: b
         tail = ". " + " ".join(parts)
     else:
         tail = ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
-    return f" Scheduled work {whose}: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + tail
+    # `jobs add` stores a spec and a prompt uncut and the hook that prints this has a 10,000 character cap, so each is clipped here
+    clipped = False
+
+    def cut(text: str, limit: int) -> str:
+        nonlocal clipped
+        text = str(text)
+        if len(text) <= limit:
+            return text
+        clipped = True
+        return text[:limit - 1].rstrip() + "…"
+
+    named = "; ".join(f"{j.get('kind')} {j.get('id')} ({cut(j.get('spec') or '', REARM_SPEC_LIMIT)}{': ' + cut(j['prompt'], REARM_PROMPT_LIMIT) if j.get('prompt') else ''})" for j in jobs)
+    note = " Text ending in … is clipped: `mc.py jobs list` has the whole of it." if clipped else ""
+    return f" Scheduled work {whose}: " + named + note + tail
 
 
 def adopted_rearm(old: dict, who: dict, live: dict[str, dict]) -> str:
