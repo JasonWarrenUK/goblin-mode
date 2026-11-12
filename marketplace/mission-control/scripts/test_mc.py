@@ -671,12 +671,15 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("report", "--context", "85", session="crew-1")
         self.box.mc("report", "--context", "50", session="crew-2")
         self.box.mc("report", "--context", "70", session="crew-3")
+        # renamed after it joined: the line names the window as it is now, not as the row remembers it
+        self.box.register("crew-3", "10se5-renamed", str(self.box.repo))
         open_pr = {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}
         result = self._reconcile_with(self._gh({"213": open_pr, "214": open_pr, "215": open_pr}))
         high = {item["task"]: item for item in result["drift"] if item["kind"] == "context-high"}
         self.assertEqual(sorted(high), ["10SE.2", "10SE.5"], "70 is the threshold; 50 is quiet")
         self.assertIn("context 85%", high["10SE.2"]["detail"])
         self.assertIn("only the user can compact it", high["10SE.2"]["detail"])
+        self.assertIn("session 10se5-renamed at context 70%", high["10SE.5"]["detail"])
 
     def test_reconcile_ignores_the_last_context_figure_of_a_gone_or_done_session(self):
         self.box.start()

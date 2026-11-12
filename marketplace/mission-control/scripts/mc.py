@@ -1061,7 +1061,8 @@ def reconcile(ledger: Ledger) -> dict:
         # a coordinator cannot compact a crew session; only the user can. A gone session's figure is stale, and `gone` already covers it
         fill = row.get("context_percent")
         if sid in live and row.get("state") != "done" and isinstance(fill, int) and fill >= CONTEXT_NUDGE_PERCENT:
-            note("context-high", f"context {fill}%; only the user can compact it, so ask them to before its next long task (a PR description, a pool pass)", row.get("task", ""), sid, row.get("pr"))
+            window = live[sid].get("name") or row.get("name") or sid[:8]
+            note("context-high", f"session {window} at context {fill}%; only the user can compact it, so ask them to before its next long task (a PR description, a pool pass)", row.get("task", ""), sid, row.get("pr"))
     joined_tasks = {row.get("task") for row in sessions.values()}
     for entry in run.get("crew", []):
         task = entry.get("task", "")
