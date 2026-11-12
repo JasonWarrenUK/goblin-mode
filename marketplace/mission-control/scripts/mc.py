@@ -3542,7 +3542,7 @@ def session_start_context(payload: dict) -> str:
                 "Invoke /mission-control:coordinate for the protocol; /mc opens the board.")
         back = ""
         if pending or decisions or needs or running:
-            decision_text = "; ".join(clip("#%s %s%s" % (d.get("n"), d.get("text"), f" (about {d['about']})" if d.get("about") else ""), 600) for d in decisions)
+            decision_text = "; ".join("#%s %s%s" % (d.get("n"), clip(str(d.get("text")), 600), f" (about {d['about']})" if d.get("about") else "") for d in decisions)
             running_text = "; ".join("#%s since %s" % (n.get("n"), clock(n.get("started_at"))) for n in running)
             opening = " Your open threads from the ledger, which a compaction does not keep: "
             rest = ((f"recent decisions: {decision_text}. " if decisions else "")

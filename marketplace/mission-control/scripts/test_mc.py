@@ -1868,6 +1868,14 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("#2 PR #243 approved by max; landing is authorised", hook)
         self.assertIn("#1 No rerequest. (about re-requesting review on #242)", hook)
 
+    def test_a_long_decision_is_cut_before_its_subject_not_through_it(self):
+        self.box.start()
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("decide", "add", "--text", "y" * 700, "--about", "the merge order", "--told", "10SE.2", session="coord-1")
+        hook = self.box.hook("session-start", {"source": "compact"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("… (about the merge order)", hook, "the subject is what makes a clipped decision usable")
+        self.assertNotIn("y" * 601, hook)
+
     def test_the_start_context_stays_under_the_hook_output_cap_and_keeps_its_last_sentence(self):
         self.box.start()
         self._add_pending(*[{"id": f"t{n}", "n": n, "kind": "thread", "text": f"thread {n} " + "x" * 1100, "status": "open", "at": float(n)} for n in range(1, 21)])
