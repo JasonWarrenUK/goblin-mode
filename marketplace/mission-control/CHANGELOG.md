@@ -4,6 +4,18 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-12
+
+### Added
+
+- A `PreCompact` hook (`mc.py hook pre-compact`) tells the compaction summary what only the conversation holds. The coordinator is asked to keep unanswered messages, freezes and holds in force, reviews in flight, questions put to the user, the user's standing instructions and the ids of its scheduled jobs, and to leave board state to the ledger. A crew session, found by its row or by the planned worktree it runs in, is asked to keep its brief, branch, PR, slot and scheduled work. A session outside a run gets nothing. `references/config.md` and the README list the hook.
+
+### Fixed
+
+- A compacted coordinator no longer reads an approval the user put on hold as one to land. The start context prints a held approval as held with its reason and prints each decision with what it concerns, cutting a long decision before its subject so the subject survives. A real compaction of a live run on 11 November 2026 showed all three faults.
+- The coordinator's start context fits the harness's hook output cap. The pending list takes the room the other parts leave under 9,500 characters and ends with a count of the rest and `mc.py pending list`, so the closing reconcile sentence and the re-arm line are never the part that gets cut.
+- The protocol, README, coordinate skill and crew skill now say that a resume restores cron jobs, so a session reads `CronList` first and re-arms only what is missing, in line with what the hook prints.
+
 ## [0.10.0] - 2026-11-12
 
 ### Added
