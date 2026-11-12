@@ -4,6 +4,12 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-12
+
+### Fixed
+
+- The Needs Jason and Running lists on the board are readable at the pane's width. Each need's number, task tag, markers and (for a running need) start time sit on one row that wraps when it runs long, and the command, the why and a running need's note each take a full-width line beneath it, indented four columns. The why used to share a row with the tag and markers and could be left ten columns wide, wrapping one or two words to a line. A running need's note shows a single line until the need is picked and wraps in full after that.
+
 ## [0.11.0] - 2026-11-12
 
 ### Added
