@@ -139,6 +139,8 @@ Three things enforce the slot; none asks a session to do what its own permission
 - **The mod's `tool.check` on Bash**: when the project's own hook answers `ask` on a gated command (CHIRPdb's `db-reset-local-anyway`, say), and this session holds the slot, runs from its worktree and the resource is `approve_in_slot`, the mod answers `allow`. A `deny` is never loosened. Off with the `approve_in_slot` option.
 - **`SessionStart`** (`scripts/mc.py hook session-start`): a session starting inside a planned worktree is told its task, the coordinator's name and socket, where its brief is and to invoke `/mission-control:crew`.
 
+A fourth hook has nothing to do with slots: `PreCompact` (`scripts/mc.py hook pre-compact`) tells the compaction summary what a session in a run must keep. `references/config.md` says what each hook does.
+
 Hosted reads, credentials, writes, merges and anything irreversible stay with the user: the config marks them `human_gate`, no slot covers them, and the path is the needs list with the exact command. A hosted command's directory is the main checkout: only that tree is linked to the hosted project (the link is in a git-ignored folder a worktree does not get), so `needs add` moves a worktree directory to the same place in the main checkout and says so on the need.
 
 ### 5.1. The push gate
