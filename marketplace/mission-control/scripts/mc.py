@@ -61,6 +61,9 @@ DECISION_ACK_SECONDS = 30 * 60
 # the states a release puts back; anything else the slot interrupted was plain work
 RESTORED_STATES = ("pr-ready", "blocked", "waiting-jason", "done")
 BY_USER = "--by-user"
+SUBAGENT_EFFORT_ENV = "CLAUDE_CODE_SUBAGENT_EFFORT"
+SUBAGENT_EFFORT_FLOOR = "high"
+SUBAGENT_EFFORT_RAISED = ("low", "medium")  # the crew efforts whose launch line raises its subagents to the floor
 SEPARATORS = re.compile(r"^[();<>|&\n]+$")
 REDIRECT = re.compile(r"^&?[<>]+&?$")
 ASSIGNMENT = re.compile(r"^[A-Za-z_]\w*=")
@@ -1168,7 +1171,7 @@ def reconcile(ledger: Ledger) -> dict:
 
     # a scheduled job (a watch, a cron, a Monitor) dies with its process; one whose session is gone is named so it is re-armed or dropped
     for sid, row in sessions.items():
-        if sid in live:
+        if sid in live or row.get("retired"):  # a retired row's session is gone for good; rows retired before `retire` closed jobs still carry open ones
             continue
         for job in row.get("jobs") or []:
             if job.get("status", "open") == "open":
@@ -1796,6 +1799,68 @@ def worktree_processes(path: Path) -> list[dict] | None:
     return found
 
 
+REARM_SPEC_LIMIT = 120  # characters of a job's spec the re-arm line prints
+REARM_PROMPT_LIMIT = 200  # characters of a job's prompt the re-arm line prints
+
+
+def rearm_line(holder: dict | None, whose: str = "this session had", restored: bool = True) -> str:
+    """The sentence that names a holder's open jobs to a session whose process does not run them; empty when it holds none. `whose` says whose work it was: the default is a resumed session's own.
+
+    `restored` is true for a resume: Claude Code brings unexpired cron jobs back by itself (its changelog, 2.1.110),
+    so a cron is checked against CronList and never created blind, while a Monitor and a watch died with the process.
+    Pass false for a different session taking the work over, whose crons nothing restored.
+    """
+    jobs = [j for j in ((holder or {}).get("jobs") or []) if j.get("status", "open") == "open"]
+    if not jobs:
+        return ""
+    if restored:
+        parts = []
+        if any(j.get("kind") == "cron" for j in jobs):
+            parts.append("Claude Code restores cron jobs on a resume by itself: read CronList first and create only a cron it does not show (a second copy fires twice).")
+        if any(j.get("kind") != "cron" for j in jobs):
+            parts.append("Re-arm each Monitor or watch, which died with the process.")
+        parts.append("`mc.py jobs done <id>` for one that is no longer wanted.")
+        tail = ". " + " ".join(parts)
+    else:
+        tail = ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+    # `jobs add` stores a spec and a prompt uncut and the hook that prints this has a 10,000 character cap, so each is clipped here
+    clipped = False
+
+    def cut(text: str, limit: int) -> str:
+        nonlocal clipped
+        text = str(text)
+        if len(text) <= limit:
+            return text
+        clipped = True
+        return text[:limit - 1].rstrip() + "…"
+
+    named = "; ".join(f"{j.get('kind')} {j.get('id')} ({cut(j.get('spec') or '', REARM_SPEC_LIMIT)}{': ' + cut(j['prompt'], REARM_PROMPT_LIMIT) if j.get('prompt') else ''})" for j in jobs)
+    note = " Text ending in … is clipped: `mc.py jobs list` has the whole of it." if clipped else ""
+    return f" Scheduled work {whose}: " + named + note + tail
+
+
+def adopted_rearm(old: dict, who: dict, live: dict[str, dict]) -> str:
+    """The re-arm sentence for a crew session about to adopt `old`'s row: empty when it is the row's own process under a new id (a /clear keeps the process and what it scheduled), otherwise the row's open jobs, which died with the old process. A crew row stores its socket but no pid, so a gone session is matched by socket."""
+    old_id = old.get("session_id", "")
+    if old_id in live:
+        same = same_identity(who.get("pid"), who.get("socket"), live[old_id].get("pid"), live[old_id].get("messagingSocketPath"))
+    else:
+        same = bool(old.get("socket")) and old.get("socket") == who.get("socket")
+    if same:
+        return ""
+    return rearm_line(old, f"{old.get('task') or old_id[:8]}'s previous session ({old_id[:8]}) had, which died with its process", restored=False)
+
+
+def close_jobs(holder: dict, note: str) -> list[dict]:
+    """Mark every open job on a session row (or on the run, for the coordinator's) done, and return the ones it closed. The caller saves and logs."""
+    closed = [j for j in (holder.get("jobs") or []) if j.get("status", "open") == "open"]
+    for job in closed:
+        job["status"] = "done"
+        job["done_at"] = now()
+        job["note"] = note
+    return closed
+
+
 def cmd_retire(args) -> int:
     ledger = ledger_for(args.cwd)
     with ledger.locked():
@@ -1874,7 +1939,11 @@ def retire_locked(args, ledger: Ledger) -> int:
     branch_deleted = bool(branch) and run_git(ledger.main, "branch", "-d", branch) is not None
     row["retired"] = {"at": now(), "by": by, "worktree": str(worktree), "bytes_freed": size, "branch_deleted": branch_deleted}
     row["updated_at"] = now()
+    # the session is gone and its PR has landed, so nothing it scheduled is left to re-arm: a job left open would read as drift until `end`
+    closed = close_jobs(row, f"retired by {by}")
     ledger.save_session(row)
+    for job in closed:
+        ledger.log("job-done", session_id=session_id, id=job["id"], by=by, note="row retired")
     ledger.log("retire", session_id=session_id, task=row.get("task", ""), branch=branch, worktree=str(worktree), bytes_freed=size, branch_deleted=branch_deleted, by=by)
     branch_word = f"branch {branch} deleted" if branch_deleted else (f"branch {branch} kept: `git branch -d` refused it (not fully merged here; `git branch -D` is the user's call)" if branch else "no branch recorded")
     print(json.dumps(row) if args.json else f"retired {label}: worktree {worktree} removed ({human_bytes(size)} freed), {branch_word}; {merged}")
@@ -2186,7 +2255,11 @@ def launch_line(run: dict, entry: dict, plugin_dir: str | None) -> str:
     if plugin_dir:
         flags += ["--plugin-dir", shlex.quote(plugin_dir)]
     prompt = f"Start: you are crew {task} in run {run['name']}. Read your brief at {entry['brief']}, invoke /mission-control:crew and answer its five questions to the coordinator."
-    return " ".join(["claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} crew"), shlex.quote(prompt)])
+    # A subagent on the session's model runs at the session's effort, so a crew launched at low or medium would hand its
+    # fresh-eyes review (crew skill step 1b) to a reviewer at that level. CLAUDE_CODE_SUBAGENT_EFFORT (Claude Code 2.1.316)
+    # names the level for subagents nothing else sets one for; a crew at high or above is left alone, since the variable would lower its reviewer.
+    env = [f"{SUBAGENT_EFFORT_ENV}={SUBAGENT_EFFORT_FLOOR}"] if entry.get("effort") in SUBAGENT_EFFORT_RAISED else []
+    return " ".join([*env, "claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} crew"), shlex.quote(prompt)])
 
 
 def raise_launch_need(ledger: Ledger, run: dict, entry: dict, reason: str | None, plugin_dir: str | None) -> dict:
@@ -2299,10 +2372,19 @@ def adopt_locked(args, ledger: Ledger) -> int:
         if not own_process and not args.by_user:
             raise Refusal("this session is not the coordinator's process under a new id; a fresh coordinator is adopted by the user with /mc adopt coordinator")
         by = "user" if args.by_user else "same process"
+        before = str(recorded.get("session_id") or "?")[:8]
+        # live under its recorded id, or under a new one after a /clear, which keeps the process and what it scheduled
+        still_live = recorded.get("session_id") in registry() or same_process(recorded, registry()) is not None
         run["coordinator"] = {"session_id": session_id, "pid": who.get("pid"), "socket": who.get("socket"), "name": who.get("name", ""), "adopted_from": recorded.get("session_id"), "adopted_at": now(), "adopted_by": by}
         ledger.save_run(run)
         ledger.log("adopt", kind="coordinator", old=recorded.get("session_id"), new=session_id, by=by)
-        print(json.dumps(run["coordinator"]) if args.json else f"this session now coordinates run {run['name']} (was {str(recorded.get('session_id') or '?')[:8]}, {by})")
+        # a fresh process inherits the run's jobs without the crons behind them, and its start hook ran before it was the coordinator
+        # the user can take the run from a coordinator that is still live, whose process keeps firing what it scheduled
+        whose = (f"the run's previous coordinator ({before}) had; that session's process is still live and its crons still fire there, so stop them there or each fires twice" if still_live
+                 else f"the run's previous coordinator ({before}) had, which died with its process")
+        rearm = "" if own_process else rearm_line(run, whose, restored=False)
+        # the re-arm line rides on the printed record only; run.json never stores it
+        print(json.dumps({**run["coordinator"], **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"this session now coordinates run {run['name']} (was {before}, {by})" + (f".{rearm}" if rearm else ""))
         return 0
     plan = crew_for(run, os.path.abspath(args.cwd), session_id, ledger.sessions())
     if plan is None:
@@ -2313,9 +2395,11 @@ def adopt_locked(args, ledger: Ledger) -> int:
     old = stale_row_for(ledger, plan, who)
     if old is None:
         raise Refusal(f"no row for {plan['task']} to adopt; `mc.py join --planned` makes a fresh one")
+    rearm = adopted_rearm(old, who, registry())
     row = adopt_row(ledger, old, session_id, who)
     close_launch_need(ledger, row.get("task") or plan.get("task") or "", session_id)
-    print(json.dumps(row) if args.json else f"adopted {row.get('task')}'s row from session {old['session_id'][:8]} ({row.get('state')})")
+    # the re-arm line rides on the printed row only; the ledger never stores it
+    print(json.dumps({**row, **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"adopted {row.get('task')}'s row from session {old['session_id'][:8]} ({row.get('state')})" + (f".{rearm}" if rearm else ""))
     return 0
 
 
@@ -2343,9 +2427,10 @@ def join_locked(args, ledger: Ledger) -> int:
         # a session restarted fresh or cleared in a planned worktree carries on the old row: its state, PR, summary and slots
         old = stale_row_for(ledger, plan, who)
         if old:
+            rearm = adopted_rearm(old, who, registry())
             row = adopt_row(ledger, old, session_id, who)
             close_launch_need(ledger, row.get("task") or task, session_id)
-            print(json.dumps(row) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined run {run['name']}")
+            print(json.dumps({**row, **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined run {run['name']}" + (f".{rearm}" if rearm else ""))
             return 0
     row.update({
         "session_id": session_id,
@@ -2715,36 +2800,86 @@ def cmd_jobs(args) -> int:
 
 
 def jobs_locked(args, ledger: Ledger) -> int:
-    """A session's scheduled state in the ledger, so a resume can re-arm it: each cron job, Monitor and watch, with its spec and reason. `mc.py watch` keeps its own entry."""
-    ledger.require_run()
+    """A session's scheduled state in the ledger, so a resume can re-arm it: each cron job, Monitor and watch, with its spec and reason. `mc.py watch` keeps its own entry.
+
+    A crew session's jobs live on its row. The coordinator has no row, so its
+    jobs (the wake cron) live on run.json. A job whose session is gone can be
+    closed by the coordinator or by the user, since nobody else is left to.
+    """
+    run = ledger.require_run()
     session_id = caller_session(args.session)
     sessions = ledger.sessions()
+    coordinating = is_coordinator(run, session_id)
+    coordinator_id = run.get("coordinator", {}).get("session_id") or ""
     if args.action == "list":
         target = resolve_session(args.ref, sessions) if args.ref else session_id
         rows = [{**job, "task": r.get("task", ""), "session_id": sid} for sid, r in sessions.items() if (target is None or sid == target) for job in (r.get("jobs") or []) if args.all or job.get("status", "open") == "open"]
+        if target is None or (coordinating and not args.ref):
+            rows += [{**job, "task": "coordinator", "session_id": coordinator_id} for job in (run.get("jobs") or []) if args.all or job.get("status", "open") == "open"]
         print(json.dumps(rows, indent=2))
         return 0
     row = sessions.get(session_id or "")
-    if row is None:
-        raise Refusal("this session has not joined the run; jobs belong to a session row")
-    jobs = row.setdefault("jobs", [])
+    # where this session's own jobs are kept: its row, or the run for the coordinator
+    own = row if row is not None else (run if coordinating else None)
     if args.action == "add":
+        if args.by_user:
+            raise Refusal(f"`jobs add` records what this session scheduled, so it takes no `{BY_USER}`")
+        if own is None:
+            raise Refusal("this session has not joined the run; jobs belong to a session row, or to the run for its coordinator")
         if not args.kind or not args.spec:
             raise Refusal("jobs add needs --kind (cron, monitor, watch, other) and --spec (the cron expression, the Monitor's condition, the watch's PR)")
         job = {"id": args.id or f"{args.kind}-{uuid.uuid4().hex[:6]}", "kind": args.kind, "spec": args.spec.strip(), "prompt": (args.prompt or "").strip(), "reason": (args.reason or "").strip()[:240], "status": "open", "at": now()}
-        jobs[:] = [j for j in jobs if j.get("id") != job["id"]] + [job]
-        ledger.save_session(row)
+        own["jobs"] = [j for j in (own.get("jobs") or []) if j.get("id") != job["id"]] + [job]
+        if own is run:
+            ledger.save_run(run)
+        else:
+            ledger.save_session(own)
         ledger.log("job", session_id=session_id, **job)
         print(json.dumps(job) if args.json else f"job {job['id']} recorded ({job['kind']}: {job['spec']}); a resume of this session is told to re-arm it")
         return 0
-    target = next((j for j in jobs if j.get("id") == args.ref), None)
-    if target is None:
+
+    def named(holder: dict | None, only_open: bool = False) -> dict | None:
+        return next((j for j in ((holder or {}).get("jobs") or []) if j.get("id") == args.ref and (not only_open or j.get("status", "open") == "open")), None)
+
+    holder, owner, by = own, session_id, "session"
+    # open jobs only: the coordinator can reach a gone session's job under the same id, so a finished one of its own must not stand in front of it, and a repeat closes nothing
+    target = None if args.by_user else named(own, True)
+    if target is None and (coordinating or args.by_user):
+        # nobody is left to close a job whose session is gone: the coordinator may, and so may the person
+        by = authorise(run, session_id, args.by_user, "close another session's job")
+        live = registry()
+        gone = [(sid, r) for sid, r in sessions.items() if named(r, True) and (sid not in live or r.get("retired"))]
+        if len(gone) > 1:
+            raise Refusal(f"job {args.ref} is open on {len(gone)} rows whose sessions are gone ({', '.join(r.get('task') or sid[:8] for sid, r in gone)}); `jobs done` cannot tell which, and `retire` closes a row's jobs")
+        if gone:
+            owner, holder = gone[0]
+            target = named(holder, True)
+        elif args.by_user and named(run, True) and coordinator_id not in live:
+            owner, holder, target = coordinator_id, run, named(run, True)
+        else:
+            still = next((r.get("task") or sid[:8] for sid, r in sessions.items() if named(r, True)), None) or ("the coordinator" if named(run, True) else None)
+            if still:
+                raise Refusal(f"job {args.ref} belongs to {still}, whose session is live; that session closes it")
+    if target is None or holder is None:
+        if own is None and not args.by_user:
+            raise Refusal("this session has not joined the run; jobs belong to a session row, or to the run for its coordinator")
+        # the id exists and nothing under it is open: say that, and name no listing, since `jobs list` is the caller's own and hides a finished job
+        reaches_all = coordinating or args.by_user
+        if any(named(h) for h in (own, *((run, *sessions.values()) if reaches_all else ()))):
+            raise Refusal(f"job {args.ref} is already done")
+        if reaches_all:
+            raise Refusal(f"no job {args.ref} on any session in this run")
         raise Refusal(f"no job {args.ref} on this session; `jobs list` names them")
     target["status"] = "done"
     target["done_at"] = now()
-    ledger.save_session(row)
-    ledger.log("job-done", session_id=session_id, id=target["id"])
-    print(f"job {target['id']} done")
+    if by != "session":
+        target["note"] = f"closed by {by}: its session is gone"
+    if holder is run:
+        ledger.save_run(run)
+    else:
+        ledger.save_session(holder)
+    ledger.log("job-done", session_id=owner, id=target["id"], by=by)
+    print(f"job {target['id']} done" + ("" if by == "session" else f" (it was {'the coordinator' if holder is run else (holder.get('task') or owner[:8])}'s, whose session is gone)"))
     return 0
 
 
@@ -3343,6 +3478,7 @@ def session_start_context(payload: dict) -> str:
         decisions = ledger.decisions()[-5:]
         needs = [n for n in run.get("needs", []) if n.get("status") == "open"]
         running = [n for n in run.get("needs", []) if n.get("status") == "started"]
+        rearm = "" if source == "compact" else rearm_line(run)  # a compaction keeps the process, so what it scheduled still runs
         back = ""
         if pending or decisions or needs or running:
             pending_text = "; ".join("#%s %s" % (p.get("n"), p.get("text")) for p in pending)
@@ -3355,7 +3491,7 @@ def session_start_context(payload: dict) -> str:
                     + (f"running for the user: {running_text}. " if running else "")
                     + "Run reconcile before saying where things stand.")
         return (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
-                f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.{back}")
+                f"Invoke /mission-control:coordinate for the protocol; /mc opens the board.{back}{rearm}")
     candidate = coord.get("rebind_candidate") or {}
     if candidate.get("session_id") == session_id:
         return (f"Mission control: this process coordinated run {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
@@ -3364,13 +3500,25 @@ def session_start_context(payload: dict) -> str:
     if plan is None:
         return ""
     row = ledger.sessions().get(session_id or "", {})
-    jobs = [j for j in (row.get("jobs") or []) if j.get("status", "open") == "open"]
-    rearm = ""
-    if jobs:
-        rearm = " Scheduled work this session had, which died with the process: " + "; ".join(f"{j.get('kind')} {j.get('id')} ({j.get('spec')}{': ' + j['prompt'] if j.get('prompt') else ''})" for j in jobs) + ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
-    if source == "compact" and row:
+    if row and session_id:
+        # a resume in a new process keeps the id but not the socket, and join writes it only once: follow the process, or a later /clear reads as a different one
+        socket = identity(session_id).get("socket")
+        if socket and row.get("socket") != socket:
+            with ledger.locked():
+                current = ledger.sessions().get(session_id)
+                if current:
+                    current["socket"] = socket
+                    ledger.save_session(current)
+    if source == "compact" and row:  # a compaction keeps the process, so what it scheduled still runs: no re-arm line
         return (f"Mission control: still crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
-                f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).{rearm}")
+                f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).")
+    rearm = rearm_line(row)
+    if not row and session_id:
+        # this hook runs before the session joins: a fresh process that is about to adopt a gone session's row is told what the row carries
+        who = identity(session_id)
+        old = stale_row_for(ledger, plan, who)
+        if old:
+            rearm = adopted_rearm(old, who, registry())
     brief = plan.get("brief") or ""
     has_brief = bool(brief) and Path(brief).is_file()
     collab = run.get("collaboration") or {}
@@ -3520,7 +3668,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("adopt", help="bind this session to a role whose recorded id is dead: coordinator (own process after /clear, or --by-user for a fresh one) or crew (the planned worktree's old row)")
     sp.add_argument("role", choices=["coordinator", "crew"])
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("jobs", help="this session's scheduled state in the ledger (cron, Monitor, watch), so a resume re-arms it: add, done, list")
+    sp = sub.add_parser("jobs", help="this session's scheduled state in the ledger (cron, Monitor, watch), so a resume re-arms it: add, done, list. The coordinator's are kept on the run; it, or the person, closes a job whose session is gone")
     sp.add_argument("action", choices=["add", "done", "list"])
     sp.add_argument("ref", nargs="?", help="for done: the job id; for list: a session (default: this one)")
     sp.add_argument("--kind", choices=["cron", "monitor", "watch", "other"])
@@ -3529,6 +3677,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--reason")
     sp.add_argument("--id", help="a stable id, so re-arming replaces rather than duplicates")
     sp.add_argument("--all", action="store_true", help="list: every session, done jobs included")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true", help="done: the person closing a job whose session is gone")
     sp = sub.add_parser("pending", help="the coordinator's open threads (approvals awaited, unanswered messages), kept so a compaction does not lose them: add, done, list")
     sp.add_argument("action", choices=["add", "done", "list", "hold", "release"])
     sp.add_argument("ref", nargs="?", help="for add: the session it concerns; for done: the number or id; for hold and release: the PR number")

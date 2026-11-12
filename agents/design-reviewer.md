@@ -2,6 +2,7 @@
 name: design-reviewer
 description: "Use this agent to review a proposed feature or solution against design values before implementation. Evaluates sophistication (depth of understanding), empowerment (serves the user), robustness (handles failure gracefully), ethics (manipulation, accessibility, privacy, sustainability) and explainability (can you explain why it works this way?). Invoke with \"Review this design\" or \"Does this approach hold up?\"."
 model: opus
+effort: high
 color: orange
 goblin-minion: ಠ.ಠ
 ---

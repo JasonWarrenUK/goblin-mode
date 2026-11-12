@@ -2,6 +2,7 @@
 name: project-context-loader
 description: "Use this agent when switching between projects (Iris, Rhea, Theia, etc.) to quickly rebuild context. Synthesises recent git history, architectural decisions, current work state and key patterns to minimise context-switching friction. Invoke with \"What's the state of this project?\" or \"Catch me up on [project]\"."
 model: haiku
+effort: medium
 color: orange
 goblin-minion: o.O
 ---

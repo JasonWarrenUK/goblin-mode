@@ -1390,6 +1390,64 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(status["needs"][0]["session_id"], "crew-7")
         self.assertIn('"event": "adopt"', (next(self.box.ledger_root.glob("*/log.jsonl"))).read_text())
 
+    def _crew_with_morning_cron_then_gone(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "morning", "--prompt", "stand up", session="crew-1", cwd=self.box.worktree)
+        (self.box.sessions / "crew-1.json").unlink()
+
+    def test_a_crew_session_in_a_fresh_process_adopting_the_old_row_is_told_to_re_arm_its_jobs(self):
+        self._crew_with_morning_cron_then_gone()
+        self.box.register("crew-7", "10se2", str(self.box.worktree))
+        # the start hook runs before the session has a row, so it must name the jobs the row will carry
+        hook = self.box.hook("session-start", {"source": "startup"}, session="crew-7", cwd=self.box.worktree)
+        self.assertIn("cron morning (0 9 * * *: stand up)", hook)
+        joined = self.box.mc("join", "--planned", session="crew-7", cwd=self.box.worktree).stdout
+        self.assertIn("adopted 10SE.2's row from session crew-1", joined)
+        self.assertIn("10SE.2's previous session (crew-1) had, which died with its process", joined)
+        self.assertIn("Re-arm each", joined)
+        self.assertNotIn("this session had", joined, "the adopting session never had the work")
+
+    def test_adopt_crew_in_a_fresh_process_is_told_to_re_arm_and_json_carries_the_line(self):
+        self._crew_with_morning_cron_then_gone()
+        self.box.register("crew-7", "10se2", str(self.box.worktree))
+        adopted = json.loads(self.box.mc("--json", "adopt", "crew", session="crew-7", cwd=self.box.worktree).stdout)
+        self.assertIn("cron morning (0 9 * * *: stand up)", adopted["rearm"])
+        row = json.loads(next(self.box.ledger_root.glob("*/sessions/crew-7.json")).read_text())
+        self.assertNotIn("rearm", row, "the line is printed, never stored")
+
+    def test_a_cleared_crew_session_keeps_its_crons_and_is_not_told_to_re_arm(self):
+        self._crew_with_morning_cron_then_gone()
+        # /clear: a new session id on the same process and socket
+        self.box.register("crew-2", "10se2", str(self.box.worktree))
+        path = self.box.sessions / "crew-2.json"
+        path.write_text(json.dumps({**json.loads(path.read_text()), "messagingSocketPath": "/tmp/cc-socks/crew-1.sock"}))
+        hook = self.box.hook("session-start", {"source": "startup"}, session="crew-2", cwd=self.box.worktree)
+        self.assertNotIn("Re-arm each", hook)
+        joined = self.box.mc("join", "--planned", session="crew-2", cwd=self.box.worktree).stdout
+        self.assertIn("adopted 10SE.2's row from session crew-1", joined)
+        self.assertNotIn("Re-arm each", joined)
+
+    def test_a_resume_in_a_new_process_then_a_clear_does_not_re_arm_what_the_resume_already_did(self):
+        self._crew_with_morning_cron_then_gone()
+        # the user resumes the same session id in a new process, whose socket differs; the resume hook names the job
+        self.box.register("crew-1", "10se2", str(self.box.worktree))
+        path = self.box.sessions / "crew-1.json"
+        path.write_text(json.dumps({**json.loads(path.read_text()), "messagingSocketPath": "/tmp/cc-socks/process-b.sock"}))
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="crew-1", cwd=self.box.worktree)
+        self.assertIn("read CronList first", resumed)
+        self.assertEqual(self._row()["socket"], "/tmp/cc-socks/process-b.sock", "the row follows the process the session now runs in")
+        # /clear in process B: a new id, the same process and socket
+        path.unlink()
+        self.box.register("crew-2", "10se2", str(self.box.worktree))
+        cleared = self.box.sessions / "crew-2.json"
+        cleared.write_text(json.dumps({**json.loads(cleared.read_text()), "messagingSocketPath": "/tmp/cc-socks/process-b.sock"}))
+        self.assertNotIn("Re-arm each", self.box.hook("session-start", {"source": "startup"}, session="crew-2", cwd=self.box.worktree))
+        joined = self.box.mc("join", "--planned", session="crew-2", cwd=self.box.worktree).stdout
+        self.assertIn("adopted 10SE.2's row from session crew-1", joined)
+        self.assertNotIn("Re-arm each", joined, "the cron was re-armed in process B and is still there")
+
     def test_join_makes_a_fresh_row_when_the_old_session_is_still_live(self):
         self.box.start()
         self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
@@ -1548,10 +1606,12 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual([j["id"] for j in listed], ["morning"])
         hook = self.box.hook("session-start", {"source": "resume"}, session="crew-1")
         self.assertIn("cron morning (0 9 * * 1-5: check the PR)", hook)
-        self.assertIn("Re-arm each", hook)
+        self.assertIn("read CronList first", hook)
+        self.assertNotIn("Re-arm each", hook, "a resume restores a cron by itself, so a blind re-arm would fire it twice")
         compacted = self.box.hook("session-start", {"source": "compact"}, session="crew-1")
         self.assertIn("still crew 10SE.2", compacted)
         self.assertIn("Your brief:", compacted)
+        self.assertNotIn("Re-arm each", compacted, "a compaction keeps the process and its cron")
         # the session goes away with its job open: reconcile names it
         (self.box.sessions / "crew-1.json").unlink()
         result = self._reconcile_with(self._gh({}))
@@ -1561,6 +1621,242 @@ class LedgerFlow(unittest.TestCase):
         self.box.register("crew-1", "10se2", str(self.box.worktree))
         self.box.mc("jobs", "done", "morning", session="crew-1", cwd=self.box.worktree)
         self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [])
+
+    def _crew_with_job_then_closed(self, job="watch-240"):
+        """A crew session that recorded a job, reported done with PR #240 and closed with the job still open."""
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "watch", "--spec", "PR #240", "--id", job, session="crew-1", cwd=self.box.worktree)
+        self.box.mc("report", "--state", "done", "--pr", "240", session="crew-1", cwd=self.box.worktree)
+        (self.box.sessions / "crew-1.json").unlink()
+
+    def _row(self, session="crew-1"):
+        return json.loads(next(self.box.ledger_root.glob(f"*/sessions/{session}.json")).read_text())
+
+    def _orphans(self):
+        return [item for item in self._reconcile_with(self._gh(self._merged(240)))["drift"] if item["kind"] == "job-orphaned"]
+
+    def test_retire_closes_the_jobs_on_the_row_it_retires(self):
+        self._crew_with_job_then_closed()
+        self.assertEqual(len(self._orphans()), 1, "before the retire the open watch on a closed session is drift")
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        code, out = self._retire_with(self._gh(self._merged(240)), "10SE.2")
+        self.assertEqual(code, 0, out)
+        job = self._row()["jobs"][0]
+        self.assertEqual((job["id"], job["status"], job["note"]), ("watch-240", "done", "retired by coordinator"))
+        self.assertEqual(self._orphans(), [])
+        log = next(self.box.ledger_root.glob("*/log.jsonl")).read_text()
+        self.assertIn('"event": "job-done"', log)
+
+    def test_a_row_retired_with_a_job_still_open_is_not_drift(self):
+        # a row retired by a version whose retire left jobs alone
+        self._crew_with_job_then_closed()
+        path = next(self.box.ledger_root.glob("*/sessions/crew-1.json"))
+        row = json.loads(path.read_text())
+        row["retired"] = {"at": row["updated_at"], "by": "coordinator"}
+        path.write_text(json.dumps(row))
+        self.assertEqual(self._orphans(), [])
+
+    def test_the_coordinator_or_the_user_closes_a_job_whose_session_is_gone(self):
+        self._crew_with_job_then_closed()
+        self.box.register("crew-2", "bystander", str(self.box.repo))
+        refused = self.box.mc("jobs", "done", "watch-240", session="crew-2", expect=None)
+        self.assertNotEqual(refused.returncode, 0, "a session that is neither the owner nor the coordinator closes nothing")
+        done = self.box.mc("jobs", "done", "watch-240", session="coord-1")
+        self.assertIn("it was 10SE.2's, whose session is gone", done.stdout)
+        job = self._row()["jobs"][0]
+        self.assertEqual((job["status"], job["note"]), ("done", "closed by coordinator: its session is gone"))
+        self.assertEqual(self._orphans(), [])
+        # the person, from a session that is not the coordinator
+        row_path = next(self.box.ledger_root.glob("*/sessions/crew-1.json"))
+        row = json.loads(row_path.read_text())
+        row["jobs"].append({"id": "nightly", "kind": "cron", "spec": "0 2 * * *", "status": "open"})
+        row_path.write_text(json.dumps(row))
+        self.box.mc("jobs", "done", "nightly", "--by-user", session="crew-2")
+        self.assertEqual(self._row()["jobs"][1]["note"], "closed by user: its session is gone")
+
+    def test_the_user_closes_the_job_of_a_coordinator_that_is_gone(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "*/30 * * * *", "--id", "wake", session="coord-1")
+        refused = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("belongs to the coordinator, whose session is live", refused.stdout + refused.stderr)
+        (self.box.sessions / "coord-1.json").unlink()
+        done = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree)
+        self.assertIn("it was the coordinator's, whose session is gone", done.stdout)
+        job = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())["jobs"][0]
+        self.assertEqual((job["status"], job["note"]), ("done", "closed by user: its session is gone"))
+        again = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertNotEqual(again.returncode, 0)
+        self.assertIn("job wake is already done", again.stdout + again.stderr, "a finished job on run.json is found for the person too")
+
+    def test_a_job_id_open_on_two_gone_rows_is_refused_and_neither_is_closed(self):
+        self._crew_with_job_then_closed()
+        twin = {**self._row(), "session_id": "crew-9", "task": "10SE.3"}
+        next(self.box.ledger_root.glob("*/sessions/crew-1.json")).with_name("crew-9.json").write_text(json.dumps(twin))
+        refused = self.box.mc("jobs", "done", "watch-240", session="coord-1", expect=None)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("open on 2 rows whose sessions are gone", refused.stdout + refused.stderr)
+        self.assertEqual([self._row(s)["jobs"][0]["status"] for s in ("crew-1", "crew-9")], ["open", "open"])
+
+    def test_the_coordinators_own_job_does_not_shadow_a_gone_sessions_job_with_the_same_id(self):
+        self._crew_with_job_then_closed(job="poll")
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "poll", session="coord-1")
+        own = self.box.mc("jobs", "done", "poll", session="coord-1")
+        self.assertEqual(own.stdout.strip(), "job poll done", "its own open job is closed first")
+        self.assertEqual(self._row()["jobs"][0]["status"], "open")
+        # the coordinator's is now done; the same id reaches the gone session's
+        gone = self.box.mc("jobs", "done", "poll", session="coord-1")
+        self.assertIn("it was 10SE.2's, whose session is gone", gone.stdout)
+        self.assertEqual(self._row()["jobs"][0]["status"], "done")
+        nothing = self.box.mc("jobs", "done", "poll", session="coord-1", expect=None)
+        self.assertNotEqual(nothing.returncode, 0, "with nothing open under that id, done says so and does not report success")
+        self.assertIn("job poll is already done", nothing.stdout + nothing.stderr)
+        self.assertNotIn("jobs list", nothing.stdout + nothing.stderr, "the coordinator's own list would not show a gone session's job")
+
+    def test_a_repeated_done_is_refused_as_already_done_and_leaves_the_job_alone(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "morning", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "done", "morning", session="crew-1", cwd=self.box.worktree)
+        closed_at = self._row()["jobs"][0]["done_at"]
+        again = self.box.mc("jobs", "done", "morning", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertNotEqual(again.returncode, 0)
+        self.assertIn("job morning is already done", again.stdout + again.stderr)
+        self.assertEqual(self._row()["jobs"][0]["done_at"], closed_at)
+        log = next(self.box.ledger_root.glob("*/log.jsonl")).read_text()
+        self.assertEqual(log.count('"event": "job-done"'), 1, "the repeat logs nothing")
+        typo = self.box.mc("jobs", "done", "mourning", session="crew-1", cwd=self.box.worktree, expect=None)
+        self.assertIn("no job mourning on this session", typo.stdout + typo.stderr)
+
+    def test_a_missing_job_id_is_not_found_on_the_run_for_the_coordinator_and_the_person(self):
+        self.box.start()
+        for who in (["--by-user"], []):
+            session = "crew-1" if who else "coord-1"
+            missing = self.box.mc("jobs", "done", "zz", *who, session=session, cwd=self.box.worktree if who else None, expect=None)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn("no job zz on any session in this run", missing.stdout + missing.stderr)
+            self.assertNotIn("jobs list", missing.stdout + missing.stderr, "their own list would not show it")
+
+    def test_a_gone_row_with_no_task_is_named_by_its_session_and_not_as_the_coordinator(self):
+        self.box.start()
+        self.box.register("crew-5", "unplanned", str(self.box.repo))
+        self.box.mc("join", "--branch", "feat/z", session="crew-5")
+        self.assertEqual(self._row("crew-5")["task"], "")
+        self.box.mc("jobs", "add", "--kind", "watch", "--spec", "PR 250", "--id", "watch-250", session="crew-5")
+        (self.box.sessions / "crew-5.json").unlink()
+        done = self.box.mc("jobs", "done", "watch-250", session="coord-1")
+        self.assertIn("it was crew-5's, whose session is gone", done.stdout)
+        self.assertNotIn("the coordinator's", done.stdout)
+
+    def test_a_fresh_coordinator_adopted_by_the_user_is_told_to_re_arm_the_runs_jobs(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", session="coord-1")
+        (self.box.sessions / "coord-1.json").unlink()
+        self.box.register("coord-2", "mission control 2", str(self.box.repo))
+        adopted = self.box.mc("adopt", "coordinator", "--by-user", session="coord-2")
+        self.assertIn("this session now coordinates run search", adopted.stdout)
+        self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", adopted.stdout)
+        self.assertIn("Re-arm each", adopted.stdout)
+        self.assertIn("the run's previous coordinator (coord-1) had, which died with its process", adopted.stdout)
+        self.assertNotIn("this session had", adopted.stdout, "the adopting session never had the work")
+
+    def test_adopting_from_a_live_coordinator_says_its_crons_still_fire_and_json_carries_the_line(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", session="coord-1")
+        self.box.register("coord-2", "mission control 2", str(self.box.repo))
+        adopted = json.loads(self.box.mc("--json", "adopt", "coordinator", "--by-user", session="coord-2").stdout)
+        self.assertEqual(adopted["session_id"], "coord-2")
+        self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", adopted["rearm"])
+        self.assertIn("still live", adopted["rearm"])
+        self.assertNotIn("died with", adopted["rearm"], "the old process and its cron are still running")
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertNotIn("rearm", run["coordinator"], "the line is printed, never stored")
+
+    def test_adopting_from_a_cleared_coordinator_whose_process_lives_on_says_it_is_still_live(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", session="coord-1")
+        # /clear in the old coordinator: its id leaves the registry, its process and socket carry on under a new one
+        (self.box.sessions / "coord-1.json").unlink()
+        self.box.register("coord-1b", "mission control", str(self.box.repo))
+        (self.box.sessions / "coord-1b.json").write_text(json.dumps({**json.loads((self.box.sessions / "coord-1b.json").read_text()), "messagingSocketPath": "/tmp/cc-socks/coord-1.sock"}))
+        self.box.register("coord-2", "mission control 2", str(self.box.repo))
+        adopted = self.box.mc("adopt", "coordinator", "--by-user", session="coord-2")
+        self.assertIn("still live", adopted.stdout)
+        self.assertNotIn("died with", adopted.stdout)
+
+    def test_a_live_sessions_job_is_its_own_to_close(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("jobs", "add", "--kind", "cron", "--spec", "0 9 * * *", "--id", "morning", session="crew-1", cwd=self.box.worktree)
+        refused = self.box.mc("jobs", "done", "morning", session="coord-1", expect=None)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("whose session is live", refused.stdout + refused.stderr)
+        self.assertEqual(self._row()["jobs"][0]["status"], "open")
+
+    def test_the_coordinator_records_its_own_jobs_on_the_run_and_a_resume_re_arms_them(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", "--reason", "wake for crew messages", session="coord-1")
+        listed = json.loads(self.box.mc("jobs", "list", session="coord-1").stdout)
+        self.assertEqual([(j["id"], j["task"], j["session_id"]) for j in listed], [("wake", "coordinator", "coord-1")])
+        run = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())
+        self.assertEqual(run["jobs"][0]["id"], "wake")
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", resumed)
+        self.assertIn("read CronList first", resumed)
+        self.assertNotIn("Re-arm each", resumed, "Claude Code restores a cron on --resume, so creating it again fires it twice")
+        self.assertNotIn("Scheduled work", self.box.hook("session-start", {"source": "compact"}, session="coord-1", cwd=self.box.repo), "a compaction keeps the process and its cron")
+        self.assertEqual(json.loads(self.box.mc("jobs", "list", session="crew-1", cwd=self.box.worktree).stdout), [], "a crew session's list is its own row")
+        self.box.mc("jobs", "done", "wake", session="coord-1")
+        self.assertEqual(json.loads(self.box.mc("jobs", "list", session="coord-1").stdout), [])
+        self.assertNotIn("Scheduled work", self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo))
+
+    def test_a_dozen_long_jobs_cannot_push_the_resume_context_past_the_hook_cap(self):
+        self.box.start()
+        for n in range(12):
+            self.box.mc("jobs", "add", "--kind", "monitor", "--id", f"tail-{n}", "--spec", f"spec{n}-" + "s" * 400, "--prompt", f"prompt{n}-" + "p" * 400, session="coord-1")
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertNotIn("p" * 300, resumed, "a prompt is clipped, not printed whole")
+        self.assertNotIn("s" * 300, resumed, "a spec is clipped, not printed whole")
+        self.assertIn("prompt11-", resumed, "every job is still named")
+        self.assertIn("jobs list", resumed, "the clipped text is one command away")
+        self.assertLess(len(resumed), 5000, "twelve long jobs leave the rest of the context its room under the 10,000 character hook cap")
+
+    def test_a_short_job_prints_whole_and_says_nothing_about_a_clip(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 9-17 * * 1-5", "--prompt", "Mission control wake", session="coord-1")
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", resumed)
+        self.assertNotIn("jobs list", resumed)
+
+    def test_a_resume_re_arms_a_monitor_and_a_watch_but_only_checks_a_cron(self):
+        self.box.start()
+        self.box.mc("jobs", "add", "--kind", "cron", "--id", "wake", "--spec", "*/30 * * * *", session="coord-1")
+        self.box.mc("jobs", "add", "--kind", "monitor", "--id", "tail", "--spec", "build output", session="coord-1")
+        self.box.mc("jobs", "add", "--kind", "watch", "--id", "watch-9", "--spec", "PR 9", session="coord-1")
+        resumed = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("read CronList first", resumed)
+        self.assertIn("Re-arm each Monitor or watch", resumed, "these died with the process")
+        self.assertIn("monitor tail (build output)", resumed)
+        # with no cron on the list there is nothing to check
+        self.box.mc("jobs", "done", "wake", session="coord-1")
+        later = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
+        self.assertNotIn("CronList", later)
+        self.assertIn("Re-arm each Monitor or watch", later)
+
+    def test_a_crew_below_high_effort_launches_with_its_subagents_raised_to_high(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "sonnet", "--effort", "medium", session="coord-1")
+        need = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]
+        self.assertTrue(need["command"].startswith("CLAUDE_CODE_SUBAGENT_EFFORT=high claude --model sonnet --effort medium --name "), need["command"])
+        for effort in ("high", "xhigh", None):
+            flags = ["--effort", effort] if effort else []
+            self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--model", "opus", *flags, session="coord-1")
+            need = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]
+            self.assertTrue(need["command"].startswith("claude --model opus "), f"{effort}: {need['command']}")
 
     def test_the_watch_keeps_its_own_job_entry(self):
         self.box.start()
@@ -2226,6 +2522,15 @@ class Hooks(unittest.TestCase):
     def decision(self, command, **kw):
         out = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": command}}, **kw)
         return json.loads(out)["hookSpecificOutput"] if out.strip() else None
+
+    def test_a_gated_command_started_through_monitor_is_denied_like_a_bash_one(self):
+        # Claude Code 2.1.314 runs hooks that match Bash on the Monitor tool's shell commands; its input carries the same `command` key
+        out = self.box.hook("pre-tool-use", {"tool_name": "Monitor", "tool_input": {"command": "cd apps/api && poetry run poe db-reset-local-anyway", "description": "reset", "timeout_ms": 300000}})
+        verdict = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual(verdict["permissionDecision"], "deny")
+        self.assertIn("free, but not granted to you", verdict["permissionDecisionReason"])
+        # a WebSocket watch has no shell command, so there is nothing to gate
+        self.assertEqual(self.box.hook("pre-tool-use", {"tool_name": "Monitor", "tool_input": {"ws": {"url": "wss://example.com/stream"}, "description": "events", "timeout_ms": 300000}}).strip(), "")
 
     def test_gated_command_without_slot_is_denied_and_recorded(self):
         verdict = self.decision("cd apps/api && poetry run poe db-reset-local-anyway")
