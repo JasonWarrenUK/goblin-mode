@@ -5,6 +5,18 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.8.0] - 2026-11-12
+
+### Added
+
+- `mission-control` plugin 0.11.0: a `PreCompact` hook (`mc.py hook pre-compact`) tells the compaction summary what only the conversation holds. The coordinator is asked to keep unanswered messages, freezes and holds in force, reviews in flight, questions put to the user, the user's standing instructions and the ids of its scheduled jobs, and to leave board state to the ledger. A crew session is asked to keep its brief, branch, PR, slot and scheduled work. A session outside a run gets nothing.
+
+### Fixed
+
+- `mission-control` plugin 0.11.0: a compacted coordinator no longer reads an approval the user put on hold as one to land. The start context prints a held approval as held with its reason and prints each decision with what it concerns, cutting a long decision before its subject so the subject survives. A real compaction of a live run on 11 November 2026 showed all three faults.
+- `mission-control` plugin 0.11.0: the coordinator's start context fits the harness's hook output cap. The pending list takes the room the other parts leave under 9,500 characters and ends with a count of the rest and `mc.py pending list`, so the closing reconcile sentence and the re-arm line are never the part that gets cut.
+- `mission-control` plugin 0.11.0: the protocol, README, coordinate skill and crew skill now say that a resume restores cron jobs, so a session reads `CronList` first and re-arms only what is missing, in line with what the hook prints.
+
 ## [7.7.0] - 2026-11-12
 
 ### Added
@@ -518,7 +530,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.7.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.8.0...HEAD
+[7.8.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.7.0...v7.8.0
 [7.7.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.1...v7.7.0
 [7.6.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.0...v7.6.1
 [7.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.5.1...v7.6.0
