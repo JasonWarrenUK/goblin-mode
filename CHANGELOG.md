@@ -5,6 +5,13 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.8.1] - 2026-11-12
+
+### Fixed
+
+- `mission-control` plugin 0.11.1: the Needs Jason and Running lists on the board are readable at the pane's width. Each need's number, task tag, markers and (for a running need) start time sit on one row that wraps when it runs long, and the command, the why and a running need's note each take a full-width line beneath it, indented four columns. The why used to share a row with the tag and markers and could be left ten columns wide, wrapping one or two words to a line. A running need's note shows a single line until the need is picked and wraps in full after that.
+- `pr-review-dry_run` skill: a strict review in a worktree-isolated session now has a written route for its test run. The session's own worktree stands in for the throwaway one when `HEAD` equals the PR's `headRefOid` and `git status --porcelain` prints nothing, the status is checked again after the suite and anything it wrote is listed in the `tests` line, and a failed check reports the tests as not run, never switching branch, stashing or resetting to pass. A second guide covers gitignored generated inputs, which a fresh worktree lacks and the clean-status check cannot see: copy them in or report the check that needs them as not run.
+
 ## [7.8.0] - 2026-11-12
 
 ### Added
@@ -530,7 +537,8 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.8.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.8.1...HEAD
+[7.8.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.8.0...v7.8.1
 [7.8.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.7.0...v7.8.0
 [7.7.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.1...v7.7.0
 [7.6.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.0...v7.6.1
