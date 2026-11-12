@@ -619,7 +619,10 @@ test('a started need sits in its own Running group with its start time, off the 
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^Needs Jason · 1$/ }))?.text).toBe('Needs Jason · 1')
 	expect((await ui.find({ type: 'Text', text: /^Running · 1$/ }))?.text).toBe('Running · 1')
-	expect((await ui.find({ type: 'Text', text: /since 08:00 · task b7; 10SE.2 watches it/ }))?.text).toContain('since 08:00')
+	// the start time sits on the tag row; the why and the note each take a line of their own beneath it
+	expect((await ui.find({ type: 'Text', text: /^since 08:00$/ }))?.text).toBe('since 08:00')
+	expect((await ui.find({ type: 'Text', text: /^run the embeddings backfill on hosted$/ }))?.text).toBe('run the embeddings backfill on hosted')
+	expect((await ui.find({ type: 'Text', text: /^task b7; 10SE.2 watches it$/ }))?.text).toBe('task b7; 10SE.2 watches it')
 	expect(await ui.find({ type: 'Text', text: /poetry run poe backfill/ })).toBeUndefined()
 	expect((await ui.find({ type: 'Text', text: /^re-issues #1$/ }))?.text).toBe('re-issues #1')
 	await ui.press({ key: 'row-need:1' })

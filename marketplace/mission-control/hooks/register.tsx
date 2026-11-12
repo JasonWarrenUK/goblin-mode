@@ -1119,50 +1119,42 @@ const needRows = ($: EngineInterface, ui: Ui, needs: readonly Need[], picked: st
 	return needs.slice(0, NEED_DIGITS).map(n => {
 		const key = `need:${n.n}`
 		const running = n.status === 'started'
-		const tail = running ? `since ${n.started_at ? clock(n.started_at) : '?'}${n.note ? ` · ${n.note}` : ''}` : ''
-		// a note can run to the CLI's 1200-character cap; the tail takes at most half the row and truncates, so why keeps its columns
-		const tailWidth = running ? Math.min(tail.length, Math.max(16, Math.floor(inner / 2))) : 0
-		// the line to paste comes first and the why beneath it: the user reads the board for what to type; a need with no line, or one running, shows its why on the row
+		// the line to paste comes first and the why beneath it: the user reads the board for what to type; a need with no line, or one running, shows its why alone
 		const line = n.command && !running ? (n.cwd ? `cd ${shellWord(n.cwd)} && ${n.command}` : n.command) : ''
-		const marks = [
-			n.kind === 'measurement' ? <Text key="measurement" dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null,
-			n.kind === 'launch' ? <Text key="launch" dimColor>launch</Text> : null,
-			n.supersedes !== null ? <Text key="supersedes" dimColor>re-issues #{n.supersedes}</Text> : null,
-		].filter(mark => mark !== null)
-		const marksWidth = (n.kind === 'measurement' ? 12 + n.for_task.length : 0) + (n.kind === 'launch' ? 7 : 0) + (n.supersedes !== null ? 12 + String(n.supersedes).length : 0)
+		// every line under the tag row takes the pane's full width, indented under the tag: text sharing a row with the tag, the markers and a note was squeezed into a column a few words wide
+		const body = Math.max(10, inner - 6)
 		return (
 			<Box key={key} flexDirection="column">
-				<Box flexDirection="row" columnGap={1}>
+				<Box flexDirection="row" columnGap={1} flexWrap="wrap">
 					<Button key={`row-${key}`} plain dimColor={picked !== null && picked !== key} label={`${n.n}.`} onPress={() => update($, selected, () => key)} />
-					<Text color="warning">{n.task ? `[${n.task}]` : ''}</Text>
-					{line ? null : marks}
-					<Box width={Math.max(10, inner - 10 - n.task.length - (line ? 0 : marksWidth) - (running ? tailWidth + 1 : 0))}>
-						{line ? (
+					{n.task ? <Text color="warning">[{n.task}]</Text> : null}
+					{n.kind === 'measurement' ? <Text dimColor>result → {n.for_task || (n.for ?? '').slice(0, 8) || '?'}</Text> : null}
+					{n.kind === 'launch' ? <Text dimColor>launch</Text> : null}
+					{n.supersedes !== null ? <Text dimColor>re-issues #{n.supersedes}</Text> : null}
+					{running ? <Text dimColor>since {n.started_at ? clock(n.started_at) : '?'}</Text> : null}
+				</Box>
+				<Box flexDirection="column" paddingLeft={4}>
+					{line ? (
+						<Box width={body}>
 							<Text color="claude" bold wrap="wrap">
 								{line}
 							</Text>
-						) : (
-							<Text wrap="wrap">{n.why}</Text>
-						)}
+						</Box>
+					) : null}
+					<Box width={body}>
+						<Text dimColor={line !== ''} wrap="wrap">
+							{n.why}
+						</Text>
 					</Box>
-					{running ? (
-						<Box width={tailWidth}>
-							<Text dimColor wrap="truncate-end">
-								{tail}
+					{running && n.note ? (
+						// a note can run to the CLI's 1200-character cap: one line until the need is picked
+						<Box width={body}>
+							<Text dimColor wrap={picked === key ? 'wrap' : 'truncate-end'}>
+								{n.note}
 							</Text>
 						</Box>
 					) : null}
 				</Box>
-				{line ? (
-					<Box flexDirection="row" paddingLeft={4} columnGap={1}>
-						{marks}
-						<Box width={Math.max(10, inner - 6 - marksWidth)}>
-							<Text dimColor wrap="wrap">
-								{n.why}
-							</Text>
-						</Box>
-					</Box>
-				) : null}
 			</Box>
 		)
 	})
