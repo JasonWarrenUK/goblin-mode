@@ -19,8 +19,11 @@
  * all, which is why every non-inlineable finding folds into `body` instead.
  * See SKILL.md's <api-constraints> block for the full rationale.
  *
- * Usage (stdin/stdout only, no scratch files):
- *   <assemble JSON> | node partition-findings.mjs | gh api ... --input -
+ * Usage (stdin/stdout only, no scratch files). Capture the output, then post;
+ * never pipe straight into `gh api`, which posts whatever stdin holds before
+ * a failure here can stop it (see SKILL.md step 5):
+ *   PAYLOAD=$(node partition-findings.mjs <<'EOF' ... EOF) && [ -n "$PAYLOAD" ] \
+ *     && printf '%s' "$PAYLOAD" | gh api ... --input -
  *   node partition-findings.mjs --self-test
  *
  * Stdin: { verdict, selfReview?, findings: [...], diff, summary }
@@ -33,7 +36,7 @@
  *   diff: verbatim `gh pr diff` output. summary: review summary prose.
  *
  * Stdout: { body, comments: [...] }, the exact review-create shape, ready to
- * pipe into `gh api ... --input -`. Stats ({ inline, folded, offDiffDemoted })
+ * post with `gh api ... --input -` once captured. Stats ({ inline, folded, offDiffDemoted })
  * go to stderr so stdout stays pure JSON.
  *
  * Body layout: [verdict line, self-review only] + summary + folded sections +
