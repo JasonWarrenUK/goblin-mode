@@ -738,7 +738,7 @@ test('helpers: shellWord leaves a plain path alone and quotes one the shell woul
 	expect(shellWord('/x/$HOME')).toBe("'/x/$HOME'")
 })
 
-test('a need shows the line to paste first and its why beneath; one with no line keeps its why on the row', async ($, on) => {
+test('a need shows the line to paste first and its why beneath; one with no line shows its why alone beneath its tag', async ($, on) => {
 	const bare = { ...STATUS.needs[0], id: 'n2', n: 2, why: 'approve the PR description in this session', command: '' }
 	const spaced = { ...STATUS.needs[0], id: 'n3', n: 3, why: 'start it', command: 'claude --model opus', cwd: '/Users/j/Documents/My App/.claude/worktrees/b', kind: 'launch' }
 	world(on, 'coord-1', { ...STATUS, needs: [STATUS.needs[0], bare, spaced] })
