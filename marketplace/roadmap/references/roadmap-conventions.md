@@ -27,6 +27,7 @@ python3 <plugin-root>/scripts/roadmap.py <subcommand> [PATH] [--phase NAME]
 | `claim ID` | record that someone has started a task (see Claims) | `--assignee NAME --reassign --date YYYY-MM-DD` | 0 · 1 refusal · 2 |
 | `assign ID` | set or clear an assignee without claiming (see Claims) | `--assignee NAME` or `--unassign` (exactly one) | 0 · 1 refusal · 2 |
 | `release ID` | drop a claim | `--unassign` | 0 · 1 not claimed · 2 |
+| `pull` | refresh a phase mirrored from Jira; read-only towards Jira (see Mirrored phases) | `--project KEY --name NAME` (start a mirror) `--issues FILE` `--dry-run` | 0 · 1 nothing to mirror · 2 no credentials, Jira unreachable, cycle |
 | `hook EVENT` | Claude Code hook entry point (`session-start`, `post-tool-use`); reads the hook JSON on stdin | | always 0 |
 
 `PATH` is optional; the roadmap is located by walking up from the cwd. Multiple
@@ -134,6 +135,56 @@ field, and `validate` rejects `ended` on any task whose status is not
   `ended` before `started`.
 - **What it changes:** nothing computed. `recompute`, `ready` and the graph
   ignore the field; `started` and every status value are unchanged.
+
+## Mirrored phases
+
+A phase with a `source` is a mirror of an external tracker, which is then the
+source of truth. A phase without one is unaffected by everything in this
+section. The one kind is Jira:
+
+```json
+"source": {"kind": "jira", "project": "T2DV"}
+```
+
+- **Where it lives:** `.claude/roadmaps.local.json`, beside the committed
+  `roadmaps.json` and kept out of git, so teammates who do not use the plugin
+  never see it. When that file exists it is the roadmap every command and
+  skill finds; the committed file stays reachable by passing its path. A
+  project with no local file resolves as it always has.
+- **Starting one:** `pull --project KEY [--name NAME]` creates the file and
+  the phase. After that, plain `pull` refreshes it; `--dry-run` prints what
+  would change. It needs `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN`
+  in the environment or the project's `.env`, and only ever reads.
+- **What maps to what:** a fix version is a milestone (it keeps its `M{N}`
+  when the version is renamed; issues with no version sit in `M0`,
+  Unscheduled); an epic is the `topic` of the issues under it and never a
+  task; every other issue is a task whose id is the Jira key; a Blocks link
+  is a `dependsOn` edge; an issue also depends on its child issues, so a
+  story waits for the tickets it was split into, and a child inherits whatever
+  blocks its story, so a split of a blocked story is never offered as ready.
+  A gate you add to `externalGates` by hand, and a mirrored task's edge to it,
+  survive every pull.
+- **Status:** an issue in Jira's done category is `done`, with `ended` from
+  its resolution date. Every other issue is left to the mechanical rule
+  (`todo` or `blocked`); one Jira has in progress carries `started`, so views
+  show it in progress. The Jira status name is kept in `tracker.status`.
+  Where Jira and the graph disagree (in progress behind an open blocker,
+  done before something it depends on), `pull` says so and changes nothing.
+- **Who owns what:** on a mirrored task Jira owns `description`, `status`,
+  edges to other mirrored tasks, `topic`, `assignee`, `started`, `ended` and
+  `tracker`. `notes`, `pr`, soft edges and edges to local tasks are yours and
+  survive every pull. `claim`, `assign`, `release` and `end` refuse a
+  mirrored task, `stamp-ended` and `backfill-ended` refuse the phase, and
+  the claim hooks stay silent in a project with a local roadmap file: work
+  is assigned in Jira.
+- **Local tasks:** a task with `"local": true` is your own. It can sit in any
+  milestone, depend on mirrored tasks and be depended on by them, and is
+  claimed, released and ended as in any phase. `pull` never rewrites one. If
+  something it depends on leaves Jira, the edge moves to its `orphaned` list
+  (and returns if the issue does); if its milestone leaves, it moves to `M0`.
+  A milestone you add yourself, with no `tracker`, is kept as it is.
+- **Topics:** `ready --json` groups by a task's `topic` when it has one and
+  falls back to the letters in its id, so ordinary phases group as before.
 
 ## Graph conventions
 
