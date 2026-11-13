@@ -249,6 +249,48 @@ class LocalWork(unittest.TestCase):
         self.assertEqual(task["dependsOn"], ["T-4"])
         self.assertNotIn("orphaned", task)
 
+    def test_a_vanished_issue_with_notes_is_parked_not_dropped(self):
+        report = pull(self.phase, board()[:1] + board()[2:])
+        tasks = build_index(self.phase)[0]
+        parked = tasks["T-2"]
+        self.assertEqual((parked["status"], parked["notes"], parked["pr"]),
+                         ("out_of_scope", "branch feat/stream-answers", 212))
+        self.assertTrue(parked["local"])
+        self.assertEqual(self.phase["milestones"][-1]["id"], "GONE")
+        self.assertEqual(tasks["T-3"]["dependsOn"], ["L1"])
+        self.assertTrue(any("parked" in line for line in report["removed"]))
+        self.assertEqual(roadmap._validate_phase(self.phase), [])
+        again = pull(self.phase, board()[:1] + board()[2:])
+        self.assertEqual(again["removed"], [])
+        self.assertIn("T-2", build_index(self.phase)[0])
+
+    def test_a_parked_issue_that_returns_takes_its_notes_back(self):
+        pull(self.phase, board()[:1] + board()[2:])
+        pull(self.phase, board())
+        task = build_index(self.phase)[0]["T-2"]
+        self.assertEqual((task["status"], task["notes"], task["pr"]),
+                         ("todo", "branch feat/stream-answers", 212))
+        self.assertNotIn("local", task)
+        self.assertNotIn("GONE", [m["id"] for m in self.phase["milestones"]])
+        self.assertEqual(roadmap._validate_phase(self.phase), [])
+
+    def test_a_vanished_issue_without_notes_is_dropped(self):
+        pull(self.phase, board()[:3])
+        self.assertNotIn("T-4", build_index(self.phase)[0])
+        self.assertNotIn("GONE", [m["id"] for m in self.phase["milestones"]])
+
+    def test_a_parked_task_renders_and_counts_out_of_scope(self):
+        pull(self.phase, board()[:1] + board()[2:])
+        stats = roadmap.build_stats(self.phase)
+        self.assertEqual(stats["total"], 5)
+        roadmap.mermaid_source(self.phase)
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / ".claude").mkdir()
+            path = Path(root) / ".claude" / "roadmaps.local.json"
+            path.write_text(roadmap._canonical_text([self.phase]))
+            code, out = run("render", root, "--out", str(Path(root) / "d.html"))
+            self.assertEqual(code, 0, out)
+
     def test_a_renamed_version_keeps_its_milestone_id(self):
         issues = board()
         issues[3]["fields"]["fixVersions"] = [dict(VERSIONS["R2"], name="Release 2b")]

@@ -26,6 +26,11 @@ task. A task marked `"local": true` is the user's own and is never rewritten;
 when something it depended on leaves Jira the edge moves to its `orphaned`
 list and comes back if the issue does.
 
+A mirrored task whose issue leaves Jira is dropped, unless it carries `notes`
+or a `pr`: then it is parked, out of scope, in the "Gone from Jira" milestone
+so nothing the user wrote is lost. It is theirs to delete. If the issue comes
+back, the notes go back onto it.
+
 merge() is pure (issues in, phase mutated, report out) so it is tested without
 a network. Stdlib only, Python 3.8+. British spelling throughout.
 """
@@ -54,6 +59,11 @@ FIELDS = ["summary", "status", "issuetype", "parent", "fixVersions",
           "statuscategorychangedate"]
 UNSCHEDULED_ID = "M0"
 UNSCHEDULED_NAME = "Unscheduled"
+# Where a mirrored task goes when its issue leaves Jira while it still carries
+# the user's notes or pr: parked out of scope, never silently dropped.
+GONE_ID = "GONE"
+GONE_NAME = "Gone from Jira"
+GONE_FIELDS = ("notes", "pr")
 # What a pull never overwrites on a mirrored task.
 KEPT_FIELDS = ("softDependsOn", "softMilestone", "iterative", "notes", "pr")
 _PROJECT_KEY = re.compile(r"[A-Z][A-Z0-9_]{1,31}")
@@ -190,6 +200,29 @@ def merge(phase, issues, field_order):
     by_key = {i["key"]: i for i in issues}
     epics = {k for k, i in by_key.items() if i["epic"]}
     work = {k: i for k, i in by_key.items() if not i["epic"]}
+    # Parked tasks: an issue that came back takes its notes with it; one that
+    # has just gone, with notes or a pr on it, is parked now.
+    was_parked = {tid for tid, t in local.items()
+                  if (t.get("tracker") or {}).get("gone")}
+    for tid in was_parked & set(work):
+        del local[tid]
+    newly_parked = []
+    for tid, was in old_tasks.items():
+        if is_local_task(was) or tid in work:
+            continue
+        if not any(was.get(f) for f in GONE_FIELDS):
+            continue
+        parked = {"id": tid, "description": was.get("description", ""),
+                  "status": "out_of_scope", "dependsOn": [], "local": True,
+                  "tracker": {"status": GONE_NAME, "gone": True,
+                              "type": (was.get("tracker") or {}).get("type", "")}}
+        for field in GONE_FIELDS:
+            if was.get(field):
+                parked[field] = was[field]
+        local[tid] = _ordered(parked, field_order)
+        old_home[tid] = GONE_ID
+        newly_parked.append(tid)
+    parked_ids = (was_parked - set(work)) | set(newly_parked)
     clash = sorted(set(work) & set(local), key=_natural)
     if clash:
         raise RoadmapError(
@@ -242,6 +275,8 @@ def merge(phase, issues, field_order):
             versions[vid] = version
         members.setdefault(vid, []).append(key)
     local_milestones = [m for m in old_milestones if "tracker" not in m]
+    if newly_parked and GONE_ID not in {m["id"] for m in local_milestones}:
+        local_milestones.append({"id": GONE_ID, "name": GONE_NAME, "tasks": []})
     taken = {m["id"] for m in local_milestones} | set(held_ids.values())
     next_number = max([_milestone_number(mid) for mid in taken] + [0]) + 1
     milestone_of_version = {}
@@ -259,6 +294,7 @@ def merge(phase, issues, field_order):
     # Mirrored tasks.
     surviving = set(work) | set(local) | {m["id"] for m in local_milestones} \
         | {g.get("id") for g in phase.get("externalGates", [])}
+    surviving -= parked_ids
     local_targets = surviving - set(work)
     new_tasks, home = {}, {}
     for key in sorted(work, key=_natural):
@@ -320,7 +356,8 @@ def merge(phase, issues, field_order):
 
     all_ids = set(new_tasks) | set(local)
     all_milestones = {home[tid] for tid in all_ids} | {m["id"] for m in local_milestones}
-    reachable = all_ids | all_milestones | {g.get("id") for g in phase.get("externalGates", [])}
+    reachable = (all_ids | all_milestones
+                 | {g.get("id") for g in phase.get("externalGates", [])}) - parked_ids
     local_edits = {}
     for tid, task in local.items():
         depends = list(task.get("dependsOn", []))
@@ -378,7 +415,8 @@ def merge(phase, issues, field_order):
     for milestone in local_milestones:
         kept = dict(milestone)
         kept["tasks"] = members_of(milestone["id"])
-        assembled.append(kept)
+        if kept["tasks"] or milestone["id"] != GONE_ID:
+            assembled.append(kept)
 
     candidate = dict(phase)
     candidate["milestones"] = assembled
@@ -416,6 +454,10 @@ def merge(phase, issues, field_order):
             notes.append("dependencies changed")
         if notes:
             report["changed"].append(f"{key}: {', '.join(notes)}")
+    for tid in sorted(newly_parked, key=_natural):
+        report["removed"].append(
+            f"{tid} {old_tasks[tid].get('description', '')} (parked in "
+            f"'{GONE_NAME}' with its {' and '.join(f for f in GONE_FIELDS if old_tasks[tid].get(f))})")
     for tid in sorted(set(old_tasks) - set(local) - set(new_tasks), key=_natural):
         was = old_tasks[tid]
         kept = [f for f in ("notes", "pr") if was.get(f)]

@@ -183,6 +183,12 @@ section. The one kind is Jira:
   something it depends on leaves Jira, the edge moves to its `orphaned` list
   (and returns if the issue does); if its milestone leaves, it moves to `M0`.
   A milestone you add yourself, with no `tracker`, is kept as it is.
+- **Issues that leave Jira:** a mirrored task whose issue is deleted is
+  dropped from the mirror, unless it carries `notes` or a `pr`. Then it is
+  parked: moved to a `GONE` milestone, "Gone from Jira", as an `out_of_scope`
+  local task with those fields intact, so it counts nowhere and nothing you
+  wrote is lost. Delete it by hand once its notes have a new home. If the
+  issue returns, its notes and pr go back onto it and the parked copy goes.
 - **Topics:** `ready --json` groups by a task's `topic` when it has one and
   falls back to the letters in its id, so ordinary phases group as before.
 
