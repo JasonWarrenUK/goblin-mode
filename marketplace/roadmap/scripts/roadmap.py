@@ -34,6 +34,10 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
                                                         [--dry-run --json]
   stamp-ended date the done tasks a branch finished     [--base --pr --date
                                                          --dry-run --json]
+  pull       refresh a phase mirrored from Jira, read-only: Jira's tasks are
+             rewritten, tasks marked local are left alone
+                                                        [--project KEY --name
+                                                         --issues FILE --dry-run]
   hook       EVENT: Claude Code hook entry point (session-start,
              post-tool-use); reads the hook JSON on stdin, always exits 0
 
@@ -72,6 +76,7 @@ from _roadmap_core import (
     display_status,
     find_cycles,
     is_claimed,
+    LOCAL_ROADMAP_NAME,
     is_held,
     is_mirrored,
     _phases,
@@ -1542,6 +1547,8 @@ def build_ready(phase, within=None, horizon="ready"):
             "notes": t.get("notes", ""),
             "assignee": t.get("assignee", ""),
         })
+        if t.get("topic"):
+            candidates[-1]["topic"] = t["topic"]
     candidates.sort(key=lambda c: (-c["transitiveUnblocks"],
                                    -c["milestoneDonePct"], c["id"]))
     claimed.sort(key=lambda c: (c["started"], c["id"]))
@@ -1575,9 +1582,10 @@ def ready_groups(candidates):
 
     roadmap:next-group prints one table per group. Left to count for itself, a
     model drops rows and still reports a full total, so the membership of
-    every table is fixed here instead. The topic is the letters between the
-    milestone number and the sequence in a task id (`2TI.3` -> `TI`); an id
-    that does not fit that shape lands under `other`. The dev key is the
+    every table is fixed here instead. The topic is the task's own `topic`
+    when it has one (a mirrored task carries its epic there), else the letters
+    between the milestone number and the sequence in its id (`2TI.3` -> `TI`);
+    an id that does not fit that shape lands under `other`. The dev key is the
     trimmed `assignee`, or `unassigned` when empty. Groups come out in
     display order (milestones by number, topics alphabetically, devs
     case-insensitive alphabetical with `unassigned` last); ids inside a
@@ -1587,7 +1595,8 @@ def ready_groups(candidates):
     for c in candidates:
         by_milestone.setdefault(c.get("milestone") or "none", []).append(c["id"])
         match = re.match(r"\d+([A-Za-z]+)\.", c["id"])
-        by_topic.setdefault(match.group(1) if match else "other", []).append(c["id"])
+        topic = c.get("topic") or (match.group(1) if match else "other")
+        by_topic.setdefault(topic, []).append(c["id"])
         dev = (c.get("assignee") or "").strip() or "unassigned"
         by_dev.setdefault(dev, []).append(c["id"])
     def natural(key):
@@ -2311,6 +2320,87 @@ def cmd_backfill_ended(args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# pull
+# ---------------------------------------------------------------------------
+def _pull_target(args):
+    """(path, data, phase) for `pull`: the live mirrored phase, or a new one
+    when --project names a Jira project nothing here mirrors yet. A new phase
+    goes into the local roadmap file, created beside the committed one."""
+    try:
+        path, data = load(args.path)
+    except RoadmapError:
+        if not args.project:
+            raise
+        path, data = None, []
+    phases = _phases(data) if data else []
+    live = [p for p in phases
+            if phase_source(p) and not p.get("archived")
+            and (not args.phase or p.get("name") == args.phase)
+            and (not args.project or phase_source(p).get("project") == args.project)]
+    if len(live) > 1:
+        names = ", ".join(repr(p.get("name")) for p in live)
+        raise RoadmapError(f"{len(live)} mirrored phases ({names}); pick one with --phase")
+    if live:
+        return path, data, live[0]
+    if not args.project:
+        raise RoadmapError(
+            "no mirrored phase here; start one with "
+            "`roadmap.py pull --project KEY [--name NAME]`")
+    name = args.name or args.phase or args.project
+    if any(p.get("name") == name for p in phases):
+        raise RoadmapError(f"a phase named {name!r} already exists; pass another --name")
+    phase = {"name": name,
+             SOURCE_KEY: {"kind": "jira", "project": args.project},
+             "externalGates": [], "milestones": []}
+    if path is not None and path.name == LOCAL_ROADMAP_NAME:
+        data = phases + [phase]
+        return path, data, phase
+    if path is not None:
+        root = project_root(path)
+    else:
+        start = Path(args.path).expanduser() if args.path else Path.cwd()
+        git, _rel = _git_at_toplevel(start / LOCAL_ROADMAP_NAME)
+        top = (git("rev-parse", "--show-toplevel") or "").strip() if git else ""
+        root = Path(top) if top else start
+    return root / ".claude" / LOCAL_ROADMAP_NAME, [phase], phase
+
+
+def cmd_pull(args) -> int:
+    import _roadmap_jira as jira
+    path, data, phase = _pull_target(args)
+    source = phase_source(phase)
+    if source.get("kind") != "jira":
+        print(f"✗ source kind {source.get('kind')!r} cannot be pulled")
+        return 1
+    if args.issues:
+        try:
+            raw = json.loads(Path(args.issues).read_text())
+        except (OSError, ValueError) as exc:
+            print(f"✗ could not read --issues {args.issues}: {exc}")
+            return 2
+        raw = raw.get("issues", []) if isinstance(raw, dict) else raw
+    else:
+        raw = jira.fetch_issues(source, jira.credentials(project_root(path)))
+    report = jira.merge(phase, [jira.normalise(i) for i in raw], TASK_FIELD_ORDER)
+    if not phase["milestones"]:
+        print(f"✗ Jira project {source.get('project')} returned no issues; "
+              "nothing written")
+        return 1
+    if not args.dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _write_roadmap(path, data)
+    for line in jira.describe(report, phase.get("name"), args.dry_run):
+        print(line)
+    if not args.dry_run:
+        git, rel = _git_at_toplevel(path)
+        if git is not None and git("check-ignore", "-q", rel) is None:
+            print(f"note: {rel} is not ignored by git. It is a mirror of "
+                  f"Jira plus your own tasks; add `{rel}` to .gitignore "
+                  "unless the team has agreed to share it.")
+    return 0
+
+
 def cmd_hook(args) -> int:
     """Claude Code hook entry point. A hook must never fail the session, so
     every error is swallowed and the exit code is always 0."""
@@ -2457,6 +2547,18 @@ def main(argv=None) -> int:
     sp.add_argument("--unassign", action="store_true",
                     help="also clear the assignee")
 
+    sp = common(sub.add_parser(
+        "pull", help="refresh a mirrored phase from its tracker (read-only)"))
+    sp.add_argument("--project", default=None,
+                    help="Jira project key; starts a mirrored phase when "
+                         "nothing here mirrors that project yet")
+    sp.add_argument("--name", default=None,
+                    help="name for a phase --project creates (default: the key)")
+    sp.add_argument("--issues", default=None,
+                    help="read issues from a saved Jira search response "
+                         "instead of calling Jira")
+    sp.add_argument("--dry-run", action="store_true", help="preview, no write")
+
     sp = sub.add_parser("hook", help="Claude Code hook entry point")
     sp.add_argument("event", choices=["session-start", "post-tool-use"])
 
@@ -2477,6 +2579,7 @@ def main(argv=None) -> int:
         "end": cmd_end,
         "backfill-ended": cmd_backfill_ended,
         "stamp-ended": cmd_stamp_ended,
+        "pull": cmd_pull,
         "hook": cmd_hook,
     }
     try:
