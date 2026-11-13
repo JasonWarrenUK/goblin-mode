@@ -62,6 +62,8 @@ from _roadmap_core import (
     IMPOSABLE_STATUSES,
     IN_PROGRESS,
     PLUGIN_VERSION,
+    SOURCE_KEY,
+    SOURCE_KINDS,
     STAMP_KEY,
     VALID_STATUSES,
     RoadmapError,
@@ -71,11 +73,13 @@ from _roadmap_core import (
     find_cycles,
     is_claimed,
     is_held,
+    is_mirrored,
     _phases,
     load,
     milestone_sinks,
     named_phase,
     newer_than_running,
+    phase_source,
     recompute_all,
     stamp_for,
     unmet_blockers,
@@ -472,6 +476,16 @@ def _validate_phase(phase):
 
     problems.extend(_artefact_problems(phase))
 
+    if SOURCE_KEY in phase:
+        source = phase[SOURCE_KEY]
+        kind = source.get("kind") if isinstance(source, dict) else None
+        if kind not in SOURCE_KINDS:
+            problems.append(
+                f"source: kind {kind!r} is not one of "
+                f"{{{', '.join(sorted(SOURCE_KINDS))}}}")
+        elif not source.get("project"):
+            problems.append("source: a jira source needs a 'project' key")
+
     known = set(tasks) | set(milestones) | set(gates)
     gate_expected_blocks = {gid: set() for gid in gates}
     for tid, task in tasks.items():
@@ -479,6 +493,9 @@ def _validate_phase(phase):
             hint = (" (a claim is the `started` field: run roadmap.py claim)"
                     if task.get("status") == IN_PROGRESS else "")
             problems.append(f"{tid}: invalid status {task.get('status')!r}{hint}")
+        if "local" in task and task["local"] is not True:
+            problems.append(
+                f"{tid}: local {task['local']!r} must be true or absent")
         if "started" in task and not _is_iso_date(task.get("started")):
             problems.append(
                 f"{tid}: started {task.get('started')!r} is not a YYYY-MM-DD date")
@@ -1825,8 +1842,8 @@ def cmd_render(args) -> int:
 # ---------------------------------------------------------------------------
 # config
 # ---------------------------------------------------------------------------
-PHASE_FIELD_ORDER = ["name", "path", "project", ARTEFACT_KEY, STAMP_KEY,
-                     "archived", "externalGates", "milestones"]
+PHASE_FIELD_ORDER = ["name", "path", "project", SOURCE_KEY, ARTEFACT_KEY,
+                     STAMP_KEY, "archived", "externalGates", "milestones"]
 
 
 def cmd_config(args) -> int:
@@ -1887,8 +1904,9 @@ def cmd_config(args) -> int:
 # claim / release / end
 # ---------------------------------------------------------------------------
 TASK_FIELD_ORDER = ["id", "description", "status", "dependsOn",
-                    "softDependsOn", "softMilestone", "iterative", "notes",
-                    "assignee", "started", "ended", "pr"]
+                    "softDependsOn", "softMilestone", "iterative", "topic",
+                    "local", "tracker", "orphaned", "notes", "assignee",
+                    "started", "ended", "pr"]
 
 
 def _set_field(obj, key, value, order):
@@ -1937,7 +1955,28 @@ def _load_for_write(args):
     if args.id not in index[0]:
         print(f"✗ no task {args.id!r} in '{phase.get('name')}'")
         return None, None, None, 1
+    if is_mirrored(phase, index[0][args.id]):
+        print(f"✗ {args.id} is mirrored from {_source_label(phase)}: its "
+              "status, dates and assignee are set there and arrive with "
+              "`roadmap.py pull`. Only a task marked local can be changed here.")
+        return None, None, None, 1
     return path, data, index, None
+
+
+def _source_label(phase):
+    source = phase_source(phase) or {}
+    return f"{str(source.get('kind', '')).capitalize()} {source.get('project', '')}".strip()
+
+
+def _refuse_history_dates(phase, command):
+    """stamp-ended and backfill-ended read the roadmap file's git history; a
+    mirrored phase lives outside git and takes its dates from the tracker."""
+    if phase_source(phase) is None:
+        return False
+    print(f"✗ '{phase.get('name')}' is mirrored from {_source_label(phase)}: "
+          f"end dates arrive with `roadmap.py pull`, so {command} has nothing "
+          "to do. Date a local task with `roadmap.py end ID`.")
+    return True
 
 
 def cmd_claim(args) -> int:
@@ -2083,6 +2122,8 @@ def cmd_stamp_ended(args) -> int:
     except RoadmapError as exc:
         print(f"✗ {exc}")
         return 2
+    if _refuse_history_dates(phase, "stamp-ended"):
+        return 1
     if _canonical_text(data) != path.read_text() and not args.reformat:
         print("✗ roadmaps.json is not in canonical form; re-run with "
               "--reformat to accept a whole-file rewrite.")
@@ -2222,6 +2263,8 @@ def cmd_backfill_ended(args) -> int:
     except RoadmapError as exc:
         print(f"✗ {exc}")
         return 2
+    if _refuse_history_dates(phase, "backfill-ended"):
+        return 1
     if _canonical_text(data) != path.read_text() and not args.reformat:
         print("✗ roadmaps.json is not in canonical form; re-run with "
               "--reformat to accept a whole-file rewrite.")

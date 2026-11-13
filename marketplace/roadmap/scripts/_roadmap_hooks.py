@@ -31,7 +31,12 @@ import subprocess
 import time
 from pathlib import Path
 
-from _roadmap_core import RoadmapError, active_phase, build_index
+from _roadmap_core import (
+    LOCAL_ROADMAP_NAME,
+    RoadmapError,
+    active_phase,
+    build_index,
+)
 
 WINDOW_SECONDS = 120
 MARKER = "roadmapClaim"
@@ -95,7 +100,12 @@ def default_branch_name(base):
 
 
 def load_roadmap(checkout):
-    """The active phase of the roadmap at the root of `checkout`, or None."""
+    """The active phase of the roadmap at the root of `checkout`, or None.
+    None too when the checkout holds a local roadmap file: that is a phase
+    mirrored from a tracker, where work is assigned in the tracker and a
+    branch claims nothing."""
+    if (Path(checkout) / ".claude" / LOCAL_ROADMAP_NAME).exists():
+        return None
     try:
         return active_phase(json.loads((Path(checkout) / ROADMAP).read_text()))
     except (OSError, ValueError, RoadmapError):
