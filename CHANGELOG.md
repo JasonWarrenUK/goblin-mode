@@ -5,6 +5,14 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.9.0] - 2026-11-13
+
+### Added
+
+- `mission-control` plugin 0.12.0: the text board (`mc_board`, `mc.py status`) shows each live crew session's context fill as `ctx N%` in its State cell, as the `/mc` pane already did. A gone session shows nothing, because its last figure would read as current.
+- `mission-control` plugin 0.12.0: `mc.py reconcile` raises a `context-high` line for a live crew session at 70% context or more. The line says that only the user can compact a crew session, and names the window by its live registry name first, then the joined row's name, then the short session id. Four crew sessions had filled their context unnoticed because only the pane carried the figure.
+- `mission-control` plugin 0.12.0: the coordinate skill tells the coordinator what to do with a `context-high` line: put it to the user in one line naming the window, ask at a natural boundary (before a PR description or a pool pass, never mid-task) and say so plainly at 85% or more.
+
 ## [7.8.1] - 2026-11-12
 
 ### Fixed
