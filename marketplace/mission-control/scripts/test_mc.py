@@ -661,6 +661,49 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(waits[211], "changes requested by jess")
         self.assertEqual(result["drift"], [])
 
+    def test_reconcile_asks_for_a_compaction_from_a_live_session_at_70_percent_and_over(self):
+        self.box.start()
+        self.box.register("crew-2", "10se4", str(self.box.repo))
+        self.box.register("crew-3", "10se5", str(self.box.repo))
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 213, state="working")
+        self._crew_with_pr("10SE.4", "crew-2", "feat/b", 214, state="working")
+        self._crew_with_pr("10SE.5", "crew-3", "feat/c", 215, state="working")
+        self.box.mc("report", "--context", "85", session="crew-1")
+        self.box.mc("report", "--context", "50", session="crew-2")
+        self.box.mc("report", "--context", "70", session="crew-3")
+        # renamed after it joined: the line names the window as it is now, not as the row remembers it
+        self.box.register("crew-3", "10se5-renamed", str(self.box.repo))
+        open_pr = {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}
+        result = self._reconcile_with(self._gh({"213": open_pr, "214": open_pr, "215": open_pr}))
+        high = {item["task"]: item for item in result["drift"] if item["kind"] == "context-high"}
+        self.assertEqual(sorted(high), ["10SE.2", "10SE.5"], "70 is the threshold; 50 is quiet")
+        self.assertIn("context 85%", high["10SE.2"]["detail"])
+        self.assertIn("only the user can compact it", high["10SE.2"]["detail"])
+        self.assertIn("session 10se5-renamed at context 70%", high["10SE.5"]["detail"])
+
+    def test_reconcile_ignores_the_last_context_figure_of_a_gone_or_done_session(self):
+        self.box.start()
+        self.box.register("crew-2", "10se4", str(self.box.repo))
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 216, state="working")
+        self._crew_with_pr("10SE.4", "crew-2", "feat/b", 217, state="working")
+        self.box.mc("report", "--context", "90", session="crew-1")
+        self.box.mc("report", "--context", "90", session="crew-2")
+        self.box.mc("report", "--state", "done", session="crew-2")
+        (self.box.sessions / "crew-1.json").unlink()
+        open_pr = {"state": "OPEN", "reviewDecision": "", "reviewRequests": [], "latestReviews": [], "mergedAt": None}
+        result = self._reconcile_with(self._gh({"216": open_pr, "217": open_pr}))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertNotIn("context-high", kinds)
+        self.assertIn("gone", kinds, "the gone line is what covers the dead session")
+
+    def test_status_text_shows_the_context_fill_on_a_live_row(self):
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", session="coord-1")
+        self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1")
+        self.assertNotIn("ctx", self.box.mc("status").stdout, "no figure reported yet")
+        self.box.mc("report", "--context", "85", session="crew-1")
+        self.assertIn("ctx 85%", self.box.mc("status").stdout)
+
     def test_reconcile_names_a_playwright_browser_a_slotless_session_left_open(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 214, state="working")
