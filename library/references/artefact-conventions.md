@@ -384,6 +384,18 @@ many entries his directory currently holds, how many times he has run it)
 tells a reader nothing and takes the slot a real metric wanted. Measure the
 *subject*: its steps, its fields, its passes, its moving parts.
 
+## No Audience Names (fixed)
+
+An artefact made to be shared never names the person it is being shared
+with: no "for {name}" in the eyebrow, title, lede, body, footer or the
+publish description. Jason asked for this on 2026-11-14 after it had
+happened more than once. An artefact is calibrated for its reader and
+addressed to nobody; the same page gets forwarded to the next person
+unchanged.
+
+Diagnostic: search the finished file and the publish call for the first
+name of whoever the request said it was for. Any hit is a failure.
+
 ## Headings (fixed)
 
 **Title Case, every heading, every level.** Sentence case is a drift, not a
