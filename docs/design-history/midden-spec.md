@@ -51,7 +51,7 @@ One owner per fact. Everything else points at the owner.
 | A project's session history | Nobody stores it. It is the project note's backlinks (§5.2) |
 | What a well-formed note looks like | `schema.json` in the vault |
 | Where the vault is | The plugin's `userConfig` |
-| Project work as a dependency graph | The roadmap plugin. Midden links to roadmap IDs and never copies tasks out of it (**Assumed**) |
+| Project work as a dependency graph | The roadmap plugin. Midden links to roadmap IDs and never copies tasks out of it |
 | The assumption graph | The assumption notes and their links. The canvas (§5.7) is a projection, regenerated and never edited by hand |
 | The snag index (§5.4) | Derived data outside the vault, rebuildable from snag notes at any time |
 
@@ -98,7 +98,7 @@ Templates are audited against the schema like any other file, so a template cann
 
 ### 3.5. Mod
 
-Laid out per `docs/reference/mods.md`: `hooks/hooks.json`, `hooks/register.tsx`, `types/index.d.ts`, one `userConfig` switch that turns all of it off, colours from the project theme. The hooks module runs with no filesystem, network or process access, so vault data reaches the pane the way roadmap's ready set reaches `/ready`. **Verify** by reading `marketplace/roadmap/hooks/register.tsx`; this spec's author did not.
+Laid out per `docs/reference/mods.md`: `hooks/hooks.json`, `hooks/register.tsx`, `types/index.d.ts`, one `userConfig` switch that turns all of it off, colours from the project theme. Vault data reaches the pane the way roadmap's ready set reaches `/ready`: `marketplace/roadmap/hooks/register.tsx` runs the plugin's CLI through `$.process.run` and draws the JSON it returns. Midden does the same with its own CLI. **Verify** that `$.session.send` can address the current session, which R17 and the Wanted view rely on.
 
 ## 4. Roster
 
@@ -121,7 +121,13 @@ Every action midden takes. An action not in this table does not happen.
 | R13 | `/midden canvas` | Regenerate the assumption graph as a `.canvas` file (§5.7) | Overwrite one generated file |
 | R14 | PostToolUseFailure | Look the failure up in the snag index; on a hit, inject one line (§5.4) | None |
 | R15 | `/midden seen <text>` | The same lookup as R14, on demand | None |
-| R16 | Pane and band redraw | Show project binding, today's daily note, queue length, audit count | None |
+| R16 | Pane and band redraw | Draw the views and band segment of §5.8 from one snapshot | None |
+| R17 | Pane `/` | Search the vault by file search; open a hit in Obsidian or hand its path to Claude. No model turn | None |
+| R18 | Pane `c` | Append one typed line to today's daily note with a link to the project. No model turn | Append |
+| R19 | Pane `u` | Revert the selected digest's commit | Git revert |
+| R20 | Pane `o` | Open the selected note in Obsidian by URI | None |
+
+Pane keys `l`, `d` and `f` run R6, R4 and R11; they are the same actions, reached from the pane.
 
 Deliberately absent: a search on every prompt, any write to auto memory, any copy of roadmap tasks, any automatic creation of project notes.
 
@@ -147,7 +153,7 @@ The audit must never report an unresolved link as a violation. Unresolved links 
 
 ### 5.4. Déjà vu
 
-Jason liked the idea and asked for a better design. The first version searched the whole vault whenever a session hit trouble, which would fire constantly and match badly. This version narrows both ends (**Assumed**, for Jason to confirm).
+The first version searched the whole vault whenever a session hit trouble, which would fire constantly and match badly. This version narrows both ends, and Jason has confirmed it.
 
 - **Corpus:** snag notes only. When the digest sees a failure followed by a fix in a transcript, it writes a note of type `snag`: the error text verbatim, the cause, the fix, the repo and a link to the session's daily note.
 - **Signature:** the error text normalised by stripping paths, numbers, hashes and quoted values, then lowercased. Matching is lexical: equal signatures, or token overlap above a threshold tuned on real snags. No embeddings, no model call.
@@ -170,6 +176,73 @@ A note type with: the premise; linked assumptions (§5.1); the strongest case fo
 ### 5.7. Canvas
 
 R13 writes one `.canvas` file showing assumptions, the notes standing on them and status by colour. It is a projection: regenerated from the notes each time, so hand-arranged layout is lost on the next run. **Verify** the JSON Canvas format against Obsidian's published `obsidian-skills` repository, which has a `json-canvas` skill.
+
+### 5.8. Pane, band and toasts
+
+Obsidian is the better note reader, so the pane is not one. It sits beside a session and shows two flows: what from the vault bears on this session, and what from this session is heading into the vault. `/midden` opens and closes it. It never opens itself; the band carries ambient state.
+
+Data comes from one CLI call that returns a JSON snapshot, run through `$.process.run` as roadmap's pane does. The pane refreshes on open, on `r` and after a digest.
+
+**Views** (**Assumed**: Jason approved the layout and cut none of them). A key switches view; the header strip shows each view's count.
+
+| View | Shows | Keys |
+|---|---|---|
+| Here (default) | Binding, how much Claude was injected with, the project's assumptions by status, recent sessions from backlinks, déjà vu hits this session | `l` link when unbound |
+| Buried | Sessions queued for digest with their age, recent digests, audit count | `d` digest now, `u` revert the selected digest's commit |
+| Stands on | The assumption graph as a tree, fallen first with their dependents | `f` fell the selected assumption |
+| Wanted | Unresolved links ranked by inbound count | A digit asks Claude to draft that note |
+
+Every view takes `/` (search), `c` (capture), `o` (open the selected note in Obsidian through the `obsidian://open` URI) and `r`.
+
+**Turn-free actions.** `/` takes a query, runs the file search and lists hits; a digit opens the hit in Obsidian or hands its path to Claude. `c` takes one line and appends it to today's daily note with a link to the project. Neither spends a model turn, and capture never reaches Claude's context. This is the pattern goblin-util's `/pain` already uses.
+
+**Chrome.** Jason asked for more of it than the first sketch had. The Here view:
+
+```text
+╭─ midden ───────────────────────────── goblin-mode ─╮
+│ ▌HERE▐   buried 3   stands on 7   wanted 12        │
+╰────────────────────────────────────────────────────╯
+╭─ PROJECT ──────────────────────────────── ● bound ─╮
+│ [[Goblin Mode]]                                    │
+│ Claude was told 38 lines at session start          │
+╰────────────────────────────────────────────────────╯
+
+━━ STANDS ON ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2 ━
+ ●  Mods stay terminal-only
+ ◐  One marketplace is enough                  doubted
+
+━━ RECENT SESSIONS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2 ━
+ 1  12 Nov  crew context fill surfaced
+ 2  09 Nov  mission-control 0.12 changelog
+
+━━ SEEN BEFORE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0 ━
+ ╌  nothing yet this session
+
+╭────────────────────────────────────────────────────╮
+│ / search   c capture   o obsidian   l link   r     │
+╰────────────────────────────────────────────────────╯
+```
+
+The type scale, using only what the existing panes already draw (`bold`, `dimColor`, theme colour keys, round borders):
+
+| Level | Treatment |
+|---|---|
+| Pane header | Round frame; plugin name in the top border at the left, repo at the right; active view in capitals, bold, between half-blocks; other views dim with their counts |
+| Card | Round frame with a capitals label in the border and a status at the right. Used only for things that do not scroll |
+| Section heading | Heavy rule, capitals bold label, dim rule, count at the right |
+| Subgroup (Stands on tree) | Light dashed rule, lowercase dim label |
+| Row | Two-column glyph or digit gutter, text at normal weight, metadata dim and right-aligned |
+| Key legend | Round frame pinned at the bottom; keys bold, labels dim |
+
+Frames cost two rows and four columns each, so only the three fixed regions get one. Scrolling sections get rules, which cost one row and no columns.
+
+Colour is theme keys only, per CLAUDE.md §7.5: frames `subtle`, active view `claude`, holds `success`, doubted `warning`, fallen `error`, déjà vu `suggestion`. Status always has a glyph too (`●` holds, `◐` doubted, `○` fallen), so colour is never the only signal.
+
+**Verify**: that the engine draws the heavy rule and half-block characters at the same cell width as the round border in Jason's terminal font; if not, fall back to roadmap's light rule with a bold label.
+
+**Band.** One segment showing the most urgent state, in this order: unreachable, a queued session nearing transcript deletion, a fallen assumption under this project, unbound, bound. **Verify** whether a second mod can draw in the band or whether goblin-chrome owns it; if it owns it, midden publishes its state in its contract and goblin-chrome reads it.
+
+**Toasts.** Digest finished, a déjà vu hit, an assumption falling under the current project.
 
 ## 6. States
 
@@ -223,10 +296,9 @@ Steps 6 to 9 are independent of each other once step 4 is done.
 
 ## 9. Open questions for Jason
 
-1. Does the déjà vu design in §5.4 match what he meant by refining it?
-2. Is the roadmap boundary in §2 right: midden links to roadmap IDs and owns no project tasks?
-3. The Tasks ideas from the brainstorm (loose ends as tasks, due-here injection, a morning block, a weekly pattern note) were not picked. Tasks appear here only as revisit dates and pre-mortem causes. Confirm that is the intent, given the customised Tasks schema was one of the things he wanted to exploit.
-4. How large should the R1 digest be? This spec says "capped" and leaves the number until the project notes have been seen.
+1. **Tasks.** Jason wants to exploit his customised Tasks schema and rejected every idea offered so far (loose ends as tasks, due-here injection, a morning block, a weekly pattern note) as not compelling. Tasks appear in this spec only as revisit dates and pre-mortem causes. After the survey has read the schema, propose Tasks features that come from what it encodes, and expect a high bar.
+2. **R1 digest size.** "Capped" has no number yet. Choose one after seeing real project notes and confirm it with him.
+3. **Pane views.** All four are in by assumption (§5.8). Wanted is the first to cut if the pane feels crowded.
 
 ---
 ← [Wiki home](../README.md) · [Mods](../reference/mods.md)
