@@ -44,6 +44,7 @@ Provenance documents: proposals and the reasoning behind decisions, kept even af
 | Page | Covers |
 |---|---|
 | [Agent & Workflow Design](design-history/agent-workflow-design.md) | The original case for all 10 agents; all six *new* ones proposed there have since shipped |
+| [Midden: build spec](design-history/midden-spec.md) | Design for a mod that connects every session to the Obsidian vault; agreed, not yet built |
 
 ## Audits
 
