@@ -219,7 +219,8 @@ Replacements written to those findings, unrated: "Any session may use the databa
 - "Knowingly" means every fact stays true and only the verdict is wrong. "Twelve skills", "every fifteen seconds" and "nine moods" are counts from the READMEs. A row that needs an invented fact to be funny is cut: a line blaming the tool's maker for the missing goblin was dropped for that reason.
 - Exact numbers do the work. "Twelve skills, a command line and a pane edit it for you" indicts itself; "a set of tools" would not.
 - Institutional verbs carry it: filed, forbidden, held accountable, permits, chores. The passive voice of a memo is an asset here and nowhere else in this guide.
-- Where it has been asked for so far: the lede, the two tier introductions and this table. All four are what the page shows before anything is opened. The content inside each mod was asked for plain. Claude's inference, unconfirmed: the register belongs to the surface and the plain voice to the detail.
+- Where it has been asked for so far: the lede, the two tier introductions, this table and then the opening paragraph of each mod. Claude had inferred that the register belonged only to what shows before anything is opened; the last request disproved that, since those paragraphs sit inside collapsed sections and had first been asked for plain. Revised reading, still Claude's: every piece of introductory copy takes the register, at whatever depth, and the worked detail beneath it (steps, tables, lists) stays plain.
+- An introduction in this register still has to say what the thing does. The mod paragraphs keep every fact a plain summary would carry and change only the stance: "withdraws your permission to edit it" is still the statement that statuses are computed.
 
 ### Humanizer pattern import, September 2026
 
