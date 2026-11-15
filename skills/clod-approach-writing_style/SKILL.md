@@ -240,6 +240,19 @@ Jason set three registers for the goblin-mode mods page on 2026-11-15: goblin, p
 - The two comic voices point opposite ways on purpose. The pedant knowingly sells faults as benefits; the goblin sincerely believes there are no faults.
 - Diagnostic: a goblin line that would still make sense said by someone who thought the mods were pointless is wrong.
 
+**Rated "PERFECT" by Jason** (the goblin describing ordinary Claude Code, with horror):
+- "Two session touch database same time. NO PERMIT. Nobody in charge. Goblin cannot watch."
+- "Human tick own box with own hand. No graph. No skill. Is how accident happen."
+- "Human complain out loud and complaint just GONE. Not in file. Not in any file."
+
+What those share, as Claude reads them: no articles and no verb endings; very short sentences; one word in capitals per line, on the outrage; the facts are exact and it is the alarm that is absurd; the missing thing is always a piece of process (a permit, a graph, a file).
+
+**Rated "a bit normie":** "Before Goblin Mode", "Goblin Say", "Where Goblin Learn This", "Is Real / Coming Soon". Broken grammar on a neutral thought. A goblin label needs the conviction too. Replacements, unrated: "How Human Suffer Before", "Goblin Ruling (Is Final)", "Proof Goblin Not Lying", "Goblin Approve / Soon. Very Soon."
+
+**How the three registers were assigned on that page:** introductions, table cells and scene titles are pedant; hints, set-ups, the account of what a mod does, checklists and sources are clear instruction; the account of life without the mod and the closing verdict on each scene are goblin. A label takes the register of the text it heads.
+
+**Each register has its own material,** agreed with Jason: the pedant is typed (typewriter, titles in sketched capitals); the goblin is scrawled (marker, at an angle, on tape or straight onto the sheet); clear instruction is pasted (a clean printed face on pale slips). A reader can tell who is speaking before reading a word.
+
 ### Humanizer pattern import, September 2026
 
 Rules 20 to 22 and gate item 16 were added on 2026-09-10 from blader/humanizer's pattern list (built on Wikipedia's "Signs of AI writing"): borrowed authority (its pattern 17), participial tails (15), significance inflation (13). Its remaining patterns were already covered here or in CLAUDE.md §3. Mechanical detection for the three lives in the "Borrowed weight" group of `~/.claude/library/scripts/slop-scan.py`.
