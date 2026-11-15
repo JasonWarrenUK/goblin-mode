@@ -195,7 +195,25 @@ From one counter-edit on the "No One Needs Goblin Mode" page, 2026-11-15. Two le
 - Address the reader ("your config"). The rejected draft talked about mods in the abstract.
 - Scope: the hook of a page meant to be shared. Plain explanatory copy that Jason asks for as plain stays plain.
 
-**Extended the same day to a comparison table.** Jason's brief for a "plain tool" column against a "with the mod" column, in his words: the plain column should "knowingly list perfectly rational default behaviour as if it were a terrible oversight"; the mod column should "knowingly posit over complicated new behaviours as a benefit". Claude wrote the rows; they have not been rated yet, so the readings below are Claude's.
+**Extended the same day to a comparison table.** Jason's brief for a "plain tool" column against a "with the mod" column, in his words: the plain column should "knowingly list perfectly rational default behaviour as if it were a terrible oversight"; the mod column should "knowingly posit over complicated new behaviours as a benefit". Claude wrote the rows. Jason rated the plain column: two "excellent", three "miss the mark". The mod column has not been rated. The readings below are Claude's.
+
+**Plain column, accepted:**
+- "The interface ships without a goblin and nobody has been held accountable"
+- "Your plan is a text file, which you are simply trusted to edit"
+
+**Plain column, rejected:**
+- "No official channel exists for complaining about the tool. Other sessions can only be checked by looking at them"
+- "Several sessions on one repository are left to get along like adults, with nobody in charge"
+- "Sessions are kept away from your private notes and forget their own work after thirty days"
+
+What separates them:
+- **The default has to be visibly fine.** A text file you may edit and an interface with no goblin are obviously acceptable, so the complaint can only be a joke. "Nobody in charge" and "forget their own work after thirty days" are real shortcomings, so the row reads as a sincere sales pitch and the inversion is lost. Diagnostic: if a reader could nod along to the complaint, it fails.
+- **One plain fact, then one small clause of grievance.** The fact carries no adjectives; the grievance is a tail ("which you are simply trusted to edit"). Two of the rejected rows packed two complaints in.
+- **The offence is the absence of process.** Being trusted, nobody being held accountable. The default is guilty of leaving you alone.
+- **An everyday noun at the centre:** text file, goblin. The rejected rows had "official channel" and "sessions".
+- **No explaining the joke.** "Like adults" told the reader the default was reasonable. The accepted rows leave that for the reader to notice.
+
+Replacements written to those findings, unrated: "Any session may use the database without applying for a permit"; "Your notes sit in Obsidian, unread by Claude, as though they were private"; "When the tool annoys you, you are expected to get over it. To see what another terminal is doing, you must look at it".
 
 - The register is a double inversion. The lede ruling above caught one half (sell the work on its faults). The other half is indicting the sensible default: "Your plan is a text file, which you are simply trusted to edit."
 - "Knowingly" means every fact stays true and only the verdict is wrong. "Twelve skills", "every fifteen seconds" and "nine moods" are counts from the READMEs. A row that needs an invented fact to be funny is cut: a line blaming the tool's maker for the missing goblin was dropped for that reason.
