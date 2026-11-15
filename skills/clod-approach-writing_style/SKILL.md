@@ -251,7 +251,7 @@ What those share, as Claude reads them: no articles and no verb endings; very sh
 
 **Rated "a bit normie":** "Before Goblin Mode", "Goblin Say", "Where Goblin Learn This", "Is Real / Coming Soon". Broken grammar on a neutral thought. A goblin label needs the conviction too. Replacements, unrated: "How Human Suffer Before", "Goblin Ruling (Is Final)", "Proof Goblin Not Lying", "Goblin Approve / Soon. Very Soon."
 
-**How the three registers were assigned on that page:** introductions, table cells and scene titles are pedant; hints, set-ups, the account of what a mod does, checklists and sources are clear instruction; the account of life without the mod and the closing verdict on each scene are goblin. A label takes the register of the text it heads.
+**How the three registers were assigned on that page:** the page lede, the tier lines, table cells and scene titles are pedant (each mod's opening paragraph started pedant and Jason moved it to goblin the same day); hints, set-ups, the account of what a mod does, checklists and sources are clear instruction; each mod's opening paragraph, the account of life without the mod and the closing verdict on each scene are goblin. A label takes the register of the text it heads.
 
 **Each register has its own material,** agreed with Jason: the pedant is typed (typewriter, titles in sketched capitals); the goblin is scrawled (marker, at an angle, on tape or straight onto the sheet); clear instruction is pasted (a clean printed face on pale slips). A reader can tell who is speaking before reading a word.
 
