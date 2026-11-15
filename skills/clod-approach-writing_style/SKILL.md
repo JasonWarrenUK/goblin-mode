@@ -179,6 +179,22 @@ Key rulings from the About page pass. These carry forward to all subsequent batc
 - Version numbers must be verified before committing (caught: "SvelteKit 5" should have been "SvelteKit 2").
 - Role accuracy matters: "Led" when you were equal partners is a factual error. Use "Co-led" or "Collaborated" as appropriate.
 
+### Artefact lede, November 2026
+
+From one counter-edit on the "No One Needs Goblin Mode" page, 2026-11-15. Two ledes by Claude were rejected for voice and Jason's replacement was adopted verbatim. The rulings are Claude's reading of a single sample.
+
+**Rejected:** "Claude Code is perfectly good on its own. Here are five mods for it anyway, with every feature shown as a small situation played twice: once plain and once with the mod installed."
+
+**Accepted:** "Claude Code is built for professional developers, and this needs to be rectified immediately. Here are five mods that can make your config more arcane, opaque, and finicky."
+
+**Rulings that carry forward:**
+- Self-deprecation is a confident claim pointed the wrong way. The accepted lede sells the mods on their faults with a straight face. The rejected one conceded ("perfectly good", "anyway"), and a concession reads as an apology. Diagnostic: a sentence that gives the reader permission to ignore the work fails.
+- Official diction carries the absurd aim: "needs to be rectified immediately". The flat-absurd register listed under Titles applies to ledes too.
+- Name the faults precisely. "Arcane, opaque, finicky" are three true things about these mods; "perfectly good" is true of anything.
+- A lede in this register does one job. The rejected draft also explained the page's format, which diluted the joke. The format is visible one scroll down.
+- Address the reader ("your config"). The rejected draft talked about mods in the abstract.
+- Scope: the hook of a page meant to be shared. Plain explanatory copy that Jason asks for as plain stays plain.
+
 ### Humanizer pattern import, September 2026
 
 Rules 20 to 22 and gate item 16 were added on 2026-09-10 from blader/humanizer's pattern list (built on Wikipedia's "Signs of AI writing"): borrowed authority (its pattern 17), participial tails (15), significance inflation (13). Its remaining patterns were already covered here or in CLAUDE.md §3. Mechanical detection for the three lives in the "Borrowed weight" group of `~/.claude/library/scripts/slop-scan.py`.
