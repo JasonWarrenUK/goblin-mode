@@ -220,7 +220,15 @@ Replacements written to those findings, unrated: "Any session may use the databa
 - Exact numbers do the work. "Twelve skills, a command line and a pane edit it for you" indicts itself; "a set of tools" would not.
 - Institutional verbs carry it: filed, forbidden, held accountable, permits, chores. The passive voice of a memo is an asset here and nowhere else in this guide.
 - Where it has been asked for so far: the lede, the two tier introductions, this table and then the opening paragraph of each mod. Claude had inferred that the register belonged only to what shows before anything is opened; the last request disproved that, since those paragraphs sit inside collapsed sections and had first been asked for plain. Revised reading, still Claude's: every piece of introductory copy takes the register, at whatever depth, and the worked detail beneath it (steps, tables, lists) stays plain.
-- An introduction in this register still has to say what the thing does. The mod paragraphs keep every fact a plain summary would carry and change only the stance: "withdraws your permission to edit it" is still the statement that statuses are computed.
+
+**Mod paragraphs, first attempt rejected.** Jason: they "don't apply lede voice as fully" as the lede and the table. The rejected roadmap paragraph ran to five sentences, of which two were inversions and three were a plain feature list ("they work out which tasks can be started, record who has claimed each one and redraw everything when work merges"). Claude's reading of why it failed:
+
+- **Every sentence is an inversion or it goes.** The rejected paragraphs were plain summaries with the register applied at the edges. Claude had logged that such a paragraph "keeps every fact a plain summary would carry"; that instruction is what diluted them and is withdrawn. A fact stays only if it can be said in the register. The rest lives in the detail underneath.
+- **The narrator is an advocate.** The lede sells the faults in earnest. The rejected paragraphs slid into commentary on the mod ("so that the human is kept busy too", "so that others may watch"), which is a critic's aside and a wink.
+- **Two beats, as in the lede and the table:** the sane default indicted, then the mod offered as the remedy. "A to-do list can be edited by anyone who can type, including you. Roadmap closes this loophole."
+- **Two to four sentences.** The register thins with length.
+
+The rewrites to these findings are on the page and unrated.
 
 ### Humanizer pattern import, September 2026
 
