@@ -195,6 +195,14 @@ From one counter-edit on the "No One Needs Goblin Mode" page, 2026-11-15. Two le
 - Address the reader ("your config"). The rejected draft talked about mods in the abstract.
 - Scope: the hook of a page meant to be shared. Plain explanatory copy that Jason asks for as plain stays plain.
 
+**Extended the same day to a comparison table.** Jason's brief for a "plain tool" column against a "with the mod" column, in his words: the plain column should "knowingly list perfectly rational default behaviour as if it were a terrible oversight"; the mod column should "knowingly posit over complicated new behaviours as a benefit". Claude wrote the rows; they have not been rated yet, so the readings below are Claude's.
+
+- The register is a double inversion. The lede ruling above caught one half (sell the work on its faults). The other half is indicting the sensible default: "Your plan is a text file, which you are simply trusted to edit."
+- "Knowingly" means every fact stays true and only the verdict is wrong. "Twelve skills", "every fifteen seconds" and "nine moods" are counts from the READMEs. A row that needs an invented fact to be funny is cut: a line blaming the tool's maker for the missing goblin was dropped for that reason.
+- Exact numbers do the work. "Twelve skills, a command line and a pane edit it for you" indicts itself; "a set of tools" would not.
+- Institutional verbs carry it: filed, forbidden, held accountable, permits, chores. The passive voice of a memo is an asset here and nowhere else in this guide.
+- Where it has been asked for so far: the lede, the two tier introductions and this table. All four are what the page shows before anything is opened. The content inside each mod was asked for plain. Claude's inference, unconfirmed: the register belongs to the surface and the plain voice to the detail.
+
 ### Humanizer pattern import, September 2026
 
 Rules 20 to 22 and gate item 16 were added on 2026-09-10 from blader/humanizer's pattern list (built on Wikipedia's "Signs of AI writing"): borrowed authority (its pattern 17), participial tails (15), significance inflation (13). Its remaining patterns were already covered here or in CLAUDE.md §3. Mechanical detection for the three lives in the "Borrowed weight" group of `~/.claude/library/scripts/slop-scan.py`.
