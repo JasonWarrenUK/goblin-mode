@@ -415,6 +415,28 @@ reader's next click ("open", "expand", "below", "each section", "this
 page") is a failure. Two things are exempt because other rules require
 them: the chip legend and the collapsed sources list.
 
+## No Change History (fixed)
+
+An artefact describes the thing as it is. It never says where a part came
+from, what it replaced, what it used to be or what was changed to get here.
+The reader was not in the room and has no earlier version to compare with,
+so the history is noise to them and an old, wrong picture besides.
+
+Jason cut two lines on 2026-11-15 from a page about a mod that was gaining
+five skills: "Five readouts are being transferred in from the skills
+directory" and a line saying a readout "now move into SAME mod". Both were
+true and both were written from the author's side of the change. Column
+headings ending "Once Moved In" went for the same reason. The page now says
+the mod has five readouts, which is all a reader needs.
+
+Diagnostic: search the copy for "now", "no longer", "new", "moved",
+"moving", "transferred", "previously", "used to", "once" and "replaces".
+Each hit is a failure unless the before-and-after is the page's actual
+subject (a comparison of life with and without the thing is a subject; the
+editing history of the thing is not). A plan that has not happened yet is
+written as the plan, or the page waits; it is not written as a move in
+progress.
+
 ## Headings (fixed)
 
 **Title Case, every heading, every level.** Sentence case is a drift, not a
