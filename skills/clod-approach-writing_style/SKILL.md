@@ -230,6 +230,8 @@ Replacements written to those findings, unrated: "Any session may use the databa
 
 The rewrites to these findings are on the page and unrated.
 
+**The same fault again, one sentence at a time.** Adding five skills to a mod, Claude appended "Five readouts attend to the rest: the changelog you have not read, your worktrees..." to a pedant paragraph. Jason: it matches none of the three registers. It was a plain list with one wry clause, the decorated summary again. A sentence added to an existing passage is tested alone against the register, since the sentences around it lend it a voice it does not have. Replacement, unrated: "Five readouts relieve you of matters you had been trusted to know for yourself: which worktree you are standing in, what you did an hour ago, whether your commas have lapsed..."
+
 ### Goblin register, November 2026
 
 Jason set three registers for the goblin-mode mods page on 2026-11-15: goblin, pedant (the lede register above) and clear instruction, which covers plain description. Every piece of text takes one of them.
