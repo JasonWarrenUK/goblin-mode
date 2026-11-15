@@ -185,7 +185,7 @@ From one counter-edit on the "No One Needs Goblin Mode" page, 2026-11-15. Two le
 
 **Rejected:** "Claude Code is perfectly good on its own. Here are five mods for it anyway, with every feature shown as a small situation played twice: once plain and once with the mod installed."
 
-**Accepted:** "Claude Code is built for professional developers, and this needs to be rectified immediately. Here are five mods that can make your config more arcane, opaque, and finicky."
+**Accepted:** "Claude Code is built for professional developers, and this needs to be rectified immediately. Here are five mods that can make your config more arcane, opaque and finicky."
 
 **Rulings that carry forward:**
 - Self-deprecation is a confident claim pointed the wrong way. The accepted lede sells the mods on their faults with a straight face. The rejected one conceded ("perfectly good", "anyway"), and a concession reads as an apology. Diagnostic: a sentence that gives the reader permission to ignore the work fails.
