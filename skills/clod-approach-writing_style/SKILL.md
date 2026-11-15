@@ -213,7 +213,7 @@ What separates them:
 - **An everyday noun at the centre:** text file, goblin. The rejected rows had "official channel" and "sessions".
 - **No explaining the joke.** "Like adults" told the reader the default was reasonable. The accepted rows leave that for the reader to notice.
 
-Replacements written to those findings, unrated: "Any session may use the database without applying for a permit"; "Your notes sit in Obsidian, unread by Claude, as though they were private"; "When the tool annoys you, you are expected to get over it. To see what another terminal is doing, you must look at it".
+Replacements written to those findings, unrated: "Any session may use the database without applying for a permit"; "Your notes sit in Obsidian, unread by Claude, as though they were private"; "When the tool annoys you, you are expected to get over it". That last row first carried a second sentence ("To see what another terminal is doing, you must look at it"), which Jason cut: one grievance per row holds even when the mod does two things.
 
 - The register is a double inversion. The lede ruling above caught one half (sell the work on its faults). The other half is indicting the sensible default: "Your plan is a text file, which you are simply trusted to edit."
 - "Knowingly" means every fact stays true and only the verdict is wrong. "Twelve skills", "every fifteen seconds" and "nine moods" are counts from the READMEs. A row that needs an invented fact to be funny is cut: a line blaming the tool's maker for the missing goblin was dropped for that reason.
