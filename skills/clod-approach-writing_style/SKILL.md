@@ -230,6 +230,16 @@ Replacements written to those findings, unrated: "Any session may use the databa
 
 The rewrites to these findings are on the page and unrated.
 
+### Goblin register, November 2026
+
+Jason set three registers for the goblin-mode mods page on 2026-11-15: goblin, pedant (the lede register above) and clear instruction, which covers plain description. Every piece of text takes one of them.
+
+**The goblin is utterly convinced the work is vital. That is the joke.** Jason's correction, after Claude offered "No Human Need Goblin Mode" as a goblin title and sample lines such as "Is fine" and "Nobody stop human". Claude had copied the broken grammar from his "Why Human Need Goblin Mode" and missed the stance. The grammar is the surface; the conviction is the register.
+
+- The goblin never concedes, shrugs or admits the thing is unnecessary. Doubt about the work belongs to the pedant (who inverts it) or to nobody.
+- The two comic voices point opposite ways on purpose. The pedant knowingly sells faults as benefits; the goblin sincerely believes there are no faults.
+- Diagnostic: a goblin line that would still make sense said by someone who thought the mods were pointless is wrong.
+
 ### Humanizer pattern import, September 2026
 
 Rules 20 to 22 and gate item 16 were added on 2026-09-10 from blader/humanizer's pattern list (built on Wikipedia's "Signs of AI writing"): borrowed authority (its pattern 17), participial tails (15), significance inflation (13). Its remaining patterns were already covered here or in CLAUDE.md §3. Mechanical detection for the three lives in the "Borrowed weight" group of `~/.claude/library/scripts/slop-scan.py`.
