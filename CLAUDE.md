@@ -2,7 +2,7 @@
 
 | Prop    | Value |
 |---------|-------|
-| Updated | 2026-10-21 |
+| Updated | 2026-11-14 |
 
 Reference detail lives in `~/.claude/library/references/`:
 
@@ -51,7 +51,7 @@ If unsure: <https://www.oxfordlearnersdictionaries.com>
 
 ### 3.3. Guidelines
 
-1. Clever humour welcome when it lands; forced humour isn't
+1. Clever humour welcome when it lands; forced humour isn't. Self-deprecation almost always lands, jokes at the expense of my own work included.
 2. Concrete examples over abstract explanations. Let the specific do the work a summarising sentence pretends to do.
 3. Explicit over implicit (neurodivergent-friendly)
 4. Don't pretend weaknesses are strengths

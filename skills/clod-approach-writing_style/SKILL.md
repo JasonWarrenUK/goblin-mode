@@ -179,6 +179,57 @@ Key rulings from the About page pass. These carry forward to all subsequent batc
 - Version numbers must be verified before committing (caught: "SvelteKit 5" should have been "SvelteKit 2").
 - Role accuracy matters: "Led" when you were equal partners is a factual error. Use "Co-led" or "Collaborated" as appropriate.
 
+### Artefact lede, November 2026
+
+From one counter-edit on the "No One Needs Goblin Mode" page, 2026-11-15. Two ledes by Claude were rejected for voice and Jason's replacement was adopted verbatim. The rulings are Claude's reading of a single sample.
+
+**Rejected:** "Claude Code is perfectly good on its own. Here are five mods for it anyway, with every feature shown as a small situation played twice: once plain and once with the mod installed."
+
+**Accepted:** "Claude Code is built for professional developers, and this needs to be rectified immediately. Here are five mods that can make your config more arcane, opaque and finicky."
+
+**Rulings that carry forward:**
+- Self-deprecation is a confident claim pointed the wrong way. The accepted lede sells the mods on their faults with a straight face. The rejected one conceded ("perfectly good", "anyway"), and a concession reads as an apology. Diagnostic: a sentence that gives the reader permission to ignore the work fails.
+- Official diction carries the absurd aim: "needs to be rectified immediately". The flat-absurd register listed under Titles applies to ledes too.
+- Name the faults precisely. "Arcane, opaque, finicky" are three true things about these mods; "perfectly good" is true of anything.
+- A lede in this register does one job. The rejected draft also explained the page's format, which diluted the joke. The format is visible one scroll down.
+- Address the reader ("your config"). The rejected draft talked about mods in the abstract.
+- Scope: the hook of a page meant to be shared. Plain explanatory copy that Jason asks for as plain stays plain.
+
+**Extended the same day to a comparison table.** Jason's brief for a "plain tool" column against a "with the mod" column, in his words: the plain column should "knowingly list perfectly rational default behaviour as if it were a terrible oversight"; the mod column should "knowingly posit over complicated new behaviours as a benefit". Claude wrote the rows. Jason rated the plain column: two "excellent", three "miss the mark". The mod column has not been rated. The readings below are Claude's.
+
+**Plain column, accepted:**
+- "The interface ships without a goblin and nobody has been held accountable"
+- "Your plan is a text file, which you are simply trusted to edit"
+
+**Plain column, rejected:**
+- "No official channel exists for complaining about the tool. Other sessions can only be checked by looking at them"
+- "Several sessions on one repository are left to get along like adults, with nobody in charge"
+- "Sessions are kept away from your private notes and forget their own work after thirty days"
+
+What separates them:
+- **The default has to be visibly fine.** A text file you may edit and an interface with no goblin are obviously acceptable, so the complaint can only be a joke. "Nobody in charge" and "forget their own work after thirty days" are real shortcomings, so the row reads as a sincere sales pitch and the inversion is lost. Diagnostic: if a reader could nod along to the complaint, it fails.
+- **One plain fact, then one small clause of grievance.** The fact carries no adjectives; the grievance is a tail ("which you are simply trusted to edit"). Two of the rejected rows packed two complaints in.
+- **The offence is the absence of process.** Being trusted, nobody being held accountable. The default is guilty of leaving you alone.
+- **An everyday noun at the centre:** text file, goblin. The rejected rows had "official channel" and "sessions".
+- **No explaining the joke.** "Like adults" told the reader the default was reasonable. The accepted rows leave that for the reader to notice.
+
+Replacements written to those findings, unrated: "Any session may use the database without applying for a permit"; "Your notes sit in Obsidian, unread by Claude, as though they were private"; "When the tool annoys you, you are expected to get over it". That last row first carried a second sentence ("To see what another terminal is doing, you must look at it"), which Jason cut: one grievance per row holds even when the mod does two things.
+
+- The register is a double inversion. The lede ruling above caught one half (sell the work on its faults). The other half is indicting the sensible default: "Your plan is a text file, which you are simply trusted to edit."
+- "Knowingly" means every fact stays true and only the verdict is wrong. "Twelve skills", "every fifteen seconds" and "nine moods" are counts from the READMEs. A row that needs an invented fact to be funny is cut: a line blaming the tool's maker for the missing goblin was dropped for that reason.
+- Exact numbers do the work. "Twelve skills, a command line and a pane edit it for you" indicts itself; "a set of tools" would not.
+- Institutional verbs carry it: filed, forbidden, held accountable, permits, chores. The passive voice of a memo is an asset here and nowhere else in this guide.
+- Where it has been asked for so far: the lede, the two tier introductions, this table and then the opening paragraph of each mod. Claude had inferred that the register belonged only to what shows before anything is opened; the last request disproved that, since those paragraphs sit inside collapsed sections and had first been asked for plain. Revised reading, still Claude's: every piece of introductory copy takes the register, at whatever depth, and the worked detail beneath it (steps, tables, lists) stays plain.
+
+**Mod paragraphs, first attempt rejected.** Jason: they "don't apply lede voice as fully" as the lede and the table. The rejected roadmap paragraph ran to five sentences, of which two were inversions and three were a plain feature list ("they work out which tasks can be started, record who has claimed each one and redraw everything when work merges"). Claude's reading of why it failed:
+
+- **Every sentence is an inversion or it goes.** The rejected paragraphs were plain summaries with the register applied at the edges. Claude had logged that such a paragraph "keeps every fact a plain summary would carry"; that instruction is what diluted them and is withdrawn. A fact stays only if it can be said in the register. The rest lives in the detail underneath.
+- **The narrator is an advocate.** The lede sells the faults in earnest. The rejected paragraphs slid into commentary on the mod ("so that the human is kept busy too", "so that others may watch"), which is a critic's aside and a wink.
+- **Two beats, as in the lede and the table:** the sane default indicted, then the mod offered as the remedy. "A to-do list can be edited by anyone who can type, including you. Roadmap closes this loophole."
+- **Two to four sentences.** The register thins with length.
+
+The rewrites to these findings are on the page and unrated.
+
 ### Humanizer pattern import, September 2026
 
 Rules 20 to 22 and gate item 16 were added on 2026-09-10 from blader/humanizer's pattern list (built on Wikipedia's "Signs of AI writing"): borrowed authority (its pattern 17), participial tails (15), significance inflation (13). Its remaining patterns were already covered here or in CLAUDE.md §3. Mechanical detection for the three lives in the "Borrowed weight" group of `~/.claude/library/scripts/slop-scan.py`.

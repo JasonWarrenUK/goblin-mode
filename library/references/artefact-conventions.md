@@ -384,6 +384,37 @@ many entries his directory currently holds, how many times he has run it)
 tells a reader nothing and takes the slot a real metric wanted. Measure the
 *subject*: its steps, its fields, its passes, its moving parts.
 
+## No Audience Names (fixed)
+
+An artefact made to be shared never names the person it is being shared
+with: no "for {name}" in the eyebrow, title, lede, body, footer or the
+publish description. Jason asked for this on 2026-11-14 after it had
+happened more than once. An artefact is calibrated for its reader and
+addressed to nobody; the same page gets forwarded to the next person
+unchanged.
+
+Diagnostic: search the finished file and the publish call for the first
+name of whoever the request said it was for. Any hit is a failure.
+
+## No Reading Instructions (fixed)
+
+An artefact never explains how to read itself. No paragraph says what the
+sections contain, how they are laid out or what opening one reveals. Jason
+removed one on 2026-11-15 ("Open a mod for a summary and its scenes, each
+played twice...") a few turns after removing a lede that did the same job.
+
+The paragraph was written to patch a layout change: collapsing every mod
+hid the scenes, so prose was added to say they were there. That is the
+pattern to catch. When a structure seems to need explaining, the structure
+is what gets fixed (a clearer summary line, a count, a better label), and
+if it reads fine without the explanation then the explanation was never
+needed.
+
+Diagnostic: any sentence whose subject is the page, its sections or the
+reader's next click ("open", "expand", "below", "each section", "this
+page") is a failure. Two things are exempt because other rules require
+them: the chip legend and the collapsed sources list.
+
 ## Headings (fixed)
 
 **Title Case, every heading, every level.** Sentence case is a drift, not a
