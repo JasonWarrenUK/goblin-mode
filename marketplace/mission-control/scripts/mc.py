@@ -1102,6 +1102,12 @@ def hold_lifted(hold: dict | None, states: dict[int, str], open_needs: set[int])
     return True
 
 
+def hold_lift_prs(pr_rows: dict[int, dict]) -> set[int]:
+    """Every PR a recorded hold waits on. They are read for their state alone, so a hold on a PR outside the run lifts when it merges, and never drawn as rows."""
+    return {int(cond["pr"]) for row in pr_rows.values() if not row.get("ignored")
+            for cond in (row.get("hold") or {}).get("lifts_on") or [] if cond.get("pr") is not None}
+
+
 def stack_below(number: int, facts: dict[int, dict], heads: dict[str, int]) -> list[int]:
     """The open PRs under this one, nearest first: each layer's base branch is the head branch of the PR below it. `heads` maps a head branch to its PR number."""
     below: list[int] = []
@@ -1381,6 +1387,8 @@ def reconcile(ledger: Ledger) -> dict:
             note("pr-unattributed", "open PRs no task claims and nobody pinned: " + ", ".join(f"#{n}" for n in loose) + "; `mc.py prs add <n> --task <T>`, `prs pin <n>` to show it or `prs ignore <n>`")
     numbers = {int(row["pr"]) for row in sessions.values() if row.get("pr")} | {n for n, r in pr_rows.items() if not r.get("ignored")}
     facts = pr_facts(ledger, numbers)
+    # the PRs a hold waits on only need their state cached for the page; kept out of `facts` so the migration scan does not read them
+    pr_facts(ledger, hold_lift_prs(pr_rows) - numbers)
     refresh_migrations(ledger, facts, run.get("base", {}).get("branch") or "main")
     prs = []
     for sid, row in sorted(sessions.items(), key=lambda item: int(item[1].get("pr") or 0)):
@@ -3458,7 +3466,8 @@ def dashboard_model(ledger: Ledger, run: dict) -> dict:
     for row in sessions.values():
         if row.get("pr") and int(row["pr"]) not in recorded:
             rows[int(row["pr"])] = {"number": int(row["pr"]), "task": row.get("task"), "group": None}
-    facts, oldest = cached_facts(ledger, set(rows))
+    # the PRs a hold waits on are read for their state; rows come from `rows` alone, so none of them is drawn
+    facts, oldest = cached_facts(ledger, set(rows) | hold_lift_prs(rows))
     shown = {n: r for n, r in rows.items() if (facts.get(n) or {}).get("state", "OPEN") == "OPEN"}
     needs = [n for n in run.get("needs", []) if n.get("status") in ("open", "started")]
     migrations = cached_migrations(ledger, {n: facts[n] for n in shown if n in facts})
@@ -3657,6 +3666,8 @@ def cmd_dashboard(args) -> int:
     if args.refresh:
         numbers = {n for n, r in ledger.prs().items() if not r.get("ignored")} | {int(r["pr"]) for r in ledger.sessions().values() if r.get("pr")}
         facts = pr_facts(ledger, numbers, fresh=numbers)
+        lifts = hold_lift_prs(ledger.prs()) - numbers
+        pr_facts(ledger, lifts, fresh=lifts)
         refresh_migrations(ledger, facts, run.get("base", {}).get("branch") or "main")
     path = write_dashboard(ledger)
     if args.json:

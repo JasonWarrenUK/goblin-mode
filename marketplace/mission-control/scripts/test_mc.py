@@ -3406,6 +3406,18 @@ class Dashboard(unittest.TestCase):
         self.assertEqual(out["totals"]["questions"], 1)
         self.assertIn("Germany before New Zealand?", (self.dir / "dashboard.html").read_text())
 
+    READY = {"state": "OPEN", "review_decision": "APPROVED", "requested": [], "changes_requested_by": [], "approved_by": ["max"], "base": "main",
+             "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "t", "author": "jw"}
+
+    def test_a_hold_lifts_once_the_pr_it_waits_on_merges_from_outside_the_run(self):
+        self.seed_facts(n272=self.READY, n500={**self.READY, "state": "MERGED", "head_branch": "colleague/x", "head": "zzz"})
+        self.box.mc("prs", "add", "272", "--task", "T", session="coord-1")
+        self.box.mc("prs", "hold", "272", "--text", "after the auth change", "--lifts-on-pr", "500", session="coord-1")
+        out = json.loads(self.box.mc("--json", "dashboard").stdout)
+        self.assertEqual(out["totals"]["held"], 0)
+        self.assertEqual([m["number"] for m in out["mine"]], [272])
+        self.assertEqual(out["totals"]["open"], 1, "the PR a hold waits on is read, never drawn as a row")
+
 
 if __name__ == "__main__":
     unittest.main()
