@@ -814,3 +814,20 @@ test('the PR summary parses from status and the board lists only what waits on t
 	expect(parsePrs({ path: '' })).toBe(null)
 	expect(prsLines({ ...prs, totals: { ...prs.totals, open: 0 }, mine: [] })).toBe(null)
 })
+
+test('the board draws the PRs group with only the rows where the user moves next, and offers o for the page', async ($, on) => {
+	const prs = {
+		path: '/home/j/.claude/mission-control/-code-app/dashboard.html',
+		totals: { open: 3, jason: 1, held: 1, ready: 1, questions: 0 },
+		facts_at: NOON / 1000 - 60,
+		mine: [{ number: 272, actor: 'Jason', why: 'approved, checks green, mergeable; the merge is yours', cost: null }],
+	}
+	world(on, 'coord-1', { ...STATUS, prs })
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	const ui = await $.ui.mount(PANE)
+	expect((await ui.find({ type: 'Text', text: /^PRs · 3 open · 1 ready · 1 held/ }))?.text).toContain('PRs · 3 open')
+	expect((await ui.find({ type: 'Text', text: /^#272 approved/ }))?.text).toBe('#272 approved, checks green, mergeable; the merge is yours')
+	expect(await ui.find({ type: 'Button', key: 'page' })).toBeTruthy()
+	await ui.unmount()
+})
