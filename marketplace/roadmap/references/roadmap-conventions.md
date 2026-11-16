@@ -165,7 +165,9 @@ section. The one kind is Jira:
   task; every other issue is a task whose id is the Jira key; a Blocks link
   is a `dependsOn` edge; an issue also depends on its child issues, so a
   story waits for the tickets it was split into, and a child inherits whatever
-  blocks its story, so a split of a blocked story is never offered as ready.
+  blocks its story, so a split of a blocked story is never offered as ready
+  (except a blocker that itself already waits on the child, which Jira
+  orders the other way round and which would otherwise close a loop).
   A Blocks link to an open issue the mirror does not hold (another project,
   or one a custom `jql` leaves out) becomes a gate with `tracker.issue` set;
   pull owns it, adds it when the link appears and retires it when the blocker

@@ -309,6 +309,32 @@ def merge(phase, issues, field_order):
         if issue["parent"] in work:
             children.setdefault(issue["parent"], []).append(key)
 
+    # What each issue waits on by its own links and its own children, before
+    # any inheritance from its story.
+    own_edges = {key: ({b for b in issue["blocked_by"] if b in work and b != key}
+                       | set(children.get(key, [])))
+                 for key, issue in work.items()}
+
+    def waits_on(start, target):
+        """Whether `start` already depends on `target` through own_edges."""
+        stack, seen = [start], set()
+        while stack:
+            current = stack.pop()
+            if current == target:
+                return True
+            if current not in seen:
+                seen.add(current)
+                stack.extend(own_edges.get(current, ()))
+        return False
+
+    def blockers_of(key):
+        """Own edges plus what the issue inherits from its story, leaving out
+        an inherited blocker that already waits on the issue: Jira orders that
+        pair the other way round, and keeping the edge would close a loop."""
+        inherited = {b for b in inherited_blockers(key)
+                     if b in work and b != key and not waits_on(b, key)}
+        return own_edges[key] | inherited
+
     # Blockers the mirror does not hold (another project, or left out by a
     # custom jql) that are still open become gates this pull owns. Each is
     # rebuilt from this answer, so one that closes, or whose link goes, is
@@ -393,8 +419,7 @@ def merge(phase, issues, field_order):
         issue = work[key]
         was = old_tasks.get(key, {})
         done = issue["category"] == "done"
-        depends = sorted({b for b in inherited_blockers(key) if b in work and b != key}
-                         | set(children.get(key, [])), key=_natural)
+        depends = sorted(blockers_of(key), key=_natural)
         depends += sorted(outside_for.get(key, ()), key=_natural)
         depends += [d for d in was.get("dependsOn", [])
                     if d in local_targets and d not in depends]

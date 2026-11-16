@@ -86,6 +86,7 @@ from _roadmap_core import (
     newer_than_running,
     phase_source,
     recompute_all,
+    resolve_roadmap_path,
     stamp_for,
     unmet_blockers,
 )
@@ -2327,12 +2328,17 @@ def _pull_target(args):
     """(path, data, phase) for `pull`: the live mirrored phase, or a new one
     when --project names a Jira project nothing here mirrors yet. A new phase
     goes into the local roadmap file, created beside the committed one."""
+    # Only a file that cannot be found starts a new one. A file that exists
+    # but does not parse is the user's work, so its error is let through
+    # rather than replaced by a fresh file.
     try:
-        path, data = load(args.path)
+        resolve_roadmap_path(args.path)
     except RoadmapError:
         if not args.project:
             raise
         path, data = None, []
+    else:
+        path, data = load(args.path)
     phases = _phases(data) if data else []
     live = [p for p in phases
             if phase_source(p) and not p.get("archived")

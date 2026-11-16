@@ -152,6 +152,28 @@ class Mapping(unittest.TestCase):
         self.assertEqual(tasks["T-8"]["status"], "blocked")
         self.assertEqual(roadmap._validate_phase(phase), [])
 
+    def test_a_story_split_off_a_loop_that_jira_does_not_hold_is_no_cycle(self):
+        # ABC-1 waits on ABC-2, ABC-2 waits on ABC-3 and ABC-3 is a sub-task
+        # of ABC-1: in Jira that is ABC-3, then ABC-2, then the rest of ABC-1.
+        phase = empty_phase()
+        pull(phase, [raw("ABC-1", blocked_by=["ABC-2"]),
+                     raw("ABC-2", blocked_by=["ABC-3"]),
+                     raw("ABC-3", kind="Subtask", parent="ABC-1")])
+        tasks = build_index(phase)[0]
+        self.assertEqual(tasks["ABC-3"]["dependsOn"], [])
+        self.assertEqual(tasks["ABC-2"]["dependsOn"], ["ABC-3"])
+        self.assertEqual(tasks["ABC-1"]["dependsOn"], ["ABC-2", "ABC-3"])
+        self.assertEqual(
+            {tid: t["status"] for tid, t in tasks.items()},
+            {"ABC-1": "blocked", "ABC-2": "blocked", "ABC-3": "todo"})
+        self.assertEqual(roadmap._validate_phase(phase), [])
+
+    def test_a_genuine_cycle_in_jira_still_refuses_the_pull(self):
+        phase = empty_phase()
+        with self.assertRaisesRegex(roadmap.RoadmapError, "cycle"):
+            pull(phase, [raw("ABC-1", blocked_by=["ABC-2"]),
+                         raw("ABC-2", blocked_by=["ABC-1"])])
+
     def test_a_gate_added_by_hand_survives_and_holds_its_tasks(self):
         phase = empty_phase()
         pull(phase, board())
@@ -493,6 +515,16 @@ class Cli(unittest.TestCase):
                 self.assertEqual(code, 1, out)
                 self.assertIn("✗", out)
                 self.assertEqual(self.local.read_text(), before)
+
+    def test_an_unparseable_local_file_is_never_overwritten(self):
+        self.start()
+        broken = '[{"name": "Tranche 2", "milestones": [,]}'
+        self.local.write_text(broken)
+        code, out = run("pull", str(self.root), "--project", "T",
+                        "--issues", str(self.issues))
+        self.assertEqual(code, 2, out)
+        self.assertIn("not valid JSON", out)
+        self.assertEqual(self.local.read_text(), broken)
 
     def test_an_empty_live_answer_is_refused_too(self):
         before = self.mirror_with_local_task()
