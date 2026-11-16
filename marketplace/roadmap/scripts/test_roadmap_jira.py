@@ -584,7 +584,24 @@ class Cli(unittest.TestCase):
         code, out = self.pull_only(issues[:2], "--dry-run")
         self.assertEqual(code, 0, out)
         self.assertIn("--allow-removals", out)
+        self.assertNotIn("lists them", out)
         self.assertEqual(self.local.read_text(), before)
+
+    def test_the_floor_is_exactly_four_tasks(self):
+        issues = self.big_mirror(count=4)
+        before = self.local.read_text()
+        code, out = self.pull_only(issues[:2])
+        self.assertEqual(code, 1, out)
+        self.assertIn("3 of 4", out)
+        self.assertEqual(self.local.read_text(), before)
+
+    def test_dropping_exactly_half_is_not_refused(self):
+        issues = self.big_mirror(count=10)
+        code, out = self.pull_only(issues[:6])
+        self.assertEqual(code, 0, out)
+        issues = self.big_mirror(count=4)
+        code, out = self.pull_only(issues[:3])
+        self.assertEqual(code, 0, out)
 
     def test_a_small_mirror_may_shrink_freely(self):
         issues = self.big_mirror(count=3)
