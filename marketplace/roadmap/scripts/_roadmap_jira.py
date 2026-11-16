@@ -342,10 +342,11 @@ def merge(phase, issues, field_order):
         kept = set()
         for blocker in sorted({b for b in inherited_blockers(key)
                                if b in work and b != key}, key=_natural):
-            if waits_on(own_edges, blocker, key):
-                continue
             if waits_on(graph, blocker, key):
-                skipped_edges.append((key, blocker))
+                # `graph` holds every own edge, so one traversal settles the
+                # common case; own edges alone decide whether to warn.
+                if not waits_on(own_edges, blocker, key):
+                    skipped_edges.append((key, blocker))
                 continue
             kept.add(blocker)
             graph[key].add(blocker)

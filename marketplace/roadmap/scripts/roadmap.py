@@ -2414,7 +2414,8 @@ def cmd_pull(args) -> int:
         # back on the next full pull, but a local task whose milestone
         # emptied stays in M0, so the write needs an explicit say-so.
         shrink = (f"this pull would remove {dropped} of {previous} mirrored "
-                  "tasks; pass --allow-removals if Jira really lost them")
+                  "tasks (`--dry-run` lists them); pass --allow-removals if "
+                  "Jira really lost them")
         if not args.dry_run:
             print(f"✗ {shrink}; nothing written")
             return 1

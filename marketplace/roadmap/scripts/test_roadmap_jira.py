@@ -568,6 +568,7 @@ class Cli(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("--allow-removals", out)
         self.assertIn("9 of 10", out)
+        self.assertIn("--dry-run", out)
         self.assertEqual(self.local.read_text(), before)
 
     def test_allow_removals_lets_the_shrink_through(self):

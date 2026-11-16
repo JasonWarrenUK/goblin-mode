@@ -27,7 +27,7 @@ python3 <plugin-root>/scripts/roadmap.py <subcommand> [PATH] [--phase NAME]
 | `claim ID` | record that someone has started a task (see Claims) | `--assignee NAME --reassign --date YYYY-MM-DD` | 0 · 1 refusal · 2 |
 | `assign ID` | set or clear an assignee without claiming (see Claims) | `--assignee NAME` or `--unassign` (exactly one) | 0 · 1 refusal · 2 |
 | `release ID` | drop a claim | `--unassign` | 0 · 1 not claimed · 2 |
-| `pull` | refresh a phase mirrored from Jira; read-only towards Jira (see Mirrored phases) | `--project KEY --name NAME` (start a mirror) `--issues FILE` `--dry-run` | 0 · 1 nothing to mirror · 2 no credentials, Jira unreachable, cycle |
+| `pull` | refresh a phase mirrored from Jira; read-only towards Jira (see Mirrored phases) | `--project KEY --name NAME` (start a mirror) `--issues FILE` `--allow-removals` `--dry-run` | 0 · 1 nothing to mirror, or more than half the mirror would go · 2 no credentials, Jira unreachable, cycle, issue without a key |
 | `hook EVENT` | Claude Code hook entry point (`session-start`, `post-tool-use`); reads the hook JSON on stdin | | always 0 |
 
 `PATH` is optional; the roadmap is located by walking up from the cwd. Multiple
@@ -157,9 +157,9 @@ section. The one kind is Jira:
   `JIRA_EMAIL` and `JIRA_API_TOKEN` in the environment, the project's
   `.env.local` or its `.env` (an unquoted trailing `# comment` is ignored),
   and only ever reads; a redirect from Jira is refused, so the token is never
-  sent anywhere else. A pull that returns no
-  tasks (an empty answer, or nothing but epics) is refused and writes nothing. So is a pull that would remove more than half
-  of four or more mirrored tasks (a truncated answer looks like that); pass
+  sent anywhere else. A pull that returns no tasks (an empty answer, or
+  nothing but epics) is refused and writes nothing. So is a pull that would
+  remove more than half of four or more mirrored tasks (a truncated answer looks like that); pass
   `--allow-removals` when Jira really lost them. `--dry-run` shows the removals
   and says a real pull would be refused.
 - **What maps to what:** a fix version is a milestone (it keeps its `M{N}`
