@@ -3097,22 +3097,23 @@ class PrRecords(unittest.TestCase):
         self.assertEqual(out["kind"], "hold")
         self.assertIn("lift condition not recorded", out["why"])
 
-    def test_an_earlier_migration_in_another_stack_blocks_the_merge(self):
-        facts = {260: self.fact("de", review_decision="APPROVED"), 271: self.fact("nz")}
-        out = self.who(260, facts, migrations={260: "20261115100000", 271: "20261113100000"})
-        self.assertEqual(out["kind"], "hold")
-        self.assertIn("lands after #271", out["why"])
+    def test_an_earlier_migration_in_another_stack_is_a_restamp_cost_not_a_block(self):
+        facts = {272: self.fact("ie", review_decision="APPROVED"), 271: self.fact("nz"), 273: self.fact("nz2", base="nz")}
+        out = self.who(272, facts, migrations={272: "20261116113625", 271: "20261114120000", 273: "20261114120000"})
+        self.assertEqual(out["kind"], "jason")
+        self.assertEqual(out["cost"], "landing this first makes #271, #273 restamp")
 
     def test_a_migration_in_the_same_stack_is_not_another_stacks_business(self):
         facts = {1: self.fact("a", review_decision="APPROVED", requested=[]), 2: self.fact("b", base="a", review_decision="APPROVED")}
         facts[1]["state"] = "MERGED"
         out = self.who(2, facts, migrations={1: "20261101000000", 2: "20261102000000"})
         self.assertEqual(out["kind"], "jason")
+        self.assertNotIn("cost", out)
 
-    def test_an_unreadable_migration_scan_never_reads_as_merge(self):
+    def test_an_unreadable_migration_scan_says_the_cost_is_unknown(self):
         out = self.who(1, {1: self.fact("a", review_decision="APPROVED")}, migrations={1: None})
-        self.assertEqual(out["kind"], "hold")
-        self.assertIn("unknown", out["why"])
+        self.assertEqual(out["kind"], "jason")
+        self.assertIn("unknown", out["cost"])
 
     def test_an_open_need_for_the_pr_is_the_users(self):
         needs = [{"n": 9, "pr": 1, "why": "compact TAIC", "status": "open"}]
@@ -3120,9 +3121,21 @@ class PrRecords(unittest.TestCase):
 
     def test_checks_changes_and_review_order(self):
         self.assertEqual(self.who(1, {1: self.fact("a", checks="bad", review_decision="APPROVED")})["kind"], "ci")
-        self.assertEqual(self.who(1, {1: self.fact("a", changes_requested_by=["max"])})["kind"], "session")
-        self.assertEqual(self.who(1, {1: self.fact("a", requested=["max"])})["actor"], "max")
-        self.assertEqual(self.who(1, {1: self.fact("a")}, {1: {"number": 1, "task": None}})["kind"], "author")
+        crew = {1: {"number": 1, "task": "T"}}
+        self.assertEqual(self.who(1, {1: self.fact("a", changes_requested_by=["max"])}, crew)["kind"], "session")
+        self.assertEqual(self.who(1, {1: self.fact("a", requested=["max"])}, crew)["actor"], "max")
+        conflicted = self.who(1, {1: self.fact("a", mergeable="CONFLICTING", requested=["max"])}, crew)
+        self.assertEqual((conflicted["kind"], conflicted["actor"]), ("session", "T"))
+        outside = self.who(1, {1: self.fact("a", author="maxitect")}, {1: {"number": 1, "task": None, "pinned": True}})
+        self.assertEqual((outside["kind"], outside["actor"]), ("author", "maxitect"))
+
+    def test_a_layer_still_owing_its_own_review_shows_the_reviewer_not_the_hold_below(self):
+        prs = {260: {"number": 260, "task": "BSU", "hold": {"reason": "after New Zealand", "lifts_on": []}}, 279: {"number": 279, "task": "BSU"}}
+        facts = {260: self.fact("b0", review_decision="APPROVED"), 279: self.fact("b1", base="b0", requested=["maxitect"])}
+        out = self.who(279, facts, prs)
+        self.assertEqual((out["kind"], out["actor"]), ("reviewer", "maxitect"))
+        facts[279].update(review_decision="APPROVED", requested=[])
+        self.assertEqual(self.who(279, facts, prs)["kind"], "hold")
 
     def test_migration_stamp_and_rollup_word(self):
         self.assertEqual(self.mc.lowest_migration(["supabase/migrations/20261115100000_x.sql", "20261101000000_y.sql", "README.md"]), "20261101000000")
@@ -3159,6 +3172,163 @@ class PrCommand(unittest.TestCase):
     def test_an_unknown_task_is_refused(self):
         done = self.box.mc("prs", "add", "5", "--task", "NOPE", session="coord-1", expect=1)
         self.assertIn("not in the crew plan", done.stdout)
+
+
+class PrAttribution(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self.mc = mc_module
+        self.run = {"crew": [{"task": "BSU", "branch": "feat/bsu-corpus-survey"}, {"task": "TAIC", "branch": "feat/taic-metadata-profile"},
+                             {"task": "GPT6", "branch": "feat/pipeline-gpt-6-luna"}]}
+
+    def listing(self, *rows):
+        return [{"number": n, "headRefName": h, "baseRefName": b} for n, h, b in rows]
+
+    def test_branch_key_base_chain_and_session_rows(self):
+        listing = self.listing((260, "feat/bsu-corpus-survey", "main"), (279, "feat/bsu-acquisition", "feat/bsu-corpus-survey"),
+                               (273, "feat/taic-record-prompts", "feat/taic-metadata-profile"), (300, "feat/odd-name", "feat/taic-record-prompts"),
+                               (283, "fix/reread-pages-with-no-row", "main"), (286, "feat/blue-green-deploy", "main"))
+        sessions = {"s": {"task": "GPT6", "pr": 283}}
+        found = self.mc.attribute_prs(self.run, sessions, {}, listing)
+        self.assertEqual(found, {260: "BSU", 279: "BSU", 273: "TAIC", 300: "TAIC", 283: "GPT6"})
+
+    def test_a_recorded_pr_is_left_alone_and_a_closed_one_is_not_claimed(self):
+        listing = self.listing((279, "feat/bsu-acquisition", "main"))
+        sessions = {"s": {"task": "BSU", "pr": 250}}
+        self.assertEqual(self.mc.attribute_prs(self.run, sessions, {279: {"number": 279, "task": None}}, listing), {})
+
+    def test_a_key_two_tasks_share_claims_nothing(self):
+        run = {"crew": [{"task": "A", "branch": "feat/x-one"}, {"task": "B", "branch": "feat/x-two"}]}
+        self.assertEqual(self.mc.attribute_prs(run, {}, {}, self.listing((1, "feat/x-three", "main"))), {})
+
+    def test_a_held_approval_reads_its_hold_from_the_pr_file(self):
+        item = {"n": 3, "kind": "approval", "pr": 260, "text": "PR #260 approved"}
+        line = self.mc.pending_line(self.mc.with_pr_hold(item, {260: {"number": 260, "hold": {"reason": "after New Zealand", "lifts_on": [{"pr": 271}]}}}))
+        self.assertIn("held", line)
+        self.assertIn("#271 lands", line)
+
+
+class PendingHoldMovesToPr(unittest.TestCase):
+    def test_pending_hold_and_release_write_the_pr_file(self):
+        box = Sandbox()
+        box.start()
+        run_path = box.ledger_root / next(p.name for p in box.ledger_root.iterdir()) / "run.json"
+        run = json.loads(run_path.read_text())
+        run["pending"] = [{"id": "x", "n": 1, "kind": "approval", "pr": 42, "text": "PR #42 approved", "status": "open", "at": 0}]
+        run_path.write_text(json.dumps(run))
+        box.mc("pending", "hold", "42", "--text", "after #41", session="coord-1")
+        rows = json.loads(box.mc("--json", "prs", "list").stdout)
+        self.assertEqual(rows[0]["hold"]["reason"], "after #41")
+        self.assertNotIn("hold", json.loads(run_path.read_text())["pending"][0])
+        box.mc("pending", "release", "42", session="coord-1")
+        self.assertNotIn("hold", json.loads(box.mc("--json", "prs", "list").stdout)[0])
+
+
+class WaitingAndQuestions(unittest.TestCase):
+    def setUp(self):
+        self.box = Sandbox()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", session="crew-1", cwd=self.box.worktree)
+
+    def run_json(self):
+        root = self.box.ledger_root / next(p.name for p in self.box.ledger_root.iterdir())
+        return root, json.loads((root / "run.json").read_text())
+
+    def test_waiting_names_what_it_waits_on(self):
+        done = self.box.mc("report", "--state", "waiting", session="crew-1", cwd=self.box.worktree, expect=1)
+        self.assertIn("--on", done.stdout)
+        row = json.loads(self.box.mc("--json", "report", "--state", "waiting", "--on", "reviewer:maxitect", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual(row["waiting_on"], "reviewer:maxitect")
+        row = json.loads(self.box.mc("--json", "report", "--state", "working", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertNotIn("waiting_on", row)
+
+    def test_a_question_carries_its_pr_and_refuses_a_command(self):
+        need = json.loads(self.box.mc("--json", "needs", "add", "--kind", "question", "--why", "Land Germany before New Zealand?", "--pr", "260", session="coord-1").stdout)
+        self.assertEqual((need["kind"], need["pr"], need["command"]), ("question", 260, ""))
+        done = self.box.mc("needs", "add", "--kind", "question", "--why", "x", "--command", "ls", session="coord-1", expect=1)
+        self.assertIn("no command", done.stdout)
+        closed = json.loads(self.box.mc("--json", "needs", "done", str(need["n"]), "--result", "yes", "--by-user").stdout)
+        self.assertEqual(closed["forward_to"], "coord-1")
+
+    def test_reconcile_raises_and_closes_a_compaction_need(self):
+        self.box.mc("report", "--context", "82", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("reconcile", session="coord-1")
+        self.box.mc("reconcile", session="coord-1")
+        _, run = self.run_json()
+        compact = [n for n in run["needs"] if str(n.get("auto", "")).startswith("compact:")]
+        self.assertEqual(len(compact), 1)
+        self.assertEqual(compact[0]["status"], "open")
+        self.box.mc("report", "--context", "20", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("reconcile", session="coord-1")
+        _, run = self.run_json()
+        self.assertEqual([n["status"] for n in run["needs"] if str(n.get("auto", "")).startswith("compact:")], ["done"])
+
+    def test_waiting_jason_without_a_need_is_drift(self):
+        self.box.mc("report", "--state", "waiting-jason", session="crew-1", cwd=self.box.worktree)
+        out = json.loads(self.box.mc("--json", "reconcile", session="coord-1").stdout)
+        self.assertIn("waiting-jason-without-need", [d["kind"] for d in out["drift"]])
+        self.box.mc("needs", "add", "--why", "run the read", "--command", "ls", session="crew-1", cwd=self.box.worktree)
+        out = json.loads(self.box.mc("--json", "reconcile", session="coord-1").stdout)
+        self.assertNotIn("waiting-jason-without-need", [d["kind"] for d in out["drift"]])
+
+
+class Dashboard(unittest.TestCase):
+    def setUp(self):
+        self.box = Sandbox()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.dir = self.box.ledger_root / next(p.name for p in self.box.ledger_root.iterdir())
+
+    def seed_facts(self, **facts):
+        cache = {n.lstrip("n"): {"facts": f, "at": time.time()} for n, f in facts.items()}
+        (self.dir / "pr-facts.json").write_text(json.dumps(cache))
+
+    def test_a_ledger_write_redraws_the_page_from_the_cache_alone(self):
+        base = {"state": "OPEN", "review_decision": "APPROVED", "requested": [], "changes_requested_by": [], "approved_by": ["max"], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "<b>Ship</b> it", "author": "jw"}
+        self.seed_facts(n7=base)
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        page = (self.dir / "dashboard.html").read_text()
+        self.assertIn("#7", page)
+        self.assertIn("&lt;b&gt;Ship&lt;/b&gt; it", page)
+        self.assertIn("the merge is yours", page)
+        self.assertNotIn("http", page.split("<body>")[0].replace("http-equiv", ""))  # nothing loads from the network
+        out = json.loads(self.box.mc("--json", "dashboard").stdout)
+        self.assertEqual(out["totals"]["ready"], 1)
+        self.assertEqual([m["number"] for m in out["mine"]], [7])
+
+    def test_a_note_disappears_once_the_head_moves(self):
+        base = {"state": "OPEN", "review_decision": "", "requested": ["max"], "changes_requested_by": [], "approved_by": [], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "t", "author": "jw"}
+        self.seed_facts(n7=base)
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        self.box.mc("prs", "note", "7", "--text", "MAIU brings the findings after compaction", session="coord-1")
+        self.assertIn("MAIU brings the findings", (self.dir / "dashboard.html").read_text())
+        self.seed_facts(n7={**base, "head": "def"})
+        self.box.mc("dashboard")
+        self.assertNotIn("MAIU brings the findings", (self.dir / "dashboard.html").read_text())
+
+    def test_status_carries_the_prs_block_and_crew_add_takes_a_group(self):
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--group", "New Zealand", session="coord-1")
+        base = {"state": "OPEN", "review_decision": "APPROVED", "requested": [], "changes_requested_by": [], "approved_by": ["max"], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "t", "author": "jw"}
+        self.seed_facts(n7=base)
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertEqual(status["prs"]["mine"][0]["number"], 7)
+        self.assertIn("<h2>New Zealand</h2>", (self.dir / "dashboard.html").read_text())
+
+    def test_a_question_shows_on_its_prs_line(self):
+        base = {"state": "OPEN", "review_decision": "", "requested": ["max"], "changes_requested_by": [], "approved_by": [], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "t", "author": "jw"}
+        self.seed_facts(n7=base)
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        self.box.mc("needs", "add", "--kind", "question", "--why", "Germany before New Zealand?", "--pr", "7", session="coord-1")
+        out = json.loads(self.box.mc("--json", "dashboard").stdout)
+        self.assertEqual(out["totals"]["questions"], 1)
+        self.assertIn("Germany before New Zealand?", (self.dir / "dashboard.html").read_text())
 
 
 if __name__ == "__main__":

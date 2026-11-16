@@ -47,12 +47,15 @@ import sys
 import time
 import uuid
 from datetime import datetime
+from html import escape
 from pathlib import Path
 
 CONFIG_REL = ".claude/mission-control.json"
 LEDGER_ROOT = Path(os.environ.get("MISSION_CONTROL_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "mission-control"))
 SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "sessions"))
-STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting-jason", "done")
+STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting", "waiting-jason", "done")
+# what a `waiting` session names as the thing it waits on; `waiting-jason` is kept for an open need of the user's
+WAITING_ON = re.compile(r"^(reviewer:\S+|session:\S+|pr:#?\d+|ci|hold)$")
 # a need's why is what the user reads before typing a hosted command, so it is not cut mid-sentence; a pasted result can be a query's whole output
 NEED_WHY_LIMIT = 1200
 HOOK_CONTEXT_LIMIT = 9500  # the harness caps a hook's output at 10,000 characters; past that the model gets a file path and a 2,000-character preview
@@ -60,7 +63,7 @@ RESULT_LIMIT = 20_000
 # how long a decision may go unacknowledged by a session it was told to before reconcile says so
 DECISION_ACK_SECONDS = 30 * 60
 # the states a release puts back; anything else the slot interrupted was plain work
-RESTORED_STATES = ("pr-ready", "blocked", "waiting-jason", "done")
+RESTORED_STATES = ("pr-ready", "blocked", "waiting", "waiting-jason", "done")
 BY_USER = "--by-user"
 SUBAGENT_EFFORT_ENV = "CLAUDE_CODE_SUBAGENT_EFFORT"
 SUBAGENT_EFFORT_FLOOR = "high"
@@ -922,7 +925,7 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
     return found
 
 
-PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt,baseRefName,headRefOid,headRefName,mergeable,isDraft,statusCheckRollup,title"
+PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt,baseRefName,headRefOid,headRefName,mergeable,isDraft,statusCheckRollup,title,author"
 _CHECK_PASSING = {"SUCCESS", "SKIPPED", "NEUTRAL"}
 _CHECK_RUNNING = {"QUEUED", "IN_PROGRESS", "PENDING", "WAITING", "REQUESTED", "EXPECTED"}
 
@@ -971,6 +974,7 @@ def normalise_pr_facts(raw: dict) -> dict:
         "draft": bool(raw.get("isDraft")),
         "checks": rollup_word(raw.get("statusCheckRollup")),
         "title": str(raw.get("title") or ""),
+        "author": str((raw.get("author") or {}).get("login") or "") if isinstance(raw.get("author"), dict) else "",
     }
 
 
@@ -1085,9 +1089,70 @@ def stack_below(number: int, facts: dict[int, dict], heads: dict[str, int]) -> l
         current = facts.get(parent) or {}
 
 
+def open_pr_listing(ledger: Ledger) -> list[dict] | None:
+    """Every open PR in the repository with its head and base branch, in one gh call; None when gh does not answer."""
+    code, out = sh(["gh", "pr", "list", "--state", "open", "--limit", "200", *gh_repo_args(ledger.main), "--json", "number,headRefName,baseRefName"], timeout=PR_LOOKUP_SECONDS * 4, cwd=ledger.main)
+    if code != 0:
+        return None
+    try:
+        rows = json.loads(out)
+    except ValueError:
+        return None
+    return [r for r in rows if isinstance(r, dict) and isinstance(r.get("number"), int)] if isinstance(rows, list) else None
+
+
+def branch_key(branch: str) -> str | None:
+    """The task key a branch name carries after its prefix: `feat/bsu-corpus-survey` gives `bsu`."""
+    match = re.match(r"[^/]+/([A-Za-z0-9]+)-", branch or "")
+    return match.group(1).lower() if match else None
+
+
+def attribute_prs(run: dict, sessions: dict[str, dict], prs: dict[int, dict], listing: list[dict]) -> dict[int, str]:
+    """Open PRs nobody recorded, given to a task when the evidence is unambiguous: a session's own PR or watched PR, a head branch that is a planned branch,
+    the planned branch's key after its prefix (one task per key) or a base branch that is the head of a PR already given to a task. Pure; returns {number: task}."""
+    known = {n for n in prs}
+    found: dict[int, str] = {}
+    for row in sessions.values():
+        for number in (row.get("pr"), (row.get("watch") or {}).get("pr")):
+            if number and int(number) not in known and row.get("task"):
+                found.setdefault(int(number), row["task"])
+    by_branch = {e.get("branch"): e.get("task") for e in run.get("crew", []) if e.get("branch") and e.get("task")}
+    keys: dict[str, set[str]] = {}
+    for branch, task in by_branch.items():
+        if branch_key(branch):
+            keys.setdefault(branch_key(branch), set()).add(task)
+    open_numbers = {int(p["number"]) for p in listing}
+    found = {n: t for n, t in found.items() if n in open_numbers}
+    for pr in listing:
+        number = int(pr["number"])
+        if number in known or number in found:
+            continue
+        head = pr.get("headRefName") or ""
+        tasks = keys.get(branch_key(head) or "", set())
+        if head in by_branch:
+            found[number] = by_branch[head]
+        elif len(tasks) == 1:
+            found[number] = next(iter(tasks))
+    head_task = {pr.get("headRefName"): (prs.get(int(pr["number"])) or {}).get("task") or found.get(int(pr["number"])) for pr in listing}
+    changed = True
+    while changed:
+        changed = False
+        for pr in listing:
+            number = int(pr["number"])
+            if number in known or number in found:
+                continue
+            task = head_task.get(pr.get("baseRefName"))
+            if task:
+                found[number] = task
+                head_task[pr.get("headRefName")] = task
+                changed = True
+    return found
+
+
 def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], sessions_by_task: dict[str, dict], needs: list[dict], migrations: dict[int, str | None] | None = None, _depth: int = 0) -> dict:
     """Who acts next on an open PR, derived and never guessed: {actor, kind, why}, kind one of jason, reviewer, session, hold, ci, author.
-    Order: a hold, an open need tied to this PR, the layer below, migration order, the merge, checks, review.
+    Order: a hold, an open need tied to this PR, then the PR's own work (checks, changes, review); only a PR whose own work is done takes the layer below's who ("lands after #n"), then the merge.
+    A merge whose migrations sort after another stack's carries a `cost` naming the PRs that would restamp; holds come only from a recorded hold.
     `facts` is normalise_pr_facts per PR plus head_branch, mergeable, draft and checks ("good", "wait", "bad"). `migrations` maps each PR to the lowest
     unlanded migration its stack carries (None when the scan failed); an earlier one in another stack holds this merge back."""
     migrations = migrations or {}
@@ -1098,37 +1163,44 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
     live_needs = [n for n in needs if n.get("status") not in ("done", "superseded")]
     hold = row.get("hold")
     if hold and not hold_lifted(hold, {n: (f or {}).get("state", "") for n, f in facts.items()}, {n["n"] for n in live_needs}):
-        lift = ", ".join(f"#{c['pr']} lands" if c.get("pr") is not None else f"need #{c['need']} closes" for c in hold.get("lifts_on") or [])
-        return {"actor": "hold", "kind": "hold", "why": f"{hold.get('reason') or 'held'}; " + (f"lifts when {lift}" if lift else "lift condition not recorded")}
+        return {"actor": "hold", "kind": "hold", "why": hold_text(hold)}
     mine = [n for n in live_needs if n.get("pr") == number]
     if mine:
         return {"actor": "Jason", "kind": "jason", "why": f"need #{mine[0].get('n')}: {str(mine[0].get('why') or '')[:80]}"}
     heads = {f["head_branch"]: n for n, f in facts.items() if f and f.get("head_branch")}
-    below = [n for n in stack_below(number, facts, heads) if (facts.get(n) or {}).get("state") == "OPEN"]
-    if below and _depth < 8:
-        blocker = below[-1]
-        inherited = who_moves_next(blocker, prs, facts, sessions_by_task, needs, migrations, _depth + 1)
-        return {**inherited, "why": f"lands after #{blocker}: {inherited['why']}"}
     ready = fact.get("review_decision") == "APPROVED" and not fact.get("changes_requested_by") and fact.get("checks") == "good" and fact.get("mergeable") != "CONFLICTING" and not fact.get("draft")
     if ready:
+        below = [n for n in stack_below(number, facts, heads) if (facts.get(n) or {}).get("state") == "OPEN"]
+        if below and _depth < 8:
+            blocker = below[-1]
+            inherited = who_moves_next(blocker, prs, facts, sessions_by_task, needs, migrations, _depth + 1)
+            return {**inherited, "why": f"lands after #{blocker}: {inherited['why']}"}
+        merge = {"actor": "Jason", "kind": "jason", "why": "approved, checks green, mergeable; the merge is yours"}
+        # migration order is a cost, never a block: CI wants each branch's migrations after the newest on main, so a stack that lands
+        # second with lower timestamps restamps them. A hold for order is a decision, recorded with prs hold like any other
         if number in migrations and migrations[number] is None:
-            return {"actor": "hold", "kind": "hold", "why": "migration order unknown"}
+            return {**merge, "cost": "restamp cost unknown: the migration scan is missing for this head"}
         stamp = migrations.get(number)
-        earlier = sorted((o for o, st in migrations.items() if o != number and st and stamp and st < stamp and (facts.get(o) or {}).get("state") == "OPEN" and not stack_shares(o, number, facts, heads)), key=lambda o: migrations[o])
-        if earlier:
-            return {"actor": "hold", "kind": "hold", "why": f"migration order: lands after #{earlier[0]} ({migrations[earlier[0]]})"}
-        return {"actor": "Jason", "kind": "jason", "why": "approved, checks green, mergeable; the merge is yours"}
+        later = sorted(o for o, st in migrations.items() if o != number and st and stamp and st < stamp and (facts.get(o) or {}).get("state") == "OPEN" and not stack_shares(o, number, facts, heads))
+        if later:
+            return {**merge, "cost": "landing this first makes " + ", ".join(f"#{o}" for o in later) + " restamp"}
+        return merge
     if fact.get("checks") == "bad":
         return {"actor": "CI", "kind": "ci", "why": "checks failing"}
     if fact.get("checks") == "wait":
         return {"actor": "CI", "kind": "ci", "why": "checks running"}
+    outside = row.get("task") is None
+    owner_name = (fact.get("author") or "author") if outside else ((sessions_by_task.get(row.get("task") or "") or {}).get("name") or row.get("task") or "author")
+    if fact.get("mergeable") == "CONFLICTING":
+        return {"actor": owner_name, "kind": "author" if outside else "session", "why": "conflicts with its base; a rebase comes first"}
     if fact.get("changes_requested_by"):
         owner = sessions_by_task.get(row.get("task") or "") or {}
-        return {"actor": owner.get("name") or row.get("task") or "author", "kind": "session", "why": "changes requested by " + ", ".join(fact["changes_requested_by"])}
+        actor = fact.get("author") or "author" if outside else owner.get("name") or row.get("task") or "author"
+        return {"actor": actor, "kind": "author" if outside else "session", "why": "changes requested by " + ", ".join(fact["changes_requested_by"])}
     if fact.get("requested"):
         return {"actor": ", ".join(fact["requested"]), "kind": "reviewer", "why": "waiting for a review"}
-    if row.get("task") is None and not row.get("pinned"):
-        return {"actor": "author", "kind": "author", "why": "not in the run"}
+    if outside:
+        return {"actor": fact.get("author") or "author", "kind": "author", "why": "not in the run; no review requested, so the author moves"}
     return {"actor": "reviewer", "kind": "reviewer", "why": "no reviewer requested"}
 
 
@@ -1170,8 +1242,38 @@ def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str
     return bool(row.get("started"))
 
 
+def sync_compaction_needs(ledger: Ledger, run: dict, wanted: dict[str, str], sessions: dict[str, dict]) -> dict:
+    """One open `compact <session>` need per session past the context threshold, raised by reconcile and closed by it once the fill drops; the user's to type, since no session can compact another."""
+    open_auto = {n.get("auto"): n for n in run.get("needs", []) if str(n.get("auto") or "").startswith("compact:") and n.get("status") != "done"}
+    raise_for = {sid: name for sid, name in wanted.items() if f"compact:{sid}" not in open_auto}
+    close = [n for key, n in open_auto.items() if key.split(":", 1)[1] not in wanted]
+    if not raise_for and not close:
+        return run
+    with ledger.locked():
+        fresh = ledger.run() or run
+        needs = fresh.setdefault("needs", [])
+        for sid, name in raise_for.items():
+            if any(n.get("auto") == f"compact:{sid}" and n.get("status") != "done" for n in needs):
+                continue
+            row = sessions.get(sid) or {}
+            n = 1 + max([x.get("n", 0) for x in needs] or [0])
+            need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": sid, "task": row.get("task", ""), "why": f"{name} is at context {row.get('context_percent')}%; type /compact in that session before its next long task",
+                    "command": "/compact", "cwd": row.get("worktree") or "", "status": "open", "at": now(), "kind": "action", "for": sid, "for_task": row.get("task", ""), "supersedes": None, "auto": f"compact:{sid}"}
+            needs.append(need)
+            ledger.log("need", **need)
+        for need in needs:
+            if any(need.get("id") == c.get("id") for c in close) and need.get("status") != "done":
+                need["status"] = "done"
+                need["done_at"] = now()
+                need["result"] = "context back under the threshold"
+                ledger.log("need-done", id=need["id"], n=need["n"], result_chars=0, superseded_by=None)
+        ledger.save_run(fresh)
+    return fresh
+
+
 def reconcile(ledger: Ledger) -> dict:
-    """The ledger against ground truth: the live registry, GitHub's word on each PR and the branches on origin (a merged PR's base, an open PR's branch). Reports drift; changes nothing."""
+    """The ledger against ground truth: the live registry, GitHub's word on each PR and the branches on origin (a merged PR's base, an open PR's branch). Reports drift.
+    It writes only what the evidence settles: an approval closed once its PR lands, an open PR given to the task its branch names, a hold moved from a pending item to its PR's file."""
     run = ledger.require_run()
     live = registry()
     sessions = ledger.sessions()
@@ -1183,12 +1285,18 @@ def reconcile(ledger: Ledger) -> dict:
     for sid, row in sessions.items():
         if sid not in live and row.get("state") != "done":
             note("gone", f"session {row.get('name') or sid[:8]} is no longer running but its row reads {row.get('state')}", row.get("task", ""), sid, row.get("pr"))
+    compaction_wanted: dict[str, str] = {}
     for sid, row in sessions.items():
         # a coordinator cannot compact a crew session; only the user can. A gone session's figure is stale, and `gone` already covers it
         fill = row.get("context_percent")
         if sid in live and row.get("state") != "done" and isinstance(fill, int) and fill >= CONTEXT_NUDGE_PERCENT:
             window = live[sid].get("name") or row.get("name") or sid[:8]
-            note("context-high", f"session {window} at context {fill}%; only the user can compact it, so ask them to before its next long task (a PR description, a pool pass)", row.get("task", ""), sid, row.get("pr"))
+            compaction_wanted[sid] = window
+            note("context-high", f"session {window} at context {fill}%; only the user can compact it, so it is on the needs list", row.get("task", ""), sid, row.get("pr"))
+    run = sync_compaction_needs(ledger, run, compaction_wanted, sessions)
+    for sid, row in sessions.items():
+        if row.get("state") == "waiting-jason" and not any(n.get("status") in ("open", "started") and sid in (n.get("session_id"), n.get("for")) for n in run.get("needs", [])):
+            note("waiting-jason-without-need", f"session {row.get('name') or sid[:8]} reads waiting-jason but nothing of its is on the needs list; it raises the need (mc_need) or reports `waiting --on <what>`", row.get("task", ""), sid, row.get("pr"))
     joined_tasks = {row.get("task") for row in sessions.values()}
     for entry in run.get("crew", []):
         task = entry.get("task", "")
@@ -1196,8 +1304,37 @@ def reconcile(ledger: Ledger) -> dict:
             launch = next((n for n in run.get("needs", []) if n.get("kind") == "launch" and n.get("task") == task and n.get("status") != "done"), None)
             note("unjoined", f"crew task {task} is in the plan but no session has joined the ledger for it" + (f"; its launch line is need #{launch['n']} on the board" if launch else ""), task)
 
-    numbers = {int(row["pr"]) for row in sessions.values() if row.get("pr")}
+    # every PR the run knows of: a session's focus, its watcher's PR and each prs/<n>.json; one listing of open PRs finds the ones nobody recorded
+    pr_rows = ledger.prs()
+    listing = open_pr_listing(ledger)
+    if listing is not None:
+        found = attribute_prs(run, sessions, pr_rows, listing)
+        if found or any(item.get("hold") for item in run.get("pending", [])):
+            with ledger.locked():
+                pr_rows = ledger.prs()
+                for number, task in attribute_prs(run, sessions, pr_rows, listing).items():
+                    entry = next((e for e in run.get("crew", []) if e.get("task") == task), {})
+                    pr_rows[number] = {"number": number, "task": task, "at": now(), "attributed_by": "reconcile"}
+                    ledger.save_pr(pr_rows[number])
+                    ledger.log("prs-attributed", pr=number, task=task)
+                fresh = ledger.run() or run
+                for item in fresh.get("pending", []):
+                    if item.get("hold") and str(item.get("pr") or "").isdigit():
+                        number = int(item["pr"])
+                        row = pr_rows.get(number) or {"number": number, "task": None, "at": now()}
+                        row.setdefault("hold", {"reason": item.pop("hold"), "lifts_on": [], "at": now(), "by": "migrated"})
+                        item.pop("hold", None)
+                        pr_rows[number] = row
+                        ledger.save_pr(row)
+                ledger.save_run(fresh)
+                run = fresh
+        claimed = set(pr_rows) | {int(r["pr"]) for r in sessions.values() if r.get("pr")}
+        loose = sorted(int(p["number"]) for p in listing if int(p["number"]) not in claimed)
+        if loose:
+            note("pr-unattributed", "open PRs no task claims and nobody pinned: " + ", ".join(f"#{n}" for n in loose) + "; `mc.py prs add <n> --task <T>`, `prs pin <n>` to show it or `prs ignore <n>`")
+    numbers = {int(row["pr"]) for row in sessions.values() if row.get("pr")} | {n for n, r in pr_rows.items() if not r.get("ignored")}
     facts = pr_facts(ledger, numbers)
+    refresh_migrations(ledger, facts, run.get("base", {}).get("branch") or "main")
     prs = []
     for sid, row in sorted(sessions.items(), key=lambda item: int(item[1].get("pr") or 0)):
         if not row.get("pr"):
@@ -1232,8 +1369,8 @@ def reconcile(ledger: Ledger) -> dict:
             if approved_head and current_head and approved_head != current_head:
                 # the approval was given on a commit the branch no longer points at: a rebase or a rewrite since
                 note("approved-stale", f"PR #{item['pr']} was approved at {clock(item.get('at'))} on {approved_head[:7]} and the head is now {current_head[:7]}; the approval may predate a rewrite, so read the diff since before landing and ask the reviewer if it changed what they approved", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
-            elif item.get("hold"):
-                note("approved-held", f"PR #{item['pr']} approved at {clock(item.get('at'))} and held: {item['hold']}; `mc.py pending release {item['pr']}` when it can land", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+            elif (pr_rows.get(int(item["pr"])) or {}).get("hold"):
+                note("approved-held", f"PR #{item['pr']} approved at {clock(item.get('at'))} and held: {hold_text(pr_rows[int(item['pr'])]['hold'])}; `mc.py prs release {item['pr']}` when it can land", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
             else:
                 note("approved-unlanded", f"PR #{item['pr']} approved at {clock(item.get('at'))} and not landed; landing is authorised, so `/pr-land {item['pr']}`", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
     if pending_changed:
@@ -1409,6 +1546,17 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
         for s in sessions:
             if s.get("pr") and int(s["pr"]) in states:
                 s["pr_state"] = states[int(s["pr"])]
+    if run:
+        # the board's glance at the PR page, from the ledger and the caches alone; the tick that reads it also redraws the page
+        try:
+            path = write_dashboard(ledger)
+            model = dashboard_model(ledger, run)
+            if model["items"]:
+                mine = [{"number": i["number"], "actor": i["who"]["actor"], "why": i["who"]["why"], "cost": i["who"].get("cost")} for i in model["items"]
+                        if i["who"]["kind"] == "jason" and not i["who"]["why"].startswith("lands after")]
+                out["prs"] = {"path": str(path), "totals": model["totals"], "facts_at": model["facts_at"], "mine": sorted(mine, key=lambda m: m["number"])}
+        except Exception:  # noqa: BLE001 - the board draws without its PR group rather than not at all
+            pass
     if with_probes and config:
         out["probes"] = [probe_resource(name, spec) for name, spec in resources(config).items() if not (isinstance(spec, dict) and spec.get("human_gate"))]
     return out
@@ -2158,6 +2306,9 @@ def note_approval(ledger: Ledger, run: dict, number: int, current: dict, row: di
                 "session_id": row.get("session_id") if row else None, "head": current.get("head") or "", "status": "open", "at": now()}
         pending.append(item)
         ledger.save_run(fresh)
+        pr_row = ledger.prs().get(number) or {"number": number, "task": (row or {}).get("task"), "at": now()}
+        pr_row["approval"] = {"at": item["at"], "head": item["head"], "by": who}
+        ledger.save_pr(pr_row)
     ledger.log("pending", **item)
 
 
@@ -2289,6 +2440,11 @@ def cmd_watch(args) -> int:
                     return 2
                 continue
             failures = 0
+            try:
+                refresh_task_facts(ledger, row.get("task"))
+                write_dashboard(ledger)
+            except Exception:  # noqa: BLE001 - the page is a view; the watch is the job
+                pass
             changes = snapshot_changes(seen, current)
             if changes:
                 if current.get("decision") == "APPROVED" and seen.get("decision") != "APPROVED" and run:
@@ -2357,6 +2513,8 @@ def crew_locked(args, ledger: Ledger) -> int:
         worktree = in_main_spelling(worktree, str(ledger.main))
     entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration, "unlisted": bool(args.unlisted),
              "model": args.model, "effort": args.effort, "name": args.name or f"{args.task.lower()} crew"}
+    if args.group:
+        entry["group"] = args.group.strip()
     run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
     # the launch line is the first thing the user types for this task, so it goes on the needs list from here, closed by the join.
     # a plan edit for a task whose session is already live (a migration timestamp assigned later, say) raises none: the session
@@ -2612,7 +2770,15 @@ def report_locked(args, ledger: Ledger) -> int:
     if args.state:
         if args.state not in STATES:
             raise Refusal(f"state must be one of {', '.join(STATES)}")
+        if args.state == "waiting":
+            if not args.on or not WAITING_ON.match(args.on):
+                raise Refusal("state waiting names what it waits on: --on reviewer:<login>, session:<task>, pr:<n>, ci or hold; a wait on the user is waiting-jason with a need on the list")
+            row["waiting_on"] = args.on
+        else:
+            row.pop("waiting_on", None)
         row["state"] = args.state
+    elif args.on:
+        raise Refusal("--on goes with --state waiting")
     if args.summary is not None:
         row["summary"] = args.summary.strip()[:160]
     if args.pr is not None:
@@ -2811,9 +2977,13 @@ def needs_locked(args, ledger: Ledger) -> int:
         raise Refusal("--note belongs on needs start")
     if args.result is not None and args.action != "done":
         raise Refusal("--result belongs on needs done")
+    if args.pr is not None and args.action != "add":
+        raise Refusal("--pr belongs on needs add")
     if args.action == "add":
         if not args.why:
             raise Refusal("needs add wants --why, and --command with --cwd when there is a command to type")
+        if args.kind == "question" and args.command:
+            raise Refusal("a question has no command; put the question in --why and the answer comes back with needs done --result")
         row = ledger.sessions().get(session_id or "", {})
         n = 1 + max([x.get("n", 0) for x in needs] or [0])
         # a re-issue closes the need it replaces as superseded, so the trail reads old number to new on one list
@@ -2847,6 +3017,8 @@ def needs_locked(args, ledger: Ledger) -> int:
                 "command": command, "cwd": cwd, "status": "open", "at": now(),
                 "kind": args.kind or inherited.get("kind") or "action", "for": for_session, "for_task": for_task,
                 "supersedes": old["n"] if old else None}
+        if args.pr or inherited.get("pr"):
+            need["pr"] = args.pr or inherited.get("pr")
         if moved_from:
             need["cwd_moved_from"] = moved_from
         needs.append(need)
@@ -3049,15 +3221,20 @@ def pending_locked(args, ledger: Ledger) -> int:
         target = next((p for p in pending if p.get("kind") == "approval" and p.get("status") == "open" and str(p.get("pr")) == str(args.ref).lstrip("#")), None)
         if target is None:
             raise Refusal(f"no open approval for PR {args.ref}; the watcher records one when it sees the approval")
+        # the hold lives on the PR's own file, the one place the board, reconcile and the page read it
+        number = int(target["pr"])
+        row = ledger.prs().get(number) or {"number": number, "task": None, "at": now()}
         if args.action == "hold":
             if not args.text:
                 raise Refusal("pending hold needs --text, the reason the landing waits")
-            target["hold"] = args.text.strip()[:NEED_WHY_LIMIT]
+            row["hold"] = {"reason": args.text.strip()[:NEED_WHY_LIMIT], "lifts_on": [], "at": now(), "by": "user" if args.by_user else "coordinator"}
         else:
-            target.pop("hold", None)
+            row.pop("hold", None)
+        target.pop("hold", None)
+        ledger.save_pr(row)
         ledger.save_run(run)
-        ledger.log("pending-" + args.action, id=target["id"], n=target["n"], pr=target.get("pr"))
-        print(f"PR #{target['pr']} {'held: ' + target['hold'] if args.action == 'hold' else 'released'}")
+        ledger.log("pending-" + args.action, id=target["id"], n=target["n"], pr=number)
+        print(f"PR #{number} {'held: ' + row['hold']['reason'] + ' (`mc.py prs hold` records what lifts it)' if args.action == 'hold' else 'released'}")
         return 0
     target = next((p for p in pending if str(p.get("n")) == str(args.ref) or p.get("id") == args.ref), None)
     if target is None:
@@ -3085,7 +3262,7 @@ def prs_locked(args, ledger: Ledger) -> int:
     prs = ledger.prs()
     if args.action == "list":
         rows = sorted(prs.values(), key=lambda r: r["number"])
-        print(json.dumps(rows, indent=2) if args.json else "\n".join(f"#{r['number']} {r.get('group') or '-'} {r.get('task') or '(outside the run)'}{' held' if r.get('hold') else ''}" for r in rows) or "no PRs recorded")
+        print(json.dumps(rows, indent=2) if args.json else "\n".join(f"#{r['number']} {r.get('task') or '(outside the run)'}{' · ' + r['group'] if r.get('group') else ''}{' · held' if r.get('hold') else ''}{' · ignored' if r.get('ignored') else ''}" for r in rows) or "no PRs recorded")
         return 0
     if args.ref is None or not str(args.ref).lstrip("#").isdigit():
         raise Refusal(f"prs {args.action} needs the PR number")
@@ -3106,18 +3283,22 @@ def prs_locked(args, ledger: Ledger) -> int:
         if task:
             row["task"] = task
         row.setdefault("task", None)
+        # a group is stored only when chosen; otherwise the page reads it from the crew plan at draw time, so a group set later still applies
         if args.group:
             row["group"] = args.group
-        elif not row.get("group"):
-            row["group"] = (plan.get(row.get("task")) or {}).get("group") or row.get("task") or "Outside the run"
+        elif args.action == "pin" and not row.get("group"):
+            row["group"] = OUTSIDE_GROUP
         if args.shared:
             row["shared"] = True
-            row["group"] = args.group or "Shared code"
+            row["group"] = args.group or SHARED_GROUP
         if args.action == "pin":
             row["pinned"] = True
         row.setdefault("opened_by", (own or {}).get("session_id"))
         if own and not row.get("worktree"):
             row["worktree"] = own.get("worktree")
+    elif args.action == "ignore":
+        row.setdefault("task", None)
+        row["ignored"] = True
     elif args.action == "hold":
         if not args.text:
             raise Refusal("prs hold needs --text, the reason the landing waits")
@@ -3132,7 +3313,313 @@ def prs_locked(args, ledger: Ledger) -> int:
         row["note"] = {"text": args.text.strip()[:400], "at": now(), "head": facts.get("head"), "review_decision": facts.get("review_decision"), "state": facts.get("state")}
     ledger.save_pr(row)
     ledger.log("prs-" + args.action, pr=number, task=row.get("task"))
-    print(json.dumps(row) if args.json else f"PR #{number}: {args.action} ({row.get('group')})")
+    print(json.dumps(row) if args.json else f"PR #{number}: {args.action}" + (f" ({row['group']})" if row.get("group") else ""))
+    return 0
+
+
+# ---------------------------------------------------------------- the PR dashboard
+#
+# One local page per run, <ledger>/dashboard.html, outside every repository and never published. It is drawn from the
+# ledger and the cached PR facts alone, so any ledger write can redraw it without asking gh or git; reconcile, the
+# watchers and `dashboard --refresh` are what refresh the facts and the migration scan it reads.
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+DASHBOARD_FILE = "dashboard.html"
+DASHBOARD_STALE_SECONDS = 15 * 60
+# the commands that never redraw the page: reads, hooks (one runs on every Bash call) and the page's own command
+REDRAW_EXEMPT = {"detect", "status", "probe", "check", "hook", "classify", "gate", "dashboard", "watch"}
+OUTSIDE_GROUP = "Outside the run"
+SHARED_GROUP = "Shared code"
+
+
+def cached_facts(ledger: Ledger, numbers: set[int]) -> tuple[dict[int, dict], float | None]:
+    """What the PR facts cache holds for each PR, however old, and the oldest entry's time; never asks gh."""
+    cache = read_json(ledger.dir / "pr-facts.json", {}) or {}
+    found: dict[int, dict] = {}
+    oldest = None
+    for number in numbers:
+        hit = cache.get(str(number)) or {}
+        if isinstance(hit.get("facts"), dict):
+            found[number] = hit["facts"]
+            oldest = hit.get("at", 0) if oldest is None else min(oldest, hit.get("at", 0))
+    return found, oldest
+
+
+def migrations_dir(ledger: Ledger) -> str | None:
+    found = find_config(ledger.main)
+    folder = ((found[1] if found else {}) or {}).get("migrations", {}).get("dir") if found else None
+    return str(folder).strip("/") if folder else None
+
+
+def refresh_migrations(ledger: Ledger, facts: dict[int, dict], trunk: str) -> None:
+    """For each open PR, the lowest migration its head carries that the trunk does not, cached by head sha in migrations.json.
+    The head includes every layer below it, so this is the lowest unlanded migration of the stack up to that layer; "" means none."""
+    folder = migrations_dir(ledger)
+    if not folder or git_problem():
+        return
+    cache_path = ledger.dir / "migrations.json"
+    cache = read_json(cache_path, {}) or {}
+    wanted = {n: f for n, f in facts.items() if f.get("state") == "OPEN" and f.get("head") and (cache.get(str(n)) or {}).get("head") != f["head"]}
+    if not wanted:
+        return
+    run_git(ledger.main, "fetch", "--quiet", "origin")
+    trunk_names = run_git(ledger.main, "ls-tree", "--name-only", f"origin/{trunk}", "--", f"{folder}/")
+    if trunk_names is None:
+        return
+    landed = set(trunk_names.split())
+    for number, fact in wanted.items():
+        ref = fact["head"] if run_git(ledger.main, "cat-file", "-e", fact["head"]) is not None else None
+        if ref is None and fact.get("head_branch") and (run_git(ledger.main, "rev-parse", f"origin/{fact['head_branch']}") or "").strip() == fact["head"]:
+            ref = f"origin/{fact['head_branch']}"
+        names = run_git(ledger.main, "ls-tree", "--name-only", ref, "--", f"{folder}/") if ref else None
+        if names is None:
+            continue  # the head is not here to read: the PR stays unknown, which holds its merge back
+        cache[str(number)] = {"head": fact["head"], "lowest": lowest_migration([n for n in names.split() if n not in landed]) or "", "at": now()}
+    write_json(cache_path, cache)
+
+
+def cached_migrations(ledger: Ledger, facts: dict[int, dict]) -> dict[int, str | None]:
+    """{PR: lowest unlanded migration} for the PRs that carry one, None where the scan is missing or older than the head; empty when the project names no migrations folder."""
+    if not migrations_dir(ledger):
+        return {}
+    cache = read_json(ledger.dir / "migrations.json", {}) or {}
+    out: dict[int, str | None] = {}
+    for number, fact in facts.items():
+        if fact.get("state") != "OPEN":
+            continue
+        hit = cache.get(str(number)) or {}
+        if hit.get("head") != fact.get("head"):
+            out[number] = None
+        elif hit.get("lowest"):
+            out[number] = hit["lowest"]
+    return out
+
+
+def note_current(note: dict | None, fact: dict | None) -> bool:
+    """The coordinator's note shows only while the PR is as it was when the note was written: same head, same review decision, still open."""
+    if not note or not fact:
+        return False
+    return fact.get("state") == "OPEN" and note.get("head") == fact.get("head") and note.get("review_decision") == fact.get("review_decision") and note.get("state") == fact.get("state")
+
+
+def dashboard_model(ledger: Ledger, run: dict) -> dict:
+    """Everything the page and the board draw, from the ledger and the caches alone."""
+    sessions = ledger.sessions()
+    by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
+    recorded = ledger.prs()
+    rows = {n: r for n, r in recorded.items() if not r.get("ignored")}
+    for row in sessions.values():
+        if row.get("pr") and int(row["pr"]) not in recorded:
+            rows[int(row["pr"])] = {"number": int(row["pr"]), "task": row.get("task"), "group": None}
+    facts, oldest = cached_facts(ledger, set(rows))
+    shown = {n: r for n, r in rows.items() if (facts.get(n) or {}).get("state", "OPEN") == "OPEN"}
+    needs = [n for n in run.get("needs", []) if n.get("status") in ("open", "started")]
+    migrations = cached_migrations(ledger, {n: facts[n] for n in shown if n in facts})
+    plan_groups = []
+    for entry in run.get("crew", []):
+        group = entry.get("group") or entry.get("task")
+        if group and group not in plan_groups:
+            plan_groups.append(group)
+    heads = {f.get("head_branch"): n for n, f in facts.items() if n in shown and f.get("head_branch")}
+    items = []
+    for number, row in shown.items():
+        fact = facts.get(number)
+        plan = next((e for e in run.get("crew", []) if e.get("task") == row.get("task")), {})
+        group = row.get("group") or plan.get("group") or row.get("task") or OUTSIDE_GROUP
+        who = who_moves_next(number, shown, facts, by_task, needs, migrations)
+        parent = heads.get((fact or {}).get("base") or "")
+        items.append({
+            "number": number, "task": row.get("task"), "group": group, "who": who, "fact": fact or {}, "parent": parent if parent in shown else None,
+            "note": row.get("note") if note_current(row.get("note"), fact) else None, "needs": [n for n in needs if n.get("pr") == number],
+            "session": by_task.get(row.get("task") or ""), "migration": migrations.get(number), "pinned": bool(row.get("pinned")),
+        })
+    order = plan_groups + sorted({i["group"] for i in items} - set(plan_groups) - {SHARED_GROUP, OUTSIDE_GROUP}) + [SHARED_GROUP, OUTSIDE_GROUP]
+    groups = []
+    for group in order:
+        members = [i for i in items if i["group"] == group]
+        if not members:
+            continue
+        roots = [i for i in members if i["parent"] is None or all(m["number"] != i["parent"] for m in members)]
+        roots.sort(key=lambda i: (stack_lowest(i, members) or "99999999999999", i["number"]))
+        ordered = []
+        for position, root in enumerate(roots, 1):
+            walk_stack(root, members, 0, position, ordered)
+        groups.append({"name": group, "rows": ordered})
+    attached = {n["n"] for i in items for n in i["needs"]}
+    return {
+        "run": run.get("name"), "at": now(), "facts_at": oldest, "groups": groups, "items": items,
+        "loose_needs": [n for n in needs if n.get("n") not in attached],
+        # a layer that only waits on the one below ("lands after #n") is the same action as that layer, so it is not counted twice
+        "totals": {"open": len(items), "jason": sum(1 for i in items if i["who"]["kind"] == "jason" and not i["who"]["why"].startswith("lands after")) + sum(1 for n in needs if n.get("status") == "open" and n.get("n") not in attached),
+                   "held": sum(1 for i in items if i["who"]["kind"] == "hold"), "ready": sum(1 for i in items if i["who"]["kind"] == "jason" and i["who"]["why"].startswith("approved")),
+                   "questions": sum(1 for n in needs if n.get("kind") == "question" and n.get("status") == "open")},
+    }
+
+
+def stack_lowest(root: dict, members: list[dict]) -> str | None:
+    """The lowest migration anywhere in the stack that starts at this root; the stack with the earliest one lands first."""
+    stamps = [root.get("migration")]
+    frontier = [root["number"]]
+    while frontier:
+        current = frontier.pop()
+        for member in members:
+            if member["parent"] == current:
+                stamps.append(member.get("migration"))
+                frontier.append(member["number"])
+    stamps = [s for s in stamps if s]
+    return min(stamps) if stamps else None
+
+
+def walk_stack(item: dict, members: list[dict], depth: int, position: int, out: list[dict]) -> None:
+    out.append({**item, "depth": depth, "position": position if depth == 0 else None})
+    for child in sorted((m for m in members if m["parent"] == item["number"]), key=lambda m: m["number"]):
+        walk_stack(child, members, depth + 1, position, out)
+
+
+def review_chip(fact: dict) -> tuple[str, str]:
+    if fact.get("draft"):
+        return "wait", "draft"
+    decision = fact.get("review_decision")
+    if decision == "APPROVED":
+        return "good", "approved"
+    if decision == "CHANGES_REQUESTED":
+        return "bad", "changes requested"
+    return "wait", "awaiting review"
+
+
+CHECK_LABELS = {"good": "checks green", "wait": "checks running", "bad": "checks failing"}
+
+
+def need_html(need: dict) -> str:
+    kind = need.get("kind") or "action"
+    running = need.get("status") == "started"
+    label = "running" if running else kind
+    body = escape(str(need.get("why") or ""))
+    command = need.get("command") or ""
+    if command and need.get("cwd") and command != "/compact":
+        cmd = f'<code class="cmd">cd {escape(need["cwd"])} &amp;&amp; {escape(command)}</code>'
+    else:
+        cmd = f'<code class="cmd">{escape(command)}</code>' if command else ""
+    since = f" since {escape(clock(need.get('started_at')))}" if running else ""
+    return f'<li class="{"running" if running else ""}"><span class="kind">#{need.get("n")} {escape(label)}{since}</span>{body}{cmd}</li>'
+
+
+def render_dashboard(model: dict, repo_url: str | None) -> str:
+    """The page as one HTML string: theme tokens and components inlined, no script, no network."""
+    theme = (PLUGIN_ROOT / "templates" / "dashboard-theme.css").read_text()
+    components = (PLUGIN_ROOT / "templates" / "dashboard.css").read_text()
+    totals = model["totals"]
+    age = (model["at"] - model["facts_at"]) if model.get("facts_at") else None
+    facts_stamp = "never" if age is None else (f"{int(age // 60)} min ago" if age >= 60 else "just now")
+    stale = age is None or age > DASHBOARD_STALE_SECONDS
+    parts = []
+    if model["loose_needs"]:
+        parts.append('<h2>Needs you</h2><ul class="rows"><li><ul class="needs" style="margin:0;flex:1">' + "".join(need_html(n) for n in model["loose_needs"]) + "</ul></li></ul>")
+    for group in model["groups"]:
+        parts.append(f'<h2>{escape(group["name"])}</h2><ul class="rows">')
+        for item in group["rows"]:
+            fact, who = item["fact"], item["who"]
+            number = item["number"]
+            href = f'{repo_url}/pull/{number}' if repo_url else "#"
+            chips = []
+            if fact:
+                chips.append('<span class="chip {}">{}</span>'.format(*review_chip(fact)))
+                word = fact.get("checks") or "good"
+                chips.append(f'<span class="chip {word}">{CHECK_LABELS.get(word, word)}</span>')
+                if fact.get("mergeable") == "CONFLICTING":
+                    chips.append('<span class="chip bad">conflicts with base</span>')
+            if who.get("cost"):
+                chips.append(f'<span class="chip wait" title="{escape(who["cost"])}">restamp cost</span>')
+            order = f'<span class="order" title="landing order in this group">{item["position"]}</span>' if item.get("position") else ""
+            title = escape(fact.get("title") or "")
+            base = fact.get("base") or ""
+            base_html = f' · on <code>{escape(base)}</code>' if base and item["depth"] == 0 and base not in ("main", "master") else ""
+            migration = f' · migration {escape(item["migration"])}' if item.get("migration") else ""
+            session = item.get("session") or {}
+            owner = f' · {escape(session.get("name") or item.get("task") or "")}' if item.get("task") else (" · pinned" if item.get("pinned") else "")
+            cost_html = f'<p class="meta cost">{escape(who["cost"])}</p>' if who.get("cost") else ""
+            note = item.get("note")
+            note_html = f'<p class="note">{escape(note["text"])} <small>({escape(clock(note.get("at")))})</small></p>' if note else ""
+            needs_html = f'<ul class="needs">{"".join(need_html(n) for n in item["needs"])}</ul>' if item["needs"] else ""
+            parts.append(
+                f'<li class="layer depth-{item["depth"]}" style="--depth:{item["depth"]}"><a class="num" href="{escape(href)}">{order}#{number}</a>'
+                f'<div class="body"><p class="line"><span class="who who-{escape(who["kind"])}">{escape(who["actor"])}</span>{escape(who["why"])}</p>'
+                f'<p class="meta">{title}{owner}{base_html}{migration}</p>{cost_html}{note_html}{needs_html}</div>'
+                f'<div class="chips">{"".join(chips)}</div></li>')
+        parts.append("</ul>")
+    if not model["groups"]:
+        parts.append('<p class="meta">No open PRs recorded for this run yet. Crew PRs are recorded as they are opened; <code>mc.py prs pin &lt;n&gt;</code> adds one from outside the run.</p>')
+    stale_html = ' <span class="stale">(stale: run reconcile or open /mc)</span>' if stale else ""
+    name = escape(str(model.get("run") or "Run"))
+    return f"""<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="60">
+<title>{name} PRs</title>
+<style>
+{theme}
+{components}
+</style></head><body><main>
+<header><h1>{name}: open PRs</h1><span class="stamp">Drawn {escape(clock(model["at"]))} · GitHub facts {facts_stamp}{stale_html}</span></header>
+<div class="totals"><span class="mine"><b>{totals["jason"]}</b> need you</span><span><b>{totals["questions"]}</b> questions for you</span><span><b>{totals["ready"]}</b> ready to merge</span><span><b>{totals["held"]}</b> held</span><span><b>{totals["open"]}</b> open</span></div>
+{"".join(parts)}
+<footer>The tag leading each line is who moves next, derived from GitHub and the ledger's holds and needs; "restamp cost" names the PRs whose migrations would need renaming if this one lands first; a numbered badge is the stack's landing order in its group. A note under a line is the coordinator's and disappears once the PR moves. This page is local to this machine and reloads every minute.</footer>
+</main></body></html>
+"""
+
+
+def repo_web_url(ledger: Ledger) -> str | None:
+    slug = remote_repo(ledger.main)
+    return f"https://github.com/{slug}" if slug else None
+
+
+def write_dashboard(ledger: Ledger) -> Path | None:
+    """Redraw the page from the ledger and the caches; None outside a run."""
+    run = ledger.run()
+    if run is None:
+        return None
+    model = dashboard_model(ledger, run)
+    path = ledger.dir / DASHBOARD_FILE
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(render_dashboard(model, repo_web_url(ledger)))
+    os.replace(tmp, path)
+    return path
+
+
+def redraw_quietly(cwd: str) -> None:
+    """After a ledger write: redraw the page, and never let the page fail the command that wrote."""
+    try:
+        write_dashboard(ledger_for(cwd))
+    except Exception:  # noqa: BLE001 - the page is a view; the write it follows has already succeeded
+        pass
+
+
+def refresh_task_facts(ledger: Ledger, task: str | None) -> None:
+    """A watcher's extra duty: fresh facts for every PR its task owns, so the page's quiet layers do not go stale behind the one PR it watches."""
+    if not task:
+        return
+    numbers = {n for n, r in ledger.prs().items() if r.get("task") == task and not r.get("ignored")}
+    if numbers:
+        pr_facts(ledger, numbers, fresh=numbers)
+
+
+def cmd_dashboard(args) -> int:
+    """Draw the page; --refresh asks gh and git first (every recorded PR's facts and the migration scan); --open opens it in the browser."""
+    ledger = ledger_for(args.cwd)
+    run = ledger.require_run()
+    if args.refresh:
+        numbers = {n for n, r in ledger.prs().items() if not r.get("ignored")} | {int(r["pr"]) for r in ledger.sessions().values() if r.get("pr")}
+        facts = pr_facts(ledger, numbers, fresh=numbers)
+        refresh_migrations(ledger, facts, run.get("base", {}).get("branch") or "main")
+    path = write_dashboard(ledger)
+    if args.json:
+        model = dashboard_model(ledger, run)
+        mine = [{"number": i["number"], "actor": i["who"]["actor"], "why": i["who"]["why"], "cost": i["who"].get("cost")} for i in model["items"] if i["who"]["kind"] == "jason"]
+        print(json.dumps({"path": str(path), "totals": model["totals"], "facts_at": model["facts_at"], "mine": sorted(mine, key=lambda m: m["number"])}))
+    else:
+        print(path)
+    if args.open and path:
+        sh(["open", str(path)])
     return 0
 
 
@@ -3665,6 +4152,21 @@ def clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+def with_pr_hold(item: dict, prs: dict[int, dict]) -> dict:
+    """An approval item with its PR's hold read from prs/<n>.json, where holds live; the item itself no longer carries one."""
+    row = prs.get(int(item["pr"])) if item.get("kind") == "approval" and str(item.get("pr") or "").isdigit() else None
+    hold = (row or {}).get("hold")
+    return {**item, "hold": hold_text(hold)} if hold else item
+
+
+def hold_text(hold: dict | None) -> str:
+    """A hold as one line: its reason and what lifts it, or that nothing recorded will."""
+    if not hold:
+        return ""
+    lifts = ", ".join(f"#{c['pr']} lands" if c.get("pr") is not None else f"need #{c['need']} closes" for c in hold.get("lifts_on") or [])
+    return f"{hold.get('reason') or 'held'}; " + (f"lifts when {lifts}" if lifts else "lift condition not recorded")
+
+
 def pending_line(item: dict) -> str:
     """One open thread as the start context says it. A held approval says held and why: its stored text still reads `landing is authorised`."""
     if item.get("hold"):
@@ -3750,7 +4252,8 @@ def session_start_context(payload: dict) -> str:
                     + (f"running for the user: {running_text}. " if running else "")
                     + "Run reconcile before saying where things stand.")
             # the harness cuts a hook's output at 10,000 characters and shows the model only a preview of the rest, so the pending list takes what the other parts leave
-            pending_text = fit_items([pending_line(p) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`mc.py pending list`")
+            pr_rows = ledger.prs()
+            pending_text = fit_items([pending_line(with_pr_hold(p, pr_rows)) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`mc.py pending list`")
             back = opening + (f"pending: {pending_text}. " if pending else "") + rest
         return f"{head}{back}{rearm}"
     candidate = coord.get("rebind_candidate") or {}
@@ -3881,6 +4384,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--branch")
     sp.add_argument("--worktree")
     sp.add_argument("--migration", help="the migration timestamp assigned to this task, if any")
+    sp.add_argument("--group", help="the heading this task's PRs sit under on the PR page (a body or workstream); default the task id")
     sp.add_argument("--unlisted", action="store_true", help="the task has no roadmap item: no claim is expected and the board marks it")
     sp.add_argument("--model", help="the model the crew session launches on (sonnet, opus, ...); goes on its launch line as --model, which beats ANTHROPIC_MODEL")
     sp.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], help="the effort the crew session launches at; goes on its launch line as --effort")
@@ -3900,6 +4404,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--pr", type=int)
     sp.add_argument("--branch")
     sp.add_argument("--context", type=int, help="this session's context window fill, 0 to 100; alone it updates the gauge without a report")
+    sp.add_argument("--on", help="for state waiting: reviewer:<login>, session:<task>, pr:<n>, ci or hold")
     sp = sub.add_parser("request", help="ask for a resource slot")
     sp.add_argument("resource")
     sp.add_argument("--minutes", type=float)
@@ -3923,7 +4428,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--why")
     sp.add_argument("--command")
     sp.add_argument("--cwd-hint", dest="cwd_hint", help="where the command must be typed")
-    sp.add_argument("--kind", choices=["action", "measurement", "approval", "launch"], help="measurement: the user's output comes back to the session that wants it; launch: a crew session's launch line, closed when that session joins (crew add raises these)")
+    sp.add_argument("--kind", choices=["action", "measurement", "approval", "launch", "question"], help="measurement: the user's output comes back to the session that wants it; question: a question put to the user, no command, the answer goes back with done; launch: a crew session's launch line, closed when that session joins (crew add raises these)")
+    sp.add_argument("--pr", type=int, help="for add: the PR this need blocks; the PR's line on the board and the page carries it")
     sp.add_argument("--for", dest="for_session", help="the session the result is for (task, branch, name or id); default: the asking session")
     sp.add_argument("--supersedes", help="for add: the need this one re-issues; that one closes as superseded by the new number")
     sp.add_argument("--note", help="for start: what is running and where to watch it (a background task id, the session watching)")
@@ -3950,8 +4456,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--text", help="for add: the thread; for done: the outcome")
     sp.add_argument("--all", action="store_true")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("dashboard", help="draw the run's local PR page (<ledger>/dashboard.html) and print its path; --refresh asks gh and git first, --open opens it")
+    sp.add_argument("--refresh", action="store_true")
+    sp.add_argument("--open", action="store_true")
     sp = sub.add_parser("prs", help="one record per PR: task, group, hold and what lifts it, a self-expiring note: add, pin, hold, release, note, list")
-    sp.add_argument("action", choices=["add", "pin", "hold", "release", "note", "list"])
+    sp.add_argument("action", choices=["add", "pin", "ignore", "hold", "release", "note", "list"])
     sp.add_argument("ref", nargs="?", help="the PR number")
     sp.add_argument("--task", help="the crew task the PR belongs to; for add, the caller's own task by default")
     sp.add_argument("--group", help="the group the page draws it under")
@@ -3985,20 +4494,23 @@ COMMANDS = {
     "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire, "classify": cmd_classify, "watch": cmd_watch,
     "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
     "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "gate": cmd_gate, "hook": cmd_hook,
-    "adopt": cmd_adopt, "jobs": cmd_jobs, "pending": cmd_pending, "prs": cmd_prs, "decide": cmd_decide,
+    "adopt": cmd_adopt, "jobs": cmd_jobs, "pending": cmd_pending, "prs": cmd_prs, "dashboard": cmd_dashboard, "decide": cmd_decide,
 }
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        return COMMANDS[args.cmd](args)
+        code = COMMANDS[args.cmd](args)
     except Refusal as refusal:
         if getattr(args, "json", False):
             print(json.dumps({"error": str(refusal)}))
         else:
             print(f"✗ {refusal}")
         return 1
+    if code == 0 and args.cmd not in REDRAW_EXEMPT and getattr(args, "action", None) != "list":
+        redraw_quietly(args.cwd)
+    return code
 
 
 if __name__ == "__main__":
