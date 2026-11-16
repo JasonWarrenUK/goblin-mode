@@ -1310,6 +1310,46 @@ def sync_auto_needs(ledger: Ledger, run: dict, kind: str, wanted: dict[str, tupl
     return fresh
 
 
+def adopt_pr_records(ledger: Ledger, run: dict, sessions: dict[str, dict]) -> tuple[dict, dict[int, dict], list[dict] | None]:
+    """Reconcile's writes to the PR records: an open PR nobody recorded goes to the task the evidence names, and an approval head or hold
+    still on a pending item moves onto its PR's file. Returns the run as saved, the PR records and gh's listing of open PRs (None when gh does not answer)."""
+    # every PR the run knows of: a session's focus, its watcher's PR and each prs/<n>.json; one listing of open PRs finds the ones nobody recorded
+    pr_rows = ledger.prs()
+    listing = open_pr_listing(ledger)
+    found = attribute_prs(run, sessions, pr_rows, listing) if listing is not None else {}
+    # moving holds and approvals onto PR records needs only the ledger, so it runs whether or not gh answers
+    unrecorded_approval = any(p.get("kind") == "approval" and p.get("status") == "open" and str(p.get("pr") or "").isdigit() and p.get("head")
+                              and not (pr_rows.get(int(p["pr"])) or {}).get("approval") for p in run.get("pending", []))
+    if not (found or unrecorded_approval or any(item.get("hold") for item in run.get("pending", []))):
+        return run, pr_rows, listing
+    with ledger.locked():
+        pr_rows = ledger.prs()
+        for number, task in (attribute_prs(run, sessions, pr_rows, listing).items() if listing is not None else ()):
+            pr_rows[number] = {"number": number, "task": task, "at": now(), "attributed_by": "reconcile"}
+            ledger.save_pr(pr_rows[number])
+            ledger.log("prs-attributed", pr=number, task=task)
+        fresh = ledger.run() or run
+        for item in fresh.get("pending", []):
+            if not str(item.get("pr") or "").isdigit():
+                continue
+            number = int(item["pr"])
+            row = pr_rows.get(number) or {"number": number, "task": None, "at": now()}
+            changed = False
+            # an approval the watcher noted before PR records existed: its head goes on the record, so a later push reads as a fresh look owed
+            if item.get("kind") == "approval" and item.get("status") == "open" and item.get("head") and not row.get("approval"):
+                row["approval"] = {"at": item.get("at"), "head": item["head"], "by": "migrated"}
+                changed = True
+            if item.get("hold"):
+                row.setdefault("hold", {"reason": item.pop("hold"), "lifts_on": [], "at": now(), "by": "migrated"})
+                item.pop("hold", None)
+                changed = True
+            if changed:
+                pr_rows[number] = row
+                ledger.save_pr(row)
+        ledger.save_run(fresh)
+    return fresh, pr_rows, listing
+
+
 def reconcile(ledger: Ledger) -> dict:
     """The ledger against ground truth: the live registry, GitHub's word on each PR and the branches on origin (a merged PR's base, an open PR's branch). Reports drift.
     It writes only what the evidence settles: an approval closed once its PR lands, an open PR given to the task its branch names, a hold moved from a pending item to its PR's file."""
@@ -1347,40 +1387,7 @@ def reconcile(ledger: Ledger) -> dict:
             launch = next((n for n in run.get("needs", []) if n.get("kind") == "launch" and n.get("task") == task and n.get("status") != "done"), None)
             note("unjoined", f"crew task {task} is in the plan but no session has joined the ledger for it" + (f"; its launch line is need #{launch['n']} on the board" if launch else ""), task)
 
-    # every PR the run knows of: a session's focus, its watcher's PR and each prs/<n>.json; one listing of open PRs finds the ones nobody recorded
-    pr_rows = ledger.prs()
-    listing = open_pr_listing(ledger)
-    found = attribute_prs(run, sessions, pr_rows, listing) if listing is not None else {}
-    # moving holds and approvals onto PR records needs only the ledger, so it runs whether or not gh answers
-    unrecorded_approval = any(p.get("kind") == "approval" and p.get("status") == "open" and str(p.get("pr") or "").isdigit() and p.get("head")
-                              and not (pr_rows.get(int(p["pr"])) or {}).get("approval") for p in run.get("pending", []))
-    if found or unrecorded_approval or any(item.get("hold") for item in run.get("pending", [])):
-        with ledger.locked():
-            pr_rows = ledger.prs()
-            for number, task in (attribute_prs(run, sessions, pr_rows, listing).items() if listing is not None else ()):
-                pr_rows[number] = {"number": number, "task": task, "at": now(), "attributed_by": "reconcile"}
-                ledger.save_pr(pr_rows[number])
-                ledger.log("prs-attributed", pr=number, task=task)
-            fresh = ledger.run() or run
-            for item in fresh.get("pending", []):
-                if not str(item.get("pr") or "").isdigit():
-                    continue
-                number = int(item["pr"])
-                row = pr_rows.get(number) or {"number": number, "task": None, "at": now()}
-                changed = False
-                # an approval the watcher noted before PR records existed: its head goes on the record, so a later push reads as a fresh look owed
-                if item.get("kind") == "approval" and item.get("status") == "open" and item.get("head") and not row.get("approval"):
-                    row["approval"] = {"at": item.get("at"), "head": item["head"], "by": "migrated"}
-                    changed = True
-                if item.get("hold"):
-                    row.setdefault("hold", {"reason": item.pop("hold"), "lifts_on": [], "at": now(), "by": "migrated"})
-                    item.pop("hold", None)
-                    changed = True
-                if changed:
-                    pr_rows[number] = row
-                    ledger.save_pr(row)
-            ledger.save_run(fresh)
-            run = fresh
+    run, pr_rows, listing = adopt_pr_records(ledger, run, sessions)
     if listing is not None:
         claimed = set(pr_rows) | {int(r["pr"]) for r in sessions.values() if r.get("pr")}
         loose = sorted(int(p["number"]) for p in listing if int(p["number"]) not in claimed)
