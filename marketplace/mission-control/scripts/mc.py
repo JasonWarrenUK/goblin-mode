@@ -1187,7 +1187,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
     Order: a hold, an open need tied to this PR, then the PR's own work (checks, changes, review); only a PR whose own work is done takes the layer below's who ("lands after #n"), then the merge.
     A merge whose migrations sort after another stack's carries a `cost` naming the PRs that would restamp; holds come only from a recorded hold.
     `facts` is normalise_pr_facts per PR plus head_branch, mergeable, draft and checks ("good", "wait", "bad"). `migrations` maps each PR to the lowest
-    unlanded migration its stack carries (None when the scan failed); an earlier one in another stack holds this merge back."""
+    unlanded migration its stack carries (None when the scan failed); an earlier one in another stack, or a missing scan, adds a `cost` to the merge and never holds it."""
     migrations = migrations or {}
     row = prs.get(number) or {}
     fact = facts.get(number)
@@ -1231,9 +1231,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
     if fact.get("mergeable") == "CONFLICTING":
         return {"actor": owner_name, "kind": "author" if outside else "session", "why": "conflicts with its base; a rebase comes first"}
     if fact.get("changes_requested_by"):
-        owner = sessions_by_task.get(row.get("task") or "") or {}
-        actor = fact.get("author") or "author" if outside else owner.get("name") or row.get("task") or "author"
-        return {"actor": actor, "kind": "author" if outside else "session", "why": "changes requested by " + ", ".join(fact["changes_requested_by"])}
+        return {"actor": owner_name, "kind": "author" if outside else "session", "why": "changes requested by " + ", ".join(fact["changes_requested_by"])}
     if fact.get("requested"):
         return {"actor": ", ".join(fact["requested"]), "kind": "reviewer", "why": "waiting for a review"}
     if outside:
@@ -3425,7 +3423,7 @@ def refresh_migrations(ledger: Ledger, facts: dict[int, dict], trunk: str) -> No
             ref = f"origin/{fact['head_branch']}"
         names = run_git(ledger.main, "ls-tree", "--name-only", ref, "--", f"{folder}/") if ref else None
         if names is None:
-            continue  # the head is not here to read: the PR stays unknown, which holds its merge back
+            continue  # the head is not here to read: no scan is cached, so its merge reads `restamp cost unknown`
         cache[str(number)] = {"head": fact["head"], "lowest": lowest_migration([n for n in names.split() if n not in landed]) or "", "at": now()}
     write_json(cache_path, cache)
 
