@@ -159,9 +159,9 @@ section. The one kind is Jira:
   and only ever reads; a redirect from Jira is refused, so the token is never
   sent anywhere else. A pull that returns no tasks (an empty answer, or
   nothing but epics) is refused and writes nothing. So is a pull that would
-  remove more than half of four or more mirrored tasks (a truncated answer looks like that); pass
-  `--allow-removals` when Jira really lost them. `--dry-run` shows the removals
-  and says a real pull would be refused.
+  remove more than half of four or more mirrored tasks (a truncated answer
+  looks like that); pass `--allow-removals` when Jira really lost them.
+  `--dry-run` shows the removals and says a real pull would be refused.
 - **What maps to what:** a fix version is a milestone (it keeps its `M{N}`
   when the version is renamed; issues with no version sit in `M0`,
   Unscheduled); an epic is the `topic` of the issues under it and never a
