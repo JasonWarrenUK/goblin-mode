@@ -2590,6 +2590,15 @@ class LedgerFlow(unittest.TestCase):
         self.assertNotIn("approved-stale", kinds)
         self.assertIn("approved-unlanded", kinds)
 
+    def test_reconcile_fetches_the_pr_a_hold_waits_on(self):
+        self._watching_session(264)
+        ledger_dir = list(self.box.ledger_root.glob("*/run.json"))[0].parent
+        (ledger_dir / "prs").mkdir(exist_ok=True)
+        (ledger_dir / "prs" / "264.json").write_text(json.dumps({"number": 264, "task": "10SE.2", "hold": {"reason": "after #500", "lifts_on": [{"pr": 500}]}}))
+        self._reconcile_with(self._gh({**self._open(264), **self._merged(500)}))
+        cache = json.loads((ledger_dir / "pr-facts.json").read_text())
+        self.assertEqual(cache["500"]["facts"]["state"], "MERGED")
+
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")
