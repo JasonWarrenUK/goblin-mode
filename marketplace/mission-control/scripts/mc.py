@@ -925,7 +925,7 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
     return found
 
 
-PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt,baseRefName,headRefOid,headRefName,mergeable,isDraft,statusCheckRollup,title,author"
+PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,reviews,mergedAt,baseRefName,headRefOid,headRefName,mergeable,isDraft,statusCheckRollup,title,author"
 _CHECK_PASSING = {"SUCCESS", "SKIPPED", "NEUTRAL"}
 _CHECK_RUNNING = {"QUEUED", "IN_PROGRESS", "PENDING", "WAITING", "REQUESTED", "EXPECTED"}
 
@@ -942,6 +942,32 @@ def rollup_word(rollup) -> str:
         else:
             failed += 1
     return "bad" if failed else "wait" if running else "good"
+
+
+def approved_heads(reviews) -> list[str]:
+    """The commits each reviewer's standing approval was given on: per reviewer, the latest verdict (approved, changes requested or dismissed;
+    a comment withdraws nothing), kept when it is an approval. Read from `reviews`, because gh leaves `latestReviews` without a commit oid."""
+    latest: dict[str, dict] = {}
+    for review in reviews or []:
+        if not isinstance(review, dict) or not isinstance(review.get("author"), dict):
+            continue
+        login = review["author"].get("login")
+        state = str(review.get("state") or "").upper()
+        if login and state in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED") and str(review.get("submittedAt") or "") >= str((latest.get(login) or {}).get("submittedAt") or ""):
+            latest[login] = review
+    heads = []
+    for review in latest.values():
+        oid = str((review.get("commit") or {}).get("oid") or "") if isinstance(review.get("commit"), dict) else ""
+        if str(review.get("state")).upper() == "APPROVED" and oid and oid not in heads:
+            heads.append(oid)
+    return heads
+
+
+def approval_is_current(approved_head: str, fact: dict | None) -> bool:
+    """An approval still covers the PR when it was given on the head, or when a reviewer has since approved the head itself:
+    GitHub keeps APPROVED across a push, so the decision alone cannot tell a re-approval from an approval that predates the push."""
+    head = (fact or {}).get("head") or ""
+    return not approved_head or not head or approved_head == head or head in ((fact or {}).get("approved_heads") or [])
 
 
 def normalise_pr_facts(raw: dict) -> dict:
@@ -961,6 +987,7 @@ def normalise_pr_facts(raw: dict) -> dict:
         if state in by_state and login:
             by_state[state].append(str(login))
     return {
+        "approved_heads": approved_heads(raw.get("reviews")),
         "state": str(raw.get("state") or "").upper(),
         "review_decision": str(raw.get("reviewDecision") or "").upper(),
         "requested": requested,
@@ -1170,7 +1197,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
     heads = {f["head_branch"]: n for n, f in facts.items() if f and f.get("head_branch")}
     ready = fact.get("review_decision") == "APPROVED" and not fact.get("changes_requested_by") and fact.get("checks") == "good" and fact.get("mergeable") != "CONFLICTING" and not fact.get("draft")
     approval = row.get("approval") or {}
-    if ready and approval.get("head") and fact.get("head") and approval["head"] != fact["head"]:
+    if ready and not approval_is_current(approval.get("head") or "", fact):
         # GitHub keeps APPROVED across a push unless stale reviews are dismissed; code the reviewer has not seen is not the user's to merge
         return {"actor": ", ".join(fact.get("approved_by") or []) or "reviewer", "kind": "reviewer", "why": f"approved at {approval['head'][:7]}, head now {fact['head'][:7]}; a fresh look is owed"}
     if ready:
@@ -1386,7 +1413,7 @@ def reconcile(ledger: Ledger) -> dict:
         if not fact or fact["state"] == "OPEN":
             approved_head = item.get("head") or ""
             current_head = (fact or {}).get("head") or ""
-            if approved_head and current_head and approved_head != current_head:
+            if not approval_is_current(approved_head, fact):
                 # the approval was given on a commit the branch no longer points at: a rebase or a rewrite since
                 note("approved-stale", f"PR #{item['pr']} was approved at {clock(item.get('at'))} on {approved_head[:7]} and the head is now {current_head[:7]}; the approval may predate a rewrite, so read the diff since before landing and ask the reviewer if it changed what they approved", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
             elif (pr_rows.get(int(item["pr"])) or {}).get("hold"):

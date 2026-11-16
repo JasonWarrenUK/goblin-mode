@@ -2576,6 +2576,20 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("approved-stale", kinds)
         self.assertNotIn("approved-unlanded", kinds)
 
+    def test_an_approval_renewed_at_the_new_head_is_not_called_stale(self):
+        self._watching_session(264)
+        run_path = list(self.box.ledger_root.glob("*/run.json"))[0]
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).append({"id": "a1", "n": 1, "kind": "approval", "pr": 264, "text": "t", "session_id": "crew-1", "head": "aaaaaaa1111", "status": "open", "at": 1.0})
+        run_path.write_text(json.dumps(run))
+        answer = self._open(264)
+        answer["264"]["headRefOid"] = "bbbbbbb2222"
+        answer["264"]["reviews"] = [{"author": {"login": "maxitect"}, "state": "APPROVED", "commit": {"oid": "bbbbbbb2222"}, "submittedAt": "2026-11-16T11:00:00Z"}]
+        result = self._reconcile_with(self._gh(answer))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertNotIn("approved-stale", kinds)
+        self.assertIn("approved-unlanded", kinds)
+
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")
@@ -3092,6 +3106,30 @@ class PrRecords(unittest.TestCase):
         self.assertIn("fresh look", out["why"])
         prs[272]["approval"]["head"] = "h-ie"
         self.assertEqual(self.who(272, facts, prs)["kind"], "jason")
+
+    def test_a_re_approval_at_the_new_head_is_not_owed_a_fresh_look(self):
+        # approved at h-old, pushed to h-ie, approved again at h-ie: GitHub's decision never left APPROVED, so the record still says h-old
+        prs = {272: {"number": 272, "task": "MAIU", "approval": {"head": "h-old", "at": 0}}}
+        facts = {272: self.fact("ie", review_decision="APPROVED", approved_by=["maxitect"], approved_heads=["h-ie"])}
+        self.assertEqual(self.who(272, facts, prs)["kind"], "jason")
+        facts[272]["approved_heads"] = ["h-old"]
+        out = self.who(272, facts, prs)
+        self.assertEqual(out["kind"], "reviewer")
+        self.assertIn("fresh look", out["why"])
+
+    def test_normalise_reads_the_head_each_standing_approval_sat_on(self):
+        def review(login, state, oid, at):
+            return {"author": {"login": login}, "state": state, "commit": {"oid": oid}, "submittedAt": at}
+        raw = {"headRefOid": "B", "reviews": [review("m", "APPROVED", "A", "2026-11-16T10:00:00Z"), review("m", "APPROVED", "B", "2026-11-16T11:00:00Z"),
+                                               review("n", "COMMENTED", "B", "2026-11-16T12:00:00Z")]}
+        self.assertEqual(self.mc.normalise_pr_facts(raw)["approved_heads"], ["B"])
+        # a later comment does not withdraw an approval; a later change request does
+        raw["reviews"].append(review("m", "COMMENTED", "B", "2026-11-16T13:00:00Z"))
+        self.assertEqual(self.mc.normalise_pr_facts(raw)["approved_heads"], ["B"])
+        raw["reviews"].append(review("m", "CHANGES_REQUESTED", "B", "2026-11-16T14:00:00Z"))
+        self.assertEqual(self.mc.normalise_pr_facts(raw)["approved_heads"], [])
+        # gh leaves the oid empty where it cannot say; an empty one is no head
+        self.assertEqual(self.mc.normalise_pr_facts({"reviews": [review("m", "APPROVED", "", "2026-11-16T10:00:00Z")]})["approved_heads"], [])
 
     def test_a_recorded_hold_wins_until_what_lifts_it_merges(self):
         prs = {260: {"number": 260, "hold": {"reason": "migration order", "lifts_on": [{"pr": 271}]}}}
