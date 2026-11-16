@@ -3418,6 +3418,17 @@ class Dashboard(unittest.TestCase):
         self.assertEqual([m["number"] for m in out["mine"]], [272])
         self.assertEqual(out["totals"]["open"], 1, "the PR a hold waits on is read, never drawn as a row")
 
+    def test_the_pr_a_hold_waits_on_is_never_taken_for_a_layer_below_another_row(self):
+        # #11 is based on the colleague's branch; #500 is that branch's PR, read only because #10's hold names it
+        self.seed_facts(n10=self.READY, n11={**self.READY, "head": "def", "head_branch": "feat/b", "base": "colleague/x"},
+                        n500={**self.READY, "head": "zzz", "head_branch": "colleague/x"})
+        self.box.mc("prs", "add", "10", "--task", "T", session="coord-1")
+        self.box.mc("prs", "add", "11", "--task", "T", session="coord-1")
+        self.box.mc("prs", "hold", "10", "--text", "after the auth change", "--lifts-on-pr", "500", session="coord-1")
+        out = json.loads(self.box.mc("--json", "dashboard").stdout)
+        self.assertEqual([m["number"] for m in out["mine"]], [11])
+        self.assertEqual(out["mine"][0]["why"], "approved, checks green, mergeable; the merge is yours")
+
     def test_the_page_summary_and_status_agree_on_what_is_yours(self):
         # #8 sits on #7; both are ready, so #8 only lands after #7 and is the same action as #7
         self.seed_facts(n7=self.READY, n8={**self.READY, "head": "def", "head_branch": "feat/b", "base": "feat/a"})

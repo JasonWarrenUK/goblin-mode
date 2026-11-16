@@ -1182,20 +1182,23 @@ def attribute_prs(run: dict, sessions: dict[str, dict], prs: dict[int, dict], li
     return found
 
 
-def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], sessions_by_task: dict[str, dict], needs: list[dict], migrations: dict[int, str | None] | None = None, _depth: int = 0) -> dict:
+def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], sessions_by_task: dict[str, dict], needs: list[dict], migrations: dict[int, str | None] | None = None, _depth: int = 0, states: dict[int, str] | None = None) -> dict:
     """Who acts next on an open PR, derived and never guessed: {actor, kind, why}, kind one of jason, reviewer, session, hold, ci, author.
     Order: a hold, an open need tied to this PR, then the PR's own work (checks, changes, review); only a PR whose own work is done takes the layer below's who ("lands after #n"), then the merge.
     A merge whose migrations sort after another stack's carries a `cost` naming the PRs that would restamp; holds come only from a recorded hold.
     `facts` is normalise_pr_facts per PR plus head_branch, mergeable, draft and checks ("good", "wait", "bad"). `migrations` maps each PR to the lowest
-    unlanded migration its stack carries (None when the scan failed); an earlier one in another stack, or a missing scan, adds a `cost` to the merge and never holds it."""
+    unlanded migration its stack carries (None when the scan failed); an earlier one in another stack, or a missing scan, adds a `cost` to the merge and never holds it.
+    `states` is every PR's state the hold check may read, the PRs a hold waits on included; it defaults to the states in `facts`, which alone shape stacks."""
     migrations = migrations or {}
+    if states is None:
+        states = {n: (f or {}).get("state", "") for n, f in facts.items()}
     row = prs.get(number) or {}
     fact = facts.get(number)
     if not fact:
         return {"actor": "unknown", "kind": "author", "why": "gh did not answer"}
     live_needs = [n for n in needs if n.get("status") not in ("done", "superseded")]
     hold = row.get("hold")
-    if hold and not hold_lifted(hold, {n: (f or {}).get("state", "") for n, f in facts.items()}, {n["n"] for n in live_needs}):
+    if hold and not hold_lifted(hold, states, {n["n"] for n in live_needs}):
         return {"actor": "hold", "kind": "hold", "why": hold_text(hold)}
     mine = [n for n in live_needs if n.get("pr") == number]
     if mine:
@@ -1210,7 +1213,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
         below = [n for n in stack_below(number, facts, heads) if (facts.get(n) or {}).get("state") == "OPEN"]
         if below and _depth < 8:
             blocker = below[-1]
-            inherited = who_moves_next(blocker, prs, facts, sessions_by_task, needs, migrations, _depth + 1)
+            inherited = who_moves_next(blocker, prs, facts, sessions_by_task, needs, migrations, _depth + 1, states=states)
             return {**inherited, "why": f"lands after #{blocker}: {inherited['why']}"}
         merge = {"actor": "Jason", "kind": "jason", "why": "approved, checks green, mergeable; the merge is yours"}
         # migration order is a cost, never a block: CI wants each branch's migrations after the newest on main, so a stack that lands
@@ -3461,8 +3464,10 @@ def dashboard_model(ledger: Ledger, run: dict) -> dict:
     for row in sessions.values():
         if row.get("pr") and int(row["pr"]) not in recorded:
             rows[int(row["pr"])] = {"number": int(row["pr"]), "task": row.get("task"), "group": None}
-    # the PRs a hold waits on are read for their state; rows come from `rows` alone, so none of them is drawn
-    facts, oldest = cached_facts(ledger, set(rows) | hold_lift_prs(rows))
+    facts, oldest = cached_facts(ledger, set(rows))
+    # the PRs a hold waits on lend their state to the hold and nothing else: kept out of `facts`, they are never drawn and never taken for a stack's layer
+    lift_facts, _ = cached_facts(ledger, hold_lift_prs(rows) - set(rows))
+    states = {n: f.get("state", "") for n, f in {**lift_facts, **facts}.items()}
     shown = {n: r for n, r in rows.items() if (facts.get(n) or {}).get("state", "OPEN") == "OPEN"}
     needs = [n for n in run.get("needs", []) if n.get("status") in ("open", "started")]
     migrations = cached_migrations(ledger, {n: facts[n] for n in shown if n in facts})
@@ -3477,7 +3482,7 @@ def dashboard_model(ledger: Ledger, run: dict) -> dict:
         fact = facts.get(number)
         plan = next((e for e in run.get("crew", []) if e.get("task") == row.get("task")), {})
         group = row.get("group") or plan.get("group") or row.get("task") or OUTSIDE_GROUP
-        who = who_moves_next(number, shown, facts, by_task, needs, migrations)
+        who = who_moves_next(number, shown, facts, by_task, needs, migrations, states=states)
         parent = heads.get((fact or {}).get("base") or "")
         items.append({
             "number": number, "task": row.get("task"), "group": group, "who": who, "fact": fact or {}, "parent": parent if parent in shown else None,
