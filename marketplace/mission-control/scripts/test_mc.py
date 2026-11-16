@@ -3418,6 +3418,16 @@ class Dashboard(unittest.TestCase):
         self.assertEqual([m["number"] for m in out["mine"]], [272])
         self.assertEqual(out["totals"]["open"], 1, "the PR a hold waits on is read, never drawn as a row")
 
+    def test_the_page_summary_and_status_agree_on_what_is_yours(self):
+        # #8 sits on #7; both are ready, so #8 only lands after #7 and is the same action as #7
+        self.seed_facts(n7=self.READY, n8={**self.READY, "head": "def", "head_branch": "feat/b", "base": "feat/a"})
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        self.box.mc("prs", "add", "8", "--task", "T", session="coord-1")
+        page = json.loads(self.box.mc("--json", "dashboard").stdout)
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertEqual([m["number"] for m in page["mine"]], [7])
+        self.assertEqual(page["mine"], status["prs"]["mine"])
+
 
 if __name__ == "__main__":
     unittest.main()

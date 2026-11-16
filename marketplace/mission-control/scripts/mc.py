@@ -1604,12 +1604,9 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
     if run:
         # the board's glance at the PR page, from the ledger and the caches alone; the tick that reads it also redraws the page
         try:
-            path = write_dashboard(ledger)
-            model = dashboard_model(ledger, run)
-            if model["items"]:
-                mine = [{"number": i["number"], "actor": i["who"]["actor"], "why": i["who"]["why"], "cost": i["who"].get("cost")} for i in model["items"]
-                        if i["who"]["kind"] == "jason" and not i["who"]["why"].startswith("lands after")]
-                out["prs"] = {"path": str(path), "totals": model["totals"], "facts_at": model["facts_at"], "mine": sorted(mine, key=lambda m: m["number"])}
+            _path, summary = redraw_with_summary(ledger, run)
+            if summary["totals"]["open"]:
+                out["prs"] = summary
         except Exception:  # noqa: BLE001 - the board draws without its PR group rather than not at all
             pass
     if with_probes and config:
@@ -3634,12 +3631,20 @@ def write_dashboard(ledger: Ledger) -> Path | None:
     run = ledger.run()
     if run is None:
         return None
+    return redraw_with_summary(ledger, run)[0]
+
+
+def redraw_with_summary(ledger: Ledger, run: dict) -> tuple[Path, dict]:
+    """Redraw the page and return its path with the board's summary of it, both from one model: totals, the facts' age and the PRs where the user moves next.
+    A layer that only waits on the one below ("lands after #n") is the same action as that layer, so it is left out of `mine`, as it is of the totals."""
     model = dashboard_model(ledger, run)
     path = ledger.dir / DASHBOARD_FILE
     tmp = path.with_suffix(f".{os.getpid()}.tmp")
     tmp.write_text(render_dashboard(model, repo_web_url(ledger)))
     os.replace(tmp, path)
-    return path
+    mine = sorted(({"number": i["number"], "actor": i["who"]["actor"], "why": i["who"]["why"], "cost": i["who"].get("cost")} for i in model["items"]
+                   if i["who"]["kind"] == "jason" and not i["who"]["why"].startswith("lands after")), key=lambda m: m["number"])
+    return path, {"path": str(path), "totals": model["totals"], "facts_at": model["facts_at"], "mine": mine}
 
 
 def redraw_quietly(cwd: str) -> None:
@@ -3669,11 +3674,9 @@ def cmd_dashboard(args) -> int:
         lifts = hold_lift_prs(ledger.prs()) - numbers
         pr_facts(ledger, lifts, fresh=lifts)
         refresh_migrations(ledger, facts, run.get("base", {}).get("branch") or "main")
-    path = write_dashboard(ledger)
+    path, summary = redraw_with_summary(ledger, run)
     if args.json:
-        model = dashboard_model(ledger, run)
-        mine = [{"number": i["number"], "actor": i["who"]["actor"], "why": i["who"]["why"], "cost": i["who"].get("cost")} for i in model["items"] if i["who"]["kind"] == "jason"]
-        print(json.dumps({"path": str(path), "totals": model["totals"], "facts_at": model["facts_at"], "mine": sorted(mine, key=lambda m: m["number"])}))
+        print(json.dumps(summary))
     else:
         print(path)
     if args.open and path:
