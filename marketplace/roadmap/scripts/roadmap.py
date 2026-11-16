@@ -37,8 +37,9 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
   pull       refresh a phase mirrored from Jira, read-only: Jira's tasks are
              rewritten, tasks marked local are left alone
                                                         [--project KEY --name
-                                                         --issues FILE --dry-run]
-  hook       EVENT: Claude Code hook entry point (session-start,
+                                                         --issues FILE
+                                                         --allow-removals --dry-run]
+  hook      EVENT: Claude Code hook entry point (session-start,
              post-tool-use); reads the hook JSON on stdin, always exits 0
 
 PATH is optional everywhere (after ID for claim and release); without it the

@@ -584,7 +584,7 @@ class Cli(unittest.TestCase):
         code, out = self.pull_only(issues[:2], "--dry-run")
         self.assertEqual(code, 0, out)
         self.assertIn("--allow-removals", out)
-        self.assertNotIn("lists them", out)
+        self.assertNotIn("--dry-run", out)
         self.assertEqual(self.local.read_text(), before)
 
     def test_the_floor_is_exactly_four_tasks(self):
