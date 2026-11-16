@@ -1,0 +1,46 @@
+/* The PR dashboard's components. Colours come only from the theme's aliases in dashboard-theme.css; tints are mixed from them. */
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface); color: var(--ink); font: var(--text-base)/var(--leading) var(--font-body); }
+main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; justify-content: space-between; }
+h1 { font: 700 1.5rem/1.2 var(--font-display); margin: 0; }
+.stamp { color: var(--ink-muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.stale { color: var(--warn); font-weight: 600; }
+.totals { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 8px; }
+.totals span { background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 6px 12px; font-size: .95rem; }
+.totals b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.totals .mine { border-color: var(--accent); }
+h2 { font-size: .95rem; margin: 28px 0 8px; color: var(--ink-muted); letter-spacing: .04em; text-transform: uppercase; }
+ul.rows { list-style: none; margin: 0; padding: 0; background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+ul.rows > li { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: flex-start; padding: 12px 14px; border-top: 1px solid var(--line); }
+ul.rows > li:first-child { border-top: 0; }
+ul.rows > li.layer { padding-left: calc(14px + var(--depth, 0) * 22px); }
+ul.rows > li.layer .num::before { content: "└ "; color: var(--ink-muted); font-weight: 400; }
+ul.rows > li.depth-0 .num::before { content: ""; }
+.num { flex: 0 0 4.4rem; font-weight: 700; color: var(--info); text-decoration: none; font-variant-numeric: tabular-nums; }
+.num:hover { text-decoration: underline; }
+.order { display: inline-block; min-width: 1.4rem; margin-right: 6px; border-radius: var(--radius-sm); padding: 0 5px; font-size: .75rem; font-weight: 700; text-align: center; background: color-mix(in srgb, var(--ink-muted) 18%, transparent); color: var(--ink-muted); }
+.body { flex: 1 1 320px; min-width: 0; }
+.line { margin: 0; font-size: 1.02rem; }
+.meta { margin: 2px 0 0; color: var(--ink-muted); font-size: .85rem; overflow-wrap: anywhere; }
+.note { margin: 6px 0 0; padding-left: 10px; border-left: 3px solid var(--line); font-size: .92rem; }
+.note small { color: var(--ink-muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border-radius: 999px; padding: 2px 10px; font-size: .8rem; font-weight: 600; white-space: nowrap; }
+.good { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.bad { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.wait { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.who { display: inline-block; margin-right: 8px; border-radius: var(--radius-sm); padding: 0 7px; font-size: .78rem; font-weight: 700; vertical-align: 1px; background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
+.who-jason { background: var(--accent); color: var(--accent-ink); }
+.who-hold { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+.who-ci { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.who-session { background: color-mix(in srgb, var(--accent-2) 18%, transparent); color: var(--accent-2); }
+.needs { margin: 8px 0 0; padding: 0; list-style: none; }
+.needs li { margin-top: 6px; padding: 8px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.needs .kind { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); margin-right: 6px; }
+.needs .running { opacity: .75; }
+code { font: .85rem/1.4 var(--font-mono); overflow-wrap: anywhere; }
+.cmd { display: block; margin-top: 4px; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--line); }
+.error { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); padding: 8px 12px; border-radius: var(--radius-md); }
+footer { margin-top: 28px; color: var(--ink-muted); font-size: .85rem; }
+@media (max-width: 520px) { .num { flex-basis: 3.6rem; } ul.rows > li.layer { padding-left: calc(14px + var(--depth, 0) * 12px); } }
