@@ -464,6 +464,21 @@ class Ledger:
         with self.decisions_path.open("a") as fh:
             fh.write(json.dumps(row) + "\n")
 
+    # PRs: one file per PR, so a PR's task, group, hold and note outlive the session that opened it
+    def pr_path(self, number: int) -> Path:
+        return self.dir / "prs" / f"{int(number)}.json"
+
+    def prs(self) -> dict[int, dict]:
+        rows = {}
+        for path in sorted(glob.glob(str(self.dir / "prs" / "*.json"))):
+            row = read_json(Path(path))
+            if isinstance(row, dict) and isinstance(row.get("number"), int):
+                rows[row["number"]] = row
+        return rows
+
+    def save_pr(self, row: dict) -> None:
+        write_json(self.pr_path(row["number"]), row)
+
     def requests(self) -> list[dict]:
         rows = []
         for path in sorted(glob.glob(str(self.dir / "requests" / "*.json"))):
@@ -907,7 +922,23 @@ def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
     return found
 
 
-PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt,baseRefName,headRefOid"
+PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,mergedAt,baseRefName,headRefOid,headRefName,mergeable,isDraft,statusCheckRollup,title"
+_CHECK_PASSING = {"SUCCESS", "SKIPPED", "NEUTRAL"}
+_CHECK_RUNNING = {"QUEUED", "IN_PROGRESS", "PENDING", "WAITING", "REQUESTED", "EXPECTED"}
+
+
+def rollup_word(rollup) -> str:
+    """GitHub's check rollup as one word: bad when any check failed, wait when any still runs, else good."""
+    failed = running = 0
+    for check in rollup or []:
+        state = str(check.get("conclusion") or check.get("state") or check.get("status") or "").upper()
+        if state in _CHECK_PASSING:
+            continue
+        if state in _CHECK_RUNNING or not state:
+            running += 1
+        else:
+            failed += 1
+    return "bad" if failed else "wait" if running else "good"
 
 
 def normalise_pr_facts(raw: dict) -> dict:
@@ -935,6 +966,11 @@ def normalise_pr_facts(raw: dict) -> dict:
         "merged_at": raw.get("mergedAt"),
         "base": str(raw.get("baseRefName") or ""),
         "head": str(raw.get("headRefOid") or ""),
+        "head_branch": str(raw.get("headRefName") or ""),
+        "mergeable": str(raw.get("mergeable") or "").upper(),
+        "draft": bool(raw.get("isDraft")),
+        "checks": rollup_word(raw.get("statusCheckRollup")),
+        "title": str(raw.get("title") or ""),
     }
 
 
@@ -1009,6 +1045,96 @@ def waiting_on(facts: dict | None, mode: str | None = None) -> str:
     if mode == "solo":
         return "solo project; the merge is the user's"
     return "no reviewer requested"
+
+
+def migration_stamp(name: str) -> str | None:
+    """The leading timestamp of a migration filename (`20261115100000_add_x.sql`), or None for a file that is not one."""
+    match = re.match(r"(\d{8,})_", Path(name).name)
+    return match.group(1) if match else None
+
+
+def lowest_migration(names: list[str]) -> str | None:
+    stamps = [stamp for stamp in map(migration_stamp, names) if stamp]
+    return min(stamps) if stamps else None
+
+
+def hold_lifted(hold: dict | None, states: dict[int, str], open_needs: set[int]) -> bool:
+    """A hold is lifted when every condition it names has happened: a PR merged or a need closed. A hold that names none never lifts by itself."""
+    conditions = (hold or {}).get("lifts_on") or []
+    if not conditions:
+        return False
+    for cond in conditions:
+        if cond.get("pr") is not None and states.get(int(cond["pr"])) != "MERGED":
+            return False
+        if cond.get("need") is not None and int(cond["need"]) in open_needs:
+            return False
+    return True
+
+
+def stack_below(number: int, facts: dict[int, dict], heads: dict[str, int]) -> list[int]:
+    """The open PRs under this one, nearest first: each layer's base branch is the head branch of the PR below it. `heads` maps a head branch to its PR number."""
+    below: list[int] = []
+    seen = {number}
+    current = facts.get(number) or {}
+    while True:
+        parent = heads.get(current.get("base") or "")
+        if parent is None or parent in seen:
+            return below
+        below.append(parent)
+        seen.add(parent)
+        current = facts.get(parent) or {}
+
+
+def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], sessions_by_task: dict[str, dict], needs: list[dict], migrations: dict[int, str | None] | None = None, _depth: int = 0) -> dict:
+    """Who acts next on an open PR, derived and never guessed: {actor, kind, why}, kind one of jason, reviewer, session, hold, ci, author.
+    Order: a hold, an open need tied to this PR, the layer below, migration order, the merge, checks, review.
+    `facts` is normalise_pr_facts per PR plus head_branch, mergeable, draft and checks ("good", "wait", "bad"). `migrations` maps each PR to the lowest
+    unlanded migration its stack carries (None when the scan failed); an earlier one in another stack holds this merge back."""
+    migrations = migrations or {}
+    row = prs.get(number) or {}
+    fact = facts.get(number)
+    if not fact:
+        return {"actor": "unknown", "kind": "author", "why": "gh did not answer"}
+    live_needs = [n for n in needs if n.get("status") not in ("done", "superseded")]
+    hold = row.get("hold")
+    if hold and not hold_lifted(hold, {n: (f or {}).get("state", "") for n, f in facts.items()}, {n["n"] for n in live_needs}):
+        lift = ", ".join(f"#{c['pr']} lands" if c.get("pr") is not None else f"need #{c['need']} closes" for c in hold.get("lifts_on") or [])
+        return {"actor": "hold", "kind": "hold", "why": f"{hold.get('reason') or 'held'}; " + (f"lifts when {lift}" if lift else "lift condition not recorded")}
+    mine = [n for n in live_needs if n.get("pr") == number]
+    if mine:
+        return {"actor": "Jason", "kind": "jason", "why": f"need #{mine[0].get('n')}: {str(mine[0].get('why') or '')[:80]}"}
+    heads = {f["head_branch"]: n for n, f in facts.items() if f and f.get("head_branch")}
+    below = [n for n in stack_below(number, facts, heads) if (facts.get(n) or {}).get("state") == "OPEN"]
+    if below and _depth < 8:
+        blocker = below[-1]
+        inherited = who_moves_next(blocker, prs, facts, sessions_by_task, needs, migrations, _depth + 1)
+        return {**inherited, "why": f"lands after #{blocker}: {inherited['why']}"}
+    ready = fact.get("review_decision") == "APPROVED" and not fact.get("changes_requested_by") and fact.get("checks") == "good" and fact.get("mergeable") != "CONFLICTING" and not fact.get("draft")
+    if ready:
+        if number in migrations and migrations[number] is None:
+            return {"actor": "hold", "kind": "hold", "why": "migration order unknown"}
+        stamp = migrations.get(number)
+        earlier = sorted((o for o, st in migrations.items() if o != number and st and stamp and st < stamp and (facts.get(o) or {}).get("state") == "OPEN" and not stack_shares(o, number, facts, heads)), key=lambda o: migrations[o])
+        if earlier:
+            return {"actor": "hold", "kind": "hold", "why": f"migration order: lands after #{earlier[0]} ({migrations[earlier[0]]})"}
+        return {"actor": "Jason", "kind": "jason", "why": "approved, checks green, mergeable; the merge is yours"}
+    if fact.get("checks") == "bad":
+        return {"actor": "CI", "kind": "ci", "why": "checks failing"}
+    if fact.get("checks") == "wait":
+        return {"actor": "CI", "kind": "ci", "why": "checks running"}
+    if fact.get("changes_requested_by"):
+        owner = sessions_by_task.get(row.get("task") or "") or {}
+        return {"actor": owner.get("name") or row.get("task") or "author", "kind": "session", "why": "changes requested by " + ", ".join(fact["changes_requested_by"])}
+    if fact.get("requested"):
+        return {"actor": ", ".join(fact["requested"]), "kind": "reviewer", "why": "waiting for a review"}
+    if row.get("task") is None and not row.get("pinned"):
+        return {"actor": "author", "kind": "author", "why": "not in the run"}
+    return {"actor": "reviewer", "kind": "reviewer", "why": "no reviewer requested"}
+
+
+def stack_shares(a: int, b: int, facts: dict[int, dict], heads: dict[str, int]) -> bool:
+    """True when two PRs sit in one stack (one is under the other): a migration in the same stack is its own layer's business."""
+    return a in stack_below(b, facts, heads) or b in stack_below(a, facts, heads)
 
 
 def roadmap_task(main: Path, task: str, ref: str = "origin/main") -> dict | str | None:
@@ -2946,6 +3072,70 @@ def pending_locked(args, ledger: Ledger) -> int:
     return 0
 
 
+def cmd_prs(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return prs_locked(args, ledger)
+
+
+def prs_locked(args, ledger: Ledger) -> int:
+    """Each PR the run cares about as its own file: task, group, whether it was pinned from outside the run, a hold and what lifts it, and the coordinator's note.
+    add and pin record a PR; hold and release gate its landing; note attaches a sentence that stops showing once the head, the review or the state moves."""
+    run = ledger.require_run()
+    prs = ledger.prs()
+    if args.action == "list":
+        rows = sorted(prs.values(), key=lambda r: r["number"])
+        print(json.dumps(rows, indent=2) if args.json else "\n".join(f"#{r['number']} {r.get('group') or '-'} {r.get('task') or '(outside the run)'}{' held' if r.get('hold') else ''}" for r in rows) or "no PRs recorded")
+        return 0
+    if args.ref is None or not str(args.ref).lstrip("#").isdigit():
+        raise Refusal(f"prs {args.action} needs the PR number")
+    number = int(str(args.ref).lstrip("#"))
+    caller = caller_session(args.session)
+    sessions = ledger.sessions()
+    own = sessions.get(caller or "")
+    if args.action == "add" and own is None and not args.by_user and not is_coordinator(run, caller):
+        raise Refusal("prs add is for a session in the run, the coordinator or --by-user")
+    if args.action != "add":
+        authorise(run, caller, args.by_user, "keep the PR records")
+    row = prs.get(number) or {"number": number, "at": now()}
+    plan = {entry.get("task"): entry for entry in run.get("crew", [])}
+    if args.action in ("add", "pin"):
+        task = args.task or (own or {}).get("task") if args.action == "add" else args.task
+        if task and task not in plan:
+            raise Refusal(f"{task} is not in the crew plan: {', '.join(plan) or 'none'}")
+        if task:
+            row["task"] = task
+        row.setdefault("task", None)
+        if args.group:
+            row["group"] = args.group
+        elif not row.get("group"):
+            row["group"] = (plan.get(row.get("task")) or {}).get("group") or row.get("task") or "Outside the run"
+        if args.shared:
+            row["shared"] = True
+            row["group"] = args.group or "Shared code"
+        if args.action == "pin":
+            row["pinned"] = True
+        row.setdefault("opened_by", (own or {}).get("session_id"))
+        if own and not row.get("worktree"):
+            row["worktree"] = own.get("worktree")
+    elif args.action == "hold":
+        if not args.text:
+            raise Refusal("prs hold needs --text, the reason the landing waits")
+        lifts = [{"pr": int(x.lstrip("#"))} for x in (args.lifts_on_pr or "").split(",") if x.strip()] + [{"need": int(x)} for x in (args.lifts_on_need or "").split(",") if x.strip()]
+        row["hold"] = {"reason": args.text.strip()[:NEED_WHY_LIMIT], "lifts_on": lifts, "at": now(), "by": "user" if args.by_user else "coordinator"}
+    elif args.action == "release":
+        row.pop("hold", None)
+    elif args.action == "note":
+        if not args.text:
+            raise Refusal("prs note needs --text")
+        facts = pr_facts(ledger, {number}).get(number) or {}
+        row["note"] = {"text": args.text.strip()[:400], "at": now(), "head": facts.get("head"), "review_decision": facts.get("review_decision"), "state": facts.get("state")}
+    ledger.save_pr(row)
+    ledger.log("prs-" + args.action, pr=number, task=row.get("task"))
+    print(json.dumps(row) if args.json else f"PR #{number}: {args.action} ({row.get('group')})")
+    return 0
+
+
 def cmd_decide(args) -> int:
     ledger = ledger_for(args.cwd)
     with ledger.locked():
@@ -3760,6 +3950,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--text", help="for add: the thread; for done: the outcome")
     sp.add_argument("--all", action="store_true")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("prs", help="one record per PR: task, group, hold and what lifts it, a self-expiring note: add, pin, hold, release, note, list")
+    sp.add_argument("action", choices=["add", "pin", "hold", "release", "note", "list"])
+    sp.add_argument("ref", nargs="?", help="the PR number")
+    sp.add_argument("--task", help="the crew task the PR belongs to; for add, the caller's own task by default")
+    sp.add_argument("--group", help="the group the page draws it under")
+    sp.add_argument("--shared", action="store_true", help="the PR changes code every body runs through")
+    sp.add_argument("--text", help="for hold: the reason; for note: the sentence")
+    sp.add_argument("--lifts-on-pr", dest="lifts_on_pr", help="for hold: comma-separated PR numbers whose merge lifts it")
+    sp.add_argument("--lifts-on-need", dest="lifts_on_need", help="for hold: comma-separated need numbers whose closing lifts it")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("decide", help="the decisions record: add (coordinator or --by-user) what the user decided and who was told; ack from a crew session; list")
     sp.add_argument("action", choices=["add", "ack", "list"])
     sp.add_argument("ref", nargs="?", help="for ack: the decision number")
@@ -3785,7 +3985,7 @@ COMMANDS = {
     "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire, "classify": cmd_classify, "watch": cmd_watch,
     "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
     "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "gate": cmd_gate, "hook": cmd_hook,
-    "adopt": cmd_adopt, "jobs": cmd_jobs, "pending": cmd_pending, "decide": cmd_decide,
+    "adopt": cmd_adopt, "jobs": cmd_jobs, "pending": cmd_pending, "prs": cmd_prs, "decide": cmd_decide,
 }
 
 

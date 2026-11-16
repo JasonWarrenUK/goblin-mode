@@ -3058,5 +3058,108 @@ class PushGate(unittest.TestCase):
         self.assertEqual([step["key"] for step in record["steps"]], ["test"])
 
 
+class PrRecords(unittest.TestCase):
+    """The per-PR ledger file and the derived who-moves-next rules."""
+
+    def setUp(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self.mc = mc_module
+
+    @staticmethod
+    def fact(head_branch, base="main", **over):
+        return {"state": "OPEN", "review_decision": "", "requested": [], "changes_requested_by": [], "approved_by": [], "base": base,
+                "head": "h-" + head_branch, "head_branch": head_branch, "mergeable": "MERGEABLE", "draft": False, "checks": "good", **over}
+
+    def who(self, number, facts, prs=None, needs=None, migrations=None):
+        return self.mc.who_moves_next(number, prs or {}, facts, {}, needs or [], migrations)
+
+    def test_approved_green_mergeable_is_the_users_merge(self):
+        facts = {1: self.fact("a", review_decision="APPROVED")}
+        self.assertEqual(self.who(1, facts)["kind"], "jason")
+
+    def test_a_layer_inherits_the_lowest_unlanded_layer(self):
+        facts = {271: self.fact("t1", requested=["max"]), 273: self.fact("t2", base="t1", review_decision="APPROVED")}
+        out = self.who(273, facts)
+        self.assertEqual(out["kind"], "reviewer")
+        self.assertIn("lands after #271", out["why"])
+
+    def test_a_recorded_hold_wins_until_what_lifts_it_merges(self):
+        prs = {260: {"number": 260, "hold": {"reason": "migration order", "lifts_on": [{"pr": 271}]}}}
+        facts = {260: self.fact("b", review_decision="APPROVED"), 271: self.fact("t1")}
+        self.assertEqual(self.who(260, facts, prs)["kind"], "hold")
+        facts[271]["state"] = "MERGED"
+        self.assertEqual(self.who(260, facts, prs)["kind"], "jason")
+
+    def test_a_hold_with_no_lift_condition_never_lifts_and_says_so(self):
+        prs = {5: {"number": 5, "hold": {"reason": "after New Zealand", "lifts_on": []}}}
+        out = self.who(5, {5: self.fact("x", review_decision="APPROVED")}, prs)
+        self.assertEqual(out["kind"], "hold")
+        self.assertIn("lift condition not recorded", out["why"])
+
+    def test_an_earlier_migration_in_another_stack_blocks_the_merge(self):
+        facts = {260: self.fact("de", review_decision="APPROVED"), 271: self.fact("nz")}
+        out = self.who(260, facts, migrations={260: "20261115100000", 271: "20261113100000"})
+        self.assertEqual(out["kind"], "hold")
+        self.assertIn("lands after #271", out["why"])
+
+    def test_a_migration_in_the_same_stack_is_not_another_stacks_business(self):
+        facts = {1: self.fact("a", review_decision="APPROVED", requested=[]), 2: self.fact("b", base="a", review_decision="APPROVED")}
+        facts[1]["state"] = "MERGED"
+        out = self.who(2, facts, migrations={1: "20261101000000", 2: "20261102000000"})
+        self.assertEqual(out["kind"], "jason")
+
+    def test_an_unreadable_migration_scan_never_reads_as_merge(self):
+        out = self.who(1, {1: self.fact("a", review_decision="APPROVED")}, migrations={1: None})
+        self.assertEqual(out["kind"], "hold")
+        self.assertIn("unknown", out["why"])
+
+    def test_an_open_need_for_the_pr_is_the_users(self):
+        needs = [{"n": 9, "pr": 1, "why": "compact TAIC", "status": "open"}]
+        self.assertEqual(self.who(1, {1: self.fact("a", requested=["max"])}, needs=needs)["kind"], "jason")
+
+    def test_checks_changes_and_review_order(self):
+        self.assertEqual(self.who(1, {1: self.fact("a", checks="bad", review_decision="APPROVED")})["kind"], "ci")
+        self.assertEqual(self.who(1, {1: self.fact("a", changes_requested_by=["max"])})["kind"], "session")
+        self.assertEqual(self.who(1, {1: self.fact("a", requested=["max"])})["actor"], "max")
+        self.assertEqual(self.who(1, {1: self.fact("a")}, {1: {"number": 1, "task": None}})["kind"], "author")
+
+    def test_migration_stamp_and_rollup_word(self):
+        self.assertEqual(self.mc.lowest_migration(["supabase/migrations/20261115100000_x.sql", "20261101000000_y.sql", "README.md"]), "20261101000000")
+        self.assertEqual(self.mc.rollup_word([{"conclusion": "SUCCESS"}, {"status": "IN_PROGRESS"}]), "wait")
+        self.assertEqual(self.mc.rollup_word([{"conclusion": "FAILURE"}]), "bad")
+        self.assertEqual(self.mc.rollup_word(None), "good")
+
+
+class PrCommand(unittest.TestCase):
+    def setUp(self):
+        self.box = Sandbox()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+
+    def test_add_pin_hold_release_round_trip(self):
+        self.box.mc("prs", "pin", "286", "--group", "Outside the run", session="coord-1")
+        self.box.mc("prs", "add", "271", "--task", "T", session="coord-1")
+        self.box.mc("prs", "hold", "271", "--text", "after New Zealand", "--lifts-on-pr", "270", session="coord-1")
+        rows = {r["number"]: r for r in json.loads(self.box.mc("--json", "prs", "list").stdout)}
+        self.assertTrue(rows[286]["pinned"])
+        self.assertEqual(rows[286]["group"], "Outside the run")
+        self.assertEqual(rows[271]["task"], "T")
+        self.assertEqual(rows[271]["hold"]["lifts_on"], [{"pr": 270}])
+        self.box.mc("prs", "release", "271", session="coord-1")
+        self.assertNotIn("hold", json.loads(self.box.mc("--json", "prs", "list").stdout)[1])
+
+    def test_a_crew_session_adds_its_own_pr_but_cannot_hold_one(self):
+        self.box.mc("join", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("prs", "add", "5", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(json.loads(self.box.mc("--json", "prs", "list").stdout)[0]["task"], "T")
+        done = self.box.mc("prs", "hold", "5", "--text", "x", session="crew-1", cwd=self.box.worktree, expect=1)
+        self.assertIn("only the coordinator", done.stdout)
+
+    def test_an_unknown_task_is_refused(self):
+        done = self.box.mc("prs", "add", "5", "--task", "NOPE", session="coord-1", expect=1)
+        self.assertIn("not in the crew plan", done.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
