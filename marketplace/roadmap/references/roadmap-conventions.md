@@ -153,8 +153,10 @@ section. The one kind is Jira:
   project with no local file resolves as it always has.
 - **Starting one:** `pull --project KEY [--name NAME]` creates the file and
   the phase. After that, plain `pull` refreshes it; `--dry-run` prints what
-  would change. It needs `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN`
-  in the environment or the project's `.env`, and only ever reads.
+  would change. It needs `JIRA_BASE_URL` (which must be `https://`),
+  `JIRA_EMAIL` and `JIRA_API_TOKEN` in the environment, the project's
+  `.env.local` or its `.env`, and only ever reads. A pull that returns no
+  tasks (an empty answer, or nothing but epics) is refused and writes nothing.
 - **What maps to what:** a fix version is a milestone (it keeps its `M{N}`
   when the version is renamed; issues with no version sit in `M0`,
   Unscheduled); an epic is the `topic` of the issues under it and never a
@@ -162,8 +164,13 @@ section. The one kind is Jira:
   is a `dependsOn` edge; an issue also depends on its child issues, so a
   story waits for the tickets it was split into, and a child inherits whatever
   blocks its story, so a split of a blocked story is never offered as ready.
-  A gate you add to `externalGates` by hand, and a mirrored task's edge to it,
-  survive every pull.
+  A Blocks link to an open issue the mirror does not hold (another project,
+  or one a custom `jql` leaves out) becomes a gate with `tracker.issue` set;
+  pull owns it, adds it when the link appears and retires it when the blocker
+  is done or the link goes. A gate you add to `externalGates` by hand, and a
+  mirrored task's edge to it, survive every pull; to hold one of your own tasks
+  behind an outside blocker, add your own gate, since pull rewrites a
+  generated gate's `blocks` on every run.
 - **Status:** an issue in Jira's done category is `done`, with `ended` from
   its resolution date. Every other issue is left to the mechanical rule
   (`todo` or `blocked`); one Jira has in progress carries `started`, so views
