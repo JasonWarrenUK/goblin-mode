@@ -2388,7 +2388,8 @@ def cmd_pull(args) -> int:
         # would drop every mirrored task and strand local ones in M0.
         query = f" (jql: {source['jql']})" if source.get("jql") else ""
         print(f"✗ Jira project {source.get('project')}{query} returned no "
-              "tasks; nothing written")
+              "tasks; nothing written. If the project really is empty now, "
+              "delete the phase from the local roadmap file to start again")
         return 1
     report = jira.merge(phase, issues, TASK_FIELD_ORDER)
     if not args.dry_run:

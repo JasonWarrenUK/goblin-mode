@@ -80,8 +80,9 @@ _ENV_LINE = re.compile(r"^\s*(?:export\s+)?(JIRA_[A-Z_]+)\s*=\s*(.*?)\s*$")
 def _env_value(text):
     """A `.env` value: quotes removed, and an unquoted trailing ` # comment`
     dropped (a `#` inside a token, with no space before it, is kept)."""
-    if text[:1] in "\"'":
-        return text.strip("\"'")
+    quoted = re.match(r"([\"'])(.*?)\1", text)
+    if quoted:
+        return quoted.group(2)
     return re.sub(r"\s+#.*$", "", text)
 
 
@@ -111,7 +112,9 @@ def credentials(root):
         for line in lines:
             match = _ENV_LINE.match(line)
             if match and match.group(1) in ENV_KEYS:
-                found.setdefault(match.group(1), _env_value(match.group(2)))
+                value = _env_value(match.group(2))
+                if value:
+                    found.setdefault(match.group(1), value)
     missing = [k for k in ENV_KEYS if not found.get(k)]
     if missing:
         raise RoadmapError(
@@ -133,10 +136,10 @@ def fetch_issues(source, creds, opener=_OPENER.open):
     parts = urllib.parse.urlsplit(base)
     if parts.scheme.lower() != "https":
         raise RoadmapError(
-            f"JIRA_BASE_URL {base!r} must use https; the API token is sent "
-            "with every request")
+            f"JIRA_BASE_URL {creds['JIRA_BASE_URL']!r} must use https; the "
+            "API token is sent with every request")
     if not parts.netloc:
-        raise RoadmapError(f"JIRA_BASE_URL {base!r} has no host")
+        raise RoadmapError(f"JIRA_BASE_URL {creds['JIRA_BASE_URL']!r} has no host")
     url = base + "/rest/api/3/search/jql"
     issues, token = [], None
     while True:

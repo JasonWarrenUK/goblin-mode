@@ -520,6 +520,7 @@ class Cli(unittest.TestCase):
         code, out = run("pull", str(self.root), "--issues", str(self.issues))
         self.assertEqual(code, 1, out)
         self.assertIn("labels = nope", out)
+        self.assertIn("delete the phase", out)
 
     def test_pull_without_a_mirror_or_a_project_is_refused(self):
         with self.assertRaises(roadmap.RoadmapError):
@@ -646,6 +647,28 @@ class Reading(unittest.TestCase):
         self.assertEqual(found["JIRA_BASE_URL"], "https://example.test")
         self.assertEqual(found["JIRA_EMAIL"], "a@b.c # kept")
         self.assertEqual(found["JIRA_API_TOKEN"], "t0ken#kept")
+
+    def test_a_quoted_value_followed_by_a_comment_loses_the_comment(self):
+        self.assertEqual(jira._env_value('"abc" # work token'), "abc")
+        self.assertEqual(jira._env_value("'abc'   # c"), "abc")
+        self.assertEqual(jira._env_value('"a b # c"'), "a b # c")
+        self.assertEqual(jira._env_value("abc"), "abc")
+
+    def test_an_empty_value_in_env_local_does_not_shadow_env(self):
+        with tempfile.TemporaryDirectory() as root:
+            Path(root, ".env.local").write_text("JIRA_EMAIL=\n")
+            Path(root, ".env").write_text(
+                "JIRA_BASE_URL=https://example.test\nJIRA_EMAIL=a@b.c\n"
+                "JIRA_API_TOKEN=t0ken\n")
+            with unittest.mock.patch.dict("os.environ", {}, clear=True):
+                found = jira.credentials(root)
+        self.assertEqual(found["JIRA_EMAIL"], "a@b.c")
+
+    def test_the_no_host_error_shows_the_value_as_given(self):
+        creds = {"JIRA_BASE_URL": "https://", "JIRA_EMAIL": "a",
+                 "JIRA_API_TOKEN": "b"}
+        with self.assertRaisesRegex(roadmap.RoadmapError, "'https://'"):
+            jira.fetch_issues({"project": "TST"}, creds)
 
     def test_a_schemeless_base_url_is_refused(self):
         creds = {"JIRA_BASE_URL": "example.atlassian.net", "JIRA_EMAIL": "a",
