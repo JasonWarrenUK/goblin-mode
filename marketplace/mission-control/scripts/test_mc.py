@@ -3084,6 +3084,15 @@ class PrRecords(unittest.TestCase):
         self.assertEqual(out["kind"], "reviewer")
         self.assertIn("lands after #271", out["why"])
 
+    def test_an_approval_at_an_older_head_owes_a_fresh_look_not_a_merge(self):
+        prs = {272: {"number": 272, "task": "MAIU", "approval": {"head": "h-old", "at": 0}}}
+        facts = {272: self.fact("ie", review_decision="APPROVED", approved_by=["maxitect"])}
+        out = self.who(272, facts, prs)
+        self.assertEqual((out["kind"], out["actor"]), ("reviewer", "maxitect"))
+        self.assertIn("fresh look", out["why"])
+        prs[272]["approval"]["head"] = "h-ie"
+        self.assertEqual(self.who(272, facts, prs)["kind"], "jason")
+
     def test_a_recorded_hold_wins_until_what_lifts_it_merges(self):
         prs = {260: {"number": 260, "hold": {"reason": "migration order", "lifts_on": [{"pr": 271}]}}}
         facts = {260: self.fact("b", review_decision="APPROVED"), 271: self.fact("t1")}
@@ -3224,6 +3233,19 @@ class PendingHoldMovesToPr(unittest.TestCase):
         box.mc("pending", "release", "42", session="coord-1")
         self.assertNotIn("hold", json.loads(box.mc("--json", "prs", "list").stdout)[0])
 
+    def test_reconcile_moves_an_old_hold_and_approval_head_onto_the_pr_record_without_gh(self):
+        box = Sandbox()
+        box.start()
+        run_path = box.ledger_root / next(p.name for p in box.ledger_root.iterdir()) / "run.json"
+        run = json.loads(run_path.read_text())
+        run["pending"] = [{"id": "x", "n": 1, "kind": "approval", "pr": 260, "head": "a1afe13", "hold": "Germany after New Zealand", "text": "approved", "status": "open", "at": 5}]
+        run_path.write_text(json.dumps(run))
+        box.mc("reconcile", session="coord-1")
+        row = json.loads(box.mc("--json", "prs", "list").stdout)[0]
+        self.assertEqual(row["approval"]["head"], "a1afe13")
+        self.assertEqual(row["hold"]["reason"], "Germany after New Zealand")
+        self.assertNotIn("hold", json.loads(run_path.read_text())["pending"][0])
+
 
 class WaitingAndQuestions(unittest.TestCase):
     def setUp(self):
@@ -3264,6 +3286,22 @@ class WaitingAndQuestions(unittest.TestCase):
         self.box.mc("reconcile", session="coord-1")
         _, run = self.run_json()
         self.assertEqual([n["status"] for n in run["needs"] if str(n.get("auto", "")).startswith("compact:")], ["done"])
+
+    def test_a_permission_prompt_is_a_need_until_answered(self):
+        reg = self.box.sessions / "crew-1.json"
+        row = json.loads(reg.read_text())
+        reg.write_text(json.dumps({**row, "status": "waiting"}))
+        self.box.mc("reconcile", session="coord-1")
+        _, run = self.run_json()
+        prompt = [n for n in run["needs"] if str(n.get("auto", "")).startswith("prompt:")]
+        self.assertEqual([n["status"] for n in prompt], ["open"])
+        self.box.mc("report", "--state", "waiting-jason", session="crew-1", cwd=self.box.worktree)
+        out = json.loads(self.box.mc("--json", "reconcile", session="coord-1").stdout)
+        self.assertNotIn("waiting-jason-without-need", [d["kind"] for d in out["drift"]])
+        reg.write_text(json.dumps({**row, "status": "busy"}))
+        self.box.mc("reconcile", session="coord-1")
+        _, run = self.run_json()
+        self.assertEqual([n["status"] for n in run["needs"] if str(n.get("auto", "")).startswith("prompt:")], ["done"])
 
     def test_waiting_jason_without_a_need_is_drift(self):
         self.box.mc("report", "--state", "waiting-jason", session="crew-1", cwd=self.box.worktree)

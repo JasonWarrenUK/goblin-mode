@@ -1169,6 +1169,10 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
         return {"actor": "Jason", "kind": "jason", "why": f"need #{mine[0].get('n')}: {str(mine[0].get('why') or '')[:80]}"}
     heads = {f["head_branch"]: n for n, f in facts.items() if f and f.get("head_branch")}
     ready = fact.get("review_decision") == "APPROVED" and not fact.get("changes_requested_by") and fact.get("checks") == "good" and fact.get("mergeable") != "CONFLICTING" and not fact.get("draft")
+    approval = row.get("approval") or {}
+    if ready and approval.get("head") and fact.get("head") and approval["head"] != fact["head"]:
+        # GitHub keeps APPROVED across a push unless stale reviews are dismissed; code the reviewer has not seen is not the user's to merge
+        return {"actor": ", ".join(fact.get("approved_by") or []) or "reviewer", "kind": "reviewer", "why": f"approved at {approval['head'][:7]}, head now {fact['head'][:7]}; a fresh look is owed"}
     if ready:
         below = [n for n in stack_below(number, facts, heads) if (facts.get(n) or {}).get("state") == "OPEN"]
         if below and _depth < 8:
@@ -1242,30 +1246,31 @@ def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str
     return bool(row.get("started"))
 
 
-def sync_compaction_needs(ledger: Ledger, run: dict, wanted: dict[str, str], sessions: dict[str, dict]) -> dict:
-    """One open `compact <session>` need per session past the context threshold, raised by reconcile and closed by it once the fill drops; the user's to type, since no session can compact another."""
-    open_auto = {n.get("auto"): n for n in run.get("needs", []) if str(n.get("auto") or "").startswith("compact:") and n.get("status") != "done"}
-    raise_for = {sid: name for sid, name in wanted.items() if f"compact:{sid}" not in open_auto}
-    close = [n for key, n in open_auto.items() if key.split(":", 1)[1] not in wanted]
-    if not raise_for and not close:
+def sync_auto_needs(ledger: Ledger, run: dict, kind: str, wanted: dict[str, tuple[str, str]], sessions: dict[str, dict]) -> dict:
+    """One open need per session for a condition only the user can clear (`compact`: context past the threshold; `prompt`: sitting on a permission prompt),
+    raised by reconcile while the condition holds and closed by it once it does not. `wanted` maps a session id to (why, command)."""
+    open_auto = {n.get("auto"): n for n in run.get("needs", []) if str(n.get("auto") or "").startswith(f"{kind}:") and n.get("status") != "done"}
+    raise_for = {sid: spec for sid, spec in wanted.items() if f"{kind}:{sid}" not in open_auto}
+    close_ids = {n.get("id") for key, n in open_auto.items() if key.split(":", 1)[1] not in wanted}
+    if not raise_for and not close_ids:
         return run
     with ledger.locked():
         fresh = ledger.run() or run
         needs = fresh.setdefault("needs", [])
-        for sid, name in raise_for.items():
-            if any(n.get("auto") == f"compact:{sid}" and n.get("status") != "done" for n in needs):
+        for sid, (why, command) in raise_for.items():
+            if any(n.get("auto") == f"{kind}:{sid}" and n.get("status") != "done" for n in needs):
                 continue
             row = sessions.get(sid) or {}
             n = 1 + max([x.get("n", 0) for x in needs] or [0])
-            need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": sid, "task": row.get("task", ""), "why": f"{name} is at context {row.get('context_percent')}%; type /compact in that session before its next long task",
-                    "command": "/compact", "cwd": row.get("worktree") or "", "status": "open", "at": now(), "kind": "action", "for": sid, "for_task": row.get("task", ""), "supersedes": None, "auto": f"compact:{sid}"}
+            need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": sid, "task": row.get("task", ""), "why": why, "command": command, "cwd": row.get("worktree") or "",
+                    "status": "open", "at": now(), "kind": "action", "for": sid, "for_task": row.get("task", ""), "supersedes": None, "auto": f"{kind}:{sid}"}
             needs.append(need)
             ledger.log("need", **need)
         for need in needs:
-            if any(need.get("id") == c.get("id") for c in close) and need.get("status") != "done":
+            if need.get("id") in close_ids and need.get("status") != "done":
                 need["status"] = "done"
                 need["done_at"] = now()
-                need["result"] = "context back under the threshold"
+                need["result"] = "cleared: reconcile saw the condition end"
                 ledger.log("need-done", id=need["id"], n=need["n"], result_chars=0, superseded_by=None)
         ledger.save_run(fresh)
     return fresh
@@ -1285,15 +1290,19 @@ def reconcile(ledger: Ledger) -> dict:
     for sid, row in sessions.items():
         if sid not in live and row.get("state") != "done":
             note("gone", f"session {row.get('name') or sid[:8]} is no longer running but its row reads {row.get('state')}", row.get("task", ""), sid, row.get("pr"))
-    compaction_wanted: dict[str, str] = {}
+    compaction_wanted: dict[str, tuple[str, str]] = {}
     for sid, row in sessions.items():
         # a coordinator cannot compact a crew session; only the user can. A gone session's figure is stale, and `gone` already covers it
         fill = row.get("context_percent")
         if sid in live and row.get("state") != "done" and isinstance(fill, int) and fill >= CONTEXT_NUDGE_PERCENT:
             window = live[sid].get("name") or row.get("name") or sid[:8]
-            compaction_wanted[sid] = window
+            compaction_wanted[sid] = (f"{window} is at context {fill}%; type /compact in that session before its next long task", "/compact")
             note("context-high", f"session {window} at context {fill}%; only the user can compact it, so it is on the needs list", row.get("task", ""), sid, row.get("pr"))
-    run = sync_compaction_needs(ledger, run, compaction_wanted, sessions)
+    run = sync_auto_needs(ledger, run, "compact", compaction_wanted, sessions)
+    # a session on a permission prompt waits on the user as surely as a need does, and the registry says so; the window is the place to answer it
+    prompts = {sid: (f"{live[sid].get('name') or row.get('name') or sid[:8]} is waiting on a permission prompt; answer it in that session's window", "")
+               for sid, row in sessions.items() if sid in live and live[sid].get("status") == "waiting" and row.get("state") != "done"}
+    run = sync_auto_needs(ledger, run, "prompt", prompts, sessions)
     for sid, row in sessions.items():
         if row.get("state") == "waiting-jason" and not any(n.get("status") in ("open", "started") and sid in (n.get("session_id"), n.get("for")) for n in run.get("needs", [])):
             note("waiting-jason-without-need", f"session {row.get('name') or sid[:8]} reads waiting-jason but nothing of its is on the needs list; it raises the need (mc_need) or reports `waiting --on <what>`", row.get("task", ""), sid, row.get("pr"))
@@ -1307,27 +1316,38 @@ def reconcile(ledger: Ledger) -> dict:
     # every PR the run knows of: a session's focus, its watcher's PR and each prs/<n>.json; one listing of open PRs finds the ones nobody recorded
     pr_rows = ledger.prs()
     listing = open_pr_listing(ledger)
+    found = attribute_prs(run, sessions, pr_rows, listing) if listing is not None else {}
+    # moving holds and approvals onto PR records needs only the ledger, so it runs whether or not gh answers
+    unrecorded_approval = any(p.get("kind") == "approval" and p.get("status") == "open" and str(p.get("pr") or "").isdigit() and p.get("head")
+                              and not (pr_rows.get(int(p["pr"])) or {}).get("approval") for p in run.get("pending", []))
+    if found or unrecorded_approval or any(item.get("hold") for item in run.get("pending", [])):
+        with ledger.locked():
+            pr_rows = ledger.prs()
+            for number, task in (attribute_prs(run, sessions, pr_rows, listing).items() if listing is not None else ()):
+                pr_rows[number] = {"number": number, "task": task, "at": now(), "attributed_by": "reconcile"}
+                ledger.save_pr(pr_rows[number])
+                ledger.log("prs-attributed", pr=number, task=task)
+            fresh = ledger.run() or run
+            for item in fresh.get("pending", []):
+                if not str(item.get("pr") or "").isdigit():
+                    continue
+                number = int(item["pr"])
+                row = pr_rows.get(number) or {"number": number, "task": None, "at": now()}
+                changed = False
+                # an approval the watcher noted before PR records existed: its head goes on the record, so a later push reads as a fresh look owed
+                if item.get("kind") == "approval" and item.get("status") == "open" and item.get("head") and not row.get("approval"):
+                    row["approval"] = {"at": item.get("at"), "head": item["head"], "by": "migrated"}
+                    changed = True
+                if item.get("hold"):
+                    row.setdefault("hold", {"reason": item.pop("hold"), "lifts_on": [], "at": now(), "by": "migrated"})
+                    item.pop("hold", None)
+                    changed = True
+                if changed:
+                    pr_rows[number] = row
+                    ledger.save_pr(row)
+            ledger.save_run(fresh)
+            run = fresh
     if listing is not None:
-        found = attribute_prs(run, sessions, pr_rows, listing)
-        if found or any(item.get("hold") for item in run.get("pending", [])):
-            with ledger.locked():
-                pr_rows = ledger.prs()
-                for number, task in attribute_prs(run, sessions, pr_rows, listing).items():
-                    entry = next((e for e in run.get("crew", []) if e.get("task") == task), {})
-                    pr_rows[number] = {"number": number, "task": task, "at": now(), "attributed_by": "reconcile"}
-                    ledger.save_pr(pr_rows[number])
-                    ledger.log("prs-attributed", pr=number, task=task)
-                fresh = ledger.run() or run
-                for item in fresh.get("pending", []):
-                    if item.get("hold") and str(item.get("pr") or "").isdigit():
-                        number = int(item["pr"])
-                        row = pr_rows.get(number) or {"number": number, "task": None, "at": now()}
-                        row.setdefault("hold", {"reason": item.pop("hold"), "lifts_on": [], "at": now(), "by": "migrated"})
-                        item.pop("hold", None)
-                        pr_rows[number] = row
-                        ledger.save_pr(row)
-                ledger.save_run(fresh)
-                run = fresh
         claimed = set(pr_rows) | {int(r["pr"]) for r in sessions.values() if r.get("pr")}
         loose = sorted(int(p["number"]) for p in listing if int(p["number"]) not in claimed)
         if loose:
