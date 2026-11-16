@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parseSnapshot, prNumberOf, reasonOf, resolveSession, sectionText, shellWord, socketOf, startsRun } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, socketOf, startsRun } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -794,4 +794,23 @@ test('a refresh without probes keeps the probes the last probed one found', asyn
 	expect(carryPrState(null, plain).probes.length).toBe(0)
 	const otherRun = parseSnapshot(JSON.stringify({ ...withPr(null), run: { ...STATUS.run, name: 'other' } }), NOON)
 	expect(carryPrState(probed, otherRun).probes.length).toBe(0)
+})
+
+test('the PR summary parses from status and the board lists only what waits on the user', async () => {
+	const prs = {
+		path: '/home/j/.claude/mission-control/-code-app/dashboard.html',
+		totals: { open: 19, jason: 3, held: 2, ready: 1, questions: 1 },
+		facts_at: NOON / 1000 - 120,
+		mine: [{ number: 272, actor: 'Jason', why: 'approved, checks green, mergeable; the merge is yours', cost: 'landing this first makes #271 restamp' }],
+	}
+	const snap = parseSnapshot(JSON.stringify({ ...STATUS, prs }), NOON)
+	expect(snap.prs?.totals.ready).toBe(1)
+	expect(snap.prs?.mine[0]?.cost).toBe('landing this first makes #271 restamp')
+	const lines = prsLines(snap.prs)
+	expect(lines?.heading).toBe('PRs · 19 open · 1 ready · 2 held · 1 question')
+	expect(lines?.rows).toEqual(['#272 approved, checks green, mergeable; the merge is yours (landing this first makes #271 restamp)'])
+	// an older CLI sends no block, and an empty run draws no group
+	expect(parseSnapshot(JSON.stringify(STATUS), NOON).prs).toBe(null)
+	expect(parsePrs({ path: '' })).toBe(null)
+	expect(prsLines({ ...prs, totals: { ...prs.totals, open: 0 }, mine: [] })).toBe(null)
 })

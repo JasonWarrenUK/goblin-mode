@@ -23,7 +23,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Asking, Need, Probe, Run, Self, SessionRow, Slot, SlotRequest, Snapshot } from '../types'
+import type { Asking, Need, Probe, PrSummary, Run, Self, SessionRow, Slot, SlotRequest, Snapshot } from '../types'
 
 const PLUGIN = 'mission-control'
 const PANE = 'mc'
@@ -200,6 +200,7 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		started_at: num(n.started_at) || null,
 		note: str(n.note),
 		supersedes: num(n.supersedes) || null,
+		pr: num(n.pr) || null,
 	}))
 	const probes: Probe[] = list(data.probes).map(p => ({
 		resource: str(p.resource),
@@ -220,7 +221,20 @@ export const parseSnapshot = (text: string, at: number): Snapshot => {
 		requests,
 		needs,
 		probes,
+		prs: parsePrs(data.prs),
 		at,
+	}
+}
+
+/** The status JSON's `prs` block; null when it is missing or malformed, so an older CLI draws no PR group rather than a broken one. */
+export const parsePrs = (raw: unknown): PrSummary | null => {
+	if (!isRecord(raw) || !str(raw.path)) return null
+	const totals = isRecord(raw.totals) ? raw.totals : {}
+	return {
+		path: str(raw.path),
+		totals: { open: num(totals.open), jason: num(totals.jason), held: num(totals.held), ready: num(totals.ready), questions: num(totals.questions) },
+		facts_at: num(raw.facts_at) || null,
+		mine: list(raw.mine).map(m => ({ number: num(m.number), actor: str(m.actor), why: str(m.why), cost: str(m.cost) || null })),
 	}
 }
 
@@ -238,6 +252,7 @@ const failed = (problem: Snapshot['problem'], reason: string, at: number): Snaps
 	requests: [],
 	needs: [],
 	probes: [],
+	prs: null,
 	at,
 })
 
@@ -450,7 +465,8 @@ const TOOLS = [
 		inputSchema: {
 			type: 'object',
 			properties: {
-				state: { type: 'string', enum: ['briefing', 'working', 'in-slot', 'pr-ready', 'blocked', 'waiting-jason', 'done'] },
+				state: { type: 'string', enum: ['briefing', 'working', 'in-slot', 'pr-ready', 'blocked', 'waiting', 'waiting-jason', 'done'], description: 'waiting-jason only while a need of yours is on the list (raise it with mc_need first); any other wait is waiting, with on' },
+				on: { type: 'string', description: 'with state waiting: what you wait on, as reviewer:<login>, session:<task>, pr:<n>, ci or hold' },
 				summary: { type: 'string', description: 'one line, what you are doing or waiting on' },
 				pr: { type: 'integer', description: 'the PR number once it exists' },
 				for: { type: 'string', description: 'coordinator only: correct another session’s row (task id, branch or session name), for instance one whose PR has merged' },
@@ -481,7 +497,8 @@ const TOOLS = [
 				why: { type: 'string', description: 'what and why, in full: the user reads this before typing a hosted command' },
 				command: { type: 'string', description: 'the exact command, if there is one' },
 				cwd: { type: 'string', description: 'the absolute directory the command must run from (default: your worktree)' },
-				kind: { type: 'string', enum: ['action', 'measurement', 'approval'], description: 'measurement: the output the user pastes when marking it done is forwarded to the session the need is for' },
+				kind: { type: 'string', enum: ['action', 'measurement', 'approval', 'question'], description: 'measurement: the output the user pastes when marking it done is forwarded to the session the need is for; question: a question for the user, no command, the answer comes back the same way' },
+				pr: { type: 'integer', description: 'the PR this need blocks, so the PR page shows it on that PR’s line' },
 				for: { type: 'string', description: 'the session the result is for (task id, branch or name); default: the asking session' },
 				supersedes: { type: 'string', description: 'the number of an earlier need this one re-issues (its first attempt failed); that need closes as superseded by the new number, and the new one keeps its kind, recipient and directory unless given here' },
 			},
@@ -543,6 +560,15 @@ const TOOLS = [
 		},
 	},
 	{
+		name: 'mc_pr_note',
+		description: 'Coordinator only: attach one sentence to a PR’s line on the PR page, for what the page cannot derive (findings brought and ruled, a fresh look owed). It stops showing by itself once the PR’s head, review decision or state moves, so it never outlives what it described. Holds and who moves next are derived; do not restate them here.',
+		inputSchema: {
+			type: 'object',
+			properties: { pr: { type: 'integer' }, text: { type: 'string', description: 'one sentence' } },
+			required: ['pr', 'text'],
+		},
+	},
+	{
 		name: 'mc_board',
 		description: 'The mission-control board as text: every session’s state, slots, pending requests, the needs-Jason list and machine probes. Read it before granting a slot or writing the user an update.',
 		inputSchema: { type: 'object', properties: {} },
@@ -566,6 +592,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			if (arg(input, 'for')) args.push('--for', arg(input, 'for'))
 			if (arg(input, 'state')) args.push('--state', arg(input, 'state'))
 			if (arg(input, 'summary')) args.push('--summary', arg(input, 'summary'))
+			if (arg(input, 'on')) args.push('--on', arg(input, 'on'))
 			const pr = argNum(input, 'pr')
 			if (pr !== null) args.push('--pr', String(pr))
 			const ran = await mine($, args)
@@ -599,6 +626,8 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			if (arg(input, 'kind')) args.push('--kind', arg(input, 'kind'))
 			if (arg(input, 'for')) args.push('--for', arg(input, 'for'))
 			if (arg(input, 'supersedes')) args.push('--supersedes', arg(input, 'supersedes'))
+			const needPr = argNum(input, 'pr')
+			if (needPr !== null) args.push('--pr', String(needPr))
 			const ran = await mine($, args)
 			if (ran.exitCode !== 0) return reasonOf(ran, 'need refused')
 			await refresh($)
@@ -700,6 +729,13 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			$.ui.invalidate('prompt.section')
 			const crew = others(fresh, [me.sessionId])
 			return `${ran.stdout.trim()}${crew.length ? handoff(fresh, crew, line) : '\nNo crew session is live yet; each one reads the list from its system prompt when it joins.'}`
+		}
+		case 'mc_pr_note': {
+			if (!me.isCoordinator) return 'only the coordinator session writes PR notes.'
+			const notePr = argNum(input, 'pr')
+			if (notePr === null) return 'which PR? pass pr'
+			const ran = await mine($, ['prs', 'note', String(notePr), '--text', arg(input, 'text')])
+			return ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, 'note refused')
 		}
 		case 'mc_board': {
 			const ran = await run($, ['status', '--probe'])
@@ -1288,9 +1324,42 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 			const ran = await run($, ['status', '--probe'])
 			return ran.exitCode === 0 ? ran.stdout : reasonOf(ran, 'status refused')
 		}
+		case 'dashboard':
+		case 'prs': {
+			const ran = await run($, ['dashboard', ...(words[1] === 'refresh' ? ['--refresh'] : []), '--open'])
+			return ran.exitCode === 0 ? `opened ${ran.stdout.trim()}` : reasonOf(ran, 'dashboard refused')
+		}
+		case 'pin':
+			return words[1] ? byUser(['prs', 'pin', words[1], ...(words[2] ? ['--group', words.slice(2).join(' ')] : [])]) : 'usage: /mc pin <pr> [group]'
+		case 'ignore':
+			return words[1] ? byUser(['prs', 'ignore', words[1]]) : 'usage: /mc ignore <pr>'
 		default:
-			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc extend <resource> [minutes] · /mc release <resource> · /mc started <n> [note] · /mc done <n> [result|@file] · /mc adopt coordinator|crew · /mc retire <task> [dry] · /mc status · /mc end [force]'
+			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc extend <resource> [minutes] · /mc release <resource> · /mc started <n> [note] · /mc done <n> [result|@file] · /mc adopt coordinator|crew · /mc retire <task> [dry] · /mc dashboard [refresh] · /mc pin <pr> [group] · /mc ignore <pr> · /mc status · /mc end [force]'
 	}
+}
+
+/** The board's glance at the PR page: one totals line, then only the PRs where the user moves next; o opens the page for the rest. */
+export const prsLines = (prs: PrSummary | null): { heading: string; rows: string[]; empty: string } | null => {
+	if (!prs || prs.totals.open === 0) return null
+	const t = prs.totals
+	const heading = `PRs · ${t.open} open · ${t.ready} ready · ${t.held} held${t.questions ? ` · ${t.questions} question${t.questions === 1 ? '' : 's'}` : ''}`
+	const rows = prs.mine.map(m => `#${m.number} ${m.why}${m.cost ? ` (${m.cost})` : ''}`)
+	return { heading, rows, empty: 'nothing on a PR waits on you; o opens the page' }
+}
+
+const prsGroup = (ui: Ui, prs: PrSummary | null, inner: number) => {
+	const lines = prsLines(prs)
+	if (!lines) return null
+	const { Box, Text } = ui
+	return (
+		<Box flexDirection="column" paddingX={1}>
+			{heading(ui, lines.heading, inner)}
+			{lines.rows.length === 0 && <Text dimColor>{lines.empty}</Text>}
+			{lines.rows.map((row, index) => (
+				<Text key={`pr-${prs?.mine[index]?.number ?? index}`}>{row}</Text>
+			))}
+		</Box>
+	)
 }
 
 // ---------------------------------------------------------------- register
@@ -1388,6 +1457,8 @@ export const register: Register = (on, options) => {
 			const number = prNumberOf(ran.result.stdout)
 			const me = await read($, self)
 			if (number !== null && me.isCrew) await mine($, ['report', '--pr', String(number), '--state', 'pr-ready'])
+			// every PR a run session opens gets its own record, so a second or third layer is not lost behind the row's one `pr`
+			if (number !== null && (me.isCrew || me.isCoordinator)) await mine($, ['prs', 'add', String(number)])
 		}
 		// the ledger CLI run from Bash may have started, joined or ended a run: reread whatever the pane's state
 		if (/mc\.py/.test(e.command) || /gh pr create/.test(e.command) || (/gh stack|git worktree|gh pr merge/.test(e.command) && (await isPaneOpen($)))) await refresh($)
@@ -1463,6 +1534,7 @@ export const register: Register = (on, options) => {
 						{needRows($, ui, needs.open, picked, inner)}
 					</Box>
 				)}
+				{prsGroup(ui, snap.prs, inner)}
 				<Box flexDirection="column" paddingX={1}>
 					{heading(ui, `Crew · ${live}`, inner)}
 					{snap.sessions.length === 0 && <Text dimColor>nobody has joined yet; a session starting in a planned worktree joins by itself.</Text>}
@@ -1519,6 +1591,7 @@ export const register: Register = (on, options) => {
 							{pickedNeed && pickedNeed.status !== 'started' && <Button key="started" label={`started ${pickedNeed.n}`} hotkey="s" onPress={() => update($, asking, () => ({ kind: 'started', resource: '', sessionId: pickedNeed.session_id, ref: String(pickedNeed.n) }))} />}
 							{snap.slots.length > 0 && <Button key="release" label="release a slot" hotkey="x" onPress={() => update($, asking, () => ({ kind: 'release', resource: snap.slots[0]?.resource ?? '', sessionId: '', ref: '' }))} />}
 							{archived > 0 && <Button key="quiet" label={showQuiet ? 'collapse the archive' : 'show the archive'} hotkey="c" onPress={() => update($, quietShown, shown => !shown)} />}
+							{snap.prs && <Button key="page" label="open the PR page" hotkey="o" onPress={() => run($, ['dashboard', '--open'])} />}
 							<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($, true)} />
 						</Box>
 					)}
