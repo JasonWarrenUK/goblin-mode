@@ -2382,11 +2382,15 @@ def cmd_pull(args) -> int:
         raw = raw.get("issues", []) if isinstance(raw, dict) else raw
     else:
         raw = jira.fetch_issues(source, jira.credentials(project_root(path)))
-    report = jira.merge(phase, [jira.normalise(i) for i in raw], TASK_FIELD_ORDER)
-    if not phase["milestones"]:
-        print(f"✗ Jira project {source.get('project')} returned no issues; "
-              "nothing written")
+    issues = [jira.normalise(i) for i in raw]
+    if all(issue["epic"] for issue in issues):
+        # Nothing but epics (or nothing at all) is not a mirror: merging it
+        # would drop every mirrored task and strand local ones in M0.
+        query = f" (jql: {source['jql']})" if source.get("jql") else ""
+        print(f"✗ Jira project {source.get('project')}{query} returned no "
+              "tasks; nothing written")
         return 1
+    report = jira.merge(phase, issues, TASK_FIELD_ORDER)
     if not args.dry_run:
         path.parent.mkdir(parents=True, exist_ok=True)
         _write_roadmap(path, data)

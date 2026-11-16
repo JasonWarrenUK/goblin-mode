@@ -32,9 +32,22 @@ VERSIONS = {
 
 def raw(key, summary="", kind="Story", level=0, category="new", status=None,
         parent=None, version=None, blocked_by=(), assignee=None,
-        changed="2026-11-17T09:00:00.000+0000", resolved=None):
-    """One issue in the shape Jira's search returns."""
+        changed="2026-11-17T09:00:00.000+0000", resolved=None, linked=None):
+    """One issue in the shape Jira's search returns. `linked` maps a blocker
+    key to the status category Jira reports for it; a blocker left out of it,
+    or mapped to None, arrives with no status at all."""
     names = {"new": "To Do", "indeterminate": "In Progress", "done": "Done"}
+    linked = linked or {}
+
+    def inward(blocker):
+        issue = {"key": blocker}
+        if linked.get(blocker):
+            issue["fields"] = {
+                "summary": f"summary of {blocker}",
+                "status": {"name": names[linked[blocker]],
+                           "statusCategory": {"key": linked[blocker]}}}
+        return issue
+
     return {"key": key, "fields": {
         "summary": summary or f"summary of {key}",
         "issuetype": {"name": kind, "hierarchyLevel": level},
@@ -42,7 +55,7 @@ def raw(key, summary="", kind="Story", level=0, category="new", status=None,
                    "statusCategory": {"key": category}},
         "parent": {"key": parent} if parent else None,
         "fixVersions": [VERSIONS[version]] if version else [],
-        "issuelinks": [{"type": {"name": "Blocks"}, "inwardIssue": {"key": b}}
+        "issuelinks": [{"type": {"name": "Blocks"}, "inwardIssue": inward(b)}
                        for b in blocked_by],
         "assignee": {"displayName": assignee} if assignee else None,
         "statuscategorychangedate": changed,
@@ -150,6 +163,130 @@ class Mapping(unittest.TestCase):
         self.assertEqual(task["dependsOn"], ["G1"])
         self.assertEqual(task["status"], "blocked")
         self.assertEqual(roadmap._validate_phase(phase), [])
+
+
+class OutsideBlockers(unittest.TestCase):
+    """A Blocks link to an issue the mirror does not hold becomes a gate."""
+
+    def story(self, linked, blocked_by=("OPS-9",)):
+        return raw("T-5", "Needs ops", parent="T-1", version="R1",
+                   blocked_by=list(blocked_by), linked=linked)
+
+    def phase_with(self, linked=None, extra=()):
+        phase = empty_phase()
+        pull(phase, board() + [self.story({"OPS-9": "new"} if linked is None
+                                          else linked)] + list(extra))
+        return phase
+
+    def test_an_open_blocker_outside_the_mirror_gates_the_task(self):
+        phase = self.phase_with()
+        tasks, _milestones, gates = build_index(phase)
+        self.assertEqual(tasks["T-5"]["dependsOn"], ["OPS-9"])
+        self.assertEqual(tasks["T-5"]["status"], "blocked")
+        self.assertEqual(gates["OPS-9"]["blocks"], ["T-5"])
+        self.assertEqual(gates["OPS-9"]["tracker"], {"issue": "OPS-9"})
+        self.assertEqual(roadmap._validate_phase(phase), [])
+
+    def test_the_pull_says_which_task_a_new_gate_holds(self):
+        phase = empty_phase()
+        report = pull(phase, board() + [self.story({"OPS-9": "new"})])
+        self.assertTrue(any("OPS-9" in line and "T-5" in line
+                            for line in report["changed"]), report)
+
+    def test_a_done_blocker_outside_the_mirror_adds_no_gate(self):
+        phase = self.phase_with({"OPS-9": "done"})
+        self.assertEqual(phase["externalGates"], [])
+        self.assertEqual(build_index(phase)[0]["T-5"]["dependsOn"], [])
+
+    def test_a_closed_outside_blocker_retires_its_gate_on_the_next_pull(self):
+        phase = self.phase_with()
+        pull(phase, board() + [self.story({"OPS-9": "done"})])
+        task = build_index(phase)[0]["T-5"]
+        self.assertEqual(phase["externalGates"], [])
+        self.assertEqual(task["dependsOn"], [])
+        self.assertEqual(task["status"], "todo")
+        self.assertEqual(roadmap._validate_phase(phase), [])
+
+    def test_removing_the_link_retires_the_gate(self):
+        phase = self.phase_with()
+        pull(phase, board() + [self.story({}, blocked_by=())])
+        self.assertEqual(phase["externalGates"], [])
+        self.assertEqual(build_index(phase)[0]["T-5"]["dependsOn"], [])
+        self.assertEqual(roadmap._validate_phase(phase), [])
+
+    def test_a_hand_made_gate_survives_beside_a_generated_one(self):
+        phase = self.phase_with()
+        phase["externalGates"].append({
+            "id": "G1", "name": "Six countries chosen", "status": "pending",
+            "blocks": ["T-2"]})
+        build_index(phase)[0]["T-2"]["dependsOn"].append("G1")
+        for _ in range(2):
+            pull(phase, board() + [self.story({"OPS-9": "new"})])
+            self.assertEqual(sorted(g["id"] for g in phase["externalGates"]),
+                             ["G1", "OPS-9"])
+            self.assertEqual(roadmap._validate_phase(phase), [])
+
+    def test_a_child_inherits_its_storys_outside_blocker(self):
+        phase = self.phase_with(
+            extra=[raw("T-6", kind="Subtask", parent="T-5")])
+        tasks, _milestones, gates = build_index(phase)
+        self.assertEqual(tasks["T-6"]["status"], "blocked")
+        self.assertEqual(gates["OPS-9"]["blocks"], ["T-5", "T-6"])
+        self.assertEqual(roadmap._validate_phase(phase), [])
+
+    def test_a_second_pull_with_an_outside_blocker_changes_nothing(self):
+        phase = self.phase_with()
+        before = json.dumps(phase)
+        report = pull(phase, board() + [self.story({"OPS-9": "new"})])
+        self.assertEqual(json.dumps(phase), before)
+        self.assertFalse(report["added"] or report["changed"] or report["removed"])
+
+    def test_a_link_with_no_status_is_treated_as_open(self):
+        phase = self.phase_with({})
+        self.assertEqual([g["id"] for g in phase["externalGates"]], ["OPS-9"])
+        self.assertEqual(build_index(phase)[0]["T-5"]["status"], "blocked")
+
+    def test_an_in_project_blocker_a_jql_leaves_out_is_gated_too(self):
+        phase = empty_phase()
+        pull(phase, [raw("T-5", blocked_by=["T-77"], linked={"T-77": "new"})])
+        self.assertEqual([g["id"] for g in phase["externalGates"]], ["T-77"])
+
+    def test_an_open_epic_that_blocks_is_gated(self):
+        phase = empty_phase()
+        pull(phase, [raw("T-1", "Big", kind="Epic", level=1),
+                     raw("T-5", blocked_by=["T-1"], linked={"T-1": "new"})])
+        self.assertEqual([g["id"] for g in phase["externalGates"]], ["T-1"])
+
+    def test_a_done_epic_that_blocks_adds_no_gate(self):
+        phase = empty_phase()
+        pull(phase, [raw("T-1", "Big", kind="Epic", level=1, category="done"),
+                     raw("T-5", blocked_by=["T-1"], linked={"T-1": "new"})])
+        self.assertEqual(phase["externalGates"], [])
+
+    def test_a_gate_id_that_clashes_with_a_local_task_is_refused(self):
+        phase = empty_phase()
+        pull(phase, board())
+        phase["milestones"][0]["tasks"].append({
+            "id": "OPS-9", "description": "mine", "status": "todo",
+            "dependsOn": [], "local": True})
+        before = json.dumps(phase)
+        with self.assertRaisesRegex(roadmap.RoadmapError, "OPS-9"):
+            pull(phase, board() + [self.story({"OPS-9": "new"})])
+        self.assertEqual(json.dumps(phase), before)
+
+    def test_a_generated_gate_survives_a_cli_round_trip(self):
+        with tempfile.TemporaryDirectory() as root:
+            issues = Path(root, "issues.json")
+            issues.write_text(json.dumps(
+                {"issues": board() + [self.story({"OPS-9": "new"})]}))
+            for _ in range(2):
+                code, out = run("pull", root, "--project", "T", "--name", "P",
+                                "--issues", str(issues))
+                self.assertEqual(code, 0, out)
+            data = json.loads(Path(root, ".claude", "roadmaps.local.json").read_text())
+            self.assertEqual(data[0]["externalGates"][0]["tracker"],
+                             {"issue": "OPS-9"})
+            self.assertEqual(roadmap._validate_phase(data[0]), [])
 
 
 class Statuses(unittest.TestCase):
@@ -336,6 +473,53 @@ class Cli(unittest.TestCase):
         self.assertFalse(self.local.exists())
         self.assertIn("would mirror 3", out)
 
+    def mirror_with_local_task(self):
+        self.start()
+        data = json.loads(self.local.read_text())
+        data[0]["milestones"][0]["tasks"].append({
+            "id": "L1", "description": "mine", "status": "todo",
+            "dependsOn": [], "local": True})
+        self.local.write_text(roadmap._canonical_text(data))
+        return self.local.read_text()
+
+    def test_an_empty_answer_is_refused_and_moves_nothing(self):
+        before = self.mirror_with_local_task()
+        for body in ({"issues": []}, []):
+            self.issues.write_text(json.dumps(body))
+            for extra in ((), ("--dry-run",)):
+                code, out = run("pull", str(self.root), "--project", "T",
+                                "--issues", str(self.issues), *extra)
+                self.assertEqual(code, 1, out)
+                self.assertIn("✗", out)
+                self.assertEqual(self.local.read_text(), before)
+
+    def test_an_empty_live_answer_is_refused_too(self):
+        before = self.mirror_with_local_task()
+        with unittest.mock.patch.object(jira, "credentials", return_value={}), \
+                unittest.mock.patch.object(jira, "fetch_issues", return_value=[]):
+            code, out = run("pull", str(self.root), "--project", "T")
+        self.assertEqual(code, 1, out)
+        self.assertEqual(self.local.read_text(), before)
+
+    def test_an_answer_of_only_epics_is_refused_too(self):
+        before = self.mirror_with_local_task()
+        self.issues.write_text(json.dumps(
+            {"issues": [raw("T-1", "E", kind="Epic", level=1)]}))
+        code, out = run("pull", str(self.root), "--project", "T",
+                        "--issues", str(self.issues))
+        self.assertEqual(code, 1, out)
+        self.assertEqual(self.local.read_text(), before)
+
+    def test_the_refusal_names_a_custom_jql(self):
+        self.start()
+        data = json.loads(self.local.read_text())
+        data[0]["source"]["jql"] = "project = T AND labels = nope"
+        self.local.write_text(roadmap._canonical_text(data))
+        self.issues.write_text("[]")
+        code, out = run("pull", str(self.root), "--issues", str(self.issues))
+        self.assertEqual(code, 1, out)
+        self.assertIn("labels = nope", out)
+
     def test_pull_without_a_mirror_or_a_project_is_refused(self):
         with self.assertRaises(roadmap.RoadmapError):
             roadmap.cmd_pull(roadmap.argparse.Namespace(
@@ -412,6 +596,40 @@ class Reading(unittest.TestCase):
             with unittest.mock.patch.dict("os.environ", {}, clear=True):
                 with self.assertRaisesRegex(roadmap.RoadmapError, "JIRA_EMAIL"):
                     jira.credentials(root)
+
+    def test_missing_credentials_name_both_env_files(self):
+        with tempfile.TemporaryDirectory() as root:
+            with unittest.mock.patch.dict("os.environ", {}, clear=True):
+                with self.assertRaises(roadmap.RoadmapError) as caught:
+                    jira.credentials(root)
+        message = str(caught.exception)
+        self.assertIn("environment", message)
+        self.assertIn(f"{root}/.env.local", message)
+        self.assertIn(f"{root}/.env;", message)
+
+    def test_a_plain_http_base_url_is_refused_before_any_request(self):
+        called = []
+        creds = {"JIRA_BASE_URL": "http://example.test", "JIRA_EMAIL": "a",
+                 "JIRA_API_TOKEN": "b"}
+        with self.assertRaisesRegex(roadmap.RoadmapError, "https"):
+            jira.fetch_issues({"project": "TST"}, creds,
+                              lambda *a, **k: called.append(a))
+        self.assertEqual(called, [])
+
+    def test_a_schemeless_base_url_is_refused(self):
+        creds = {"JIRA_BASE_URL": "example.atlassian.net", "JIRA_EMAIL": "a",
+                 "JIRA_API_TOKEN": "b"}
+        with self.assertRaisesRegex(roadmap.RoadmapError, "https"):
+            jira.fetch_issues({"project": "TST"}, creds)
+
+    def test_https_is_accepted_in_any_case(self):
+        @contextlib.contextmanager
+        def opener(request, timeout):
+            yield io.BytesIO(json.dumps({"issues": []}).encode())
+
+        creds = {"JIRA_BASE_URL": "HTTPS://example.test", "JIRA_EMAIL": "a",
+                 "JIRA_API_TOKEN": "b"}
+        self.assertEqual(jira.fetch_issues({"project": "TST"}, creds, opener), [])
 
     def test_a_project_key_that_could_break_the_query_is_refused(self):
         with self.assertRaises(roadmap.RoadmapError):

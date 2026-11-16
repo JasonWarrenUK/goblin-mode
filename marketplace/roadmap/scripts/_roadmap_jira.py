@@ -15,6 +15,9 @@ What maps to what:
   of its child issues, so a story waits for the tickets it was split into,
   and a child inherits whatever blocks its story, so a split of a blocked
   story is not offered as ready;
+- a Blocks link to an open issue the mirror does not hold becomes an
+  `externalGates` entry (marked `tracker.issue`) that each pull rebuilds, so
+  it retires itself once the blocker is done or the link goes;
 - a status in Jira's done category is `done`; every other status is left to
   the dependency graph (`todo` or `blocked`), with `started` set while Jira
   has the issue in progress, which is what makes views show it in progress.
@@ -90,7 +93,8 @@ def credentials(root):
     if missing:
         raise RoadmapError(
             f"{', '.join(missing)} not set in the environment or in "
-            f"{root}/.env; a pull needs all of {', '.join(ENV_KEYS)}")
+            f"{root}/.env.local or {root}/.env; a pull needs all of "
+            f"{', '.join(ENV_KEYS)}")
     return found
 
 
@@ -102,7 +106,12 @@ def fetch_issues(source, creds, opener=urllib.request.urlopen):
     jql = source.get("jql") or f'project = "{project}" ORDER BY key'
     auth = base64.b64encode(
         f"{creds['JIRA_EMAIL']}:{creds['JIRA_API_TOKEN']}".encode()).decode()
-    url = creds["JIRA_BASE_URL"].rstrip("/") + "/rest/api/3/search/jql"
+    base = creds["JIRA_BASE_URL"].rstrip("/")
+    if not base.lower().startswith("https://"):
+        raise RoadmapError(
+            f"JIRA_BASE_URL {base!r} must use https; the API token is sent "
+            "with every request")
+    url = base + "/rest/api/3/search/jql"
     issues, token = [], None
     while True:
         body = {"jql": jql, "maxResults": 100, "fields": FIELDS}
@@ -138,11 +147,17 @@ def normalise(raw):
     fields = raw.get("fields") or {}
     issue_type = fields.get("issuetype") or {}
     status = fields.get("status") or {}
-    blocked_by = []
+    blocked_by, blocker_info = [], {}
     for link in fields.get("issuelinks") or []:
         blocker = link.get("inwardIssue")
         if blocker and (link.get("type") or {}).get("name") == "Blocks":
             blocked_by.append(blocker["key"])
+            linked = blocker.get("fields") or {}
+            # A link that carries no status is read as open by merge().
+            blocker_info[blocker["key"]] = {
+                "category": ((linked.get("status") or {}).get("statusCategory")
+                             or {}).get("key", "new"),
+                "summary": (linked.get("summary") or "").strip()}
     return {
         "key": raw["key"],
         "type": issue_type.get("name", ""),
@@ -156,6 +171,7 @@ def normalise(raw):
              "start": v.get("startDate") or "", "release": v.get("releaseDate") or ""}
             for v in fields.get("fixVersions") or []],
         "blocked_by": blocked_by,
+        "blocker_info": blocker_info,
         "assignee": ((fields.get("assignee") or {}).get("displayName") or "").strip(),
         "changed": _day(fields.get("statuscategorychangedate")),
         "resolved": _day(fields.get("resolutiondate")),
@@ -264,6 +280,52 @@ def merge(phase, issues, field_order):
         if issue["parent"] in work:
             children.setdefault(issue["parent"], []).append(key)
 
+    # Blockers the mirror does not hold (another project, or left out by a
+    # custom jql) that are still open become gates this pull owns. Each is
+    # rebuilt from this answer, so one that closes, or whose link goes, is
+    # retired by the next pull. A gate without `tracker.issue` is the user's.
+    old_gates = list(phase.get("externalGates") or [])
+    hand_gates = [g for g in old_gates if not (g.get("tracker") or {}).get("issue")]
+    old_generated = {g["id"] for g in old_gates if (g.get("tracker") or {}).get("issue")}
+    link_info = {}
+    for issue in issues:
+        for blocker, detail in issue.get("blocker_info", {}).items():
+            link_info.setdefault(blocker, detail)
+
+    def blocker_state(key):
+        own = by_key.get(key) or link_info.get(key) or {}
+        return own.get("category", "new"), (own.get("summary") or "")
+
+    outside_for = {}
+    for key, issue in work.items():
+        if issue["category"] == "done":
+            continue
+        found = {b for b in inherited_blockers(key)
+                 if b not in work and b != key and b not in parked_ids
+                 and blocker_state(b)[0] != "done"}
+        if found:
+            outside_for[key] = found
+    gate_blocks = {}
+    for key, found in outside_for.items():
+        for blocker in found:
+            gate_blocks.setdefault(blocker, []).append(key)
+    taken_ids = (set(local) | {m["id"] for m in old_milestones if "tracker" not in m}
+                 | {g.get("id") for g in hand_gates})
+    for blocker in sorted(gate_blocks, key=_natural):
+        if blocker in taken_ids:
+            raise RoadmapError(
+                f"Jira blocker {blocker} would become a gate, but {blocker} "
+                "is already a local task, milestone or gate id; rename the "
+                "local one")
+    generated_gates = [
+        {"id": blocker,
+         "name": f"{blocker} {blocker_state(blocker)[1]}".strip(),
+         "status": "external",
+         "blocks": sorted(gate_blocks[blocker], key=_natural),
+         "tracker": {"issue": blocker}}
+        for blocker in sorted(gate_blocks, key=_natural)]
+    generated_ids = {g["id"] for g in generated_gates}
+
     # Milestones: one per fix version in use, keeping the id it already has.
     held_ids = {(m.get("tracker") or {}).get("version"): m["id"]
                 for m in old_milestones if "tracker" in m}
@@ -292,10 +354,11 @@ def merge(phase, issues, field_order):
               "orphans": [], "warnings": []}
 
     # Mirrored tasks.
+    hand_gate_ids = {g.get("id") for g in hand_gates}
     surviving = set(work) | set(local) | {m["id"] for m in local_milestones} \
-        | {g.get("id") for g in phase.get("externalGates", [])}
+        | hand_gate_ids | generated_ids
     surviving -= parked_ids
-    local_targets = surviving - set(work)
+    local_targets = surviving - set(work) - generated_ids
     new_tasks, home = {}, {}
     for key in sorted(work, key=_natural):
         issue = work[key]
@@ -303,6 +366,7 @@ def merge(phase, issues, field_order):
         done = issue["category"] == "done"
         depends = sorted({b for b in inherited_blockers(key) if b in work and b != key}
                          | set(children.get(key, [])), key=_natural)
+        depends += sorted(outside_for.get(key, ()), key=_natural)
         depends += [d for d in was.get("dependsOn", [])
                     if d in local_targets and d not in depends]
         task = {"id": key, "description": issue["summary"],
@@ -356,8 +420,7 @@ def merge(phase, issues, field_order):
 
     all_ids = set(new_tasks) | set(local)
     all_milestones = {home[tid] for tid in all_ids} | {m["id"] for m in local_milestones}
-    reachable = (all_ids | all_milestones
-                 | {g.get("id") for g in phase.get("externalGates", [])}) - parked_ids
+    reachable = (all_ids | all_milestones | hand_gate_ids | generated_ids) - parked_ids
     local_edits = {}
     for tid, task in local.items():
         depends = list(task.get("dependsOn", []))
@@ -420,6 +483,7 @@ def merge(phase, issues, field_order):
 
     candidate = dict(phase)
     candidate["milestones"] = assembled
+    candidate["externalGates"] = hand_gates + generated_gates
     tasks, milestones, gates = build_index(candidate)
     cycles = find_cycles(tasks, milestones)
     if cycles:
@@ -480,7 +544,17 @@ def merge(phase, issues, field_order):
                 f"{key} is {work[key]['status']} in Jira before "
                 f"{', '.join(open_blockers)}, which it depends on")
 
+    for gate in generated_gates:
+        if gate["id"] not in old_generated:
+            report["changed"].append(
+                f"{gate['id']}: open blocker outside the mirror; gate added, "
+                f"holding {', '.join(gate['blocks'])}")
+    for blocker in sorted(old_generated - generated_ids, key=_natural):
+        report["changed"].append(
+            f"{blocker}: no longer blocks anything in the mirror; gate retired")
+
     phase["milestones"] = assembled
+    phase["externalGates"] = candidate["externalGates"]
     report["tasks"] = len(new_tasks)
     report["local"] = len(local)
     report["milestones"] = len(assembled)
