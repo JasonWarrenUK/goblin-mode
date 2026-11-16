@@ -158,7 +158,10 @@ section. The one kind is Jira:
   `.env.local` or its `.env` (an unquoted trailing `# comment` is ignored),
   and only ever reads; a redirect from Jira is refused, so the token is never
   sent anywhere else. A pull that returns no
-  tasks (an empty answer, or nothing but epics) is refused and writes nothing.
+  tasks (an empty answer, or nothing but epics) is refused and writes nothing. So is a pull that would remove more than half
+  of four or more mirrored tasks (a truncated answer looks like that); pass
+  `--allow-removals` when Jira really lost them. `--dry-run` shows the removals
+  and says a real pull would be refused.
 - **What maps to what:** a fix version is a milestone (it keeps its `M{N}`
   when the version is renamed; issues with no version sit in `M0`,
   Unscheduled); an epic is the `topic` of the issues under it and never a
@@ -167,7 +170,9 @@ section. The one kind is Jira:
   story waits for the tickets it was split into, and a child inherits whatever
   blocks its story, so a split of a blocked story is never offered as ready
   (except a blocker that itself already waits on the child, which Jira
-  orders the other way round and which would otherwise close a loop).
+  orders the other way round and which would otherwise close a loop). Where
+  two inherited blockers would only close a loop together, the one added
+  later in key order is left out and `pull` warns.
   A Blocks link to an open issue the mirror does not hold (another project,
   or one a custom `jql` leaves out) becomes a gate with `tracker.issue` set;
   pull owns it, adds it when the link appears and retires it when the blocker

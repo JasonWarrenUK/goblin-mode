@@ -52,6 +52,7 @@ Requires Python 3.8+, stdlib only. British spelling throughout.
 from __future__ import annotations
 
 import argparse
+import copy
 import heapq
 import json
 import os
@@ -2372,6 +2373,11 @@ def _pull_target(args):
     return root / ".claude" / LOCAL_ROADMAP_NAME, [phase], phase
 
 
+# A pull that removes more than half of at least this many mirrored tasks is
+# refused unless --allow-removals is passed.
+SHRINK_FLOOR = 4
+
+
 def cmd_pull(args) -> int:
     import _roadmap_jira as jira
     path, data, phase = _pull_target(args)
@@ -2397,12 +2403,30 @@ def cmd_pull(args) -> int:
               "tasks; nothing written. If the project really is empty now, "
               "delete the phase from the local roadmap file to start again")
         return 1
-    report = jira.merge(phase, issues, TASK_FIELD_ORDER)
+    trial = copy.deepcopy(phase)
+    report = jira.merge(trial, issues, TASK_FIELD_ORDER)
+    dropped, previous = len(report["removed"]), report["previous"]
+    shrink = None
+    if previous >= SHRINK_FLOOR and dropped * 2 > previous \
+            and not getattr(args, "allow_removals", False):
+        # A truncated answer (a narrowed jql, a lost permission, a failed
+        # page) looks like a project that lost most of its tasks. Tasks come
+        # back on the next full pull, but a local task whose milestone
+        # emptied stays in M0, so the write needs an explicit say-so.
+        shrink = (f"this pull would remove {dropped} of {previous} mirrored "
+                  "tasks; pass --allow-removals if Jira really lost them")
+        if not args.dry_run:
+            print(f"✗ {shrink}; nothing written")
+            return 1
+    phase.clear()
+    phase.update(trial)
     if not args.dry_run:
         path.parent.mkdir(parents=True, exist_ok=True)
         _write_roadmap(path, data)
     for line in jira.describe(report, phase.get("name"), args.dry_run):
         print(line)
+    if shrink:
+        print(f"note: a real pull would be refused: {shrink}")
     if not args.dry_run:
         git, rel = _git_at_toplevel(path)
         if git is not None and git("check-ignore", "-q", rel) is None:
@@ -2568,6 +2592,9 @@ def main(argv=None) -> int:
     sp.add_argument("--issues", default=None,
                     help="read issues from a saved Jira search response "
                          "instead of calling Jira")
+    sp.add_argument("--allow-removals", action="store_true",
+                    help="write a pull that removes more than half of the "
+                         "mirrored tasks (refused by default)")
     sp.add_argument("--dry-run", action="store_true", help="preview, no write")
 
     sp = sub.add_parser("hook", help="Claude Code hook entry point")

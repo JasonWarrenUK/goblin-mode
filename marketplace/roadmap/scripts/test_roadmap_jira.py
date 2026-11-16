@@ -168,6 +168,38 @@ class Mapping(unittest.TestCase):
             {"ABC-1": "blocked", "ABC-2": "blocked", "ABC-3": "todo"})
         self.assertEqual(roadmap._validate_phase(phase), [])
 
+    def test_two_inherited_edges_that_only_loop_together_keep_one(self):
+        phase = empty_phase()
+        report = pull(phase, [
+            raw("S-1", blocked_by=["X-1"]), raw("S-2", blocked_by=["Y-1"]),
+            raw("S-3", kind="Subtask", parent="S-1"),
+            raw("S-4", kind="Subtask", parent="S-2"),
+            raw("X-1", blocked_by=["S-4"]), raw("Y-1", blocked_by=["S-3"])])
+        tasks = build_index(phase)[0]
+        self.assertEqual(tasks["S-3"]["dependsOn"], ["X-1"])
+        self.assertEqual(tasks["S-4"]["dependsOn"], [])
+        self.assertEqual(len(report["warnings"]), 1)
+        self.assertIn("S-4", report["warnings"][0])
+        self.assertIn("Y-1", report["warnings"][0])
+        self.assertEqual(roadmap._validate_phase(phase), [])
+
+    def test_an_inherited_blocker_dropped_for_one_loop_is_not_a_warning(self):
+        phase = empty_phase()
+        report = pull(phase, [raw("ABC-1", blocked_by=["ABC-2"]),
+                              raw("ABC-2", blocked_by=["ABC-3"]),
+                              raw("ABC-3", kind="Subtask", parent="ABC-1")])
+        self.assertEqual(report["warnings"], [])
+
+    def test_an_issue_without_a_key_is_an_error_naming_it(self):
+        with self.assertRaisesRegex(roadmap.RoadmapError, "key"):
+            jira.normalise({"fields": {"summary": "orphan"}})
+
+    def test_a_blocks_link_without_a_key_is_skipped(self):
+        issue = raw("T-5")
+        issue["fields"]["issuelinks"] = [
+            {"type": {"name": "Blocks"}, "inwardIssue": {}}]
+        self.assertEqual(jira.normalise(issue)["blocked_by"], [])
+
     def test_a_genuine_cycle_in_jira_still_refuses_the_pull(self):
         phase = empty_phase()
         with self.assertRaisesRegex(roadmap.RoadmapError, "cycle"):
@@ -515,6 +547,53 @@ class Cli(unittest.TestCase):
                 self.assertEqual(code, 1, out)
                 self.assertIn("✗", out)
                 self.assertEqual(self.local.read_text(), before)
+
+    def big_mirror(self, count=10):
+        issues = [raw("T-1", "E", kind="Epic", level=1)] + [
+            raw(f"T-{n}", parent="T-1") for n in range(2, count + 2)]
+        self.issues.write_text(json.dumps({"issues": issues}))
+        code, out = self.start()
+        self.assertEqual(code, 0, out)
+        return issues
+
+    def pull_only(self, issues, *extra):
+        self.issues.write_text(json.dumps({"issues": issues}))
+        return run("pull", str(self.root), "--project", "T",
+                   "--issues", str(self.issues), *extra)
+
+    def test_a_pull_that_would_drop_most_of_the_mirror_is_refused(self):
+        issues = self.big_mirror()
+        before = self.local.read_text()
+        code, out = self.pull_only(issues[:2])
+        self.assertEqual(code, 1, out)
+        self.assertIn("--allow-removals", out)
+        self.assertIn("9 of 10", out)
+        self.assertEqual(self.local.read_text(), before)
+
+    def test_allow_removals_lets_the_shrink_through(self):
+        issues = self.big_mirror()
+        code, out = self.pull_only(issues[:2], "--allow-removals")
+        self.assertEqual(code, 0, out)
+        data = json.loads(self.local.read_text())
+        self.assertEqual(len(build_index(data[0])[0]), 1)
+
+    def test_a_dry_run_shows_the_shrink_and_says_a_real_pull_would_refuse(self):
+        issues = self.big_mirror()
+        before = self.local.read_text()
+        code, out = self.pull_only(issues[:2], "--dry-run")
+        self.assertEqual(code, 0, out)
+        self.assertIn("--allow-removals", out)
+        self.assertEqual(self.local.read_text(), before)
+
+    def test_a_small_mirror_may_shrink_freely(self):
+        issues = self.big_mirror(count=3)
+        code, out = self.pull_only(issues[:2])
+        self.assertEqual(code, 0, out)
+
+    def test_dropping_half_or_fewer_is_not_refused(self):
+        issues = self.big_mirror()
+        code, out = self.pull_only(issues[:7])
+        self.assertEqual(code, 0, out)
 
     def test_an_unparseable_local_file_is_never_overwritten(self):
         self.start()

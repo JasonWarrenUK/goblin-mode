@@ -173,13 +173,17 @@ def _day(stamp):
 
 def normalise(raw):
     """One search-result issue as the flat dict merge() reads."""
+    if not isinstance(raw, dict) or not raw.get("key"):
+        raise RoadmapError(
+            f"a Jira issue has no key: {json.dumps(raw, default=str)[:80]}")
     fields = raw.get("fields") or {}
     issue_type = fields.get("issuetype") or {}
     status = fields.get("status") or {}
     blocked_by, blocker_info = [], {}
     for link in fields.get("issuelinks") or []:
         blocker = link.get("inwardIssue")
-        if blocker and (link.get("type") or {}).get("name") == "Blocks":
+        if blocker and blocker.get("key") \
+                and (link.get("type") or {}).get("name") == "Blocks":
             blocked_by.append(blocker["key"])
             linked = blocker.get("fields") or {}
             # A link that carries no status is read as open by merge().
@@ -315,8 +319,8 @@ def merge(phase, issues, field_order):
                        | set(children.get(key, [])))
                  for key, issue in work.items()}
 
-    def waits_on(start, target):
-        """Whether `start` already depends on `target` through own_edges."""
+    def waits_on(graph, start, target):
+        """Whether `start` already depends on `target` through `graph`."""
         stack, seen = [start], set()
         while stack:
             current = stack.pop()
@@ -324,16 +328,31 @@ def merge(phase, issues, field_order):
                 return True
             if current not in seen:
                 seen.add(current)
-                stack.extend(own_edges.get(current, ()))
+                stack.extend(graph.get(current, ()))
         return False
 
+    # Inheritance is added one edge at a time, in key order. A blocker that
+    # already waits on the issue through its own links is ordered the other
+    # way round in Jira, so it is left out silently. One that only waits on it
+    # through inheritance already kept is left out with a warning: two
+    # inherited edges can close a loop that neither closes alone.
+    graph = {key: set(edges) for key, edges in own_edges.items()}
+    inherited_kept, skipped_edges = {}, []
+    for key in sorted(work, key=_natural):
+        kept = set()
+        for blocker in sorted({b for b in inherited_blockers(key)
+                               if b in work and b != key}, key=_natural):
+            if waits_on(own_edges, blocker, key):
+                continue
+            if waits_on(graph, blocker, key):
+                skipped_edges.append((key, blocker))
+                continue
+            kept.add(blocker)
+            graph[key].add(blocker)
+        inherited_kept[key] = kept
+
     def blockers_of(key):
-        """Own edges plus what the issue inherits from its story, leaving out
-        an inherited blocker that already waits on the issue: Jira orders that
-        pair the other way round, and keeping the edge would close a loop."""
-        inherited = {b for b in inherited_blockers(key)
-                     if b in work and b != key and not waits_on(b, key)}
-        return own_edges[key] | inherited
+        return own_edges[key] | inherited_kept[key]
 
     # Blockers the mirror does not hold (another project, or left out by a
     # custom jql) that are still open become gates this pull owns. Each is
@@ -407,6 +426,10 @@ def merge(phase, issues, field_order):
 
     report = {"added": [], "removed": [], "changed": [], "drift": [],
               "orphans": [], "warnings": []}
+    for key, blocker in skipped_edges:
+        report["warnings"].append(
+            f"{key}: inherited blocker {blocker} left out; it already waits on "
+            f"{key} through other inherited links and keeping it would close a loop")
 
     # Mirrored tasks.
     hand_gate_ids = {g.get("id") for g in hand_gates}
@@ -610,6 +633,7 @@ def merge(phase, issues, field_order):
     phase["milestones"] = assembled
     phase["externalGates"] = candidate["externalGates"]
     report["tasks"] = len(new_tasks)
+    report["previous"] = sum(1 for t in old_tasks.values() if not is_local_task(t))
     report["local"] = len(local)
     report["milestones"] = len(assembled)
     return report
