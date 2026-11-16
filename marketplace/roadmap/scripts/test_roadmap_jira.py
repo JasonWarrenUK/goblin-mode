@@ -14,6 +14,7 @@ import json
 import tempfile
 import unittest
 import unittest.mock
+import urllib.request
 from pathlib import Path
 
 import _roadmap_hooks
@@ -615,6 +616,36 @@ class Reading(unittest.TestCase):
             jira.fetch_issues({"project": "TST"}, creds,
                               lambda *a, **k: called.append(a))
         self.assertEqual(called, [])
+
+    def test_a_redirect_is_refused_so_the_token_never_follows_it(self):
+        request = urllib.request.Request(
+            "https://example.test/rest/api/3/search/jql",
+            headers={"Authorization": "Basic secret"})
+        handler = jira._NoRedirect()
+        for target in ("http://example.test/x", "https://elsewhere.test/x"):
+            with self.assertRaisesRegex(roadmap.RoadmapError, "redirect"):
+                handler.redirect_request(request, None, 302, "Found", {}, target)
+
+    def test_the_default_opener_carries_the_redirect_refusal(self):
+        self.assertTrue(any(isinstance(h, jira._NoRedirect)
+                            for h in jira._OPENER.handlers))
+
+    def test_a_base_url_with_no_host_is_refused(self):
+        creds = {"JIRA_BASE_URL": "https://", "JIRA_EMAIL": "a",
+                 "JIRA_API_TOKEN": "b"}
+        with self.assertRaisesRegex(roadmap.RoadmapError, "host"):
+            jira.fetch_issues({"project": "TST"}, creds)
+
+    def test_a_trailing_comment_in_the_env_file_is_not_part_of_the_value(self):
+        with tempfile.TemporaryDirectory() as root:
+            Path(root, ".env").write_text(
+                "JIRA_BASE_URL=https://example.test # prod\n"
+                'JIRA_EMAIL="a@b.c # kept"\nJIRA_API_TOKEN=t0ken#kept\n')
+            with unittest.mock.patch.dict("os.environ", {}, clear=True):
+                found = jira.credentials(root)
+        self.assertEqual(found["JIRA_BASE_URL"], "https://example.test")
+        self.assertEqual(found["JIRA_EMAIL"], "a@b.c # kept")
+        self.assertEqual(found["JIRA_API_TOKEN"], "t0ken#kept")
 
     def test_a_schemeless_base_url_is_refused(self):
         creds = {"JIRA_BASE_URL": "example.atlassian.net", "JIRA_EMAIL": "a",

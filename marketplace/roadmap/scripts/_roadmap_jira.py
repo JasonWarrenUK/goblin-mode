@@ -44,6 +44,7 @@ import json
 import os
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -76,6 +77,28 @@ _ENV_LINE = re.compile(r"^\s*(?:export\s+)?(JIRA_[A-Z_]+)\s*=\s*(.*?)\s*$")
 # ---------------------------------------------------------------------------
 # reading Jira
 # ---------------------------------------------------------------------------
+def _env_value(text):
+    """A `.env` value: quotes removed, and an unquoted trailing ` # comment`
+    dropped (a `#` inside a token, with no space before it, is kept)."""
+    if text[:1] in "\"'":
+        return text.strip("\"'")
+    return re.sub(r"\s+#.*$", "", text)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """urllib copies every header, Authorization included, onto a redirect,
+    so a Location on http or on another host would receive the API token.
+    Jira's search never needs to redirect; refuse rather than follow."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise RoadmapError(
+            f"Jira answered {code} with a redirect to {newurl}; not followed, "
+            "so the API token is not sent there. Check JIRA_BASE_URL")
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect())
+
+
 def credentials(root):
     """JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN from the environment,
     else from `.env.local` or `.env` at the project root."""
@@ -88,7 +111,7 @@ def credentials(root):
         for line in lines:
             match = _ENV_LINE.match(line)
             if match and match.group(1) in ENV_KEYS:
-                found.setdefault(match.group(1), match.group(2).strip("\"'"))
+                found.setdefault(match.group(1), _env_value(match.group(2)))
     missing = [k for k in ENV_KEYS if not found.get(k)]
     if missing:
         raise RoadmapError(
@@ -98,7 +121,7 @@ def credentials(root):
     return found
 
 
-def fetch_issues(source, creds, opener=urllib.request.urlopen):
+def fetch_issues(source, creds, opener=_OPENER.open):
     """Every issue of the source's project, as Jira's search returns them."""
     project = str(source.get("project", ""))
     if not _PROJECT_KEY.fullmatch(project):
@@ -107,10 +130,13 @@ def fetch_issues(source, creds, opener=urllib.request.urlopen):
     auth = base64.b64encode(
         f"{creds['JIRA_EMAIL']}:{creds['JIRA_API_TOKEN']}".encode()).decode()
     base = creds["JIRA_BASE_URL"].rstrip("/")
-    if not base.lower().startswith("https://"):
+    parts = urllib.parse.urlsplit(base)
+    if parts.scheme.lower() != "https":
         raise RoadmapError(
             f"JIRA_BASE_URL {base!r} must use https; the API token is sent "
             "with every request")
+    if not parts.netloc:
+        raise RoadmapError(f"JIRA_BASE_URL {base!r} has no host")
     url = base + "/rest/api/3/search/jql"
     issues, token = [], None
     while True:

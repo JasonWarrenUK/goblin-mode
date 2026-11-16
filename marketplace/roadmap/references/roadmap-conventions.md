@@ -155,7 +155,9 @@ section. The one kind is Jira:
   the phase. After that, plain `pull` refreshes it; `--dry-run` prints what
   would change. It needs `JIRA_BASE_URL` (which must be `https://`),
   `JIRA_EMAIL` and `JIRA_API_TOKEN` in the environment, the project's
-  `.env.local` or its `.env`, and only ever reads. A pull that returns no
+  `.env.local` or its `.env` (an unquoted trailing `# comment` is ignored),
+  and only ever reads; a redirect from Jira is refused, so the token is never
+  sent anywhere else. A pull that returns no
   tasks (an empty answer, or nothing but epics) is refused and writes nothing.
 - **What maps to what:** a fix version is a milestone (it keeps its `M{N}`
   when the version is renamed; issues with no version sit in `M0`,
