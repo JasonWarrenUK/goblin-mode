@@ -1238,7 +1238,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
     if fact.get("requested"):
         return {"actor": ", ".join(fact["requested"]), "kind": "reviewer", "why": "waiting for a review"}
     if outside:
-        return {"actor": fact.get("author") or "author", "kind": "author", "why": "not in the run; no review requested, so the author moves"}
+        return {"actor": owner_name, "kind": "author", "why": "not in the run; no review requested, so the author moves"}
     return {"actor": "reviewer", "kind": "reviewer", "why": "no reviewer requested"}
 
 
