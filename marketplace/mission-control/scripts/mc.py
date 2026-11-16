@@ -1388,8 +1388,10 @@ def reconcile(ledger: Ledger) -> dict:
             note("pr-unattributed", "open PRs no task claims and nobody pinned: " + ", ".join(f"#{n}" for n in loose) + "; `mc.py prs add <n> --task <T>`, `prs pin <n>` to show it or `prs ignore <n>`")
     numbers = {int(row["pr"]) for row in sessions.values() if row.get("pr")} | {n for n, r in pr_rows.items() if not r.get("ignored")}
     facts = pr_facts(ledger, numbers)
-    # the PRs a hold waits on only need their state cached for the page; kept out of `facts` so the migration scan does not read them
-    pr_facts(ledger, hold_lift_prs(pr_rows) - numbers)
+    # the PRs a hold waits on lend their state to the hold check alone; kept out of `facts` so the migration scan does not read them
+    lift_facts = pr_facts(ledger, hold_lift_prs(pr_rows) - numbers)
+    states = {n: f.get("state", "") for n, f in {**lift_facts, **facts}.items()}
+    open_needs = {n["n"] for n in run.get("needs", []) if n.get("status") not in ("done", "superseded") and "n" in n}
     refresh_migrations(ledger, facts, run.get("base", {}).get("branch") or "main")
     prs = []
     for sid, row in sorted(sessions.items(), key=lambda item: int(item[1].get("pr") or 0)):
@@ -1425,7 +1427,7 @@ def reconcile(ledger: Ledger) -> dict:
             if not approval_is_current(approved_head, fact):
                 # the approval was given on a commit the branch no longer points at: a rebase or a rewrite since
                 note("approved-stale", f"PR #{item['pr']} was approved at {clock(item.get('at'))} on {approved_head[:7]} and the head is now {current_head[:7]}; the approval may predate a rewrite, so read the diff since before landing and ask the reviewer if it changed what they approved", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
-            elif (pr_rows.get(int(item["pr"])) or {}).get("hold"):
+            elif (pr_rows.get(int(item["pr"])) or {}).get("hold") and not hold_lifted(pr_rows[int(item["pr"])]["hold"], states, open_needs):
                 note("approved-held", f"PR #{item['pr']} approved at {clock(item.get('at'))} and held: {hold_text(pr_rows[int(item['pr'])]['hold'])}; `mc.py prs release {item['pr']}` when it can land", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
             else:
                 note("approved-unlanded", f"PR #{item['pr']} approved at {clock(item.get('at'))} and not landed; landing is authorised, so `/pr-land {item['pr']}`", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
@@ -4216,11 +4218,14 @@ def clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
-def with_pr_hold(item: dict, prs: dict[int, dict]) -> dict:
-    """An approval item with its PR's hold read from prs/<n>.json, where holds live; the item itself no longer carries one."""
+def with_pr_hold(item: dict, prs: dict[int, dict], states: dict[int, str] | None = None, open_needs: set[int] | None = None) -> dict:
+    """An approval item with its PR's hold read from prs/<n>.json, where holds live; the item itself no longer carries one.
+    A hold whose lift condition has happened (by `states` and `open_needs`, the cached PR states and the open need numbers) is no hold."""
     row = prs.get(int(item["pr"])) if item.get("kind") == "approval" and str(item.get("pr") or "").isdigit() else None
     hold = (row or {}).get("hold")
-    return {**item, "hold": hold_text(hold)} if hold else item
+    if not hold or hold_lifted(hold, states or {}, open_needs or set()):
+        return item
+    return {**item, "hold": hold_text(hold)}
 
 
 def hold_text(hold: dict | None) -> str:
@@ -4317,7 +4322,11 @@ def session_start_context(payload: dict) -> str:
                     + "Run reconcile before saying where things stand.")
             # the harness cuts a hook's output at 10,000 characters and shows the model only a preview of the rest, so the pending list takes what the other parts leave
             pr_rows = ledger.prs()
-            pending_text = fit_items([pending_line(with_pr_hold(p, pr_rows)) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`mc.py pending list`")
+            # a hook never asks gh: the hold's lift condition is judged on the cached PR states, which reconcile and the watchers keep current
+            cached, _ = cached_facts(ledger, hold_lift_prs(pr_rows))
+            lift_states = {n: f.get("state", "") for n, f in cached.items()}
+            live = {n["n"] for n in run.get("needs", []) if n.get("status") not in ("done", "superseded") and "n" in n}
+            pending_text = fit_items([pending_line(with_pr_hold(p, pr_rows, lift_states, live)) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`mc.py pending list`")
             back = opening + (f"pending: {pending_text}. " if pending else "") + rest
         return f"{head}{back}{rearm}"
     candidate = coord.get("rebind_candidate") or {}

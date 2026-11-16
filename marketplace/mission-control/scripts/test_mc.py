@@ -2599,6 +2599,21 @@ class LedgerFlow(unittest.TestCase):
         cache = json.loads((ledger_dir / "pr-facts.json").read_text())
         self.assertEqual(cache["500"]["facts"]["state"], "MERGED")
 
+    def test_an_approval_whose_hold_has_lifted_reads_as_unlanded_not_held(self):
+        self._watching_session(264)
+        ledger_dir = list(self.box.ledger_root.glob("*/run.json"))[0].parent
+        run = json.loads((ledger_dir / "run.json").read_text())
+        run.setdefault("pending", []).append({"id": "a1", "n": 1, "kind": "approval", "pr": 264, "text": "t", "session_id": "crew-1", "head": "", "status": "open", "at": 1.0})
+        (ledger_dir / "run.json").write_text(json.dumps(run))
+        (ledger_dir / "prs").mkdir(exist_ok=True)
+        (ledger_dir / "prs" / "264.json").write_text(json.dumps({"number": 264, "task": "10SE.2", "hold": {"reason": "after #500", "lifts_on": [{"pr": 500}]}}))
+        held = [item["kind"] for item in self._reconcile_with(self._gh({**self._open(264), **self._open(500)}))["drift"]]
+        self.assertIn("approved-held", held)
+        (ledger_dir / "pr-facts.json").unlink()  # #500 has merged since; the cached OPEN would otherwise stand for a minute
+        lifted =[item["kind"] for item in self._reconcile_with(self._gh({**self._open(264), **self._merged(500)}))["drift"]]
+        self.assertNotIn("approved-held", lifted)
+        self.assertIn("approved-unlanded", lifted)
+
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 224, state="done")
@@ -3263,6 +3278,12 @@ class PrAttribution(unittest.TestCase):
         line = self.mc.pending_line(self.mc.with_pr_hold(item, {260: {"number": 260, "hold": {"reason": "after New Zealand", "lifts_on": [{"pr": 271}]}}}))
         self.assertIn("held", line)
         self.assertIn("#271 lands", line)
+
+    def test_a_lifted_hold_no_longer_reads_as_held_in_the_start_context(self):
+        item = {"n": 3, "kind": "approval", "pr": 260, "text": "PR #260 approved"}
+        prs = {260: {"number": 260, "hold": {"reason": "after New Zealand", "lifts_on": [{"pr": 271}]}}}
+        self.assertIn("held", self.mc.pending_line(self.mc.with_pr_hold(item, prs, {271: "OPEN"}, set())))
+        self.assertEqual(self.mc.pending_line(self.mc.with_pr_hold(item, prs, {271: "MERGED"}, set())), "#3 PR #260 approved")
 
 
 class PendingHoldMovesToPr(unittest.TestCase):
