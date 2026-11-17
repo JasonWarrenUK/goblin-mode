@@ -1775,8 +1775,29 @@ def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
     return sorted(rows, key=lambda r: -r["commits"])
 
 
+def gh_bot_reviewers(main: Path, number) -> set[str]:
+    """Logins that reviewed PR `number` as a GitHub App (`__typename` Bot); empty when gh cannot say.
+
+    `gh pr list --json reviews` strips the `[bot]` suffix, so `graphify-labs[bot]` reaches `is_bot`
+    as `graphify-labs` and passes as a person. Only GraphQL carries the account type. A failed lookup
+    leaves the reviewer counted as human, which is the old behaviour."""
+    slug = gh_api_repo(main)
+    owner, _, name = slug.partition("/")
+    placeholders = slug == "{owner}/{repo}"
+    argv = ["gh", "api", "graphql", "-F", f"owner={'{owner}' if placeholders else owner}", "-F", f"name={'{repo}' if placeholders else name}", "-F", f"number={number}",
+            "-f", "query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviews(first:100){nodes{author{__typename login}}}}}}"]
+    code, out = sh(argv, timeout=PR_LOOKUP_SECONDS, cwd=main)
+    if code != 0:
+        return set()
+    try:
+        nodes = json.loads(out)["data"]["repository"]["pullRequest"]["reviews"]["nodes"]
+    except (ValueError, KeyError, TypeError):
+        return set()
+    return {str(n["author"]["login"]) for n in nodes if isinstance(n, dict) and isinstance(n.get("author"), dict) and n["author"].get("__typename") == "Bot"}
+
+
 def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
-    """The last merged PRs with who reviewed each, other than its author; (rows, whether gh answered)."""
+    """The last merged PRs with who reviewed each, other than its author, bot accounts left out; (rows, whether gh answered)."""
     code, out = sh(["gh", "pr", "list", *gh_repo_args(main), "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
     if code != 0:
         return [], False
@@ -1797,6 +1818,9 @@ def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
             if not login or login == author or is_bot(login):
                 continue
             others.append({"login": login, "state": str(review.get("state") or ""), "at": review.get("submittedAt")})
+        if others:
+            bots = gh_bot_reviewers(main, pr.get("number"))
+            others = [o for o in others if o["login"] not in bots]
         rows.append({"number": pr.get("number"), "author": author, "others": others})
     return rows, True
 

@@ -1174,6 +1174,32 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(by_review["reviewed_by_others"], 1)
         self.assertEqual(by_review["hours"]["days"], [0, 1, 2, 3, 4], "one review is too few to infer hours, so the weekday default stands")
 
+    def test_classify_ignores_a_review_by_a_github_app_whose_login_lost_its_bot_suffix(self):
+        """goblin-mode read as collaborative on 17 November 2026: `gh pr list` reported `graphify-labs[bot]` as `graphify-labs`,
+        so the name check passed it as a person. GraphQL's `__typename` Bot is what tells the account apart."""
+        reviewed = [{"number": 71, "author": {"login": "t"}, "reviews": [{"author": {"login": "graphify-labs"}, "state": "COMMENTED", "submittedAt": "2026-11-15T09:55:37Z"}]}]
+        graphql = {"data": {"repository": {"pullRequest": {"reviews": {"nodes": [{"author": {"__typename": "Bot", "login": "graphify-labs"}}]}}}}}
+
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "list"]:
+                return 0, json.dumps(reviewed)
+            if argv[:3] == ["gh", "api", "graphql"]:
+                return 0, json.dumps(graphql)
+            return 1, "not gh"
+
+        mc_module, real = self._module(fake_sh)
+        try:
+            as_bot = mc_module.classify(self.box.repo, None)
+            graphql["data"]["repository"]["pullRequest"]["reviews"]["nodes"][0]["author"]["__typename"] = "User"
+            as_user = mc_module.classify(self.box.repo, None)
+            mc_module.sh = lambda argv, timeout=8, cwd=None: (0, json.dumps(reviewed)) if argv[:3] == ["gh", "pr", "list"] else (1, "graphql down")
+            lookup_failed = mc_module.classify(self.box.repo, None)
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual((as_bot["mode"], as_bot["reviewed_by_others"]), ("solo", 0))
+        self.assertEqual((as_user["mode"], as_user["reviewed_by_others"]), ("collaborative", 1))
+        self.assertEqual(lookup_failed["mode"], "collaborative", "an unanswered type lookup keeps the old reading rather than guessing")
+
     def test_classify_merges_one_person_under_two_addresses_or_two_spellings_and_ignores_a_claude_coauthor(self):
         """goblin-mode read as collaborative on 30 October 2026: Jason under two emails plus Claude's noreply address made three authors.
         The mirror case, one email under two spellings of the name, chains through the shared address to the same person."""
