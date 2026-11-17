@@ -1231,10 +1231,13 @@ class LedgerFlow(unittest.TestCase):
         partial = {"data": {"repository": {"p71": {"reviews": {"nodes": [{"author": {"__typename": "Bot", "login": "graphify-labs"}}]}}, "p72": None}},
                    "errors": [{"type": "NOT_FOUND", "path": ["repository", "p72"], "message": "Could not resolve to a PullRequest with the number of 72."}]}
 
+        queries = []
+
         def fake_sh(argv, timeout=8, cwd=None):
             if argv[:3] == ["gh", "pr", "list"]:
                 return 0, json.dumps(reviewed)
             if argv[:3] == ["gh", "api", "graphql"]:
+                queries.append(next(a for a in argv if a.startswith("query=")))
                 return 1, json.dumps(partial) + "gh: Could not resolve to a PullRequest with the number of 72."
             return 1, "not gh"
 
@@ -1246,6 +1249,25 @@ class LedgerFlow(unittest.TestCase):
             self._restore(mc_module, real)
         self.assertEqual((result["mode"], result["reviewed_by_others"]), ("collaborative", 1), "PR 71 drops out; PR 72 keeps its reviewer")
         self.assertEqual(bots, {71: {"graphify-labs"}}, "an unresolved alias is absent, and a bool or a string is never a PR number")
+        self.assertIn("p71:", queries[-1])
+        self.assertIn("p72:", queries[-1])
+        for never in ("pTrue", "p73", "pNone"):
+            self.assertNotIn(never, queries[-1], "a bool, a string and None are left out of the query, not sent for GraphQL to refuse")
+
+    def test_a_bot_author_node_without_a_login_is_skipped_rather_than_raised_on(self):
+        """A deleted account comes back with a null login, and a malformed node may lack the key; neither may escape into classify."""
+        graphql = {"data": {"repository": {"p71": {"reviews": {"nodes": [
+            {"author": {"__typename": "Bot", "login": None}},
+            {"author": {"__typename": "Bot"}},
+            {"author": None},
+            {"author": {"__typename": "Bot", "login": "graphify-labs"}},
+        ]}}}}}
+        mc_module, real = self._module(lambda argv, timeout=8, cwd=None: (0, json.dumps(graphql)))
+        try:
+            bots = mc_module.gh_bot_reviewers(self.box.repo, [71])
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual(bots, {71: {"graphify-labs"}})
 
     def test_the_bot_lookup_sends_a_literal_repository_name_as_a_string_while_git_is_broken(self):
         """`-F` turns `2048`, `true` and `null` into JSON types, which GraphQL then refuses for a `String!`; only gh's own

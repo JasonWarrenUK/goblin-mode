@@ -1805,9 +1805,10 @@ def gh_bot_reviewers(main: Path, numbers: list) -> dict[int, set[str]]:
     found: dict[int, set[str]] = {}
     for n in wanted:
         pull = repository.get(f"p{n}")
-        nodes = pull.get("reviews", {}).get("nodes") if isinstance(pull, dict) else None
+        nodes = (pull.get("reviews") or {}).get("nodes") if isinstance(pull, dict) else None
         if isinstance(nodes, list):
-            found[n] = {str(node["author"]["login"]) for node in nodes if isinstance(node, dict) and isinstance(node.get("author"), dict) and node["author"].get("__typename") == "Bot"}
+            authors = [node["author"] for node in nodes if isinstance(node, dict) and isinstance(node.get("author"), dict)]
+            found[n] = {str(author["login"]) for author in authors if author.get("__typename") == "Bot" and author.get("login")}
     return found
 
 
