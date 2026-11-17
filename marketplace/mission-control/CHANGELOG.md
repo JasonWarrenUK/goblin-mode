@@ -4,6 +4,13 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-17
+
+### Fixed
+
+- Review bots no longer make a solo project read as collaborative. `gh pr list` reports a GitHub App reviewer such as `graphify-labs[bot]` as plain `graphify-labs`, so the name check took it for a teammate and landing a pull request waited for an approval nobody would give. The classifier now asks GitHub which reviewers are apps, in one request for the whole sample of merged pull requests, and leaves them out of the count. goblin-mode reads `solo` with 0 outside reviews where it read `collaborative` with 1.
+- When gh cannot answer the lookup, or cannot resolve one pull request in it, the reviewers concerned stay counted as people, so the earlier reading holds whenever the answer is missing.
+
 ## [0.13.0] - 2026-11-17
 
 ### Breaking
