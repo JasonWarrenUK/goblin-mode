@@ -97,4 +97,6 @@ One line: `Claimed 2SE.1 for Jaz (started 2026-10-02) on feat/search, committed,
 
 **Never:** infer an assignee; edit `status` to `in_progress` (a claim is a field, never a status); hand-edit `started` or `assignee` in `roadmaps.json` when the CLI can do it; use `--reassign` without the user agreeing to take the task from its current owner; commit anything but `roadmaps.json`; push without a yes.
 
+> **Mirrored phases:** a task mirrored from Jira cannot be claimed, released or assigned here; the CLI refuses and says so. Tell the user it is assigned in Jira and offer `roadmap.py pull` to refresh. A task marked `"local": true` claims as usual, with no commit when the roadmap file is `.claude/roadmaps.local.json` (it is outside git).
+
 <raw-arguments value="$ARGUMENTS" />

@@ -117,6 +117,12 @@ The hooks need `python3` too; without it they stay silent.
 
 ---
 
+### 3b. Mirrored Phases
+
+When a tracker is the source of truth, a phase can mirror it. `python3 <plugin-root>/scripts/roadmap.py pull --project <JIRA KEY> --name "<phase name>"` reads a Jira project and writes `.claude/roadmaps.local.json`, a roadmap file kept out of git that every command and skill then finds first. Plain `pull` refreshes it and never writes to Jira.
+
+Releases (fix versions) become milestones, epics become topics, issues become tasks under their Jira keys and Blocks links become dependencies, so `ready`, `stats`, the graph and the dashboard work as they do anywhere. Claims are switched off for mirrored tasks: status, dates and assignee come from Jira. Your own tasks go in beside them with `"local": true`; a pull never touches those, nor the `notes` and `pr` you put on a mirrored task. Projects without a local file behave exactly as before. The full rules are under Mirrored phases in `references/roadmap-conventions.md`.
+
 ## 4. Where Do I Find...?
 
 ### 4a. Within a Roadmap Project

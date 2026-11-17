@@ -160,4 +160,6 @@ Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadmap.py validate`; it must repor
 - roadmaps.json is the source of truth; the PHASE file and overview are projections.
 - Everything else (statuses, colours, graph/edge rules, formatting, milestone-ID assignment and milestone field order): `${CLAUDE_PLUGIN_ROOT}/references/roadmap-conventions.md`.
 
+> **Mirrored phases:** when the active phase has a `source`, every task you add is the user's own: give it `"local": true` and an id that is not a Jira key (`L1`, `L2`…). Never add, edit or remove a mirrored task; those change in Jira and arrive with `roadmap.py pull`. Details: Mirrored phases in the conventions reference.
+
 <raw-arguments value="$ARGUMENTS" />

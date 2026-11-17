@@ -43,6 +43,16 @@ class RoadmapError(Exception):
 # undo or duplicate what a newer one produced. Plugins before 2.7.0 ignore it.
 STAMP_KEY = "min_plugin"
 
+# A phase with a `source` is a mirror of an external tracker: `pull` rewrites
+# its tracker-owned tasks and nothing else writes them. A phase without one
+# behaves exactly as it always has.
+SOURCE_KEY = "source"
+SOURCE_KINDS = {"jira"}
+# The roadmap file for a mirrored phase is normally kept out of git, beside
+# the committed one, and wins when both exist.
+ROADMAP_NAME = "roadmaps.json"
+LOCAL_ROADMAP_NAME = "roadmaps.local.json"
+
 
 def _read_plugin_version():
     try:
@@ -93,18 +103,49 @@ def resolve_roadmap_path(explicit=None) -> Path:
     if explicit:
         p = Path(explicit).expanduser()
         if p.is_dir():
-            p = p / ".claude" / "roadmaps.json"
+            p = roadmap_in(p) or p / ".claude" / ROADMAP_NAME
         if not p.exists():
             raise RoadmapError(f"roadmap not found at {p}")
         return p
     here = Path.cwd().resolve()
     for parent in [here, *here.parents]:
-        candidate = parent / ".claude" / "roadmaps.json"
-        if candidate.exists():
+        candidate = roadmap_in(parent)
+        if candidate:
             return candidate
     raise RoadmapError(
         "could not locate .claude/roadmaps.json above the current directory; "
         "pass the path explicitly")
+
+
+def roadmap_in(root):
+    """The roadmap file of the project at `root`, or None: its
+    `.claude/roadmaps.local.json` when there is one (a mirrored phase, kept
+    out of git), else `.claude/roadmaps.json`. A project with no local file,
+    which is every project that mirrors nothing, resolves as it always did;
+    the committed file stays reachable by naming it explicitly."""
+    for name in (LOCAL_ROADMAP_NAME, ROADMAP_NAME):
+        candidate = Path(root) / ".claude" / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def phase_source(phase):
+    """The phase's `source` when it mirrors an external tracker, else None."""
+    source = phase.get(SOURCE_KEY) if isinstance(phase, dict) else None
+    return source if isinstance(source, dict) and source.get("kind") else None
+
+
+def is_local_task(task):
+    """True for a task the user added to a mirrored phase by hand. `pull`
+    never rewrites one, and it is claimed and ended like any ordinary task."""
+    return task.get("local") is True
+
+
+def is_mirrored(phase, task):
+    """True when the tracker owns the task: its phase has a source and the
+    task is not marked local. Always False in an ordinary phase."""
+    return phase_source(phase) is not None and not is_local_task(task)
 
 
 def load(explicit=None):
