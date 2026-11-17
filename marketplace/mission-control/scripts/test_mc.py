@@ -1176,29 +1176,78 @@ class LedgerFlow(unittest.TestCase):
 
     def test_classify_ignores_a_review_by_a_github_app_whose_login_lost_its_bot_suffix(self):
         """goblin-mode read as collaborative on 17 November 2026: `gh pr list` reported `graphify-labs[bot]` as `graphify-labs`,
-        so the name check passed it as a person. GraphQL's `__typename` Bot is what tells the account apart."""
-        reviewed = [{"number": 71, "author": {"login": "t"}, "reviews": [{"author": {"login": "graphify-labs"}, "state": "COMMENTED", "submittedAt": "2026-11-15T09:55:37Z"}]}]
-        graphql = {"data": {"repository": {"pullRequest": {"reviews": {"nodes": [{"author": {"__typename": "Bot", "login": "graphify-labs"}}]}}}}}
+        so the name check passed it as a person. GraphQL's `__typename` Bot is what tells the account apart, and one aliased
+        query answers for every reviewed PR, so a team repo does not pay one gh call per PR."""
+        reviewed = [
+            {"number": 71, "author": {"login": "t"}, "reviews": [{"author": {"login": "graphify-labs"}, "state": "COMMENTED", "submittedAt": "2026-11-15T09:55:37Z"}]},
+            {"number": 72, "author": {"login": "t"}, "reviews": [{"author": {"login": "jaz"}, "state": "APPROVED", "submittedAt": "2026-11-15T10:55:37Z"}]},
+        ]
+        graphql = {"data": {"repository": {
+            "p71": {"reviews": {"nodes": [{"author": {"__typename": "Bot", "login": "graphify-labs"}}]}},
+            "p72": {"reviews": {"nodes": [{"author": {"__typename": "User", "login": "jaz"}}]}},
+        }}}
+        calls = []
 
         def fake_sh(argv, timeout=8, cwd=None):
             if argv[:3] == ["gh", "pr", "list"]:
                 return 0, json.dumps(reviewed)
             if argv[:3] == ["gh", "api", "graphql"]:
+                calls.append(argv)
                 return 0, json.dumps(graphql)
             return 1, "not gh"
 
         mc_module, real = self._module(fake_sh)
         try:
             as_bot = mc_module.classify(self.box.repo, None)
-            graphql["data"]["repository"]["pullRequest"]["reviews"]["nodes"][0]["author"]["__typename"] = "User"
+            one_call_for_two_prs = len(calls)
+            solo_sample = [reviewed[0]]
+            reviewed[:] = solo_sample
+            only_bot = mc_module.classify(self.box.repo, None)
+            reviewed[:] = [
+                {"number": 71, "author": {"login": "t"}, "reviews": [{"author": {"login": "graphify-labs"}, "state": "COMMENTED", "submittedAt": "2026-11-15T09:55:37Z"}]},
+                {"number": 72, "author": {"login": "t"}, "reviews": [{"author": {"login": "jaz"}, "state": "APPROVED", "submittedAt": "2026-11-15T10:55:37Z"}]},
+            ]
+            graphql["data"]["repository"]["p72"]["reviews"]["nodes"][0]["author"]["__typename"] = "Bot"
+            graphql["data"]["repository"]["p71"]["reviews"]["nodes"][0]["author"]["__typename"] = "User"
             as_user = mc_module.classify(self.box.repo, None)
             mc_module.sh = lambda argv, timeout=8, cwd=None: (0, json.dumps(reviewed)) if argv[:3] == ["gh", "pr", "list"] else (1, "graphql down")
             lookup_failed = mc_module.classify(self.box.repo, None)
         finally:
             self._restore(mc_module, real)
-        self.assertEqual((as_bot["mode"], as_bot["reviewed_by_others"]), ("solo", 0))
-        self.assertEqual((as_user["mode"], as_user["reviewed_by_others"]), ("collaborative", 1))
+        self.assertEqual(one_call_for_two_prs, 1, "two reviewed PRs share one aliased query")
+        self.assertEqual((as_bot["mode"], as_bot["reviewed_by_others"]), ("collaborative", 1), "jaz is a user on PR 72, so only PR 71 drops out")
+        self.assertEqual((only_bot["mode"], only_bot["reviewed_by_others"]), ("solo", 0))
+        self.assertEqual((as_user["mode"], as_user["reviewed_by_others"]), ("collaborative", 1), "PR 71 is now a user and PR 72 a bot")
         self.assertEqual(lookup_failed["mode"], "collaborative", "an unanswered type lookup keeps the old reading rather than guessing")
+        self.assertEqual(lookup_failed["reviewed_by_others"], 2)
+
+    def test_the_bot_lookup_sends_a_literal_repository_name_as_a_string_while_git_is_broken(self):
+        """`-F` turns `2048`, `true` and `null` into JSON types, which GraphQL then refuses for a `String!`; only gh's own
+        `{owner}` and `{repo}` placeholders need `-F`, so a slug read from the config file goes through `-f`."""
+        seen = []
+
+        def fake_sh(argv, timeout=8, cwd=None):
+            seen.append(argv)
+            return 1, "graphql down"
+
+        mc_module, real = self._module(fake_sh)
+        real_problem, real_remote = mc_module.git_problem, mc_module.remote_repo
+        try:
+            mc_module.git_problem = lambda: "git is not working"
+            mc_module.remote_repo = lambda main: "x/2048"
+            mc_module.gh_bot_reviewers(self.box.repo, [71])
+            literal = seen[-1]
+            mc_module.git_problem = lambda: None
+            mc_module.gh_bot_reviewers(self.box.repo, [71])
+            placeholders = seen[-1]
+        finally:
+            mc_module.git_problem, mc_module.remote_repo = real_problem, real_remote
+            self._restore(mc_module, real)
+        self.assertIn("name=2048", literal)
+        self.assertEqual(literal[literal.index("name=2048") - 1], "-f")
+        self.assertEqual(literal[literal.index("owner=x") - 1], "-f")
+        self.assertEqual(placeholders[placeholders.index("owner={owner}") - 1], "-F")
+        self.assertEqual(placeholders[placeholders.index("name={repo}") - 1], "-F")
 
     def test_classify_merges_one_person_under_two_addresses_or_two_spellings_and_ignores_a_claude_coauthor(self):
         """goblin-mode read as collaborative on 30 October 2026: Jason under two emails plus Claude's noreply address made three authors.
