@@ -39,7 +39,7 @@ Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
                                                         [--project KEY --name
                                                          --issues FILE
                                                          --allow-removals --dry-run]
-  hook      EVENT: Claude Code hook entry point (session-start,
+  hook       EVENT: Claude Code hook entry point (session-start,
              post-tool-use); reads the hook JSON on stdin, always exits 0
 
 PATH is optional everywhere (after ID for claim and release); without it the
