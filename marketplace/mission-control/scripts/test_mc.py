@@ -2574,6 +2574,8 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh(answer))
         kinds = [item["kind"] for item in result["drift"]]
         self.assertIn("approved-stale", kinds)
+        # no re-approval, so the note keeps the watcher's time for the recorded head
+        self.assertRegex(next(item["detail"] for item in result["drift"] if item["kind"] == "approved-stale"), r"last approved at .+ on aaaaaaa and the head is now bbbbbbb")
         self.assertNotIn("approved-unlanded", kinds)
 
     def test_an_approval_renewed_at_the_new_head_is_not_called_stale(self):
