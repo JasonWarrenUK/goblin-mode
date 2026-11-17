@@ -2574,7 +2574,61 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh(answer))
         kinds = [item["kind"] for item in result["drift"]]
         self.assertIn("approved-stale", kinds)
+        # no re-approval, so the note keeps the watcher's time for the recorded head
+        self.assertRegex(next(item["detail"] for item in result["drift"] if item["kind"] == "approved-stale"), r"last approved at .+ on aaaaaaa and the head is now bbbbbbb")
         self.assertNotIn("approved-unlanded", kinds)
+
+    def test_an_approval_renewed_at_the_new_head_is_not_called_stale(self):
+        self._watching_session(264)
+        run_path = list(self.box.ledger_root.glob("*/run.json"))[0]
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).append({"id": "a1", "n": 1, "kind": "approval", "pr": 264, "text": "t", "session_id": "crew-1", "head": "aaaaaaa1111", "status": "open", "at": 1.0})
+        run_path.write_text(json.dumps(run))
+        answer = self._open(264)
+        answer["264"]["headRefOid"] = "bbbbbbb2222"
+        answer["264"]["reviews"] = [{"author": {"login": "maxitect"}, "state": "APPROVED", "commit": {"oid": "bbbbbbb2222"}, "submittedAt": "2026-11-16T11:00:00Z"}]
+        result = self._reconcile_with(self._gh(answer))
+        kinds = [item["kind"] for item in result["drift"]]
+        self.assertNotIn("approved-stale", kinds)
+        self.assertIn("approved-unlanded", kinds)
+
+    def test_a_stale_note_after_a_re_approval_names_the_commit_last_approved(self):
+        # approved at a, re-approved at b, pushed to c: the diff owed a look starts at b, and the watcher's time belongs to a
+        self._watching_session(264)
+        run_path = list(self.box.ledger_root.glob("*/run.json"))[0]
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).append({"id": "a1", "n": 1, "kind": "approval", "pr": 264, "text": "t", "session_id": "crew-1", "head": "aaaaaaa1111", "status": "open", "at": 1.0})
+        run_path.write_text(json.dumps(run))
+        answer = self._open(264)
+        answer["264"]["headRefOid"] = "ccccccc3333"
+        answer["264"]["reviews"] = [{"author": {"login": "maxitect"}, "state": "APPROVED", "commit": {"oid": "bbbbbbb2222"}, "submittedAt": "2026-11-16T11:00:00Z"}]
+        stale = [item for item in self._reconcile_with(self._gh(answer))["drift"] if item["kind"] == "approved-stale"]
+        self.assertEqual(len(stale), 1)
+        self.assertIn("last approved on bbbbbbb and the head is now ccccccc", stale[0]["detail"])
+
+    def test_reconcile_fetches_the_pr_a_hold_waits_on(self):
+        self._watching_session(264)
+        ledger_dir = list(self.box.ledger_root.glob("*/run.json"))[0].parent
+        (ledger_dir / "prs").mkdir(exist_ok=True)
+        (ledger_dir / "prs" / "264.json").write_text(json.dumps({"number": 264, "task": "10SE.2", "hold": {"reason": "after #500", "lifts_on": [{"pr": 500}]}}))
+        self._reconcile_with(self._gh({**self._open(264), **self._merged(500)}))
+        cache = json.loads((ledger_dir / "pr-facts.json").read_text())
+        self.assertEqual(cache["500"]["facts"]["state"], "MERGED")
+
+    def test_an_approval_whose_hold_has_lifted_reads_as_unlanded_not_held(self):
+        self._watching_session(264)
+        ledger_dir = list(self.box.ledger_root.glob("*/run.json"))[0].parent
+        run = json.loads((ledger_dir / "run.json").read_text())
+        run.setdefault("pending", []).append({"id": "a1", "n": 1, "kind": "approval", "pr": 264, "text": "t", "session_id": "crew-1", "head": "", "status": "open", "at": 1.0})
+        (ledger_dir / "run.json").write_text(json.dumps(run))
+        (ledger_dir / "prs").mkdir(exist_ok=True)
+        (ledger_dir / "prs" / "264.json").write_text(json.dumps({"number": 264, "task": "10SE.2", "hold": {"reason": "after #500", "lifts_on": [{"pr": 500}]}}))
+        held = [item["kind"] for item in self._reconcile_with(self._gh({**self._open(264), **self._open(500)}))["drift"]]
+        self.assertIn("approved-held", held)
+        (ledger_dir / "pr-facts.json").unlink()  # #500 has merged since; the cached OPEN would otherwise stand for a minute
+        lifted =[item["kind"] for item in self._reconcile_with(self._gh({**self._open(264), **self._merged(500)}))["drift"]]
+        self.assertNotIn("approved-held", lifted)
+        self.assertIn("approved-unlanded", lifted)
 
     def test_the_claim_check_stays_silent_without_a_roadmap(self):
         self.box.start()
@@ -3056,6 +3110,389 @@ class PushGate(unittest.TestCase):
         self.assertEqual(record["sha"], self.head())
         self.assertEqual(record["result"], "green")
         self.assertEqual([step["key"] for step in record["steps"]], ["test"])
+
+
+class PrRecords(unittest.TestCase):
+    """The per-PR ledger file and the derived who-moves-next rules."""
+
+    def setUp(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self.mc = mc_module
+
+    @staticmethod
+    def fact(head_branch, base="main", **over):
+        return {"state": "OPEN", "review_decision": "", "requested": [], "changes_requested_by": [], "approved_by": [], "base": base,
+                "head": "h-" + head_branch, "head_branch": head_branch, "mergeable": "MERGEABLE", "draft": False, "checks": "good", **over}
+
+    def who(self, number, facts, prs=None, needs=None, migrations=None):
+        return self.mc.who_moves_next(number, prs or {}, facts, {}, needs or [], migrations)
+
+    def test_approved_green_mergeable_is_the_users_merge(self):
+        facts = {1: self.fact("a", review_decision="APPROVED")}
+        self.assertEqual(self.who(1, facts)["kind"], "jason")
+
+    def test_a_layer_inherits_the_lowest_unlanded_layer(self):
+        facts = {271: self.fact("t1", requested=["max"]), 273: self.fact("t2", base="t1", review_decision="APPROVED")}
+        out = self.who(273, facts)
+        self.assertEqual(out["kind"], "reviewer")
+        self.assertIn("lands after #271", out["why"])
+
+    def test_an_approval_at_an_older_head_owes_a_fresh_look_not_a_merge(self):
+        prs = {272: {"number": 272, "task": "MAIU", "approval": {"head": "h-old", "at": 0}}}
+        facts = {272: self.fact("ie", review_decision="APPROVED", approved_by=["maxitect"])}
+        out = self.who(272, facts, prs)
+        self.assertEqual((out["kind"], out["actor"]), ("reviewer", "maxitect"))
+        self.assertIn("fresh look", out["why"])
+        prs[272]["approval"]["head"] = "h-ie"
+        self.assertEqual(self.who(272, facts, prs)["kind"], "jason")
+
+    def test_a_re_approval_at_the_new_head_is_not_owed_a_fresh_look(self):
+        # approved at h-old, pushed to h-ie, approved again at h-ie: GitHub's decision never left APPROVED, so the record still says h-old
+        prs = {272: {"number": 272, "task": "MAIU", "approval": {"head": "h-old", "at": 0}}}
+        facts = {272: self.fact("ie", review_decision="APPROVED", approved_by=["maxitect"], approved_heads=["h-ie"])}
+        self.assertEqual(self.who(272, facts, prs)["kind"], "jason")
+        facts[272]["approved_heads"] = ["h-old"]
+        out = self.who(272, facts, prs)
+        self.assertEqual(out["kind"], "reviewer")
+        self.assertIn("fresh look", out["why"])
+
+    def test_a_fresh_look_after_a_re_approval_names_the_commit_last_approved(self):
+        # approved at h-old, re-approved at h-mid, pushed to h-ie: the reviewer last saw h-mid
+        prs = {272: {"number": 272, "task": "MAIU", "approval": {"head": "h-old", "at": 0}}}
+        facts = {272: self.fact("ie", review_decision="APPROVED", approved_by=["maxitect"], approved_heads=["h-mid", "h-old"])}
+        self.assertTrue(self.who(272, facts, prs)["why"].startswith("approved at h-mid, head now"))
+
+    def test_normalise_reads_the_head_each_standing_approval_sat_on(self):
+        def review(login, state, oid, at):
+            return {"author": {"login": login}, "state": state, "commit": {"oid": oid}, "submittedAt": at}
+        raw = {"headRefOid": "B", "reviews": [review("m", "APPROVED", "A", "2026-11-16T10:00:00Z"), review("m", "APPROVED", "B", "2026-11-16T11:00:00Z"),
+                                               review("n", "COMMENTED", "B", "2026-11-16T12:00:00Z")]}
+        self.assertEqual(self.mc.normalise_pr_facts(raw)["approved_heads"], ["B"])
+        # a later comment does not withdraw an approval; a later change request does
+        raw["reviews"].append(review("m", "COMMENTED", "B", "2026-11-16T13:00:00Z"))
+        self.assertEqual(self.mc.normalise_pr_facts(raw)["approved_heads"], ["B"])
+        raw["reviews"].append(review("m", "CHANGES_REQUESTED", "B", "2026-11-16T14:00:00Z"))
+        self.assertEqual(self.mc.normalise_pr_facts(raw)["approved_heads"], [])
+        # newest first, so a message about the last approval reads the head of the list
+        ordered = {"reviews": [review("p", "APPROVED", "C", "2026-11-16T09:00:00Z"), review("q", "APPROVED", "D", "2026-11-16T15:00:00Z")]}
+        self.assertEqual(self.mc.normalise_pr_facts(ordered)["approved_heads"], ["D", "C"])
+        # gh leaves the oid empty where it cannot say; an empty one is no head
+        self.assertEqual(self.mc.normalise_pr_facts({"reviews": [review("m", "APPROVED", "", "2026-11-16T10:00:00Z")]})["approved_heads"], [])
+
+    def test_a_recorded_hold_wins_until_what_lifts_it_merges(self):
+        prs = {260: {"number": 260, "hold": {"reason": "migration order", "lifts_on": [{"pr": 271}]}}}
+        facts = {260: self.fact("b", review_decision="APPROVED"), 271: self.fact("t1")}
+        self.assertEqual(self.who(260, facts, prs)["kind"], "hold")
+        facts[271]["state"] = "MERGED"
+        self.assertEqual(self.who(260, facts, prs)["kind"], "jason")
+
+    def test_a_hold_with_no_lift_condition_never_lifts_and_says_so(self):
+        prs = {5: {"number": 5, "hold": {"reason": "after New Zealand", "lifts_on": []}}}
+        out = self.who(5, {5: self.fact("x", review_decision="APPROVED")}, prs)
+        self.assertEqual(out["kind"], "hold")
+        self.assertIn("lift condition not recorded", out["why"])
+
+    def test_an_earlier_migration_in_another_stack_is_a_restamp_cost_not_a_block(self):
+        facts = {272: self.fact("ie", review_decision="APPROVED"), 271: self.fact("nz"), 273: self.fact("nz2", base="nz")}
+        out = self.who(272, facts, migrations={272: "20261116113625", 271: "20261114120000", 273: "20261114120000"})
+        self.assertEqual(out["kind"], "jason")
+        self.assertEqual(out["cost"], "landing this first makes #271, #273 restamp")
+
+    def test_a_migration_in_the_same_stack_is_not_another_stacks_business(self):
+        facts = {1: self.fact("a", review_decision="APPROVED", requested=[]), 2: self.fact("b", base="a", review_decision="APPROVED")}
+        facts[1]["state"] = "MERGED"
+        out = self.who(2, facts, migrations={1: "20261101000000", 2: "20261102000000"})
+        self.assertEqual(out["kind"], "jason")
+        self.assertNotIn("cost", out)
+
+    def test_an_unreadable_migration_scan_says_the_cost_is_unknown(self):
+        out = self.who(1, {1: self.fact("a", review_decision="APPROVED")}, migrations={1: None})
+        self.assertEqual(out["kind"], "jason")
+        self.assertIn("unknown", out["cost"])
+
+    def test_an_open_need_for_the_pr_is_the_users(self):
+        needs = [{"n": 9, "pr": 1, "why": "compact TAIC", "status": "open"}]
+        self.assertEqual(self.who(1, {1: self.fact("a", requested=["max"])}, needs=needs)["kind"], "jason")
+
+    def test_checks_changes_and_review_order(self):
+        self.assertEqual(self.who(1, {1: self.fact("a", checks="bad", review_decision="APPROVED")})["kind"], "ci")
+        crew = {1: {"number": 1, "task": "T"}}
+        self.assertEqual(self.who(1, {1: self.fact("a", changes_requested_by=["max"])}, crew)["kind"], "session")
+        self.assertEqual(self.who(1, {1: self.fact("a", requested=["max"])}, crew)["actor"], "max")
+        conflicted = self.who(1, {1: self.fact("a", mergeable="CONFLICTING", requested=["max"])}, crew)
+        self.assertEqual((conflicted["kind"], conflicted["actor"]), ("session", "T"))
+        outside = self.who(1, {1: self.fact("a", author="maxitect")}, {1: {"number": 1, "task": None, "pinned": True}})
+        self.assertEqual((outside["kind"], outside["actor"]), ("author", "maxitect"))
+
+    def test_a_layer_still_owing_its_own_review_shows_the_reviewer_not_the_hold_below(self):
+        prs = {260: {"number": 260, "task": "BSU", "hold": {"reason": "after New Zealand", "lifts_on": []}}, 279: {"number": 279, "task": "BSU"}}
+        facts = {260: self.fact("b0", review_decision="APPROVED"), 279: self.fact("b1", base="b0", requested=["maxitect"])}
+        out = self.who(279, facts, prs)
+        self.assertEqual((out["kind"], out["actor"]), ("reviewer", "maxitect"))
+        facts[279].update(review_decision="APPROVED", requested=[])
+        self.assertEqual(self.who(279, facts, prs)["kind"], "hold")
+
+    def test_migration_stamp_and_rollup_word(self):
+        self.assertEqual(self.mc.lowest_migration(["supabase/migrations/20261115100000_x.sql", "20261101000000_y.sql", "README.md"]), "20261101000000")
+        self.assertEqual(self.mc.rollup_word([{"conclusion": "SUCCESS"}, {"status": "IN_PROGRESS"}]), "wait")
+        self.assertEqual(self.mc.rollup_word([{"conclusion": "FAILURE"}]), "bad")
+        self.assertEqual(self.mc.rollup_word(None), "good")
+
+
+class PrCommand(unittest.TestCase):
+    def setUp(self):
+        self.box = Sandbox()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+
+    def test_add_pin_hold_release_round_trip(self):
+        self.box.mc("prs", "pin", "286", "--group", "Outside the run", session="coord-1")
+        self.box.mc("prs", "add", "271", "--task", "T", session="coord-1")
+        self.box.mc("prs", "hold", "271", "--text", "after New Zealand", "--lifts-on-pr", "270", session="coord-1")
+        rows = {r["number"]: r for r in json.loads(self.box.mc("--json", "prs", "list").stdout)}
+        self.assertTrue(rows[286]["pinned"])
+        self.assertEqual(rows[286]["group"], "Outside the run")
+        self.assertEqual(rows[271]["task"], "T")
+        self.assertEqual(rows[271]["hold"]["lifts_on"], [{"pr": 270}])
+        self.box.mc("prs", "release", "271", session="coord-1")
+        self.assertNotIn("hold", json.loads(self.box.mc("--json", "prs", "list").stdout)[1])
+
+    def test_a_crew_session_adds_its_own_pr_but_cannot_hold_one(self):
+        self.box.mc("join", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("prs", "add", "5", session="crew-1", cwd=self.box.worktree)
+        self.assertEqual(json.loads(self.box.mc("--json", "prs", "list").stdout)[0]["task"], "T")
+        done = self.box.mc("prs", "hold", "5", "--text", "x", session="crew-1", cwd=self.box.worktree, expect=1)
+        self.assertIn("only the coordinator", done.stdout)
+
+    def test_an_unknown_task_is_refused(self):
+        done = self.box.mc("prs", "add", "5", "--task", "NOPE", session="coord-1", expect=1)
+        self.assertIn("not in the crew plan", done.stdout)
+
+
+class PrAttribution(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(HERE))
+        import mc as mc_module
+        self.mc = mc_module
+        self.run = {"crew": [{"task": "BSU", "branch": "feat/bsu-corpus-survey"}, {"task": "TAIC", "branch": "feat/taic-metadata-profile"},
+                             {"task": "GPT6", "branch": "feat/pipeline-gpt-6-luna"}]}
+
+    def listing(self, *rows):
+        return [{"number": n, "headRefName": h, "baseRefName": b} for n, h, b in rows]
+
+    def test_branch_key_base_chain_and_session_rows(self):
+        listing = self.listing((260, "feat/bsu-corpus-survey", "main"), (279, "feat/bsu-acquisition", "feat/bsu-corpus-survey"),
+                               (273, "feat/taic-record-prompts", "feat/taic-metadata-profile"), (300, "feat/odd-name", "feat/taic-record-prompts"),
+                               (283, "fix/reread-pages-with-no-row", "main"), (286, "feat/blue-green-deploy", "main"))
+        sessions = {"s": {"task": "GPT6", "pr": 283}}
+        found = self.mc.attribute_prs(self.run, sessions, {}, listing)
+        self.assertEqual(found, {260: "BSU", 279: "BSU", 273: "TAIC", 300: "TAIC", 283: "GPT6"})
+
+    def test_a_recorded_pr_is_left_alone_and_a_closed_one_is_not_claimed(self):
+        listing = self.listing((279, "feat/bsu-acquisition", "main"))
+        sessions = {"s": {"task": "BSU", "pr": 250}}
+        self.assertEqual(self.mc.attribute_prs(self.run, sessions, {279: {"number": 279, "task": None}}, listing), {})
+
+    def test_a_key_two_tasks_share_claims_nothing(self):
+        run = {"crew": [{"task": "A", "branch": "feat/x-one"}, {"task": "B", "branch": "feat/x-two"}]}
+        self.assertEqual(self.mc.attribute_prs(run, {}, {}, self.listing((1, "feat/x-three", "main"))), {})
+
+    def test_a_held_approval_reads_its_hold_from_the_pr_file(self):
+        item = {"n": 3, "kind": "approval", "pr": 260, "text": "PR #260 approved"}
+        line = self.mc.pending_line(self.mc.with_pr_hold(item, {260: {"number": 260, "hold": {"reason": "after New Zealand", "lifts_on": [{"pr": 271}]}}}))
+        self.assertIn("held", line)
+        self.assertIn("#271 lands", line)
+
+    def test_a_lifted_hold_no_longer_reads_as_held_in_the_start_context(self):
+        item = {"n": 3, "kind": "approval", "pr": 260, "text": "PR #260 approved"}
+        prs = {260: {"number": 260, "hold": {"reason": "after New Zealand", "lifts_on": [{"pr": 271}]}}}
+        self.assertIn("held", self.mc.pending_line(self.mc.with_pr_hold(item, prs, {271: "OPEN"}, set())))
+        self.assertEqual(self.mc.pending_line(self.mc.with_pr_hold(item, prs, {271: "MERGED"}, set())), "#3 PR #260 approved")
+
+
+class PendingHoldMovesToPr(unittest.TestCase):
+    def test_pending_hold_and_release_write_the_pr_file(self):
+        box = Sandbox()
+        box.start()
+        run_path = box.ledger_root / next(p.name for p in box.ledger_root.iterdir()) / "run.json"
+        run = json.loads(run_path.read_text())
+        run["pending"] = [{"id": "x", "n": 1, "kind": "approval", "pr": 42, "text": "PR #42 approved", "status": "open", "at": 0}]
+        run_path.write_text(json.dumps(run))
+        box.mc("pending", "hold", "42", "--text", "after #41", session="coord-1")
+        rows = json.loads(box.mc("--json", "prs", "list").stdout)
+        self.assertEqual(rows[0]["hold"]["reason"], "after #41")
+        self.assertNotIn("hold", json.loads(run_path.read_text())["pending"][0])
+        box.mc("pending", "release", "42", session="coord-1")
+        self.assertNotIn("hold", json.loads(box.mc("--json", "prs", "list").stdout)[0])
+
+    def test_reconcile_moves_an_old_hold_and_approval_head_onto_the_pr_record_without_gh(self):
+        box = Sandbox()
+        box.start()
+        run_path = box.ledger_root / next(p.name for p in box.ledger_root.iterdir()) / "run.json"
+        run = json.loads(run_path.read_text())
+        run["pending"] = [{"id": "x", "n": 1, "kind": "approval", "pr": 260, "head": "a1afe13", "hold": "Germany after New Zealand", "text": "approved", "status": "open", "at": 5}]
+        run_path.write_text(json.dumps(run))
+        box.mc("reconcile", session="coord-1")
+        row = json.loads(box.mc("--json", "prs", "list").stdout)[0]
+        self.assertEqual(row["approval"]["head"], "a1afe13")
+        self.assertEqual(row["hold"]["reason"], "Germany after New Zealand")
+        self.assertNotIn("hold", json.loads(run_path.read_text())["pending"][0])
+
+
+class WaitingAndQuestions(unittest.TestCase):
+    def setUp(self):
+        self.box = Sandbox()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", session="crew-1", cwd=self.box.worktree)
+
+    def run_json(self):
+        root = self.box.ledger_root / next(p.name for p in self.box.ledger_root.iterdir())
+        return root, json.loads((root / "run.json").read_text())
+
+    def test_waiting_names_what_it_waits_on(self):
+        done = self.box.mc("report", "--state", "waiting", session="crew-1", cwd=self.box.worktree, expect=1)
+        self.assertIn("--on", done.stdout)
+        row = json.loads(self.box.mc("--json", "report", "--state", "waiting", "--on", "reviewer:maxitect", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertEqual(row["waiting_on"], "reviewer:maxitect")
+        row = json.loads(self.box.mc("--json", "report", "--state", "working", session="crew-1", cwd=self.box.worktree).stdout)
+        self.assertNotIn("waiting_on", row)
+
+    def test_a_question_carries_its_pr_and_refuses_a_command(self):
+        need = json.loads(self.box.mc("--json", "needs", "add", "--kind", "question", "--why", "Land Germany before New Zealand?", "--pr", "260", session="coord-1").stdout)
+        self.assertEqual((need["kind"], need["pr"], need["command"]), ("question", 260, ""))
+        done = self.box.mc("needs", "add", "--kind", "question", "--why", "x", "--command", "ls", session="coord-1", expect=1)
+        self.assertIn("no command", done.stdout)
+        closed = json.loads(self.box.mc("--json", "needs", "done", str(need["n"]), "--result", "yes", "--by-user").stdout)
+        self.assertEqual(closed["forward_to"], "coord-1")
+
+    def test_reconcile_raises_and_closes_a_compaction_need(self):
+        self.box.mc("report", "--context", "82", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("reconcile", session="coord-1")
+        self.box.mc("reconcile", session="coord-1")
+        _, run = self.run_json()
+        compact = [n for n in run["needs"] if str(n.get("auto", "")).startswith("compact:")]
+        self.assertEqual(len(compact), 1)
+        self.assertEqual(compact[0]["status"], "open")
+        self.box.mc("report", "--context", "20", session="crew-1", cwd=self.box.worktree)
+        self.box.mc("reconcile", session="coord-1")
+        _, run = self.run_json()
+        self.assertEqual([n["status"] for n in run["needs"] if str(n.get("auto", "")).startswith("compact:")], ["done"])
+
+    def test_a_permission_prompt_is_a_need_until_answered(self):
+        reg = self.box.sessions / "crew-1.json"
+        row = json.loads(reg.read_text())
+        reg.write_text(json.dumps({**row, "status": "waiting"}))
+        self.box.mc("reconcile", session="coord-1")
+        _, run = self.run_json()
+        prompt = [n for n in run["needs"] if str(n.get("auto", "")).startswith("prompt:")]
+        self.assertEqual([n["status"] for n in prompt], ["open"])
+        self.box.mc("report", "--state", "waiting-jason", session="crew-1", cwd=self.box.worktree)
+        out = json.loads(self.box.mc("--json", "reconcile", session="coord-1").stdout)
+        self.assertNotIn("waiting-jason-without-need", [d["kind"] for d in out["drift"]])
+        reg.write_text(json.dumps({**row, "status": "busy"}))
+        self.box.mc("reconcile", session="coord-1")
+        _, run = self.run_json()
+        self.assertEqual([n["status"] for n in run["needs"] if str(n.get("auto", "")).startswith("prompt:")], ["done"])
+
+    def test_waiting_jason_without_a_need_is_drift(self):
+        self.box.mc("report", "--state", "waiting-jason", session="crew-1", cwd=self.box.worktree)
+        out = json.loads(self.box.mc("--json", "reconcile", session="coord-1").stdout)
+        self.assertIn("waiting-jason-without-need", [d["kind"] for d in out["drift"]])
+        self.box.mc("needs", "add", "--why", "run the read", "--command", "ls", session="crew-1", cwd=self.box.worktree)
+        out = json.loads(self.box.mc("--json", "reconcile", session="coord-1").stdout)
+        self.assertNotIn("waiting-jason-without-need", [d["kind"] for d in out["drift"]])
+
+
+class Dashboard(unittest.TestCase):
+    def setUp(self):
+        self.box = Sandbox()
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.dir = self.box.ledger_root / next(p.name for p in self.box.ledger_root.iterdir())
+
+    def seed_facts(self, **facts):
+        cache = {n.lstrip("n"): {"facts": f, "at": time.time()} for n, f in facts.items()}
+        (self.dir / "pr-facts.json").write_text(json.dumps(cache))
+
+    def test_a_ledger_write_redraws_the_page_from_the_cache_alone(self):
+        base = {"state": "OPEN", "review_decision": "APPROVED", "requested": [], "changes_requested_by": [], "approved_by": ["max"], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "<b>Ship</b> it", "author": "jw"}
+        self.seed_facts(n7=base)
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        page = (self.dir / "dashboard.html").read_text()
+        self.assertIn("#7", page)
+        self.assertIn("&lt;b&gt;Ship&lt;/b&gt; it", page)
+        self.assertIn("the merge is yours", page)
+        self.assertNotIn("http", page.split("<body>")[0].replace("http-equiv", ""))  # nothing loads from the network
+        out = json.loads(self.box.mc("--json", "dashboard").stdout)
+        self.assertEqual(out["totals"]["ready"], 1)
+        self.assertEqual([m["number"] for m in out["mine"]], [7])
+
+    def test_a_note_disappears_once_the_head_moves(self):
+        base = {"state": "OPEN", "review_decision": "", "requested": ["max"], "changes_requested_by": [], "approved_by": [], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "t", "author": "jw"}
+        self.seed_facts(n7=base)
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        self.box.mc("prs", "note", "7", "--text", "MAIU brings the findings after compaction", session="coord-1")
+        self.assertIn("MAIU brings the findings", (self.dir / "dashboard.html").read_text())
+        self.seed_facts(n7={**base, "head": "def"})
+        self.box.mc("dashboard")
+        self.assertNotIn("MAIU brings the findings", (self.dir / "dashboard.html").read_text())
+
+    def test_status_carries_the_prs_block_and_crew_add_takes_a_group(self):
+        self.box.mc("crew", "add", "--task", "T", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--group", "New Zealand", session="coord-1")
+        base = {"state": "OPEN", "review_decision": "APPROVED", "requested": [], "changes_requested_by": [], "approved_by": ["max"], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "t", "author": "jw"}
+        self.seed_facts(n7=base)
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertEqual(status["prs"]["mine"][0]["number"], 7)
+        self.assertIn("<h2>New Zealand</h2>", (self.dir / "dashboard.html").read_text())
+
+    def test_a_question_shows_on_its_prs_line(self):
+        base = {"state": "OPEN", "review_decision": "", "requested": ["max"], "changes_requested_by": [], "approved_by": [], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "t", "author": "jw"}
+        self.seed_facts(n7=base)
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        self.box.mc("needs", "add", "--kind", "question", "--why", "Germany before New Zealand?", "--pr", "7", session="coord-1")
+        out = json.loads(self.box.mc("--json", "dashboard").stdout)
+        self.assertEqual(out["totals"]["questions"], 1)
+        self.assertIn("Germany before New Zealand?", (self.dir / "dashboard.html").read_text())
+
+    READY = {"state": "OPEN", "review_decision": "APPROVED", "requested": [], "changes_requested_by": [], "approved_by": ["max"], "base": "main",
+             "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": "good", "title": "t", "author": "jw"}
+
+    def test_a_hold_lifts_once_the_pr_it_waits_on_merges_from_outside_the_run(self):
+        self.seed_facts(n272=self.READY, n500={**self.READY, "state": "MERGED", "head_branch": "colleague/x", "head": "zzz"})
+        self.box.mc("prs", "add", "272", "--task", "T", session="coord-1")
+        self.box.mc("prs", "hold", "272", "--text", "after the auth change", "--lifts-on-pr", "500", session="coord-1")
+        out = json.loads(self.box.mc("--json", "dashboard").stdout)
+        self.assertEqual(out["totals"]["held"], 0)
+        self.assertEqual([m["number"] for m in out["mine"]], [272])
+        self.assertEqual(out["totals"]["open"], 1, "the PR a hold waits on is read, never drawn as a row")
+
+    def test_the_pr_a_hold_waits_on_is_never_taken_for_a_layer_below_another_row(self):
+        # #11 is based on the colleague's branch; #500 is that branch's PR, read only because #10's hold names it
+        self.seed_facts(n10=self.READY, n11={**self.READY, "head": "def", "head_branch": "feat/b", "base": "colleague/x"},
+                        n500={**self.READY, "head": "zzz", "head_branch": "colleague/x"})
+        self.box.mc("prs", "add", "10", "--task", "T", session="coord-1")
+        self.box.mc("prs", "add", "11", "--task", "T", session="coord-1")
+        self.box.mc("prs", "hold", "10", "--text", "after the auth change", "--lifts-on-pr", "500", session="coord-1")
+        out = json.loads(self.box.mc("--json", "dashboard").stdout)
+        self.assertEqual([m["number"] for m in out["mine"]], [11])
+        self.assertEqual(out["mine"][0]["why"], "approved, checks green, mergeable; the merge is yours")
+
+    def test_the_page_summary_and_status_agree_on_what_is_yours(self):
+        # #8 sits on #7; both are ready, so #8 only lands after #7 and is the same action as #7
+        self.seed_facts(n7=self.READY, n8={**self.READY, "head": "def", "head_branch": "feat/b", "base": "feat/a"})
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        self.box.mc("prs", "add", "8", "--task", "T", session="coord-1")
+        page = json.loads(self.box.mc("--json", "dashboard").stdout)
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertEqual([m["number"] for m in page["mine"]], [7])
+        self.assertEqual(page["mine"], status["prs"]["mine"])
 
 
 if __name__ == "__main__":

@@ -54,8 +54,10 @@ export type Need = {
 	cwd: string
 	/** open (the user has yet to type it), started (they typed it and it runs on) or done. */
 	status: string
-	/** action (the default), measurement (its result goes back to a session), approval or launch (a crew session's launch line, closed when it joins). */
+	/** action (the default), measurement (its result goes back to a session), question (a question put to the user, no command; the answer goes back), approval or launch (a crew session's launch line, closed when it joins). */
 	kind: string
+	/** The PR this need blocks, when it names one; the PR's line on the page carries it. */
+	pr: number | null
 	/** The session the result is for, when the need is a measurement. */
 	for: string | null
 	for_task: string
@@ -148,7 +150,27 @@ export type Snapshot = {
 	requests: SlotRequest[]
 	needs: Need[]
 	probes: Probe[]
+	/** The PR page's summary from the ledger and the cached facts: null outside a run or before any PR is recorded. */
+	prs: PrSummary | null
 	at: number
+}
+
+/** One PR where the user moves next, as the board lists it. */
+export type PrMine = {
+	number: number
+	actor: string
+	why: string
+	/** "landing this first makes #n restamp": a cost to weigh, never a block. */
+	cost: string | null
+}
+
+/** What the board draws of the PR page: the page's path, its totals and only the rows where the user moves next. */
+export type PrSummary = {
+	path: string
+	totals: { open: number; jason: number; held: number; ready: number; questions: number }
+	/** When the oldest PR fact on the page was fetched, in seconds; null when none has been. */
+	facts_at: number | null
+	mine: PrMine[]
 }
 
 /** This session as the run sees it, held in state so a hot reload keeps it. */

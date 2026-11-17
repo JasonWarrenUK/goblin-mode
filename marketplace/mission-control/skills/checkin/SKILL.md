@@ -31,7 +31,7 @@ Replies arrive as messages over the next minutes. A session that is mid-tool ans
 
 ## Step 3: The list
 
-Record every item from a reply's answer 2 with `mc_need` (why, the exact command, the absolute directory), so the board carries it too. Then write the list in this chat, in three buckets, nothing else above it:
+Record every item from a reply's answer 2 with `mc_need` (why, the exact command, the absolute directory, `pr` when it blocks one; kind `question` for a question with no command), so the board and the PR page carry it too. Then write the list in this chat, in three buckets, nothing else above it:
 
 ```markdown
 ## Needs you
