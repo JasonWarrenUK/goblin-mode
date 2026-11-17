@@ -5,6 +5,19 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [7.10.0] - 2026-11-17
+
+### Added
+
+- `roadmap` plugin 2.10.0: a phase can mirror a Jira project. `roadmap.py pull --project KEY --name NAME` reads its fix versions, epics, issues and Blocks links into `.claude/roadmaps.local.json`, which stays out of git, and never writes back to Jira. Fix versions become milestones, epics become each task's `topic` and Blocks links become dependencies. Your own tasks, notes, `pr` links and hand-added gates survive every refresh. A mirrored task carrying notes that leaves Jira is parked in a "Gone from Jira" milestone, and gets its notes back if the issue returns.
+- `roadmap` plugin 2.10.0: `pull` refuses a refresh that would remove more than half the mirror. `--dry-run` lists what would go and `--allow-removals` lets it through. A Jira redirect is refused too, so the API token only ever goes to the https endpoint it was issued for.
+
+### Changed
+
+- `roadmap` plugin 2.10.0: `claim`, `assign`, `release` and `end` refuse a mirrored task, and `stamp-ended` and `backfill-ended` refuse a mirrored phase, because Jira owns their status, dates and assignee. A task marked `"local": true` behaves as before, and so does every phase without a `source`.
+- Artefact conventions: a shared artefact never names the person it is for, and never carries a paragraph explaining how to read it.
+- `CLAUDE.md`: self-deprecating humour, jokes at the expense of Jason's own work included, is now named as welcome.
+
 ## [7.9.0] - 2026-11-13
 
 ### Added
@@ -545,7 +558,9 @@ All notable changes to this project are documented here, newest first.
 - A project with its own colour theme but no matching output file for what's being generated is now offered the right fix (`/theme-factory`) instead of silently falling back to the default global theme.
 - The light/system/dark toggle control now correctly shows which option is active immediately on page load, not only after the reader clicks a button.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.8.1...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.10.0...HEAD
+[7.10.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.9.0...v7.10.0
+[7.9.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.8.1...v7.9.0
 [7.8.1]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.8.0...v7.8.1
 [7.8.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.7.0...v7.8.0
 [7.7.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/v7.6.1...v7.7.0

@@ -5,6 +5,17 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-11-17
+
+### Added
+
+- A phase can mirror a Jira project. `roadmap.py pull --project KEY --name NAME` reads its fix versions, epics, issues and Blocks links into `.claude/roadmaps.local.json`, which stays out of git, and never writes back to Jira. Fix versions become milestones, epics become each task's `topic` and Blocks links become dependencies. Your own tasks, notes, `pr` links and hand-added gates survive every refresh. A mirrored task carrying notes that leaves Jira is parked in a "Gone from Jira" milestone, and gets its notes back if the issue returns.
+- `pull` refuses a refresh that would remove more than half the mirror. `--dry-run` lists what would go and `--allow-removals` lets it through. A Jira redirect is refused too, so the API token only ever goes to the https endpoint it was issued for.
+
+### Changed
+
+- `claim`, `assign`, `release` and `end` refuse a mirrored task, and `stamp-ended` and `backfill-ended` refuse a mirrored phase, because Jira owns their status, dates and assignee. A task marked `"local": true` behaves as before, and so does every phase without a `source`.
+
 ## [2.9.0] - 2026-10-27
 
 ### Added
@@ -182,7 +193,8 @@ The plugin's API is declared stable: `stats --json`, `graph --mermaid`, the rend
 - The dashboard's Overview grid no longer collapses a tiered phase's milestones into a single narrow column.
 - Three skills are synced to the conventions reference.
 
-[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.9.0...HEAD
+[Unreleased]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.10.0...HEAD
+[2.10.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.9.0...roadmap-v2.10.0
 [2.9.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.8.0...roadmap-v2.9.0
 [2.8.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.7.0...roadmap-v2.8.0
 [2.6.0]: https://github.com/JasonWarrenUK/goblin-mode/compare/roadmap-v2.5.0...roadmap-v2.6.0
