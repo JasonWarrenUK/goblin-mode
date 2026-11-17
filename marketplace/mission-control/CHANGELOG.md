@@ -4,6 +4,19 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-17
+
+### Breaking
+
+- A crew session reports `waiting-jason` only while a need of its own is on the list; any other wait is `waiting` with `--on <what>`, and reconcile flags the old usage as drift. Holds have moved from pending approval items to `prs/<n>.json`: `pending hold` and `pending release` still work and write there, and the first reconcile migrates existing holds. A crew session on the old skill text keeps reporting the old way until it is restarted.
+
+### Added
+
+- Every pull request gets its own ledger record, `prs/<n>.json`, holding its task, group, pin, hold (with what lifts it) and the coordinator's note. `mc.py prs add|pin|ignore|hold|release|note|list` keeps them, and `gh pr create` from a run session records the new PR, so the second and third layers of a stack are no longer lost behind the session row's single `pr`. Reconcile gives an unrecorded open PR to a task when its branch makes the match unambiguous and names the rest `pr-unattributed`.
+- `mc.py dashboard` writes a local page of every open PR to `<ledger>/dashboard.html`, saying who moves next on each. The order is a hold, an open need, the PR's own checks, conflict and review, an approval given before the latest push, the layer below, then the merge; migration order shows as a restamp cost and never blocks. Every ledger write, `status`, reconcile and watcher poll redraws the page, so it no longer depends on one session staying alive. `/mc dashboard [refresh]`, `/mc pin` and `/mc ignore` reach it.
+- The `/mc` board gains a PRs group with totals and the PRs where the user moves next, and `o` opens the page.
+- Needs gain kind `question` and `--pr`, and reconcile raises and closes a `compact` need past 70% context and a `prompt` need for a session stuck on a permission prompt. `mc_report` takes `waiting` and `on`, `mc_need` takes `question` and `pr`, the coordinator gets `mc_pr_note` and `crew add --group` names the heading a task's PRs sit under.
+
 ## [0.12.0] - 2026-11-13
 
 ### Added
