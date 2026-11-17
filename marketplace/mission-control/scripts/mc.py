@@ -1775,8 +1775,45 @@ def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
     return sorted(rows, key=lambda r: -r["commits"])
 
 
+def gh_bot_reviewers(main: Path, numbers: list) -> dict[int, set[str]]:
+    """Per PR number, the logins that reviewed it as a GitHub App (`__typename` Bot); empty when gh cannot say.
+
+    `gh pr list --json reviews` strips the `[bot]` suffix, so `graphify-labs[bot]` reaches `is_bot`
+    as `graphify-labs` and passes as a person. Only GraphQL carries the account type. One aliased query
+    answers for every PR, so a repository where each merged PR is reviewed costs one gh call, not one per PR.
+    The first 100 reviews is the same page `gh pr list` reads, so no reviewer it reports is out of this one's sight.
+    A PR gh cannot answer for, or a lookup that fails outright, leaves its reviewers counted as human, which is the old behaviour."""
+    wanted = sorted({n for n in numbers if isinstance(n, int) and not isinstance(n, bool)})
+    if not wanted:
+        return {}
+    slug = gh_api_repo(main)
+    owner, _, name = slug.partition("/")
+    placeholders = slug == "{owner}/{repo}"
+    # `-F` fills gh's `{owner}` and `{repo}` placeholders but also turns `2048` or `true` into JSON types, which a `String!` refuses; a literal slug goes through `-f`
+    repo_args = ["-F", "owner={owner}", "-F", "name={repo}"] if placeholders else ["-f", f"owner={owner}", "-f", f"name={name}"]
+    pulls = "".join(f"p{n}:pullRequest(number:{n}){{reviews(first:100){{nodes{{author{{__typename login}}}}}}}}" for n in wanted)
+    argv = ["gh", "api", "graphql", *repo_args, "-f", f"query=query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{{pulls}}}}}"]
+    _, out = sh(argv, timeout=PR_LOOKUP_SECONDS, cwd=main)
+    # gh exits 1 when one alias resolves to null, but the other aliases' data is still on stdout with gh's own error line after it,
+    # so the leading JSON object is read whatever the exit code and each PR answers for itself
+    try:
+        repository = json.JSONDecoder().raw_decode(out.lstrip())[0]["data"]["repository"]
+    except (ValueError, KeyError, TypeError):
+        return {}
+    if not isinstance(repository, dict):
+        return {}
+    found: dict[int, set[str]] = {}
+    for n in wanted:
+        pull = repository.get(f"p{n}")
+        nodes = (pull.get("reviews") or {}).get("nodes") if isinstance(pull, dict) else None
+        if isinstance(nodes, list):
+            authors = [node["author"] for node in nodes if isinstance(node, dict) and isinstance(node.get("author"), dict)]
+            found[n] = {str(author["login"]) for author in authors if author.get("__typename") == "Bot" and author.get("login")}
+    return found
+
+
 def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
-    """The last merged PRs with who reviewed each, other than its author; (rows, whether gh answered)."""
+    """The last merged PRs with who reviewed each, other than its author, bot accounts left out; (rows, whether gh answered)."""
     code, out = sh(["gh", "pr", "list", *gh_repo_args(main), "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
     if code != 0:
         return [], False
@@ -1798,6 +1835,9 @@ def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
                 continue
             others.append({"login": login, "state": str(review.get("state") or ""), "at": review.get("submittedAt")})
         rows.append({"number": pr.get("number"), "author": author, "others": others})
+    bots = gh_bot_reviewers(main, [row["number"] for row in rows if row["others"]])
+    for row in rows:
+        row["others"] = [o for o in row["others"] if o["login"] not in bots.get(row["number"], set())]
     return rows, True
 
 
