@@ -946,7 +946,7 @@ def rollup_word(rollup) -> str:
 
 def approved_heads(reviews) -> list[str]:
     """The commits each reviewer's standing approval was given on: per reviewer, the latest verdict (approved, changes requested or dismissed;
-    a comment withdraws nothing), kept when it is an approval. Read from `reviews`, because gh leaves `latestReviews` without a commit oid."""
+    a comment withdraws nothing), kept when it is an approval, newest first. Read from `reviews`, because gh leaves `latestReviews` without a commit oid."""
     latest: dict[str, dict] = {}
     for review in reviews or []:
         if not isinstance(review, dict) or not isinstance(review.get("author"), dict):
@@ -956,7 +956,7 @@ def approved_heads(reviews) -> list[str]:
         if login and state in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED") and str(review.get("submittedAt") or "") >= str((latest.get(login) or {}).get("submittedAt") or ""):
             latest[login] = review
     heads = []
-    for review in latest.values():
+    for review in sorted(latest.values(), key=lambda r: str(r.get("submittedAt") or ""), reverse=True):
         oid = str((review.get("commit") or {}).get("oid") or "") if isinstance(review.get("commit"), dict) else ""
         if str(review.get("state")).upper() == "APPROVED" and oid and oid not in heads:
             heads.append(oid)
@@ -968,6 +968,11 @@ def approval_is_current(approved_head: str, fact: dict | None) -> bool:
     GitHub keeps APPROVED across a push, so the decision alone cannot tell a re-approval from an approval that predates the push."""
     head = (fact or {}).get("head") or ""
     return not approved_head or not head or approved_head == head or head in ((fact or {}).get("approved_heads") or [])
+
+
+def last_approved_head(approved_head: str, fact: dict | None) -> str:
+    """The newest commit a reviewer approved: a re-approval after a push leaves the recorded head behind, and the diff owed a fresh look starts here."""
+    return next(iter((fact or {}).get("approved_heads") or []), "") or approved_head
 
 
 def normalise_pr_facts(raw: dict) -> dict:
@@ -1208,7 +1213,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
     approval = row.get("approval") or {}
     if ready and not approval_is_current(approval.get("head") or "", fact):
         # GitHub keeps APPROVED across a push unless stale reviews are dismissed; code the reviewer has not seen is not the user's to merge
-        return {"actor": ", ".join(fact.get("approved_by") or []) or "reviewer", "kind": "reviewer", "why": f"approved at {approval['head'][:7]}, head now {fact['head'][:7]}; a fresh look is owed"}
+        return {"actor": ", ".join(fact.get("approved_by") or []) or "reviewer", "kind": "reviewer", "why": f"approved at {last_approved_head(approval['head'], fact)[:7]}, head now {fact['head'][:7]}; a fresh look is owed"}
     if ready:
         below = [n for n in stack_below(number, facts, heads) if (facts.get(n) or {}).get("state") == "OPEN"]
         if below and _depth < 8:
@@ -1433,7 +1438,9 @@ def reconcile(ledger: Ledger) -> dict:
             current_head = (fact or {}).get("head") or ""
             if not approval_is_current(approved_head, fact):
                 # the approval was given on a commit the branch no longer points at: a rebase or a rewrite since
-                note("approved-stale", f"PR #{item['pr']} was approved at {clock(item.get('at'))} on {approved_head[:7]} and the head is now {current_head[:7]}; the approval may predate a rewrite, so read the diff since before landing and ask the reviewer if it changed what they approved", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+                seen = last_approved_head(approved_head, fact)
+                when = f" at {clock(item.get('at'))}" if seen == approved_head else ""
+                note("approved-stale", f"PR #{item['pr']} was last approved{when} on {seen[:7]} and the head is now {current_head[:7]}; the approval may predate a rewrite, so read the diff since before landing and ask the reviewer if it changed what they approved", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
             elif (pr_rows.get(int(item["pr"])) or {}).get("hold") and not hold_lifted(pr_rows[int(item["pr"])]["hold"], states, open_needs):
                 note("approved-held", f"PR #{item['pr']} approved at {clock(item.get('at'))} and held: {hold_text(pr_rows[int(item['pr'])]['hold'])}; `mc.py prs release {item['pr']}` when it can land", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
             else:

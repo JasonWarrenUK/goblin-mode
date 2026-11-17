@@ -2590,6 +2590,20 @@ class LedgerFlow(unittest.TestCase):
         self.assertNotIn("approved-stale", kinds)
         self.assertIn("approved-unlanded", kinds)
 
+    def test_a_stale_note_after_a_re_approval_names_the_commit_last_approved(self):
+        # approved at a, re-approved at b, pushed to c: the diff owed a look starts at b, and the watcher's time belongs to a
+        self._watching_session(264)
+        run_path = list(self.box.ledger_root.glob("*/run.json"))[0]
+        run = json.loads(run_path.read_text())
+        run.setdefault("pending", []).append({"id": "a1", "n": 1, "kind": "approval", "pr": 264, "text": "t", "session_id": "crew-1", "head": "aaaaaaa1111", "status": "open", "at": 1.0})
+        run_path.write_text(json.dumps(run))
+        answer = self._open(264)
+        answer["264"]["headRefOid"] = "ccccccc3333"
+        answer["264"]["reviews"] = [{"author": {"login": "maxitect"}, "state": "APPROVED", "commit": {"oid": "bbbbbbb2222"}, "submittedAt": "2026-11-16T11:00:00Z"}]
+        stale = [item for item in self._reconcile_with(self._gh(answer))["drift"] if item["kind"] == "approved-stale"]
+        self.assertEqual(len(stale), 1)
+        self.assertIn("last approved on bbbbbbb and the head is now ccccccc", stale[0]["detail"])
+
     def test_reconcile_fetches_the_pr_a_hold_waits_on(self):
         self._watching_session(264)
         ledger_dir = list(self.box.ledger_root.glob("*/run.json"))[0].parent
@@ -3141,6 +3155,12 @@ class PrRecords(unittest.TestCase):
         self.assertEqual(out["kind"], "reviewer")
         self.assertIn("fresh look", out["why"])
 
+    def test_a_fresh_look_after_a_re_approval_names_the_commit_last_approved(self):
+        # approved at h-old, re-approved at h-mid, pushed to h-ie: the reviewer last saw h-mid
+        prs = {272: {"number": 272, "task": "MAIU", "approval": {"head": "h-old", "at": 0}}}
+        facts = {272: self.fact("ie", review_decision="APPROVED", approved_by=["maxitect"], approved_heads=["h-mid", "h-old"])}
+        self.assertTrue(self.who(272, facts, prs)["why"].startswith("approved at h-mid, head now"))
+
     def test_normalise_reads_the_head_each_standing_approval_sat_on(self):
         def review(login, state, oid, at):
             return {"author": {"login": login}, "state": state, "commit": {"oid": oid}, "submittedAt": at}
@@ -3152,6 +3172,9 @@ class PrRecords(unittest.TestCase):
         self.assertEqual(self.mc.normalise_pr_facts(raw)["approved_heads"], ["B"])
         raw["reviews"].append(review("m", "CHANGES_REQUESTED", "B", "2026-11-16T14:00:00Z"))
         self.assertEqual(self.mc.normalise_pr_facts(raw)["approved_heads"], [])
+        # newest first, so a message about the last approval reads the head of the list
+        ordered = {"reviews": [review("p", "APPROVED", "C", "2026-11-16T09:00:00Z"), review("q", "APPROVED", "D", "2026-11-16T15:00:00Z")]}
+        self.assertEqual(self.mc.normalise_pr_facts(ordered)["approved_heads"], ["D", "C"])
         # gh leaves the oid empty where it cannot say; an empty one is no head
         self.assertEqual(self.mc.normalise_pr_facts({"reviews": [review("m", "APPROVED", "", "2026-11-16T10:00:00Z")]})["approved_heads"], [])
 
