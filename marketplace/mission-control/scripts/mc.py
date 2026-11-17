@@ -1782,8 +1782,8 @@ def gh_bot_reviewers(main: Path, numbers: list) -> dict[int, set[str]]:
     as `graphify-labs` and passes as a person. Only GraphQL carries the account type. One aliased query
     answers for every PR, so a repository where each merged PR is reviewed costs one gh call, not one per PR.
     The first 100 reviews is the same page `gh pr list` reads, so no reviewer it reports is out of this one's sight.
-    A failed lookup leaves every reviewer counted as human, which is the old behaviour."""
-    wanted = sorted({int(n) for n in numbers if isinstance(n, int)})
+    A PR gh cannot answer for, or a lookup that fails outright, leaves its reviewers counted as human, which is the old behaviour."""
+    wanted = sorted({n for n in numbers if isinstance(n, int) and not isinstance(n, bool)})
     if not wanted:
         return {}
     slug = gh_api_repo(main)
@@ -1793,18 +1793,22 @@ def gh_bot_reviewers(main: Path, numbers: list) -> dict[int, set[str]]:
     repo_args = ["-F", "owner={owner}", "-F", "name={repo}"] if placeholders else ["-f", f"owner={owner}", "-f", f"name={name}"]
     pulls = "".join(f"p{n}:pullRequest(number:{n}){{reviews(first:100){{nodes{{author{{__typename login}}}}}}}}" for n in wanted)
     argv = ["gh", "api", "graphql", *repo_args, "-f", f"query=query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{{pulls}}}}}"]
-    code, out = sh(argv, timeout=PR_LOOKUP_SECONDS, cwd=main)
-    if code != 0:
-        return {}
+    _, out = sh(argv, timeout=PR_LOOKUP_SECONDS, cwd=main)
+    # gh exits 1 when one alias resolves to null, but the other aliases' data is still on stdout with gh's own error line after it,
+    # so the leading JSON object is read whatever the exit code and each PR answers for itself
     try:
-        repository = json.loads(out)["data"]["repository"]
-        found = {n: repository[f"p{n}"]["reviews"]["nodes"] for n in wanted}
+        repository = json.JSONDecoder().raw_decode(out.lstrip())[0]["data"]["repository"]
     except (ValueError, KeyError, TypeError):
         return {}
-    return {
-        n: {str(node["author"]["login"]) for node in nodes if isinstance(node, dict) and isinstance(node.get("author"), dict) and node["author"].get("__typename") == "Bot"}
-        for n, nodes in found.items()
-    }
+    if not isinstance(repository, dict):
+        return {}
+    found: dict[int, set[str]] = {}
+    for n in wanted:
+        pull = repository.get(f"p{n}")
+        nodes = pull.get("reviews", {}).get("nodes") if isinstance(pull, dict) else None
+        if isinstance(nodes, list):
+            found[n] = {str(node["author"]["login"]) for node in nodes if isinstance(node, dict) and isinstance(node.get("author"), dict) and node["author"].get("__typename") == "Bot"}
+    return found
 
 
 def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:

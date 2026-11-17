@@ -1221,6 +1221,32 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(lookup_failed["mode"], "collaborative", "an unanswered type lookup keeps the old reading rather than guessing")
         self.assertEqual(lookup_failed["reviewed_by_others"], 2)
 
+    def test_one_unresolvable_pull_request_costs_only_its_own_answer_in_the_bot_lookup(self):
+        """gh exits 1 when any alias resolves to null, with the other aliases' data still on stdout and its own error line after it.
+        PR 71 is a bot and must still drop out when PR 72 cannot be resolved; PR 72 stays counted as a person."""
+        reviewed = [
+            {"number": 71, "author": {"login": "t"}, "reviews": [{"author": {"login": "graphify-labs"}, "state": "COMMENTED", "submittedAt": "2026-11-15T09:55:37Z"}]},
+            {"number": 72, "author": {"login": "t"}, "reviews": [{"author": {"login": "jaz"}, "state": "APPROVED", "submittedAt": "2026-11-15T10:55:37Z"}]},
+        ]
+        partial = {"data": {"repository": {"p71": {"reviews": {"nodes": [{"author": {"__typename": "Bot", "login": "graphify-labs"}}]}}, "p72": None}},
+                   "errors": [{"type": "NOT_FOUND", "path": ["repository", "p72"], "message": "Could not resolve to a PullRequest with the number of 72."}]}
+
+        def fake_sh(argv, timeout=8, cwd=None):
+            if argv[:3] == ["gh", "pr", "list"]:
+                return 0, json.dumps(reviewed)
+            if argv[:3] == ["gh", "api", "graphql"]:
+                return 1, json.dumps(partial) + "gh: Could not resolve to a PullRequest with the number of 72."
+            return 1, "not gh"
+
+        mc_module, real = self._module(fake_sh)
+        try:
+            result = mc_module.classify(self.box.repo, None)
+            bots = mc_module.gh_bot_reviewers(self.box.repo, [71, 72, True, None, "73"])
+        finally:
+            self._restore(mc_module, real)
+        self.assertEqual((result["mode"], result["reviewed_by_others"]), ("collaborative", 1), "PR 71 drops out; PR 72 keeps its reviewer")
+        self.assertEqual(bots, {71: {"graphify-labs"}}, "an unresolved alias is absent, and a bool or a string is never a PR number")
+
     def test_the_bot_lookup_sends_a_literal_repository_name_as_a_string_while_git_is_broken(self):
         """`-F` turns `2048`, `true` and `null` into JSON types, which GraphQL then refuses for a `String!`; only gh's own
         `{owner}` and `{repo}` placeholders need `-F`, so a slug read from the config file goes through `-f`."""
