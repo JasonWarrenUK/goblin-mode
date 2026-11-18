@@ -648,15 +648,16 @@ def _stamp_live_phases(data):
                 _set_phase_field(phase, STAMP_KEY, stamp)
 
 
-def _write_roadbook(path, data):
+def _write_roadbook(path, data, pin=True):
     """Write roadbook.json after the version check, stamping each live phase
     with the running plugin's major.minor. The one writer for the roadbook
     file. Returns the path written, which is not `path` when `path` was a
-    pre-3.0.0 file: that first write moves it (_migrate_legacy)."""
+    pre-3.0.0 file: that first write moves it (_migrate_legacy). `pin` False
+    leaves the chart paths of `data` as they are, for `rebind --outputs`."""
     _refuse_if_stamped_newer(data)
     path = Path(path)
     if path.name in LEGACY_NAMES:
-        return _migrate_legacy(path, data)
+        return _migrate_legacy(path, data, pin)
     _stamp_live_phases(data)
     _atomic_write(path, _canonical_text(data))
     _note_legacy_beside(path)
@@ -688,7 +689,7 @@ def _pin_legacy_chart(data):
             _set_phase_field(phase, ARTEFACT_KEY, _legacy_render_rel(phase))
 
 
-def _migrate_legacy(path, data):
+def _migrate_legacy(path, data, pin=True):
     """Move a roadmap plugin's .claude/roadmaps.json, and the local file
     beside it, to the roadbook names on the first write by 3.0.0. No value
     is rewritten: each phase is stamped (so a 2.x plugin refuses the file),
@@ -718,7 +719,8 @@ def _migrate_legacy(path, data):
                 content = None  # not a phase array: moved byte for byte
         if content is not None:
             _refuse_if_stamped_newer(content)
-            _pin_legacy_chart(content)
+            if pin or source != path:
+                _pin_legacy_chart(content)
             _stamp_live_phases(content)
         plan.append((source, target, content))
     for source, target, content in plan:
@@ -2503,6 +2505,88 @@ def _pull_target(args):
     return root / ".claude" / LOCAL_ROADBOOK_NAME, [phase], phase
 
 
+# Where a 2.x roadmap plugin's skills put a projection and the prose overview
+# by default, and where a roadbook's go: what `rebind --outputs` moves.
+LEGACY_PROJECTION_DIR = "docs/roadmaps/"
+PROJECTION_DIR = "docs/roadbook/"
+LEGACY_OVERVIEW = "docs/reports/ROADMAP_OVERVIEW.md"
+OVERVIEW = "docs/reports/ROADBOOK_OVERVIEW.md"
+
+
+def _move_file(source, target):
+    """Move one file, with `git mv` when git tracks it, so the move lands
+    in the next commit as a rename."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    git, rel = _git_at_toplevel(source)
+    if git is not None and git("ls-files", "--error-unmatch", rel) is not None:
+        target_rel = target.resolve().relative_to(
+            source.resolve().parents[len(Path(rel).parts) - 1]).as_posix()
+        if git("mv", rel, target_rel) is not None:
+            return
+    os.replace(source, target)
+
+
+def cmd_rebind(args) -> int:
+    """Move a 2.x .claude/roadmaps.json to .claude/roadbook.json now (what
+    the first write would do), and with --outputs move the chart, the
+    projections and the prose overview from the 2.x default names to the
+    roadbook's. A path the project chose itself is left where it is."""
+    try:
+        path, data = load(args.path)
+        phases = _phases(data)
+    except RoadbookError as exc:
+        print(f"✗ {exc}")
+        return 2
+    root = project_root(path)
+    moves = []  # (source, target) project files, deduplicated
+    if args.outputs:
+        for phase in phases:
+            if not isinstance(phase, dict):
+                continue
+            # an unmoved file's phase with no `artefact` renders to the 2.x default too
+            legacy_chart = _legacy_render_rel(phase)
+            if phase.get(ARTEFACT_KEY, legacy_chart if path.name in LEGACY_NAMES else None) == legacy_chart:
+                moves.append((root / legacy_chart, _default_render_path(path, phase)))
+                phase.pop(ARTEFACT_KEY, None)
+            projection = phase.get("path")
+            if isinstance(projection, str) and projection.startswith(LEGACY_PROJECTION_DIR):
+                new = PROJECTION_DIR + projection[len(LEGACY_PROJECTION_DIR):]
+                _set_phase_field(phase, "path", new)
+                moves.append((root / projection, root / new))
+        moves.append((root / LEGACY_OVERVIEW, root / OVERVIEW))
+        seen = set()
+        moves = [(s, t) for s, t in moves
+                 if s.exists() and s not in seen and not seen.add(s)]
+    shown = lambda p: p.relative_to(root).as_posix()
+    renamed = path.name in LEGACY_NAMES
+    plan = ([f"{_shown(path)} -> .claude/{LEGACY_NAMES[path.name]}"] if renamed else []) \
+        + [f"{shown(s)} -> {shown(t)}" for s, t in moves]
+    if not plan:
+        print("nothing to rebind: the roadbook and its outputs already use "
+              "the roadbook names")
+        return 0
+    for _source, target in moves:
+        if target.exists():
+            print(f"✗ {shown(target)} already exists; nothing moved")
+            return 1
+    if args.dry_run:
+        print("would move:")
+        for line in plan:
+            print(f"  {line}")
+        return 0
+    if renamed or args.outputs:
+        _write_roadbook(path, data, pin=not args.outputs)
+    for source, target in moves:
+        _move_file(source, target)
+    print("moved:")
+    for line in plan:
+        print(f"  {line}")
+    if moves:
+        print("note: links elsewhere in the project still name the old "
+              "paths; search for them before committing the move")
+    return 0
+
+
 # A pull that removes more than half of at least this many mirrored tasks is
 # refused unless --allow-removals is passed.
 SHRINK_FLOOR = 4
@@ -2728,6 +2812,16 @@ def main(argv=None) -> int:
                          "mirrored waypoints (refused by default)")
     sp.add_argument("--dry-run", action="store_true", help="preview, no write")
 
+    sp = common(sub.add_parser(
+        "rebind",
+        help="move a 2.x roadmaps.json to roadbook.json now, without waiting "
+             "for the first write"))
+    sp.add_argument("--outputs", action="store_true",
+                    help="also move the chart, the projections and the prose "
+                         "overview from their 2.x default names to the "
+                         "roadbook's")
+    sp.add_argument("--dry-run", action="store_true", help="preview, no write")
+
     sp = sub.add_parser("hook", help="Claude Code hook entry point")
     sp.add_argument("event", choices=["session-start", "post-tool-use"])
 
@@ -2749,6 +2843,7 @@ def main(argv=None) -> int:
         "backfill-ended": cmd_backfill_ended,
         "stamp-ended": cmd_stamp_ended,
         "pull": cmd_pull,
+        "rebind": cmd_rebind,
         "hook": cmd_hook,
     }
     try:

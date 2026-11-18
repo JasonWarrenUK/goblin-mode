@@ -2622,12 +2622,9 @@ class Hooks(unittest.TestCase):
         self.assertEqual(self.hook("post-tool-use", self.repo), "")
 
 
-class LegacyMigration(unittest.TestCase):
-    """A roadmap plugin's .claude/roadmaps.json (and the local file beside
-    it) under goblin-scout 3.0.0: read as it is, moved to the roadbook names
-    on the first write with one line of notice, no value rewritten, the
-    chart's old default path pinned and the 3.0.0 stamp that makes a 2.x
-    plugin refuse the result."""
+class LegacyFixture(unittest.TestCase):
+    """A project directory with a .claude folder and a 2.x-shaped phase list.
+    Helpers only; the classes below add the cases."""
 
     def setUp(self):
         self.addCleanup(setattr, roadbook, "PLUGIN_VERSION", roadbook.PLUGIN_VERSION)
@@ -2649,10 +2646,10 @@ class LegacyMigration(unittest.TestCase):
         return [
             phase([{"id": "M1", "name": "roadmap work", "tasks": [
                 task("a", "done", notes="see the roadmap"), task("b", "todo", ["a"])]}],
-                name="Phase 1", archived=True),
+                name="Phase 1", archived=True, path="docs/roadmaps/TEST.md"),
             phase([{"id": "M2", "name": "m", "tasks": [
                 task("c", "done"), task("d", "todo", ["c"], description="roadmap: d")]}],
-                name="Phase 2"),
+                name="Phase 2", path="docs/roadmaps/TEST.md"),
         ]
 
     def _write(self, path, data):
@@ -2671,6 +2668,14 @@ class LegacyMigration(unittest.TestCase):
             if ph.get("name") in pinned:
                 ph.pop("artefact")
         return data
+
+
+class LegacyMigration(LegacyFixture):
+    """A roadmap plugin's .claude/roadmaps.json (and the local file beside
+    it) under goblin-scout 3.0.0: read as it is, moved to the roadbook names
+    on the first write with one line of notice, no value rewritten, the
+    chart's old default path pinned and the 3.0.0 stamp that makes a 2.x
+    plugin refuse the result."""
 
     def test_an_old_file_is_read_where_it_is(self):
         self._write(self.legacy, self._phases())
@@ -2779,6 +2784,110 @@ class LegacyMigration(unittest.TestCase):
         rc, out, err = self._run("claim", "j1", str(self.legacy_local), "--date", "2026-11-18")
         self.assertEqual(rc, 0, out)
         self.assertIn(".claude/roadbook.local.json is not ignored by git", err)
+
+
+class RebindCommand(LegacyFixture):
+    """`rebind`: the move from roadmaps.json by hand, and with --outputs the
+    chart, the projections and the prose overview moved to the roadbook's
+    default names too, on request only."""
+
+    def _outputs(self):
+        """The 2.x outputs of _phases() on disk where a 2.x plugin put them."""
+        written = [
+            "docs/artefacts/roadmap-phase-1.html", "docs/artefacts/roadmap-phase-2.html",
+            "docs/roadmaps/TEST.md", "docs/reports/ROADMAP_OVERVIEW.md"]
+        for rel in written:
+            (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / rel).write_text(rel)
+        return written
+
+    def test_rebind_moves_the_file_and_pins_like_a_first_write(self):
+        self._write(self.legacy, self._phases())
+        rc, out, err = self._run("rebind", str(self.root))
+        self.assertEqual(rc, 0, out)
+        self.assertFalse(self.legacy.exists())
+        migrated = json.loads(self.new.read_text())
+        self.assertEqual(migrated[1]["artefact"], "docs/artefacts/roadmap-phase-2.html")
+        self.assertEqual(len(err.splitlines()), 1, err)
+
+    def test_rebind_on_a_roadbook_has_nothing_to_do(self):
+        self._write(self.new, self._phases())
+        before = self.new.read_text()
+        rc, out, _err = self._run("rebind", str(self.root))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("nothing to rebind", out)
+        self.assertEqual(self.new.read_text(), before)
+
+    def test_outputs_move_to_the_new_default_names(self):
+        self._write(self.legacy, self._phases())
+        self._outputs()
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs")
+        self.assertEqual(rc, 0, out)
+        migrated = json.loads(self.new.read_text())
+        self.assertTrue(all("artefact" not in p for p in migrated))
+        self.assertTrue(all(p["path"] == "docs/roadbook/TEST.md" for p in migrated))
+        for old, new in (("docs/artefacts/roadmap-phase-1.html", "docs/artefacts/chart-phase-1.html"),
+                         ("docs/artefacts/roadmap-phase-2.html", "docs/artefacts/chart-phase-2.html"),
+                         ("docs/roadmaps/TEST.md", "docs/roadbook/TEST.md"),
+                         ("docs/reports/ROADMAP_OVERVIEW.md", "docs/reports/ROADBOOK_OVERVIEW.md")):
+            self.assertFalse((self.root / old).exists(), old)
+            self.assertEqual((self.root / new).read_text(), old)
+        expected = self._phases()
+        for ph in expected:
+            ph["path"] = "docs/roadbook/TEST.md"
+        self.assertEqual(self._without_migration_marks(migrated, set()), expected)
+
+    def test_outputs_leave_a_path_the_project_chose_alone(self):
+        data = self._phases()
+        data[1]["artefact"] = "site/plan.html"
+        data[1]["path"] = "planning/PHASE2.md"
+        self._write(self.new, data)
+        self._outputs()
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs")
+        self.assertEqual(rc, 0, out)
+        after = json.loads(self.new.read_text())
+        self.assertEqual((after[1]["artefact"], after[1]["path"]), ("site/plan.html", "planning/PHASE2.md"))
+        self.assertEqual(after[0]["path"], "docs/roadbook/TEST.md")
+
+    def test_dry_run_lists_the_moves_and_changes_nothing(self):
+        self._write(self.legacy, self._phases())
+        written = self._outputs()
+        before = self.legacy.read_text()
+        rc, out, err = self._run("rebind", str(self.root), "--outputs", "--dry-run")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual((self.legacy.read_text(), err), (before, ""))
+        self.assertTrue(all((self.root / rel).exists() for rel in written))
+        self.assertIn("docs/reports/ROADMAP_OVERVIEW.md -> docs/reports/ROADBOOK_OVERVIEW.md", out)
+        self.assertIn(".claude/roadmaps.json -> .claude/roadbook.json", out)
+
+    def test_a_target_already_there_refuses_before_anything_moves(self):
+        self._write(self.legacy, self._phases())
+        self._outputs()
+        (self.root / "docs" / "roadbook").mkdir(parents=True)
+        (self.root / "docs" / "roadbook" / "TEST.md").write_text("mine")
+        before = self.legacy.read_text()
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs")
+        self.assertEqual(rc, 1)
+        self.assertIn("docs/roadbook/TEST.md already exists", out)
+        self.assertEqual(self.legacy.read_text(), before)
+        self.assertTrue((self.root / "docs" / "roadmaps" / "TEST.md").exists())
+
+    @unittest.skipUnless(shutil.which("git"), "git not installed")
+    def test_tracked_outputs_are_moved_with_git(self):
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda *a: subprocess.run(["git", "-C", str(self.root), *a], check=True,
+                                        capture_output=True, text=True, env=env).stdout
+        git("init", "-q")
+        self._write(self.legacy, self._phases())
+        self._outputs()
+        git("add", ".")
+        git("commit", "-qm", "a 2.x project")
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs")
+        self.assertEqual(rc, 0, out)
+        staged = git("diff", "--cached", "--name-status", "-M")
+        self.assertIn("docs/roadmaps/TEST.md\tdocs/roadbook/TEST.md", staged)
+        self.assertIn("docs/reports/ROADMAP_OVERVIEW.md\tdocs/reports/ROADBOOK_OVERVIEW.md", staged)
 
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")
