@@ -41,6 +41,7 @@ Every line below is a decision Jason made in the SITE interview on 2026-11-18, u
 | F4 | Layout is a desk of papers, replacing the artifact's single vertical scroll: the notice pinned, the five mods as cardboard folders laid out by schedule, the install slip taped beside the notice. Folders run as banded rows at 390. |
 | F5 | Clicking a folder opens a drawer notched under it, holding the mod's name, Deficiency and Remedy, the goblin's paragraph and a link to its page. One drawer at a time; the page scrolls so the pressed folder stays still. The page loads with every folder shut. |
 | F6 | The ledger table and the sources slip leave the front page. The lede carries the why; each folder carries its own Deficiency and Remedy. |
+| F8 | Each open drawer quotes the mod's persona line (its README opener) under its name, in the printed face, set apart from the goblin. A mod without a settled line shows none. |
 | F7 | Closed folders name what the mod does in plain words; the joke lives in the drawer. Status uses one vocabulary: stamps "Goblin Approve" and "Soon. Very Soon.", meta line "goblin-approved" and "soon". |
 
 ### Front page regions
@@ -58,7 +59,9 @@ Every line below is a decision Jason made in the SITE interview on 2026-11-18, u
 
 | Id | Requirement |
 |---|---|
-| M1 | One page per mod carrying the detail: its numbered clauses (situations), its capability roster and its sources. |
+| M1 | One page per mod carrying the detail: a header with its install line, numbered tabs, every situation laid out open in order, its roster pinned beside them (at the end at 390) and previous/next links. No sources slip on mod pages (Jason, 2026-11-18). |
+| M4 | After the situations, "How to Use It" as collapsed slips: install and first run, configure it (the plugin's options, generated from `plugin.json`), commands and skills (generated from each skill's file), turn it off or remove it. |
+| M5 | Copy rule (proposed in the mod-page wireframe): scenes and "Before" keep everyday words; "With" and the Ruling use each mod's own vocabulary (decisions 7, 10, 19). |
 | M2 | goblin-seneschal keeps clauses I.5 and I.7: `audit-prose` and `consult-dossiers` move into the plugin (decision 14). |
 | M3 | goblin-archivist is shown as proposed, under its new name, with its five clauses; updated by hand when it ships. Nothing read from the vault. |
 

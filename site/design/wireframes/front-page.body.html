@@ -104,7 +104,11 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 	border:.9rem solid transparent; border-top:0; border-bottom:.95rem solid var(--ink)}
 .drawer::after{content:""; position:absolute; top:-.7rem; left:calc(var(--notch-x, 3rem) - .7rem);
 	border:.7rem solid transparent; border-top:0; border-bottom:.75rem solid var(--surface)}
-.drawer-title{font-size:1.5rem; margin-bottom:1rem}
+.drawer-title{font-size:1.5rem; margin-bottom:.35rem}
+/* the mod speaking for itself: its README opener, set apart from the goblin's voice */
+.motto{margin:0 0 1rem; font-family:var(--font-print); font-style:italic; color:var(--ink-muted); max-width:52rem}
+.motto::before{content:"\201C"} .motto::after{content:"\201D"}
+.drawer-title + .drawer-grid{margin-top:.65rem}
 .drawer-grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1.25rem 2rem}
 .drawer h4{font-family:var(--font-print); font-weight:600; font-size:.75rem; letter-spacing:.14em; text-transform:uppercase; margin:0 0 .3rem; color:var(--ink-muted)}
 .drawer p{margin:0}
@@ -162,7 +166,7 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 </style>
 
 <main class="desk" id="desk">
-	<p class="wf-banner">Wireframe v2 · front page · goblin theme · 2026-11-18 · pins map to <code>site/design/scope.md</code> and <code>site/design/observations.json</code></p>
+	<p class="wf-banner">Wireframe v3 · front page · goblin theme · 2026-11-18 · pins map to <code>site/design/scope.md</code> and <code>site/design/observations.json</code></p>
 
 	<div class="top">
 		<section class="sheet" aria-labelledby="notice-title">
@@ -222,6 +226,7 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 			<section class="drawer" id="drawer-seneschal" aria-labelledby="drawer-seneschal-title" hidden>
 				<span class="pin" aria-hidden="true">5</span>
 				<h3 class="drawer-title" id="drawer-seneschal-title">goblin-seneschal</h3>
+				<p class="motto">Your grievance has been noted, my liege, and filed with the others. The underlings are mustered and the chambers stand inspected.</p>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>When the tool annoys you, you are expected to get over it.</p></div>
 					<div><h4>Remedy</h4><p>Grievances are filed to a JSON log with the branch attached, and every session broadcasts a heartbeat every <span class="gen">fifteen</span> seconds. Readouts inform you of things you had been trusted to know for yourself.</p></div>
@@ -236,6 +241,7 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 			</button>
 			<section class="drawer" id="drawer-jester" aria-labelledby="drawer-jester-title" hidden>
 				<h3 class="drawer-title" id="drawer-jester-title">goblin-jester</h3>
+				<p class="motto">hElLo. i aM tHe JeStEr. i WaTcH, i hEcKlE, i hOlD tHiNgS. i ToUcH nOtHiNg.</p>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>The interface ships without a goblin and nobody has been held accountable.</p></div>
 					<div><h4>Remedy</h4><p>A goblin with <span class="gen">nine</span> moods, a sleep schedule and props, drawn by hand in box characters. It affects nothing.</p></div>
@@ -256,6 +262,7 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 			</button>
 			<section class="drawer" id="drawer-scout" aria-labelledby="drawer-scout-title" hidden>
 				<h3 class="drawer-title" id="drawer-scout-title">goblin-scout</h3>
+				<p class="motto">Scouted it, wrote it in the roadbook, lost the pencil. It keeps your plan as a map of what waits on what.</p>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>Your plan is a text file, which you are simply trusted to edit.</p></div>
 					<div><h4>Remedy</h4><p>Your plan is a roadbook: a JSON dependency graph you are forbidden to edit by hand. <span class="gen">Twelve</span> skills, a command line and a pane edit it for you.</p></div>
@@ -271,6 +278,7 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 			</button>
 			<section class="drawer" id="drawer-warband" aria-labelledby="drawer-warband-title" hidden>
 				<h3 class="drawer-title" id="drawer-warband-title">goblin-warband</h3>
+				<p class="motto">A warband raids in good order or not at all. One chief, many sessions, one repo: orders read, dibs called, tribute paid, spoils counted.</p>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>Any session may use the database without applying for a permit.</p></div>
 					<div><h4>Remedy</h4><p>One session leads the others through a ledger of JSON files, timed dibs on the database and a numbered list of tribute for you to pay.</p></div>
@@ -321,7 +329,7 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 			<li><b>R7.</b> Dotted underlines mark every figure generated at build, including the counts in the lede and the schedule headers. The meta line uses the stamps' words (goblin-approved, soon). "Four session" is the story of the warband's first run, not a count of anything in the repository.</li>
 			<li><b>F3, A2.</b> The install slip, the one place that answers how to install: opening a folder switches its picker to that mod. It sits beside the notice, reading F4's "beside them" as beside the desk's contents, so it is on the first screen at 1280 and 390. The top row is split 3:2 and commands wrap at their spaces, so neither command hides behind a scroller.</li>
 			<li><b>F4.</b> A closed folder: numeral, name, what the mod does in plain words, and the status stamp. At 390 folders run as banded rows. The whole folder is the button; the page loads with every folder shut.</li>
-			<li><b>F5.</b> The open drawer: the mod's name, Deficiency and Remedy, the goblin's paragraph and the link to its page. Its notch points at the open folder, which gains an ink edge. One drawer at a time; the page scrolls by however far the closing drawer moved things, so the folder just pressed stays under the pointer. Without JavaScript each folder is a plain link to its page.</li>
+			<li><b>F5, F8.</b> The open drawer: the mod's name with its persona line quoted beneath it (the mod speaking, in the printed face, set apart from the goblin; goblin-archivist has no line yet, so its drawer shows no quote), Deficiency and Remedy, the goblin's paragraph and the link to its page. Its notch points at the open folder, which gains an ink edge. One drawer at a time; the page scrolls by however far the closing drawer moved things, so the folder just pressed stays under the pointer. Without JavaScript each folder is a plain link to its page.</li>
 			<li><b>R6.</b> The goblin names each mod's own things by their real names (chief, raider, dibs, tribute); approved 2026-11-18.</li>
 			<li><b>M3.</b> goblin-archivist: proposed stamp on the folder, "Not yet installable" in the drawer and absent from the slip's picker.</li>
 			<li><b>A1.</b> The skills wing as a box file, for visitors who came to learn how to build their own. Titles are today's; each changes as its page is reworked. Sources live on each mod page (F6), not on the front page.</li>
