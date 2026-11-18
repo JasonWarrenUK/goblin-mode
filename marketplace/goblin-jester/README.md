@@ -42,7 +42,15 @@ A skill that pinned one model while another answered draws `singleDouble` in `wa
 
 ### 2.1. What it reads from skills and agents
 
-When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. A plugin skill, which Claude Code names `<plugin>:<skill directory>`, is read from `skills/<skill directory>/SKILL.md` in that plugin's install as `~/.claude/plugins/installed_plugins.json` records it. The install chosen is the one that applies to the session's project, ranked as Claude Code ranks scopes: a local install for this project, then a project install for it, then the user's; another project's install is never read. Some plugin skills still read as nothing set: a plugin's commands (`commands/*.md`), the skills of a plugin loaded with `--plugin-dir` (which that file never lists) and skills a plugin keeps outside its `skills/` folder (a `skills` path in its manifest or marketplace entry, or a single `SKILL.md` at its root). What is read from a skill lasts until the turn completes; a minion lasts until its own turn completes or the session starts over.
+When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. A plugin skill, which Claude Code names `<plugin>:<skill directory>`, is read from `skills/<skill directory>/SKILL.md` in that plugin's install as `~/.claude/plugins/installed_plugins.json` records it. The install chosen is the one that applies to the session's project, ranked as Claude Code ranks scopes: a local install for this project, then a project install for it, then the user's; another project's install is never read. Some plugin skills still read as nothing set:
+
+- a plugin's commands (`commands/*.md`)
+- plugins with no install record: those loaded with `--plugin-dir`, skills-directory plugins (`@skills-dir`) and plugins synced from claude.ai (`@synced`)
+- skills a plugin keeps outside its `skills/` folder (a `skills` path in its manifest or marketplace entry, or a single `SKILL.md` at its root)
+- a plugin whose manifest `name` differs from its marketplace entry name, since the skill is named after the first and the install record after the second
+- every plugin, when `CLAUDE_CODE_PLUGIN_CACHE_DIR` moves the plugins root away from `~/.claude/plugins`
+
+A project install is taken to apply when the session's project root lies within its recorded path; Claude Code's own matching rule is not documented. What is read from a skill lasts until the turn completes; a minion lasts until its own turn completes or the session starts over.
 
 | Field | Where | What it does |
 |---|---|---|
@@ -71,7 +79,7 @@ There is no slash command and nothing to type: the mod reacts to the session. Wh
 
 Do not:
 
-- **Do not put `goblin-spinner` or `family` in a plugin's command, or in a plugin you load with `--plugin-dir`, and expect a prop.** Only `SKILL.md` files are read, and a `--plugin-dir` plugin is in no install record, so the goblin walks empty-handed. Install the plugin to see its props.
+- **Do not expect a prop from a plugin skill the goblin cannot find.** Only installed plugins' `skills/<name>/SKILL.md` files are read; every other case in section 2.1 walks empty-handed. Install the plugin from a marketplace to see its props.
 - **Do not expect the frame to change the moment you run `/model`.** The frame follows the model that served the last request, so it switches once a reply has come back from the new one.
 - **Do not use a prop wider than four cells, a minion face wider than five, or an emoji in either.** The band's arithmetic refuses them and falls back to the default.
 - **Do not disable it by removing the hooks from `hooks.json`.** `enabled` is the switch; the manifest is the plugin's own.
