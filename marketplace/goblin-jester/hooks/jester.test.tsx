@@ -275,6 +275,61 @@ const goblinProps = async ($: Engine) => {
 	return props
 }
 
+/** installed_plugins.json with goblin-scout installed twice: a project install whose files are gone, then the user's. */
+const INSTALLED = JSON.stringify({
+	version: 2,
+	plugins: {
+		'goblin-scout@goblin-mode': [
+			{ scope: 'project', installPath: '/home/j/.claude/plugins/cache/goblin-mode/goblin-scout/3.0.1' },
+			{ scope: 'user', installPath: '/home/j/.claude/plugins/cache/goblin-mode/goblin-scout/3.0.0' },
+		],
+	},
+})
+const START_TRAIL = '---\nname: start-trail\nmetadata:\n  family: pr\n  goblin-spinner: marking the trail|lacing boots\n---\nbody'
+
+test("a plugin skill's family and spinner words are read from its install, by the engine's plugin:directory name", async ($, on) => {
+	world(on)
+	skillFiles(on, {
+		'/home/j/.claude/plugins/installed_plugins.json': INSTALLED,
+		'/home/j/.claude/plugins/cache/goblin-mode/goblin-scout/3.0.0/skills/start-trail/SKILL.md': START_TRAIL,
+	})
+	on('ui.render', { component: 'Spinner' }, async ($, e) => {
+		const { Text } = $.ui.resolve(e)
+		return Text({ children: [e.props.word] })
+	})
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	await $.turn.start({ text: '/goblin-scout:start-trail', turnId: 't1' })
+	await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '[#]' })
+	expect(await spinnerWord($)).toMatch(/^••• (mArKiNg tHe tRaIl|lAcInG BoOtS) •••$/i)
+})
+
+test('a plugin skill that is not installed reads as nothing set, and never falls back to a project skill of the same directory name', async ($, on) => {
+	world(on)
+	skillFiles(on, {
+		'/home/j/.claude/plugins/installed_plugins.json': INSTALLED,
+		'.claude/skills/start-trail/SKILL.md': START_TRAIL,
+	})
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	await $.turn.start({ text: '/elsewhere:start-trail', turnId: 't1' })
+	await $.skill.prompt({ skill: 'elsewhere:start-trail', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+	await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+})
+
+test('a personal skill still shadows a project skill of the same name', async ($, on) => {
+	world(on)
+	skillFiles(on, {
+		'/home/j/.claude/skills/x/SKILL.md': '---\nname: x\nmetadata:\n  family: pr\n---\nbody',
+		'.claude/skills/x/SKILL.md': '---\nname: x\nmetadata:\n  family: none-such\n---\nbody',
+	})
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	await $.turn.start({ text: '/x', turnId: 't1' })
+	await $.skill.prompt({ skill: 'x', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '[#]' })
+})
+
 test("the goblin holds the family's prop while the skill runs and drops it when the turn completes", async ($, on) => {
 	world(on)
 	skillFiles(on, { '.claude/skills/pr-land/SKILL.md': PR_LAND })

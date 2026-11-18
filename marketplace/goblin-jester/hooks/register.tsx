@@ -9,7 +9,7 @@ import type { EngineInterface, Register, RenderElement } from 'claude-code'
 import type { Day, Frame, Idle, Palette, Run, Tier, Vitals } from '../types'
 import { mix, shade } from './colour'
 import { dayAt, parseSchedule, STYLE } from './day'
-import { readMinionFace, readSkill } from './frontmatter'
+import { pluginSkill, pluginSkillPaths, readMinionFace, readSkill } from './frontmatter'
 import {
 	DEFAULT_MINION,
 	faceCells,
@@ -98,6 +98,27 @@ const refreshFrame = async ($: EngineInterface, patch: { served?: Tier; pinned?:
 	await update($, frame, current =>
 		frameFor(patch.served ?? current.served, patch.pinned === undefined ? current.pinned : patch.pinned, p),
 	)
+}
+
+/**
+ * A skill's SKILL.md, as Claude Code resolves the name: a plugin skill
+ * (`<plugin>:<dir>`) from its install in `installed_plugins.json`, else the
+ * personal copy, which shadows the project's. Rejects when none reads.
+ */
+const readSkillFile = async ($: EngineInterface, skill: string): Promise<string> => {
+	const home = await $.env.get('HOME')
+	const fromPlugin = pluginSkill(skill)
+	if (fromPlugin) {
+		if (!home) throw new Error('HOME is not set')
+		const installed = await $.fs.read(`${home}/.claude/plugins/installed_plugins.json`)
+		for (const path of pluginSkillPaths(installed, fromPlugin)) {
+			const text = await $.fs.read(path).catch(() => '')
+			if (text) return text
+		}
+		throw new Error(`${skill} is not installed`)
+	}
+	const personal = home ? await $.fs.read(`${home}/.claude/skills/${skill}/SKILL.md`).catch(() => '') : ''
+	return personal || (await $.fs.read(`.claude/skills/${skill}/SKILL.md`))
 }
 
 export const register: Register = (on, options) => {
@@ -207,18 +228,14 @@ export const register: Register = (on, options) => {
 	})
 
 	// The skill's frontmatter sets the frame's pin, the prop in the goblin's
-	// hand and the spinner's words, all until the turn completes. Plugin skills
-	// live elsewhere and read as nothing set.
+	// hand and the spinner's words, all until the turn completes. A skill whose
+	// file cannot be found reads as nothing set.
 	on('skill.prompt', async ($, e, next) => {
 		let pinned: Tier | null = null
 		let family: string | null = null
 		let spinner: readonly string[] = []
 		try {
-			// Personal shadows project, as Claude Code resolves a skill of the same name.
-			const home = await $.env.get('HOME')
-			const personal = home ? await $.fs.read(`${home}/.claude/skills/${e.skill}/SKILL.md`).catch(() => '') : ''
-			const text = personal || (await $.fs.read(`.claude/skills/${e.skill}/SKILL.md`))
-			const fm = readSkill(text)
+			const fm = readSkill(await readSkillFile($, e.skill))
 			pinned = fm.model ? tierOf(fm.model) : null
 			family = fm.family
 			spinner = fm.spinner

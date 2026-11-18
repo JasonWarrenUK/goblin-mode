@@ -1,6 +1,57 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { metadataKey, readMinionFace, readSkill, splitBar, topLevel } from './frontmatter'
+import { metadataKey, pluginSkill, pluginSkillPaths, readMinionFace, readSkill, splitBar, topLevel } from './frontmatter'
+
+/** installed_plugins.json as Claude Code writes it: version 2, each key `name@marketplace` mapped to its installs. */
+const INSTALLED = JSON.stringify({
+	version: 2,
+	plugins: {
+		'hookify@claude-plugins-official': [{ scope: 'user', installPath: '/c/hookify/0.1.1', version: '0.1.1' }],
+		'goblin-scout@goblin-mode': [
+			{ scope: 'project', installPath: '/c/goblin-scout/3.0.0', version: '3.0.0' },
+			{ scope: 'user', installPath: '/c/goblin-scout/2.9.0', version: '2.9.0' },
+		],
+		'goblin-scout@elsewhere': [{ scope: 'user', installPath: '/x/goblin-scout/1.0.0', version: '1.0.0' }],
+		'goblin-scouting@goblin-mode': [{ scope: 'user', installPath: '/c/goblin-scouting/1.0.0', version: '1.0.0' }],
+	},
+})
+
+describe('pluginSkill', () => {
+	test("splits the engine's plugin:directory name on the first colon", async () => {
+		expect(pluginSkill('hookify:writing-rules')).toEqual({ plugin: 'hookify', dir: 'writing-rules' })
+	})
+
+	test('a personal or project skill, or a half-empty name, is not a plugin skill', async () => {
+		expect(pluginSkill('pr-land')).toBeNull()
+		expect(pluginSkill(':x')).toBeNull()
+		expect(pluginSkill('x:')).toBeNull()
+	})
+})
+
+describe('pluginSkillPaths', () => {
+	test('names the skill directory under each install of that plugin, in the order the file lists them', async () => {
+		expect(pluginSkillPaths(INSTALLED, { plugin: 'goblin-scout', dir: 'start-trail' })).toEqual([
+			'/c/goblin-scout/3.0.0/skills/start-trail/SKILL.md',
+			'/c/goblin-scout/2.9.0/skills/start-trail/SKILL.md',
+			'/x/goblin-scout/1.0.0/skills/start-trail/SKILL.md',
+		])
+	})
+
+	test('uses the directory name the engine reports, never the frontmatter name', async () => {
+		expect(pluginSkillPaths(INSTALLED, { plugin: 'hookify', dir: 'writing-rules' })).toEqual(['/c/hookify/0.1.1/skills/writing-rules/SKILL.md'])
+	})
+
+	test('a plugin that is not installed, or a file that will not parse or has another shape, names nowhere', async () => {
+		expect(pluginSkillPaths(INSTALLED, { plugin: 'goblin', dir: 'x' })).toEqual([])
+		expect(pluginSkillPaths('{not json', { plugin: 'hookify', dir: 'x' })).toEqual([])
+		expect(pluginSkillPaths('{"plugins": []}', { plugin: 'hookify', dir: 'x' })).toEqual([])
+		expect(pluginSkillPaths('{"plugins": {"hookify@m": [{"installPath": 3}, null]}}', { plugin: 'hookify', dir: 'x' })).toEqual([])
+	})
+
+	test('a skill directory that would climb out of the install is refused', async () => {
+		expect(pluginSkillPaths(INSTALLED, { plugin: 'hookify', dir: '../../etc' })).toEqual([])
+	})
+})
 
 const SKILL = [
 	'---',
