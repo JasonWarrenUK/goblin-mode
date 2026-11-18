@@ -1,0 +1,77 @@
+# Builds the Goblin Mode site in site/ and deploys it to GitHub Pages.
+#
+# The site generates its counts and install commands from the plugins and skills
+# at build time, so it redeploys whenever any of those change (decision 18), not
+# only when site/ does. Pull requests touching the same paths get the build and
+# the tests without the deploy.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'marketplace/**'
+      - '.claude-plugin/**'
+      - 'skills/**'
+      - 'site/**'
+      - '.claude/themes/**'
+      - 'library/scripts/theme/**'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    paths:
+      - 'marketplace/**'
+      - '.claude-plugin/**'
+      - 'skills/**'
+      - 'site/**'
+      - '.claude/themes/**'
+      - 'library/scripts/theme/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BASE_PATH: /goblin-mode
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          # Full history and tags, so the build can name the release it came from.
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      # `test` builds the site first, then checks every page and link in build/.
+      - run: bun run test
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: site/build
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5.0.1
