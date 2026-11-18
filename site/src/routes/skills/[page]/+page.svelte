@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Placeholder until each explainer is reworked with Jason (scope S2 to S4).
-	import { skillsIndex } from '$lib/paths';
+	import { skillsIndex } from '#lib/paths.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();

@@ -1,11 +1,11 @@
 <script lang="ts">
-	import BoxFile from '$lib/components/BoxFile.svelte';
-	import InstallSlip from '$lib/components/InstallSlip.svelte';
-	import Notice from '$lib/components/Notice.svelte';
-	import Schedule from '$lib/components/Schedule.svelte';
-	import { modSummary, SCHEDULES, type Schedule as ScheduleKey } from '$lib/content/mods';
-	import { SKILL_PAGES } from '$lib/content/skills';
-	import { facts, MOD_ORDER, type ModKey } from '$lib/facts';
+	import BoxFile from '#lib/components/BoxFile.svelte';
+	import InstallSlip from '#lib/components/InstallSlip.svelte';
+	import Notice from '#lib/components/Notice.svelte';
+	import Schedule from '#lib/components/Schedule.svelte';
+	import { modSummary, SCHEDULES, type Schedule as ScheduleKey } from '#lib/content/mods.ts';
+	import { SKILL_PAGES } from '#lib/content/skills.ts';
+	import { facts, MOD_ORDER, type ModKey } from '#lib/facts.ts';
 
 	const mods = MOD_ORDER.map((key) => modSummary(facts, key));
 	const scheduleKeys: readonly ScheduleKey[] = ['snacks', 'feasts'];

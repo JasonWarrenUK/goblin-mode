@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CopyCommand from './CopyCommand.svelte';
-	import type { ModSummary } from '$lib/content/mods';
+	import type { ModSummary } from '#lib/content/mods.ts';
 
 	interface Props {
 		addCommand: string;

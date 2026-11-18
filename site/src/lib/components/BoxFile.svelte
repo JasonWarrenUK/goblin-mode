@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { skillPage, skillsIndex } from '$lib/paths';
+	import { skillPage, skillsIndex } from '#lib/paths.ts';
 
 	interface Props {
 		pages: readonly { slug: string; title: string }[];

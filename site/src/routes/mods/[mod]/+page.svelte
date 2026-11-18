@@ -1,8 +1,8 @@
 <script lang="ts">
 	// Placeholder until the mod page is wireframed and approved (scope M1 to M3).
-	import { home } from '$lib/paths';
-	import { modSummary } from '$lib/content/mods';
-	import { facts } from '$lib/facts';
+	import { home } from '#lib/paths.ts';
+	import { modSummary } from '#lib/content/mods.ts';
+	import { facts } from '#lib/facts.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();

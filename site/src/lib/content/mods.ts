@@ -2,7 +2,7 @@
 // artifact (read 2026-11-18), under the November 2026 names; every count comes
 // from the generated facts, never from this file.
 
-import { countWord, CountWord, MOD_NAMES, type Facts, type ModKey } from '$lib/facts';
+import { countWord, CountWord, MOD_NAMES, type Facts, type ModKey } from '#lib/facts.ts';
 
 export type Schedule = 'snacks' | 'feasts';
 

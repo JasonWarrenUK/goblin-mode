@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ThemeToggle from './ThemeToggle.svelte';
-	import { countWord, type Facts } from '$lib/facts';
+	import { countWord, type Facts } from '#lib/facts.ts';
 
 	interface Props {
 		facts: Facts;

@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { MOD_NAMES, MOD_ORDER, type ModKey } from '$lib/facts';
+import { MOD_NAMES, MOD_ORDER, type ModKey } from '#lib/facts.ts';
 import type { EntryGenerator, PageLoad } from './$types';
 
 /** One page per mod, at its newest name. */

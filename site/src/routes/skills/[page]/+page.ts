@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { SKILL_PAGES } from '$lib/content/skills';
+import { SKILL_PAGES } from '#lib/content/skills.ts';
 import type { EntryGenerator, PageLoad } from './$types';
 
 export const entries: EntryGenerator = () => SKILL_PAGES.map((page) => ({ page: page.slug }));

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { modPage } from '$lib/paths';
-	import type { ModSummary } from '$lib/content/mods';
-	import type { ModKey } from '$lib/facts';
+	import { modPage } from '#lib/paths.ts';
+	import type { ModSummary } from '#lib/content/mods.ts';
+	import type { ModKey } from '#lib/facts.ts';
 
 	interface Props {
 		id: string;
