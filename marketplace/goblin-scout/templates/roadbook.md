@@ -1,8 +1,8 @@
-# [Project Name]: [Roadmap Name]
+# [Project Name]: [Roadbook Name]
 
 |          | Status | Next Up | Blocked |
 | -------- | ------ | ------- | ------- |
-| **[Cat]** | [current state] | [next task ID] | [blocked task ID] |
+| **[Cat]** | [current state] | [next waypoint ID] | [blocked waypoint ID] |
 
 ---
 
@@ -18,9 +18,9 @@
 
 <a name="milestones"><h2>Milestones</h2></a>
 
-Task ID format: `{Milestone}{Category}.{Seq}`, e.g. `1C.1`, `2TI.7`, `3DC.2`
+Waypoint ID format: `{Milestone}{Category}.{Seq}`, e.g. `1C.1`, `2TI.7`, `3DC.2`
 
-- Sub-tasks: append alpha suffix: `2TI.3a`, `2TI.3b`
+- Sub-waypoints: append alpha suffix: `2TI.3a`, `2TI.3b`
 - Additions: append next number in category. Never renumber existing IDs.
 
 <a name="m1"><h3>Milestone 1: [Name]</h3></a>
@@ -49,19 +49,19 @@ classDef mile fill:#9ff;
 
 <a name="m1-doing"><h4>In Progress (Milestone 1)</h4></a>
 
-- [ ] 1C.1. [Task description]
+- [ ] 1C.1. [Waypoint description]
 
 <a name="m1-todo"><h4>To Do (Milestone 1)</h4></a>
 
 <a name="m1-blocked"><h4>Blocked (Milestone 1)</h4></a>
 
-- [ ] 1C.2. [Task description], **depends on 1C.1**
+- [ ] 1C.2. [Waypoint description], **depends on 1C.1**
 
 <a name="m1-done"><h4>Completed (Milestone 1)</h4></a>
 
 ---
 
-<a name="post-mvp"><h2>Beyond [Roadmap Name]: Future Features</h2></a>
+<a name="post-mvp"><h2>Beyond [Roadbook Name]: Future Features</h2></a>
 
 <h3>[Future feature name]</h3>
 
@@ -82,7 +82,7 @@ See [`docs/work-records/`](../work-records/) for detailed development history.
 
 ```mermaid
 ---
-title: Tasks
+title: Waypoints
 ---
 graph TD
 

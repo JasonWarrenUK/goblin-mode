@@ -1509,7 +1509,7 @@ class FileBased(unittest.TestCase):
 
 class Claims(unittest.TestCase):
     """A claim is the `started` field; views show it, recompute never reads
-    it (see roadbook-conventions.md, Claims)."""
+    it (see roadbook-conventions.md, Trails)."""
 
     def test_display_status_table(self):
         claimed = {"started": "2026-09-25"}
