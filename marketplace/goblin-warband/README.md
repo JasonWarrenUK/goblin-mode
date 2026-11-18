@@ -1,5 +1,7 @@
 # goblin-warband
 
+A warband raids in good order or not at all. One chief, many sessions, one repo: orders read, dibs called, tribute paid, spoils counted.
+
 > [!NOTE]
 > A Claude Code plugin from [goblin-mode](https://github.com/JasonWarrenUK/goblin-mode) for running several sessions on one repository at once: one chief, one raider per task, one worktree each, shared resources held one session at a time. It came out of a five-hour, four-session raid on 23 October 2026 and keeps the protocol that worked while taking the typing out of it.
 
