@@ -5,13 +5,19 @@
 # version is 0.x and svu proposes 1.0.0: crossing into 1.x is a human decision
 # (it declares the public API stable), so the script emits a minor bump within
 # 0.x instead: semver's own convention for breaking changes pre-1.0. Later
-# major bumps (1 -> 2, 2 -> 3, ...) pass through untouched.
+# major bumps (1 -> 2, 2 -> 3, ...) pass through untouched. One exception: a
+# renamed plugin whose plugin.json declares 1.0.0 out of a 0.x series has
+# made that decision in its rename, and gets 1.0.0 (see --plugin below).
 #
 # usage: safe-version-next.sh [--plugin NAME --dir PATH]
 #   no flags        root repo: tag prefix "v", history from the whole repo
 #   --plugin --dir  scope to one plugin subtree: tag prefix "NAME-v",
 #                    history and svu's commit scan both limited to PATH, so a
-#                    plugin only bumps on commits that actually touched it
+#                    plugin only bumps on commits that actually touched it;
+#                    a plugin with no tags under NAME-v that the
+#                    marketplace's renames map gives an earlier name
+#                    continues that name's series, and declaring 1.0.0 in
+#                    its plugin.json takes it across the 0.x guard
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
 #             2 environment error,
 #             3 nothing to release (no version-bumping commits since the
@@ -68,7 +74,85 @@ if [[ -n "$plugin" ]]; then
 fi
 
 current=$(svu current "${current_args[@]}" 2>/dev/null) || current="${prefix}0.0.0"
+
+# What the plugin's built plugin.json declares, if anything: the start of a
+# fresh series, and for a renamed plugin the human's word on crossing to 1.x.
+declared=""
+if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
+	declared=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$dir/.claude-plugin/plugin.json" | head -1)
+fi
+
+# A renamed plugin continues its old series. When nothing is tagged under the
+# new prefix, the marketplace's renames map is walked back from this name,
+# nearest earlier names first (several at once where names folded into one,
+# which is reported), to the first one with tags; the version is then
+# computed under that prefix and printed under the new one. The commit scan
+# covers the new directory and every walked-back name's directory, so a
+# change made before the move still counts: each directory is that name's
+# source in the marketplace as tagged, else a sibling of the new directory.
+# A map that cannot be read says why on stderr, as the policy reader does, so
+# falling back to a fresh series is never a silent one.
+renamed_from=""
+walked=()
 if [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
+	marketplace="$(git rev-parse --show-toplevel)/.claude-plugin/marketplace.json"
+	if [[ -f "$marketplace" ]]; then
+		earlier=("${(@f)$(python3 -I -c '
+import json, sys
+try:
+	manifest = json.load(open(sys.argv[1]))
+except (OSError, ValueError) as error:
+	sys.exit(f"renames: cannot read {sys.argv[1]} ({error}); treating {sys.argv[2]} as unrenamed")
+renames = manifest.get("renames") if isinstance(manifest, dict) else None
+if renames is None:
+	sys.exit(0)
+if not isinstance(renames, dict):
+	sys.exit(f"renames: the map in {sys.argv[1]} is not an object; treating {sys.argv[2]} as unrenamed")
+queue, seen = [sys.argv[2]], {sys.argv[2]}
+while queue:
+	name = queue.pop(0)
+	before = [old for old, new in renames.items() if new == name and old not in seen]
+	if len(before) > 1:
+		names = ", ".join(before)
+		print(f"renames: {name} has several earlier names ({names}); trying each", file=sys.stderr)
+	for old in before:
+		seen.add(old)
+		queue.append(old)
+		print(old)
+' "$marketplace" "$plugin")}")
+		for old in "${earlier[@]}"; do
+			[[ -n "$old" ]] || continue
+			walked+=("$old")
+			old_current=$(svu current --tag.prefix "${old}-v" --tag.pattern "${old}-v*" 2>/dev/null) || continue
+			[[ "$old_current" == "${old}-v0.0.0" ]] && continue
+			renamed_from="$old"
+			break
+		done
+	fi
+fi
+
+if [[ -n "$renamed_from" ]]; then
+	old_prefix="${renamed_from}-v"
+	tagged_marketplace=$(git show "${old_current}:.claude-plugin/marketplace.json" 2>/dev/null)
+	log_dirs=(--log.directory "$dir")
+	for old in "${walked[@]}"; do
+		source=$(print -r -- "$tagged_marketplace" | python3 -I -c '
+import json, sys
+try:
+	for entry in json.load(sys.stdin).get("plugins") or []:
+		if entry.get("name") == sys.argv[1] and isinstance(entry.get("source"), str):
+			print(entry["source"].removeprefix("./"))
+			break
+except (ValueError, AttributeError):
+	pass
+' "$old" 2>/dev/null)
+		log_dirs+=(--log.directory "${source:-${dir:h}/$old}")
+	done
+	old_next=$(svu next --tag.prefix "$old_prefix" --tag.pattern "${old_prefix}*" "${log_dirs[@]}") || { print -u2 -- "svu next failed"; exit 2 }
+	current="${prefix}${old_current#$old_prefix}"
+	next="${prefix}${old_next#$old_prefix}"
+	print -u2 -- "renamed: continuing ${renamed_from}'s series from ${old_current}"
+elif [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
 	# Plugin-only: svu current tolerates zero matching tags (falls back
 	# above); svu next does not, it hard-errors "no tags match" instead of
 	# treating an empty series as a first release. A fresh series starts at
@@ -78,22 +162,28 @@ if [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
 	# Root mode never hits this: an untagged repo's bare "v" pattern still
 	# matches everything, so svu next works unaided and a docs-only history
 	# correctly falls through to the "nothing to release" exit below.
-	declared=""
-	if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
-		declared=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$dir/.claude-plugin/plugin.json" | head -1)
-	fi
 	next="${prefix}${declared:-0.1.0}"
 else
 	next=$(svu next "${next_args[@]}") || { print -u2 -- "svu next failed"; exit 2 }
 fi
 
-if [[ "$next" == "$current" ]]; then
-	print -u2 -- "nothing to release: no version-bumping commits since $current"
-	exit 3
-fi
-
 cur_major=${${current#$prefix}%%.*}
 next_major=${${next#$prefix}%%.*}
+
+# A rename that declares 1.0.0 out of a 0.x series is the human decision the
+# guard waits for, and the rename alone is the release, whatever its commit
+# type: so it is answered before the nothing-to-release exit.
+if [[ -n "$renamed_from" && "$cur_major" == "0" && "$declared" == "1.0.0" ]]; then
+	print -r -- "${prefix}1.0.0"
+	exit 0
+fi
+
+if [[ "$next" == "$current" ]]; then
+	since="$current"
+	[[ -n "$renamed_from" ]] && since="$old_current"
+	print -u2 -- "nothing to release: no version-bumping commits since $since"
+	exit 3
+fi
 
 if [[ "$cur_major" == "0" && "$next_major" != "0" ]]; then
 	minor=${${${current#$prefix}#*.}%%.*}

@@ -26,7 +26,7 @@ Always assume that creating tests for new features is in-scope *unless* context 
 
 ### 8.2. Versioning with `svu`
 
-See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `safe-version-next.sh`, never bare `svu next`: it wraps `svu current`/`svu next` and refuses to cross 0.x → 1.x itself (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Once a project deliberately tags `1.0.0`, the guard becomes a no-op and later major bumps pass through normally.
+See the `project-tag_version` skill for when to tag and the bump-detection rule. Tags always come from `safe-version-next.sh`, never bare `svu next`: it wraps `svu current`/`svu next` and refuses to cross 0.x → 1.x itself (declaring the API stable is a human decision; it emits a 0.x minor bump instead). Once a project deliberately tags `1.0.0`, the guard becomes a no-op and later major bumps pass through normally. One exception: a plugin renamed through the `renames` map in `.claude-plugin/marketplace.json` continues the old name's series, and its `plugin.json` declaring `1.0.0` counts as that deliberate decision.
 
 ### 8.7. Git Worktrees
 
