@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Claude Code hooks for roadmap claims: notice when work starts on a branch
-and have Claude offer to claim the task it implements.
+"""Claude Code hooks for trails (claimed waypoints): notice when work starts
+on a branch and have Claude offer to claim the waypoint it implements.
 
 Called through `roadbook.py hook EVENT`, which swallows every error, because a
 hook must never break a session.
@@ -14,12 +14,14 @@ hook must never break a session.
 
 A branch claims a task when, relative to its merge-base with the default
 branch, the task gained a `started` date or became `done`. When that can't be
-worked out (no base ref, no merge-base, no roadmap or phase at the base) the
+worked out (no base ref, no merge-base, no roadbook or phase at the base) the
 hooks stay silent rather than guess. Claude Code's own subagent worktrees
 (branches named worktree-agent-*) are throwaway and never nudged. The only
-state is local git config, branch.<name>.roadmapClaim: `asked` (nudged once
-already) or `none` (the user said the branch is not roadmap work). Stdlib
-only, Python 3.8+.
+state is local git config, branch.<name>.roadbookClaim: `asked` (nudged once
+already) or `none` (the user said the branch is not roadbook work), read
+from branch.<name>.roadmapClaim when a 2.x roadmap plugin set it. A roadbook
+is read under its pre-3.0.0 name, .claude/roadmaps.json, wherever it has not
+been moved yet, the merge-base included. Stdlib only, Python 3.8+.
 """
 from __future__ import annotations
 
@@ -32,16 +34,19 @@ import time
 from pathlib import Path
 
 from _roadbook_core import (
-    LOCAL_ROADBOOK_NAME,
+    LEGACY_ROADBOOK_NAME,
+    LOCAL_NAMES,
+    ROADBOOK_NAME,
     RoadbookError,
     active_phase,
     build_index,
 )
 
 WINDOW_SECONDS = 120
-MARKER = "roadmapClaim"
+MARKER = "roadbookClaim"
+LEGACY_MARKER = "roadmapClaim"
 MAX_CANDIDATES = 8
-ROADMAP = ".claude/roadbook.json"
+ROADBOOK_RELS = (f".claude/{ROADBOOK_NAME}", f".claude/{LEGACY_ROADBOOK_NAME}")
 SUBAGENT_BRANCH = "worktree-agent-"
 _CREATED = "branch: Created from "
 _REFLOG_LINE = re.compile(
@@ -99,28 +104,53 @@ def default_branch_name(base):
     return base.split("/", 1)[1] if base.startswith("origin/") else base
 
 
+def roadbook_rel(checkout):
+    """The committed roadbook file of `checkout` relative to its root: the
+    roadbook name, or the pre-3.0.0 one when only that exists."""
+    for rel in ROADBOOK_RELS:
+        if (Path(checkout) / rel).exists():
+            return rel
+    return ROADBOOK_RELS[0]
+
+
+def branch_marker(top, branch):
+    """The branch's nudge state, `asked` or `none`, or None when unset; a 2.x
+    plugin's key still counts, so nobody is nudged again after the rename."""
+    for key in (MARKER, LEGACY_MARKER):
+        value = _git(top, "config", "--get", f"branch.{branch}.{key}")
+        if value is not None:
+            return value
+    return None
+
+
 def load_roadbook(checkout):
-    """The active phase of the roadmap at the root of `checkout`, or None.
-    None too when the checkout holds a local roadmap file: that is a phase
+    """The active phase of the roadbook at the root of `checkout`, or None.
+    None too when the checkout holds a local roadbook file: that is a phase
     mirrored from a tracker, where work is assigned in the tracker and a
     branch claims nothing."""
-    if (Path(checkout) / ".claude" / LOCAL_ROADBOOK_NAME).exists():
+    if any((Path(checkout) / ".claude" / name).exists() for name in LOCAL_NAMES):
         return None
     try:
-        return active_phase(json.loads((Path(checkout) / ROADMAP).read_text()))
+        return active_phase(json.loads(
+            (Path(checkout) / roadbook_rel(checkout)).read_text()))
     except (OSError, ValueError, RoadbookError):
         return None
 
 
 def branch_claims(checkout, base, phase):
-    """Ids of the tasks the branch checked out in `checkout` claims: tasks
-    that gained `started`, or became done, since the merge-base with `base`.
-    Uncommitted edits count, since the working-tree roadmap is compared.
-    None when there is no base to compare with: no base ref, no merge-base
-    (a shallow clone, unrelated history) or no roadmap or phase there."""
+    """Ids of the waypoints the branch checked out in `checkout` claims:
+    tasks that gained `started`, or became done, since the merge-base with
+    `base`. Uncommitted edits count, since the working-tree roadbook is
+    compared. None when there is no base to compare with: no base ref, no
+    merge-base (a shallow clone, unrelated history) or no roadbook or phase
+    there. The merge-base may predate the move from roadmaps.json."""
     tasks, _milestones, _gates = build_index(phase)
     merge_base = _git(checkout, "merge-base", "HEAD", base) if base else None
-    text = _git(checkout, "show", f"{merge_base}:{ROADMAP}") if merge_base else None
+    text = None
+    for rel in ROADBOOK_RELS if merge_base else ():
+        text = _git(checkout, "show", f"{merge_base}:{rel}")
+        if text:
+            break
     if not text:
         return None
     try:
@@ -193,7 +223,7 @@ def session_start(cwd, cli_path, ready_fn):
     base = base_ref(top)
     if base is None or branch == default_branch_name(base):
         return ""
-    if _git(top, "config", "--get", f"branch.{branch}.{MARKER}") == "none":
+    if branch_marker(top, branch) == "none":
         return ""
     phase = load_roadbook(top)
     if phase is None or branch.startswith(SUBAGENT_BRANCH):
@@ -202,7 +232,7 @@ def session_start(cwd, cli_path, ready_fn):
     if claims is None:
         return ""
     if claims:
-        return f"Roadmap: branch `{branch}` claims {', '.join(claims)}."
+        return f"Roadbook: branch `{branch}` claims {', '.join(claims)}."
     text = nudge(branch, Path(top), phase, cli_path, ready_fn)
     if text:
         # so the first git command of the session doesn't nudge it again
@@ -221,7 +251,7 @@ def post_tool_use(cwd, cli_path, ready_fn):
     for branch, source in recent_branches(common_dir, time.time()):
         if branch.startswith(SUBAGENT_BRANCH):
             continue
-        if _git(top, "config", "--get", f"branch.{branch}.{MARKER}") is not None:
+        if branch_marker(top, branch) is not None:
             continue
         # A local copy of an existing remote branch is someone's work already
         if source in (f"origin/{branch}", f"refs/remotes/origin/{branch}"):
@@ -261,20 +291,27 @@ def nudge(branch, checkout, phase, cli_path, ready_fn):
     q = shlex.quote
     at = q(str(checkout))
     cli = q(str(cli_path))
-    roadmap = q(str(checkout / ROADMAP))
+    rel = roadbook_rel(checkout)
+    roadbook = q(str(checkout / rel))
+    if rel == ROADBOOK_RELS[0]:
+        commit = f"git -C {at} commit -m \"chore(roadbook): claim <ID>\" -- {rel}"
+    else:
+        # the claim is the first write, which moves the file to its roadbook name
+        commit = (f"git -C {at} add {ROADBOOK_RELS[0]} && git -C {at} commit -m "
+                  f"\"chore(roadbook): claim <ID>\" -- {rel} {ROADBOOK_RELS[0]}")
     return (
-        f"Roadmap: branch `{branch}` (checkout {checkout}) claims no roadmap "
-        "task yet. If its work is one of these ready tasks, ask the user once, "
-        "in a single question, whether it is one of them, who is doing it "
-        "(offer the task's assignee if it has one; never guess a name) and "
-        "whether to push the branch so the team sees the claim: "
-        + "; ".join(_candidate(c) for c in ready) + ".\n"
-        f"To claim: python3 {cli} claim <ID> {roadmap} [--assignee <name>], "
-        f"then git -C {at} commit -m \"chore(roadmap): claim <ID>\" -- {ROADMAP} "
+        f"Roadbook: branch `{branch}` (checkout {checkout}) claims no roadbook "
+        "waypoint yet. If its work is one of these ready waypoints, ask the "
+        "user once, in a single question, whether it is one of them, which "
+        "scout is doing it (offer the waypoint's assignee if it has one; never "
+        "guess a name) and whether to push the branch so the team sees the "
+        "trail: " + "; ".join(_candidate(c) for c in ready) + ".\n"
+        f"To claim: python3 {cli} claim <ID> {roadbook} [--assignee <name>], "
+        f"then {commit} "
         "(ask first if that file already has other uncommitted changes), then "
         f"git -C {at} push -u origin {q(branch)} only if they agreed. The "
-        "roadmap:claim skill runs this whole flow.\n"
-        f"If it is not roadmap work, run git -C {at} config "
+        "goblin-scout:start-trail skill runs this whole flow.\n"
+        f"If it is not roadbook work, run git -C {at} config "
         f"{q(f'branch.{branch}.{MARKER}')} none so nobody asks again. If the "
         "user has already approved working on a specific task in this "
         "session, claim that task without asking. If you cannot ask the user, "

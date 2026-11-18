@@ -48,10 +48,18 @@ STAMP_KEY = "min_plugin"
 # behaves exactly as it always has.
 SOURCE_KEY = "source"
 SOURCE_KINDS = {"jira"}
-# The roadmap file for a mirrored phase is normally kept out of git, beside
+# The roadbook file for a mirrored phase is normally kept out of git, beside
 # the committed one, and wins when both exist.
 ROADBOOK_NAME = "roadbook.json"
 LOCAL_ROADBOOK_NAME = "roadbook.local.json"
+# Before 3.0.0 the plugin was called roadmap and kept these. They are still
+# read, a roadbook name beside one wins, and the first write moves them
+# (roadbook.py's _migrate_legacy).
+LEGACY_ROADBOOK_NAME = "roadmaps.json"
+LEGACY_LOCAL_ROADBOOK_NAME = "roadmaps.local.json"
+LEGACY_NAMES = {LEGACY_ROADBOOK_NAME: ROADBOOK_NAME,
+                LEGACY_LOCAL_ROADBOOK_NAME: LOCAL_ROADBOOK_NAME}
+LOCAL_NAMES = (LOCAL_ROADBOOK_NAME, LEGACY_LOCAL_ROADBOOK_NAME)
 
 
 def _read_plugin_version():
@@ -105,7 +113,7 @@ def resolve_roadbook_path(explicit=None) -> Path:
         if p.is_dir():
             p = roadbook_in(p) or p / ".claude" / ROADBOOK_NAME
         if not p.exists():
-            raise RoadbookError(f"roadmap not found at {p}")
+            raise RoadbookError(f"roadbook not found at {p}")
         return p
     here = Path.cwd().resolve()
     for parent in [here, *here.parents]:
@@ -118,12 +126,14 @@ def resolve_roadbook_path(explicit=None) -> Path:
 
 
 def roadbook_in(root):
-    """The roadmap file of the project at `root`, or None: its
+    """The roadbook file of the project at `root`, or None: its
     `.claude/roadbook.local.json` when there is one (a mirrored phase, kept
     out of git), else `.claude/roadbook.json`. A project with no local file,
     which is every project that mirrors nothing, resolves as it always did;
-    the committed file stays reachable by naming it explicitly."""
-    for name in (LOCAL_ROADBOOK_NAME, ROADBOOK_NAME):
+    the committed file stays reachable by naming it explicitly. Each name
+    falls back to its pre-3.0.0 one (roadmaps.local.json, roadmaps.json), so
+    a project nobody has written to since the rename still resolves."""
+    for name in (*LOCAL_NAMES, ROADBOOK_NAME, LEGACY_ROADBOOK_NAME):
         candidate = Path(root) / ".claude" / name
         if candidate.exists():
             return candidate

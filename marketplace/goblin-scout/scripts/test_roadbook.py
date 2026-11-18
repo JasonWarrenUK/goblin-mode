@@ -1413,7 +1413,7 @@ class FileBased(unittest.TestCase):
         root, jp = self._project(data)
         rc = roadbook.main(["render", str(jp)])
         self.assertEqual(rc, 0)
-        out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
+        out = root / "docs" / "artefacts" / "chart-my-phase.html"
         self.assertTrue(out.exists())
         html = out.read_text()
         self.assertIn("My Phase", html)
@@ -1448,7 +1448,7 @@ class FileBased(unittest.TestCase):
         root, jp = self._project(data)
         rc = roadbook.main(["render", str(jp)])
         self.assertEqual(rc, 0)
-        out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
+        out = root / "docs" / "artefacts" / "chart-my-phase.html"
         html = out.read_text()
         self.assertIn("jason", html)  # assignee reaches the embedded data blob
 
@@ -1465,7 +1465,7 @@ class FileBased(unittest.TestCase):
                           name="My Phase", project="Iris")]
         root, jp = self._project(explicit)
         roadbook.main(["render", str(jp)])
-        out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
+        out = root / "docs" / "artefacts" / "chart-my-phase.html"
         self.assertEqual(self._blob(out)["project"], "Iris")
 
         # Absent: falls back to the project root directory name.
@@ -1473,7 +1473,7 @@ class FileBased(unittest.TestCase):
                           name="My Phase")]
         root2, jp2 = self._project(implicit)
         roadbook.main(["render", str(jp2)])
-        out2 = root2 / "docs" / "artefacts" / "roadmap-my-phase.html"
+        out2 = root2 / "docs" / "artefacts" / "chart-my-phase.html"
         self.assertEqual(self._blob(out2)["project"], root2.name)
 
     def test_render_dev_colours_in_blob(self):
@@ -1482,7 +1482,7 @@ class FileBased(unittest.TestCase):
             task("c")]}], name="My Phase")]
         root, jp = self._project(data)
         roadbook.main(["render", str(jp)])
-        out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
+        out = root / "docs" / "artefacts" / "chart-my-phase.html"
         blob = self._blob(out)
         self.assertEqual(set(blob["devColours"]), {"jason", "jaz"})
         self.assertNotEqual(blob["devColours"]["jason"], blob["devColours"]["jaz"])
@@ -1638,23 +1638,23 @@ class ArtefactPath(unittest.TestCase):
         return rc, out.getvalue()
 
     def test_render_honours_artefact_key(self):
-        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        root, jp = self._project(self._data(artefact="docs/artefacts/chart-t1c.html"))
         rc, out = self._run(["render", str(jp)])
         self.assertEqual(rc, 0)
-        self.assertTrue((root / "docs" / "artefacts" / "roadmap-t1c.html").exists())
+        self.assertTrue((root / "docs" / "artefacts" / "chart-t1c.html").exists())
         self.assertFalse(
-            (root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html").exists())
+            (root / "docs" / "artefacts" / "chart-tranche-1c-post-dsg.html").exists())
 
     def test_render_out_flag_beats_artefact_key(self):
-        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        root, jp = self._project(self._data(artefact="docs/artefacts/chart-t1c.html"))
         rc, _ = self._run(["render", str(jp), "--out", str(root / "elsewhere.html")])
         self.assertEqual(rc, 0)
         self.assertTrue((root / "elsewhere.html").exists())
-        self.assertFalse((root / "docs" / "artefacts" / "roadmap-t1c.html").exists())
+        self.assertFalse((root / "docs" / "artefacts" / "chart-t1c.html").exists())
 
     def test_recompute_render_refreshes_artefact_key_path(self):
-        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
-        custom = root / "docs" / "artefacts" / "roadmap-t1c.html"
+        root, jp = self._project(self._data(artefact="docs/artefacts/chart-t1c.html"))
+        custom = root / "docs" / "artefacts" / "chart-t1c.html"
         custom.parent.mkdir(parents=True)
         custom.write_text("stale")
         rc, out = self._run(["recompute", str(jp), "--render"])
@@ -1662,28 +1662,28 @@ class ArtefactPath(unittest.TestCase):
         self.assertIn(f"refreshed artefact: {custom}", out)
         self.assertIn("chart-data", custom.read_text())
         self.assertFalse(
-            (root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html").exists())
+            (root / "docs" / "artefacts" / "chart-tranche-1c-post-dsg.html").exists())
 
     def test_recompute_render_notes_missing_artefact_at_key_path(self):
-        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        root, jp = self._project(self._data(artefact="docs/artefacts/chart-t1c.html"))
         rc, out = self._run(["recompute", str(jp), "--render"])
         self.assertEqual(rc, 0)
         self.assertIn("no artefact at", out)
-        self.assertIn("roadmap-t1c.html", out)
+        self.assertIn("chart-t1c.html", out)
 
     def test_render_phase_accepts_an_archived_phase(self):
         archived = self._phase(
             "Tranche 1B: Pre-DSG",
             [{"id": "M1", "name": "m", "tasks": [task("a", "done")]}],
-            artefact="docs/artefacts/roadmap-t1b.html", archived=True)
+            artefact="docs/artefacts/chart-t1b.html", archived=True)
         root, jp = self._project([archived, *self._data()])
         rc, _ = self._run(["render", str(jp), "--phase", "Tranche 1B: Pre-DSG"])
         self.assertEqual(rc, 0)
-        self.assertTrue((root / "docs" / "artefacts" / "roadmap-t1b.html").exists())
+        self.assertTrue((root / "docs" / "artefacts" / "chart-t1b.html").exists())
         # without --phase the active phase is still the one rendered
         rc, out = self._run(["render", str(jp)])
         self.assertEqual(rc, 0)
-        self.assertIn("roadmap-tranche-1c-post-dsg.html", out)
+        self.assertIn("chart-tranche-1c-post-dsg.html", out)
         # and the current-work commands still refuse an archived name
         rc, out = self._run(["ready", str(jp), "--phase", "Tranche 1B: Pre-DSG"])
         self.assertEqual(rc, 2)
@@ -1698,31 +1698,31 @@ class ArtefactPath(unittest.TestCase):
 
     def test_config_sets_key_in_field_order_and_writes_canonically(self):
         root, jp = self._project(self._data(project="CHIRPdb", archived=False))
-        rc, out = self._run(["config", "artefact", "docs/artefacts/roadmap-t1c.html",
+        rc, out = self._run(["config", "artefact", "docs/artefacts/chart-t1c.html",
                              str(jp)])
         self.assertEqual(rc, 0, out)
         text = jp.read_text()
         after = json.loads(text)
-        self.assertEqual(after[0]["artefact"], "docs/artefacts/roadmap-t1c.html")
+        self.assertEqual(after[0]["artefact"], "docs/artefacts/chart-t1c.html")
         self.assertEqual(list(after[0]),
                          ["name", "path", "project", "artefact", "min_plugin",
                           "archived", "externalGates", "milestones"])
         self.assertEqual(text, roadbook._canonical_text(after))
-        self.assertIn("roadmap-t1c.html", out)
+        self.assertIn("chart-t1c.html", out)
         self.assertIn("no artefact at", out)  # nothing rendered yet
         self.assertIn('render --phase "Tranche 1C: Post-DSG"', out)
 
     def test_config_notes_a_dashboard_left_at_the_old_path(self):
         root, jp = self._project(self._data())
         self.assertEqual(self._run(["render", str(jp)])[0], 0)
-        old = root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html"
+        old = root / "docs" / "artefacts" / "chart-tranche-1c-post-dsg.html"
         self.assertTrue(old.exists())
-        rc, out = self._run(["config", "artefact", "docs/artefacts/roadmap-t1c.html",
+        rc, out = self._run(["config", "artefact", "docs/artefacts/chart-t1c.html",
                              str(jp)])
         self.assertEqual(rc, 0)
         self.assertIn(f"old path {old}", out)
         self.assertEqual(self._run(["render", str(jp)])[0], 0)
-        self.assertTrue((root / "docs" / "artefacts" / "roadmap-t1c.html").exists())
+        self.assertTrue((root / "docs" / "artefacts" / "chart-t1c.html").exists())
 
     def test_config_case_only_change_is_not_an_old_dashboard(self):
         # On a case-insensitive filesystem (macOS default) the slug file and a
@@ -1730,23 +1730,23 @@ class ArtefactPath(unittest.TestCase):
         # delete their live dashboard.
         root, jp = self._project(self._data())
         self.assertEqual(self._run(["render", str(jp)])[0], 0)
-        old = root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html"
-        upper = old.with_name("roadmap-Tranche-1C-Post-DSG.html")
+        old = root / "docs" / "artefacts" / "chart-tranche-1c-post-dsg.html"
+        upper = old.with_name("chart-Tranche-1C-Post-DSG.html")
         if not upper.exists():
             self.skipTest("case-sensitive filesystem; nothing to collide")
         rc, out = self._run(["config", "artefact",
-                             "docs/artefacts/roadmap-Tranche-1C-Post-DSG.html",
+                             "docs/artefacts/chart-Tranche-1C-Post-DSG.html",
                              str(jp)])
         self.assertEqual(rc, 0, out)
         self.assertNotIn("old path", out)
         self.assertNotIn("no artefact at", out)
 
     def test_config_clear_removes_key_with_path_in_either_position(self):
-        root, jp = self._project(self._data(artefact="docs/artefacts/roadmap-t1c.html"))
+        root, jp = self._project(self._data(artefact="docs/artefacts/chart-t1c.html"))
         rc, out = self._run(["config", "artefact", "--clear", str(jp)])
         self.assertEqual(rc, 0, out)
         self.assertNotIn("artefact", json.loads(jp.read_text())[0])
-        self.assertIn("roadmap-tranche-1c-post-dsg.html", out)
+        self.assertIn("chart-tranche-1c-post-dsg.html", out)
         # clearing an absent key is a no-op, not an error
         rc, out = self._run(["config", "artefact", str(jp), "--clear"])
         self.assertEqual(rc, 0)
@@ -1774,11 +1774,11 @@ class ArtefactPath(unittest.TestCase):
             [{"id": "M1", "name": "m", "tasks": [task("a", "done")]}],
             archived=True)
         _root, jp = self._project([archived, *self._data()])
-        rc, out = self._run(["config", "artefact", "docs/artefacts/roadmap-t1b.html",
+        rc, out = self._run(["config", "artefact", "docs/artefacts/chart-t1b.html",
                              str(jp), "--phase", "Tranche 1B: Pre-DSG"])
         self.assertEqual(rc, 0, out)
         after = json.loads(jp.read_text())
-        self.assertEqual(after[0]["artefact"], "docs/artefacts/roadmap-t1b.html")
+        self.assertEqual(after[0]["artefact"], "docs/artefacts/chart-t1b.html")
         self.assertEqual(list(after[0])[:4], ["name", "path", "artefact", "archived"])
         self.assertNotIn("artefact", after[1])
 
@@ -2517,17 +2517,17 @@ class Hooks(unittest.TestCase):
         self.assertIn("a task a (Jaz); b task b.", text)
         self.assertNotIn("c task c", text)
         self.assertEqual(
-            self.git(self.repo, "config", "--get", "branch.feat/x.roadmapClaim"), "asked")
+            self.git(self.repo, "config", "--get", "branch.feat/x.roadbookClaim"), "asked")
         self.assertEqual(self.hook("post-tool-use", self.repo), "")
 
     def test_session_start_nudges_until_the_branch_claims(self):
         self.git(self.repo, "checkout", "-q", "-b", "feat/x")
         nudge = self.hook("session-start", self.repo)
-        self.assertIn("claims no roadmap task", nudge)
-        self.assertIn("roadmap:claim skill", nudge)
+        self.assertIn("claims no roadbook waypoint", nudge)
+        self.assertIn("goblin-scout:start-trail skill", nudge)
         self.assertEqual(self.cli("claim", "b", str(self.repo / ".claude" / "roadbook.json")).returncode, 0)
         self.assertEqual(self.hook("session-start", self.repo).strip(),
-                         "Roadmap: branch `feat/x` claims b.")
+                         "Roadbook: branch `feat/x` claims b.")
 
     def test_a_worktree_claim_targets_the_worktree(self):
         wt = self.root / "wt"
@@ -2539,7 +2539,7 @@ class Hooks(unittest.TestCase):
 
     def test_a_decline_silences_the_branch(self):
         self.git(self.repo, "checkout", "-q", "-b", "chore/x")
-        self.git(self.repo, "config", "branch.chore/x.roadmapClaim", "none")
+        self.git(self.repo, "config", "branch.chore/x.roadbookClaim", "none")
         self.assertEqual(self.hook("session-start", self.repo), "")
         self.assertEqual(self.hook("post-tool-use", self.repo), "")
 
@@ -2565,7 +2565,7 @@ class Hooks(unittest.TestCase):
         self.git(self.repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/gone")
         self.assertEqual(self.hook("session-start", self.repo), "")
         self.git(self.repo, "checkout", "-q", "-b", "feat/x")
-        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+        self.assertIn("claims no roadbook waypoint", self.hook("session-start", self.repo))
 
     def test_no_merge_base_is_silent_not_a_false_claim(self):
         self.git(self.repo, "checkout", "-q", "--orphan", "feat/orphan")
@@ -2582,12 +2582,243 @@ class Hooks(unittest.TestCase):
 
     def test_a_session_start_nudge_is_not_repeated_by_the_next_git_command(self):
         self.git(self.repo, "checkout", "-q", "-b", "feat/fresh")
-        self.assertIn("claims no roadmap task", self.hook("session-start", self.repo))
+        self.assertIn("claims no roadbook waypoint", self.hook("session-start", self.repo))
         self.assertEqual(self.hook("post-tool-use", self.repo), "")
 
     def test_bad_input_never_fails_the_hook(self):
         done = self.cli("hook", "post-tool-use", stdin="not json")
         self.assertEqual((done.returncode, done.stdout, done.stderr), (0, "", ""))
+
+    def _legacy_main(self):
+        """Rewind main to a roadmap plugin's file: .claude/roadmaps.json."""
+        self.git(self.repo, "mv", ".claude/roadbook.json", ".claude/roadmaps.json")
+        self.git(self.repo, "commit", "-qm", "a 2.x project")
+        self.git(self.repo, "push", "-q", "origin", "main")
+
+    def test_an_unmigrated_project_is_still_nudged(self):
+        self._legacy_main()
+        self.git(self.repo, "checkout", "-q", "-b", "feat/old")
+        self.assertIn("claims no roadbook waypoint", self.hook("session-start", self.repo))
+
+    def test_a_branch_that_migrated_still_compares_with_the_old_file_at_its_base(self):
+        self._legacy_main()
+        self.git(self.repo, "checkout", "-q", "-b", "feat/moved")
+        legacy = self.repo / ".claude" / "roadmaps.json"
+        claimed = self.cli("claim", "b", str(legacy))
+        self.assertEqual(claimed.returncode, 0, claimed.stdout)
+        self.assertFalse(legacy.exists())
+        self.assertEqual(self.hook("session-start", self.repo).strip(),
+                         "Roadbook: branch `feat/moved` claims b.")
+
+    def test_a_decline_under_the_old_key_still_silences_the_branch(self):
+        self.git(self.repo, "checkout", "-q", "-b", "chore/old")
+        self.git(self.repo, "config", "branch.chore/old.roadmapClaim", "none")
+        self.assertEqual(self.hook("session-start", self.repo), "")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+    def test_an_old_asked_marker_is_not_asked_again(self):
+        self.git(self.repo, "checkout", "-q", "-b", "feat/asked")
+        self.git(self.repo, "config", "branch.feat/asked.roadmapClaim", "asked")
+        self.assertEqual(self.hook("post-tool-use", self.repo), "")
+
+
+class LegacyMigration(unittest.TestCase):
+    """A roadmap plugin's .claude/roadmaps.json (and the local file beside
+    it) under goblin-scout 3.0.0: read as it is, moved to the roadbook names
+    on the first write with one line of notice, no value rewritten, the
+    chart's old default path pinned and the 3.0.0 stamp that makes a 2.x
+    plugin refuse the result."""
+
+    def setUp(self):
+        self.addCleanup(setattr, roadbook, "PLUGIN_VERSION", roadbook.PLUGIN_VERSION)
+        roadbook.PLUGIN_VERSION = "3.0.0"
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name).resolve()
+        self.claude = self.root / ".claude"
+        self.claude.mkdir()
+        self.legacy = self.claude / "roadmaps.json"
+        self.legacy_local = self.claude / "roadmaps.local.json"
+        self.new = self.claude / "roadbook.json"
+        self.new_local = self.claude / "roadbook.local.json"
+
+    def _phases(self):
+        """A live phase on the default chart path, a live phase with its own
+        chart path and an archived phase on the default, all saying roadmap
+        in values that must survive untouched."""
+        return [
+            phase([{"id": "M1", "name": "roadmap work", "tasks": [
+                task("a", "done", notes="see the roadmap"), task("b", "todo", ["a"])]}],
+                name="Phase 1", archived=True),
+            phase([{"id": "M2", "name": "m", "tasks": [
+                task("c", "done"), task("d", "todo", ["c"], description="roadmap: d")]}],
+                name="Phase 2"),
+        ]
+
+    def _write(self, path, data):
+        path.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
+
+    def _run(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = roadbook.main(list(argv))
+        return rc, out.getvalue(), err.getvalue()
+
+    def _without_migration_marks(self, data, pinned):
+        """`data` with the stamp and the pinned chart paths taken off again."""
+        for ph in data:
+            ph.pop("min_plugin", None)
+            if ph.get("name") in pinned:
+                ph.pop("artefact")
+        return data
+
+    def test_an_old_file_is_read_where_it_is(self):
+        self._write(self.legacy, self._phases())
+        before = self.legacy.read_text()
+        rc, out, err = self._run("validate", str(self.root))
+        self.assertEqual(rc, 0, out)
+        self.assertEqual((self.legacy.read_text(), err), (before, ""))
+        self.assertFalse(self.new.exists())
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        os.chdir(self.root)
+        self.assertEqual(roadbook.resolve_roadbook_path(), self.legacy)
+
+    def test_the_first_write_moves_the_file_with_one_line_of_notice(self):
+        self._write(self.legacy, self._phases())
+        rc, out, err = self._run("claim", "d", str(self.legacy), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        self.assertFalse(self.legacy.exists())
+        self.assertTrue(self.new.exists())
+        self.assertEqual(len(err.splitlines()), 1, err)
+        self.assertIn(".claude/roadmaps.json", err)
+        self.assertIn(".claude/roadbook.json", err)
+
+    def test_no_value_is_rewritten_and_only_the_default_chart_path_is_pinned(self):
+        original = self._phases()
+        original[1]["artefact"] = "docs/roadmaps/own-chart.html"
+        self._write(self.legacy, original)
+        self.assertEqual(self._run("claim", "d", str(self.legacy), "--date", "2026-11-18")[0], 0)
+        migrated = json.loads(self.new.read_text())
+        self.assertEqual(migrated[0]["artefact"], "docs/artefacts/roadmap-phase-1.html")
+        self.assertEqual(migrated[1]["artefact"], "docs/roadmaps/own-chart.html")
+        expected = self._phases()
+        expected[1]["artefact"] = "docs/roadmaps/own-chart.html"
+        expected[1]["milestones"][0]["tasks"][1]["started"] = "2026-11-18"
+        self.assertEqual(self._without_migration_marks(migrated, {"Phase 1"}), expected)
+
+    def test_a_pinned_chart_renders_where_the_old_default_put_it(self):
+        self._write(self.legacy, self._phases())
+        self._run("claim", "d", str(self.legacy), "--date", "2026-11-18")
+        rc, out, _err = self._run("render", str(self.new), "--phase", "Phase 1")
+        self.assertEqual(rc, 0, out)
+        self.assertTrue((self.root / "docs" / "artefacts" / "roadmap-phase-1.html").exists())
+
+    def test_an_unmoved_file_renders_where_the_old_default_put_it(self):
+        self._write(self.legacy, self._phases())
+        rc, out, _err = self._run("render", str(self.legacy))
+        self.assertEqual(rc, 0, out)
+        self.assertTrue((self.root / "docs" / "artefacts" / "roadmap-phase-2.html").exists())
+        self.assertFalse(self.new.exists())
+
+    def test_a_new_roadbook_gets_the_new_default_chart_path(self):
+        self._write(self.new, self._phases()[1:])
+        rc, out, _err = self._run("render", str(self.new))
+        self.assertEqual(rc, 0, out)
+        self.assertTrue((self.root / "docs" / "artefacts" / "chart-phase-2.html").exists())
+        self.assertNotIn("artefact", json.loads(self.new.read_text())[0])
+
+    def test_the_live_phase_is_stamped_3_0_0_and_a_2_x_plugin_refuses_it(self):
+        self._write(self.legacy, self._phases())
+        self._run("claim", "d", str(self.legacy), "--date", "2026-11-18")
+        migrated = json.loads(self.new.read_text())
+        self.assertEqual(migrated[1]["min_plugin"], "3.0.0")
+        self.assertNotIn("min_plugin", migrated[0])  # archived, as ever
+        before = self.new.read_text()
+        roadbook.PLUGIN_VERSION = "2.10.0"
+        rc, out, _err = self._run("release", "d", str(self.new))
+        self.assertEqual(rc, 2)
+        self.assertIn("3.0.0", out)
+        self.assertEqual(self.new.read_text(), before)
+
+    def test_the_local_file_moves_with_the_committed_one(self):
+        committed = self._phases()
+        mirrored = [phase([{"id": "M9", "name": "mirror", "tasks": [task("j1", local=True)]}],
+                          name="Jira", source={"kind": "jira", "project": "J"})]
+        self._write(self.legacy, committed)
+        self._write(self.legacy_local, mirrored)
+        rc, out, err = self._run("claim", "j1", str(self.root), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(len(err.splitlines()), 1, err)
+        self.assertFalse(self.legacy.exists() or self.legacy_local.exists())
+        local = json.loads(self.new_local.read_text())
+        self.assertEqual(local[0]["milestones"][0]["tasks"][0]["started"], "2026-11-18")
+        self.assertEqual(local[0]["artefact"], "docs/artefacts/roadmap-jira.html")
+        moved = json.loads(self.new.read_text())
+        self.assertEqual(self._without_migration_marks(moved, {"Phase 1", "Phase 2"}),
+                         self._phases())
+
+    def test_a_new_file_beside_an_old_one_wins_and_the_old_one_is_left_alone(self):
+        self._write(self.new, self._phases()[1:])
+        self._write(self.legacy, self._phases())
+        before = self.legacy.read_text()
+        rc, out, err = self._run("claim", "d", str(self.root), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(self.legacy.read_text(), before)
+        self.assertIn("roadmaps.json", err)
+        self.assertEqual(json.loads(self.new.read_text())[0]["milestones"][0]["tasks"][1]["started"],
+                         "2026-11-18")
+
+    @unittest.skipUnless(shutil.which("git"), "git not installed")
+    def test_a_moved_local_file_that_git_does_not_ignore_is_named(self):
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        (self.root / ".gitignore").write_text(".claude/roadmaps.local.json\n")
+        self._write(self.legacy_local, [phase(
+            [{"id": "M9", "name": "mirror", "tasks": [task("j1", local=True)]}],
+            name="Jira", source={"kind": "jira", "project": "J"})])
+        rc, out, err = self._run("claim", "j1", str(self.legacy_local), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        self.assertIn(".claude/roadbook.local.json is not ignored by git", err)
+
+
+@unittest.skipUnless(shutil.which("git"), "git not installed")
+class LegacyHistory(GitRoadbook):
+    """History read across the move: a base or an older commit that still
+    holds .claude/roadmaps.json is read under that name."""
+
+    def setUp(self):
+        super().setUp()
+        self.legacy = self.root / ".claude" / "roadmaps.json"
+
+    def _commit_legacy(self, tasks, when):
+        self._write(tasks)
+        self.jp.rename(self.legacy)
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "roadmap", when=when)
+
+    def _move(self, tasks, when):
+        self._git("mv", ".claude/roadmaps.json", ".claude/roadbook.json")
+        self._commit(tasks, when, "move to the roadbook")
+
+    def test_stamp_ended_reads_the_old_file_at_the_merge_base(self):
+        self._commit_legacy([task("a"), task("b", "done")], "2026-09-01")
+        self._git("branch", "base")
+        self._git("checkout", "-q", "-b", "feat/x")
+        self._move([task("a", "done"), task("b", "done")], "2026-09-05")
+        rc, out = self._run("stamp-ended", str(self.jp), "--base", "base",
+                            "--date", "2026-10-02")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("ended 1 task(s) on 2026-10-02: a", out)
+
+    def test_backfill_ended_dates_from_commits_before_the_move(self):
+        self._commit_legacy([task("a"), task("b")], "2026-09-01")
+        self._commit_legacy([task("a", "done"), task("b")], "2026-09-10")
+        self._move([task("a", "done"), task("b", "done")], "2026-09-20")
+        rc, out = self._run("backfill-ended", str(self.jp), "--json")
+        self.assertEqual(rc, 0, out)
+        rows = {r["id"]: r for r in json.loads(out)["tasks"]}
+        self.assertEqual(rows["a"]["ended"], "2026-09-10")
+        self.assertEqual(rows["b"]["ended"], "2026-09-20")
 
 
 class VersionStamp(unittest.TestCase):

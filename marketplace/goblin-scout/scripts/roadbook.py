@@ -78,6 +78,9 @@ from _roadbook_core import (
     display_status,
     find_cycles,
     is_claimed,
+    LEGACY_NAMES,
+    LEGACY_ROADBOOK_NAME,
+    LOCAL_NAMES,
     LOCAL_ROADBOOK_NAME,
     is_held,
     is_mirrored,
@@ -632,10 +635,8 @@ def _refuse_if_stamped_newer(data):
                 "writing, so nothing a newer version produced is undone.")
 
 
-def _write_roadbook(path, data):
-    """Write roadbook.json after the version check, stamping each live phase
-    with the running plugin's major.minor. The one writer for the roadmap file."""
-    _refuse_if_stamped_newer(data)
+def _stamp_live_phases(data):
+    """Stamp each live phase with the running plugin's major.minor."""
     stamp = stamp_for(PLUGIN_VERSION)
     if stamp:
         for phase in _phases(data):
@@ -645,7 +646,106 @@ def _write_roadbook(path, data):
             # A missing or unparsable stamp is repaired; only a lower one is raised.
             if stamp_for(held) is None or newer_than_running(stamp, held):
                 _set_phase_field(phase, STAMP_KEY, stamp)
+
+
+def _write_roadbook(path, data):
+    """Write roadbook.json after the version check, stamping each live phase
+    with the running plugin's major.minor. The one writer for the roadbook
+    file. Returns the path written, which is not `path` when `path` was a
+    pre-3.0.0 file: that first write moves it (_migrate_legacy)."""
+    _refuse_if_stamped_newer(data)
+    path = Path(path)
+    if path.name in LEGACY_NAMES:
+        return _migrate_legacy(path, data)
+    _stamp_live_phases(data)
     _atomic_write(path, _canonical_text(data))
+    _note_legacy_beside(path)
+    return path
+
+
+def _shown(path):
+    """`.claude/NAME` for a file in a .claude directory, else the full path."""
+    return f".claude/{path.name}" if path.parent.name == ".claude" else str(path)
+
+
+def _note_legacy_beside(path):
+    """One stderr line when a pre-3.0.0 file still sits beside the roadbook
+    just written: the roadbook wins and the old file is never touched."""
+    for old, new in LEGACY_NAMES.items():
+        stale = path.parent / old
+        if path.name == new and stale.exists():
+            print(f"note: {_shown(stale)} is still here beside {_shown(path)}; "
+                  f"goblin-scout reads {path.name} and leaves {old} alone, so "
+                  "delete it once nothing needs it", file=sys.stderr)
+
+
+def _pin_legacy_chart(data):
+    """Give every phase with no `artefact` the path a 2.x plugin rendered its
+    chart to, so a migrated project's chart stays where it was; a new
+    roadbook takes the new default (_default_render_path)."""
+    for phase in _phases(data):
+        if isinstance(phase, dict) and ARTEFACT_KEY not in phase:
+            _set_phase_field(phase, ARTEFACT_KEY, _legacy_render_rel(phase))
+
+
+def _migrate_legacy(path, data):
+    """Move a roadmap plugin's .claude/roadmaps.json, and the local file
+    beside it, to the roadbook names on the first write by 3.0.0. No value
+    is rewritten: each phase is stamped (so a 2.x plugin refuses the file),
+    a phase rendering to the old default chart path has that path pinned in
+    `artefact`, and the file being written carries its own change. One line
+    of notice on stderr, plus one when git would now track a local file it
+    ignored under the old name. Returns the new path of `path`."""
+    folder = path.parent
+    plan = []
+    for old, new in LEGACY_NAMES.items():
+        source, target = folder / old, folder / new
+        if source != path and not source.exists():
+            continue
+        if target.exists():
+            if source == path:
+                raise RoadbookError(
+                    f"{_shown(target)} already exists beside {_shown(source)}; "
+                    f"write to {target.name}, the one goblin-scout reads")
+            continue  # a stale old file beside the live one: left alone
+        if source == path:
+            content = data
+        else:
+            try:
+                content = json.loads(source.read_text())
+                _phases(content)
+            except (ValueError, RoadbookError):
+                content = None  # not a phase array: moved byte for byte
+        if content is not None:
+            _refuse_if_stamped_newer(content)
+            _pin_legacy_chart(content)
+            _stamp_live_phases(content)
+        plan.append((source, target, content))
+    for source, target, content in plan:
+        if content is None:
+            os.replace(source, target)
+        else:
+            _atomic_write(target, _canonical_text(content))
+    for source, target, content in plan:
+        if content is not None:
+            source.unlink()
+    moves = " and ".join(f"{_shown(s)} to {_shown(t)}" for s, t, _c in plan)
+    print(f"goblin-scout {PLUGIN_VERSION} moved {moves}; no value was "
+          "rewritten, the chart and projections keep their paths and a 2.x "
+          "roadmap plugin now refuses the file. Commit the move.",
+          file=sys.stderr)
+    for source, target, _content in plan:
+        if target.name not in LOCAL_NAMES:
+            continue
+        git, rel = _git_at_toplevel(target)
+        if git is None:
+            continue
+        old_rel = str(Path(rel).with_name(source.name))
+        if (git("check-ignore", "-q", old_rel) is not None
+                and git("check-ignore", "-q", rel) is None):
+            print(f"note: {rel} is not ignored by git, though {old_rel} "
+                  "was; add it to .gitignore", file=sys.stderr)
+    return folder / LEGACY_NAMES[path.name]
 
 
 _ARTEFACT_VERSION_RE = re.compile(r'"pluginVersion": "([^"]*)"')
@@ -711,7 +811,7 @@ def cmd_recompute(args) -> int:
             return 1
         for tid, _old, new in changes:
             tasks[tid]["status"] = new
-        _write_roadbook(path, data)
+        path = _write_roadbook(path, data)
 
     if changes:
         verb = "would change" if args.check else "changed"
@@ -1667,13 +1767,19 @@ def _template_path():
     return Path(__file__).resolve().parent.parent / "templates" / "chart.html"
 
 
-def _slug(name):
-    return re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or "roadmap"
+def _slug(name, fallback="roadbook"):
+    return re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or fallback
 
 
 def _default_render_path(json_path, phase):
     return (project_root(json_path) / "docs" / "artefacts"
-            / f"roadmap-{_slug(phase.get('name'))}.html")
+            / f"chart-{_slug(phase.get('name'))}.html")
+
+
+def _legacy_render_rel(phase):
+    """Where a 2.x roadmap plugin rendered a phase with no `artefact`,
+    relative to the project root: what a migrated phase is pinned to."""
+    return f"docs/artefacts/roadmap-{_slug(phase.get('name'), 'roadmap')}.html"
 
 
 ARTEFACT_KEY = "artefact"
@@ -1703,8 +1809,10 @@ def _artefact_problems(phase):
 
 def _render_path(json_path, phase, override=None):
     """Where a phase's dashboard goes: `--out` > the phase's `artefact` key
-    (relative to the project root) > docs/artefacts/roadmap-{slug}.html.
-    The one resolver, so render and recompute --render cannot disagree."""
+    (relative to the project root) > docs/artefacts/chart-{slug}.html, or
+    the 2.x default for a file not yet moved from roadmaps.json, which is
+    where the migration will pin it. The one resolver, so render and
+    recompute --render cannot disagree."""
     if override:
         return Path(override)
     problems = _artefact_problems(phase)
@@ -1713,6 +1821,8 @@ def _render_path(json_path, phase, override=None):
     custom = phase.get(ARTEFACT_KEY)
     if custom:
         return project_root(json_path) / custom
+    if Path(json_path).name in LEGACY_NAMES:
+        return project_root(json_path) / _legacy_render_rel(phase)
     return _default_render_path(json_path, phase)
 
 
@@ -1896,7 +2006,7 @@ def cmd_config(args) -> int:
                 print(f"  - {p}")
             return 1
         _set_phase_field(phase, ARTEFACT_KEY, args.value)
-    _write_roadbook(path, data)
+    path = _write_roadbook(path, data)
     after = _render_path(path, phase)
     verb = "cleared artefact on" if args.clear else "set artefact on"
     print(f"{verb} '{name}'; the dashboard path is now {after}")
@@ -2152,7 +2262,7 @@ def cmd_stamp_ended(args) -> int:
     if not base:
         print(f"✗ no merge-base between HEAD and {args.base}")
         return 1
-    before = _phase_statuses(git("show", f"{base}:{rel}") or "", phase.get("name"))
+    before = _phase_statuses(_show_at(git, base, rel) or "", phase.get("name"))
     if before is None:
         print(f"✗ cannot read phase {phase.get('name')!r} at the merge-base "
               f"({base[:8]}): the file is missing or unparseable there, or the "
@@ -2245,6 +2355,23 @@ def _git_at_toplevel(path):
     return git, path.resolve().relative_to(top_dir[0].resolve()).as_posix()
 
 
+def _rels_through_the_move(rel):
+    """`rel` and, for a roadbook file, the pre-3.0.0 name it had before the
+    move: history from before goblin-scout is still this file's history."""
+    old = {new: old for old, new in LEGACY_NAMES.items()}.get(Path(rel).name)
+    return [rel, str(Path(rel).with_name(old))] if old else [rel]
+
+
+def _show_at(git, ref, rel):
+    """The file's text at `ref`, under its roadbook name or, before the move,
+    its old one; None when neither is there."""
+    for name in _rels_through_the_move(rel):
+        text = git("show", f"{ref}:{name}")
+        if text is not None:
+            return text
+    return None
+
+
 def _roadbook_versions(path, phase_name):
     """Oldest-first (sha, date, {id: status}) history of one phase from git,
     ending with the working-tree file as ("", "", ...). None when the file
@@ -2254,10 +2381,11 @@ def _roadbook_versions(path, phase_name):
         return None
 
     versions = []
-    log = git("log", "--first-parent", "--reverse", "--format=%H %cs", "--", rel)
+    log = git("log", "--first-parent", "--reverse", "--format=%H %cs", "--",
+              *_rels_through_the_move(rel))
     for line in (log or "").splitlines():
         sha, when = line.split()
-        found = _phase_statuses(git("show", f"{sha}:{rel}") or "", phase_name)
+        found = _phase_statuses(_show_at(git, sha, rel) or "", phase_name)
         if found is not None:
             versions.append((sha, when, found))
     current = _phase_statuses(path.read_text(), phase_name)
@@ -2361,7 +2489,7 @@ def _pull_target(args):
     phase = {"name": name,
              SOURCE_KEY: {"kind": "jira", "project": args.project},
              "externalGates": [], "milestones": []}
-    if path is not None and path.name == LOCAL_ROADBOOK_NAME:
+    if path is not None and path.name in LOCAL_NAMES:
         data = phases + [phase]
         return path, data, phase
     if path is not None:
@@ -2424,7 +2552,7 @@ def cmd_pull(args) -> int:
     phase.update(trial)
     if not args.dry_run:
         path.parent.mkdir(parents=True, exist_ok=True)
-        _write_roadbook(path, data)
+        path = _write_roadbook(path, data)
     for line in jira.describe(report, phase.get("name"), args.dry_run):
         print(line)
     if shrink:
