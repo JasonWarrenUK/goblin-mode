@@ -56,9 +56,18 @@ code{font-family:var(--font-mono); font-size:.88em}
 
 /* body: situations + roster */
 .file{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,20rem); gap:2rem; align-items:start}
-.situations{display:grid; gap:2.25rem}
-.situation{padding:1.5rem clamp(1rem,3vw,2rem) 1.5rem; display:grid; gap:1rem; scroll-margin-top:1rem}
-.situation header{display:grid; gap:.2rem}
+.situations{display:grid; gap:1rem}
+.situation{padding:0 clamp(1rem,3vw,2rem); scroll-margin-top:1rem}
+.situation[open]{padding-bottom:1.5rem}
+.situation[open] > :not(summary){margin-top:1rem}
+/* the closed slip: number, title and when it applies; a marker arrow shows it opens */
+.situation summary{display:grid; grid-template-columns:auto minmax(0,1fr) auto; column-gap:.75rem; align-items:baseline; cursor:pointer; padding:1rem 0; list-style:none}
+.situation summary::-webkit-details-marker{display:none}
+.situation summary::after{content:"\25B8"; grid-column:3; grid-row:1; font-size:1.2rem; color:var(--accent); transition:transform 120ms ease}
+.situation[open] summary::after{transform:rotate(90deg)}
+.situation summary h2{grid-column:2}
+.situation summary .hint{grid-column:2}
+.situation summary .cnum{grid-row:1 / span 2}
 .cnum{font-family:var(--font-marker); color:var(--accent); font-size:1.15rem}
 .situation h2{font-size:clamp(1.5rem,3vw,2rem)}
 .hint{margin:0; color:var(--ink-muted); font-size:.95rem}
@@ -148,9 +157,8 @@ code{font-family:var(--font-mono); font-size:.88em}
 
 	<div class="file">
 		<div class="situations">
-			<article class="sheet situation" id="iii-1">
-				<span class="pin" aria-hidden="true">3</span>
-				<header><span class="cnum">III.1</span><h2>On the Establishment of a Plan Where None Exists</h2><p class="hint">When a project has ideas but no written plan</p></header>
+			<details class="sheet situation" id="iii-1" open>
+				<summary><span class="pin" aria-hidden="true">3</span><span class="cnum">III.1</span><h2>On the Establishment of a Plan Where None Exists</h2><p class="hint">When a project has ideas but no written plan</p></summary>
 				<p class="slip scene">There is a repository and a rough sense of what it should become. Nothing is written down.</p>
 				<div class="versus">
 					<div class="side before"><h3>How Human Suffer Before</h3><ol>
@@ -166,10 +174,10 @@ code{font-family:var(--font-mono); font-size:.88em}
 					</ol></div>
 				</div>
 				<div class="ruling"><span class="label">Goblin Ruling (Is Final)</span><p>Human with eight waypoint say no need graph. Human wrong. Get more waypoint.</p></div>
-			</article>
+			</details>
 
-			<article class="sheet situation" id="iii-2">
-				<header><span class="cnum">III.2</span><h2>On the Proper Selection and Claiming of a Task</h2><p class="hint">When choosing the next waypoint on a shared project</p></header>
+			<details class="sheet situation" id="iii-2">
+				<summary><span class="cnum">III.2</span><h2>On the Proper Selection and Claiming of a Task</h2><p class="hint">When choosing the next waypoint on a shared project</p></summary>
 				<p class="slip scene">Thirty waypoints, two scouts. One of them started something on Friday.</p>
 				<div class="versus">
 					<div class="side before"><h3>How Human Suffer Before</h3><ol>
@@ -186,10 +194,10 @@ code{font-family:var(--font-mono); font-size:.88em}
 					</ol></div>
 				</div>
 				<div class="ruling"><span class="label">Goblin Ruling (Is Final)</span><p>Human who work alone say nobody need see trail. Goblin need see trail. Can switch question off per branch. Goblin not recommend.</p></div>
-			</article>
+			</details>
 
-			<article class="sheet situation" id="iii-3">
-				<header><span class="cnum">III.3</span><h2>On the Reconciliation of the Plan With Completed Work</h2><p class="hint">After a pull request merges</p></header>
+			<details class="sheet situation" id="iii-3">
+				<summary><span class="cnum">III.3</span><h2>On the Reconciliation of the Plan With Completed Work</h2><p class="hint">After a pull request merges</p></summary>
 				<p class="slip scene">The search waypoint merged an hour ago. Two others were waiting on it.</p>
 				<div class="versus">
 					<div class="side before"><h3>How Human Suffer Before</h3><ol>
@@ -205,10 +213,10 @@ code{font-family:var(--font-mono); font-size:.88em}
 					</ol></div>
 				</div>
 				<div class="ruling"><span class="label">Goblin Ruling (Is Final)</span><p>Human who like ticking box will lose tick at next recompute. Good. Box belong to graph now.</p></div>
-			</article>
+			</details>
 
-			<article class="sheet situation" id="iii-4">
-				<header><span class="cnum">III.4</span><h2>On the Exhibition of the Plan to Interested Parties</h2><p class="hint">When someone outside the terminal asks for progress</p></header>
+			<details class="sheet situation" id="iii-4">
+				<summary><span class="cnum">III.4</span><h2>On the Exhibition of the Plan to Interested Parties</h2><p class="hint">When someone outside the terminal asks for progress</p></summary>
 				<p class="slip scene">Somebody who does not live in the terminal wants to see progress.</p>
 				<div class="versus">
 					<div class="side before"><h3>How Human Suffer Before</h3><ol>
@@ -223,10 +231,10 @@ code{font-family:var(--font-mono); font-size:.88em}
 					</ol></div>
 				</div>
 				<div class="ruling"><span class="label">Goblin Ruling (Is Final)</span><p>Human with nobody to show still need chart. Human can look at it alone. Is nice chart.</p></div>
-			</article>
+			</details>
 
-			<article class="sheet situation" id="iii-5">
-				<header><span class="cnum">III.5</span><h2>On the Periodic Review of the Plan's Fitness</h2><p class="hint">When a roadbook has gone stale or a milestone has dragged</p></header>
+			<details class="sheet situation" id="iii-5">
+				<summary><span class="cnum">III.5</span><h2>On the Periodic Review of the Plan's Fitness</h2><p class="hint">When a roadbook has gone stale or a milestone has dragged</p></summary>
 				<p class="slip scene">The roadbook is three months old. Some waypoints seem blocked for no good reason.</p>
 				<div class="versus">
 					<div class="side before"><h3>How Human Suffer Before</h3><ol>
@@ -240,7 +248,7 @@ code{font-family:var(--font-mono); font-size:.88em}
 					</ol></div>
 				</div>
 				<div class="ruling"><span class="label">Goblin Ruling (Is Final)</span><p>Review ask human many question. Human must think. Thinking good for human.</p></div>
-			</article>
+			</details>
 		</div>
 
 		<aside class="slip roster" aria-labelledby="roster-title">
@@ -325,11 +333,23 @@ claude plugin install goblin-scout@goblin-mode</code><button type="button" class
 		<h2 id="legend-title">Callouts</h2>
 		<ol>
 			<li><b>M1, F3.</b> The header: numeral, name, the plain description from the front page, generated facts (version, skill count, lines of code) and the status stamp. The mod's own install line sits beside it with Copy. The front page's slip answers how to install any mod; this one answers it for this mod, on the page you are reading.</li>
-			<li><b>M1.</b> Numbered tabs, one per situation plus How to Use It, jump down the page. Folder-tab shapes in cardboard; the how-to tab in slip paper.</li>
-			<li><b>M1, R6.</b> Every situation laid out open, in order: scene on a printed slip, the goblin's "Before" in marker beside the plain "With goblin-scout" slip (stacked at 390), and the Ruling. <span class="q">Copy rule proposed: scenes and "Before" keep everyday words (task, plan) because they describe life before the scout; "With" and the Ruling use the scout's own words (waypoint, scout, trail, roadbook, chart), per decision 7.</span></li>
+			<li><b>M1.</b> Numbered tabs, one per situation plus How to Use It. A tab jumps to its situation and opens it; so does a link from the roster or from another page (<code>#iii-2</code>). Folder-tab shapes in cardboard; the how-to tab in slip paper.</li>
+			<li><b>M1, R6.</b> III.1 is drawn open here only to show the open state; on the site every situation starts folded, showing its number, title and when it applies (Jason, 2026-11-18). Opened: scene on a printed slip, the goblin's "Before" in marker beside the plain "With goblin-scout" slip (stacked at 390), and the Ruling. <span class="q">Copy rule proposed: scenes and "Before" keep everyday words (task, plan) because they describe life before the scout; "With" and the Ruling use the scout's own words (waypoint, scout, trail, roadbook, chart), per decision 7.</span></li>
 			<li><b>M1.</b> The roster, pinned beside the situations at 1280 and moved below them at 390. Each row links to its situation; an unticked row has no situation (Jira mirroring here).</li>
 			<li><b>M4 (new).</b> How to Use It: four collapsed slips, after the situations. "Options it takes" lives inside Configure it, so one element answers how to configure the mod; its option table is generated from <code>plugin.json</code>. Commands and skills is generated from each skill's own file, so it renames itself when the skills do. <span class="q">Install, configure and remove copy is drafted from the README and checked against the rename branch's README before the PR.</span></li>
 			<li><b>M1.</b> Previous and next mod in notice order, and back to the desk. No sources slip on mod pages (Jason's ruling).</li>
 		</ol>
 	</section>
 </main>
+
+<script>
+// A link to a situation (a tab, a roster row, #iii-2 from another page) opens it.
+(() => {
+	const openTarget = () => {
+		const target = location.hash && document.getElementById(location.hash.slice(1));
+		if (target instanceof HTMLDetailsElement) { target.open = true; target.scrollIntoView({ block: 'start' }); }
+	};
+	addEventListener('hashchange', openTarget);
+	openTarget();
+})();
+</script>

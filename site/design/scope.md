@@ -59,7 +59,7 @@ Every line below is a decision Jason made in the SITE interview on 2026-11-18, u
 
 | Id | Requirement |
 |---|---|
-| M1 | One page per mod carrying the detail: a header with its install line, numbered tabs, every situation laid out open in order, its roster pinned beside them (at the end at 390) and previous/next links. No sources slip on mod pages (Jason, 2026-11-18). |
+| M1 | One page per mod carrying the detail: a header with its install line, numbered tabs, every situation in order and folded to its number, title and when-it-applies line (a tab or roster link opens the one it names), its roster pinned beside them (at the end at 390) and previous/next links. No sources slip on mod pages (Jason, 2026-11-18). |
 | M4 | After the situations, "How to Use It" as collapsed slips: install and first run, configure it (the plugin's options, generated from `plugin.json`), commands and skills (generated from each skill's file), turn it off or remove it. |
 | M5 | Copy rule (proposed in the mod-page wireframe): scenes and "Before" keep everyday words; "With" and the Ruling use each mod's own vocabulary (decisions 7, 10, 19). |
 | M2 | goblin-seneschal keeps clauses I.5 and I.7: `audit-prose` and `consult-dossiers` move into the plugin (decision 14). |
