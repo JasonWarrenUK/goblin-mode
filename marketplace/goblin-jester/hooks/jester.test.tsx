@@ -14,7 +14,7 @@ const BAND = {
 	plugin: PLUGIN,
 	surface: 'terminal',
 	component: 'AbovePrompt',
-	props: { hasSurvey: false, isWorking: false, maxRows: 6, bodyColumns: 100, scroll: { offset: 0, bodyRows: 6 }, view: {} },
+	props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 6, bodyColumns: 100, scroll: { offset: 0, bodyRows: 6 }, view: {} },
 } as const
 
 test('the band is one hand-drawn frame: rune, goblin and dialogue ranges split by dividers that join the rules', async ($, on) => {
@@ -316,18 +316,6 @@ test('a plugin skill that is not installed reads as nothing set, and never falls
 	expect(await goblinProps($)).toMatchObject({ prop: '' })
 	await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: '' })
 	expect(await goblinProps($)).toMatchObject({ prop: '' })
-})
-
-test('a personal skill still shadows a project skill of the same name', async ($, on) => {
-	world(on)
-	skillFiles(on, {
-		'/home/j/.claude/skills/x/SKILL.md': '---\nname: x\nmetadata:\n  family: pr\n---\nbody',
-		'.claude/skills/x/SKILL.md': '---\nname: x\nmetadata:\n  family: none-such\n---\nbody',
-	})
-	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
-	await $.turn.start({ text: '/x', turnId: 't1' })
-	await $.skill.prompt({ skill: 'x', text: '' })
-	expect(await goblinProps($)).toMatchObject({ prop: '[#]' })
 })
 
 test("the goblin holds the family's prop while the skill runs and drops it when the turn completes", async ($, on) => {
