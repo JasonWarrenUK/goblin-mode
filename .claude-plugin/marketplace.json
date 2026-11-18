@@ -45,9 +45,9 @@
 			]
 		},
 		{
-			"name": "mission-control",
-			"source": "./marketplace/mission-control",
-			"description": "Coordinate several Claude Code sessions on one repository: a ledger of shared-resource slots enforced by hooks, a /mc board pane, tools that report, request, grant and broadcast, a kick-off that writes each session's brief, and the protocol that came out of running it.",
+			"name": "goblin-warband",
+			"source": "./marketplace/goblin-warband",
+			"description": "Coordinate several Claude Code sessions on one repository: a ledger of dibs on shared resources enforced by hooks, a /show-slate pane, tools that report, call dibs, grant and broadcast, a declaration that writes each raider's orders, and the protocol that came out of running it.",
 			"category": "productivity",
 			"tags": [
 				"mod",
@@ -55,7 +55,7 @@
 				"sessions",
 				"coordination",
 				"worktrees",
-				"slots"
+				"dibs"
 			]
 		},
 		{
@@ -74,6 +74,7 @@
 	"renames": {
 		"goblin-chrome": "goblin-jester",
 		"goblin-util": "goblin-seneschal",
+		"mission-control": "goblin-warband",
 		"roadmap": "goblin-scout"
 	}
 }

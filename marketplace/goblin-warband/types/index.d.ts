@@ -1,5 +1,5 @@
-// The state contract for the mission-control mod: the board draws from a
-// snapshot the CLI produced (`mc.py status --json`), the row the person picked
+// The state contract for the goblin-warband mod: the board draws from a
+// snapshot the CLI produced (`warband.py status --json`), the row the person picked
 // and the input the pane is waiting on.
 
 export type Coordinator = {
@@ -97,9 +97,9 @@ export type SessionRow = {
 	live_status: string
 	socket: string | null
 	updated_at: number
-	/** When `mc.py retire` reclaimed the worktree; the row then reads under `retired` rather than `gone`. */
+	/** When `warband.py retire` reclaimed the worktree; the row then reads under `retired` rather than `gone`. */
 	retired_at: number | null
-	/** A `mc.py watch` is running (or holding a change until the team's hours) on this row's PR. */
+	/** A `warband.py watch` is running (or holding a change until the team's hours) on this row's PR. */
 	watching: boolean
 	/** The session's context window fill, 0 to 100, written by its own mod on a timer; null until it has. */
 	context_percent: number | null
@@ -190,7 +190,7 @@ export type Asking = {
 
 declare module 'claude-code' {
 	interface PluginState {
-		'mission-control': {
+		'goblin-warband': {
 			snapshot: Snapshot | null
 			self: Self
 			selected: string | null

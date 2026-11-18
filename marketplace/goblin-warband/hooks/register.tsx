@@ -1,13 +1,13 @@
-// mission-control: the board, the hands and the trust line for a run of
+// goblin-warband: the slate, the hands and the trust line for a raid of
 // several sessions on one repository. Everything it knows comes from the
-// ledger the plugin's own scripts/mc.py keeps (one JSON file per fact under
-// ~/.claude/mission-control/<repo slug>/) and from Claude Code's live session
+// ledger the plugin's own scripts/warband.py keeps (one JSON file per fact under
+// ~/.claude/goblin-warband/<repo slug>/) and from Claude Code's live session
 // registry, so the pane in any session shows the same run.
 //
 //   /mc            opens the board, or closes it; `/mc grant|release|done|start|end`
 //                  are the person's hands, honoured in any session (--by-user)
-//   tools          mc_report, mc_slot, mc_need, mc_send in every session;
-//                  mc_grant, mc_revoke, mc_assume, mc_board answer only the
+//   tools          warband_report, warband_dibs, warband_tribute, warband_send in every session;
+//                  warband_grant, warband_revoke, warband_decree, warband_slate answer only the
 //                  coordinator (the CLI refuses anyone else)
 //   prompt.compose a session-scoped section naming the run, the coordinator's
 //                  session and socket, the shared assumptions and the human gates
@@ -25,17 +25,17 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Asking, Need, Probe, PrSummary, Run, Self, SessionRow, Slot, SlotRequest, Snapshot } from '../types'
 
-const PLUGIN = 'mission-control'
-const PANE = 'mc'
+const PLUGIN = 'goblin-warband'
+const PANE = 'slate'
 const REQUEST_KEYS = 'qwertyuiop'
 const NEED_DIGITS = 9
 
-const snapshot = atom({ plugin: 'mission-control', key: 'snapshot' } as const, null as Snapshot | null)
-const self = atom({ plugin: 'mission-control', key: 'self' } as const, { sessionId: '', isCoordinator: false, isCrew: false } as Self)
-const selected = atom({ plugin: 'mission-control', key: 'selected' } as const, null as string | null)
-const asking = atom({ plugin: 'mission-control', key: 'asking' } as const, null as Asking | null)
+const snapshot = atom({ plugin: 'goblin-warband', key: 'snapshot' } as const, null as Snapshot | null)
+const self = atom({ plugin: 'goblin-warband', key: 'self' } as const, { sessionId: '', isCoordinator: false, isCrew: false } as Self)
+const selected = atom({ plugin: 'goblin-warband', key: 'selected' } as const, null as string | null)
+const asking = atom({ plugin: 'goblin-warband', key: 'asking' } as const, null as Asking | null)
 /** Whether the retired and gone groups show their rows; collapsed to their headings by default, since nothing in them needs anyone. */
-const quietShown = atom({ plugin: 'mission-control', key: 'quietShown' } as const, false)
+const quietShown = atom({ plugin: 'goblin-warband', key: 'quietShown' } as const, false)
 
 // Module-level because the validator holds `$` to top-level functions; set by
 // `register` from the options and the plugin root. Nothing drawn reads them.
@@ -420,7 +420,7 @@ const send = async ($: EngineInterface, sessionId: string, text: string): Promis
 const tellDisplaced = async ($: EngineInterface, snap: Snapshot, resource: string, granteeId: string): Promise<void> => {
 	const held = snap.slots.find(s => s.resource === resource)
 	if (!held || !held.holder || held.holder === granteeId) return
-	await send($, held.holder, `Slot taken: the user gave ${resource} to another session. Stop anything that touches it and report with mc_report.`)
+	await send($, held.holder, `Slot taken: the user gave ${resource} to another session. Stop anything that touches it and report with warband_report.`)
 }
 
 /** How the SendMessage tool names a session: its registry name, else its task, else its id. */
@@ -460,12 +460,12 @@ const probeSummary = (probes: readonly Probe[], resource: string): string => {
 
 const TOOLS = [
 	{
-		name: 'mc_report',
+		name: 'warband_report',
 		description: 'Update this session’s row on the mission-control board: its state, a one-line summary, its PR number. Call it when your state changes (brief read, slot work done, PR open, blocked, waiting on the user).',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				state: { type: 'string', enum: ['briefing', 'working', 'in-slot', 'pr-ready', 'blocked', 'waiting', 'waiting-jason', 'done'], description: 'waiting-jason only while a need of yours is on the list (raise it with mc_need first); any other wait is waiting, with on' },
+				state: { type: 'string', enum: ['briefing', 'working', 'in-slot', 'pr-ready', 'blocked', 'waiting', 'waiting-jason', 'done'], description: 'waiting-jason only while a need of yours is on the list (raise it with warband_tribute first); any other wait is waiting, with on' },
 				on: { type: 'string', description: 'with state waiting: what you wait on, as reviewer:<login>, session:<task>, pr:<n>, ci or hold' },
 				summary: { type: 'string', description: 'one line, what you are doing or waiting on' },
 				pr: { type: 'integer', description: 'the PR number once it exists' },
@@ -474,7 +474,7 @@ const TOOLS = [
 		},
 	},
 	{
-		name: 'mc_slot',
+		name: 'warband_dibs',
 		description: 'Request or release a shared-resource slot (local database, API port, hosted window). A request records itself on the board; the reply ends with the exact line to send the coordinator with SendMessage (what you will run, for how long). Wait for the grant message before running anything gated. A release records the results and hands you the line that tells the coordinator.',
 		inputSchema: {
 			type: 'object',
@@ -489,7 +489,7 @@ const TOOLS = [
 		},
 	},
 	{
-		name: 'mc_need',
+		name: 'warband_tribute',
 		description: 'Put something only the user can do on the needs-Jason list, with the exact command they would type and the directory it must run from. Use it for hosted reads, credentials, hosted writes, approvals and anything irreversible; never run those yourself. From a crew session the reply hands you the line that tells the coordinator.',
 		inputSchema: {
 			type: 'object',
@@ -506,8 +506,8 @@ const TOOLS = [
 		},
 	},
 	{
-		name: 'mc_decide',
-		description: 'Coordinator only: record what the user decided (a finding’s routing, option A over B, a scope withdrawn) in the run’s decisions record, with the sessions told. The reply hands you the line to send each of them; a crew session acknowledges with `mc.py decide ack <n>`. The end skill, a compacted coordinator and reconcile read this record.',
+		name: 'warband_ruling',
+		description: 'Coordinator only: record what the user decided (a finding’s routing, option A over B, a scope withdrawn) in the run’s decisions record, with the sessions told. The reply hands you the line to send each of them; a crew session acknowledges with `warband.py decide ack <n>`. The end skill, a compacted coordinator and reconcile read this record.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -519,7 +519,7 @@ const TOOLS = [
 		},
 	},
 	{
-		name: 'mc_send',
+		name: 'warband_send',
 		description: 'Address a session in the run by task id, branch, session name, "coordinator" or "all": the reply is the exact SendMessage call to make, with the recipient named as ListAgents lists it now. Resolves the name from the ledger, so a session whose name or ref changed is still found.',
 		inputSchema: {
 			type: 'object',
@@ -531,7 +531,7 @@ const TOOLS = [
 		},
 	},
 	{
-		name: 'mc_grant',
+		name: 'warband_grant',
 		description: 'Coordinator only: grant a resource slot to a crew session. Probes the machine first and refuses while the resource is busy unless force is set, records the grant, then hands you the grant line for the grantee and a notice line for every other crew session, to send with SendMessage. The grantee may then run the gated command from its own worktree without a prompt (resources marked approve_in_slot).',
 		inputSchema: {
 			type: 'object',
@@ -546,12 +546,12 @@ const TOOLS = [
 		},
 	},
 	{
-		name: 'mc_revoke',
+		name: 'warband_revoke',
 		description: 'Coordinator only: release a slot another session holds (overdue, or the plan changed); the reply hands you the line that tells the holder.',
 		inputSchema: { type: 'object', properties: { resource: { type: 'string' }, note: { type: 'string' } }, required: ['resource'] },
 	},
 	{
-		name: 'mc_assume',
+		name: 'warband_decree',
 		description: 'Coordinator only: set or change a numbered shared assumption. Every crew session’s system prompt carries the current list; the reply hands you the broadcast line ("Shared assumption N: ..." or "Change to shared assumption N: ...") to send each live crew session with SendMessage.',
 		inputSchema: {
 			type: 'object',
@@ -560,7 +560,7 @@ const TOOLS = [
 		},
 	},
 	{
-		name: 'mc_pr_note',
+		name: 'warband_label_spoils',
 		description: 'Coordinator only: attach one sentence to a PR’s line on the PR page, for what the page cannot derive (findings brought and ruled, a fresh look owed). It stops showing by itself once the PR’s head, review decision or state moves, so it never outlives what it described. Holds and who moves next are derived; do not restate them here.',
 		inputSchema: {
 			type: 'object',
@@ -569,7 +569,7 @@ const TOOLS = [
 		},
 	},
 	{
-		name: 'mc_board',
+		name: 'warband_slate',
 		description: 'The mission-control board as text: every session’s state, slots, pending requests, the needs-Jason list and machine probes. Read it before granting a slot or writing the user an update.',
 		inputSchema: { type: 'object', properties: {} },
 	},
@@ -585,9 +585,9 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 	// a tool call is rare and a stale snapshot would answer "no run" to a run started a minute ago, so reread
 	const snap = await refresh($)
 	const me = await read($, self)
-	if (!snap.run) return 'no active mission-control run for this repository; /mission-control:kickoff starts one.'
+	if (!snap.run) return 'no active mission-control run for this repository; /goblin-warband:declare-raid starts one.'
 	switch (name) {
-		case 'mc_report': {
+		case 'warband_report': {
 			const args = ['report']
 			if (arg(input, 'for')) args.push('--for', arg(input, 'for'))
 			if (arg(input, 'state')) args.push('--state', arg(input, 'state'))
@@ -599,7 +599,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			await refresh($)
 			return ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, 'report refused')
 		}
-		case 'mc_slot': {
+		case 'warband_dibs': {
 			const resource = arg(input, 'resource')
 			if (arg(input, 'action') === 'release') {
 				const note = arg(input, 'note')
@@ -619,7 +619,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			await refresh($)
 			return `${ran.stdout.trim()}${handoff(snap, [snap.run.coordinator.session_id], `slot request: ${who}, ${resource}. ${what || 'what will run: not said'}. About ${minutes ?? '?'} minutes.`)}`
 		}
-		case 'mc_need': {
+		case 'warband_tribute': {
 			const args = ['needs', 'add', '--why', arg(input, 'why')]
 			if (arg(input, 'command')) args.push('--command', arg(input, 'command'))
 			if (arg(input, 'cwd')) args.push('--cwd-hint', arg(input, 'cwd'))
@@ -633,7 +633,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			await refresh($)
 			return `${ran.stdout.trim()}${me.isCoordinator ? '' : handoff(snap, [snap.run.coordinator.session_id], `needs the user: ${ran.stdout.trim()}`)}`
 		}
-		case 'mc_decide': {
+		case 'warband_ruling': {
 			if (!me.isCoordinator) return 'only the coordinator session records decisions.'
 			const args = ['decide', 'add', '--text', arg(input, 'text')]
 			if (arg(input, 'about')) args.push('--about', arg(input, 'about'))
@@ -643,10 +643,10 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			const fresh = await refresh($)
 			const number = Math.max(0, ...(fresh.run?.decisions.map(d => d.n) ?? [0]))
 			const told = arg(input, 'told').trim().toLowerCase() === 'all' ? others(fresh, [me.sessionId]) : arg(input, 'told').split(',').map(t => resolveSession(fresh, t.trim())).filter((t): t is { sessionId: string; label: string } => typeof t !== 'string').map(t => t.sessionId)
-			const line = `Decision #${number} from the user${arg(input, 'about') ? ` on ${arg(input, 'about')}` : ''}: ${arg(input, 'text')} Acknowledge with \`python3 mc.py decide ack ${number}\` once you have read it.`
+			const line = `Decision #${number} from the user${arg(input, 'about') ? ` on ${arg(input, 'about')}` : ''}: ${arg(input, 'text')} Acknowledge with \`python3 warband.py decide ack ${number}\` once you have read it.`
 			return `${ran.stdout.trim()}${told.length ? handoff(fresh, told, line) : '\nNobody told; pass told to name the sessions.'}`
 		}
-		case 'mc_send': {
+		case 'warband_send': {
 			const text = arg(input, 'text')
 			if (!text.trim()) return 'nothing to send'
 			if (arg(input, 'to').trim().toLowerCase() === 'all') {
@@ -662,8 +662,8 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			if (typeof target === 'string') return target
 			return handoff(snap, [target.sessionId], text).trim()
 		}
-		case 'mc_grant': {
-			if (!me.isCoordinator) return 'only the coordinator session grants slots; ask mission control (mc_slot request).'
+		case 'warband_grant': {
+			if (!me.isCoordinator) return 'only the coordinator session grants slots; ask mission control (warband_dibs request).'
 			const resource = arg(input, 'resource')
 			const target = resolveSession(snap, arg(input, 'to'))
 			if (typeof target === 'string') return target
@@ -675,7 +675,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 				if (ran.exitCode !== 0) return reasonOf(ran, 'extend refused')
 				const fresh = await refresh($)
 				const until = clock(fresh.slots.find(s => s.resource === resource)?.until ?? 0)
-				return `${ran.stdout.trim()}.${handoff(fresh, [target.sessionId], `Slot extended: ${resource} is yours until ${until}.${arg(input, 'note') ? ' ' + arg(input, 'note') : ''} Release with mc_slot (action release) when done, with results.`)}`
+				return `${ran.stdout.trim()}.${handoff(fresh, [target.sessionId], `Slot extended: ${resource} is yours until ${until}.${arg(input, 'note') ? ' ' + arg(input, 'note') : ''} Release with warband_dibs (action release) when done, with results.`)}`
 			}
 			const probed = await run($, ['--json', 'probe', resource])
 			let busyLine = 'no probe'
@@ -704,11 +704,11 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			const grantLine =
 				`Slot granted: ${resource} is yours until ${until}. Machine check just now: ${busyLine}. ` +
 				`Run only from your worktree${row?.worktree ? ` (${row.worktree})` : ''}; the gated command runs without a prompt there while you hold the slot. ` +
-				`${arg(input, 'note') ? arg(input, 'note') + ' ' : ''}Release with mc_slot (action release) when done, with results.`
+				`${arg(input, 'note') ? arg(input, 'note') + ' ' : ''}Release with warband_dibs (action release) when done, with results.`
 			const notice = `Resource notice: ${target.label} holds ${resource} until ${until}. Nothing that touches it from your worktree until the release is announced.`
 			return `${ran.stdout.trim()}.${handoff(fresh, [target.sessionId], grantLine)}${handoff(fresh, others(fresh, [target.sessionId]), notice)}`
 		}
-		case 'mc_revoke': {
+		case 'warband_revoke': {
 			if (!me.isCoordinator) return 'only the coordinator session revokes slots.'
 			const resource = arg(input, 'resource')
 			const slot = snap.slots.find(s => s.resource === resource)
@@ -717,7 +717,7 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			await refresh($)
 			return `${ran.stdout.trim()}${slot ? handoff(snap, [slot.holder], `Slot revoked: ${resource}. ${arg(input, 'note') || 'Mission control released it.'} Stop anything that touches it.`) : '; nobody held it'}`
 		}
-		case 'mc_assume': {
+		case 'warband_decree': {
 			if (!me.isCoordinator) return 'only the coordinator session sets shared assumptions.'
 			const n = argNum(input, 'n')
 			const existing = n !== null && snap.run.assumptions.some(a => a.n === n)
@@ -730,14 +730,14 @@ const serve = async ($: EngineInterface, name: ToolName, input: unknown): Promis
 			const crew = others(fresh, [me.sessionId])
 			return `${ran.stdout.trim()}${crew.length ? handoff(fresh, crew, line) : '\nNo crew session is live yet; each one reads the list from its system prompt when it joins.'}`
 		}
-		case 'mc_pr_note': {
+		case 'warband_label_spoils': {
 			if (!me.isCoordinator) return 'only the coordinator session writes PR notes.'
 			const notePr = argNum(input, 'pr')
 			if (notePr === null) return 'which PR? pass pr'
 			const ran = await mine($, ['prs', 'note', String(notePr), '--text', arg(input, 'text')])
 			return ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, 'note refused')
 		}
-		case 'mc_board': {
+		case 'warband_slate': {
 			const ran = await run($, ['status', '--probe'])
 			await refresh($)
 			return ran.exitCode === 0 ? ran.stdout : reasonOf(ran, 'status refused')
@@ -757,7 +757,7 @@ export const sectionText = (snap: Snapshot, me: Self): string | null => {
 	if (me.isCoordinator) {
 		const merged = snap.sessions.filter(s => s.pr_state === 'MERGED' && s.state !== 'done')
 		const mergedLine = merged.length
-			? `PRs merged while the crew row is not done: ${merged.map(s => `${s.task || s.branch || s.session_id.slice(0, 8)} (#${s.pr})`).join(', ')}; close each with mc_report (for, state done), then run /roadmap:maintain from the main checkout so the roadmap says done too. `
+			? `PRs merged while the crew row is not done: ${merged.map(s => `${s.task || s.branch || s.session_id.slice(0, 8)} (#${s.pr})`).join(', ')}; close each with warband_report (for, state done), then run /roadmap:maintain from the main checkout so the roadmap says done too. `
 			: ''
 		// the registry marks a session `waiting` while it sits on a permission prompt or a question in its own window: the user has to go there
 		const waiting = snap.sessions.filter(s => s.live && s.live_status === 'waiting')
@@ -766,21 +766,21 @@ export const sectionText = (snap: Snapshot, me: Self): string | null => {
 			: ''
 		return (
 			`# Mission control\n\nThis session coordinates run "${snap.run.name}" on ${snap.mainCheckout} (base ${snap.run.base.branch}@${snap.run.base.commit.slice(0, 8)}), started by the user. Crew: ${crewList}. ${waitingLine}${mergedLine}` +
-			`Shared resources are granted one holder at a time with mc_grant, which probes the machine first; mc_assume numbers shared assumptions; mc_send resolves a session's current name; mc_board reads the board. Each tool ends its reply with the exact SendMessage calls to make; every message between sessions goes through the SendMessage tool, as written there. ` +
-			`Decide anything that only keeps the sessions consistent; escalate product, cost and hosted-configuration choices to the user with a recommendation, and put every command only the user can type on the needs list (mc_need). When the user says they have typed one that runs on, mark it started on their word (\`mc.py needs start <n> --note <where to watch it>\`): it leaves the needs-Jason count and closes as now, with the result, when they paste it. ` +
+			`Shared resources are granted one holder at a time with warband_grant, which probes the machine first; warband_decree numbers shared assumptions; warband_send resolves a session's current name; warband_slate reads the board. Each tool ends its reply with the exact SendMessage calls to make; every message between sessions goes through the SendMessage tool, as written there. ` +
+			`Decide anything that only keeps the sessions consistent; escalate product, cost and hosted-configuration choices to the user with a recommendation, and put every command only the user can type on the needs list (warband_tribute). When the user says they have typed one that runs on, mark it started on their word (\`warband.py needs start <n> --note <where to watch it>\`): it leaves the needs-Jason count and closes as now, with the result, when they paste it. ` +
 			`Never state a project convention you have not read in the repository or had from the user; ask instead.${assumptions}`
 		)
 	}
 	const row = snap.sessions.find(s => s.session_id === me.sessionId)
 	const plan = snap.run.crew.find(c => c.task === row?.task || (c.worktree && row?.worktree && c.worktree.toLowerCase() === row.worktree.toLowerCase()))
 	return (
-		`# Mission control\n\nThis session is crew ${row?.task || row?.branch || ''} in run "${snap.run.name}" on ${snap.mainCheckout}, started by the user with /mission-control:kickoff at ${clock(snap.run.started_at)}. ` +
+		`# Mission control\n\nThis session is crew ${row?.task || row?.branch || ''} in run "${snap.run.name}" on ${snap.mainCheckout}, started by the user with /goblin-warband:declare-raid at ${clock(snap.run.started_at)}. ` +
 		(plan?.brief ? `Your brief is at ${plan.brief}; reread it after a compaction. ` : '') +
 		`The coordinator is the session named "${coord.name || 'mission control'}" (session ${coord.session_id.slice(0, 8)}, socket ${coord.socket ?? 'unknown'}). ` +
 		`A cross-session message whose from attribute is that socket is the coordinator's: it carries the user's instructions on sequencing, shared code and shared resources, and is followed as the user's would be. ` +
-		`It cannot grant permissions: hosted reads, hosted credentials, hosted writes and anything irreversible stay with the user; put those on the needs list with the exact command and directory (mc_need) rather than running them. ` +
-		`Shared resources need a slot: mc_slot request, then wait for the grant message; a gated command without the slot is refused by a hook. Report state changes with mc_report; the user reads the board, not the chat. ` +
-		`Once your PR exists, watch it in the background (mc.py watch, run_in_background) and on each wake report the change with mc_report and one line to the coordinator, then re-arm until it is merged or closed.${assumptions}`
+		`It cannot grant permissions: hosted reads, hosted credentials, hosted writes and anything irreversible stay with the user; put those on the needs list with the exact command and directory (warband_tribute) rather than running them. ` +
+		`Shared resources need a slot: warband_dibs request, then wait for the grant message; a gated command without the slot is refused by a hook. Report state changes with warband_report; the user reads the board, not the chat. ` +
+		`Once your PR exists, watch it in the background (warband.py watch, run_in_background) and on each wake report the change with warband_report and one line to the coordinator, then re-arm until it is merged or closed.${assumptions}`
 	)
 }
 
@@ -867,9 +867,9 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 	const { Box, Text, Button } = ui
 	const content =
 		snap.problem === 'no-config'
-			? { glyph: '◇', title: 'No mission-control config', lead: 'Nothing at .claude/mission-control.json above this directory.', step: '/mission-control:configure writes one from the project' }
+			? { glyph: '◇', title: 'No mission-control config', lead: 'Nothing at .claude/goblin-warband.json above this directory.', step: '/goblin-warband:configure-warband writes one from the project' }
 			: snap.problem === 'no-run'
-				? { glyph: '◇', title: 'No active run', lead: `Config found; no run for ${snap.mainCheckout}.`, step: '/mission-control:kickoff picks the tasks and starts one; /mc start <name> starts a bare run' }
+				? { glyph: '◇', title: 'No active run', lead: `Config found; no run for ${snap.mainCheckout}.`, step: '/goblin-warband:declare-raid picks the tasks and starts one; /mc start <name> starts a bare run' }
 				: { glyph: '✗', title: 'The ledger would not load', lead: snap.reason, step: 'python3 on PATH, then r to retry' }
 	return (
 		<Box flexDirection="column" width={width} rowGap={1}>
@@ -1118,7 +1118,7 @@ const commandWordAt = (words: string[]): number => {
 }
 
 /**
- * A shell line that runs `mc.py start`: the script as a command word (after any wrappers and an interpreter), its global options, then `start`;
+ * A shell line that runs `warband.py start`: the script as a command word (after any wrappers and an interpreter), its global options, then `start`;
  * `sh -c` and `bash -c` bodies are read too. A line that merely mentions both words (a grep, a commit message, an `echo`, a JSON payload,
  * a `cd` before another script) is not a start, whatever its quoting.
  */
@@ -1130,7 +1130,7 @@ export const startsRun = (command: string, depth = 0): boolean =>
 			const flag = words.findIndex((word, index) => index > at && /^-[A-Za-z]*c$/.test(word)) // `-c`, or a cluster such as `-lc`
 			return flag > 0 && words[flag + 1] !== undefined && depth < 3 && startsRun(words[flag + 1]!, depth + 1)
 		}
-		if (words[at]?.split('/').pop() !== 'mc.py') return false
+		if (words[at]?.split('/').pop() !== 'warband.py') return false
 		let next = at + 1
 		for (;;) {
 			const option = words[next]
@@ -1244,14 +1244,36 @@ const forwardResult = async ($: EngineInterface, doneJson: string): Promise<stri
 	if (!isRecord(done) || !str(done.forward_to) || !str(done.result)) return ''
 	const to = str(done.forward_to)
 	const label = str(done.for_task) || to.slice(0, 8)
-	const delivered = await send($, to, `Result of need #${num(done.n)} (${str(done.why).slice(0, 120)}), from the user:\n\n${str(done.result)}\n\nAct on it and report with mc_report.`)
+	const delivered = await send($, to, `Result of need #${num(done.n)} (${str(done.why).slice(0, 120)}), from the user:\n\n${str(done.result)}\n\nAct on it and report with warband_report.`)
 	return `; result sent to ${label} (${delivered})`
 }
 
-/** `/mc <verb> ...` as the person's own hand on the ledger: every write carries --by-user. */
-const command = async ($: EngineInterface, args: string): Promise<string> => {
-	const words = args.trim().split(/\s+/).filter(Boolean)
-	const verb = (words[0] ?? '').toLowerCase()
+/**
+ * The person's commands. Each one is a verb of the old single command with its arguments in the same order;
+ * `verb` is the CLI-side word it stands for, so one dispatcher serves them all. `/show-slate` alone opens the pane.
+ */
+export const COMMANDS = [
+	{ name: 'read-slate', verb: 'status', description: 'The slate as text, with the machine probed', argumentHint: '' },
+	{ name: 'start-raid', verb: 'start', description: 'Start a raid on this repository, this session as chief', argumentHint: '<raid name> [anyway]' },
+	{ name: 'end-raid', verb: 'end', description: 'End the raid and archive its ledger', argumentHint: '[force]' },
+	{ name: 'grant-dibs', verb: 'grant', description: 'Give a raider the dibs on a shared resource, as you', argumentHint: '<resource> <task|branch|name> [minutes]' },
+	{ name: 'extend-dibs', verb: 'extend', description: 'Give the holder of the dibs more time', argumentHint: '<resource> [minutes]' },
+	{ name: 'release-dibs', verb: 'release', description: 'Release the dibs on a resource, whoever holds them', argumentHint: '<resource>' },
+	{ name: 'agree-tribute', verb: 'started', description: 'Mark a tribute agreed: you have typed it and it runs on', argumentHint: '<n> [a note: the task or session watching it]' },
+	{ name: 'pay-tribute', verb: 'done', description: 'Mark a tribute paid, with the result for the raider who wanted it', argumentHint: '<n> [the result, or @<file>]' },
+	{ name: 'reclaim-post', verb: 'adopt', description: 'Rebind the chief or a raider to this session after a /clear', argumentHint: 'chief|raider' },
+	{ name: 'dismiss-raider', verb: 'retire', description: 'Retire a raider whose work has landed and reclaim its worktree', argumentHint: '<task|branch|name> [dry]' },
+	{ name: 'show-spoils', verb: 'dashboard', description: 'Open the spoils page', argumentHint: '[refresh]' },
+	{ name: 'claim-spoils', verb: 'pin', description: 'Put a PR from outside the raid on the spoils page', argumentHint: '<pr> [group]' },
+	{ name: 'ignore-spoils', verb: 'ignore', description: 'Leave a PR off the spoils page', argumentHint: '<pr>' },
+] as const
+
+const commandNamed = (verb: string): string => COMMANDS.find(c => c.verb === verb)?.name ?? verb
+
+/** One of the person's commands, as their own hand on the ledger: every write carries --by-user. */
+const command = async ($: EngineInterface, verb: string, args: string): Promise<string> => {
+	const words = [verb, ...args.trim().split(/\s+/).filter(Boolean)]
+	const usage = (rest: string): string => `usage: /${commandNamed(verb)} ${rest}`
 	const me = await read($, self)
 	const byUserRan = async (cliArgs: readonly string[]): Promise<{ ok: boolean; text: string }> => {
 		const ran = await run($, ['--session', me.sessionId, ...cliArgs, '--by-user'])
@@ -1265,9 +1287,9 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 		case 'start': {
 			const anyway = words[words.length - 1]?.toLowerCase() === 'anyway'
 			const name = (anyway ? words.slice(1, -1) : words.slice(1)).join(' ')
-			if (!name) return 'usage: /mc start <run name> [anyway]'
+			if (!name) return usage('<raid name> [anyway]')
 			const small = await smallModel($)
-			if (small && !anyway) return smallModelWarning(small, `/mc start ${name} anyway`)
+			if (small && !anyway) return smallModelWarning(small, `/start-raid ${name} anyway`)
 			const ran = await run($, ['--session', me.sessionId, 'start', '--name', name])
 			await refresh($, true)
 			$.ui.invalidate('prompt.section')
@@ -1276,65 +1298,65 @@ const command = async ($: EngineInterface, args: string): Promise<string> => {
 		case 'end':
 			return byUser(['end', ...(words[1] === 'force' ? ['--force'] : [])])
 		case 'grant': {
-			if (!words[1] || !words[2]) return 'usage: /mc grant <resource> <task|branch|name> [minutes]'
+			if (!words[1] || !words[2]) return usage('<resource> <task|branch|name> [minutes]')
 			const snap = (await read($, snapshot)) ?? (await refresh($))
 			const target = resolveSession(snap, words[2])
 			if (typeof target === 'string') return target
 			const result = await byUserRan(['grant', words[1], '--to', target.sessionId, ...(words[3] ? ['--minutes', words[3]] : []), '--force'])
 			if (snap.run && result.ok) {
-				await send($, target.sessionId, `Slot granted by the user: ${words[1]} is yours${words[3] ? ` for ${words[3]} minutes` : ''}. Run only from your worktree; release with mc_slot (action release) when done, with results.`)
+				await send($, target.sessionId, `Slot granted by the user: ${words[1]} is yours${words[3] ? ` for ${words[3]} minutes` : ''}. Run only from your worktree; release with warband_dibs (action release) when done, with results.`)
 				await tellDisplaced($, snap, words[1], target.sessionId)
 			}
 			return result.text
 		}
 		case 'release':
-		case 'revoke':
-			return words[1] ? byUser(['release', words[1]]) : 'usage: /mc release <resource>'
+			return words[1] ? byUser(['release', words[1]]) : usage('<resource>')
 		case 'done': {
-			if (!words[1]) return 'usage: /mc done <need number> [the result, or @<file>]'
+			if (!words[1]) return usage('<tribute number> [the result, or @<file>]')
 			const result = words.slice(2).join(' ')
 			// --json is a root option of the CLI: it goes before the subcommand, or argparse refuses the line
 			const ran = await byUserRan(['--json', 'needs', 'done', words[1], ...(result ? ['--result', result] : [])])
 			if (!ran.ok) return ran.text
-			return `need #${words[1]} done${await forwardResult($, ran.text)}`
+			return `tribute #${words[1]} paid${await forwardResult($, ran.text)}`
 		}
-		case 'started':
-		case 'running': {
-			if (!words[1]) return 'usage: /mc started <need number> [a note: the task id or session watching it]'
+		case 'started': {
+			if (!words[1]) return usage('<tribute number> [a note: the task id or session watching it]')
 			const note = words.slice(2).join(' ')
 			return byUser(['needs', 'start', words[1], ...(note ? ['--note', note] : [])])
 		}
 		case 'extend': {
-			if (!words[1]) return 'usage: /mc extend <resource> [minutes]'
+			if (!words[1]) return usage('<resource> [minutes]')
 			const snap = (await read($, snapshot)) ?? (await refresh($))
 			const slot = snap.slots.find(s => s.resource === words[1])
-			if (!slot) return `${words[1]} is not held; /mc grant gives it`
+			if (!slot) return `nobody has dibs on ${words[1]}; /grant-dibs gives them`
 			const result = await byUserRan(['grant', words[1], '--to', slot.holder, ...(words[2] ? ['--minutes', words[2]] : [])])
 			// the CLI's line ends with the new deadline; with no minutes typed, the extension took the holder's own request, so the deadline is the fact and not 15
 			const until = /until (\S+)$/.exec(result.text)?.[1]
-			if (result.ok) await send($, slot.holder, `Slot extended by the user: ${words[1]} is yours ${until ? `until ${until}` : `for another ${words[2] ?? '15'} minutes`}. Release with mc_slot (action release) when done.`)
+			if (result.ok) await send($, slot.holder, `Slot extended by the user: ${words[1]} is yours ${until ? `until ${until}` : `for another ${words[2] ?? '15'} minutes`}. Release with warband_dibs (action release) when done.`)
 			return result.text
 		}
-		case 'adopt':
-			if (words[1] !== 'coordinator' && words[1] !== 'crew') return 'usage: /mc adopt coordinator|crew (from the session that takes the role)'
-			return byUser(['adopt', words[1]])
+		case 'adopt': {
+			// the person says chief or raider; the CLI keeps its stored words, coordinator and crew
+			const role = ({ chief: 'coordinator', raider: 'crew' } as Record<string, string>)[(words[1] ?? '').toLowerCase()]
+			if (!role) return usage('chief|raider (from the session that takes the post)')
+			return byUser(['adopt', role])
+		}
 		case 'retire':
-			return words[1] ? byUser(['retire', words[1], ...(words[2] === 'dry' ? ['--dry-run'] : [])]) : 'usage: /mc retire <task|branch|name> [dry]'
+			return words[1] ? byUser(['retire', words[1], ...(words[2] === 'dry' ? ['--dry-run'] : [])]) : usage('<task|branch|name> [dry]')
 		case 'status': {
 			const ran = await run($, ['status', '--probe'])
 			return ran.exitCode === 0 ? ran.stdout : reasonOf(ran, 'status refused')
 		}
-		case 'dashboard':
-		case 'prs': {
+		case 'dashboard': {
 			const ran = await run($, ['dashboard', ...(words[1] === 'refresh' ? ['--refresh'] : []), '--open'])
-			return ran.exitCode === 0 ? `opened ${ran.stdout.trim()}` : reasonOf(ran, 'dashboard refused')
+			return ran.exitCode === 0 ? `opened ${ran.stdout.trim()}` : reasonOf(ran, 'the spoils page refused')
 		}
 		case 'pin':
-			return words[1] ? byUser(['prs', 'pin', words[1], ...(words[2] ? ['--group', words.slice(2).join(' ')] : [])]) : 'usage: /mc pin <pr> [group]'
+			return words[1] ? byUser(['prs', 'pin', words[1], ...(words[2] ? ['--group', words.slice(2).join(' ')] : [])]) : usage('<pr> [group]')
 		case 'ignore':
-			return words[1] ? byUser(['prs', 'ignore', words[1]]) : 'usage: /mc ignore <pr>'
+			return words[1] ? byUser(['prs', 'ignore', words[1]]) : usage('<pr>')
 		default:
-			return 'usage: /mc (toggles the board) · /mc start <name> · /mc grant <resource> <session> [minutes] · /mc extend <resource> [minutes] · /mc release <resource> · /mc started <n> [note] · /mc done <n> [result|@file] · /mc adopt coordinator|crew · /mc retire <task> [dry] · /mc dashboard [refresh] · /mc pin <pr> [group] · /mc ignore <pr> · /mc status · /mc end [force]'
+			return `no such command: ${verb}`
 	}
 }
 
@@ -1370,16 +1392,13 @@ export const register: Register = (on, options) => {
 	refreshMs = (typeof options.refresh_seconds === 'number' ? options.refresh_seconds : 15) * 1000
 
 	on('session.start', async ($, e, next) => {
-		cli = `${$.plugin.root}/scripts/mc.py`
-		try {
-			await $.command.register({
-				name: 'mc',
-				description: 'The mission-control board, or closes it; /mc grant|release|done|start|end|status act as you',
-				argumentHint: '[start <name>|grant <resource> <session> [min]|release <resource>|done <n>|status|end]',
-				immediate: true,
-			})
-		} catch {
-			// the name is taken
+		cli = `${$.plugin.root}/scripts/warband.py`
+		for (const spec of [{ name: 'show-slate', description: 'Open the warband’s slate, or close it', argumentHint: '' }, ...COMMANDS]) {
+			try {
+				await $.command.register({ name: spec.name, description: spec.description, ...(spec.argumentHint ? { argumentHint: spec.argumentHint } : {}), immediate: true })
+			} catch {
+				// the name is taken
+			}
 		}
 		await offerTools($, false)
 		await refresh($)
@@ -1410,15 +1429,18 @@ export const register: Register = (on, options) => {
 		return next(e)
 	})
 
-	on('command.run', { command: 'mc' }, async ($, e) => {
-		if (e.args.trim()) return { text: await command($, e.args) }
+	for (const spec of COMMANDS) {
+		on('command.run', { command: spec.name }, async ($, e) => ({ text: await command($, spec.verb, e.args) }))
+	}
+
+	on('command.run', { command: 'show-slate' }, async ($, _e) => {
 		if (await isPaneOpen($)) {
 			await $.ui.close({ id: PANE })
 			return {}
 		}
 		const me = await read($, self)
 		await refresh($, me.isCoordinator)
-		await $.ui.open({ id: PANE, title: 'mission control', focus: true, closeOnEscape: true, rows: 30, columns: 72 })
+		await $.ui.open({ id: PANE, title: 'goblin warband', focus: true, closeOnEscape: true, rows: 30, columns: 72 })
 		return {}
 	})
 
@@ -1437,7 +1459,7 @@ export const register: Register = (on, options) => {
 		// a run is coordinated from this session: a haiku or sonnet one is warned off before the ledger changes
 		if (startsRun(e.command) && !/--small-model-ok\b/.test(e.command)) {
 			const small = await smallModel($)
-			if (small) return { deny: `mission-control: ${smallModelWarning(small, 'add --small-model-ok to the mc.py start line')}` }
+			if (small) return { deny: `mission-control: ${smallModelWarning(small, 'add --small-model-ok to the warband.py start line')}` }
 		}
 		const ran = await next(e)
 		if (e.agentId) return ran
@@ -1461,7 +1483,7 @@ export const register: Register = (on, options) => {
 			if (number !== null && (me.isCrew || me.isCoordinator)) await mine($, ['prs', 'add', String(number)])
 		}
 		// the ledger CLI run from Bash may have started, joined or ended a run: reread whatever the pane's state
-		if (/mc\.py/.test(e.command) || /gh pr create/.test(e.command) || (/gh stack|git worktree|gh pr merge/.test(e.command) && (await isPaneOpen($)))) await refresh($)
+		if (/warband\.py/.test(e.command) || /gh pr create/.test(e.command) || (/gh stack|git worktree|gh pr merge/.test(e.command) && (await isPaneOpen($)))) await refresh($)
 		return ran
 	})
 
@@ -1490,7 +1512,7 @@ export const register: Register = (on, options) => {
 		const snap = await read($, snapshot)
 		const me = await read($, self)
 		if (!snap?.run || (!me.isCrew && !me.isCoordinator)) return next(e)
-		const debug = await $.env.get('MISSION_CONTROL_DEBUG')
+		const debug = await $.env.get('GOBLIN_WARBAND_DEBUG')
 		if (debug) await $.fs.write(`${debug}/receive-${Date.now()}.txt`, JSON.stringify({ origin: e.origin, text: e.text }, null, 2)).catch(() => undefined)
 		const socket = socketOf(e.text)
 		if (!socket) return next(e)
@@ -1607,7 +1629,7 @@ export const register: Register = (on, options) => {
 								const ran = await run($, ['--session', me.sessionId, 'grant', ask.resource, '--to', ask.sessionId, '--minutes', minutes, '--force', '--by-user'])
 								$.ui.toast(ran.exitCode === 0 ? ran.stdout.trim() : reasonOf(ran, 'grant refused'))
 								if (ran.exitCode === 0) {
-									await send($, ask.sessionId, `Slot granted by the user: ${ask.resource} is yours for ${minutes} minutes. Run only from your worktree; release with mc_slot (action release) when done, with results.`)
+									await send($, ask.sessionId, `Slot granted by the user: ${ask.resource} is yours for ${minutes} minutes. Run only from your worktree; release with warband_dibs (action release) when done, with results.`)
 									await tellDisplaced($, snap, ask.resource, ask.sessionId)
 								}
 								await update($, asking, () => null)

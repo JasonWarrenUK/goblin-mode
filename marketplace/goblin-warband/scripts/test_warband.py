@@ -1,10 +1,13 @@
-"""Tests for mc.py: the gate matcher, the ledger, authorisation and both hooks.
+"""Tests for warband.py: the gate matcher, the ledger, authorisation and both hooks.
 
-Run from this directory: python3 -m unittest test_mc
+Run from this directory: python3 -m unittest test_warband
 
 Every test works in a throwaway git repository with its own ledger root and
-session registry (MISSION_CONTROL_HOME, CLAUDE_SESSIONS_DIR), so nothing here
-touches ~/.claude. Probes that shell out (lsof, psql) are not exercised.
+session registry (GOBLIN_WARBAND_HOME, CLAUDE_SESSIONS_DIR), so nothing here
+touches ~/.claude. The module-level guard below also points HOME, CLAUDE_CONFIG_DIR
+and both ledger variables at a temporary directory before warband.py is imported,
+so a test that forgets its sandbox, or the migration reading its defaults, still
+cannot reach the real ledger. Probes that shell out (lsof, psql) are not exercised.
 """
 from __future__ import annotations
 
@@ -19,8 +22,19 @@ import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-CLI = HERE / "mc.py"
-EXAMPLE = HERE.parent / "references" / "mission-control.example.json"
+CLI = HERE / "warband.py"
+EXAMPLE = HERE.parent / "references" / "goblin-warband.example.json"
+
+# Nothing in this suite may resolve a default to the real ~/.claude: every
+# fallback warband.py derives (the ledger, the old mission-control ledger the
+# migration reads, the session registry) lands under this throwaway home.
+REAL_HOME = Path.home()
+GUARD_HOME = Path(tempfile.mkdtemp(prefix="warband-guard-"))
+os.environ["HOME"] = str(GUARD_HOME)
+os.environ["CLAUDE_CONFIG_DIR"] = str(GUARD_HOME / ".claude")
+os.environ["GOBLIN_WARBAND_HOME"] = str(GUARD_HOME / ".claude" / "goblin-warband")
+os.environ["MISSION_CONTROL_HOME"] = str(GUARD_HOME / ".claude" / "mission-control")
+os.environ["CLAUDE_SESSIONS_DIR"] = str(GUARD_HOME / ".claude" / "sessions")
 
 
 def git(cwd, *args):
@@ -40,7 +54,7 @@ class Sandbox:
         (self.repo / ".claude").mkdir()
         config = json.loads(EXAMPLE.read_text())
         config.pop("collaboration", None)  # the example states CHIRPdb's mode; the sandbox infers its own (solo, one author)
-        (self.repo / ".claude" / "mission-control.json").write_text(json.dumps(config))
+        (self.repo / ".claude" / "goblin-warband.json").write_text(json.dumps(config))
         (self.repo / "README.md").write_text("x\n")
         git(self.repo, "add", "-A")
         git(self.repo, "commit", "-q", "-m", "init")
@@ -51,7 +65,10 @@ class Sandbox:
         self.sessions.mkdir()
         self.env = {
             **os.environ,
-            "MISSION_CONTROL_HOME": str(self.ledger_root),
+            "GOBLIN_WARBAND_HOME": str(self.ledger_root),
+            "MISSION_CONTROL_HOME": str(self.tmp / "old-ledger"),
+            "HOME": str(self.tmp / "home"),
+            "CLAUDE_CONFIG_DIR": str(self.tmp / "home" / ".claude"),
             "CLAUDE_SESSIONS_DIR": str(self.sessions),
         }
         self.env.pop("CLAUDE_CODE_SESSION_ID", None)
@@ -88,8 +105,8 @@ class Sandbox:
 class GateMatching(unittest.TestCase):
     def setUp(self):
         sys.path.insert(0, str(HERE))
-        import mc  # noqa: WPS433
-        self.mc = mc
+        import warband  # noqa: WPS433
+        self.mc = warband
         self.config = json.loads(EXAMPLE.read_text())
 
     def test_open_browsers_walks_a_playwright_chrome_up_to_its_session(self):
@@ -432,7 +449,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_in_main_spelling_rewrites_only_what_the_filesystem_calls_the_same_checkout(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         real_same_path = mc_module.same_path
         try:
             mc_module.same_path = lambda a, b: True
@@ -541,7 +558,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_pr_state_comes_from_gh_and_is_cached(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         ledger = mc_module.Ledger(self.box.repo)
         ledger.dir = self.box.tmp / "pr-ledger"
         ledger.dir.mkdir()
@@ -562,7 +579,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_a_hanging_gh_ends_the_pr_lookups_after_one_short_wait(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         ledger = mc_module.Ledger(self.box.repo)
         ledger.dir = self.box.tmp / "pr-hang-ledger"
         ledger.dir.mkdir()
@@ -589,7 +606,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_a_hanging_gh_still_reads_the_cached_states_of_later_prs(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         ledger = mc_module.Ledger(self.box.repo)
         ledger.dir = self.box.tmp / "pr-hang-cache-ledger"
         ledger.dir.mkdir()
@@ -615,7 +632,7 @@ class LedgerFlow(unittest.TestCase):
 
     def _reconcile_with(self, fake_sh):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
         mc_module.sh = fake_sh
         mc_module.LEDGER_ROOT = self.box.ledger_root
@@ -787,12 +804,13 @@ class LedgerFlow(unittest.TestCase):
             row["started"] = started
         return json.dumps([{"name": "t", "path": "", "archived": False, "milestones": [{"id": "M1", "name": "one", "tasks": [row]}]}])
 
-    def _roadmap_repo_with_origin(self, claim_on_branch=True, claim_on_main=False, listed=True):
+    def _roadmap_repo_with_origin(self, claim_on_branch=True, claim_on_main=False, listed=True, rel=".claude/roadmaps.json"):
         """A rich roadmap, a bare origin holding main, and feat/a pushed with (or without) a commit that sets the task's `started`.
-        `claim_on_main` puts the claim on main under a sync batch's subject instead; `listed=False` leaves the task out of the roadmap."""
+        `claim_on_main` puts the claim on main under a sync batch's subject instead; `listed=False` leaves the task out of the roadmap.
+        `rel` is the file it lives in: goblin-scout's .claude/roadbook.json, or the old .claude/roadmaps.json a repo keeps until it migrates."""
         base = self._roadmap(started="2026-10-27" if claim_on_main else None) if listed else self._roadmap(task="OTHER")
-        (self.box.repo / ".claude" / "roadmaps.json").write_text(base)
-        git(self.box.repo, "add", ".claude/roadmaps.json")
+        (self.box.repo / rel).write_text(base)
+        git(self.box.repo, "add", rel)
         git(self.box.repo, "commit", "-q", "-m", "chore(roadmap): sync claims from live branches" if claim_on_main else "chore: roadmap")
         bare = self.box.tmp / "origin.git"
         subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True)  # a clone of it checks out main, whatever this machine's init.defaultBranch
@@ -800,8 +818,8 @@ class LedgerFlow(unittest.TestCase):
         git(self.box.repo, "push", "-q", "-u", "origin", "main")
         git(self.box.worktree, "merge", "-q", "--ff-only", "main")
         if claim_on_branch and listed:
-            (self.box.worktree / ".claude" / "roadmaps.json").write_text(self._roadmap(started="2026-10-27"))
-            git(self.box.worktree, "add", ".claude/roadmaps.json")
+            (self.box.worktree / rel).write_text(self._roadmap(started="2026-10-27"))
+            git(self.box.worktree, "add", rel)
             git(self.box.worktree, "commit", "-q", "-m", "chore(roadmap): 10SE.2 started, dated")
         else:
             (self.box.worktree / "work.txt").write_text("x\n")
@@ -875,6 +893,37 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh(self._merged(221)))
         self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
 
+    def test_the_claim_is_read_from_a_goblin_scout_roadbook(self):
+        """A repo on goblin-scout keeps .claude/roadbook.json: a claim there satisfies the check and its absence is drift."""
+        self._roadmap_repo_with_origin(rel=".claude/roadbook.json")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 230)
+        result = self._reconcile_with(self._gh(self._open(230)))
+        self.assertNotIn("claim-missing", [item["kind"] for item in result["drift"]])
+
+    def test_a_missing_claim_in_a_goblin_scout_roadbook_is_drift(self):
+        self._roadmap_repo_with_origin(claim_on_branch=False, rel=".claude/roadbook.json")
+        git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
+        git(self.box.repo, "push", "-q", "origin", "main")
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 231, state="done")
+        result = self._reconcile_with(self._gh(self._merged(231)))
+        self.assertEqual([item["kind"] for item in result["drift"] if item["kind"] == "claim-missing"], ["claim-missing"], "roadbook.json was read")
+
+    def test_a_ref_cut_before_the_roadbook_move_is_read_under_the_old_name(self):
+        """The main checkout has moved roadmaps.json to roadbook.json, but the refs reconcile reads still carry the old file:
+        the old name is read at the ref, so the missing claim is still found."""
+        self._roadmap_repo_with_origin(claim_on_branch=False)
+        git(self.box.repo, "mv", ".claude/roadmaps.json", ".claude/roadbook.json")
+        git(self.box.repo, "commit", "-q", "-m", "chore(roadbook): move to roadbook.json")  # local only: origin/main and origin/feat/a still have roadmaps.json
+        self.assertFalse((self.box.repo / ".claude" / "roadmaps.json").exists())
+        self.box.start()
+        self._crew_with_pr("10SE.2", "crew-1", "feat/a", 232)
+        result = self._reconcile_with(self._gh(self._open(232)))
+        missing = [item for item in result["drift"] if item["kind"] == "claim-missing"]
+        self.assertEqual(len(missing), 1, "origin/feat/a holds only roadmaps.json, and its missing claim is still seen")
+        self.assertIn("origin/feat/a", missing[0]["detail"])
+
     def test_a_merged_pr_with_no_claim_on_main_is_drift(self):
         self._roadmap_repo_with_origin(claim_on_branch=False)
         git(self.box.repo, "merge", "-q", "--no-ff", "-m", "Merge feat/a", "feat/a")
@@ -898,7 +947,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_trunk_sync_projects_do_not_flag_an_open_pr_for_a_missing_branch_claim(self):
         self._roadmap_repo_with_origin(claim_on_branch=False)
-        config_path = self.box.repo / ".claude" / "mission-control.json"
+        config_path = self.box.repo / ".claude" / "goblin-warband.json"
         config = json.loads(config_path.read_text())
         config["claims"] = "trunk-sync"
         config_path.write_text(json.dumps(config))
@@ -953,7 +1002,7 @@ class LedgerFlow(unittest.TestCase):
         self._crew_with_pr("10SE.2", "crew-1", "feat/a", 231, state="done")
         result = self._reconcile_with(self._gh(self._merged(231)))
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         import io
         from contextlib import redirect_stdout
         out = io.StringIO()
@@ -965,9 +1014,9 @@ class LedgerFlow(unittest.TestCase):
     # retire: reclaiming a finished crew worktree while the run goes on
 
     def _retire_with(self, fake_sh, *cli):
-        """`mc.py retire` in-process, with gh faked and du/lsof answered by the same fake (a non-gh argv returns 1, which lsof treats as 'nothing listed')."""
+        """`warband.py retire` in-process, with gh faked and du/lsof answered by the same fake (a non-gh argv returns 1, which lsof treats as 'nothing listed')."""
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
         mc_module.sh = fake_sh
         mc_module.LEDGER_ROOT = self.box.ledger_root
@@ -1108,7 +1157,7 @@ class LedgerFlow(unittest.TestCase):
         kinds = [item["kind"] for item in result["drift"]]
         self.assertIn("unretired", kinds)
         nudge = next(item for item in result["drift"] if item["kind"] == "unretired")
-        self.assertIn("`mc.py retire 10SE.2`", nudge["detail"])
+        self.assertIn("`warband.py retire 10SE.2`", nudge["detail"])
         self.assertIn("worktree still present", nudge["detail"])
         # retired, the nudge goes
         self._retire_with(self._gh(self._merged(240)), "10SE.2")
@@ -1126,7 +1175,7 @@ class LedgerFlow(unittest.TestCase):
 
     def _module(self, fake_sh):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         real = (mc_module.sh, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
         mc_module.sh = fake_sh
         mc_module.LEDGER_ROOT = self.box.ledger_root
@@ -1317,7 +1366,7 @@ class LedgerFlow(unittest.TestCase):
     def test_git_authors_keeps_two_people_apart(self):
         git(self.box.repo, "commit", "-q", "--allow-empty", "-m", "theirs", "--author", "Other <o@example.com>")
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         self.assertEqual(sorted(a["name"] for a in mc_module.git_authors(self.box.repo)), ["Other", "t"])
 
     def test_reconcile_nudges_roadmap_maintain_once_a_crew_pr_merges(self):
@@ -1344,7 +1393,7 @@ class LedgerFlow(unittest.TestCase):
         mc_module, real = self._module(self._gh_list([]))
         try:
             stated = mc_module.classify(self.box.repo, config)
-            (self.box.repo / ".claude" / "mission-control.local.json").write_text(json.dumps({"collaboration": {"mode": "solo"}}))
+            (self.box.repo / ".claude" / "goblin-warband.local.json").write_text(json.dumps({"collaboration": {"mode": "solo"}}))
             local = mc_module.classify(self.box.repo, config)
         finally:
             self._restore(mc_module, real)
@@ -1357,7 +1406,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_helpers_window_and_snapshot_changes(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         hours = {"start": "09:00", "end": "18:00", "days": [0, 1, 2, 3, 4]}
         import calendar
         # a Wednesday at 10:00 and at 22:00 local
@@ -1683,7 +1732,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(Path(need["cwd"]).resolve(), self.box.worktree.resolve(), "the line runs from the worktree, so the board prints cd there first")
         self.assertEqual(need["why"], "start crew 10SE.2 in a new terminal window (opus, high: reworks the shared ranking query)")
         self.assertTrue(need["command"].startswith("claude --model opus --effort high --name '10se.2 search ranking' 'Start: you are crew 10SE.2 in run search. Read your brief at "), need["command"])
-        self.assertIn("invoke /mission-control:crew and answer its five questions to the coordinator.'", need["command"])
+        self.assertIn("invoke /goblin-warband:join-raid and answer its five questions to the coordinator.'", need["command"])
         self.assertNotIn("--plugin-dir", need["command"])
         self.assertIn("## Needs Jason", self.box.mc("status", session="coord-1").stdout)
         # the session starts in the worktree: the line was typed, so the need closes by itself
@@ -2049,7 +2098,7 @@ class LedgerFlow(unittest.TestCase):
         hook = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
         self.assertLess(len(hook), 10_000, "past 10,000 characters the harness shows the model a 2,000-character preview")
         self.assertIn("#1 thread 1 ", hook)
-        self.assertRegex(hook, r"and \d+ more in `mc\.py pending list`")
+        self.assertRegex(hook, r"and \d+ more in `warband\.py pending list`")
         self.assertIn("Run reconcile before saying where things stand.", hook)
         self.assertIn("read CronList first", hook)
 
@@ -2101,7 +2150,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("told 10SE.2", listed)
         # unacknowledged for too long: reconcile says so; an ack clears it
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         real = mc_module.DECISION_ACK_SECONDS
         mc_module.DECISION_ACK_SECONDS = -1
         try:
@@ -2295,7 +2344,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_the_checkout_and_the_remote_are_found_without_running_git(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         git(self.box.repo, "remote", "add", "origin", "https://github.com/Someone/a-repo.git")
         # the walk itself, asked by name: toplevel and main_checkout go through git while it works
         root, common = mc_module.git_dir_of(self.box.worktree)
@@ -2345,7 +2394,7 @@ class LedgerFlow(unittest.TestCase):
     def test_a_path_typed_in_another_case_maps_to_the_canonical_ledger_while_git_works(self):
         """git's spelling of the checkout is what the ledger slug is built from; the .git walk returns the path as typed, so it is the fallback, never the first answer."""
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         swapped = Path(str(self.box.repo).swapcase())
         if not swapped.is_dir():
             self.skipTest("this volume is case-sensitive, so the other spelling is a different directory")
@@ -2417,7 +2466,7 @@ class LedgerFlow(unittest.TestCase):
     def test_a_task_id_shared_with_a_ghost_row_resolves_to_the_row_still_working(self):
         """17SE.1 on 3 November 2026: a stray session joined the worktree, closed and was marked done; retire and grant then refused the task id as ambiguous."""
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         self.box.start()
         self.box.mc("crew", "add", "--task", "17SE.1", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
         self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
@@ -2484,7 +2533,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(len(pending), 1, "the item is for 290, which is still open")
         merged_290 = self._merged(290)
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         mc_module.PR_CACHE_SECONDS, real_cache = 0, mc_module.PR_CACHE_SECONDS
         try:
             self.box.mc("report", "--state", "done", "--pr", "290", session="crew-1", cwd=self.box.worktree)
@@ -2546,14 +2595,14 @@ class LedgerFlow(unittest.TestCase):
 
     def test_watch_stop_clears_its_marker_when_the_watcher_had_already_exited(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         self._watching_session(270)
         self._set_watch(270, "watching", 424242)
         real = (mc_module.sh, mc_module.os.kill, mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR)
 
         def gone(_pid, _sig):
             raise ProcessLookupError
-        mc_module.sh = lambda argv, timeout=8, cwd=None: (0, "python3 mc.py watch")
+        mc_module.sh = lambda argv, timeout=8, cwd=None: (0, "python3 warband.py watch")
         mc_module.os.kill = gone
         mc_module.LEDGER_ROOT, mc_module.SESSIONS_DIR = self.box.ledger_root, self.box.sessions
         try:
@@ -2588,7 +2637,7 @@ class LedgerFlow(unittest.TestCase):
         import fcntl
         import signal
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         self._watching_session(268)
         real_save, calls = mc_module.Ledger.save_session, {"n": 0}
 
@@ -2633,8 +2682,8 @@ class LedgerFlow(unittest.TestCase):
 
     def test_watch_stop_signals_only_the_pid_on_the_callers_own_row(self):
         self._watching_session(262)
-        # a process whose command line reads `mc.py watch`, as a real watcher's does
-        victim = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "mc.py", "watch"])
+        # a process whose command line reads `warband.py watch`, as a real watcher's does
+        victim = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "warband.py", "watch"])
         bystander = subprocess.Popen(["sleep", "61"])
         try:
             self._set_watch(262, "watching", victim.pid)
@@ -2656,15 +2705,15 @@ class LedgerFlow(unittest.TestCase):
 
     def test_watch_stop_leaves_a_finished_watch_and_a_foreign_command_line_alone(self):
         self._watching_session(269)
-        matching = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "mc.py", "watch"])
+        matching = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "warband.py", "watch"])
         plain = subprocess.Popen(["sleep", "62"])
         try:
             self._set_watch(269, "ended", matching.pid)  # the watcher finished; a recycled pid must not be signalled
             done = self.box.mc("watch", "--stop", "--pr", "269", session="crew-1", cwd=self.box.worktree)
             self.assertIn("nothing to stop", done.stdout)
-            self._set_watch(269, "watching", plain.pid)  # a live pid that is not an mc.py watcher
+            self._set_watch(269, "watching", plain.pid)  # a live pid that is not an warband.py watcher
             done = self.box.mc("watch", "--stop", "--pr", "269", session="crew-1", cwd=self.box.worktree)
-            self.assertIn("not an mc.py watcher", done.stdout)
+            self.assertIn("not an warband.py watcher", done.stdout)
             time.sleep(0.3)
             self.assertIsNone(matching.poll())
             self.assertIsNone(plain.poll())
@@ -2770,7 +2819,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_the_psql_probes_wait_no_longer_than_the_gh_lookups(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         timeouts = []
         real_sh = mc_module.sh
         def recording_sh(argv, timeout=8, cwd=None):
@@ -2882,26 +2931,26 @@ class Hooks(unittest.TestCase):
         self.assertIn("a human gate", verdict["additionalContext"])
 
     def test_by_user_on_a_command_line_is_denied(self):
-        verdict = self.decision("python3 mc.py grant local-db --to me --by-user")
+        verdict = self.decision("python3 warband.py grant local-db --to me --by-user")
         self.assertEqual(verdict["permissionDecision"], "deny")
 
     def test_identity_overrides_on_an_mc_line_are_denied(self):
         for command in [
-            "python3 mc.py grant local-db --to me --by",
-            "python3 mc.py grant local-db --to me '--by-user'",
-            'python3 mc.py grant local-db --to me "--by-user"',
-            "python3 mc.py --session coord-1 grant local-db --to me",
-            "python3 mc.py --session=coord-1 grant local-db --to me",
-            "python3 mc.py --sess coord-1 grant local-db --to me",
-            "CLAUDE_CODE_SESSION_ID=coord-1 python3 mc.py grant local-db --to me",
-            "export CLAUDE_CODE_SESSION_ID=coord-1; python3 mc.py grant local-db --to me",
-            "env CLAUDE_CODE_SESSION_ID=coord-1 python3 mc.py grant local-db --to me",
-            "sh -c \"python3 mc.py grant local-db --to me --by-user\"",
+            "python3 warband.py grant local-db --to me --by",
+            "python3 warband.py grant local-db --to me '--by-user'",
+            'python3 warband.py grant local-db --to me "--by-user"',
+            "python3 warband.py --session coord-1 grant local-db --to me",
+            "python3 warband.py --session=coord-1 grant local-db --to me",
+            "python3 warband.py --sess coord-1 grant local-db --to me",
+            "CLAUDE_CODE_SESSION_ID=coord-1 python3 warband.py grant local-db --to me",
+            "export CLAUDE_CODE_SESSION_ID=coord-1; python3 warband.py grant local-db --to me",
+            "env CLAUDE_CODE_SESSION_ID=coord-1 python3 warband.py grant local-db --to me",
+            "sh -c \"python3 warband.py grant local-db --to me --by-user\"",
         ]:
             self.assertEqual(self.decision(command)["permissionDecision"], "deny", command)
 
     def test_plain_mc_and_foreign_session_flags_are_not_denied(self):
-        self.assertIsNone(self.decision("python3 mc.py status --json"))
+        self.assertIsNone(self.decision("python3 warband.py status --json"))
         self.assertIsNone(self.decision("git log --session"))
 
     def test_a_subagent_is_gated_like_its_parent(self):
@@ -2909,7 +2958,7 @@ class Hooks(unittest.TestCase):
         payload = {"tool_name": "Bash", "tool_input": {"command": command}, "agent_id": "agent-1"}
         verdict = json.loads(self.box.hook("pre-tool-use", payload))["hookSpecificOutput"]
         self.assertEqual(verdict["permissionDecision"], "deny")
-        by_user = {"tool_name": "Bash", "tool_input": {"command": "python3 mc.py grant local-db --to me --by-user"}, "agent_id": "agent-1"}
+        by_user = {"tool_name": "Bash", "tool_input": {"command": "python3 warband.py grant local-db --to me --by-user"}, "agent_id": "agent-1"}
         self.assertEqual(json.loads(self.box.hook("pre-tool-use", by_user))["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertEqual(self.box.hook("session-start", {"agent_id": "agent-1"}, session="crew-9"), "")
 
@@ -2959,7 +3008,7 @@ class Hooks(unittest.TestCase):
 
 
 class PushGate(unittest.TestCase):
-    """`git push` is refused until `mc.py gate` has recorded green for the commit; no run is needed."""
+    """`git push` is refused until `warband.py gate` has recorded green for the commit; no run is needed."""
 
     def setUp(self):
         self.box = Sandbox()
@@ -2969,7 +3018,7 @@ class PushGate(unittest.TestCase):
             handle.write("/.claude/worktrees/\n")
 
     def set_gate(self, commands, exempt=None):
-        path = self.repo / ".claude" / "mission-control.json"
+        path = self.repo / ".claude" / "goblin-warband.json"
         config = json.loads(path.read_text())
         config["commands"] = commands
         config["push_gate"] = {"commands": list(commands), "exempt": exempt or []}
@@ -2988,7 +3037,7 @@ class PushGate(unittest.TestCase):
         return subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
 
     def test_a_repo_without_push_gate_pushes_freely(self):
-        path = self.repo / ".claude" / "mission-control.json"
+        path = self.repo / ".claude" / "goblin-warband.json"
         config = json.loads(path.read_text())
         config.pop("push_gate", None)  # the example config the sandbox copies opts in
         path.write_text(json.dumps(config))
@@ -2999,7 +3048,7 @@ class PushGate(unittest.TestCase):
         self.set_gate({"test": "true"})
         reason = self.refused()
         self.assertIn("no green record", reason)
-        self.assertIn("mc.py gate", reason)
+        self.assertIn("warband.py gate", reason)
 
     def test_green_gate_lets_the_push_through_until_the_next_commit(self):
         self.set_gate({"test": "true", "lint": "true"})
@@ -3020,7 +3069,7 @@ class PushGate(unittest.TestCase):
 
     def test_a_push_while_the_gate_runs_is_refused(self):
         self.set_gate({"test": "true"})
-        folder = self.repo / ".git" / "mission-control" / "gate"
+        folder = self.repo / ".git" / "goblin-warband" / "gate"
         folder.mkdir(parents=True)
         (folder / f"{self.head()}.running").write_text(json.dumps({"pid": os.getpid()}))
         self.assertIn("still running", self.refused())
@@ -3028,7 +3077,7 @@ class PushGate(unittest.TestCase):
     def test_a_dead_lock_does_not_block(self):
         self.set_gate({"test": "true"})
         self.box.mc("gate", cwd=self.repo)
-        folder = self.repo / ".git" / "mission-control" / "gate"
+        folder = self.repo / ".git" / "goblin-warband" / "gate"
         (folder / f"{self.head()}.running").write_text(json.dumps({"pid": 99999999}))
         self.assertIsNone(self.refused())
 
@@ -3039,7 +3088,7 @@ class PushGate(unittest.TestCase):
         self.assertIn("uncommitted", done.stdout)
 
     def test_a_key_the_commands_block_lacks_is_refused_not_skipped(self):
-        path = self.repo / ".claude" / "mission-control.json"
+        path = self.repo / ".claude" / "goblin-warband.json"
         config = json.loads(path.read_text())
         config["commands"] = {"test": "true"}
         config["push_gate"] = ["test", "typecheck"]
@@ -3180,15 +3229,15 @@ class PushGate(unittest.TestCase):
         self.set_gate({"test": "true"})
         self.box.mc("gate", cwd=self.repo)
         self.assertIsNone(self.refused())
-        path = self.repo / ".claude" / "mission-control.json"
-        git(self.repo, "update-index", "--assume-unchanged", ".claude/mission-control.json")  # the real config is untracked
+        path = self.repo / ".claude" / "goblin-warband.json"
+        git(self.repo, "update-index", "--assume-unchanged", ".claude/goblin-warband.json")  # the real config is untracked
         config = json.loads(path.read_text())
         config["commands"]["lint"] = "true"
         config["push_gate"]["commands"].append("lint")
         path.write_text(json.dumps(config))
         reason = self.refused()
         self.assertIn("lint", reason)
-        self.assertIn("mc.py gate", reason)
+        self.assertIn("warband.py gate", reason)
         self.box.mc("gate", cwd=self.repo)
         self.assertIsNone(self.refused())
 
@@ -3240,7 +3289,7 @@ class PrRecords(unittest.TestCase):
 
     def setUp(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         self.mc = mc_module
 
     @staticmethod
@@ -3396,7 +3445,7 @@ class PrCommand(unittest.TestCase):
 class PrAttribution(unittest.TestCase):
     def setUp(self):
         sys.path.insert(0, str(HERE))
-        import mc as mc_module
+        import warband as mc_module
         self.mc = mc_module
         self.run = {"crew": [{"task": "BSU", "branch": "feat/bsu-corpus-survey"}, {"task": "TAIC", "branch": "feat/taic-metadata-profile"},
                              {"task": "GPT6", "branch": "feat/pipeline-gpt-6-luna"}]}
@@ -3616,6 +3665,114 @@ class Dashboard(unittest.TestCase):
         status = json.loads(self.box.mc("--json", "status").stdout)
         self.assertEqual([m["number"] for m in page["mine"]], [7])
         self.assertEqual(page["mine"], status["prs"]["mine"])
+
+
+class MoveFromMissionControl(unittest.TestCase):
+    """The first command moves the old config and the old ledger root, archived raids included, with one line of notice;
+    a live raid in the old ledger refuses the move and says why. Fixtures are written by the CLI itself, pointed at the old root."""
+
+    def setUp(self):
+        self.box = Sandbox()
+        self.old = self.box.tmp / "old-ledger"
+        self.new = self.box.ledger_root
+        self.assertEqual(self.box.env["MISSION_CONTROL_HOME"], str(self.old))
+        self.assertFalse(self.new.exists())
+
+    def as_old_plugin(self, *args):
+        """Run the CLI with its ledger at the old root and no old root of its own, as the mission-control plugin did."""
+        env = {**self.box.env, "GOBLIN_WARBAND_HOME": str(self.old)}
+        env.pop("MISSION_CONTROL_HOME")
+        env["CLAUDE_CODE_SESSION_ID"] = "coord-1"
+        done = subprocess.run([sys.executable, "-I", str(CLI), "--cwd", str(self.box.repo), *args], capture_output=True, text=True, env=env)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+
+    def old_world(self, live):
+        """Two archived raids, a second project's ledger with no raid, the old config and local config; a live raid when asked."""
+        for name in ("first", "second"):
+            self.as_old_plugin("start", "--name", name)
+            self.as_old_plugin("end", "--force")
+        other = self.old / "-elsewhere-app"
+        other.mkdir(parents=True)
+        (other / "log.jsonl").write_text("{}\n")
+        if live:
+            self.as_old_plugin("start", "--name", "search")
+        claude = self.box.repo / ".claude"
+        (claude / "goblin-warband.json").rename(claude / "mission-control.json")
+        (claude / "mission-control.local.json").write_text(json.dumps({"collaboration": {"mode": "solo"}}))
+        self.assertEqual(len(list((self.old / "runs").iterdir())), 2)
+
+    def test_the_first_command_moves_the_config_and_the_ledger_with_one_line_of_notice(self):
+        self.old_world(live=False)
+        done = self.box.mc("--json", "status")
+        notice = [line for line in done.stderr.splitlines() if line.strip()]
+        self.assertEqual(len(notice), 1, done.stderr)
+        self.assertTrue(notice[0].startswith("goblin-warband: moved the ledger "), notice[0])
+        self.assertIn("(2 archived raids)", notice[0])
+        self.assertIn("goblin-warband.json", notice[0])
+        self.assertFalse(self.old.exists(), "the old root moved whole")
+        self.assertEqual(len(list((self.new / "runs").iterdir())), 2, "archived raids came with it")
+        self.assertTrue((self.new / "-elsewhere-app" / "log.jsonl").is_file(), "another project's ledger came with it")
+        claude = self.box.repo / ".claude"
+        self.assertFalse((claude / "mission-control.json").exists())
+        self.assertFalse((claude / "mission-control.local.json").exists())
+        self.assertTrue((claude / "goblin-warband.json").is_file())
+        self.assertEqual(json.loads((claude / "goblin-warband.local.json").read_text()), {"collaboration": {"mode": "solo"}})
+        self.assertTrue(json.loads(done.stdout)["config"], "the command that moved the config then read it")
+        again = self.box.mc("status")
+        self.assertNotIn("goblin-warband: moved", again.stderr, "the move happens once")
+
+    def test_a_live_raid_in_the_old_ledger_refuses_the_move_and_says_why(self):
+        self.old_world(live=True)
+        before = sorted(str(p.relative_to(self.old)) for p in self.old.rglob("*"))
+        done = self.box.mc("status", expect=1)
+        self.assertIn("goblin-warband has not moved anything from mission-control: 1 raid still live", done.stdout)
+        self.assertIn("search (", done.stdout)
+        self.assertIn("A ledger is never moved mid-raid", done.stdout)
+        self.assertEqual(sorted(str(p.relative_to(self.old)) for p in self.old.rglob("*")), before, "nothing in the old ledger moved")
+        self.assertFalse(self.new.exists())
+        self.assertTrue((self.box.repo / ".claude" / "mission-control.json").is_file(), "the config stays with the live raid")
+        self.assertFalse((self.box.repo / ".claude" / "goblin-warband.json").exists())
+
+    def test_a_hook_during_a_live_old_raid_fails_open_and_moves_nothing(self):
+        self.old_world(live=True)
+        done = self.box.mc("hook", "session-start", session="crew-1", stdin=json.dumps({"session_id": "crew-1", "cwd": str(self.box.worktree), "source": "startup"}))
+        self.assertEqual(done.returncode, 0)
+        self.assertNotIn("goblin-warband: moved", done.stderr)
+        self.assertTrue((self.old / "runs").is_dir())
+        self.assertFalse(self.new.exists())
+
+    def test_an_existing_new_ledger_is_never_overwritten(self):
+        self.old_world(live=False)
+        self.new.mkdir(parents=True)
+        (self.new / "marker").write_text("x")
+        done = self.box.mc("status")
+        self.assertTrue((self.old / "runs").is_dir(), "the old root stays when the new one exists")
+        self.assertTrue((self.new / "marker").is_file())
+        self.assertNotIn("the ledger", done.stderr, "only the config moved")
+        self.assertIn("goblin-warband.json", done.stderr)
+
+    def test_a_sandbox_never_reads_the_default_old_ledger(self):
+        """With GOBLIN_WARBAND_HOME set and no MISSION_CONTROL_HOME, nothing derived from HOME or CLAUDE_CONFIG_DIR is moved."""
+        default_old = self.box.tmp / "home" / ".claude" / "mission-control"
+        (default_old / "runs" / "old").mkdir(parents=True)
+        env = dict(self.box.env)
+        env.pop("MISSION_CONTROL_HOME")
+        done = subprocess.run([sys.executable, "-I", str(CLI), "--cwd", str(self.box.repo), "status"], capture_output=True, text=True, env=env)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertTrue((default_old / "runs" / "old").is_dir())
+        self.assertNotIn("goblin-warband: moved", done.stderr)
+
+
+class RealLedgerUntouched(unittest.TestCase):
+    """The suite's own guard: the real ledger roots are never the ones the module resolves."""
+
+    def test_the_module_resolves_no_real_ledger(self):
+        sys.path.insert(0, str(HERE))
+        import warband as mc_module
+        real = REAL_HOME / ".claude"
+        self.assertFalse(str(mc_module.LEDGER_ROOT).startswith(str(real)), mc_module.LEDGER_ROOT)
+        old = mc_module.old_ledger_root()
+        self.assertTrue(old is None or not str(old).startswith(str(real)), old)
 
 
 if __name__ == "__main__":

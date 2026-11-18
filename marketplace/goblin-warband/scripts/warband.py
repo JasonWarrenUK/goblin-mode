@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""mission-control: the ledger CLI behind the pane, the tools, the hooks and the skills.
+"""goblin-warband: the ledger CLI behind the pane, the tools, the hooks and the skills.
 
-One run per repository at a time. The ledger is a directory of small JSON
-files under ~/.claude/mission-control/<repo slug>/, one file per fact, so two
+One raid per repository at a time. The ledger is a directory of small JSON
+files under ~/.claude/goblin-warband/<repo slug>/, one file per fact, so two
 sessions writing different facts never clobber each other:
 
   run.json                    the run: name, coordinator, base commit, crew plan,
@@ -14,7 +14,7 @@ sessions writing different facts never clobber each other:
   briefs/<task>.md            the brief each crew session reads at its first turn
   log.jsonl                   every event, append-only
 
-The project config is <repo>/.claude/mission-control.json (the example beside
+The project config is <repo>/.claude/goblin-warband.json (the example beside
 this script documents every key). A caller is identified by CLAUDE_CODE_SESSION_ID,
 which Claude Code sets for every Bash child, or by --session when the mod
 calls on its own behalf. Writes that steer the run (start, end, grant, revoke,
@@ -50,8 +50,8 @@ from datetime import datetime
 from html import escape
 from pathlib import Path
 
-CONFIG_REL = ".claude/mission-control.json"
-LEDGER_ROOT = Path(os.environ.get("MISSION_CONTROL_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "mission-control"))
+CONFIG_REL = ".claude/goblin-warband.json"
+LEDGER_ROOT = Path(os.environ.get("GOBLIN_WARBAND_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "goblin-warband"))
 SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "sessions"))
 STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting", "waiting-jason", "done")
 # what a `waiting` session names as the thing it waits on; `waiting-jason` is kept for an open need of the user's
@@ -103,7 +103,7 @@ def git_dir_of(cwd: str | Path) -> tuple[Path, Path] | None:
     A checkout has a `.git` directory. A linked worktree has a `.git` file whose `gitdir:` line
     names `<common>/worktrees/<name>`, so the common dir and the main checkout follow from it.
     The ledger must not depend on a working git: a macOS update removed the Command Line Tools
-    on 30 October 2026 and every mc.py command answered "not inside a git repository" while the
+    on 30 October 2026 and every warband.py command answered "not inside a git repository" while the
     run sat intact on disk.
     """
     try:
@@ -385,7 +385,7 @@ class Ledger:
     def require_run(self) -> dict:
         run = self.run()
         if run is None:
-            raise Refusal(f"no active mission-control run for {self.main}; start one with /mission-control:kickoff or `mc.py start --name <name>`")
+            raise Refusal(f"no active mission-control run for {self.main}; start one with /goblin-warband:declare-raid or `warband.py start --name <name>`")
         return run
 
     def save_run(self, run: dict) -> None:
@@ -1252,13 +1252,24 @@ def stack_shares(a: int, b: int, facts: dict[int, dict], heads: dict[str, int]) 
     return a in stack_below(b, facts, heads) or b in stack_below(a, facts, heads)
 
 
+# goblin-scout keeps its roadbook in .claude/roadbook.json; a repo that has not migrated still has
+# .claude/roadmaps.json, with the same field names. Both are read, the new name first.
+ROADBOOK_RELS = (".claude/roadbook.json", ".claude/roadmaps.json")
+
+
+def has_roadbook(main: Path) -> bool:
+    """Whether the main checkout keeps a goblin-scout roadbook under either name."""
+    return any((main / rel).is_file() for rel in ROADBOOK_RELS)
+
+
 def roadmap_task(main: Path, task: str, ref: str = "origin/main") -> dict | str | None:
-    """The task's row in the roadmap at a ref; "unlisted" when the task is not in that roadmap, None when the repo has no rich roadmap, the ref does not resolve or the file there is not a roadmap."""
-    if not (main / ".claude" / "roadmaps.json").is_file():
+    """The waypoint's row in the roadbook at a ref; "unlisted" when the task is not in that roadbook, None when the repo has no rich roadbook, the ref does not resolve or the file there is not a roadbook.
+    At the ref the new file name is read first and the old one second, since a branch cut before the move still carries roadmaps.json."""
+    if not has_roadbook(main):
         return None
     if run_git(main, "rev-parse", "--verify", "--quiet", ref) is None:
         return None
-    raw = run_git(main, "show", f"{ref}:.claude/roadmaps.json")
+    raw = next((text for text in (run_git(main, "show", f"{ref}:{rel}") for rel in ROADBOOK_RELS) if text is not None), None)
     if raw is None:
         return None
     try:
@@ -1384,7 +1395,7 @@ def reconcile(ledger: Ledger) -> dict:
     run = sync_auto_needs(ledger, run, "prompt", prompts, sessions)
     for sid, row in sessions.items():
         if row.get("state") == "waiting-jason" and not any(n.get("status") in ("open", "started") and sid in (n.get("session_id"), n.get("for")) for n in run.get("needs", [])):
-            note("waiting-jason-without-need", f"session {row.get('name') or sid[:8]} reads waiting-jason but nothing of its is on the needs list; it raises the need (mc_need) or reports `waiting --on <what>`", row.get("task", ""), sid, row.get("pr"))
+            note("waiting-jason-without-need", f"session {row.get('name') or sid[:8]} reads waiting-jason but nothing of its is on the needs list; it raises the need (warband_tribute) or reports `waiting --on <what>`", row.get("task", ""), sid, row.get("pr"))
     joined_tasks = {row.get("task") for row in sessions.values()}
     for entry in run.get("crew", []):
         task = entry.get("task", "")
@@ -1397,7 +1408,7 @@ def reconcile(ledger: Ledger) -> dict:
         claimed = set(pr_rows) | {int(r["pr"]) for r in sessions.values() if r.get("pr")}
         loose = sorted(int(p["number"]) for p in listing if int(p["number"]) not in claimed)
         if loose:
-            note("pr-unattributed", "open PRs no task claims and nobody pinned: " + ", ".join(f"#{n}" for n in loose) + "; `mc.py prs add <n> --task <T>`, `prs pin <n>` to show it or `prs ignore <n>`")
+            note("pr-unattributed", "open PRs no task claims and nobody pinned: " + ", ".join(f"#{n}" for n in loose) + "; `warband.py prs add <n> --task <T>`, `prs pin <n>` to show it or `prs ignore <n>`")
     numbers = {int(row["pr"]) for row in sessions.values() if row.get("pr")} | {n for n, r in pr_rows.items() if not r.get("ignored")}
     facts = pr_facts(ledger, numbers)
     # the PRs a hold waits on lend their state to the hold check alone; kept out of `facts` so the migration scan does not read them
@@ -1419,7 +1430,7 @@ def reconcile(ledger: Ledger) -> dict:
         if landed is not None and row.get("state") == "done" and not row.get("retired") and sid not in live and now() - landed > RETIRE_NUDGE_SECONDS:
             worktree = row.get("worktree") or ""
             if worktree and Path(worktree).is_dir() and not same_path(worktree, ledger.main):
-                note("unretired", f"done since {clock(landed)}, worktree still present; `mc.py retire {row.get('task') or sid[:8]}`", row.get("task", ""), sid, number)
+                note("unretired", f"done since {clock(landed)}, worktree still present; `warband.py retire {row.get('task') or sid[:8]}`", row.get("task", ""), sid, number)
 
     # an approval the watcher noted: open until the PR lands, named until then, closed by itself once it has
     pending_changed = False
@@ -1442,7 +1453,7 @@ def reconcile(ledger: Ledger) -> dict:
                 when = f" at {clock(item.get('at'))}" if seen == approved_head else ""
                 note("approved-stale", f"PR #{item['pr']} was last approved{when} on {seen[:7]} and the head is now {current_head[:7]}; the approval may predate a rewrite, so read the diff since before landing and ask the reviewer if it changed what they approved", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
             elif (pr_rows.get(int(item["pr"])) or {}).get("hold") and not hold_lifted(pr_rows[int(item["pr"])]["hold"], states, open_needs):
-                note("approved-held", f"PR #{item['pr']} approved at {clock(item.get('at'))} and held: {hold_text(pr_rows[int(item['pr'])]['hold'])}; `mc.py prs release {item['pr']}` when it can land", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+                note("approved-held", f"PR #{item['pr']} approved at {clock(item.get('at'))} and held: {hold_text(pr_rows[int(item['pr'])]['hold'])}; `warband.py prs release {item['pr']}` when it can land", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
             else:
                 note("approved-unlanded", f"PR #{item['pr']} approved at {clock(item.get('at'))} and not landed; landing is authorised, so `/pr-land {item['pr']}`", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
     if pending_changed:
@@ -1471,7 +1482,7 @@ def reconcile(ledger: Ledger) -> dict:
     if broken:
         # everything above read the ledger and gh alone; the claim and roadmap checks below need history, so they wait for git
         note("git-unavailable", broken)
-    if not broken and (ledger.main / ".claude" / "roadmaps.json").is_file() and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
+    if not broken and has_roadbook(ledger.main) and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
         run_git(ledger.main, "fetch", "--quiet", "origin")
     found_config = find_config(ledger.main)
     claims_on_trunk = bool(found_config) and (found_config[1] or {}).get("claims") == "trunk-sync"
@@ -1519,7 +1530,7 @@ def reconcile(ledger: Ledger) -> dict:
             continue
         for job in row.get("jobs") or []:
             if job.get("status", "open") == "open":
-                note("job-orphaned", f"{job.get('kind')} job {job.get('id')} ({job.get('reason') or job.get('spec') or ''}) belongs to a session that is gone; re-arm it from the session that adopts the row, or `mc.py jobs done {job.get('id')}`", row.get("task", ""), sid, row.get("pr"))
+                note("job-orphaned", f"{job.get('kind')} job {job.get('id')} ({job.get('reason') or job.get('spec') or ''}) belongs to a session that is gone; re-arm it from the session that adopts the row, or `warband.py jobs done {job.get('id')}`", row.get("task", ""), sid, row.get("pr"))
     # a watcher that reads `watching` but whose process is gone was killed without a word (SIGKILL cannot be caught); the session has to re-arm it
     for sid, row in sessions.items():
         watch = row.get("watch") or {}
@@ -1721,7 +1732,7 @@ def print_status(status: dict) -> None:
 # A project is solo or collaborative; the answer is stated in the config (or the gitignored local
 # config beside it) or inferred from the last 90 days of history and the reviews on merged PRs.
 # The run record carries one answer so every brief, skill and watcher reads the same one.
-LOCAL_CONFIG_REL = ".claude/mission-control.local.json"
+LOCAL_CONFIG_REL = ".claude/goblin-warband.local.json"
 AUTHOR_WINDOW_DAYS = 90
 REVIEW_SAMPLE = 30
 BOT_MARKERS = ("[bot]", "dependabot", "renovate", "github-actions", "actions@github.com", "noreply@github.com", "noreply@anthropic.com", "copilot")
@@ -2066,7 +2077,7 @@ def cmd_init(args) -> int:
     target = root / CONFIG_REL
     if target.exists() and not args.force:
         raise Refusal(f"{target} exists; pass --force to overwrite it")
-    example = Path(__file__).resolve().parent.parent / "references" / "mission-control.example.json"
+    example = Path(__file__).resolve().parent.parent / "references" / "goblin-warband.example.json"
     data = read_json(example, {})
     data["project"] = root.name
     data["resources"] = {}
@@ -2213,10 +2224,10 @@ def rearm_line(holder: dict | None, whose: str = "this session had", restored: b
             parts.append("Claude Code restores cron jobs on a resume by itself: read CronList first and create only a cron it does not show (a second copy fires twice).")
         if any(j.get("kind") != "cron" for j in jobs):
             parts.append("Re-arm each Monitor or watch, which died with the process.")
-        parts.append("`mc.py jobs done <id>` for one that is no longer wanted.")
+        parts.append("`warband.py jobs done <id>` for one that is no longer wanted.")
         tail = ". " + " ".join(parts)
     else:
-        tail = ". Re-arm each, or `mc.py jobs done <id>` for one that is no longer wanted."
+        tail = ". Re-arm each, or `warband.py jobs done <id>` for one that is no longer wanted."
     # `jobs add` stores a spec and a prompt uncut and the hook that prints this has a 10,000 character cap, so each is clipped here
     clipped = False
 
@@ -2229,7 +2240,7 @@ def rearm_line(holder: dict | None, whose: str = "this session had", restored: b
         return text[:limit - 1].rstrip() + "…"
 
     named = "; ".join(f"{j.get('kind')} {j.get('id')} ({cut(j.get('spec') or '', REARM_SPEC_LIMIT)}{': ' + cut(j['prompt'], REARM_PROMPT_LIMIT) if j.get('prompt') else ''})" for j in jobs)
-    note = " Text ending in … is clipped: `mc.py jobs list` has the whole of it." if clipped else ""
+    note = " Text ending in … is clipped: `warband.py jobs list` has the whole of it." if clipped else ""
     return f" Scheduled work {whose}: " + named + note + tail
 
 
@@ -2432,8 +2443,8 @@ def stop_watch(ledger: Ledger, row: dict, number: int) -> int:
         print(f"#{number}: no watcher is running for this PR (status {watch.get('status')}); nothing to stop")
         return 0
     code, command = sh(["ps", "-o", "command=", "-p", str(int(pid))])
-    if code != 0 or "mc.py" not in command or "watch" not in command:
-        print(f"#{number}: the recorded pid {pid} is not an mc.py watcher; nothing to stop")
+    if code != 0 or "warband.py" not in command or "watch" not in command:
+        print(f"#{number}: the recorded pid {pid} is not an warband.py watcher; nothing to stop")
         return 0
     with ledger.locked():
         fresh = ledger.sessions().get(row["session_id"])
@@ -2470,7 +2481,7 @@ def cmd_watch(args) -> int:
     row = ledger.sessions().get(session_id or "", {}) if run else {}
     number = args.pr or (int(row["pr"]) if row.get("pr") else None)
     if not number:
-        raise Refusal("which PR? pass the number, or report it first with mc_report")
+        raise Refusal("which PR? pass the number, or report it first with warband_report")
 
     if args.stop:
         return stop_watch(ledger, row, number)
@@ -2493,7 +2504,7 @@ def cmd_watch(args) -> int:
             # the watch is a scheduled job like any other: open while it should be running or re-armed, done once the PR landed
             jobs = [j for j in (fresh.get("jobs") or []) if j.get("id") != f"watch-{number}"]
             jobs.append({"id": f"watch-{number}", "kind": "watch", "spec": f"PR #{number}, every {int(args.interval)}s" + (f", held outside {hours['start']}-{hours['end']}" if hours else ""),
-                         "prompt": f"python3 mc.py watch --pr {number}", "reason": f"watch PR #{number} and report each change", "status": "done" if status == "ended" else "open", "at": (fresh.get("watch") or {}).get("since") or now()})
+                         "prompt": f"python3 warband.py watch --pr {number}", "reason": f"watch PR #{number} and report each change", "status": "done" if status == "ended" else "open", "at": (fresh.get("watch") or {}).get("since") or now()})
             fresh["jobs"] = jobs
             ledger.save_session(fresh)
         ledger.log("watch", session_id=row["session_id"], pr=number, status=status, changes=changes)
@@ -2592,7 +2603,7 @@ def cmd_watch(args) -> int:
                 print(f"#{number}: watch stopped on request; do not re-arm")
             else:
                 record("killed", seen, [], caught[0])
-                print(f"#{number}: the watch was stopped by signal {caught[0]} ({signal.Signals(caught[0]).name}); something outside it ended the process. Re-arm the watch; stop one on purpose with `mc.py watch --stop`")
+                print(f"#{number}: the watch was stopped by signal {caught[0]} ({signal.Signals(caught[0]).name}); something outside it ended the process. Re-arm the watch; stop one on purpose with `warband.py watch --stop`")
             sys.stdout.flush()
 
 
@@ -2658,7 +2669,7 @@ def launch_line(run: dict, entry: dict, plugin_dir: str | None) -> str:
         flags += ["--effort", shlex.quote(entry["effort"])]
     if plugin_dir:
         flags += ["--plugin-dir", shlex.quote(plugin_dir)]
-    prompt = f"Start: you are crew {task} in run {run['name']}. Read your brief at {entry['brief']}, invoke /mission-control:crew and answer its five questions to the coordinator."
+    prompt = f"Start: you are crew {task} in run {run['name']}. Read your brief at {entry['brief']}, invoke /goblin-warband:join-raid and answer its five questions to the coordinator."
     # A subagent on the session's model runs at the session's effort, so a crew launched at low or medium would hand its
     # fresh-eyes review (crew skill step 1b) to a reviewer at that level. CLAUDE_CODE_SUBAGENT_EFFORT (Claude Code 2.1.316)
     # names the level for subagents nothing else sets one for; a crew at high or above is left alone, since the variable would lower its reviewer.
@@ -2798,7 +2809,7 @@ def adopt_locked(args, ledger: Ledger) -> int:
         return 0
     old = stale_row_for(ledger, plan, who)
     if old is None:
-        raise Refusal(f"no row for {plan['task']} to adopt; `mc.py join --planned` makes a fresh one")
+        raise Refusal(f"no row for {plan['task']} to adopt; `warband.py join --planned` makes a fresh one")
     rearm = adopted_rearm(old, who, registry())
     row = adopt_row(ledger, old, session_id, who)
     close_launch_need(ledger, row.get("task") or plan.get("task") or "", session_id)
@@ -2875,7 +2886,7 @@ def report_locked(args, ledger: Ledger) -> int:
         session_id = resolve_session(args.for_session, ledger.sessions())
     row = ledger.sessions().get(session_id)
     if row is None:
-        raise Refusal("this session has not joined the run; run `mc.py join` first (the mod does it at its first turn)")
+        raise Refusal("this session has not joined the run; run `warband.py join` first (the mod does it at its first turn)")
     if args.state:
         if args.state not in STATES:
             raise Refusal(f"state must be one of {', '.join(STATES)}")
@@ -2962,7 +2973,7 @@ def grant_locked(args, ledger: Ledger) -> int:
         if args.note:
             holder["note"] = args.note.strip()[:240]
         write_json(ledger.slot_path(args.resource), holder)
-        # the holder asked for the time with mc_slot request; granted, the request is answered and leaves the board
+        # the holder asked for the time with warband_dibs request; granted, the request is answered and leaves the board
         # (one sat as "requested" for an hour after its release in November 2026 and read as a session queueing for a free slot)
         ledger.request_path(args.resource, target).unlink(missing_ok=True)
         ledger.log("extend", resource=args.resource, holder=target, minutes=minutes, until=holder["until"], by=by)
@@ -3218,7 +3229,7 @@ def cmd_jobs(args) -> int:
 
 
 def jobs_locked(args, ledger: Ledger) -> int:
-    """A session's scheduled state in the ledger, so a resume can re-arm it: each cron job, Monitor and watch, with its spec and reason. `mc.py watch` keeps its own entry.
+    """A session's scheduled state in the ledger, so a resume can re-arm it: each cron job, Monitor and watch, with its spec and reason. `warband.py watch` keeps its own entry.
 
     A crew session's jobs live on its row. The coordinator has no row, so its
     jobs (the wake cron) live on run.json. A job whose session is gone can be
@@ -3343,7 +3354,7 @@ def pending_locked(args, ledger: Ledger) -> int:
         ledger.save_pr(row)
         ledger.save_run(run)
         ledger.log("pending-" + args.action, id=target["id"], n=target["n"], pr=number)
-        print(f"PR #{number} {'held: ' + row['hold']['reason'] + ' (`mc.py prs hold` records what lifts it)' if args.action == 'hold' else 'released'}")
+        print(f"PR #{number} {'held: ' + row['hold']['reason'] + ' (`warband.py prs hold` records what lifts it)' if args.action == 'hold' else 'released'}")
         return 0
     target = next((p for p in pending if str(p.get("n")) == str(args.ref) or p.get("id") == args.ref), None)
     if target is None:
@@ -3660,7 +3671,7 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
                 f'<div class="chips">{"".join(chips)}</div></li>')
         parts.append("</ul>")
     if not model["groups"]:
-        parts.append('<p class="meta">No open PRs recorded for this run yet. Crew PRs are recorded as they are opened; <code>mc.py prs pin &lt;n&gt;</code> adds one from outside the run.</p>')
+        parts.append('<p class="meta">No open PRs recorded for this run yet. Crew PRs are recorded as they are opened; <code>warband.py prs pin &lt;n&gt;</code> adds one from outside the run.</p>')
     stale_html = ' <span class="stale">(stale: run reconcile or open /mc)</span>' if stale else ""
     name = escape(str(model.get("run") or "Run"))
     return f"""<!doctype html>
@@ -3868,7 +3879,7 @@ SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 
 
 def overrides_identity(command: str, depth: int = 0) -> bool:
-    """True when a line that runs mc.py passes a flag or variable that changes who the CLI takes the caller to be.
+    """True when a line that runs warband.py passes a flag or variable that changes who the CLI takes the caller to be.
 
     Reads the line as shlex tokens, so quoting, `env` and `export` forms and an
     abbreviated flag (`--by`, `--sess`) are seen; a quoted script is read the
@@ -3882,7 +3893,7 @@ def overrides_identity(command: str, depth: int = 0) -> bool:
         tokens = list(lexer)
     except ValueError:
         tokens = command.split()
-    if any(os.path.basename(token) == "mc.py" for token in tokens):
+    if any(os.path.basename(token) == "warband.py" for token in tokens):
         for token in tokens:
             name = token.split("=", 1)[0]
             if token.startswith(SESSION_ENV + "=") or token == SESSION_ENV:
@@ -3897,10 +3908,10 @@ def overrides_identity(command: str, depth: int = 0) -> bool:
 # ---------------------------------------------------------------- the push gate
 
 # A repo opts in with `push_gate` in its config: the keys of its `commands` block that must pass
-# for a commit before that commit may be pushed. `mc.py gate` runs them and writes a record under the
+# for a commit before that commit may be pushed. `warband.py gate` runs them and writes a record under the
 # git common dir, one file per commit; the PreToolUse hook refuses a `git push` while HEAD has no green
 # record. Like the rest of the guard it stops accidents: a hand-written record gets past it.
-GATE_DIR = ("mission-control", "gate")
+GATE_DIR = ("goblin-warband", "gate")
 # pushes that carry no branch tip: nothing to have tested
 PUSH_NO_BRANCH = ("--dry-run", "-n", "--delete", "-d", "--tags")
 # `git push` options that take a separate value, so the value is not mistaken for the remote or a refspec
@@ -4142,7 +4153,7 @@ def assess(payload: dict) -> dict:
     cwd = payload.get("cwd") or os.getcwd()
     session_id = payload.get("session_id")
     if overrides_identity(command):
-        return {**out, "decision": "deny", "reason": f"`{BY_USER}` stands for the person typing /mc, and `--session` or `{SESSION_ENV}=` on an mc.py line would make a session someone else; a session passes none of them. Ask mission control, or the person runs /mc."}
+        return {**out, "decision": "deny", "reason": f"`{BY_USER}` stands for the person typing /mc, and `--session` or `{SESSION_ENV}=` on an warband.py line would make a session someone else; a session passes none of them. Ask mission control, or the person runs /mc."}
     # the push gate applies with or without a run: a session outside any run pushed three commits into a red suite on 4 November 2026
     gate_reason = push_gate_reason(command, cwd)
     if gate_reason:
@@ -4183,7 +4194,7 @@ def assess(payload: dict) -> dict:
             if where is None:
                 return {**out, "decision": "ask", "reason": f"You hold the {label} slot, and the command's directory cannot be read from the line. Run the cd as its own command, then the task."}
             covered &= bool(spec.get("approve_in_slot"))
-            contexts.append(f"mission-control: you hold the {label} slot until {clock(slot.get('until'))}; release it with mc_slot when done, with results.")
+            contexts.append(f"mission-control: you hold the {label} slot until {clock(slot.get('until'))}; release it with warband_dibs when done, with results.")
             continue
         holder = f"held by {sessions.get(slot['holder'], {}).get('task') or slot['holder'][:8]} until {clock(slot.get('until'))}" if slot else "free, but not granted to you"
         req = {"resource": hit["resource"], "session_id": session_id, "minutes": None, "what": f"attempted: {hit['command']}"[:240], "at": now(), "command": hit["command"]}
@@ -4192,7 +4203,7 @@ def assess(payload: dict) -> dict:
             ledger.log("attempt", **req)
         return {**out, "decision": "deny", "reason": (
             f"`{hit['command']}` touches the {label}, a shared resource of mission-control run {run['name']}: {holder}. "
-            f"Request a slot (mc_slot with the resource, what you will run and the minutes), wait for the grant message, then run it from your worktree. "
+            f"Request a slot (warband_dibs with the resource, what you will run and the minutes), wait for the grant message, then run it from your worktree. "
             f"The attempt is on the board as a request.")}
     # A line is covered only when every simple command on it is one of the gated hits: `G && git push` is not, and
     # neither is a line that hides commands in a substitution or in quoting shlex cannot read.
@@ -4333,7 +4344,7 @@ def pre_compact_instructions(payload: dict) -> str:
                 "the user's standing instructions for this run in their own words; "
                 "the ids of the cron jobs and Monitors this session created; "
                 "and anything promised to a session or to the user and not yet done. "
-                "State that the coordinator invokes /mission-control:coordinate and runs reconcile before its next status.")
+                "State that the coordinator invokes /goblin-warband:lead-raid and runs reconcile before its next status.")
     plan = crew_for(run, cwd, session_id, ledger.sessions())
     if plan is None:
         return ""
@@ -4364,7 +4375,7 @@ def session_start_context(payload: dict) -> str:
         running = [n for n in run.get("needs", []) if n.get("status") == "started"]
         rearm = "" if source == "compact" else rearm_line(run)  # a compaction keeps the process, so what it scheduled still runs
         head = (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
-                "Invoke /mission-control:coordinate for the protocol; /mc opens the board.")
+                "Invoke /goblin-warband:lead-raid for the protocol; /mc opens the board.")
         back = ""
         if pending or decisions or needs or running:
             decision_text = "; ".join("#%s %s%s" % (d.get("n"), clip(str(d.get("text")), 600), f" (about {d['about']})" if d.get("about") else "") for d in decisions)
@@ -4380,13 +4391,13 @@ def session_start_context(payload: dict) -> str:
             cached, _ = cached_facts(ledger, hold_lift_prs(pr_rows))
             lift_states = {n: f.get("state", "") for n, f in cached.items()}
             live = {n["n"] for n in run.get("needs", []) if n.get("status") not in ("done", "superseded") and "n" in n}
-            pending_text = fit_items([pending_line(with_pr_hold(p, pr_rows, lift_states, live)) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`mc.py pending list`")
+            pending_text = fit_items([pending_line(with_pr_hold(p, pr_rows, lift_states, live)) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`warband.py pending list`")
             back = opening + (f"pending: {pending_text}. " if pending else "") + rest
         return f"{head}{back}{rearm}"
     candidate = coord.get("rebind_candidate") or {}
     if candidate.get("session_id") == session_id:
         return (f"Mission control: this process coordinated run {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
-                "Nothing coordinator-only works until the run is rebound: ask the user once, and on a yes run `python3 mc.py adopt coordinator`; the board shows the same question, answered by /mc adopt coordinator in this session.")
+                "Nothing coordinator-only works until the run is rebound: ask the user once, and on a yes run `python3 warband.py adopt coordinator`; the board shows the same question, answered by /mc adopt coordinator in this session.")
     plan = crew_for(run, cwd, session_id, ledger.sessions())
     if plan is None:
         return ""
@@ -4420,11 +4431,11 @@ def session_start_context(payload: dict) -> str:
         if collab.get("mode") else ""
     )
     return (
-        f"Mission control: this worktree is crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, started by the user with /mission-control:kickoff. "
+        f"Mission control: this worktree is crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, started by the user with /goblin-warband:declare-raid. "
         f"The coordinator is the session named \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}); its messages arrive as cross-session messages from that socket and carry the user's instructions on sequencing, shared code and shared resources. "
         + (f"Read your brief first: {brief}. " if has_brief else "No brief has been written yet; the coordinator will message you. ")
         + mode_line
-        + "Then invoke /mission-control:crew for how to report, request a slot, watch your PR once it exists and what stays with the user."
+        + "Then invoke /goblin-warband:join-raid for how to report, request a slot, watch your PR once it exists and what stays with the user."
         + rearm
     )
 
@@ -4469,14 +4480,14 @@ class StrictParser(argparse.ArgumentParser):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = StrictParser(prog="mc.py", description=__doc__.split("\n\n")[0])
+    parser = StrictParser(prog="warband.py", description=__doc__.split("\n\n")[0])
     parser.add_argument("--cwd", default=os.getcwd(), help="the directory to act from (default: the current one)")
     parser.add_argument("--session", help="act as this session id (the mod passes its own; a Bash child needs none)")
     parser.add_argument("--json", action="store_true")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("detect", help="print the project config path; exit 2 when there is none")
-    sp = sub.add_parser("init", help="write a starter .claude/mission-control.json")
+    sp = sub.add_parser("init", help="write a starter .claude/goblin-warband.json")
     sp.add_argument("--force", action="store_true")
     sp = sub.add_parser("start", help="start a run with this session as coordinator")
     sp.add_argument("--name", required=True)
@@ -4625,9 +4636,83 @@ COMMANDS = {
 }
 
 
+# ---------------------------------------------------------------- the move from mission-control
+
+OLD_CONFIG_RELS = ((".claude/mission-control.json", CONFIG_REL), (".claude/mission-control.local.json", LOCAL_CONFIG_REL))
+
+
+def old_ledger_root() -> Path | None:
+    """Where the plugin kept its ledger under its old name, derived like LEDGER_ROOT so a sandbox never reaches a real one:
+    once GOBLIN_WARBAND_HOME is set, only an explicit MISSION_CONTROL_HOME names an old ledger, and none is read from the defaults."""
+    if os.environ.get("GOBLIN_WARBAND_HOME"):
+        named = os.environ.get("MISSION_CONTROL_HOME")
+        return Path(named) if named else None
+    if os.environ.get("MISSION_CONTROL_HOME"):
+        return Path(os.environ["MISSION_CONTROL_HOME"])
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "mission-control"
+
+
+def live_raids_in(root: Path) -> list[str]:
+    """The raids still live in a ledger root, by name: a repo directory whose run.json parses and has not ended. Archived raids under runs/ never count."""
+    names = []
+    for path in sorted(root.glob("*/run.json")):
+        if path.parent.name == "runs":
+            continue
+        run = read_json(path)
+        if isinstance(run, dict) and not run.get("ended_at"):
+            names.append(f"{run.get('name') or '?'} ({path.parent.name})")
+    return names
+
+
+def migrate_from_mission_control(cwd: str) -> str | None:
+    """Move the old ledger root and this repository's old config files to their new names, once, before any command reads them.
+
+    Returns the one line of notice when something moved, None when nothing needed to. Raises Refusal, and moves nothing at all,
+    while the old ledger holds a live raid: a ledger is never moved mid-raid, and a config is never moved from under the plugin
+    still running that raid. The ledger moves whole (archived raids under runs/ included) and only when the new root does not
+    exist yet; a config moves only when its new name is free. Gate records under <git-common-dir>/mission-control/ are a per-commit
+    cache and stay where they are."""
+    old_root = old_ledger_root()
+    new_root = LEDGER_ROOT
+    ledger_moves = old_root is not None and old_root.is_dir() and not new_root.exists() and old_root.resolve() != new_root.resolve()
+    roots = []
+    for root in (toplevel(cwd), main_checkout(cwd)):
+        if root is not None and root not in roots:
+            roots.append(root)
+    config_moves = [(root / old_rel, root / new_rel) for root in roots for old_rel, new_rel in OLD_CONFIG_RELS
+                    if (root / old_rel).is_file() and not (root / new_rel).exists()]
+    if not ledger_moves and not config_moves:
+        return None
+    if old_root is not None and old_root.is_dir():
+        live = live_raids_in(old_root)
+        if live:
+            raise Refusal(f"goblin-warband has not moved anything from mission-control: {len(live)} raid{'s' if len(live) != 1 else ''} still live in {old_root} "
+                          f"({', '.join(live)}). A ledger is never moved mid-raid. End {'each' if len(live) != 1 else 'it'} with the mission-control plugin (/mc end), "
+                          f"then run any goblin-warband command and the ledger and config move by themselves.")
+    moved = []
+    if ledger_moves:
+        new_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(old_root), str(new_root))
+        archived = len(list((new_root / "runs").iterdir())) if (new_root / "runs").is_dir() else 0
+        moved.append(f"the ledger {old_root} to {new_root} ({archived} archived raid{'s' if archived != 1 else ''})")
+    for old_path, new_path in config_moves:
+        shutil.move(str(old_path), str(new_path))
+        moved.append(f"{old_path} to {new_path.name}")
+    return "goblin-warband: moved " + "; ".join(moved) + " (renamed from mission-control)."
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        try:
+            notice = migrate_from_mission_control(args.cwd)
+        except Refusal:
+            if args.cmd == "hook":
+                notice = None  # a hook fails open: the refusal is the next command's to say
+            else:
+                raise
+        if notice:
+            print(notice, file=sys.stderr)  # stderr, so a hook's or --json's stdout stays parseable
         code = COMMANDS[args.cmd](args)
     except Refusal as refusal:
         if getattr(args, "json", False):

@@ -5,17 +5,17 @@ import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGrou
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
 
-const PLUGIN = 'mission-control'
+const PLUGIN = 'goblin-warband'
 const NOON = new Date(2026, 9, 23, 12, 0).getTime()
 
 type On = Parameters<typeof mock.clock>[0]
 
 const STATUS = {
 	slug: '-code-app',
-	ledger_dir: '/home/j/.claude/mission-control/-code-app',
+	ledger_dir: '/home/j/.claude/goblin-warband/-code-app',
 	main_checkout: '/code/app',
 	config: true,
-	config_path: '/code/app/.claude/mission-control.json',
+	config_path: '/code/app/.claude/goblin-warband.json',
 	run: {
 		name: 'search',
 		started_at: NOON / 1000 - 3600,
@@ -72,7 +72,7 @@ const world = (
 		const sub = args.find(a => !a.startsWith('--') && a !== sessionId && a !== '/code/app') ?? ''
 		if (failing && sub === failing.verb) return { value: { exitCode: failing.exitCode, stdout: failing.stdout, stderr: failing.stderr, isStdoutTruncated: false, isStderrTruncated: false } }
 		// argparse's rule: --json is a root option, so after the subcommand it is refused; the fake refuses the same way so a test cannot pass what the CLI would not
-		if (sub && args.indexOf('--json') > args.indexOf(sub)) return { value: { exitCode: 2, stdout: '', stderr: 'usage: mc.py [-h] [--cwd CWD] [--session SESSION] [--json]\nmc.py: error: unrecognized arguments: --json\n', isStdoutTruncated: false, isStderrTruncated: false } }
+		if (sub && args.indexOf('--json') > args.indexOf(sub)) return { value: { exitCode: 2, stdout: '', stderr: 'usage: warband.py [-h] [--cwd CWD] [--session SESSION] [--json]\nwarband.py: error: unrecognized arguments: --json\n', isStdoutTruncated: false, isStderrTruncated: false } }
 		let stdout = ''
 		if (sub === 'status' && extra.statusFor) {
 			const answer = extra.statusFor(statusCalls++, args.includes('--probe'))
@@ -97,8 +97,8 @@ const PANE = {
 	plugin: PLUGIN,
 	surface: 'terminal',
 	component: 'Pane',
-	requestId: 'mc',
-	props: { title: 'mission control', isFocused: true, bodyColumns: 90, placement: 'inline', scroll: { offset: 0, bodyRows: 30 }, view: {} },
+	requestId: 'slate',
+	props: { title: 'goblin warband', isFocused: true, bodyColumns: 90, placement: 'inline', scroll: { offset: 0, bodyRows: 30 }, view: {} },
 } as const
 
 test('helpers: clock, reasonOf, socketOf, resolveSession', async () => {
@@ -144,7 +144,7 @@ test('the system-prompt section names the coordinator for crew and the crew for 
 test('the board draws the crew, the slot, the request and the need', async ($, on) => {
 	world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^search$/ }))?.text).toBe('search')
 	expect(await ui.find({ type: 'Button', key: 'row-sess:crew-1' })).toBeTruthy()
@@ -159,7 +159,7 @@ test('the board draws the crew, the slot, the request and the need', async ($, o
 test('the board header sets the run name apart and names the coordinator', async ($, on) => {
 	world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^search$/ }))?.text).toBe('search')
 	expect((await ui.find({ type: 'Text', text: /^coordinator mission control$/ }))?.text).toBe('coordinator mission control')
@@ -169,11 +169,11 @@ test('the board header sets the run name apart and names the coordinator', async
 test('/mc toggles the pane and /mc grant acts as the person', async ($, on) => {
 	const { panes, calls } = world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
-	expect(panes.open).toEqual(['mc'])
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
+	expect(panes.open).toEqual(['slate'])
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	expect(panes.open).toEqual([])
-	const granted = await $.command.run({ ...RUN, command: 'mc', args: 'grant api-port 10SE.2 10' })
+	const granted = await $.command.run({ ...RUN, command: 'grant-dibs', args: 'api-port 10SE.2 10' })
 	expect(granted.text).toBe('grant ok')
 	const grant = calls.find(c => c.includes('grant'))
 	expect(grant).toBeTruthy()
@@ -184,19 +184,19 @@ test('/mc toggles the pane and /mc grant acts as the person', async ($, on) => {
 test('/mc grant tells the session only when the CLI granted', async ($, on) => {
 	const { sent } = world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: 'grant api-port 10SE.2 10' })
+	await $.command.run({ ...RUN, command: 'grant-dibs', args: 'api-port 10SE.2 10' })
 	expect(sent.length).toBe(1)
 	expect(sent[0]?.text).toMatch(/^Slot granted by the user: api-port is yours for 10 minutes/)
 })
 
 for (const refusal of [
-	{ name: 'an unknown resource', args: 'grant lcoal-db 10SE.2', exitCode: 1, stdout: '✗ no resource named lcoal-db; configured: local-db, api-port\n', stderr: '' },
-	{ name: 'a minutes value argparse rejects', args: 'grant local-db 10SE.2 ten', exitCode: 2, stdout: '', stderr: "usage: mc.py grant [-h] --to TO\nmc.py grant: error: argument --minutes: invalid float value: 'ten'\n" },
+	{ name: 'an unknown resource', args: 'lcoal-db 10SE.2', exitCode: 1, stdout: '✗ no resource named lcoal-db; configured: local-db, api-port\n', stderr: '' },
+	{ name: 'a minutes value argparse rejects', args: 'local-db 10SE.2 ten', exitCode: 2, stdout: '', stderr: "usage: warband.py grant [-h] --to TO\nwarband.py grant: error: argument --minutes: invalid float value: 'ten'\n" },
 ]) {
 	test(`/mc grant sends nothing after ${refusal.name}`, async ($, on) => {
 		const { sent } = world(on, 'coord-1', STATUS, { verb: 'grant', exitCode: refusal.exitCode, stdout: refusal.stdout, stderr: refusal.stderr })
 		await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-		const answered = await $.command.run({ ...RUN, command: 'mc', args: refusal.args })
+		const answered = await $.command.run({ ...RUN, command: 'grant-dibs', args: refusal.args })
 		expect(sent).toEqual([])
 		expect(answered.text).not.toBe('')
 	})
@@ -206,7 +206,7 @@ test('/mc grant tells the session whose slot was taken', async ($, on) => {
 	const twoCrew = { ...STATUS, sessions: [...STATUS.sessions, { ...STATUS.sessions[0], session_id: 'crew-2', name: '10se3', task: '10SE.3', branch: 'feat/b' }] }
 	const { sent } = world(on, 'coord-1', twoCrew)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: 'grant local-db 10SE.3 10' })
+	await $.command.run({ ...RUN, command: 'grant-dibs', args: 'local-db 10SE.3 10' })
 	expect(sent.map(s => s.to)).toEqual(['crew-2', 'crew-1'])
 	expect(sent[1]?.text).toMatch(/^Slot taken: the user gave local-db to another session/)
 })
@@ -245,7 +245,7 @@ test('the tools hand the model the exact SendMessage lines instead of sending', 
 	const { calls } = world(on, 'crew-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
-	const requested = await $.tool.call({ tool: 'mcp__mission-control__mc_slot', action: 'request', resource: 'api-port', minutes: 10, what: 'serve-local' })
+	const requested = await $.tool.call({ tool: 'mcp__goblin-warband__warband_dibs', action: 'request', resource: 'api-port', minutes: 10, what: 'serve-local' })
 	expect(String(requested.result)).toMatch(/SendMessage to "mission control": slot request: 10SE\.2, api-port\. serve-local\. About 10 minutes\./)
 	expect(calls.some(c => c.includes('request'))).toBe(true)
 	const snap = parseSnapshot(JSON.stringify(STATUS), NOON)
@@ -257,7 +257,7 @@ test('the prompt gains the run section for crew only', async ($, on) => {
 	world(on, 'crew-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
-	expect(composed.sections.map(s => s.id)).toEqual(['intro', 'mission-control:run'])
+	expect(composed.sections.map(s => s.id)).toEqual(['intro', 'goblin-warband:run'])
 	expect(composed.sections[1]?.scope).toBe('session')
 })
 
@@ -265,9 +265,9 @@ test('without a run the tools say so and the pane shows the empty state', async 
 	world(on, 'x', { ...STATUS, run: null, sessions: [], slots: [], requests: [], needs: [] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
-	const answered = await $.tool.call({ tool: 'mcp__mission-control__mc_report', state: 'working' })
+	const answered = await $.tool.call({ tool: 'mcp__goblin-warband__warband_report', state: 'working' })
 	expect(String(answered.result)).toMatch(/no active mission-control run/)
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /No active run/ }))?.text).toBe('No active run')
 	await ui.unmount()
@@ -278,7 +278,7 @@ test('a gone session reads gone, dim, with its worktree name and the age of its 
 	const gone = { ...live, session_id: 'crew-2', name: '10se3', task: '10SE.3', branch: 'feat/b', worktree: '/code/app/.claude/worktrees/wt-gone', state: 'working', live: false, live_status: 'idle', updated_at: NOON / 1000 - 3900 }
 	world(on, 'coord-1', { ...STATUS, sessions: [live, gone] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	await ui.press({ key: 'quiet' }) // the gone group is collapsed by default; c shows it
 	expect((await ui.find({ type: 'Text', text: /^wt-live$/ }))?.text).toBe('wt-live')
@@ -296,19 +296,19 @@ test('a session the registry marks waiting reads waiting on you, and the coordin
 	expect(sectionText(parseSnapshot(JSON.stringify(STATUS), NOON), { sessionId: 'coord-1', isCoordinator: true, isCrew: false }) ?? '').not.toMatch(/only the user can answer/)
 	world(on, 'coord-1', waiting)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^in-slot$/ }))?.text).toBe('in-slot')
 	expect((await ui.find({ type: 'Text', text: /^waiting on you \(prompt\)$/ }))?.text).toBe('waiting on you (prompt)')
 	await ui.unmount()
 })
 
-test('mc_send to all still hands over the waiting session and says it cannot answer', async ($, on) => {
+test('warband_send to all still hands over the waiting session and says it cannot answer', async ($, on) => {
 	const waiting = { ...STATUS, sessions: [{ ...STATUS.sessions[0], state: 'in-slot', live_status: 'waiting' }] }
 	world(on, 'coord-1', waiting)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
-	const reply = await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'check-in' })
+	const reply = await $.tool.call({ tool: 'mcp__goblin-warband__warband_send', to: 'all', text: 'check-in' })
 	// a plugin's own tool answers through its hook, so the text is in result (a string, or MCP content blocks), never in text
 	const said = (r: { text?: string; result?: unknown }): string => r.text ?? (typeof r.result === 'string' ? r.result : ((r.result as { content?: { text?: string }[] } | undefined)?.content ?? []).map(c => c.text ?? '').join('\n'))
 	// the call is still handed over (a freeze or a notice must reach it once the user has been there); the sender decides whether to drop it
@@ -316,11 +316,11 @@ test('mc_send to all still hands over the waiting session and says it cannot ans
 	expect(said(reply)).toMatch(/10se2 sits on a permission prompt or a question in its own window.*do not wait on a reply/)
 })
 
-test('mc_send to all says nothing about prompts when every session is working', async ($, on) => {
+test('warband_send to all says nothing about prompts when every session is working', async ($, on) => {
 	world(on, 'coord-1', STATUS)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
-	const busy = await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'check-in' })
+	const busy = await $.tool.call({ tool: 'mcp__goblin-warband__warband_send', to: 'all', text: 'check-in' })
 	const text = busy.text ?? (typeof busy.result === 'string' ? busy.result : JSON.stringify(busy.result))
 	expect(text).toContain('10se2')
 	expect(text).not.toMatch(/permission prompt/)
@@ -344,7 +344,7 @@ test('helpers: prNumberOf and carryPrState', async () => {
 test('a merged PR reads merged beside its number and the coordinator is told to close the row', async ($, on) => {
 	world(on, 'coord-1', withPr('MERGED'))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^#209$/ }))?.text).toBe('#209')
 	expect((await ui.find({ type: 'Text', text: /^merged$/ }))?.text).toBe('merged')
@@ -356,7 +356,7 @@ test('a merged PR reads merged beside its number and the coordinator is told to 
 test('an open PR draws no state word', async ($, on) => {
 	world(on, 'coord-1', withPr('OPEN'))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ type: 'Text', text: /^merged$/ })).toBeFalsy()
 	await ui.unmount()
@@ -397,25 +397,25 @@ test('a coordinator that opens a PR reports nothing', async ($, on) => {
 	expect(calls.some(c => c.includes('report'))).toBe(false)
 })
 
-test('mc_report passes --for through for the coordinator', async ($, on) => {
+test('warband_report passes --for through for the coordinator', async ($, on) => {
 	const { calls } = world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
-	await $.tool.call({ tool: 'mcp__mission-control__mc_report', for: '10SE.2', state: 'done' })
+	await $.tool.call({ tool: 'mcp__goblin-warband__warband_report', for: '10SE.2', state: 'done' })
 	const report = calls.find(c => c.includes('report'))
 	expect(report).toEqual(expect.arrayContaining(['--for', '10SE.2', '--state', 'done']))
 })
 
-test('mc_need passes --supersedes through and a crew reissue still hands the coordinator the line', async ($, on) => {
+test('warband_tribute passes --supersedes through and a crew reissue still hands the coordinator the line', async ($, on) => {
 	const { calls } = world(on, 'crew-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
-	const out = await $.tool.call({ tool: 'mcp__mission-control__mc_need', why: 'run it with the dependency installed', command: 'poetry install && poetry run poe backfill', supersedes: '3' })
+	const out = await $.tool.call({ tool: 'mcp__goblin-warband__warband_tribute', why: 'run it with the dependency installed', command: 'poetry install && poetry run poe backfill', supersedes: '3' })
 	const add = calls.find(c => c.includes('needs') && c.includes('add'))
 	expect(add).toEqual(expect.arrayContaining(['--supersedes', '3', '--command', 'poetry install && poetry run poe backfill']))
 	expect(String(out.result)).toContain('needs the user')
 	// @ts-ignore as above
-	await $.tool.call({ tool: 'mcp__mission-control__mc_need', why: 'plain' })
+	await $.tool.call({ tool: 'mcp__goblin-warband__warband_tribute', why: 'plain' })
 	const plain = calls.filter(c => c.includes('needs') && c.includes('add')).at(-1)
 	expect(plain).not.toContain('--supersedes')
 })
@@ -427,7 +427,7 @@ test('two overlapping refreshes leave the board on the one that started later, w
 	world(on, 'coord-1', STATUS, undefined, { statusFor: nth => (nth === 1 ? { status: pending, delayMs: 200 } : nth === 2 ? { status: ready, delayMs: 0 } : { status: STATUS, delayMs: 0 }) })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
-	await Promise.all([$.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' }), $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' })])
+	await Promise.all([$.tool.call({ tool: 'mcp__goblin-warband__warband_send', to: 'all', text: 'x' }), $.tool.call({ tool: 'mcp__goblin-warband__warband_send', to: 'all', text: 'x' })])
 	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
 	expect(composed.sections[1]?.text).toMatch(/10SE\.2 \(pr-ready\)/)
 })
@@ -468,73 +468,73 @@ test('/mc start from a haiku or sonnet session is warned off until the person sa
 	const { calls } = world(on, 'coord-1', { ...STATUS, run: null })
 	on('session.model', async () => ({ value: 'claude-sonnet-5-5' }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	const warned = await $.command.run({ ...RUN, command: 'mc', args: 'start search' })
+	const warned = await $.command.run({ ...RUN, command: 'start-raid', args: 'search' })
 	expect(warned.text).toContain('This session runs claude-sonnet-5-5')
-	expect(warned.text).toContain('/mc start search anyway')
+	expect(warned.text).toContain('/start-raid search anyway')
 	expect(calls.find(c => c.includes('start'))).toBeUndefined()
-	await $.command.run({ ...RUN, command: 'mc', args: 'start search anyway' })
+	await $.command.run({ ...RUN, command: 'start-raid', args: 'search anyway' })
 	const started = calls.find(c => c.includes('start'))
 	expect(started).toBeDefined()
 	expect(started).toContain('search')
 	expect(started).not.toContain('anyway')
 })
 
-test('helpers: startsRun sees a real mc.py start and nothing that only mentions both words', async () => {
+test('helpers: startsRun sees a real warband.py start and nothing that only mentions both words', async () => {
 	for (const line of [
-		'python3 mc.py start --name x',
-		'python3 /h/mc.py --json start --name x',
-		'cd /r && python3 /h/scripts/mc.py --cwd /r start --name x',
-		'x; mc.py --session abc start',
-		'python3 "${CLAUDE_PLUGIN_ROOT}/scripts/mc.py" start --name x',
-		'python3 /h/mc.py --cwd "/a b" start',
-		`bash -c 'python3 /h/mc.py start'`,
-		'env A=1 python3 mc.py start',
-		'sudo python3 /h/mc.py start',
+		'python3 warband.py start --name x',
+		'python3 /h/warband.py --json start --name x',
+		'cd /r && python3 /h/scripts/warband.py --cwd /r start --name x',
+		'x; warband.py --session abc start',
+		'python3 "${CLAUDE_PLUGIN_ROOT}/scripts/warband.py" start --name x',
+		'python3 /h/warband.py --cwd "/a b" start',
+		`bash -c 'python3 /h/warband.py start'`,
+		'env A=1 python3 warband.py start',
+		'sudo python3 /h/warband.py start',
 		// PR 62 round 2: a continued line, the common wrappers, a shell with clustered flags, a compound statement, a substitution
-		'cd /r && \\\n  python3 mc.py start',
-		'python3 mc.py \\\nstart',
-		'uv run python mc.py start',
-		'uv run mc.py start',
-		'poetry run python mc.py start',
-		'timeout 5 python3 mc.py start',
-		'nice -n 5 python3 mc.py start',
-		'env -u FOO python3 mc.py start',
-		`bash -lc 'python3 mc.py start'`,
-		`sudo bash -c 'python3 mc.py start'`,
-		`env X=1 bash -c 'python3 mc.py start'`,
-		'if true; then python3 mc.py start; fi',
-		'{ python3 mc.py start; }',
-		'x=`python3 mc.py start`',
+		'cd /r && \\\n  python3 warband.py start',
+		'python3 warband.py \\\nstart',
+		'uv run python warband.py start',
+		'uv run warband.py start',
+		'poetry run python warband.py start',
+		'timeout 5 python3 warband.py start',
+		'nice -n 5 python3 warband.py start',
+		'env -u FOO python3 warband.py start',
+		`bash -lc 'python3 warband.py start'`,
+		`sudo bash -c 'python3 warband.py start'`,
+		`env X=1 bash -c 'python3 warband.py start'`,
+		'if true; then python3 warband.py start; fi',
+		'{ python3 warband.py start; }',
+		'x=`python3 warband.py start`',
 		// a comment with an apostrophe must not swallow the line after it; a heredoc ends at its delimiter
-		`# don't\npython3 mc.py start`,
-		'cat <<EOF\nnotes\nEOF\npython3 mc.py start',
-		`cat <<'EOF' > /tmp/x\nnotes\nEOF\npython3 mc.py start`,
+		`# don't\npython3 warband.py start`,
+		'cat <<EOF\nnotes\nEOF\npython3 warband.py start',
+		`cat <<'EOF' > /tmp/x\nnotes\nEOF\npython3 warband.py start`,
 	]) {
 		expect(startsRun(line)).toBe(true)
 	}
 	// PR 62: each of these was refused from a sonnet session while it only read or wrote around the script
 	for (const line of [
-		`sed -n '/^def build_parser/,/add_subparsers/p' /h/scripts/mc.py; grep -n 'sp = sub.add_parser("start"' -A8 /h/scripts/mc.py`,
-		`jq '{start_line}' < /tmp/x.json | node mc.py-wrapper.mjs`,
-		`grep -n "mc.py start" README.md`,
-		`python3 /h/scripts/mc.py status --json`,
+		`sed -n '/^def build_parser/,/add_subparsers/p' /h/scripts/warband.py; grep -n 'sp = sub.add_parser("start"' -A8 /h/scripts/warband.py`,
+		`jq '{start_line}' < /tmp/x.json | node warband.py-wrapper.mjs`,
+		`grep -n "warband.py start" README.md`,
+		`python3 /h/scripts/warband.py status --json`,
 		`git push origin start`,
-		`git commit -m "fix mc.py start bug"`,
-		'echo mc.py start',
+		`git commit -m "fix warband.py start bug"`,
+		'echo warband.py start',
 		// PR 62 round 2: the body of a heredoc is text, whatever it looks like; so is a comment
-		'cat <<EOF\npython3 mc.py start\nEOF',
-		`git commit -F - <<'EOF'\npython3 mc.py start\nEOF`,
-		'cat <<-EOF\n\tpython3 mc.py start\n\tEOF',
-		'cat <<EOF <<EOT\npython3 mc.py start\nEOF\nmc.py start\nEOT',
-		'# run this; python3 mc.py start',
-		'uv run pytest mc.py start',
+		'cat <<EOF\npython3 warband.py start\nEOF',
+		`git commit -F - <<'EOF'\npython3 warband.py start\nEOF`,
+		'cat <<-EOF\n\tpython3 warband.py start\n\tEOF',
+		'cat <<EOF <<EOT\npython3 warband.py start\nEOF\nwarband.py start\nEOT',
+		'# run this; python3 warband.py start',
+		'uv run pytest warband.py start',
 	]) {
 		expect(startsRun(line)).toBe(false)
 	}
 })
 
 test('helpers: startsRun survives input a shell would reject', async () => {
-	for (const line of ['', "echo 'unterminated", 'echo "unterminated \\', 'cat <<', 'cat <<EOF\nnever closed', 'cat <<"EOF', 'echo \\', '#', '`', 'bash -c', `bash -c 'bash -c "bash -c \\"bash -c mc.py\\""'`]) {
+	for (const line of ['', "echo 'unterminated", 'echo "unterminated \\', 'cat <<', 'cat <<EOF\nnever closed', 'cat <<"EOF', 'echo \\', '#', '`', 'bash -c', `bash -c 'bash -c "bash -c \\"bash -c warband.py\\""'`]) {
 		expect(startsRun(line)).toBe(false)
 	}
 })
@@ -543,7 +543,7 @@ test('/mc start from an opus session starts the run without a word', async ($, o
 	const { calls } = world(on, 'coord-1', { ...STATUS, run: null })
 	on('session.model', async () => ({ value: 'claude-opus-5-5' }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: 'start search' })
+	await $.command.run({ ...RUN, command: 'start-raid', args: 'search' })
 	expect(calls.find(c => c.includes('start'))).toBeDefined()
 })
 
@@ -554,7 +554,7 @@ test('a crew session writes its context fill to its row and the board draws it',
 	const gauge = calls.find(c => c.includes('--context'))
 	expect(gauge).toBeDefined()
 	expect(gauge?.[gauge.indexOf('--context') + 1]).toBe('63')
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /ctx 88%/ }))?.text).toBe('ctx 88%')
 	await ui.unmount()
@@ -593,12 +593,12 @@ test('a launch need draws its whole line, cd to the worktree first, with a launc
 	const launch = {
 		id: 'n3', n: 3, session_id: 'coord-1', task: '10SE.4', kind: 'launch', status: 'open', at: NOON / 1000,
 		why: 'start crew 10SE.4 in a new terminal window (opus, high: reworks the shared ranking query)',
-		command: "claude --model opus --effort high --name '10se.4 ranking' 'Start: you are crew 10SE.4 in run search. Read your brief at /x/briefs/10SE.4.md, invoke /mission-control:crew and answer its five questions to the coordinator.'",
+		command: "claude --model opus --effort high --name '10se.4 ranking' 'Start: you are crew 10SE.4 in run search. Read your brief at /x/briefs/10SE.4.md, invoke /goblin-warband:join-raid and answer its five questions to the coordinator.'",
 		cwd: '/code/app/.claude/worktrees/b',
 	}
 	world(on, 'coord-1', { ...STATUS, needs: [launch] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^Needs Jason · 1$/ }))?.text).toBe('Needs Jason · 1')
 	expect((await ui.find({ type: 'Text', text: /^launch$/ }))?.text).toBe('launch')
@@ -615,7 +615,7 @@ test('a started need sits in its own Running group with its start time, off the 
 	expect(needGroups(snap.needs).open.map(n => n.n)).toEqual([1])
 	expect(needGroups(snap.needs).running.map(n => n.n)).toEqual([2])
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^Needs Jason · 1$/ }))?.text).toBe('Needs Jason · 1')
 	expect((await ui.find({ type: 'Text', text: /^Running · 1$/ }))?.text).toBe('Running · 1')
@@ -634,7 +634,7 @@ test('a started need sits in its own Running group with its start time, off the 
 	expect(start?.[start.indexOf('--note') + 1]).toBe('task b9')
 	expect(start).toContain('--by-user')
 	await ui.unmount()
-	const typed = await $.command.run({ ...RUN, command: 'mc', args: 'started 2 the session watches it' })
+	const typed = await $.command.run({ ...RUN, command: 'agree-tribute', args: '2 the session watches it' })
 	expect(typed.text).toContain('needs ok')
 	const second = calls.filter(c => c.includes('needs') && c.includes('start')).at(-1)
 	expect(second?.[second.indexOf('--note') + 1]).toBe('the session watches it')
@@ -655,16 +655,28 @@ test('helpers: a notice goes to live, working crew only, never to a done or reti
 test('/mc extend runs a grant to the holder and tells only the holder; /mc done forwards a result', async ($, on) => {
 	const { calls, sent } = world(on, 'coord-1', { ...STATUS, needs: [{ ...STATUS.needs[0], n: 1, kind: 'measurement', for: 'crew-1', for_task: '10SE.2', why: 'paste the timings' }] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: 'extend local-db 20' })
+	await $.command.run({ ...RUN, command: 'extend-dibs', args: 'local-db 20' })
 	const extend = calls.find(c => c.includes('grant'))
 	expect(extend).toBeDefined()
 	expect(extend).toContain('crew-1')
 	expect(extend).toContain('20')
 	expect(extend).not.toContain('--force')
 	expect(sent.some(m => m.text.startsWith('Slot extended by the user: local-db'))).toBe(true)
-	const done = await $.command.run({ ...RUN, command: 'mc', args: 'done 1 p95 410ms' })
+	const done = await $.command.run({ ...RUN, command: 'pay-tribute', args: '1 p95 410ms' })
 	expect(done.text).toContain('result sent to 10SE.2')
 	expect(sent.some(m => m.text.includes('Result of need #1') && m.text.includes('p95 410ms'))).toBe(true)
+})
+
+test('/reclaim-post takes the warband’s words and hands the CLI its stored roles', async ($, on) => {
+	const { calls } = world(on, 'coord-1')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'reclaim-post', args: 'chief' })
+	expect(calls.find(c => c.includes('adopt'))).toContain('coordinator')
+	await $.command.run({ ...RUN, command: 'reclaim-post', args: 'raider' })
+	expect(calls.filter(c => c.includes('adopt')).at(-1)).toContain('crew')
+	const refused = await $.command.run({ ...RUN, command: 'reclaim-post', args: 'coordinator' })
+	expect(refused.text).toBe('usage: /reclaim-post chief|raider (from the session that takes the post)')
+	expect(calls.filter(c => c.includes('adopt')).length).toBe(2)
 })
 
 test('a GitHub write the permission decision refused lands on the needs list; a hook refusal does not', async ($, on) => {
@@ -687,7 +699,7 @@ test('the board names a broken git and the fix while the run still draws', async
 	const problem = 'git is not working: the Command Line Tools are missing (a macOS update removes them); run `xcode-select --install`, then carry on.'
 	world(on, 'coord-1', { ...STATUS, git_problem: problem })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /xcode-select --install/ }))?.text).toContain('Command Line Tools')
 	expect((await ui.find({ type: 'Text', text: /^10SE\.2$/ }))?.text).toBe('10SE.2')
@@ -698,7 +710,7 @@ test('the board names a broken git and the fix while the run still draws', async
 test('the board groups the live crew under a subheading per state and the retired and gone under Archive, collapsed to their headings', async ($, on) => {
 	world(on, 'coord-1', threeStates())
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^Crew · 3$/ }))?.text).toBe('Crew · 3')
 	expect((await ui.find({ type: 'Text', text: /^working · 2$/ }))?.text).toBe('working · 2')
@@ -721,7 +733,7 @@ test('Needs Jason and Archive draw only when they hold something, and a need sho
 	// one live session, nothing to type: neither section is drawn, and nothing says "nothing"
 	world(on, 'coord-1', { ...STATUS, needs: [] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const quiet = await $.ui.mount(PANE)
 	expect(await quiet.find({ type: 'Text', text: /^Needs Jason/ })).toBeUndefined()
 	expect(await quiet.find({ type: 'Text', text: /^Archive/ })).toBeUndefined()
@@ -743,7 +755,7 @@ test('a need shows the line to paste first and its why beneath; one with no line
 	const spaced = { ...STATUS.needs[0], id: 'n3', n: 3, why: 'start it', command: 'claude --model opus', cwd: '/Users/j/Documents/My App/.claude/worktrees/b', kind: 'launch' }
 	world(on, 'coord-1', { ...STATUS, needs: [STATUS.needs[0], bare, spaced] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	const texts = (await ui.findAll({ type: 'Text', text: /type the reset|cd \/code\/app|approve the PR/ })).map(t => t.text)
 	expect(texts).toEqual(['cd /code/app/.claude/worktrees/a/apps/api && poetry run poe db-reset-local-anyway', 'type the reset', 'approve the PR description in this session'])
@@ -758,10 +770,10 @@ test('a probed refresh overtaken by a plain one still lands its PR state', async
 	// call 0 is the session start; after it the slow probed refresh reads GitHub's word and the quick plain one cannot
 	world(on, 'coord-1', STATUS, undefined, { statusFor: (nth, isProbed) => (nth > 0 && isProbed ? { status: probed, delayMs: 200 } : { status: plain, delayMs: 0 }) })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	const opening = $.command.run({ ...RUN, command: 'mc', args: '' })
+	const opening = $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	await new Promise(resolve => setTimeout(resolve, 50))
 	// @ts-ignore a plugin's own tool is in the input table only once a session has laid the MCP declarations beside the manifest
-	await $.tool.call({ tool: 'mcp__mission-control__mc_send', to: 'all', text: 'x' })
+	await $.tool.call({ tool: 'mcp__goblin-warband__warband_send', to: 'all', text: 'x' })
 	await opening
 	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
 	expect(composed.sections[1]?.text).toMatch(/PRs merged while the crew row is not done: 10SE\.2 \(#209\)/)
@@ -798,7 +810,7 @@ test('a refresh without probes keeps the probes the last probed one found', asyn
 
 test('the PR summary parses from status and the board lists only what waits on the user', async () => {
 	const prs = {
-		path: '/home/j/.claude/mission-control/-code-app/dashboard.html',
+		path: '/home/j/.claude/goblin-warband/-code-app/dashboard.html',
 		totals: { open: 19, jason: 3, held: 2, ready: 1, questions: 1 },
 		facts_at: NOON / 1000 - 120,
 		mine: [{ number: 272, actor: 'Jason', why: 'approved, checks green, mergeable; the merge is yours', cost: 'landing this first makes #271 restamp' }],
@@ -817,14 +829,14 @@ test('the PR summary parses from status and the board lists only what waits on t
 
 test('the board draws the PRs group with only the rows where the user moves next, and offers o for the page', async ($, on) => {
 	const prs = {
-		path: '/home/j/.claude/mission-control/-code-app/dashboard.html',
+		path: '/home/j/.claude/goblin-warband/-code-app/dashboard.html',
 		totals: { open: 3, jason: 1, held: 1, ready: 1, questions: 0 },
 		facts_at: NOON / 1000 - 60,
 		mine: [{ number: 272, actor: 'Jason', why: 'approved, checks green, mergeable; the merge is yours', cost: null }],
 	}
 	world(on, 'coord-1', { ...STATUS, prs })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'mc', args: '' })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^PRs · 3 open · 1 ready · 1 held/ }))?.text).toContain('PRs · 3 open')
 	expect((await ui.find({ type: 'Text', text: /^#272 approved/ }))?.text).toBe('#272 approved, checks green, mergeable; the merge is yours')
