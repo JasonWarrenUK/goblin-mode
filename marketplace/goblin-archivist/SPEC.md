@@ -81,6 +81,11 @@ Pane views: **here**, **pile**, **hunches**, **holes** (the Midden spec's Here, 
 | Draft schema | The script drafts it by fixed thresholds (required at 90% of a type's notes, optional from 10%); Claude annotates beside it; Jason rules |
 | The off switch | `enabled` stops the mod registering anything and stops every skill at its first step, since skills do not pass through the mod |
 | This repository | Commits the plugin, its tests and an invented fixture vault. Nothing read from the real vault is ever committed |
+| Archivist properties | Every property the archivist writes carries the prefix `gob-arc-` (`gob-arc-repo`, `gob-arc-revisit`), so it is plain which mod wrote it. The Midden spec's `repo` property on a project note becomes `gob-arc-repo` |
+| What the schema covers | The `gob-arc-` properties and the notes the archivist creates. Jason's own properties and `type` values stay untouched. Separately, `nitpick-vault` offers opt-in fix classes for Jason's own notes (journal migration, properties whose names differ only in case, empty duplicates), each approved as a class |
+| Daily notes | The archivist follows Periodic Notes' daily folder and format, and ignores the core Daily Notes setting |
+| Older journals | Migrated: daily notes named in earlier formats become the current Periodic Notes format and folders, as an opt-in `nitpick-vault` fix class, renamed through Obsidian so links survive |
+| Tasks | The archivist writes no task lines, in any note. A revisit date is a `gob-arc-revisit` property on the archivist's own note (hunch, brood, bones), and the pane and the whisper surface what is due. This replaces the Midden spec's revisit tasks in §5.1, §5.5, §5.6 and R10, R11 |
 
 ## 4. Step 1: what ships
 
@@ -100,8 +105,8 @@ Each item has an answer from Jason or waits here. **After the survey** means it 
 
 | # | Item | Source | State |
 |---|---|---|---|
-| O1 | How later writes treat published notes and Linter: never append to a published note, or a folder rule, or something else | Brief item 7 | After the survey |
-| O2 | Where `schema.json` lives in the vault: a dot-folder (Midden spec §3.4) or an existing config folder | Brief item 8, spec §3.4 Verify | After the survey |
+| O1 | How later writes treat published notes and Linter | Brief item 7 | Answered: guard only while a publishing plugin is enabled. With Digital Garden or Share Note switched on, the archivist never writes to a note carrying `dg-publish: true` or `<prefix>_link`; switched off, flagged notes are ordinary notes. Linter is treated the same way: while it is on, a write the archivist makes may be rewritten on save |
+| O2 | Where `schema.json` lives in the vault | Brief item 8, spec §3.4 Verify | Answered: `<config folder>/archivist/schema.json`, beside the templates and visible in Obsidian, so Jason can read and edit it there. The audit skips that folder. Which config folder is a setting, never a name in this repository |
 | O3 | `$.session.send` is documented for another session or an agent, never the current one; `$.prompt.submit({ text })` starts a turn in the current session (code.claude.com/docs/en/plugins/mods/api.md, read 2026-11-18). R17's hand-off and the holes view's "draft that note" change to `$.prompt.submit` | Brief item 9, spec §3.5 Verify | At slicing: tell Jason the design changes |
 | O4 | How gnawing runs, on which model and at what cost. `claude -p` loads hooks and plugins unless `--bare` is passed, and `--bare` cannot use a subscription login, so a gnaw started that way fires the archivist's own SessionStart and SessionEnd and queues itself | Brief item 10 | At slicing |
 | O5 | The spec's Obsidian checks (backlinks from list properties §5.1; the canvas format §5.7; cell widths in Jason's font §5.8) need the app. Running the Obsidian binary launches the app and does not return; ask Jason before anything that starts it | Brief item 11 | At slicing |
@@ -109,7 +114,7 @@ Each item has an answer from Jason or waits here. **After the survey** means it 
 | O7 | Tasks features that come from what his customised format encodes; a high bar, every earlier idea was turned down | Spec §9.1 | After the survey (section 7 of the report) |
 | O8 | How many lines the whisper may inject | Spec §9.2 | After the survey, from real project notes |
 | O9 | Whether all four pane views stay. Jason named all four and cut none; holes goes first if the pane feels crowded | Spec §9.3, §5.8 Assumed | Answered for now |
-| O10 | Whether Obsidian leaves dot-folders out of its index | Spec §3.4 Verify | With O2 |
+| O10 | Whether Obsidian leaves dot-folders out of its index | Spec §3.4 Verify | Moot: the schema lives in a visible folder (O2) |
 | O11 | Whether a second mod can draw in the band | Spec §5.8 Verify | Answered: since Claude Code 2.1.323 each mod that draws in the band gets its own row (code.claude.com/docs/en/plugins/mods/interface.md, read 2026-11-18) |
 | O12 | Heavy rule and half-block characters at the round border's cell width in Jason's font | Spec §5.8 Verify | Pane slice; check with `ghostty +show-face --string=` |
 | O13 | Whether `session_id`, `transcript_path`, `cwd` and `hook_event_name` reach every hook event | Spec §7 | Hooks slice |
