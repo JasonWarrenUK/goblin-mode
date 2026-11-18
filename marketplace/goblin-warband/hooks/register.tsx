@@ -908,7 +908,7 @@ const header = (ui: Ui, snap: Snapshot, me: Self, now: number, inner: number) =>
 		`${snap.sessions.filter(s => s.live).length}/${snap.sessions.length} live`,
 		`ledger ${ago(now - snap.at)} ago`,
 	]
-	// the card's content: inner less the round border's two cells, less paddingX 1 a side, plus the 3 that inner already took off
+	// inner is the pane body less 3; the card's round border and paddingX take 4 of the body, so its content is inner - 1
 	const layout = headerLayout(run_.name, role, facts, inner - 1)
 	return (
 		<Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
@@ -983,7 +983,26 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 	)
 }
 
-/** Where a state sits on the board: what needs the coordinator first, finished, retired and gone sessions last. */
+/**
+ * How a stored state reads on the slate. The ledger keeps its own words (ruling 17: they are interface); a person
+ * reads these. warband.py holds the same table as STATE_WORDS and a test there holds the two to each other.
+ */
+export const STATE_WORDS: Record<string, string> = {
+	briefing: 'reading orders',
+	working: 'raiding',
+	'in-slot': 'holding dibs',
+	'pr-ready': 'spoils ready',
+	blocked: 'blocked',
+	waiting: 'waiting',
+	'waiting-jason': 'awaiting tribute',
+	done: 'done',
+	retired: 'dismissed',
+	gone: 'gone',
+}
+
+export const stateWord = (state: string): string => STATE_WORDS[state] ?? state
+
+/** Where a state sits on the slate: what needs the chief first, finished, dismissed and gone sessions last. */
 const CREW_GROUPS = ['in-slot', 'working', 'blocked', 'waiting-jason', 'briefing', 'pr-ready', 'done', 'retired', 'gone'] as const
 
 /** Groups whose heading reads dim: nothing in them needs anyone. */
@@ -1012,7 +1031,7 @@ const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: 
 			<Box key={`group-${group}`} flexDirection="row" columnGap={1} marginTop={at === 0 ? 0 : 1}>
 				<Text color={quiet ? 'subtle' : stateColour(group) ?? 'claude'}>{collapsed ? '▹' : '▸'}</Text>
 				<Text weight="bold" dimColor={quiet} color={quiet ? undefined : stateColour(group)}>
-					{group} · {sessions.length}
+					{stateWord(group)} · {sessions.length}
 				</Text>
 				{collapsed ? <Text dimColor>c shows</Text> : null}
 			</Box>,
@@ -1039,7 +1058,7 @@ const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], 
 					<Text dimColor>{s.branch && s.branch !== label ? s.branch : ''}</Text>
 					{worktreeName && !retired ? <Text dimColor>{worktreeName}</Text> : null}
 					<Text dimColor={gone} color={retired ? undefined : gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
-						{retired ? 'retired' : gone ? 'gone' : s.state}
+						{stateWord(retired ? 'retired' : gone ? 'gone' : s.state)}
 					</Text>
 					{s.live && s.live_status === 'waiting' ? <Text color="error">waiting on you (prompt)</Text> : null}
 					{s.pr ? <Text dimColor={gone} color="claude">#{s.pr}</Text> : null}
@@ -1644,26 +1663,26 @@ export const register: Register = (on, options) => {
 				{header(ui, snap, me, now, inner)}
 				{needs.open.length > 0 && (
 					<Box flexDirection="column" paddingX={1}>
-						{heading(ui, `Needs Jason · ${needs.open.length}`, inner)}
+						{heading(ui, `Tribute owed · ${needs.open.length}`, inner)}
 						{needRows($, ui, needs.open, picked, inner)}
 					</Box>
 				)}
 				{prsGroup(ui, snap.prs, inner)}
 				<Box flexDirection="column" paddingX={1}>
-					{heading(ui, `Crew · ${live}`, inner)}
+					{heading(ui, `Raiders · ${live}`, inner)}
 					{snap.sessions.length === 0 && <Text dimColor>nobody has joined yet; a session starting in a planned worktree joins by itself.</Text>}
 					{snap.sessions.length > 0 && live === 0 && <Text dimColor>nobody live; the archive below has the rest.</Text>}
 					{crewRows($, ui, snap, me, picked, inner, now, nextIndex, 'active', showQuiet)}
 				</Box>
 				{needs.running.length > 0 && (
 					<Box flexDirection="column" paddingX={1}>
-						{heading(ui, `Running · ${needs.running.length}`, inner)}
+						{heading(ui, `Tribute agreed · ${needs.running.length}`, inner)}
 						<Text dimColor>started by you and still going; d with the result closes each.</Text>
 						{needRows($, ui, needs.running, picked, inner)}
 					</Box>
 				)}
 				<Box flexDirection="column" paddingX={1}>
-					{heading(ui, `Slots · ${snap.slots.length} held`, inner)}
+					{heading(ui, `Dibs · ${snap.slots.length} held`, inner)}
 					{slotRows(ui, snap)}
 					{freeResources.length > 0 && (
 						<Box flexDirection="row" columnGap={1} flexWrap="wrap">
@@ -1679,7 +1698,7 @@ export const register: Register = (on, options) => {
 				</Box>
 				{snap.requests.length > 0 && (
 					<Box flexDirection="column" paddingX={1}>
-						{heading(ui, `Requests · ${snap.requests.length}`, inner)}
+						{heading(ui, `Dibs called · ${snap.requests.length}`, inner)}
 						{requestRows($, ui, snap, picked)}
 					</Box>
 				)}

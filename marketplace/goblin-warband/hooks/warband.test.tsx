@@ -334,7 +334,7 @@ test('a session the registry marks waiting reads waiting on you, and the coordin
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text', text: /^in-slot$/ }))?.text).toBe('in-slot')
+	expect((await ui.find({ type: 'Text', text: /^holding dibs$/ }))?.text).toBe('holding dibs')
 	expect((await ui.find({ type: 'Text', text: /^waiting on you \(prompt\)$/ }))?.text).toBe('waiting on you (prompt)')
 	await ui.unmount()
 })
@@ -636,7 +636,7 @@ test('a launch need draws its whole line, cd to the worktree first, with a launc
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text', text: /^Needs Jason · 1$/ }))?.text).toBe('Needs Jason · 1')
+	expect((await ui.find({ type: 'Text', text: /^Tribute owed · 1$/ }))?.text).toBe('Tribute owed · 1')
 	expect((await ui.find({ type: 'Text', text: /^launch$/ }))?.text).toBe('launch')
 	expect((await ui.find({ type: 'Text', text: /new terminal window/ }))?.text).toContain('opus, high: reworks the shared ranking query')
 	const line = await ui.find({ type: 'Text', text: /^cd \/code\/app\/.claude\/worktrees\/b && claude --model opus --effort high --name/ })
@@ -653,8 +653,8 @@ test('a started need sits in its own Running group with its start time, off the 
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text', text: /^Needs Jason · 1$/ }))?.text).toBe('Needs Jason · 1')
-	expect((await ui.find({ type: 'Text', text: /^Running · 1$/ }))?.text).toBe('Running · 1')
+	expect((await ui.find({ type: 'Text', text: /^Tribute owed · 1$/ }))?.text).toBe('Tribute owed · 1')
+	expect((await ui.find({ type: 'Text', text: /^Tribute agreed · 1$/ }))?.text).toBe('Tribute agreed · 1')
 	// the start time sits on the tag row; the why and the note each take a line of their own beneath it
 	expect((await ui.find({ type: 'Text', text: /^since 08:00$/ }))?.text).toBe('since 08:00')
 	expect((await ui.find({ type: 'Text', text: /^run the embeddings backfill on hosted$/ }))?.text).toBe('run the embeddings backfill on hosted')
@@ -748,13 +748,13 @@ test('the board groups the live crew under a subheading per state and the retire
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text', text: /^Crew · 3$/ }))?.text).toBe('Crew · 3')
-	expect((await ui.find({ type: 'Text', text: /^working · 2$/ }))?.text).toBe('working · 2')
-	expect((await ui.find({ type: 'Text', text: /^pr-ready · 1$/ }))?.text).toBe('pr-ready · 1')
+	expect((await ui.find({ type: 'Text', text: /^Raiders · 3$/ }))?.text).toBe('Raiders · 3')
+	expect((await ui.find({ type: 'Text', text: /^raiding · 2$/ }))?.text).toBe('raiding · 2')
+	expect((await ui.find({ type: 'Text', text: /^spoils ready · 1$/ }))?.text).toBe('spoils ready · 1')
 	expect((await ui.find({ type: 'Text', text: /^Archive · 1$/ }))?.text).toBe('Archive · 1')
 	expect((await ui.find({ type: 'Text', text: /^gone · 1$/ }))?.text).toBe('gone · 1')
-	// the sections in order: what the user types first, the live crew, the machine, then the archive last
-	expect((await ui.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Needs Jason', 'Crew', 'Slots', 'Requests', 'Archive'])
+	// the sections in order: what the user types first, the live raiders, the machine, then the archive last
+	expect((await ui.findAll({ type: 'Text', text: /^(Raiders|Tribute owed|Tribute agreed|Dibs|Dibs called|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Tribute owed', 'Raiders', 'Dibs', 'Dibs called', 'Archive'])
 	// the gone row itself (its worktree name is the one Text unique to it) is not drawn until c shows it
 	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
 	expect((await ui.find({ type: 'Text', text: /^c shows$/ }))?.text).toBe('c shows')
@@ -765,17 +765,17 @@ test('the board groups the live crew under a subheading per state and the retire
 	await ui.unmount()
 })
 
-test('Needs Jason and Archive draw only when they hold something, and a need shows its line before its why', async ($, on) => {
+test('Tribute owed and Archive draw only when they hold something, and a tribute shows its line before its why', async ($, on) => {
 	// one live session, nothing to type: neither section is drawn, and nothing says "nothing"
 	world(on, 'coord-1', { ...STATUS, needs: [] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const quiet = await $.ui.mount(PANE)
-	expect(await quiet.find({ type: 'Text', text: /^Needs Jason/ })).toBeUndefined()
+	expect(await quiet.find({ type: 'Text', text: /^Tribute owed/ })).toBeUndefined()
 	expect(await quiet.find({ type: 'Text', text: /^Archive/ })).toBeUndefined()
 	expect(await quiet.find({ type: 'Text', text: /^nothing\./ })).toBeUndefined()
 	expect(await quiet.find({ key: 'quiet' })).toBeUndefined()
-	expect((await quiet.findAll({ type: 'Text', text: /^(Crew|Needs Jason|Running|Slots|Requests|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Crew', 'Slots', 'Requests'])
+	expect((await quiet.findAll({ type: 'Text', text: /^(Raiders|Tribute owed|Tribute agreed|Dibs|Dibs called|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Raiders', 'Dibs', 'Dibs called'])
 	await quiet.unmount()
 })
 

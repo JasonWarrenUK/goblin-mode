@@ -54,6 +54,26 @@ CONFIG_REL = ".claude/goblin-warband.json"
 LEDGER_ROOT = Path(os.environ.get("GOBLIN_WARBAND_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "goblin-warband"))
 SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "sessions"))
 STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting", "waiting-jason", "done")
+# How each stored state reads wherever a person reads it (ruling 17: the stored words are interface and stay).
+# The mod holds the same table as STATE_WORDS in hooks/register.tsx; a test holds the two to each other.
+STATE_WORDS = {
+    "briefing": "reading orders",
+    "working": "raiding",
+    "in-slot": "holding dibs",
+    "pr-ready": "spoils ready",
+    "blocked": "blocked",
+    "waiting": "waiting",
+    "waiting-jason": "awaiting tribute",
+    "done": "done",
+    "retired": "dismissed",
+    "gone": "gone",
+}
+# How a tribute's stored status reads: open is owed, started is agreed, done is paid.
+TRIBUTE_WORDS = {"open": "owed", "started": "agreed", "done": "paid"}
+
+
+def state_word(state: str | None) -> str:
+    return STATE_WORDS.get(state or "", state or "")
 # what a `waiting` session names as the thing it waits on; `waiting-jason` is kept for an open need of the user's
 WAITING_ON = re.compile(r"^(reviewer:\S+|session:\S+|pr:#?\d+|ci|hold)$")
 # a need's why is what the user reads before typing a hosted command, so it is not cut mid-sentence; a pasted result can be a query's whole output
@@ -1645,13 +1665,14 @@ def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
 def print_status(status: dict) -> None:
     run = status["run"]
     if not run:
-        print(f"No active run for {status['main_checkout']}.")
+        print(f"No raid on {status['main_checkout']}.")
         return
     coord = run.get("coordinator", {})
     if status.get("git_problem"):
         print(f"WARNING: {status['git_problem']}")
         print()
-    print(f"# Run {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · coordinator {coord.get('name') or coord.get('session_id', '?')} · PR approval: {run.get('pr_approval', 'user')}")
+    approval = {"coordinator": "the chief", "user": "the human"}.get(run.get("pr_approval", "user"), run.get("pr_approval", "user"))
+    print(f"# Raid {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · chief {coord.get('name') or coord.get('session_id', '?')} · spoils approved by {approval}")
     print()
     # the window the user must visit first, then the board's order: what the user has to type (only while something is open), the live crew, what runs on, the machine, then the sessions that are over
     def pr_cell(s: dict) -> str:
@@ -1673,7 +1694,7 @@ def print_status(status: dict) -> None:
         print()
     if open_needs:
         # the line to type first, the why beneath it; a need with no line shows its why on the row
-        print("## Needs Jason")
+        print("## Tribute owed")
         print()
         for n in open_needs:
             tag = f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}]"
@@ -1690,25 +1711,25 @@ def print_status(status: dict) -> None:
     for s in live_rows:
         # the fill is shown for live rows only: a gone session's last figure would read as current
         fill = f" · ctx {s['context_percent']}%" if isinstance(s.get("context_percent"), int) else ""
-        state = f"{s.get('state', '')}{' · waiting on you' if s.get('live_status') == 'waiting' else ''}{fill}"
+        state = f"{state_word(s.get('state'))}{' · waiting on you' if s.get('live_status') == 'waiting' else ''}{fill}"
         print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {state} | {s.get('summary', '')} | {pr_cell(s)} |")
     if running:
         # started by the user and still going: nothing to type, the result is what closes it
         print()
-        print("## Running")
+        print("## Tribute agreed")
         print()
         for n in running:
             note = f" · {n['note']}" if n.get("note") else ""
             print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']} (since {clock(n.get('started_at'))}{note})")
     print()
-    print("| Slot | Holder | Since | Until | What |")
+    print("| Dibs | Holder | Since | Until | What |")
     print("|---|---|---|---|---|")
     for slot in status["slots"]:
         flag = " overdue" if slot.get("overdue") else ""
         print(f"| {slot['resource']} | {slot.get('holder_task') or slot.get('holder_name') or slot['holder'][:8]} | {clock(slot.get('granted_at'))} | {clock(slot.get('until'))}{flag} | {slot.get('what', '')} |")
     if status["requests"]:
         print()
-        print("| Request | From | Minutes | What |")
+        print("| Dibs called | From | Minutes | What |")
         print("|---|---|---|---|")
         for req in status["requests"]:
             print(f"| {req['resource']} | {req.get('task') or req.get('name') or req['session_id'][:8]} | {req.get('minutes', '?')} | {req.get('what', '')} |")
@@ -1720,7 +1741,7 @@ def print_status(status: dict) -> None:
         print("| Session | Task | Branch | Last state | PR |")
         print("|---|---|---|---|---|")
         for s in gone_rows:
-            last = "retired" if s.get("retired") else f"gone ({s.get('state', '')})"
+            last = state_word("retired") if s.get("retired") else f"gone ({state_word(s.get('state'))})"
             print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {last} | {pr_cell(s)} |")
     for probe in status.get("probes", []) or []:
         checks = "; ".join(f"{c['kind']}: {c.get('detail', '')}" for c in probe["checks"])

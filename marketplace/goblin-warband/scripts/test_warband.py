@@ -1686,10 +1686,10 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("## Waiting on you", text)
         self.assertIn("- 10SE.2 (10se2) sits on a permission prompt or a question in its own window since ", text)
         # the window the user must visit is the first section: ahead of the needs, the crew table and the slots
-        self.assertIn("## Needs Jason", text)
-        self.assertLess(text.index("## Waiting on you"), text.index("## Needs Jason"))
+        self.assertIn("## Tribute owed", text)
+        self.assertLess(text.index("## Waiting on you"), text.index("## Tribute owed"))
         self.assertLess(text.index("## Waiting on you"), text.index("| Session |"))
-        self.assertLess(text.index("## Waiting on you"), text.index("| Slot |"))
+        self.assertLess(text.index("## Waiting on you"), text.index("| Dibs |"))
         status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
         self.assertEqual((status["sessions"][0]["live_status"], status["sessions"][0]["live_since"]), ("waiting", 1793826386.06))
 
@@ -1707,8 +1707,8 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("needs", "add", "--why", "start it", "--command", "claude --model opus", "--cwd-hint", "/Users/j/Documents/My App/.claude/worktrees/b", session="crew-1", cwd=self.box.worktree)
         self.assertIn("3. [10SE.2] `cd '/Users/j/Documents/My App/.claude/worktrees/b' && claude --model opus`\n   start it\n", self.box.mc("status", session="coord-1").stdout)
         # what the user has to type comes first, then the crew, then the machine
-        self.assertLess(text.index("## Needs Jason"), text.index("| Session |"))
-        self.assertLess(text.index("| Session |"), text.index("| Slot |"))
+        self.assertLess(text.index("## Tribute owed"), text.index("| Session |"))
+        self.assertLess(text.index("| Session |"), text.index("| Dibs |"))
         self.assertNotIn("## Archive", text)
         # the session goes: its row leaves the crew table for an Archive table at the end, with the state it last reported
         (self.box.sessions / "crew-1.json").unlink()
@@ -1716,7 +1716,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertNotIn("(gone)", text)
         self.assertIn("## Archive", text)
         self.assertIn("| 10se2 | 10SE.2 | feat/a | gone (briefing) |", text)
-        self.assertLess(text.index("| Slot |"), text.index("## Archive"))
+        self.assertLess(text.index("| Dibs |"), text.index("## Archive"))
         self.assertNotIn("| 10se2 | 10SE.2 | feat/a | briefing |", text, "a gone session is not in the crew table")
 
     # the launch line: kick-off used to print it in chat; now crew add puts it on the needs list, and the join closes it
@@ -1734,7 +1734,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertTrue(need["command"].startswith("claude --model opus --effort high --name '10se.2 search ranking' 'Start: you are crew 10SE.2 in run search. Read your brief at "), need["command"])
         self.assertIn("invoke /goblin-warband:join-raid and answer its five questions to the coordinator.'", need["command"])
         self.assertNotIn("--plugin-dir", need["command"])
-        self.assertIn("## Needs Jason", self.box.mc("status", session="coord-1").stdout)
+        self.assertIn("## Tribute owed", self.box.mc("status", session="coord-1").stdout)
         # the session starts in the worktree: the line was typed, so the need closes by itself
         self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
         self.assertEqual(json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"], [])
@@ -2221,10 +2221,10 @@ class LedgerFlow(unittest.TestCase):
         status = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)
         self.assertEqual([(n["n"], n["status"]) for n in status["needs"]], [(1, "started"), (2, "open")], "a started need stays on the list, apart from the open ones")
         text = self.box.mc("status", session="coord-1").stdout
-        self.assertIn("## Running", text)
-        self.assertIn("## Needs Jason", text)
-        self.assertLess(text.index("## Needs Jason"), text.index("## Running"))
-        self.assertNotIn("poetry run poe backfill", text.split("## Running")[1], "a running need shows no command to type")
+        self.assertIn("## Tribute agreed", text)
+        self.assertIn("## Tribute owed", text)
+        self.assertLess(text.index("## Tribute owed"), text.index("## Tribute agreed"))
+        self.assertNotIn("poetry run poe backfill", text.split("## Tribute agreed")[1], "a running need shows no command to type")
         context = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
         self.assertIn("1 need open", context)
         self.assertIn("running for the user: #1 since", context)
@@ -3761,6 +3761,32 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertTrue((default_old / "runs" / "old").is_dir())
         self.assertNotIn("goblin-warband: moved", done.stderr)
+
+
+class StateWords(unittest.TestCase):
+    """The stored states keep their words; the CLI and the mod show the same new ones, from one table each held to the other."""
+
+    def test_the_cli_and_the_mod_show_each_state_in_the_same_words(self):
+        sys.path.insert(0, str(HERE))
+        import warband as mc_module
+        source = (HERE.parent / "hooks" / "register.tsx").read_text()
+        block = source.split("export const STATE_WORDS: Record<string, string> = {", 1)[1].split("}", 1)[0]
+        import re
+        mod = {key: value for key, value in re.findall(r"'?([a-z-]+)'?: '([^']+)'", block)}
+        self.assertEqual(mod, mc_module.STATE_WORDS)
+        self.assertEqual(set(mc_module.STATES) | {"retired", "gone"}, set(mc_module.STATE_WORDS))
+
+    def test_the_text_slate_shows_the_new_words_and_the_ledger_keeps_the_old(self):
+        box = Sandbox()
+        box.start()
+        box.mc("join", session="crew-1", cwd=box.worktree)
+        box.mc("report", "--state", "working", session="crew-1", cwd=box.worktree)
+        text = box.mc("status").stdout
+        self.assertIn("| raiding |", text)
+        self.assertIn("# Raid search", text)
+        self.assertIn("chief mission control", text)
+        rows = json.loads(box.mc("--json", "status").stdout)["sessions"]
+        self.assertIn("working", [r.get("state") for r in rows], "the ledger stores working")
 
 
 class RealLedgerUntouched(unittest.TestCase):
