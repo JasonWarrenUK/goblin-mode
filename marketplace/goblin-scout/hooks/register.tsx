@@ -352,23 +352,130 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 	)
 }
 
-/** The phase line and one row per release tier, each milestone a chip of its own progress. */
+// ---------------------------------------------------------------- the wordmark
+//
+// The mod's short name in spaced capitals between two heavy rules, in the right of the header card:
+//
+//   ╺━━━━━━━╸
+//   S C O U T
+//   ╺━━━━━━━╸
+//
+// The component is goblin-warband's, pasted whole with only WORDMARK_WORD changed (one author for the pattern).
+// To reuse it in another mod, copy WORDMARK_WORD, wordmark, packFacts, headerLayout and the header's
+// drawing, and change only WORDMARK_WORD. Every glyph is one cell (Ghostty draws ╺ ━ ╸ as its own sprites).
+
+export const WORDMARK_WORD = 'SCOUT'
+/** The columns between the facts and the wordmark. */
+export const WORDMARK_GAP = 2
+/** Narrower than this for the facts, and the wordmark is left out: the facts matter more than the name. */
+export const WORDMARK_MIN_FACTS = 24
+
+/** The three lines of the wordmark, each exactly as wide as the spaced word. */
+export const wordmark = (word: string): { rule: string; word: string; width: number } => {
+	const spaced = [...word.toUpperCase()].join(' ')
+	const width = [...spaced].length
+	return { rule: `╺${'━'.repeat(Math.max(0, width - 2))}╸`, word: spaced, width }
+}
+
+const cells = (text: string): number => [...text].length
+
+/** `text` cut to `width` cells, the last one an ellipsis when anything was cut. */
+export const fit = (text: string, width: number): string => {
+	const chars = [...text]
+	if (chars.length <= width) return text
+	return width <= 0 ? '' : `${chars.slice(0, width - 1).join('')}…`
+}
+
+/**
+ * The facts laid over `lines` lines of `width` cells, in order, two spaces apart. A fact that does not fit on the
+ * line it would start goes to the next line; one that fits on none is left out, and the facts after it still get
+ * their turn. Nothing is cut mid-fact, so no line is ever wider than `width`.
+ */
+export const packFacts = (facts: readonly string[], width: number, lines: number): { lines: string[]; dropped: string[] } => {
+	const out: string[] = Array.from({ length: lines }, () => '')
+	const dropped: string[] = []
+	let at = 0
+	for (const fact of facts) {
+		let placed = false
+		for (let line = at; line < lines; line++) {
+			const next = out[line] ? `${out[line]}  ${fact}` : fact
+			if (cells(next) <= width) {
+				out[line] = next
+				at = line
+				placed = true
+				break
+			}
+		}
+		if (!placed) dropped.push(fact)
+	}
+	return { lines: out, dropped }
+}
+
+/**
+ * The header card's text, measured to its content width (the card's inner width less its border and padding):
+ * the title line across the whole width, then three lines whose left holds the facts and whose right holds the
+ * wordmark. The raid name is cut with an ellipsis to leave room for the role; the facts follow packFacts.
+ * Below WORDMARK_MIN_FACTS cells for the facts the wordmark is dropped and the facts take the whole width.
+ */
+export const headerLayout = (name: string, role: string, facts: readonly string[], content: number, word = WORDMARK_WORD) => {
+	const mark = wordmark(word)
+	const withMark = content - mark.width - WORDMARK_GAP >= WORDMARK_MIN_FACTS
+	const left = withMark ? content - mark.width - WORDMARK_GAP : content
+	const title = { name: fit(name, Math.max(1, content - WORDMARK_GAP - cells(role))), role }
+	// the first fact line sits beside the top rule, which carries no word: the facts start one line down, as in the sketch
+	const packed = packFacts(facts, left, withMark ? 2 : 3)
+	const rows = withMark
+		? [
+				{ left: '', right: mark.rule },
+				{ left: packed.lines[0] ?? '', right: mark.word },
+				{ left: packed.lines[1] ?? '', right: mark.rule },
+			]
+		: packed.lines.filter(Boolean).map(line => ({ left: line, right: '' }))
+	return { title, rows, left, markWidth: withMark ? mark.width : 0, dropped: packed.dropped }
+}
+
+/** The cells of the phase's progress bar among the header's facts. */
+const HEADER_BAR_CELLS = 10
+
+/** The header's facts, in the order they are packed beside the wordmark. */
+export const headerFacts = (snap: Snapshot): string[] => [
+	`${bar(snap.donePct, HEADER_BAR_CELLS)} ${snap.donePct}%`,
+	`${snap.candidates.length} ready`,
+	`${snap.claimed.length} on the trail`,
+	`${snap.milestones.length} milestone${snap.milestones.length === 1 ? '' : 's'}`,
+]
+
+/** The title line's right: how far along the phase is, in waypoints. */
+export const headerRole = (snap: Snapshot): string => (snap.inScope > 0 ? `${snap.doneCount}/${snap.inScope} waypoints done` : '')
+
+/** The phase line, the facts beside the wordmark and one row per release tier, each milestone a chip of its own progress. */
 const header = (ui: Ui, snap: Snapshot, inner: number) => {
 	const { Box, Text } = ui
 	const tiers = groupByTier(snap.milestones)
-	const barCells = Math.max(10, Math.min(24, inner - 40))
+	// the card is drawn inner + 4 wide; less its round border and paddingX 1 a side, its content is inner
+	const layout = headerLayout(snap.phase || 'roadbook', headerRole(snap), headerFacts(snap), inner)
 	return (
 		<Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1} width={inner + 4}>
-			<Box flexDirection="row" columnGap={2} flexWrap="wrap">
-				<Text bold>{snap.phase || 'roadbook'}</Text>
-				<Text color={snap.donePct >= 100 ? 'success' : 'claude'}>{bar(snap.donePct, barCells)}</Text>
-				<Text bold>{snap.donePct}%</Text>
-				{snap.inScope > 0 && (
-					<Text dimColor>
-						{snap.doneCount}/{snap.inScope} waypoints
-					</Text>
-				)}
+			<Box flexDirection="row" columnGap={WORDMARK_GAP}>
+				<Text color="claude" weight="bold" wrap="truncate-end">
+					{layout.title.name}
+				</Text>
+				<Text>{layout.title.role}</Text>
 			</Box>
+			{layout.rows.map((row, index) => (
+				<Box key={`header-${index}`} flexDirection="row" columnGap={WORDMARK_GAP}>
+					<Box width={layout.left}>
+						<Text dimColor wrap="truncate-end">
+							{row.left}
+						</Text>
+					</Box>
+					{layout.markWidth ? (
+						<Text color="claude" weight={index === 1 ? 'bold' : undefined}>
+							{row.right}
+						</Text>
+					) : null}
+				</Box>
+			))}
 			{tiers.length > 0 && <Text dimColor>{'─'.repeat(Math.max(2, inner))}</Text>}
 			{tiers.map(group => {
 				const hue = tierHue(group.tier)

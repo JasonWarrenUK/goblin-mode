@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { bar, groupByTier, nextGroupBy, parseFirst, parseGrouping, parseSnapshot, reasonOf, ruleTail, subgroup, tierHue } from './register'
+import { bar, groupByTier, headerFacts, headerLayout, headerRole, nextGroupBy, packFacts, parseFirst, parseGrouping, parseSnapshot, reasonOf, ruleTail, subgroup, tierHue, WORDMARK_GAP, wordmark } from './register'
 
 const PLUGIN = 'goblin-scout'
 const NOON = new Date(2026, 9, 7, 12, 0).getTime()
@@ -161,6 +161,49 @@ test('the ready set splits into subgroups that keep leverage order, led by the n
 	expect(ids(subgroup(set, 'none', []))).toEqual([['', ['A', 'B', 'C', 'D', 'E']]])
 })
 
+// The next three are goblin-warband's wordmark tests (WAR's warband.test.tsx at 33f7ee8), with the scout's word and facts.
+test('helpers: the wordmark is as wide as its spaced word, rules included', () => {
+	const mark = wordmark('warband')
+	expect(mark).toEqual({ rule: '╺━━━━━━━━━━━╸', word: 'W A R B A N D', width: 13 })
+	expect([...mark.rule].length).toBe(13)
+	expect(wordmark('scout').rule).toBe('╺━━━━━━━╸')
+})
+
+test('helpers: no header line is wider than the card at any width the pane can be', () => {
+	const facts = headerFacts(parseSnapshot(READY, STATS, NOON))
+	const name = 'Phase 2: search, ranking and the facets nobody asked for'
+	for (let content = 35; content <= 200; content++) {
+		const layout = headerLayout(name, '5/12 waypoints done', facts, content)
+		expect([...layout.title.name].length + WORDMARK_GAP + [...layout.title.role].length).toBeLessThanOrEqual(content)
+		for (const row of layout.rows) {
+			expect([...row.left].length).toBeLessThanOrEqual(layout.left)
+			expect(layout.left + (layout.markWidth ? WORDMARK_GAP + layout.markWidth : 0)).toBeLessThanOrEqual(content)
+		}
+	}
+})
+
+test('helpers: facts flow over two lines beside the wordmark and drop whole, last that fit nowhere first', () => {
+	const snap = parseSnapshot(READY, STATS, NOON)
+	expect(headerRole(snap)).toBe('5/12 waypoints done')
+	const facts = headerFacts(snap)
+	// a pane body of 76 columns (an 80-column terminal less the inline pane's sides): width 76, inner 71, the card's content 71
+	const at80 = headerLayout('Phase 2', headerRole(snap), facts, 71)
+	expect(at80.rows.map(r => r.right)).toEqual(['╺━━━━━━━╸', 'S C O U T', '╺━━━━━━━╸'])
+	expect(at80.left).toBe(60)
+	expect(at80.rows.map(r => r.left)).toEqual(['', '████░░░░░░ 42%  2 ready  1 on the trail  3 milestones', ''])
+	expect(at80.dropped).toEqual([])
+	// the narrowest pane (40 columns: inner 35) still has room for the facts beside the mark
+	expect(headerLayout('Phase 2', headerRole(snap), facts, 35).markWidth).toBe(9)
+	const tight = headerLayout('Phase 2', headerRole(snap), facts, 35)
+	expect(tight.rows.map(r => r.left)).toEqual(['', '████░░░░░░ 42%  2 ready', '1 on the trail'])
+	expect(tight.dropped).toEqual(['3 milestones'])
+	expect(packFacts(['aaaa', 'bbbbbbbbbb', 'cc'], 8, 2)).toEqual({ lines: ['aaaa  cc', ''], dropped: ['bbbbbbbbbb'] })
+	expect(packFacts(['aaaa', 'bbbbbb', 'cc'], 8, 2)).toEqual({ lines: ['aaaa', 'bbbbbb'], dropped: ['cc'] })
+	const narrow = headerLayout('search', headerRole(snap), facts, 34)
+	expect(narrow.markWidth).toBe(0)
+	expect(narrow.rows.every(r => r.right === '')).toBe(true)
+})
+
 test('/scout-waypoints refreshes from the CLI and draws the header, the ready set in order and the claims', async ($, on) => {
 	const { calls } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
@@ -169,12 +212,14 @@ test('/scout-waypoints refreshes from the CLI and draws the header, the ready se
 	expect(calls[0]?.[1]).toEndWith('/scripts/roadbook.py')
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ type: 'Text', text: 'Phase 2' })).toBeDefined()
-	expect(await ui.find({ type: 'Text', text: '42%' })).toBeDefined()
-	expect(await ui.find({ type: 'Text', text: '5/12 waypoints' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '5/12 waypoints done' })).toBeDefined()
+	expect((await ui.find({ type: 'Text', text: /42%/ }))?.text).toBe('████░░░░░░ 42%  2 ready  1 on the trail  3 milestones')
+	expect((await ui.find({ type: 'Text', text: /^S C O U T$/ }))?.text).toBe('S C O U T')
+	expect((await ui.findAll({ type: 'Text', text: /^╺━+╸$/ })).length).toBe(2)
 	expect(await ui.find({ type: 'Text', text: /Core/ })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: /Secondary/ })).toBeDefined()
 	const rows = await ui.findAll({ type: 'Button' })
-	// grouped by dev out of the box: Jaz's row leads, the unassigned one follows, the digits follow the drawn order
+	// grouped by scout out of the box: Jaz's row leads, the unassigned one follows, the digits follow the drawn order
 	expect(rows.map(r => r.props.label)).toEqual(['2SE.4', '2SE.1', '2SE.2', 'group: scout', 'first: natural', 'refresh'])
 	expect(rows.map(r => r.props.hotkey)).toEqual(['1', '2', 'q', 'g', 's', 'r'])
 	expect(await ui.find({ type: 'Text', text: 'Ready now · 2' })).toBeDefined()
