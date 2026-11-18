@@ -55,6 +55,7 @@ marketplace/*/.claude-plugin/types/
 !/.claude/
 /.claude/*
 !/.claude/versioning.json
+!/.claude/themes/
 
 # === EXCLUDE INSIDE INCLUDED DIRS ===
 .DS_Store
