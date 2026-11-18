@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, headerLayout, markFor, needGroups, others, packFacts, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, socketOf, startsRun, WORDMARK_GAP, wordmark } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, headerLayout, markFor, movedNotice, needGroups, others, packFacts, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, socketOf, startsRun, WORDMARK_GAP, wordmark } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -168,6 +168,12 @@ test('the slate header sets the raid name apart, names the chief and draws the w
 	await ui.unmount()
 })
 
+test('helpers: movedNotice finds the move notice a status carries, and nothing in one without it', () => {
+	expect(movedNotice(JSON.stringify({ ...STATUS, notice: 'goblin-warband: moved the ledger a to b (renamed from mission-control).' }))).toBe('goblin-warband: moved the ledger a to b (renamed from mission-control).')
+	expect(movedNotice(JSON.stringify(STATUS))).toBeNull()
+	expect(movedNotice('not json')).toBeNull()
+})
+
 test('helpers: the wordmark is as wide as its spaced word, rules included', () => {
 	const mark = wordmark('warband')
 	expect(mark).toEqual({ rule: '╺━━━━━━━━━━━╸', word: 'W A R B A N D', width: 13 })
@@ -202,7 +208,7 @@ test('helpers: facts flow over two lines beside the wordmark and drop whole, las
 	expect(narrow.rows.every(r => r.right === '')).toBe(true)
 })
 
-test('/mc toggles the pane and /mc grant acts as the person', async ($, on) => {
+test('/show-slate toggles the pane and /grant-dibs acts as the person', async ($, on) => {
 	const { panes, calls } = world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
@@ -217,7 +223,7 @@ test('/mc toggles the pane and /mc grant acts as the person', async ($, on) => {
 	expect(grant).toContain('crew-1')
 })
 
-test('/mc grant tells the session only when the CLI granted', async ($, on) => {
+test('/grant-dibs tells the session only when the CLI granted', async ($, on) => {
 	const { sent } = world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'grant-dibs', args: 'api-port 10SE.2 10' })
@@ -229,7 +235,7 @@ for (const refusal of [
 	{ name: 'an unknown resource', args: 'lcoal-db 10SE.2', exitCode: 1, stdout: '✗ no resource named lcoal-db; configured: local-db, api-port\n', stderr: '' },
 	{ name: 'a minutes value argparse rejects', args: 'local-db 10SE.2 ten', exitCode: 2, stdout: '', stderr: "usage: warband.py grant [-h] --to TO\nwarband.py grant: error: argument --minutes: invalid float value: 'ten'\n" },
 ]) {
-	test(`/mc grant sends nothing after ${refusal.name}`, async ($, on) => {
+	test(`/grant-dibs sends nothing after ${refusal.name}`, async ($, on) => {
 		const { sent } = world(on, 'coord-1', STATUS, { verb: 'grant', exitCode: refusal.exitCode, stdout: refusal.stdout, stderr: refusal.stderr })
 		await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 		const answered = await $.command.run({ ...RUN, command: 'grant-dibs', args: refusal.args })
@@ -238,7 +244,7 @@ for (const refusal of [
 	})
 }
 
-test('/mc grant tells the session whose slot was taken', async ($, on) => {
+test('/grant-dibs tells the session whose dibs were taken', async ($, on) => {
 	const twoCrew = { ...STATUS, sessions: [...STATUS.sessions, { ...STATUS.sessions[0], session_id: 'crew-2', name: '10se3', task: '10SE.3', branch: 'feat/b' }] }
 	const { sent } = world(on, 'coord-1', twoCrew)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
@@ -501,7 +507,7 @@ test('helpers: crewGroups orders by what needs attention and keeps ledger order 
 	expect(retired.sessions[1]?.retired_at).toBe(1_700_000_000)
 })
 
-test('/mc start from a haiku or sonnet session is warned off until the person says anyway', async ($, on) => {
+test('/start-raid from a haiku or sonnet session is warned off until the person says anyway', async ($, on) => {
 	const { calls } = world(on, 'coord-1', { ...STATUS, run: null })
 	on('session.model', async () => ({ value: 'claude-sonnet-5-5' }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
@@ -576,7 +582,7 @@ test('helpers: startsRun survives input a shell would reject', async () => {
 	}
 })
 
-test('/mc start from an opus session starts the run without a word', async ($, on) => {
+test('/start-raid from an opus session starts the raid without a word', async ($, on) => {
 	const { calls } = world(on, 'coord-1', { ...STATUS, run: null })
 	on('session.model', async () => ({ value: 'claude-opus-5-5' }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
@@ -689,7 +695,7 @@ test('helpers: a notice goes to live, working crew only, never to a done or reti
 	expect(others(snap, ['crew-1'])).toEqual([])
 })
 
-test('/mc extend runs a grant to the holder and tells only the holder; /mc done forwards a result', async ($, on) => {
+test('/extend-dibs runs a grant to the holder and tells only the holder; /pay-tribute forwards a result', async ($, on) => {
 	const { calls, sent } = world(on, 'coord-1', { ...STATUS, needs: [{ ...STATUS.needs[0], n: 1, kind: 'measurement', for: 'crew-1', for_task: '10SE.2', why: 'paste the timings' }] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'extend-dibs', args: 'local-db 20' })

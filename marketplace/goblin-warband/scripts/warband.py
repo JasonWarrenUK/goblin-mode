@@ -2381,9 +2381,15 @@ def cmd_status(args) -> int:
     found = find_config(args.cwd)
     status = status_of(ledger, found[1] if found else None, args.probe)
     status["config_path"] = str(found[0]) if found else None
+    notice = take_moved_notice()
+    if notice:
+        status["notice"] = notice
     if args.json:
         print(json.dumps(status))
     else:
+        if notice:
+            print(notice)
+            print()
         print_status(status)
     return 0
 
@@ -2653,7 +2659,7 @@ def crew_locked(args, ledger: Ledger) -> int:
     if worktree:
         worktree = in_main_spelling(worktree, str(ledger.main))
     entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration, "unlisted": bool(args.unlisted),
-             "model": args.model, "effort": args.effort, "name": args.name or f"{args.task.lower()} crew"}
+             "model": args.model, "effort": args.effort, "name": args.name or f"{args.task.lower()} raider"}
     if args.group:
         entry["group"] = args.group.strip()
     run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
@@ -2695,7 +2701,7 @@ def launch_line(run: dict, entry: dict, plugin_dir: str | None) -> str:
     # fresh-eyes review (crew skill step 1b) to a reviewer at that level. CLAUDE_CODE_SUBAGENT_EFFORT (Claude Code 2.1.316)
     # names the level for subagents nothing else sets one for; a crew at high or above is left alone, since the variable would lower its reviewer.
     env = [f"{SUBAGENT_EFFORT_ENV}={SUBAGENT_EFFORT_FLOOR}"] if entry.get("effort") in SUBAGENT_EFFORT_RAISED else []
-    return " ".join([*env, "claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} crew"), shlex.quote(prompt)])
+    return " ".join([*env, "claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} raider"), shlex.quote(prompt)])
 
 
 def raise_launch_need(ledger: Ledger, run: dict, entry: dict, reason: str | None, plugin_dir: str | None) -> dict:
@@ -4606,7 +4612,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--unlisted", action="store_true", help="the task has no waypoint on the roadbook: no claim is expected and the slate marks it")
     sp.add_argument("--model", help="the model the raider launches on (sonnet, opus, ...); goes on its launch line as --model, which beats ANTHROPIC_MODEL")
     sp.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], help="the effort the raider launches at; goes on its launch line as --effort")
-    sp.add_argument("--name", help="the session name on the launch line (default: the task id lowercased plus 'crew')")
+    sp.add_argument("--name", help="the session name on the launch line (default: the task id lowercased plus 'raider')")
     sp.add_argument("--reason", help="why this model and effort, in one line; shown with the launch line on the slate")
     sp.add_argument("--plugin-dir", dest="plugin_dir", help="add --plugin-dir to the launch line, for a plugin run from a working tree rather than installed")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
@@ -4754,13 +4760,32 @@ def migrate_from_mission_control(cwd: str) -> str | None:
     cache and stay where they are."""
     old_root = old_ledger_root()
     new_root = LEDGER_ROOT
-    ledger_moves = old_root is not None and old_root.is_dir() and not new_root.exists() and old_root.resolve() != new_root.resolve()
     roots = []
     for root in (toplevel(cwd), main_checkout(cwd)):
         if root is not None and root not in roots:
             roots.append(root)
-    config_moves = [(root / old_rel, root / new_rel) for root in roots for old_rel, new_rel in OLD_CONFIG_RELS
-                    if (root / old_rel).is_file() and not (root / new_rel).exists()]
+
+    def pending() -> tuple[bool, list[tuple[Path, Path]]]:
+        ledger = old_root is not None and old_root.is_dir() and not new_root.exists() and old_root.resolve() != new_root.resolve()
+        configs = [(root / old_rel, root / new_rel) for root in roots for old_rel, new_rel in OLD_CONFIG_RELS
+                   if (root / old_rel).is_file() and not (root / new_rel).exists()]
+        return ledger, configs
+
+    if pending() == (False, []):
+        return None  # the common case: nothing to move, no lock taken
+    # Sessions start together (the mod's first refresh and the SessionStart hook run at once): one process moves, the
+    # others wait on the lock, look again and find nothing left to do.
+    new_root.parent.mkdir(parents=True, exist_ok=True)
+    with open(new_root.parent / ".goblin-warband-move.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return move_from_mission_control(old_root, new_root, *pending())
+
+
+MOVED_NOTICE = "moved-from-mission-control.txt"
+
+
+def move_from_mission_control(old_root: Path | None, new_root: Path, ledger_moves: bool, config_moves: list[tuple[Path, Path]]) -> str | None:
+    """The move itself, under the lock, with what is left to move looked up after the lock was taken."""
     if not ledger_moves and not config_moves:
         return None
     if old_root is not None and old_root.is_dir():
@@ -4778,7 +4803,24 @@ def migrate_from_mission_control(cwd: str) -> str | None:
     for old_path, new_path in config_moves:
         shutil.move(str(old_path), str(new_path))
         moved.append(f"{old_path} to {new_path.name}")
-    return "goblin-warband: moved " + "; ".join(moved) + " (renamed from mission-control)."
+    notice = "goblin-warband: moved " + "; ".join(moved) + " (renamed from mission-control)."
+    # stderr from a hook reaches nobody: the first status (the mod's first refresh, which toasts it) tells it instead
+    with contextlib.suppress(OSError):
+        new_root.mkdir(parents=True, exist_ok=True)
+        with open(new_root / MOVED_NOTICE, "a") as marker:
+            marker.write(notice + "\n")
+    return notice
+
+
+def take_moved_notice() -> str | None:
+    """The move's notice, once: read and removed by the status that shows it."""
+    path = LEDGER_ROOT / MOVED_NOTICE
+    try:
+        text = path.read_text().strip()
+        path.unlink()
+    except OSError:
+        return None
+    return text or None
 
 
 def main(argv: list[str] | None = None) -> int:

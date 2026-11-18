@@ -7,25 +7,25 @@
 	},
 	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
 	"license": "Zlib",
-	"keywords": ["mod", "pane", "sessions", "coordination", "worktrees", "slots"],
+	"keywords": ["mod", "pane", "sessions", "coordination", "worktrees", "dibs"],
 	"types": "./types/index.d.ts",
 	"userConfig": {
 		"enabled": {
 			"type": "boolean",
-			"title": "Mission control on",
-			"description": "The one switch for all of it. Off, nothing is registered and the command hooks still run but the pane, the tools and the slot approval do not.",
+			"title": "Warband on",
+			"description": "The one switch for all of it. Off, nothing is registered and the command hooks still run but the slate, the tools and the dibs approval do not.",
 			"default": true
 		},
 		"approve_in_slot": {
 			"type": "boolean",
-			"title": "Approve gated commands under a held slot",
-			"description": "While this session holds a resource's slot and runs the command from its own worktree, a project hook's ask on that command is answered allow, so the person does not type it. Only resources marked approve_in_slot in the project config; never a human gate.",
+			"title": "Approve gated commands under held dibs",
+			"description": "While this session holds the dibs on a resource and runs the command from its own worktree, a project hook's ask on that command is answered allow, so the person does not type it. Only resources marked approve_in_slot in the project config; never a taboo.",
 			"default": true
 		},
 		"refresh_seconds": {
 			"type": "number",
-			"title": "Board refresh",
-			"description": "How often the board rereads the ledger while open, in seconds.",
+			"title": "Slate refresh",
+			"description": "How often the slate rereads the ledger while open, in seconds.",
 			"default": 15,
 			"min": 5,
 			"max": 120

@@ -307,6 +307,16 @@ export const foldProbed = (prev: Snapshot | null, probed: Snapshot): Snapshot | 
 	}
 }
 
+/** The move's notice in a status reply, or null. */
+export const movedNotice = (stdout: string): string | null => {
+	try {
+		const data: unknown = JSON.parse(stdout)
+		return isRecord(data) && typeof data.notice === 'string' && data.notice ? data.notice : null
+	} catch {
+		return null
+	}
+}
+
 /** Reread the ledger; probe the machine too when asked (the coordinator's board does). */
 const refresh = async ($: EngineInterface, withProbes = false): Promise<Snapshot> => {
 	const seq = ++refreshSeq
@@ -315,6 +325,11 @@ const refresh = async ($: EngineInterface, withProbes = false): Promise<Snapshot
 	try {
 		const ran = await run($, ['--json', 'status', ...(withProbes ? ['--probe'] : [])])
 		next = ran.exitCode === 0 ? parseSnapshot(ran.stdout, at) : failed('broken', reasonOf(ran, 'the CLI refused'), at)
+		// the one line saying the old mission-control config and ledger moved; the CLI hands it to the first status only
+		if (ran.exitCode === 0) {
+			const notice = movedNotice(ran.stdout)
+			if (notice) $.ui.toast(notice)
+		}
 	} catch (error) {
 		next = failed('broken', error instanceof Error && /ENOENT|not found/i.test(error.message) ? 'python3 is not on PATH' : 'the CLI could not run', at)
 	}

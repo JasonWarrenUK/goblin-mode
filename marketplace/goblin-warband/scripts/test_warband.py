@@ -1747,7 +1747,7 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("crew", "add", "--task", "UXR", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--plugin-dir", "/p/mission-control", session="coord-1")
         need = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]
         self.assertEqual(need["why"], "start raider UXR in a new terminal window (the terminal's model)")
-        self.assertTrue(need["command"].startswith("claude --plugin-dir /p/mission-control --name 'uxr crew' "), need["command"])
+        self.assertTrue(need["command"].startswith("claude --plugin-dir /p/mission-control --name 'uxr raider' "), need["command"])
         # no worktree, no line to type yet
         out = self.box.mc("crew", "add", "--task", "B", "--branch", "feat/b", session="coord-1").stdout
         self.assertIn("no worktree, so no launch line", out)
@@ -3785,6 +3785,30 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertTrue((self.new / "marker").is_file())
         self.assertNotIn("the ledger", done.stderr, "only the config moved")
         self.assertIn("goblin-warband.json", done.stderr)
+
+    def test_a_move_a_hook_made_is_told_by_the_next_status_once(self):
+        """A hook that moves the ledger at session start cannot be heard (its stderr reaches no one), so the notice waits in the
+        new ledger for the first status, which the mod reads as its first refresh and toasts."""
+        self.old_world(live=False)
+        done = self.box.mc("hook", "session-start", session="crew-1", stdin=json.dumps({"session_id": "crew-1", "cwd": str(self.box.worktree), "source": "startup"}))
+        self.assertEqual(done.returncode, 0)
+        self.assertFalse(self.old.exists())
+        first = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertTrue(first.get("notice", "").startswith("goblin-warband: moved the ledger "), first.get("notice"))
+        self.assertNotIn("notice", json.loads(self.box.mc("--json", "status").stdout), "told once")
+
+    def test_sessions_starting_together_move_the_ledger_once_and_none_of_them_breaks(self):
+        self.old_world(live=False)
+        env = dict(self.box.env)
+        procs = [subprocess.Popen([sys.executable, "-I", str(CLI), "--cwd", str(self.box.repo), "--json", "status"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                 for _ in range(6)]
+        results = [p.communicate() + (p.returncode,) for p in procs]
+        self.assertEqual([code for _, _, code in results], [0] * 6, [err for _, err, _ in results])
+        self.assertFalse(any("Traceback" in err for _, err, _ in results))
+        self.assertEqual(sum("goblin-warband: moved" in err for _, err, _ in results), 1, "one process moved it")
+        self.assertFalse(self.old.exists())
+        self.assertEqual(len(list((self.new / "runs").iterdir())), 2)
+        self.assertFalse((self.new / "mission-control").exists(), "nothing was moved inside the new root")
 
     def test_a_sandbox_never_reads_the_default_old_ledger(self):
         """With GOBLIN_WARBAND_HOME set and no MISSION_CONTROL_HOME, nothing derived from HOME or CLAUDE_CONFIG_DIR is moved."""
