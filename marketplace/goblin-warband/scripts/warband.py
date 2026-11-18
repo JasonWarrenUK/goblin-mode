@@ -3636,20 +3636,63 @@ CHECK_LABELS = {"good": "checks green", "wait": "checks running", "bad": "checks
 
 def need_html(need: dict) -> str:
     kind = need.get("kind") or "action"
-    running = need.get("status") == "started"
-    label = "running" if running else kind
+    agreed = need.get("status") == "started"
+    label = TRIBUTE_WORDS["started"] if agreed else kind
     body = escape(str(need.get("why") or ""))
     command = need.get("command") or ""
     if command and need.get("cwd") and command != "/compact":
         cmd = f'<code class="cmd">cd {escape(need["cwd"])} &amp;&amp; {escape(command)}</code>'
     else:
         cmd = f'<code class="cmd">{escape(command)}</code>' if command else ""
-    since = f" since {escape(clock(need.get('started_at')))}" if running else ""
-    return f'<li class="{"running" if running else ""}"><span class="kind">#{need.get("n")} {escape(label)}{since}</span>{body}{cmd}</li>'
+    since = f" since {escape(clock(need.get('started_at')))}" if agreed else ""
+    return f'<li class="{"agreed" if agreed else ""}"><span class="kind">tribute #{need.get("n")} · {escape(label)}{since}</span>{body}{cmd}</li>'
+
+
+TALLY_CAP = 25
+
+
+def tally_html(count: int) -> str:
+    """A count as tally marks: groups of four strokes with a fifth across them, then the ones. Past TALLY_CAP the marks stop and a + says
+    there are more. Hidden from screen readers, since the number always stands beside it."""
+    count = max(0, int(count))
+    drawn = min(count, TALLY_CAP)
+    fives, ones = divmod(drawn, 5)
+    marks = '<span class="five"><i></i><i></i><i></i><i></i></span>' * fives
+    if ones:
+        marks += f'<span class="ones">{"<i></i>" * ones}</span>'
+    if count > TALLY_CAP:
+        marks += '<span class="more">+</span>'
+    return f'<span class="tally" aria-hidden="true">{marks}</span>' if marks else ""
+
+
+# The faces the theme names, inlined so the page loads nothing (templates/fonts/README.md says where they came from).
+FONT_FACES = (
+    ("Cabin Sketch", 700, "cabin-sketch-latin-700-normal.woff2"),
+    ("Special Elite", 400, "special-elite-latin-400-normal.woff2"),
+    ("IBM Plex Sans", 400, "ibm-plex-sans-latin-400-normal.woff2"),
+    ("IBM Plex Sans", 600, "ibm-plex-sans-latin-600-normal.woff2"),
+    ("IBM Plex Mono", 400, "ibm-plex-mono-latin-400-normal.woff2"),
+    ("Permanent Marker", 400, "permanent-marker-latin-400-normal.woff2"),
+)
+
+
+def font_faces_css() -> str:
+    """@font-face rules with each face as a data URI; a face whose file is missing is left out and the theme's fallbacks take over."""
+    import base64
+    rules = []
+    for family, weight, name in FONT_FACES:
+        path = PLUGIN_ROOT / "templates" / "fonts" / name
+        try:
+            data = base64.b64encode(path.read_bytes()).decode("ascii")
+        except OSError:
+            continue
+        rules.append(f"@font-face {{ font-family: '{family}'; font-style: normal; font-weight: {weight}; font-display: swap; src: url(data:font/woff2;base64,{data}) format('woff2'); }}")
+    return "\n".join(rules)
 
 
 def render_dashboard(model: dict, repo_url: str | None) -> str:
-    """The page as one HTML string: theme tokens and components inlined, no script, no network."""
+    """The spoils page as one HTML string: faces, theme tokens and components inlined, no script, no network.
+    A war table: each group is a column on the desk, each PR a card taped to it, each count drawn in tally marks beside its number."""
     theme = (PLUGIN_ROOT / "templates" / "dashboard-theme.css").read_text()
     components = (PLUGIN_ROOT / "templates" / "dashboard.css").read_text()
     totals = model["totals"]
@@ -3658,9 +3701,14 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
     stale = age is None or age > DASHBOARD_STALE_SECONDS
     parts = []
     if model["loose_needs"]:
-        parts.append('<h2>Needs you</h2><ul class="rows"><li><ul class="needs" style="margin:0;flex:1">' + "".join(need_html(n) for n in model["loose_needs"]) + "</ul></li></ul>")
-    for group in model["groups"]:
-        parts.append(f'<h2>{escape(group["name"])}</h2><ul class="rows">')
+        owed = len(model["loose_needs"])
+        parts.append(f'<section class="tribute-owed slip" aria-labelledby="tribute-owed"><h2 id="tribute-owed">Tribute owed {tally_html(owed)}<span class="count">{owed}</span></h2>'
+                     f'<ul class="tributes">{"".join(need_html(n) for n in model["loose_needs"])}</ul></section>')
+    if model["groups"]:
+        parts.append('<div class="table">')
+    for at, group in enumerate(model["groups"]):
+        rows = len(group["rows"])
+        parts.append(f'<section class="column" aria-labelledby="group-{at}"><h2 id="group-{at}"><span class="name">{escape(group["name"])}</span>{tally_html(rows)}<span class="count">{rows}</span></h2><ul class="cards">')
         for item in group["rows"]:
             fact, who = item["fact"], item["who"]
             number = item["number"]
@@ -3684,30 +3732,40 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
             cost_html = f'<p class="meta cost">{escape(who["cost"])}</p>' if who.get("cost") else ""
             note = item.get("note")
             note_html = f'<p class="note">{escape(note["text"])} <small>({escape(clock(note.get("at")))})</small></p>' if note else ""
-            needs_html = f'<ul class="needs">{"".join(need_html(n) for n in item["needs"])}</ul>' if item["needs"] else ""
+            owed = sum(1 for n in item["needs"] if n.get("status") != "started")
+            margin = f'<span class="margin-tally" title="tribute owed on this PR">{tally_html(owed)}<span>{owed} owed</span></span>' if owed else ""
+            needs_html = f'<ul class="tributes">{"".join(need_html(n) for n in item["needs"])}</ul>' if item["needs"] else ""
+            layer = f' layer depth-{item["depth"]}" style="--depth:{item["depth"]}' if item["depth"] else ""
+            waits = '<span class="waits">waits on the card above</span>' if item["depth"] else ""
             parts.append(
-                f'<li class="layer depth-{item["depth"]}" style="--depth:{item["depth"]}"><a class="num" href="{escape(href)}">{order}#{number}</a>'
-                f'<div class="body"><p class="line"><span class="who who-{escape(who["kind"])}">{escape(who["actor"])}</span>{escape(who["why"])}</p>'
-                f'<p class="meta">{title}{owner}{base_html}{migration}</p>{cost_html}{note_html}{needs_html}</div>'
+                f'<li class="card{layer}"><div class="card-head"><a class="num" href="{escape(href)}">{waits}{order}#{number}</a>{margin}</div>'
+                f'<p class="line"><span class="who who-{escape(who["kind"])}">{escape(who["actor"])}</span>{escape(who["why"])}</p>'
+                f'<p class="meta">{title}{owner}{base_html}{migration}</p>{cost_html}{note_html}{needs_html}'
                 f'<div class="chips">{"".join(chips)}</div></li>')
-        parts.append("</ul>")
-    if not model["groups"]:
-        parts.append('<p class="meta">No open PRs recorded for this run yet. Crew PRs are recorded as they are opened; <code>warband.py prs pin &lt;n&gt;</code> adds one from outside the run.</p>')
-    stale_html = ' <span class="stale">(stale: run reconcile or open /mc)</span>' if stale else ""
-    name = escape(str(model.get("run") or "Run"))
+        parts.append("</ul></section>")
+    if model["groups"]:
+        parts.append("</div>")
+    else:
+        parts.append('<p class="empty slip">No spoils recorded for this raid yet. Raiders\' PRs are recorded as they are opened; <code>warband.py prs pin &lt;n&gt;</code> adds one from outside the raid.</p>')
+    stale_html = ' <span class="stale">(stale: run reconcile or open /show-slate)</span>' if stale else ""
+    name = escape(str(model.get("run") or "Raid"))
+    totals_html = "".join(
+        f'<span class="total{" mine" if key == "jason" else ""}">{tally_html(totals[key])}<b>{totals[key]}</b> {label}</span>'
+        for key, label in (("jason", "await you"), ("questions", "questions for you"), ("ready", "ready to land"), ("held", "held"), ("open", "open")))
     return f"""<!doctype html>
 <html lang="en-GB"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="60">
-<title>{name} PRs</title>
+<title>{name}: spoils</title>
 <style>
+{font_faces_css()}
 {theme}
 {components}
 </style></head><body><main>
-<header><h1>{name}: open PRs</h1><span class="stamp">Drawn {escape(clock(model["at"]))} · GitHub facts {facts_stamp}{stale_html}</span></header>
-<div class="totals"><span class="mine"><b>{totals["jason"]}</b> need you</span><span><b>{totals["questions"]}</b> questions for you</span><span><b>{totals["ready"]}</b> ready to merge</span><span><b>{totals["held"]}</b> held</span><span><b>{totals["open"]}</b> open</span></div>
+<header class="slip"><h1>Spoils of {name}</h1><span class="stamp">Drawn {escape(clock(model["at"]))} · GitHub facts {facts_stamp}{stale_html}</span>
+<div class="totals">{totals_html}</div></header>
 {"".join(parts)}
-<footer>The tag leading each line is who moves next, derived from GitHub and the ledger's holds and needs; "restamp cost" names the PRs whose migrations would need renaming if this one lands first; a numbered badge is the stack's landing order in its group. A note under a line is the coordinator's and disappears once the PR moves. This page is local to this machine and reloads every minute.</footer>
+<footer class="slip">The tag leading each card is who moves next, derived from GitHub and the ledger's holds and tribute; "restamp cost" names the PRs whose migrations would need renaming if this one lands first; a numbered badge is the stack's landing order in its column, and a card set in under another waits on it. A note on a card is the chief's and disappears once the PR moves. Every tally has its number beside it. This page is local to this machine and reloads every minute.</footer>
 </main></body></html>
 """
 

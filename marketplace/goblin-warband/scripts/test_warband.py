@@ -3621,7 +3621,7 @@ class Dashboard(unittest.TestCase):
         self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
         status = json.loads(self.box.mc("--json", "status").stdout)
         self.assertEqual(status["prs"]["mine"][0]["number"], 7)
-        self.assertIn("<h2>New Zealand</h2>", (self.dir / "dashboard.html").read_text())
+        self.assertIn('<span class="name">New Zealand</span>', (self.dir / "dashboard.html").read_text())
 
     def test_a_question_shows_on_its_prs_line(self):
         base = {"state": "OPEN", "review_decision": "", "requested": ["max"], "changes_requested_by": [], "approved_by": [], "base": "main",
@@ -3665,6 +3665,41 @@ class Dashboard(unittest.TestCase):
         status = json.loads(self.box.mc("--json", "status").stdout)
         self.assertEqual([m["number"] for m in page["mine"]], [7])
         self.assertEqual(page["mine"], status["prs"]["mine"])
+
+    def test_the_spoils_page_is_a_war_table_with_tallies_and_its_own_faces(self):
+        self.seed_facts(n7=self.READY, n8={**self.READY, "head": "def", "head_branch": "feat/b", "base": "feat/a"})
+        self.box.mc("prs", "add", "7", "--task", "T", session="coord-1")
+        self.box.mc("prs", "add", "8", "--task", "T", session="coord-1")
+        page = (self.dir / "dashboard.html").read_text()
+        self.assertIn("<h1>Spoils of search</h1>", page)
+        self.assertIn('<div class="table">', page)
+        self.assertEqual(page.count('<li class="card'), 2)
+        self.assertIn('class="card layer depth-1"', page, "#8 waits on #7 and sits in under it")
+        self.assertIn("font-family: 'Cabin Sketch'", page)
+        self.assertIn("src: url(data:font/woff2;base64,", page)
+        head = page.split("<body>")[0]
+        self.assertNotIn("http", head.replace("http-equiv", ""), "the faces are inlined, nothing loads from the network")
+        self.assertIn('<b>2</b> open', page)
+
+    def test_tally_marks_group_in_fives_and_stop_at_the_cap(self):
+        sys.path.insert(0, str(HERE))
+        import warband as mc_module
+        self.assertEqual(mc_module.tally_html(0), "")
+        seven = mc_module.tally_html(7)
+        self.assertEqual(seven.count('class="five"'), 1)
+        self.assertEqual(seven.count("<i></i>"), 4 + 2)
+        self.assertIn('aria-hidden="true"', seven)
+        many = mc_module.tally_html(40)
+        self.assertEqual(many.count('class="five"'), mc_module.TALLY_CAP // 5)
+        self.assertIn('class="more"', many)
+
+    def test_the_page_components_take_every_colour_from_the_theme(self):
+        components = (HERE.parent / "templates" / "dashboard.css").read_text()
+        import re
+        self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", components), [], "no colour literal outside the copied theme")
+        theme = (HERE.parent / "templates" / "dashboard-theme.css").read_text()
+        for token in ("--desk", "--card", "--card-dark", "--tape", "--slip", "--font-marker", "--wonk"):
+            self.assertIn(f"\t{token}:", theme)
 
 
 class MoveFromMissionControl(unittest.TestCase):
