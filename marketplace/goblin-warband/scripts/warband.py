@@ -5,21 +5,21 @@ One raid per repository at a time. The ledger is a directory of small JSON
 files under ~/.claude/goblin-warband/<repo slug>/, one file per fact, so two
 sessions writing different facts never clobber each other:
 
-  run.json                    the run: name, coordinator, base commit, crew plan,
-                              numbered assumptions, the "needs Jason" list
-  sessions/<session id>.json  one row per session in the run: task, branch,
+  run.json                    the raid: name, chief, base commit, raiders' plan,
+                              numbered decrees, the tribute list
+  sessions/<session id>.json  one row per session in the raid: task, branch,
                               worktree, state, summary, PR
-  slots/<resource>.json       who holds a shared resource, since when, for what
-  requests/<resource>__<session id>.json   a pending slot request
-  briefs/<task>.md            the brief each crew session reads at its first turn
+  slots/<resource>.json       who holds the dibs on a shared resource, since when, for what
+  requests/<resource>__<session id>.json   dibs called and not yet granted
+  briefs/<task>.md            the orders each raider reads at its first turn
   log.jsonl                   every event, append-only
 
 The project config is <repo>/.claude/goblin-warband.json (the example beside
 this script documents every key). A caller is identified by CLAUDE_CODE_SESSION_ID,
 which Claude Code sets for every Bash child, or by --session when the mod
-calls on its own behalf. Writes that steer the run (start, end, grant, revoke,
-assumptions, marking a need started or done, the crew plan) are the coordinator session's
-alone; `--by-user` stands for the person typing a /mc command in any session.
+calls on its own behalf. Writes that steer the raid (start, end, grant, revoke,
+decrees, marking a tribute agreed or paid, the raiders' plan) are the chief's session's
+alone; `--by-user` stands for the person typing one of the plugin's slash commands in any session.
 The PreToolUse hook refuses `--by-user`, `--session` and a `CLAUDE_CODE_SESSION_ID=`
 assignment on a Bash line that runs this script, abbreviations and quoting
 included, so the model does not borrow another identity by accident. It is a
@@ -226,9 +226,9 @@ def git_problem() -> str | None:
         if run_git(".", "--version") is not None:
             _GIT_PROBLEM.append(None)
         elif sys.platform == "darwin" and subprocess.run(["xcode-select", "-p"], capture_output=True).returncode != 0:
-            _GIT_PROBLEM.append("git is not working: the Command Line Tools are missing (a macOS update removes them); run `xcode-select --install`, then carry on. The ledger, the board, needs, slots and messages work meanwhile.")
+            _GIT_PROBLEM.append("git is not working: the Command Line Tools are missing (a macOS update removes them); run `xcode-select --install`, then carry on. The ledger, the slate, tribute, dibs and messages work meanwhile.")
         else:
-            _GIT_PROBLEM.append("git is not working: `git --version` fails; the ledger, the board, needs, slots and messages work meanwhile, and anything that needs history waits for git.")
+            _GIT_PROBLEM.append("git is not working: `git --version` fails; the ledger, the slate, tribute, dibs and messages work meanwhile, and anything that needs history waits for git.")
     return _GIT_PROBLEM[0]
 
 
@@ -405,7 +405,7 @@ class Ledger:
     def require_run(self) -> dict:
         run = self.run()
         if run is None:
-            raise Refusal(f"no active mission-control run for {self.main}; start one with /goblin-warband:declare-raid or `warband.py start --name <name>`")
+            raise Refusal(f"no active goblin-warband raid for {self.main}; start one with /goblin-warband:declare-raid or `warband.py start --name <name>`")
         return run
 
     def save_run(self, run: dict) -> None:
@@ -523,13 +523,13 @@ def is_coordinator(run: dict, session_id: str | None) -> bool:
 
 
 def authorise(run: dict, session_id: str | None, by_user: bool, what: str) -> str:
-    """Who may steer the run: the coordinator session, or the person through /mc."""
+    """Who may steer the raid: the chief's session, or the person through the plugin's slash commands."""
     if by_user:
         return "user"
     if is_coordinator(run, session_id):
         return "coordinator"
     name = run.get("coordinator", {}).get("name") or run.get("coordinator", {}).get("session_id", "?")
-    raise Refusal(f"only the coordinator session ({name}) can {what}; message mission control, or the person runs /mc in any session")
+    raise Refusal(f"only the chief's session ({name}) can {what}; message the chief, or the person types the slash command in any session")
 
 
 def crew_for(run: dict, cwd: str | None, session_id: str | None, sessions: dict[str, dict]) -> dict | None:
@@ -1227,7 +1227,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
         return {"actor": "hold", "kind": "hold", "why": hold_text(hold)}
     mine = [n for n in live_needs if n.get("pr") == number]
     if mine:
-        return {"actor": "Jason", "kind": "jason", "why": f"need #{mine[0].get('n')}: {str(mine[0].get('why') or '')[:80]}"}
+        return {"actor": "the human", "kind": "jason", "why": f"tribute #{mine[0].get('n')}: {str(mine[0].get('why') or '')[:80]}"}
     heads = {f["head_branch"]: n for n, f in facts.items() if f and f.get("head_branch")}
     ready = fact.get("review_decision") == "APPROVED" and not fact.get("changes_requested_by") and fact.get("checks") == "good" and fact.get("mergeable") != "CONFLICTING" and not fact.get("draft")
     approval = row.get("approval") or {}
@@ -1240,7 +1240,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
             blocker = below[-1]
             inherited = who_moves_next(blocker, prs, facts, sessions_by_task, needs, migrations, _depth + 1, states=states)
             return {**inherited, "why": f"lands after #{blocker}: {inherited['why']}"}
-        merge = {"actor": "Jason", "kind": "jason", "why": "approved, checks green, mergeable; the merge is yours"}
+        merge = {"actor": "the human", "kind": "jason", "why": "approved, checks green, mergeable; the merge is yours"}
         # migration order is a cost, never a block: CI wants each branch's migrations after the newest on main, so a stack that lands
         # second with lower timestamps restamps them. A hold for order is a decision, recorded with prs hold like any other
         if number in migrations and migrations[number] is None:
@@ -1263,7 +1263,7 @@ def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], se
     if fact.get("requested"):
         return {"actor": ", ".join(fact["requested"]), "kind": "reviewer", "why": "waiting for a review"}
     if outside:
-        return {"actor": owner_name, "kind": "author", "why": "not in the run; no review requested, so the author moves"}
+        return {"actor": owner_name, "kind": "author", "why": "not in the raid; no review requested, so the author moves"}
     return {"actor": "reviewer", "kind": "reviewer", "why": "no reviewer requested"}
 
 
@@ -1307,9 +1307,9 @@ def roadmap_task(main: Path, task: str, ref: str = "origin/main") -> dict | str 
 
 
 def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str | None:
-    """What the roadmap at a ref says about a task's claim: True when the task carries `started` there, False when it is listed without one,
-    "unlisted" when the task is not in that roadmap at all, None when the repo has no rich roadmap, the ref does not resolve or the file there is not a roadmap.
-    The state is what counts, never which commit carried it: a claim reaches the trunk through roadmap:claim, a sync batch or a `done` batch alike, and a branch rebased past its own claim commit is in order once the trunk has the claim."""
+    """What the roadbook at a ref says about a waypoint's claim: True when the task carries `started` there, False when it is listed without one,
+    "unlisted" when the task is not in that roadbook at all, None when the repo has no rich roadbook, the ref does not resolve or the file there is not a roadbook.
+    The state is what counts, never which commit carried it: a claim reaches the trunk through goblin-scout:start-trail, a sync batch or a `done` batch alike, and a branch rebased past its own claim commit is in order once the trunk has the claim."""
     row = roadmap_task(main, task, ref)
     if row is None or row == "unlisted":
         return row
@@ -1407,7 +1407,7 @@ def reconcile(ledger: Ledger) -> dict:
         if sid in live and row.get("state") != "done" and isinstance(fill, int) and fill >= CONTEXT_NUDGE_PERCENT:
             window = live[sid].get("name") or row.get("name") or sid[:8]
             compaction_wanted[sid] = (f"{window} is at context {fill}%; type /compact in that session before its next long task", "/compact")
-            note("context-high", f"session {window} at context {fill}%; only the user can compact it, so it is on the needs list", row.get("task", ""), sid, row.get("pr"))
+            note("context-high", f"session {window} at context {fill}%; only the user can compact it, so it is on the tribute list", row.get("task", ""), sid, row.get("pr"))
     run = sync_auto_needs(ledger, run, "compact", compaction_wanted, sessions)
     # a session on a permission prompt waits on the user as surely as a need does, and the registry says so; the window is the place to answer it
     prompts = {sid: (f"{live[sid].get('name') or row.get('name') or sid[:8]} is waiting on a permission prompt; answer it in that session's window", "")
@@ -1415,13 +1415,13 @@ def reconcile(ledger: Ledger) -> dict:
     run = sync_auto_needs(ledger, run, "prompt", prompts, sessions)
     for sid, row in sessions.items():
         if row.get("state") == "waiting-jason" and not any(n.get("status") in ("open", "started") and sid in (n.get("session_id"), n.get("for")) for n in run.get("needs", [])):
-            note("waiting-jason-without-need", f"session {row.get('name') or sid[:8]} reads waiting-jason but nothing of its is on the needs list; it raises the need (warband_tribute) or reports `waiting --on <what>`", row.get("task", ""), sid, row.get("pr"))
+            note("waiting-jason-without-need", f"session {row.get('name') or sid[:8]} reads waiting-jason but nothing of its is on the tribute list; it raises the tribute (warband_tribute) or reports `waiting --on <what>`", row.get("task", ""), sid, row.get("pr"))
     joined_tasks = {row.get("task") for row in sessions.values()}
     for entry in run.get("crew", []):
         task = entry.get("task", "")
         if task and task not in joined_tasks:
             launch = next((n for n in run.get("needs", []) if n.get("kind") == "launch" and n.get("task") == task and n.get("status") != "done"), None)
-            note("unjoined", f"crew task {task} is in the plan but no session has joined the ledger for it" + (f"; its launch line is need #{launch['n']} on the board" if launch else ""), task)
+            note("unjoined", f"task {task} is in the raiders' plan but no session has joined the ledger for it" + (f"; its launch line is tribute #{launch['n']} on the slate" if launch else ""), task)
 
     run, pr_rows, listing = adopt_pr_records(ledger, run, sessions)
     if listing is not None:
@@ -1487,7 +1487,7 @@ def reconcile(ledger: Ledger) -> dict:
         merged = row.get("pr") and (facts.get(int(row["pr"])) or {}).get("state") == "MERGED"
         if row.get("state") == "done" or merged:
             why = "its session is done" if row.get("state") == "done" else f"its PR #{row.get('pr')} is merged"
-            note("need-open-after-done", f"need #{need.get('n')} ({need.get('why', '')[:60]}) is still open but {why}", need.get("task", ""), need.get("session_id", ""), row.get("pr"))
+            note("need-open-after-done", f"tribute #{need.get('n')} ({need.get('why', '')[:60]}) is still open but {why}", need.get("task", ""), need.get("session_id", ""), row.get("pr"))
 
     # The claim is read from the roadmap itself, at the ref where it ought to be: a merged PR's own
     # base (the run's trunk, or the parent layer of a stack) and, for an open PR, the trunk first and
@@ -1512,7 +1512,7 @@ def reconcile(ledger: Ledger) -> dict:
         if not task or not row.get("pr"):
             continue
         if entry.get("unlisted"):
-            continue  # planned as unlisted: no roadmap row, no claim, nothing to check
+            continue  # planned as unlisted: no waypoint on the roadbook, no claim, nothing to check
         fact = facts.get(int(row["pr"]))
         if not fact:
             continue
@@ -1521,12 +1521,12 @@ def reconcile(ledger: Ledger) -> dict:
             listed = roadmap_task(ledger.main, task, f"origin/{base}")
             claim = listed if listed is None or listed == "unlisted" else bool(listed.get("started"))
             if claim == "unlisted":
-                note("unlisted", f"not in the roadmap on origin/{base}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
+                note("unlisted", f"not in the roadbook on origin/{base}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
             elif claim is False:
-                note("claim-missing", f"the roadmap on origin/{base} has no claim (`started`) for {task}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
+                note("claim-missing", f"the roadbook on origin/{base} has no claim (`started`) for {task}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
             # the merge landed the work; until the roadmap on the trunk says done, the dashboard and the ready set are wrong
             if isinstance(listed, dict) and str(listed.get("status") or "").lower() not in ("done", "out_of_scope"):
-                note("roadmap-stale", f"PR #{row['pr']} is merged into {base} but {task} reads {listed.get('status') or 'unset'} on the roadmap at origin/{base}; run /roadmap:maintain from the main checkout and commit it the way the project says", task, row.get("session_id", ""), int(row["pr"]))
+                note("roadmap-stale", f"PR #{row['pr']} is merged into {base} but {task} reads {listed.get('status') or 'unset'} on the roadbook at origin/{base}; run /goblin-scout:tend-roadbook from the main checkout and commit it the way the project says", task, row.get("session_id", ""), int(row["pr"]))
         elif fact["state"] == "OPEN":
             if claims_on_trunk:
                 continue  # the project's sync writes claims to the trunk, so a branch carries none and the open PR is not drift
@@ -1540,9 +1540,9 @@ def reconcile(ledger: Ledger) -> dict:
             if on_trunk is None and on_branch is None:
                 continue
             if on_trunk in ("unlisted", None) and on_branch in ("unlisted", None):
-                note("unlisted", f"not in the roadmap on origin/{trunk} or origin/{branch}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
+                note("unlisted", f"not in the roadbook on origin/{trunk} or origin/{branch}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
             else:
-                note("claim-missing", f"neither the roadmap on origin/{trunk} nor the one on origin/{branch} has a claim (`started`) for {task}", task, row.get("session_id", ""), int(row["pr"]))
+                note("claim-missing", f"neither the roadbook on origin/{trunk} nor the one on origin/{branch} has a claim (`started`) for {task}", task, row.get("session_id", ""), int(row["pr"]))
 
     # a scheduled job (a watch, a cron, a Monitor) dies with its process; one whose session is gone is named so it is re-armed or dropped
     for sid, row in sessions.items():
@@ -1569,17 +1569,17 @@ def reconcile(ledger: Ledger) -> dict:
         row = sessions.get(hit["session_id"])
         if not row or hit["session_id"] in holders:
             continue
-        note("browser-open", f"{hit['browser']} (pid {hit['pid']}, open {hit['etime']}) launched by {row.get('name') or hit['session_id'][:8]}'s Playwright server is still running and the session holds no slot; tell it to close the browser (browser_close)", row.get("task", ""), hit["session_id"], row.get("pr"))
+        note("browser-open", f"{hit['browser']} (pid {hit['pid']}, open {hit['etime']}) launched by {row.get('name') or hit['session_id'][:8]}'s Playwright server is still running and the session holds no dibs; tell it to close the browser (browser_close)", row.get("task", ""), hit["session_id"], row.get("pr"))
     # a decision told to sessions that have not acknowledged it after a while
     for decision in ledger.decisions():
         told = [t for t in decision.get("told", []) if t not in decision.get("acks", [])]
         if told and now() - decision.get("at", 0) > DECISION_ACK_SECONDS:
             names = ", ".join(by_task.get(t, {}).get("task") or t for t in told)
-            note("decision-unacknowledged", f"decision #{decision.get('n')} ({str(decision.get('text', ''))[:80]}) not acknowledged by {names}", "", "", None)
+            note("decision-unacknowledged", f"ruling #{decision.get('n')} ({str(decision.get('text', ''))[:80]}) not acknowledged by {names}", "", "", None)
     # the coordinator's own backlog: a rebind waiting on the user is drift until it is answered
     candidate = run.get("coordinator", {}).get("rebind_candidate")
     if candidate:
-        note("coordinator-rebind", f"the coordinator's session id changed (a /clear): its process is live as {candidate['session_id'][:8]}; `/mc adopt coordinator` in that session", "", candidate["session_id"], None)
+        note("coordinator-rebind", f"the chief's session id changed (a /clear): its process is live as {candidate['session_id'][:8]}; `/reclaim-post chief` in that session", "", candidate["session_id"], None)
     return {"run": run.get("name"), "drift": drift, "prs": prs, "at": now()}
 
 
@@ -1589,12 +1589,12 @@ def print_reconcile(result: dict) -> None:
     if not result["drift"]:
         print("nothing to reconcile")
     for item in result["drift"]:
-        print(f"- {item.get('task') or item.get('session_id', '')[:8] or 'run'}: {item['detail']}")
+        print(f"- {item.get('task') or item.get('session_id', '')[:8] or 'raid'}: {item['detail']}")
     print()
     print("## PRs")
     print()
     if not result["prs"]:
-        print("no PRs on the board")
+        print("no PRs on the slate")
     for pr in result["prs"]:
         state = pr["state"].lower()
         tail = "" if pr["waiting_on"] == state else f", {pr['waiting_on']}"
@@ -2115,10 +2115,10 @@ def cmd_init(args) -> int:
 def cmd_start(args) -> int:
     ledger = ledger_for(args.cwd)
     if ledger.run():
-        raise Refusal(f"a run is already active for {ledger.main} ({ledger.run()['name']}); end it first")
+        raise Refusal(f"a raid is already active for {ledger.main} ({ledger.run()['name']}); end it first")
     session_id = caller_session(args.session)
     if not session_id:
-        raise Refusal("the coordinator session is unknown: run this from a Claude Code session, or pass --session")
+        raise Refusal("the chief's session is unknown: run this from a Claude Code session, or pass --session")
     who = identity(session_id)
     base_branch = args.base or (run_git(ledger.main, "symbolic-ref", "--short", "refs/remotes/origin/HEAD") or "origin/main").split("/", 1)[-1]
     run_git(ledger.main, "fetch", "origin", base_branch)
@@ -2160,27 +2160,27 @@ def cmd_start(args) -> int:
         run["needs"].append({"id": uuid.uuid4().hex[:8], "n": 1, "session_id": session_id, "task": "kick-off",
                              "why": f"{base_branch} is not on origin, so no PR can target it until it is pushed (publishes its commits)",
                              "command": push, "cwd": str(ledger.main), "status": "open", "at": now()})
-        warning = f"\nWARNING: {base_branch} is not on origin. PRs cannot target it until the user pushes it; it is need #1 on the board: `{push}`."
+        warning = f"\nWARNING: {base_branch} is not on origin. PRs cannot target it until the user pushes it; it is tribute #1 on the slate: `{push}`."
     ledger.save_run(run)
     (ledger.dir / "briefs").mkdir(parents=True, exist_ok=True)
     ledger.log("start", name=args.name, coordinator=who, base=run["base"])
-    print(json.dumps(run, indent=2) if args.json else f"Run {args.name} started; coordinator {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; {collaboration['mode']} project ({collaboration['source']}); ledger {ledger.dir}{warning}")
+    print(json.dumps(run, indent=2) if args.json else f"Raid {args.name} started; chief {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; {collaboration['mode']} project ({collaboration['source']}); ledger {ledger.dir}{warning}")
     return 0
 
 
 def cmd_end(args) -> int:
     ledger = ledger_for(args.cwd)
     run = ledger.require_run()
-    authorise(run, caller_session(args.session), args.by_user, "end the run")
+    authorise(run, caller_session(args.session), args.by_user, "end the raid")
     if ledger.slots() and not args.force:
-        raise Refusal("slots are still held: " + ", ".join(f"{r} by {s.get('holder', '')[:8]}" for r, s in ledger.slots().items()) + "; revoke them or pass --force")
+        raise Refusal("dibs are still held: " + ", ".join(f"{r} by {s.get('holder', '')[:8]}" for r, s in ledger.slots().items()) + "; revoke them or pass --force")
     run["ended_at"] = now()
     ledger.save_run(run)
     ledger.log("end", name=run["name"])
     archive = ledger.dir.parent / "runs" / f"{time.strftime('%Y%m%d-%H%M')}-{re.sub(r'[^A-Za-z0-9._-]+', '-', run['name'])}"
     archive.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(ledger.dir), str(archive))
-    print(f"Run {run['name']} ended; ledger archived to {archive}")
+    print(f"Raid {run['name']} ended; ledger archived to {archive}")
     return 0
 
 
@@ -2297,7 +2297,7 @@ def retire_locked(args, ledger: Ledger) -> int:
     """Reclaim a finished crew session's worktree while the run goes on: only once the session has closed, its row is done, its PR has landed, the tree is clean, nothing runs in it, no slot is held and no open PR is based on its branch. Removes the worktree, prunes, deletes the branch with `-d` only, and records the retirement on the row."""
     run = ledger.require_run()
     caller = caller_session(args.session)
-    by = authorise(run, caller, args.by_user, "retire a crew worktree")
+    by = authorise(run, caller, args.by_user, "retire a raider's worktree")
     sessions = ledger.sessions()
     session_id = resolve_session(args.ref, sessions)
     row = sessions[session_id]
@@ -2351,7 +2351,7 @@ def retire_locked(args, ledger: Ledger) -> int:
             needs.append(need)
             ledger.save_run(run)
             ledger.log("need", **need)
-        raise Refusal(f"processes still run in {worktree}: {listed}; `kill {kills}` first" + ("" if args.dry_run else f" (need #{need['n']})"))
+        raise Refusal(f"processes still run in {worktree}: {listed}; `kill {kills}` first" + ("" if args.dry_run else f" (tribute #{need['n']})"))
     if running is None:
         print(f"note: lsof could not list processes, so nothing is known about what runs in {worktree}")
     merged = f"{fact['state'].lower()} via #{row['pr']}" + (f" into {fact['base']}" if fact.get("base") else "")
@@ -2443,7 +2443,7 @@ def note_approval(ledger: Ledger, run: dict, number: int, current: dict, row: di
         if any(p.get("kind") == "approval" and p.get("pr") == number and p.get("status") == "open" for p in pending):
             return
         n = 1 + max([p.get("n", 0) for p in pending] or [0])
-        item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": "approval", "pr": number, "text": f"PR #{number} approved by {who}; landing is authorised and waits on the coordinator",
+        item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": "approval", "pr": number, "text": f"PR #{number} approved by {who}; landing is authorised and waits on the chief",
                 "session_id": row.get("session_id") if row else None, "head": current.get("head") or "", "status": "open", "at": now()}
         pending.append(item)
         ledger.save_run(fresh)
@@ -2465,7 +2465,7 @@ def stop_watch(ledger: Ledger, row: dict, number: int) -> int:
         return 0
     code, command = sh(["ps", "-o", "command=", "-p", str(int(pid))])
     if code != 0 or "warband.py" not in command or "watch" not in command:
-        print(f"#{number}: the recorded pid {pid} is not an warband.py watcher; nothing to stop")
+        print(f"#{number}: the recorded pid {pid} is not a warband.py watcher; nothing to stop")
         return 0
     with ledger.locked():
         fresh = ledger.sessions().get(row["session_id"])
@@ -2646,7 +2646,7 @@ def crew_locked(args, ledger: Ledger) -> int:
     if args.action == "list":
         print(json.dumps(run.get("crew", []), indent=2))
         return 0
-    authorise(run, caller_session(args.session), args.by_user, "edit the crew plan")
+    authorise(run, caller_session(args.session), args.by_user, "edit the raiders' plan")
     if not args.task or not args.branch:
         raise Refusal("crew add needs --task and --branch")
     worktree = os.path.abspath(args.worktree) if args.worktree else None
@@ -2675,8 +2675,8 @@ def crew_locked(args, ledger: Ledger) -> int:
     if args.json:
         print(json.dumps({**entry, "launch_need": launch["n"] if launch else None}))
     else:
-        tail = f"; launch line is need #{launch['n']} on the board" if launch else ("; its session is live, so no launch line" if running else "; no worktree, so no launch line")
-        print(f"crew {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; brief at {entry['brief']}{tail}")
+        tail = f"; launch line is tribute #{launch['n']} on the slate" if launch else ("; its session is live, so no launch line" if running else "; no worktree, so no launch line")
+        print(f"raider {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; orders at {entry['brief']}{tail}")
     return 0
 
 
@@ -2690,7 +2690,7 @@ def launch_line(run: dict, entry: dict, plugin_dir: str | None) -> str:
         flags += ["--effort", shlex.quote(entry["effort"])]
     if plugin_dir:
         flags += ["--plugin-dir", shlex.quote(plugin_dir)]
-    prompt = f"Start: you are crew {task} in run {run['name']}. Read your brief at {entry['brief']}, invoke /goblin-warband:join-raid and answer its five questions to the coordinator."
+    prompt = f"Start: you are raider {task} in raid {run['name']}. Read your orders at {entry['brief']}, invoke /goblin-warband:join-raid and answer its five questions to the chief."
     # A subagent on the session's model runs at the session's effort, so a crew launched at low or medium would hand its
     # fresh-eyes review (crew skill step 1b) to a reviewer at that level. CLAUDE_CODE_SUBAGENT_EFFORT (Claude Code 2.1.316)
     # names the level for subagents nothing else sets one for; a crew at high or above is left alone, since the variable would lower its reviewer.
@@ -2703,7 +2703,7 @@ def raise_launch_need(ledger: Ledger, run: dict, entry: dict, reason: str | None
     needs = run.setdefault("needs", [])
     old = next((n for n in needs if n.get("kind") == "launch" and n.get("task") == entry["task"] and n.get("status") != "done"), None)
     chosen = ", ".join(x for x in (entry.get("model"), entry.get("effort")) if x) or "the terminal's model"
-    why = f"start crew {entry['task']} in a new terminal window ({chosen}" + (f": {reason.strip()}" if reason else "") + ")"
+    why = f"start raider {entry['task']} in a new terminal window ({chosen}" + (f": {reason.strip()}" if reason else "") + ")"
     need = {"id": uuid.uuid4().hex[:8], "n": 1 + max([x.get("n", 0) for x in needs] or [0]), "session_id": run.get("coordinator", {}).get("session_id"), "task": entry["task"],
             "why": why[:NEED_WHY_LIMIT], "command": launch_line(run, entry, plugin_dir), "cwd": entry.get("worktree") or "", "status": "open", "at": now(),
             "kind": "launch", "for": None, "for_task": "", "supersedes": old["n"] if old else None}
@@ -2800,13 +2800,13 @@ def adopt_locked(args, ledger: Ledger) -> int:
     if args.role == "coordinator":
         recorded = run.get("coordinator", {})
         if recorded.get("session_id") == session_id:
-            print(f"this session already coordinates run {run['name']}")
+            print(f"this session is already the chief of raid {run['name']}")
             return 0
         if recorded.get("session_id") in registry() and not args.by_user:
-            raise Refusal(f"the coordinator session {recorded.get('session_id', '')[:8]} is live; adopting the run from it is the user's (/mc adopt coordinator from the new session)")
+            raise Refusal(f"the chief's session {recorded.get('session_id', '')[:8]} is live; adopting the raid from it is the user's (/reclaim-post chief from the new session)")
         own_process = same_identity(who.get("pid"), who.get("socket"), recorded.get("pid"), recorded.get("socket"))
         if not own_process and not args.by_user:
-            raise Refusal("this session is not the coordinator's process under a new id; a fresh coordinator is adopted by the user with /mc adopt coordinator")
+            raise Refusal("this session is not the chief's process under a new id; a fresh chief is adopted by the user with /reclaim-post chief")
         by = "user" if args.by_user else "same process"
         before = str(recorded.get("session_id") or "?")[:8]
         # live under its recorded id, or under a new one after a /clear, which keeps the process and what it scheduled
@@ -2816,11 +2816,11 @@ def adopt_locked(args, ledger: Ledger) -> int:
         ledger.log("adopt", kind="coordinator", old=recorded.get("session_id"), new=session_id, by=by)
         # a fresh process inherits the run's jobs without the crons behind them, and its start hook ran before it was the coordinator
         # the user can take the run from a coordinator that is still live, whose process keeps firing what it scheduled
-        whose = (f"the run's previous coordinator ({before}) had; that session's process is still live and its crons still fire there, so stop them there or each fires twice" if still_live
-                 else f"the run's previous coordinator ({before}) had, which died with its process")
+        whose = (f"the raid's previous chief ({before}) had; that session's process is still live and its crons still fire there, so stop them there or each fires twice" if still_live
+                 else f"the raid's previous chief ({before}) had, which died with its process")
         rearm = "" if own_process else rearm_line(run, whose, restored=False)
         # the re-arm line rides on the printed record only; run.json never stores it
-        print(json.dumps({**run["coordinator"], **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"this session now coordinates run {run['name']} (was {before}, {by})" + (f".{rearm}" if rearm else ""))
+        print(json.dumps({**run["coordinator"], **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"this session is now the chief of raid {run['name']} (was {before}, {by})" + (f".{rearm}" if rearm else ""))
         return 0
     plan = crew_for(run, os.path.abspath(args.cwd), session_id, ledger.sessions())
     if plan is None:
@@ -2866,7 +2866,7 @@ def join_locked(args, ledger: Ledger) -> int:
             rearm = adopted_rearm(old, who, registry())
             row = adopt_row(ledger, old, session_id, who)
             close_launch_need(ledger, row.get("task") or task, session_id)
-            print(json.dumps({**row, **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined run {run['name']}" + (f".{rearm}" if rearm else ""))
+            print(json.dumps({**row, **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined raid {run['name']}" + (f".{rearm}" if rearm else ""))
             return 0
     row.update({
         "session_id": session_id,
@@ -2884,7 +2884,7 @@ def join_locked(args, ledger: Ledger) -> int:
     ledger.save_session(row)
     ledger.log("join", session_id=session_id, task=task, branch=branch)
     close_launch_need(ledger, task, session_id)
-    print(json.dumps(row) if args.json else f"joined run {run['name']} as {task or branch or session_id[:8]} ({worktree})")
+    print(json.dumps(row) if args.json else f"joined raid {run['name']} as {task or branch or session_id[:8]} ({worktree})")
     return 0
 
 
@@ -2907,13 +2907,13 @@ def report_locked(args, ledger: Ledger) -> int:
         session_id = resolve_session(args.for_session, ledger.sessions())
     row = ledger.sessions().get(session_id)
     if row is None:
-        raise Refusal("this session has not joined the run; run `warband.py join` first (the mod does it at its first turn)")
+        raise Refusal("this session has not joined the raid; run `warband.py join` first (the mod does it at its first turn)")
     if args.state:
         if args.state not in STATES:
             raise Refusal(f"state must be one of {', '.join(STATES)}")
         if args.state == "waiting":
             if not args.on or not WAITING_ON.match(args.on):
-                raise Refusal("state waiting names what it waits on: --on reviewer:<login>, session:<task>, pr:<n>, ci or hold; a wait on the user is waiting-jason with a need on the list")
+                raise Refusal("state waiting names what it waits on: --on reviewer:<login>, session:<task>, pr:<n>, ci or hold; a wait on the user is waiting-jason with a tribute on the list")
             row["waiting_on"] = args.on
         else:
             row.pop("waiting_on", None)
@@ -2952,7 +2952,7 @@ def cmd_request(args) -> int:
         raise Refusal("no session id")
     spec = resources(found[1]).get(args.resource, {}) if found else {}
     if isinstance(spec, dict) and spec.get("human_gate"):
-        note = " It is a human gate: the window is announced by mission control and the command is Jason's to type."
+        note = " It is a taboo: the window is announced by the chief and the command is the human's to type."
     else:
         note = ""
     req = {"resource": args.resource, "session_id": session_id, "minutes": args.minutes, "what": (args.what or "").strip()[:240], "at": now(), "command": args.command}
@@ -2960,7 +2960,7 @@ def cmd_request(args) -> int:
     ledger.log("request", **req)
     holder = ledger.slots().get(args.resource)
     held = f" Currently held by {holder.get('holder', '')[:8]} until {clock(holder.get('until'))}." if holder else " Currently free."
-    print(json.dumps(req) if args.json else f"slot request recorded: {args.resource} for {args.minutes or '?'} min.{held}{note} Mission control grants by message; do not run the command before the grant arrives.")
+    print(json.dumps(req) if args.json else f"dibs called: {args.resource} for {args.minutes or '?'} min.{held}{note} The chief grants by message; do not run the command before the grant arrives.")
     return 0
 
 
@@ -2977,7 +2977,7 @@ def holds_a_slot(ledger: Ledger, session_id: str) -> bool:
 
 def grant_locked(args, ledger: Ledger) -> int:
     run = ledger.require_run()
-    by = authorise(run, caller_session(args.session), args.by_user, "grant a slot")
+    by = authorise(run, caller_session(args.session), args.by_user, "grant dibs")
     found = find_config(args.cwd)
     if found and args.resource not in resources(found[1]):
         raise Refusal(f"no resource named {args.resource}; configured: {', '.join(resources(found[1]))}")
@@ -3056,7 +3056,7 @@ def release_locked(args, ledger: Ledger) -> int:
     if not slot:
         raise Refusal(f"{args.resource} is not held")
     if slot.get("holder") != session_id:
-        authorise(run, session_id, args.by_user, f"release {args.resource} held by another session")
+        authorise(run, session_id, args.by_user, f"release the dibs on {args.resource} held by another session")
     ledger.slot_path(args.resource).unlink(missing_ok=True)
     # a request the holder still had open for this resource (more time asked and not yet granted) is moot once the slot goes
     ledger.request_path(args.resource, slot["holder"]).unlink(missing_ok=True)
@@ -3111,9 +3111,9 @@ def needs_locked(args, ledger: Ledger) -> int:
         return 0
     # each link flag belongs to one action; a swap of --supersedes for --superseded-by used to pass with nothing recorded
     if args.supersedes and args.action != "add":
-        raise Refusal("--supersedes belongs on needs add; to close a need under its successor use needs done <n> --superseded-by <successor>")
+        raise Refusal("--supersedes belongs on needs add; to close a tribute under its successor use needs done <n> --superseded-by <successor>")
     if args.superseded_by and args.action != "done":
-        raise Refusal("--superseded-by belongs on needs done; to re-issue a need use needs add --supersedes <n>")
+        raise Refusal("--superseded-by belongs on needs done; to re-issue a tribute use needs add --supersedes <n>")
     if args.note is not None and args.action != "start":
         raise Refusal("--note belongs on needs start")
     if args.result is not None and args.action != "done":
@@ -3130,13 +3130,13 @@ def needs_locked(args, ledger: Ledger) -> int:
         # a re-issue closes the need it replaces as superseded, so the trail reads old number to new on one list
         old = find_need(needs, args.supersedes) if args.supersedes else None
         if args.supersedes and old is None:
-            raise Refusal(f"no need {args.supersedes} to supersede")
+            raise Refusal(f"no tribute {args.supersedes} to supersede")
         if old is not None and old.get("superseded_by"):
-            raise Refusal(f"need #{old['n']} is already superseded by #{old['superseded_by']}")
+            raise Refusal(f"tribute #{old['n']} is already superseded by #{old['superseded_by']}")
         # the session a need is for may re-issue it too: the coordinator raises a measurement on a crew session's behalf,
         # and the crew skill sends that crew the re-issue. an anonymous shell (no session id) stays refused
         if old is not None and old.get("session_id") != session_id and not (session_id and old.get("for") == session_id):
-            authorise(run, session_id, args.by_user, "supersede another session's need")
+            authorise(run, session_id, args.by_user, "supersede another session's tribute")
         # the result of a measurement goes to the session that asked for it, or the one named; the board says which.
         # a re-issue keeps the old need's kind, recipient and directory unless the flag says otherwise; the command is
         # never carried over, since the first attempt usually failed on it and a missing one shows as missing on the board
@@ -3171,17 +3171,17 @@ def needs_locked(args, ledger: Ledger) -> int:
         wants = f" (result to {need['for_task'] or (for_session or '')[:8]})" if need["kind"] == "measurement" and for_session else ""
         replaces = f" (supersedes #{old['n']})" if old else ""
         moved = f" (directory moved from {moved_from} to the main checkout, the only tree linked to the hosted project)" if moved_from else ""
-        print(json.dumps(need) if args.json else f"needs Jason #{n}: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants + replaces + moved)
+        print(json.dumps(need) if args.json else f"tribute #{n} owed: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants + replaces + moved)
         return 0
     target = find_need(needs, args.ref)
     if target is None:
-        raise Refusal(f"no open need {args.ref}")
+        raise Refusal(f"no open tribute {args.ref}")
     if args.action == "start":
-        # the user has typed the command and it runs on; the need leaves the "needs Jason" count and keeps its number until the result is in
+        # the user has typed the command and it runs on; the tribute leaves the owed count and keeps its number until the result is in
         if target.get("status") == "done":
-            raise Refusal(f"need #{target['n']} is already done")
+            raise Refusal(f"tribute #{target['n']} is already paid")
         if target.get("session_id") != session_id:
-            authorise(run, session_id, args.by_user, "mark another session's need started")
+            authorise(run, session_id, args.by_user, "mark another session's tribute agreed")
         target["status"] = "started"
         # a second start only adds or changes the note; the time the user first typed it is the one the board shows
         target["started_at"] = target.get("started_at") or now()
@@ -3189,23 +3189,23 @@ def needs_locked(args, ledger: Ledger) -> int:
             target["note"] = args.note.strip()[:NEED_WHY_LIMIT]
         ledger.save_run(run)
         ledger.log("need-started", id=target["id"], n=target["n"], note=target.get("note", ""))
-        print(json.dumps(target) if args.json else f"need #{target['n']} running since {clock(target['started_at'])}" + (f": {target['note']}" if target.get("note") else ""))
+        print(json.dumps(target) if args.json else f"tribute #{target['n']} agreed since {clock(target['started_at'])}" + (f": {target['note']}" if target.get("note") else ""))
         return 0
     # done
     if target.get("session_id") != session_id:
-        authorise(run, session_id, args.by_user, "mark another session's need done")
+        authorise(run, session_id, args.by_user, "mark another session's tribute paid")
     result = args.result
     if result and result.startswith("@") and Path(result[1:]).is_file():
         result = Path(result[1:]).read_text()
     successor = find_need(needs, args.superseded_by) if args.superseded_by else None
     if args.superseded_by and successor is None:
-        raise Refusal(f"no need {args.superseded_by} to be superseded by")
+        raise Refusal(f"no tribute {args.superseded_by} to be superseded by")
     if successor is not None and successor is target:
-        raise Refusal(f"need #{target['n']} cannot supersede itself")
+        raise Refusal(f"tribute #{target['n']} cannot supersede itself")
     if successor is not None and successor.get("status") == "done":
-        raise Refusal(f"need #{successor['n']} is done; a need is superseded by one still open or running")
+        raise Refusal(f"tribute #{successor['n']} is paid; a tribute is superseded by one still owed or agreed")
     if successor is not None and target.get("superseded_by"):
-        raise Refusal(f"need #{target['n']} is already superseded by #{target['superseded_by']}")
+        raise Refusal(f"tribute #{target['n']} is already superseded by #{target['superseded_by']}")
     if successor is not None:
         supersede(ledger, target, successor["n"])
         # the back-link is a scalar: a successor that already re-issues one need keeps that; superseded_by on each old need is the trail
@@ -3223,7 +3223,7 @@ def needs_locked(args, ledger: Ledger) -> int:
         print(json.dumps({**target, "forward_to": recipient if result else None}))
     else:
         tail = f"; result ({len(target['result'])} chars) for {target.get('for_task') or recipient[:8]}" if result else ""
-        print(f"need #{target['n']} " + (f"superseded by #{target['superseded_by']}" if successor else "done") + tail)
+        print(f"tribute #{target['n']} " + (f"superseded by #{target['superseded_by']}" if successor else "paid") + tail)
     return 0
 
 
@@ -3275,7 +3275,7 @@ def jobs_locked(args, ledger: Ledger) -> int:
         if args.by_user:
             raise Refusal(f"`jobs add` records what this session scheduled, so it takes no `{BY_USER}`")
         if own is None:
-            raise Refusal("this session has not joined the run; jobs belong to a session row, or to the run for its coordinator")
+            raise Refusal("this session has not joined the raid; jobs belong to a session row, or to the raid for its chief")
         if not args.kind or not args.spec:
             raise Refusal("jobs add needs --kind (cron, monitor, watch, other) and --spec (the cron expression, the Monitor's condition, the watch's PR)")
         job = {"id": args.id or f"{args.kind}-{uuid.uuid4().hex[:6]}", "kind": args.kind, "spec": args.spec.strip(), "prompt": (args.prompt or "").strip(), "reason": (args.reason or "").strip()[:240], "status": "open", "at": now()}
@@ -3307,18 +3307,18 @@ def jobs_locked(args, ledger: Ledger) -> int:
         elif args.by_user and named(run, True) and coordinator_id not in live:
             owner, holder, target = coordinator_id, run, named(run, True)
         else:
-            still = next((r.get("task") or sid[:8] for sid, r in sessions.items() if named(r, True)), None) or ("the coordinator" if named(run, True) else None)
+            still = next((r.get("task") or sid[:8] for sid, r in sessions.items() if named(r, True)), None) or ("the chief" if named(run, True) else None)
             if still:
                 raise Refusal(f"job {args.ref} belongs to {still}, whose session is live; that session closes it")
     if target is None or holder is None:
         if own is None and not args.by_user:
-            raise Refusal("this session has not joined the run; jobs belong to a session row, or to the run for its coordinator")
+            raise Refusal("this session has not joined the raid; jobs belong to a session row, or to the raid for its chief")
         # the id exists and nothing under it is open: say that, and name no listing, since `jobs list` is the caller's own and hides a finished job
         reaches_all = coordinating or args.by_user
         if any(named(h) for h in (own, *((run, *sessions.values()) if reaches_all else ()))):
             raise Refusal(f"job {args.ref} is already done")
         if reaches_all:
-            raise Refusal(f"no job {args.ref} on any session in this run")
+            raise Refusal(f"no job {args.ref} on any session in this raid")
         raise Refusal(f"no job {args.ref} on this session; `jobs list` names them")
     target["status"] = "done"
     target["done_at"] = now()
@@ -3329,7 +3329,7 @@ def jobs_locked(args, ledger: Ledger) -> int:
     else:
         ledger.save_session(holder)
     ledger.log("job-done", session_id=owner, id=target["id"], by=by)
-    print(f"job {target['id']} done" + ("" if by == "session" else f" (it was {'the coordinator' if holder is run else (holder.get('task') or owner[:8])}'s, whose session is gone)"))
+    print(f"job {target['id']} done" + ("" if by == "session" else f" (it was {'the chief' if holder is run else (holder.get('task') or owner[:8])}'s, whose session is gone)"))
     return 0
 
 
@@ -3403,7 +3403,7 @@ def prs_locked(args, ledger: Ledger) -> int:
     prs = ledger.prs()
     if args.action == "list":
         rows = sorted(prs.values(), key=lambda r: r["number"])
-        print(json.dumps(rows, indent=2) if args.json else "\n".join(f"#{r['number']} {r.get('task') or '(outside the run)'}{' · ' + r['group'] if r.get('group') else ''}{' · held' if r.get('hold') else ''}{' · ignored' if r.get('ignored') else ''}" for r in rows) or "no PRs recorded")
+        print(json.dumps(rows, indent=2) if args.json else "\n".join(f"#{r['number']} {r.get('task') or '(outside the raid)'}{' · ' + r['group'] if r.get('group') else ''}{' · held' if r.get('hold') else ''}{' · ignored' if r.get('ignored') else ''}" for r in rows) or "no PRs recorded")
         return 0
     if args.ref is None or not str(args.ref).lstrip("#").isdigit():
         raise Refusal(f"prs {args.action} needs the PR number")
@@ -3412,7 +3412,7 @@ def prs_locked(args, ledger: Ledger) -> int:
     sessions = ledger.sessions()
     own = sessions.get(caller or "")
     if args.action == "add" and own is None and not args.by_user and not is_coordinator(run, caller):
-        raise Refusal("prs add is for a session in the run, the coordinator or --by-user")
+        raise Refusal("prs add is for a session in the raid, the chief or --by-user")
     if args.action != "add":
         authorise(run, caller, args.by_user, "keep the PR records")
     row = prs.get(number) or {"number": number, "at": now()}
@@ -3420,7 +3420,7 @@ def prs_locked(args, ledger: Ledger) -> int:
     if args.action in ("add", "pin"):
         task = args.task or (own or {}).get("task") if args.action == "add" else args.task
         if task and task not in plan:
-            raise Refusal(f"{task} is not in the crew plan: {', '.join(plan) or 'none'}")
+            raise Refusal(f"{task} is not in the raiders' plan: {', '.join(plan) or 'none'}")
         if task:
             row["task"] = task
         row.setdefault("task", None)
@@ -3794,15 +3794,15 @@ def decide_locked(args, ledger: Ledger) -> int:
         return 0
     if args.action == "ack":
         if not session_id or session_id not in sessions:
-            raise Refusal("ack comes from a crew session that has joined the run")
+            raise Refusal("ack comes from a raider that has joined the raid")
         target = next((d for d in ledger.decisions() if str(d.get("n")) == str(args.ref)), None)
         if target is None:
-            raise Refusal(f"no decision #{args.ref}")
+            raise Refusal(f"no ruling #{args.ref}")
         ledger.append_decision({"n": target["n"], "ack": session_id, "at": now()})
         ledger.log("decision-ack", n=target["n"], session_id=session_id)
-        print(f"decision #{target['n']} acknowledged by {sessions[session_id].get('task') or session_id[:8]}")
+        print(f"ruling #{target['n']} acknowledged by {sessions[session_id].get('task') or session_id[:8]}")
         return 0
-    authorise(run, session_id, args.by_user, "record a decision")
+    authorise(run, session_id, args.by_user, "record a ruling")
     if not args.text:
         raise Refusal("decide add needs --text: what the user decided")
     told = [resolve_session(ref.strip(), sessions) for ref in (args.told or "").split(",") if ref.strip()]
@@ -3813,7 +3813,7 @@ def decide_locked(args, ledger: Ledger) -> int:
     decision = {"n": n, "text": args.text.strip()[:NEED_WHY_LIMIT], "about": (args.about or "").strip()[:240], "told": told, "acks": [], "at": now(), "by": "user"}
     ledger.append_decision(decision)
     ledger.log("decision", **decision)
-    print(json.dumps(decision) if args.json else f"decision #{n} recorded: {decision['text']}" + (f" (told {', '.join(sessions.get(t, {}).get('task') or t[:8] for t in told)})" if told else ""))
+    print(json.dumps(decision) if args.json else f"ruling #{n} recorded: {decision['text']}" + (f" (told {', '.join(sessions.get(t, {}).get('task') or t[:8] for t in told)})" if told else ""))
     return 0
 
 
@@ -3831,7 +3831,7 @@ def assume_locked(args, ledger: Ledger) -> int:
             flag = f" (changed {clock(a.get('changed_at'))})" if a.get("changed_at") else ""
             print(f"{a['n']}. {a['text']}{flag}")
         return 0
-    authorise(run, caller_session(args.session), args.by_user, "change a shared assumption")
+    authorise(run, caller_session(args.session), args.by_user, "change a decree")
     if not args.text:
         raise Refusal("assume set needs text")
     n = int(args.n) if args.n else 1 + max([a.get("n", 0) for a in assumptions] or [0])
@@ -3843,7 +3843,7 @@ def assume_locked(args, ledger: Ledger) -> int:
         assumptions.sort(key=lambda a: a["n"])
     ledger.save_run(run)
     ledger.log("assume", n=n, text=args.text.strip(), changed=bool(existing))
-    print(f"assumption {n} {'changed' if existing else 'set'}: {args.text.strip()}")
+    print(f"decree {n} {'changed' if existing else 'set'}: {args.text.strip()}")
     return 0
 
 
@@ -4157,7 +4157,7 @@ def push_gate_reason(command: str, cwd: str) -> str | None:
 
 
 def assess(payload: dict) -> dict:
-    """What mission control says about a Bash command: the verdict and whether a held slot covers it.
+    """What the warband says about a Bash command: the verdict and whether held dibs cover it.
 
     A gated command needs the slot held by this session and must run inside
     the holder's worktree. Without the slot the refusal says who holds it and
@@ -4174,7 +4174,7 @@ def assess(payload: dict) -> dict:
     cwd = payload.get("cwd") or os.getcwd()
     session_id = payload.get("session_id")
     if overrides_identity(command):
-        return {**out, "decision": "deny", "reason": f"`{BY_USER}` stands for the person typing /mc, and `--session` or `{SESSION_ENV}=` on an warband.py line would make a session someone else; a session passes none of them. Ask mission control, or the person runs /mc."}
+        return {**out, "decision": "deny", "reason": f"`{BY_USER}` stands for the person typing one of the plugin's slash commands, and `--session` or `{SESSION_ENV}=` on a warband.py line would make a session someone else; a session passes none of them. Ask the chief, or the person types the slash command."}
     # the push gate applies with or without a run: a session outside any run pushed three commits into a red suite on 4 November 2026
     gate_reason = push_gate_reason(command, cwd)
     if gate_reason:
@@ -4204,18 +4204,18 @@ def assess(payload: dict) -> dict:
         label = spec.get("label", hit["resource"])
         if spec.get("human_gate"):
             covered = False
-            contexts.append(f"mission-control: `{hit['command']}` touches {label}, a human gate. Ask mission control for the window and give Jason the exact command to type; never run it from this session.")
+            contexts.append(f"goblin-warband: `{hit['command']}` touches {label}, a taboo. Ask the chief for the window and give the human the exact command to type; never run it from this session.")
             continue
         where = runs_in(cwd, hit["cd"])
         slot = slots.get(hit["resource"])
         if slot and slot.get("holder") == session_id:
             worktree = me.get("worktree")
             if worktree and where is not None and not inside(where, worktree):
-                return {**out, "decision": "deny", "reason": f"You hold the {label} slot for {worktree}, and this command would run in {where}. Run it from your own worktree (`cd {worktree}` first, as its own command)."}
+                return {**out, "decision": "deny", "reason": f"You hold the dibs on the {label} for {worktree}, and this command would run in {where}. Run it from your own worktree (`cd {worktree}` first, as its own command)."}
             if where is None:
-                return {**out, "decision": "ask", "reason": f"You hold the {label} slot, and the command's directory cannot be read from the line. Run the cd as its own command, then the task."}
+                return {**out, "decision": "ask", "reason": f"You hold the dibs on the {label}, and the command's directory cannot be read from the line. Run the cd as its own command, then the task."}
             covered &= bool(spec.get("approve_in_slot"))
-            contexts.append(f"mission-control: you hold the {label} slot until {clock(slot.get('until'))}; release it with warband_dibs when done, with results.")
+            contexts.append(f"goblin-warband: you hold the dibs on the {label} until {clock(slot.get('until'))}; release them with warband_dibs when done, with results.")
             continue
         holder = f"held by {sessions.get(slot['holder'], {}).get('task') or slot['holder'][:8]} until {clock(slot.get('until'))}" if slot else "free, but not granted to you"
         req = {"resource": hit["resource"], "session_id": session_id, "minutes": None, "what": f"attempted: {hit['command']}"[:240], "at": now(), "command": hit["command"]}
@@ -4223,9 +4223,9 @@ def assess(payload: dict) -> dict:
             write_json(ledger.request_path(hit["resource"], session_id), req)
             ledger.log("attempt", **req)
         return {**out, "decision": "deny", "reason": (
-            f"`{hit['command']}` touches the {label}, a shared resource of mission-control run {run['name']}: {holder}. "
-            f"Request a slot (warband_dibs with the resource, what you will run and the minutes), wait for the grant message, then run it from your worktree. "
-            f"The attempt is on the board as a request.")}
+            f"`{hit['command']}` touches the {label}, a shared resource of goblin-warband raid {run['name']}: {holder}. "
+            f"Call dibs (warband_dibs with the resource, what you will run and the minutes), wait for the grant message, then run it from your worktree. "
+            f"The attempt is on the slate as dibs called.")}
     # A line is covered only when every simple command on it is one of the gated hits: `G && git push` is not, and
     # neither is a line that hides commands in a substitution or in quoting shlex cannot read.
     whole_line = {" ".join(normalise(words)) for words, _ in simple_commands(command)} <= {h["command"] for h in hits} and not opaque(command)
@@ -4318,7 +4318,7 @@ def hold_text(hold: dict | None) -> str:
     """A hold as one line: its reason and what lifts it, or that nothing recorded will."""
     if not hold:
         return ""
-    lifts = ", ".join(f"#{c['pr']} lands" if c.get("pr") is not None else f"need #{c['need']} closes" for c in hold.get("lifts_on") or [])
+    lifts = ", ".join(f"#{c['pr']} lands" if c.get("pr") is not None else f"tribute #{c['need']} closes" for c in hold.get("lifts_on") or [])
     return f"{hold.get('reason') or 'held'}; " + (f"lifts when {lifts}" if lifts else "lift condition not recorded")
 
 
@@ -4356,23 +4356,23 @@ def pre_compact_instructions(payload: dict) -> str:
     if run is None:
         return ""
     if is_coordinator(run, session_id):
-        return (f"This session coordinates mission-control run {run['name']}. The run ledger keeps the board, slots, needs, the pending list and the user's decisions, so do not spend the summary restating them. "
+        return (f"This session is the chief of goblin-warband raid {run['name']}. The raid ledger keeps the slate, dibs, tribute, the pending list and the user's rulings, so do not spend the summary restating them. "
                 "Keep what only this conversation holds, each with the session or person it concerns and the time: "
-                "every message sent to a crew session and not yet answered, with what was asked; "
+                "every message sent to a raider and not yet answered, with what was asked; "
                 "every freeze or hold still in force (hold your pushes, a hosted window, a rebase held back), who it binds and what lifts it; "
                 "every review, PR description or check-in still in flight and whose reply is awaited; "
                 "every question or proposal put to the user and not yet answered, slicing included; "
-                "the user's standing instructions for this run in their own words; "
+                "the user's standing instructions for this raid in their own words; "
                 "the ids of the cron jobs and Monitors this session created; "
                 "and anything promised to a session or to the user and not yet done. "
-                "State that the coordinator invokes /goblin-warband:lead-raid and runs reconcile before its next status.")
+                "State that the chief invokes /goblin-warband:lead-raid and runs reconcile before its next status.")
     plan = crew_for(run, cwd, session_id, ledger.sessions())
     if plan is None:
         return ""
-    return (f"This session is crew {plan['task']} ({plan.get('branch')}) in mission-control run {run['name']}; its brief is {plan.get('brief')}. "
-            "Keep: the brief path and the task; the branch, its last commit and anything uncommitted; the PR number and its state; "
-            "any slot held or requested and its deadline; the watch, cron jobs and Monitors this session started, with their ids; "
-            "every question sent to the coordinator and not yet answered; every numbered decision received and whether it was acknowledged; "
+    return (f"This session is raider {plan['task']} ({plan.get('branch')}) in goblin-warband raid {run['name']}; its orders are {plan.get('brief')}. "
+            "Keep: the orders path and the task; the branch, its last commit and anything uncommitted; the PR number and its state; "
+            "any dibs held or called and their deadline; the watch, cron jobs and Monitors this session started, with their ids; "
+            "every question sent to the chief and not yet answered; every numbered ruling received and whether it was acknowledged; "
             "and what was being done when the summary was made.")
 
 
@@ -4395,15 +4395,16 @@ def session_start_context(payload: dict) -> str:
         needs = [n for n in run.get("needs", []) if n.get("status") == "open"]
         running = [n for n in run.get("needs", []) if n.get("status") == "started"]
         rearm = "" if source == "compact" else rearm_line(run)  # a compaction keeps the process, so what it scheduled still runs
-        head = (f"Mission control: this session coordinates run {run['name']} ({len(run.get('crew', []))} crew). "
-                "Invoke /goblin-warband:lead-raid for the protocol; /mc opens the board.")
+        raiders = len(run.get('crew', []))
+        head = (f"Goblin warband: this session is the chief of raid {run['name']} ({raiders} raider{'s' if raiders != 1 else ''}). "
+                "Invoke /goblin-warband:lead-raid for the protocol; /show-slate opens the slate.")
         back = ""
         if pending or decisions or needs or running:
             decision_text = "; ".join("#%s %s%s" % (d.get("n"), clip(str(d.get("text")), 600), f" (about {d['about']})" if d.get("about") else "") for d in decisions)
             running_text = "; ".join("#%s since %s" % (n.get("n"), clock(n.get("started_at"))) for n in running)
             opening = " Your open threads from the ledger, which a compaction does not keep: "
-            rest = ((f"recent decisions: {decision_text}. " if decisions else "")
-                    + (f"{len(needs)} need{'s' if len(needs) != 1 else ''} open. " if needs else "")
+            rest = ((f"recent rulings: {decision_text}. " if decisions else "")
+                    + (f"{len(needs)} tribute owed. " if needs else "")
                     + (f"running for the user: {running_text}. " if running else "")
                     + "Run reconcile before saying where things stand.")
             # the harness cuts a hook's output at 10,000 characters and shows the model only a preview of the rest, so the pending list takes what the other parts leave
@@ -4417,8 +4418,8 @@ def session_start_context(payload: dict) -> str:
         return f"{head}{back}{rearm}"
     candidate = coord.get("rebind_candidate") or {}
     if candidate.get("session_id") == session_id:
-        return (f"Mission control: this process coordinated run {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
-                "Nothing coordinator-only works until the run is rebound: ask the user once, and on a yes run `python3 warband.py adopt coordinator`; the board shows the same question, answered by /mc adopt coordinator in this session.")
+        return (f"Goblin warband: this process was the chief of raid {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
+                "Nothing chief-only works until the raid is rebound: ask the user once, and on a yes run `python3 warband.py adopt coordinator`; the slate shows the same question, answered by /reclaim-post chief in this session.")
     plan = crew_for(run, cwd, session_id, ledger.sessions())
     if plan is None:
         return ""
@@ -4433,8 +4434,8 @@ def session_start_context(payload: dict) -> str:
                     current["socket"] = socket
                     ledger.save_session(current)
     if source == "compact" and row:  # a compaction keeps the process, so what it scheduled still runs: no re-arm line
-        return (f"Mission control: still crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
-                f"Your brief: {plan.get('brief')}. The coordinator is \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}).")
+        return (f"Goblin warband: still raider {plan['task']} ({plan.get('branch')}) in raid {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
+                f"Your orders: {plan.get('brief')}. The chief is \"{coord.get('name') or 'the chief'}\" (socket {coord.get('socket') or '?'}).")
     rearm = rearm_line(row)
     if not row and session_id:
         # this hook runs before the session joins: a fresh process that is about to adopt a gone session's row is told what the row carries
@@ -4452,11 +4453,11 @@ def session_start_context(payload: dict) -> str:
         if collab.get("mode") else ""
     )
     return (
-        f"Mission control: this worktree is crew {plan['task']} ({plan.get('branch')}) in run {run['name']}, started by the user with /goblin-warband:declare-raid. "
-        f"The coordinator is the session named \"{coord.get('name') or 'mission control'}\" (socket {coord.get('socket') or '?'}); its messages arrive as cross-session messages from that socket and carry the user's instructions on sequencing, shared code and shared resources. "
-        + (f"Read your brief first: {brief}. " if has_brief else "No brief has been written yet; the coordinator will message you. ")
+        f"Goblin warband: this worktree is raider {plan['task']} ({plan.get('branch')}) in raid {run['name']}, started by the user with /goblin-warband:declare-raid. "
+        f"The chief is the session named \"{coord.get('name') or 'the chief'}\" (socket {coord.get('socket') or '?'}); its messages arrive as cross-session messages from that socket and carry the user's instructions on sequencing, shared code and shared resources. "
+        + (f"Read your orders first: {brief}. " if has_brief else "No orders have been written yet; the chief will message you. ")
         + mode_line
-        + "Then invoke /goblin-warband:join-raid for how to report, request a slot, watch your PR once it exists and what stays with the user."
+        + "Then invoke /goblin-warband:join-raid for how to report, call dibs, watch your PR once it exists and what stays with the user."
         + rearm
     )
 
@@ -4485,7 +4486,7 @@ def cmd_hook(args) -> int:
             if text:
                 print(text)
     except Exception as error:  # a hook never breaks a session
-        print(f"mission-control hook error: {error}", file=sys.stderr)
+        print(f"goblin-warband hook error: {error}", file=sys.stderr)
     return 0
 
 
@@ -4510,53 +4511,53 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("detect", help="print the project config path; exit 2 when there is none")
     sp = sub.add_parser("init", help="write a starter .claude/goblin-warband.json")
     sp.add_argument("--force", action="store_true")
-    sp = sub.add_parser("start", help="start a run with this session as coordinator")
+    sp = sub.add_parser("start", help="start a raid with this session as chief")
     sp.add_argument("--name", required=True)
     sp.add_argument("--base", help="the trunk branch (default: origin's HEAD)")
     sp.add_argument("--pr-approval", dest="pr_approval", choices=["user", "coordinator"], default="user",
-                    help="who approves a crew session's PR description before pr-create pushes: the user in each session (default), or the coordinator")
+                    help="who approves a raider's PR description before pr-create pushes: the user in each session (default), or the chief (coordinator)")
     sp.add_argument("--collaboration", choices=["solo", "collaborative"], help="state the project's mode instead of taking the config's or the inferred one")
     sp.add_argument("--small-model-ok", dest="small_model_ok", action="store_true", help="the mod refuses a start from a haiku or sonnet session; this flag says the user means it")
-    sp = sub.add_parser("end", help="end the run and archive the ledger")
+    sp = sub.add_parser("end", help="end the raid and archive the ledger")
     sp.add_argument("--force", action="store_true")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("status", help="the board as text, or --json")
+    sp = sub.add_parser("status", help="the slate as text, or --json")
     sp.add_argument("--probe", action="store_true", help="also probe each resource on the machine")
     sp = sub.add_parser("probe", help="what the machine says about a resource")
     sp.add_argument("resource", nargs="?")
     sub.add_parser("reconcile", help="diff the ledger against the live registry, GitHub and the branches on origin (a merged PR's base, an open PR's branch); print what drifted and who each PR waits on")
-    sp = sub.add_parser("classify", help="solo or collaborative: the run record's answer, else the config's, else inferred from 90 days of authors and the reviews on merged PRs")
-    sp.add_argument("--fresh", action="store_true", help="recompute even while a run holds an answer")
+    sp = sub.add_parser("classify", help="solo or collaborative: the raid record's answer, else the config's, else inferred from 90 days of authors and the reviews on merged PRs")
+    sp.add_argument("--fresh", action="store_true", help="recompute even while a raid holds an answer")
     sp = sub.add_parser("watch", help="watch a PR in the background until something changes (reviews, comments, checks, state), print what and exit; held outside the team's hours on a collaborative project unless merged or closed")
     sp.add_argument("--pr", type=int, help="the PR number (default: this session's row)")
     sp.add_argument("--interval", type=float, default=300, help="seconds between polls (default 300)")
     sp.add_argument("--max-minutes", dest="max_minutes", type=float, default=720, help="give up and ask to be re-armed after this long (default 720)")
     sp.add_argument("--once", action="store_true", help="print the PR as it stands and exit")
     sp.add_argument("--stop", action="store_true", help="stop this session's own watcher for the PR, by the pid on its row (never by name)")
-    sp = sub.add_parser("retire", help="reclaim a finished crew session's worktree mid-run: session closed, row done, PR landed, tree clean, nothing running in it; removes it, prunes, deletes the branch with -d only (coordinator or --by-user)")
+    sp = sub.add_parser("retire", help="reclaim a finished raider's worktree mid-raid: session closed, row done, PR landed, tree clean, nothing running in it; removes it, prunes, deletes the branch with -d only (chief or --by-user)")
     sp.add_argument("ref", help="the session: id, prefix, task, branch or name")
     sp.add_argument("--dry-run", dest="dry_run", action="store_true", help="print what would go and the disk it holds; change nothing")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("crew", help="the crew plan: add a task's branch, worktree and brief path, or list")
+    sp = sub.add_parser("crew", help="the raiders' plan: add a task's branch, worktree and orders path, or list")
     sp.add_argument("action", choices=["add", "list"])
     sp.add_argument("--task")
     sp.add_argument("--branch")
     sp.add_argument("--worktree")
     sp.add_argument("--migration", help="the migration timestamp assigned to this task, if any")
-    sp.add_argument("--group", help="the heading this task's PRs sit under on the PR page (a body or workstream); default the task id")
-    sp.add_argument("--unlisted", action="store_true", help="the task has no roadmap item: no claim is expected and the board marks it")
-    sp.add_argument("--model", help="the model the crew session launches on (sonnet, opus, ...); goes on its launch line as --model, which beats ANTHROPIC_MODEL")
-    sp.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], help="the effort the crew session launches at; goes on its launch line as --effort")
+    sp.add_argument("--group", help="the heading this task's PRs sit under on the spoils page (a body or workstream); default the task id")
+    sp.add_argument("--unlisted", action="store_true", help="the task has no waypoint on the roadbook: no claim is expected and the slate marks it")
+    sp.add_argument("--model", help="the model the raider launches on (sonnet, opus, ...); goes on its launch line as --model, which beats ANTHROPIC_MODEL")
+    sp.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], help="the effort the raider launches at; goes on its launch line as --effort")
     sp.add_argument("--name", help="the session name on the launch line (default: the task id lowercased plus 'crew')")
-    sp.add_argument("--reason", help="why this model and effort, in one line; shown with the launch line on the board")
+    sp.add_argument("--reason", help="why this model and effort, in one line; shown with the launch line on the slate")
     sp.add_argument("--plugin-dir", dest="plugin_dir", help="add --plugin-dir to the launch line, for a plugin run from a working tree rather than installed")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("join", help="register this session in the run")
+    sp = sub.add_parser("join", help="register this session in the raid")
     sp.add_argument("--task")
     sp.add_argument("--branch")
-    sp.add_argument("--planned", action="store_true", help="refuse unless the cwd is in a worktree the crew plan names")
+    sp.add_argument("--planned", action="store_true", help="refuse unless the cwd is in a worktree the raiders' plan names")
     sp = sub.add_parser("report", help="update this session's row")
-    sp.add_argument("--for", dest="for_session", help="update another session's row (coordinator or --by-user): id, prefix, task, branch or name")
+    sp.add_argument("--for", dest="for_session", help="update another session's row (chief or --by-user): id, prefix, task, branch or name")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp.add_argument("--state", choices=STATES)
     sp.add_argument("--summary")
@@ -4564,41 +4565,41 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--branch")
     sp.add_argument("--context", type=int, help="this session's context window fill, 0 to 100; alone it updates the gauge without a report")
     sp.add_argument("--on", help="for state waiting: reviewer:<login>, session:<task>, pr:<n>, ci or hold")
-    sp = sub.add_parser("request", help="ask for a resource slot")
+    sp = sub.add_parser("request", help="call dibs on a resource")
     sp.add_argument("resource")
     sp.add_argument("--minutes", type=float)
     sp.add_argument("--what")
     sp.add_argument("--command")
-    sp = sub.add_parser("grant", help="give a session a slot (coordinator or --by-user)")
+    sp = sub.add_parser("grant", help="give a session the dibs (chief or --by-user)")
     sp.add_argument("resource")
     sp.add_argument("--to", required=True, help="session id, id prefix, task id, branch or session name")
     sp.add_argument("--minutes", type=float)
     sp.add_argument("--what")
     sp.add_argument("--note")
-    sp.add_argument("--force", action="store_true", help="take the slot from its holder")
+    sp.add_argument("--force", action="store_true", help="take the dibs from their holder")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("release", help="release a slot: the holder, the coordinator or --by-user")
+    sp = sub.add_parser("release", help="release the dibs: the holder, the chief or --by-user")
     sp.add_argument("resource")
     sp.add_argument("--note")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("needs", help="the needs-Jason list: add, start (the user has typed it and it runs on), done, list")
+    sp = sub.add_parser("needs", help="the tribute list: add, start (agreed: the user has typed it and it runs on), done (paid), list")
     sp.add_argument("action", choices=["add", "start", "done", "list"])
     sp.add_argument("ref", nargs="?", help="for start and done: the item number or id")
     sp.add_argument("--why")
     sp.add_argument("--command")
     sp.add_argument("--cwd-hint", dest="cwd_hint", help="where the command must be typed")
-    sp.add_argument("--kind", choices=["action", "measurement", "approval", "launch", "question"], help="measurement: the user's output comes back to the session that wants it; question: a question put to the user, no command, the answer goes back with done; launch: a crew session's launch line, closed when that session joins (crew add raises these)")
-    sp.add_argument("--pr", type=int, help="for add: the PR this need blocks; the PR's line on the board and the page carries it")
+    sp.add_argument("--kind", choices=["action", "measurement", "approval", "launch", "question"], help="measurement: the user's output comes back to the session that wants it; question: a question put to the user, no command, the answer goes back with done; launch: a raider's launch line, closed when that session joins (crew add raises these)")
+    sp.add_argument("--pr", type=int, help="for add: the PR this tribute blocks; the PR's line on the slate and the spoils page carries it")
     sp.add_argument("--for", dest="for_session", help="the session the result is for (task, branch, name or id); default: the asking session")
-    sp.add_argument("--supersedes", help="for add: the need this one re-issues; that one closes as superseded by the new number")
+    sp.add_argument("--supersedes", help="for add: the tribute this one re-issues; that one closes as superseded by the new number")
     sp.add_argument("--note", help="for start: what is running and where to watch it (a background task id, the session watching)")
-    sp.add_argument("--result", help="for done: the output the user pasted, or @<file> to read it; the mod forwards it to the session the need is for")
-    sp.add_argument("--superseded-by", dest="superseded_by", help="for done: the need that replaces this one, when it already exists")
+    sp.add_argument("--result", help="for done: the output the user pasted, or @<file> to read it; the mod forwards it to the session the tribute is for")
+    sp.add_argument("--superseded-by", dest="superseded_by", help="for done: the tribute that replaces this one, when it already exists")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("adopt", help="bind this session to a role whose recorded id is dead: coordinator (own process after /clear, or --by-user for a fresh one) or crew (the planned worktree's old row)")
+    sp = sub.add_parser("adopt", help="bind this session to a post whose recorded id is dead: coordinator for the chief (own process after /clear, or --by-user for a fresh one) or crew for a raider (the planned worktree's old row)")
     sp.add_argument("role", choices=["coordinator", "crew"])
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("jobs", help="this session's scheduled state in the ledger (cron, Monitor, watch), so a resume re-arms it: add, done, list. The coordinator's are kept on the run; it, or the person, closes a job whose session is gone")
+    sp = sub.add_parser("jobs", help="this session's scheduled state in the ledger (cron, Monitor, watch), so a resume re-arms it: add, done, list. The chief's are kept on the raid; the chief, or the person, closes a job whose session is gone")
     sp.add_argument("action", choices=["add", "done", "list"])
     sp.add_argument("ref", nargs="?", help="for done: the job id; for list: a session (default: this one)")
     sp.add_argument("--kind", choices=["cron", "monitor", "watch", "other"])
@@ -4608,39 +4609,39 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--id", help="a stable id, so re-arming replaces rather than duplicates")
     sp.add_argument("--all", action="store_true", help="list: every session, done jobs included")
     sp.add_argument(BY_USER, dest="by_user", action="store_true", help="done: the person closing a job whose session is gone")
-    sp = sub.add_parser("pending", help="the coordinator's open threads (approvals awaited, unanswered messages), kept so a compaction does not lose them: add, done, list")
+    sp = sub.add_parser("pending", help="the chief's open threads (approvals awaited, unanswered messages), kept so a compaction does not lose them: add, done, list")
     sp.add_argument("action", choices=["add", "done", "list", "hold", "release"])
     sp.add_argument("ref", nargs="?", help="for add: the session it concerns; for done: the number or id; for hold and release: the PR number")
     sp.add_argument("--kind", choices=["approval", "message", "thread", "other"])
     sp.add_argument("--text", help="for add: the thread; for done: the outcome")
     sp.add_argument("--all", action="store_true")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("dashboard", help="draw the run's local PR page (<ledger>/dashboard.html) and print its path; --refresh asks gh and git first, --open opens it")
+    sp = sub.add_parser("dashboard", help="draw the raid's local spoils page (<ledger>/dashboard.html) and print its path; --refresh asks gh and git first, --open opens it")
     sp.add_argument("--refresh", action="store_true")
     sp.add_argument("--open", action="store_true")
     sp = sub.add_parser("prs", help="one record per PR: task, group, hold and what lifts it, a self-expiring note: add, pin, hold, release, note, list")
     sp.add_argument("action", choices=["add", "pin", "ignore", "hold", "release", "note", "list"])
     sp.add_argument("ref", nargs="?", help="the PR number")
-    sp.add_argument("--task", help="the crew task the PR belongs to; for add, the caller's own task by default")
+    sp.add_argument("--task", help="the raider's task the PR belongs to; for add, the caller's own task by default")
     sp.add_argument("--group", help="the group the page draws it under")
     sp.add_argument("--shared", action="store_true", help="the PR changes code every body runs through")
     sp.add_argument("--text", help="for hold: the reason; for note: the sentence")
     sp.add_argument("--lifts-on-pr", dest="lifts_on_pr", help="for hold: comma-separated PR numbers whose merge lifts it")
-    sp.add_argument("--lifts-on-need", dest="lifts_on_need", help="for hold: comma-separated need numbers whose closing lifts it")
+    sp.add_argument("--lifts-on-need", dest="lifts_on_need", help="for hold: comma-separated tribute numbers whose closing lifts it")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("decide", help="the decisions record: add (coordinator or --by-user) what the user decided and who was told; ack from a crew session; list")
+    sp = sub.add_parser("decide", help="the record of rulings: add (chief or --by-user) what the user decided and who was told; ack from a raider; list")
     sp.add_argument("action", choices=["add", "ack", "list"])
-    sp.add_argument("ref", nargs="?", help="for ack: the decision number")
+    sp.add_argument("ref", nargs="?", help="for ack: the ruling number")
     sp.add_argument("--text", help="what was decided, in the user's words")
     sp.add_argument("--about", help="what it concerns: a finding, a task, a scope")
     sp.add_argument("--told", help="comma-separated sessions told (task, branch, name or id), or all")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("assume", help="numbered shared assumptions: set, list")
+    sp = sub.add_parser("assume", help="numbered decrees: set, list")
     sp.add_argument("action", choices=["set", "list"])
     sp.add_argument("--n", help="the number to set or change; default: the next")
     sp.add_argument("--text")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
-    sp = sub.add_parser("check", help="what the guard would say about a Bash command, and whether a held slot covers it (JSON)")
+    sp = sub.add_parser("check", help="what the guard would say about a Bash command, and whether held dibs cover it (JSON)")
     sp.add_argument("--command", required=True)
     sp = sub.add_parser("gate", help="run the config's push_gate commands against the committed HEAD and record the result; the PreToolUse hook then lets `git push` through only on green")
     sp.add_argument("--allow-untracked", dest="allow_untracked", action="store_true", help="run even with untracked, non-ignored files present")

@@ -254,7 +254,7 @@ class LedgerFlow(unittest.TestCase):
 
     def test_start_records_coordinator_and_base(self):
         out = self.box.start().stdout
-        self.assertIn("Run search started", out)
+        self.assertIn("Raid search started", out)
         status = json.loads(self.box.mc("--json", "status").stdout)
         self.assertEqual(status["run"]["coordinator"]["session_id"], "coord-1")
         self.assertEqual(status["run"]["coordinator"]["name"], "mission control")
@@ -323,7 +323,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertEqual(status["requests"][0]["task"], "10SE.2")
         # a crew session cannot grant itself
         refused = self.box.mc("grant", "local-db", "--to", "10SE.2", session="crew-1", cwd=self.box.worktree, expect=1)
-        self.assertIn("only the coordinator", refused.stdout)
+        self.assertIn("only the chief's session",refused.stdout)
         granted = json.loads(self.box.mc("--json", "grant", "local-db", "--to", "10SE.2", session="coord-1").stdout)
         self.assertEqual(granted["holder"], "crew-1")
         self.assertEqual(granted["what"], "one full reset")
@@ -397,7 +397,7 @@ class LedgerFlow(unittest.TestCase):
         self.box.start()
         self.box.mc("join", "--task", "A", session="crew-1", cwd=self.box.worktree)
         self.box.mc("grant", "local-db", "--to", "A", session="coord-1")
-        self.assertIn("slots are still held", self.box.mc("end", session="coord-1", expect=1).stdout)
+        self.assertIn("dibs are still held", self.box.mc("end", session="coord-1", expect=1).stdout)
         self.box.mc("end", "--force", session="coord-1")
         self.assertIsNone(json.loads(self.box.mc("--json", "status").stdout)["run"])
         self.assertTrue(list((self.box.ledger_root / "runs").iterdir()))
@@ -424,7 +424,7 @@ class LedgerFlow(unittest.TestCase):
         variant = self.case_variant_of_worktree()
         self.box.start()
         self.box.mc("crew", "add", "--task", "A", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
-        self.assertIn("this worktree is crew A", self.box.hook("session-start", {}, session="crew-9", cwd=variant))
+        self.assertIn("this worktree is raider A", self.box.hook("session-start", {}, session="crew-9", cwd=variant))
 
     def test_crew_add_writes_the_worktree_in_the_spelling_git_reports(self):
         self.case_variant_of_worktree()
@@ -532,7 +532,7 @@ class LedgerFlow(unittest.TestCase):
         self.box.register("crew-2", "b", str(self.box.repo))
         self.box.mc("join", "--task", "B", session="crew-2")
         refused = self.box.mc("report", "--for", "A", "--state", "done", session="crew-2", expect=1)
-        self.assertIn("only the coordinator", refused.stdout)
+        self.assertIn("only the chief's session",refused.stdout)
         self.box.mc("report", "--for", "A", "--state", "done", session="coord-1")
         rows = {s["task"]: s["state"] for s in json.loads(self.box.mc("--json", "status").stdout)["sessions"]}
         self.assertEqual(rows, {"A": "done", "B": "briefing"})
@@ -1379,8 +1379,8 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh(self._merged(270)))
         stale = [item for item in result["drift"] if item["kind"] == "roadmap-stale"]
         self.assertEqual(len(stale), 1)
-        self.assertIn("reads todo on the roadmap at origin/main", stale[0]["detail"])
-        self.assertIn("/roadmap:maintain", stale[0]["detail"])
+        self.assertIn("reads todo on the roadbook at origin/main", stale[0]["detail"])
+        self.assertIn("/goblin-scout:tend-roadbook", stale[0]["detail"])
         # maintain ran and the trunk says done: the nudge goes
         (self.box.repo / ".claude" / "roadmaps.json").write_text(self._roadmap(started="2026-10-27", status="done"))
         git(self.box.repo, "commit", "-q", "-am", "chore(roadmap): 10SE.2 done")
@@ -1682,7 +1682,7 @@ class LedgerFlow(unittest.TestCase):
         row = json.loads((self.box.sessions / "crew-1.json").read_text())
         (self.box.sessions / "crew-1.json").write_text(json.dumps({**row, "status": "waiting", "statusUpdatedAt": 1793826386060}))
         text = self.box.mc("status", session="coord-1").stdout
-        self.assertIn("| 10se2 | 10SE.2 | feat/a | briefing · waiting on you |", text)
+        self.assertIn("| 10se2 | 10SE.2 | feat/a | reading orders · waiting on you |", text)
         self.assertIn("## Waiting on you", text)
         self.assertIn("- 10SE.2 (10se2) sits on a permission prompt or a question in its own window since ", text)
         # the window the user must visit is the first section: ahead of the needs, the crew table and the slots
@@ -1715,9 +1715,9 @@ class LedgerFlow(unittest.TestCase):
         text = self.box.mc("status", session="coord-1").stdout
         self.assertNotIn("(gone)", text)
         self.assertIn("## Archive", text)
-        self.assertIn("| 10se2 | 10SE.2 | feat/a | gone (briefing) |", text)
+        self.assertIn("| 10se2 | 10SE.2 | feat/a | gone (reading orders) |", text)
         self.assertLess(text.index("| Dibs |"), text.index("## Archive"))
-        self.assertNotIn("| 10se2 | 10SE.2 | feat/a | briefing |", text, "a gone session is not in the crew table")
+        self.assertNotIn("| 10se2 | 10SE.2 | feat/a | reading orders |", text, "a gone session is not in the raiders' table")
 
     # the launch line: kick-off used to print it in chat; now crew add puts it on the needs list, and the join closes it
 
@@ -1730,9 +1730,9 @@ class LedgerFlow(unittest.TestCase):
         need = status["needs"][0]
         self.assertEqual((need["kind"], need["task"], need["session_id"], need["status"]), ("launch", "10SE.2", "coord-1", "open"))
         self.assertEqual(Path(need["cwd"]).resolve(), self.box.worktree.resolve(), "the line runs from the worktree, so the board prints cd there first")
-        self.assertEqual(need["why"], "start crew 10SE.2 in a new terminal window (opus, high: reworks the shared ranking query)")
-        self.assertTrue(need["command"].startswith("claude --model opus --effort high --name '10se.2 search ranking' 'Start: you are crew 10SE.2 in run search. Read your brief at "), need["command"])
-        self.assertIn("invoke /goblin-warband:join-raid and answer its five questions to the coordinator.'", need["command"])
+        self.assertEqual(need["why"], "start raider 10SE.2 in a new terminal window (opus, high: reworks the shared ranking query)")
+        self.assertTrue(need["command"].startswith("claude --model opus --effort high --name '10se.2 search ranking' 'Start: you are raider 10SE.2 in raid search. Read your orders at "), need["command"])
+        self.assertIn("invoke /goblin-warband:join-raid and answer its five questions to the chief.'", need["command"])
         self.assertNotIn("--plugin-dir", need["command"])
         self.assertIn("## Tribute owed", self.box.mc("status", session="coord-1").stdout)
         # the session starts in the worktree: the line was typed, so the need closes by itself
@@ -1746,7 +1746,7 @@ class LedgerFlow(unittest.TestCase):
         self.box.start()
         self.box.mc("crew", "add", "--task", "UXR", "--branch", "feat/a", "--worktree", str(self.box.worktree), "--plugin-dir", "/p/mission-control", session="coord-1")
         need = json.loads(self.box.mc("--json", "status", session="coord-1").stdout)["needs"][0]
-        self.assertEqual(need["why"], "start crew UXR in a new terminal window (the terminal's model)")
+        self.assertEqual(need["why"], "start raider UXR in a new terminal window (the terminal's model)")
         self.assertTrue(need["command"].startswith("claude --plugin-dir /p/mission-control --name 'uxr crew' "), need["command"])
         # no worktree, no line to type yet
         out = self.box.mc("crew", "add", "--task", "B", "--branch", "feat/b", session="coord-1").stdout
@@ -1765,7 +1765,7 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh({}))
         unjoined = [item for item in result["drift"] if item["kind"] == "unjoined"]
         self.assertEqual(len(unjoined), 1)
-        self.assertIn("its launch line is need #2 on the board", unjoined[0]["detail"])
+        self.assertIn("its launch line is tribute #2 on the slate", unjoined[0]["detail"])
 
     def test_re_adding_a_task_whose_session_is_live_edits_the_plan_and_raises_no_launch_need(self):
         # found on PR 59's review: a migration timestamp assigned after the session had joined left a launch need open for a session that was running
@@ -1824,8 +1824,8 @@ class LedgerFlow(unittest.TestCase):
         self.assertIn("read CronList first", hook)
         self.assertNotIn("Re-arm each", hook, "a resume restores a cron by itself, so a blind re-arm would fire it twice")
         compacted = self.box.hook("session-start", {"source": "compact"}, session="crew-1")
-        self.assertIn("still crew 10SE.2", compacted)
-        self.assertIn("Your brief:", compacted)
+        self.assertIn("still raider 10SE.2", compacted)
+        self.assertIn("Your orders:", compacted)
         self.assertNotIn("Re-arm each", compacted, "a compaction keeps the process and its cron")
         # the session goes away with its job open: reconcile names it
         (self.box.sessions / "crew-1.json").unlink()
@@ -1896,10 +1896,10 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("jobs", "add", "--kind", "cron", "--spec", "*/30 * * * *", "--id", "wake", session="coord-1")
         refused = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree, expect=None)
         self.assertNotEqual(refused.returncode, 0)
-        self.assertIn("belongs to the coordinator, whose session is live", refused.stdout + refused.stderr)
+        self.assertIn("belongs to the chief, whose session is live", refused.stdout + refused.stderr)
         (self.box.sessions / "coord-1.json").unlink()
         done = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree)
-        self.assertIn("it was the coordinator's, whose session is gone", done.stdout)
+        self.assertIn("it was the chief's, whose session is gone", done.stdout)
         job = json.loads(next(self.box.ledger_root.glob("*/run.json")).read_text())["jobs"][0]
         self.assertEqual((job["status"], job["note"]), ("done", "closed by user: its session is gone"))
         again = self.box.mc("jobs", "done", "wake", "--by-user", session="crew-1", cwd=self.box.worktree, expect=None)
@@ -1952,7 +1952,7 @@ class LedgerFlow(unittest.TestCase):
             session = "crew-1" if who else "coord-1"
             missing = self.box.mc("jobs", "done", "zz", *who, session=session, cwd=self.box.worktree if who else None, expect=None)
             self.assertNotEqual(missing.returncode, 0)
-            self.assertIn("no job zz on any session in this run", missing.stdout + missing.stderr)
+            self.assertIn("no job zz on any session in this raid", missing.stdout + missing.stderr)
             self.assertNotIn("jobs list", missing.stdout + missing.stderr, "their own list would not show it")
 
     def test_a_gone_row_with_no_task_is_named_by_its_session_and_not_as_the_coordinator(self):
@@ -1964,7 +1964,7 @@ class LedgerFlow(unittest.TestCase):
         (self.box.sessions / "crew-5.json").unlink()
         done = self.box.mc("jobs", "done", "watch-250", session="coord-1")
         self.assertIn("it was crew-5's, whose session is gone", done.stdout)
-        self.assertNotIn("the coordinator's", done.stdout)
+        self.assertNotIn("the chief's", done.stdout)
 
     def test_a_fresh_coordinator_adopted_by_the_user_is_told_to_re_arm_the_runs_jobs(self):
         self.box.start()
@@ -1972,10 +1972,10 @@ class LedgerFlow(unittest.TestCase):
         (self.box.sessions / "coord-1.json").unlink()
         self.box.register("coord-2", "mission control 2", str(self.box.repo))
         adopted = self.box.mc("adopt", "coordinator", "--by-user", session="coord-2")
-        self.assertIn("this session now coordinates run search", adopted.stdout)
+        self.assertIn("this session is now the chief of raid search", adopted.stdout)
         self.assertIn("cron wake (*/30 9-17 * * 1-5: Mission control wake)", adopted.stdout)
         self.assertIn("Re-arm each", adopted.stdout)
-        self.assertIn("the run's previous coordinator (coord-1) had, which died with its process", adopted.stdout)
+        self.assertIn("the raid's previous chief (coord-1) had, which died with its process", adopted.stdout)
         self.assertNotIn("this session had", adopted.stdout, "the adopting session never had the work")
 
     def test_adopting_from_a_live_coordinator_says_its_crons_still_fire_and_json_carries_the_line(self):
@@ -2107,13 +2107,13 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
         self.box.mc("join", "--planned", session="crew-1", cwd=self.box.worktree)
         coordinator = self.box.hook("pre-compact", {"trigger": "manual", "custom_instructions": None}, session="coord-1", cwd=self.box.repo)
-        self.assertIn("coordinates mission-control run", coordinator)
+        self.assertIn("is the chief of goblin-warband raid", coordinator)
         self.assertIn("not yet answered", coordinator)
         self.assertIn("freeze or hold still in force", coordinator)
         self.assertLess(len(coordinator), 10_000)
         crew = self.box.hook("pre-compact", {"trigger": "auto"}, session="crew-1", cwd=self.box.worktree)
-        self.assertIn("crew 10SE.2", crew)
-        self.assertIn("its brief is", crew)
+        self.assertIn("raider 10SE.2", crew)
+        self.assertIn("its orders are", crew)
         self.assertEqual(self.box.hook("pre-compact", {"trigger": "manual"}, session="stranger", cwd=self.box.repo), "", "a session outside the run gets no instructions")
 
     def test_a_crew_below_high_effort_launches_with_its_subagents_raised_to_high(self):
@@ -2145,7 +2145,7 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("decide", "add", "--text", "option A: the short-record fragments keep the old endpoint", "--about", "10SE.6 finding 3", "--told", "10SE.2", session="coord-1")
         hook = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
         self.assertIn("pending: #1 PR description sent back with two changes", hook)
-        self.assertIn("recent decisions: #1 option A", hook)
+        self.assertIn("recent rulings: #1 option A", hook)
         listed = self.box.mc("decide", "list", session="coord-1").stdout
         self.assertIn("told 10SE.2", listed)
         # unacknowledged for too long: reconcile says so; an ack clears it
@@ -2164,7 +2164,7 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("pending", "done", "1", "--text", "approved", session="coord-1")
         self.assertEqual(json.loads(self.box.mc("pending", "list", session="coord-1").stdout), [])
         refused = self.box.mc("decide", "add", "--text", "x", session="crew-1", cwd=self.box.worktree, expect=1)
-        self.assertIn("only the coordinator", refused.stdout)
+        self.assertIn("only the chief's session",refused.stdout)
 
     def test_a_measurement_need_names_its_session_and_done_carries_the_result(self):
         self.box.start()
@@ -2226,7 +2226,7 @@ class LedgerFlow(unittest.TestCase):
         self.assertLess(text.index("## Tribute owed"), text.index("## Tribute agreed"))
         self.assertNotIn("poetry run poe backfill", text.split("## Tribute agreed")[1], "a running need shows no command to type")
         context = self.box.hook("session-start", {"source": "resume"}, session="coord-1", cwd=self.box.repo)
-        self.assertIn("1 need open", context)
+        self.assertIn("1 tribute owed", context)
         self.assertIn("running for the user: #1 since", context)
         again = json.loads(self.box.mc("--json", "needs", "start", "1", "--note", "10SE.2 watches it", session="coord-1").stdout)
         self.assertEqual((again["started_at"], again["note"]), (started["started_at"], "10SE.2 watches it"), "starting again only updates the note; the first start time stays")
@@ -2248,9 +2248,9 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("needs", "add", "--why", "third try", session="crew-1", cwd=self.box.worktree)
         self.assertEqual(self.box.mc("needs", "done", "2", "--superseded-by", "9", session="coord-1", expect=1).returncode, 1)
         self.assertIn("cannot supersede itself", self.box.mc("needs", "done", "2", "--superseded-by", "2", session="coord-1", expect=1).stdout)
-        self.assertIn("is done", self.box.mc("needs", "done", "2", "--superseded-by", "1", session="coord-1", expect=1).stdout, "a done need cannot be the successor")
+        self.assertIn("is paid", self.box.mc("needs", "done", "2", "--superseded-by", "1", session="coord-1", expect=1).stdout, "a done need cannot be the successor")
         out = self.box.mc("needs", "done", "2", "--superseded-by", "3", session="coord-1").stdout
-        self.assertIn("need #2 superseded by #3", out)
+        self.assertIn("tribute #2 superseded by #3", out)
         needs = json.loads(self.box.mc("needs", "list", session="coord-1").stdout)
         self.assertEqual((needs[1]["status"], needs[1]["superseded_by"]), ("done", 3))
         self.assertEqual(needs[2]["supersedes"], 2, "the done path writes the back-link too")
@@ -2428,7 +2428,7 @@ class LedgerFlow(unittest.TestCase):
             self.assertTrue(text.startswith("WARNING: git is not working"), text[:80])
             self.assertIn("| local-db |", text)
             hook = self.box.hook("session-start", {}, session="crew-1")
-            self.assertIn("this worktree is crew 10SE.2", hook, "the hook finds the planned worktree without git")
+            self.assertIn("this worktree is raider 10SE.2", hook, "the hook finds the planned worktree without git")
             self.box.mc("report", "--state", "done", "--pr", "280", session="crew-1", cwd=self.box.worktree)
             (self.box.sessions / "crew-1.json").unlink()
             refused = self.box.mc("retire", "10SE.2", session="coord-1", expect=1).stdout
@@ -2711,9 +2711,9 @@ class LedgerFlow(unittest.TestCase):
             self._set_watch(269, "ended", matching.pid)  # the watcher finished; a recycled pid must not be signalled
             done = self.box.mc("watch", "--stop", "--pr", "269", session="crew-1", cwd=self.box.worktree)
             self.assertIn("nothing to stop", done.stdout)
-            self._set_watch(269, "watching", plain.pid)  # a live pid that is not an warband.py watcher
+            self._set_watch(269, "watching", plain.pid)  # a live pid that is not a warband.py watcher
             done = self.box.mc("watch", "--stop", "--pr", "269", session="crew-1", cwd=self.box.worktree)
-            self.assertIn("not an warband.py watcher", done.stdout)
+            self.assertIn("not a warband.py watcher", done.stdout)
             time.sleep(0.3)
             self.assertIsNone(matching.poll())
             self.assertIsNone(plain.poll())
@@ -2814,7 +2814,7 @@ class LedgerFlow(unittest.TestCase):
         self.box.mc("join", "--task", "10SE.2", "--branch", "feat/a", session="crew-1")
         out = self.box.mc("reconcile").stdout
         self.assertIn("nothing to reconcile", out)
-        self.assertIn("no PRs on the board", out)
+        self.assertIn("no PRs on the slate", out)
         self.assertEqual(self.box.mc("reconcile", cwd=self.box.tmp, expect=1).returncode, 1, "outside a repo is a refusal")
 
     def test_the_psql_probes_wait_no_longer_than_the_gh_lookups(self):
@@ -2867,7 +2867,7 @@ class Hooks(unittest.TestCase):
         self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
         verdict = self.decision("cd apps/api && poetry run poe db-reset-local-anyway")
         self.assertNotIn("permissionDecision", verdict)
-        self.assertIn("you hold the local Supabase stack slot", verdict["additionalContext"])
+        self.assertIn("you hold the dibs on the local Supabase stack", verdict["additionalContext"])
 
     def test_held_slot_from_another_directory_is_denied(self):
         self.box.mc("grant", "local-db", "--to", "10SE.2", session="coord-1")
@@ -2928,7 +2928,7 @@ class Hooks(unittest.TestCase):
     def test_human_gate_adds_context_only(self):
         verdict = self.decision("poetry run poe smoke-search-hosted")
         self.assertNotIn("permissionDecision", verdict)
-        self.assertIn("a human gate", verdict["additionalContext"])
+        self.assertIn("a taboo", verdict["additionalContext"])
 
     def test_by_user_on_a_command_line_is_denied(self):
         verdict = self.decision("python3 warband.py grant local-db --to me --by-user")
@@ -2999,11 +2999,11 @@ class Hooks(unittest.TestCase):
         brief.parent.mkdir(parents=True, exist_ok=True)
         brief.write_text("# brief\n")
         text = self.box.hook("session-start", {}, session="crew-9")
-        self.assertIn("crew 10SE.2", text)
+        self.assertIn("raider 10SE.2", text)
         self.assertIn("mission control", text)
         self.assertIn(str(brief), text)
         coord = self.box.hook("session-start", {}, session="coord-1", cwd=self.box.repo)
-        self.assertIn("coordinates run search", coord)
+        self.assertIn("is the chief of raid search", coord)
         self.assertEqual(self.box.hook("session-start", {}, session="x", cwd=self.box.repo), "")
 
 
@@ -3435,11 +3435,11 @@ class PrCommand(unittest.TestCase):
         self.box.mc("prs", "add", "5", session="crew-1", cwd=self.box.worktree)
         self.assertEqual(json.loads(self.box.mc("--json", "prs", "list").stdout)[0]["task"], "T")
         done = self.box.mc("prs", "hold", "5", "--text", "x", session="crew-1", cwd=self.box.worktree, expect=1)
-        self.assertIn("only the coordinator", done.stdout)
+        self.assertIn("only the chief's session",done.stdout)
 
     def test_an_unknown_task_is_refused(self):
         done = self.box.mc("prs", "add", "5", "--task", "NOPE", session="coord-1", expect=1)
-        self.assertIn("not in the crew plan", done.stdout)
+        self.assertIn("not in the raiders' plan", done.stdout)
 
 
 class PrAttribution(unittest.TestCase):
