@@ -1,7 +1,7 @@
-# mission-control
+# goblin-warband
 
 > [!NOTE]
-> A Claude Code plugin from [goblin-mode](https://github.com/JasonWarrenUK/goblin-mode) for running several sessions on one repository at once: one coordinator, one crew session per task, one worktree each, shared resources held one session at a time. It came out of a five-hour, four-session run on 23 October 2026 and keeps the protocol that worked while taking the typing out of it.
+> A Claude Code plugin from [goblin-mode](https://github.com/JasonWarrenUK/goblin-mode) for running several sessions on one repository at once: one chief, one raider per task, one worktree each, shared resources held one session at a time. It came out of a five-hour, four-session raid on 23 October 2026 and keeps the protocol that worked while taking the typing out of it.
 
 ---
 
@@ -9,25 +9,25 @@
 
 ```sh
 claude plugin marketplace add JasonWarrenUK/goblin-mode
-claude plugin install mission-control@goblin-mode
+claude plugin install goblin-warband@goblin-mode
 ```
 
-Requires `python3` (3.9+, stdlib only) on `PATH`, `lsof` and `pgrep` for the probes and `psql` where a resource probes a database. The board draws in the terminal and needs Claude Code 2.1.287 or later; the hooks, the CLI and the skills work on any version. The roadmap plugin is optional: kick-off uses its ready set and claims when it finds it.
+Requires `python3` (3.9+, stdlib only) on `PATH`, `lsof` and `pgrep` for the probes and `psql` where a resource probes a database. The slate draws in the terminal and needs Claude Code 2.1.287 or later; the hooks, the CLI and the skills work on any version. The goblin-scout plugin is optional: kick-off uses its ready set of waypoints and starts trails when it finds it.
 
 ---
 
-## 2. A run, start to finish: what you type, where, and what not to
+## 2. A raid, start to finish: what you type, where and what not to
 
 ### 2.1. The workflow, in order
 
 | Moment           | Who                                                           | What |
 |------------------|---------------------------------------------------------------|------|
-| Once per project | the user, any session                                         | `/mission-control:configure` writes `.claude/mission-control.json`: the shared resources, the commands that touch them, how to tell each one is busy, the check commands, the convention files, the conventions that live only in the user's head, and `collaboration` (solo or collaborative, with the team's hours) |
-| Kick-off         | the user, in an **opus** session that becomes the coordinator | `/mission-control:kickoff 10SE.2 10SE.4 name search` picks the tasks (from the roadmap when there is one), classifies the project solo or collaborative and asks you to confirm, chooses each session's model and effort with a reason, creates a worktree per task, starts the run in the ledger, asks every convention it cannot read, sets numbered shared assumptions, writes the guidance and one brief per session, and puts one launch line per session on the needs list |
-| Launch           | the user                                                      | opens the board (`/mc`) and runs each `launch` need in a new terminal window, one per session. The line carries `cd <worktree>`, `--model` (which beats `ANTHROPIC_MODEL`), `--effort` (which beats your settings but not `CLAUDE_CODE_EFFORT_LEVEL`, if you export it) and the opening prompt, which starts the session's first turn; nothing else is typed into it. The need closes when the session joins; the `SessionStart` hook names its brief and the coordinator, the mod puts it on the board |
-| The run          | crew and coordinator, by themselves                           | crew answer the five questions, report state changes, request slots, watch their PR once it exists and put anything only you can do on the needs list; the coordinator reconciles before every status, grants slots from the machine's state, settles assumptions, reviews draft PRs when the run says so, checks in and retires merged tasks' worktrees |
-| Whenever         | the user                                                      | `/mc` in any session shows the board; the needs list has complete commands with their directories, and that list is the whole of what the run needs from you |
-| End              | the user, in the coordinator session                          | `/mission-control:end` links the stack, prunes what `retire` left, runs the checks on the top layer, offers the roadmap follow-ups and archives the ledger |
+| Once per project | the user, any session                                         | `/goblin-warband:configure-warband` writes `.claude/goblin-warband.json`: the shared resources, the commands that touch them, how to tell each one is busy, the check commands, the convention files, the conventions that live only in the user's head and `collaboration` (solo or collaborative, with the team's hours) |
+| Kick-off         | the user, in an **opus** session that becomes the chief       | `/goblin-warband:declare-raid 10SE.2 10SE.4 name search` picks the tasks (from the roadbook's waypoints when there is one), classifies the project solo or collaborative and asks you to confirm, chooses each raider's model and effort with a reason, creates a worktree per task, starts the raid in the ledger, asks every convention it cannot read, sets numbered decrees, writes the guidance and one set of orders per raider and puts one launch line per raider on the tribute list |
+| Launch           | the user                                                      | opens the slate (`/show-slate`) and runs each `launch` tribute in a new terminal window, one per raider. The line carries `cd <worktree>`, `--model` (which beats `ANTHROPIC_MODEL`), `--effort` (which beats your settings but not `CLAUDE_CODE_EFFORT_LEVEL`, if you export it) and the opening prompt, which starts the session's first turn; nothing else is typed into it. The tribute closes when the raider joins; the `SessionStart` hook names its orders and the chief, the mod puts it on the slate |
+| The raid         | raiders and chief, by themselves                              | raiders answer the five questions, report state changes, request dibs, watch their PR once it exists and put anything only you can do on the tribute list; the chief reconciles before every status, grants dibs from the machine's state, settles decrees, reviews draft PRs when the raid says so, checks in and dismisses merged tasks' raiders |
+| Whenever         | the user                                                      | `/show-slate` in any session shows the slate; the tribute list has complete commands with their directories, and that list is the whole of what the raid needs from you |
+| End              | the user, in the chief's session                              | `/goblin-warband:declare-victory` links the stack, prunes what `retire` left, runs the checks on the top layer, offers the roadbook follow-ups and archives the ledger |
 
 The protocol itself, with the message shapes: `references/protocol.md`.
 
@@ -35,139 +35,139 @@ The protocol itself, with the message shapes: `references/protocol.md`.
 
 **Slash commands.** Each runs in the session named; the skill refuses or misbehaves elsewhere.
 
-| Command                                          | Where                                                               | Does |
-|--------------------------------------------------|---------------------------------------------------------------------|------|
-| `/mission-control:configure`                     | any session in the project                                          | writes or revises the project config by interview |
-| `/mission-control:kickoff [ids...] [name <run>]` | the session that will coordinate (opus)                             | starts the run; refuses while one is active |
-| `/mission-control:coordinate`                    | the coordinator session                                             | the running protocol: reconcile, grant, check in, retire, escalate |
-| `/mission-control:checkin`                       | the coordinator session                                             | asks every crew session the three questions and gives you one list of what you need to do |
-| `/mission-control:crew`                          | a crew session, once, at its first turn (the launch line does this) | how that session reports, asks for slots, watches its PR and what stays with you |
-| `/mission-control:end`                           | the coordinator session                                             | closes the run |
+| Command                                                  | Where                                                         | Does |
+|----------------------------------------------------------|---------------------------------------------------------------|------|
+| `/goblin-warband:configure-warband`                      | any session in the project                                    | writes or revises the project config by interview |
+| `/goblin-warband:declare-raid [ids...] [name <raid>]`    | the session that will lead (opus)                             | starts the raid; refuses while one is active |
+| `/goblin-warband:lead-raid`                              | the chief's session                                           | the running protocol: reconcile, grant, check in, dismiss, escalate |
+| `/goblin-warband:summon-raiders`                         | the chief's session                                           | asks every raider the three questions and gives you one list of the tribute you owe |
+| `/goblin-warband:join-raid`                              | a raider, once, at its first turn (the launch line does this) | how that raider reports, asks for dibs, watches its PR and what stays with you |
+| `/goblin-warband:declare-victory`                        | the chief's session                                           | closes the raid |
 
-**`/mc`.** Your own hand on the ledger from any session, with no turn and no model. Every write carries `--by-user`.
+**Your own commands.** Your own hand on the ledger from any session, with no turn and no model. Every write carries `--by-user`.
 
-| Form                                                  | Does |
-|-------------------------------------------------------|------|
-| `/mc`                                                 | opens or closes the board |
-| `/mc start <name> [anyway]`                           | starts a run with this session as coordinator; a haiku or sonnet session is warned off and `anyway` overrides |
-| `/mc grant <resource> <task\|branch\|name> [minutes]` | grants a slot, taking it from a holder if need be, and messages the grantee |
-| `/mc extend <resource> [minutes]`                     | gives the current holder longer and tells only them |
-| `/mc release <resource>`                              | releases a slot |
-| `/mc started <n> [note]`                              | marks need `n` started: you typed it and it runs on (a backfill, a long measurement); the note says where it is watched. It moves to the board's `Running` group and leaves the needs-Jason count until `/mc done` closes it with the result |
-| `/mc done <n> [result or @file]`                      | marks need `n` done; for a measurement, the pasted output (or a file's contents) goes to the session that wanted it in the same step |
-| `/mc adopt coordinator\|crew`                         | from the session taking the role: rebinds the run to this session after a `/clear` or a fresh start (the board shows `rebind?` when this is waiting), or carries over a crew row |
-| `/mc retire <task> [dry]`                             | reclaims a merged task's worktree (section 7 has the preconditions); `dry` only prints |
-| `/mc status`                                          | the board as text, machine probed |
-| `/mc dashboard [refresh]`                             | opens the run's PR page in the browser; `refresh` asks GitHub and git first |
-| `/mc pin <pr> [group]`                                | shows a PR from outside the run on the PR page, under the group named (`Outside the run` by default) |
-| `/mc ignore <pr>`                                     | stops reconcile naming an open PR no task claims |
-| `/mc end [force]`                                     | ends the run; `force` ends it with slots still held |
+| Form                                                     | Does |
+|----------------------------------------------------------|------|
+| `/show-slate`                                            | opens or closes the slate |
+| `/start-raid <name> [anyway]`                            | starts a raid with this session as chief; a haiku or sonnet session is warned off and `anyway` overrides |
+| `/grant-dibs <resource> <task\|branch\|name> [minutes]`  | grants dibs (taking them from a holder if need be) and messages the grantee |
+| `/extend-dibs <resource> [minutes]`                      | gives the current holder longer and tells only them |
+| `/release-dibs <resource>`                               | releases dibs |
+| `/agree-tribute <n> [note]`                              | marks tribute `n` agreed (stored as `started`): you typed it and it runs on (a backfill, a long measurement); the note says where it is watched. It moves to the slate's `Tribute agreed` group and leaves the tribute count until `/pay-tribute` closes it with the result |
+| `/pay-tribute <n> [result or @file]`                     | marks tribute `n` paid (stored as `done`); for a measurement, the pasted output (or a file's contents) goes to the session that wanted it in the same step |
+| `/reclaim-post chief\|raider`                            | from the session taking the role: rebinds the raid to this session after a `/clear` or a fresh start (the slate shows `rebind?` when this is waiting), or carries over a raider's row |
+| `/dismiss-raider <task> [dry]`                           | reclaims a merged task's worktree (section 7 has the preconditions); `dry` only prints |
+| `/read-slate`                                            | the slate as text, machine probed |
+| `/show-spoils [refresh]`                                 | opens the raid's spoils page in the browser; `refresh` asks GitHub and git first |
+| `/claim-spoils <pr> [group]`                             | shows a PR from outside the raid on the spoils page, under the group named (`Outside the run` by default) |
+| `/ignore-spoils <pr>`                                    | stops reconcile naming an open PR no task claims |
+| `/end-raid [force]`                                      | ends the raid; `force` ends it with dibs still held |
 
-**The board's keys** are in section 3.
+**The slate's keys** are in section 3.
 
-**The CLI by hand.** `python3 <plugin-root>/scripts/mc.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the run take `--by-user` when typed by you from a session that is not the coordinator. The ones worth knowing: `status [--probe]`, `gate` (run the project's push gate on HEAD, section 5.1), `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task> [--supersedes <n>]`, `needs start <n> --note ...`, `needs done <n> [--result ...|--superseded-by <m>]`, `prs add|pin|ignore|hold|release|note|list`, `dashboard [--refresh] [--open]`, `crew list`, `crew add --task ... --model <m> --effort <e> --name ... --reason ... [--unlisted] [--plugin-dir <root>]` (which puts the session's launch line on the needs list), `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
+**The CLI by hand.** `python3 <plugin-root>/scripts/warband.py <subcommand>` from inside the repository. You can run any of them; the ones that steer the raid take `--by-user` when typed by you from a session that is not the chief's. The ones worth knowing: `status [--probe]`, `gate` (run the project's push gate on HEAD, section 5.1), `reconcile`, `classify [--fresh]`, `retire <task> [--dry-run]`, `watch --pr <n> [--once]`, `needs list`, `needs add --why ... --kind measurement --for <task> [--supersedes <n>]`, `needs start <n> --note ...`, `needs done <n> [--result ...|--superseded-by <m>]`, `prs add|pin|ignore|hold|release|note|list`, `dashboard [--refresh] [--open]`, `crew list`, `crew add --task ... --model <m> --effort <e> --name ... --reason ... [--unlisted] [--plugin-dir <root>]` (which puts the raider's launch line on the tribute list), `adopt coordinator|crew`, `jobs list [--all]`, `pending list`, `decide list`, `probe [resource]`. `--help` lists the rest.
 
 ### 2.3. Do not
 
-Each of these runs against the protocol, and most were learned on a live run.
+Each of these runs against the protocol, and most were learned on a live raid.
 
-- **Do not coordinate from a haiku or sonnet session.** The mod refuses `mc.py start` from one; `--small-model-ok` and `anyway` exist for the case where you mean it, and that case has not come up.
-- **Do not type into a crew session after its launch line**, and do not strip `--model`, `--effort` or a leading `CLAUDE_CODE_SUBAGENT_EFFORT=high` from the line: kick-off chose them for the task and the brief's Model row says why; without the flag the terminal's `ANTHROPIC_MODEL` decides, which is how every crew session ran Sonnet in October 2026. Its instructions come from its brief and the coordinator's messages. A decision goes to the coordinator session, which broadcasts it; a command only you can run goes on the needs list, which tells you the directory.
-- **Do not run a gated command yourself in a worktree another session holds the slot for**, and do not run one from the main checkout during a run. The slot is what keeps two resets apart.
-- **Do not run hosted reads, hosted writes or merges from any session.** They are human gates; a session that is refused is behaving correctly. Type them yourself from the needs list.
-- **Do not prune a worktree by hand mid-run.** `retire` checks the session is closed, the PR landed, the tree clean and nothing running in it; `end` is the backstop.
-- **Do not set up your own PR polling, Monitor or cron in a crew session, and do not tell sessions to pause for the night.** `mc.py watch` is the one shape; the quiet hours come from `collaboration.hours` in the config.
-- **Do not start a run while one is active**, and do not edit `run.json` or a session row by hand. `mc.py end` archives; the CLI is the only writer.
-- **Do not pass `--by-user`, `--session` or `CLAUDE_CODE_SESSION_ID=` to a model.** The hook refuses an `mc.py` line a model runs with any of them; they are yours.
-- **Do not state a convention to the coordinator that is not written in the repository.** Put it in the config's `facts` instead, so the next run has it too.
-- **Do not expect the chat to be the truth.** The board is; a session whose row is stale is told to report, not believed.
-- **Do not fix a `/clear` by editing `run.json`.** A `/clear` gives the coordinator a new session id; the board shows `rebind?` and `/mc adopt coordinator` from that session rebinds the run, logged. A crew session restarted in its worktree adopts its own row on join.
-- **Do not relay a measurement by hand.** The need is raised with kind `measurement`; `/mc done <n>` with the output pasted (or `@<file>`) sends it to the session that wanted it and closes the need in one step.
-- **Do not let a session schedule anything only in conversation.** A cron job or Monitor is recorded with `mc.py jobs add` first, so a resume is told what it had and re-arms what is missing (CronList first, since a resume restores cron jobs); the PR watch records itself. The coordinator's open threads go on the pending list and the user's decisions on the decisions record, so a compaction loses neither.
+- **Do not lead from a haiku or sonnet session.** The mod refuses `warband.py start` from one; `--small-model-ok` and `anyway` exist for the case where you mean it, and that case has not come up.
+- **Do not type into a raider after its launch line**, and do not strip `--model`, `--effort` or a leading `CLAUDE_CODE_SUBAGENT_EFFORT=high` from the line: kick-off chose them for the task and the orders' Model row says why; without the flag the terminal's `ANTHROPIC_MODEL` decides, which is how every raider ran Sonnet in October 2026. Its instructions come from its orders and the chief's messages. A ruling goes to the chief's session, which broadcasts it; a command only you can run goes on the tribute list, which tells you the directory.
+- **Do not run a gated command yourself in a worktree another session holds the dibs for**, and do not run one from the main checkout during a raid. The dibs are what keep two resets apart.
+- **Do not run hosted reads, hosted writes or merges from any session.** They are taboos; a session that is refused is behaving correctly. Type them yourself from the tribute list.
+- **Do not prune a worktree by hand mid-raid.** `retire` checks the session is closed, the PR landed, the tree clean and nothing running in it; `end` is the backstop.
+- **Do not set up your own PR polling, Monitor or cron in a raider and do not tell sessions to pause for the night.** `warband.py watch` is the one shape; the quiet hours come from `collaboration.hours` in the config.
+- **Do not start a raid while one is active**, and do not edit `run.json` or a session row by hand. `warband.py end` archives; the CLI is the only writer.
+- **Do not pass `--by-user`, `--session` or `CLAUDE_CODE_SESSION_ID=` to a model.** The hook refuses a `warband.py` line a model runs with any of them; they are yours.
+- **Do not state a convention to the chief that is not written in the repository.** Put it in the config's `facts` instead, so the next raid has it too.
+- **Do not expect the chat to be the truth.** The slate is; a session whose row is stale is told to report, not believed.
+- **Do not fix a `/clear` by editing `run.json`.** A `/clear` gives the chief a new session id; the slate shows `rebind?` and `/reclaim-post chief` from that session rebinds the raid, logged. A raider restarted in its worktree adopts its own row on join.
+- **Do not relay a measurement by hand.** The tribute is raised with kind `measurement`; `/pay-tribute <n>` with the output pasted (or `@<file>`) sends it to the session that wanted it and closes the tribute in one step.
+- **Do not let a session schedule anything only in conversation.** A cron job or Monitor is recorded with `warband.py jobs add` first, so a resume is told what it had and re-arms what is missing (CronList first, since a resume restores cron jobs); the PR watch records itself. The chief's open threads go on the pending list and the user's rulings on the rulings record, so a compaction loses neither.
 
 ---
 
-## 3. `/mc`: the board
+## 3. `/show-slate`: the slate
 
-Opens a pane with the run, or closes it. In a fullscreen terminal of 110 columns or more it docks beside the transcript; narrower, it sits above the prompt. It runs with no turn, so it works while Claude is busy. While open it refreshes itself every `refresh_seconds`.
+Opens a pane with the raid, or closes it. In a fullscreen terminal of 110 columns or more it docks beside the transcript; narrower, it sits above the prompt. It runs with no turn, so it works while Claude is busy. While open it refreshes itself every `refresh_seconds`.
 
 | Section     | Shows |
 |-------------|-------|
-| Header      | run name as the title with your role beside it, a rule, a `rebind?` line in amber when the coordinator's process runs under a new session id and waits for `/mc adopt coordinator`, the count of open threads on the coordinator's pending list, then in dim text the start time, base commit, who coordinates, how many assumptions, how many sessions are live and the ledger's age |
-| Crew        | the live sessions grouped by state, one row each: busy or idle (from Claude Code's own session registry), task, branch, worktree name, state, PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
+| Header      | raid name as the title with your role beside it, a rule, a `rebind?` line in amber when the chief's process runs under a new session id and waits for `/reclaim-post chief`, the count of open threads on the chief's pending list, then in dim text the start time, base commit, who leads, how many decrees, how many sessions are live and the ledger's age |
+| Raiders     | the live sessions grouped by state, one row each: busy or idle (from Claude Code's own session registry), task, branch, worktree name, state (reading orders, raiding, holding dibs, spoils ready, blocked, waiting, awaiting tribute, done), PR with GitHub's word beside it, `watching` while its PR watcher runs, `ctx 63%` (the session's own context fill, amber from 70, red from 85), last summary and the age of the last report (`2m ago`) |
 | PRs         | drawn once a PR is recorded: one line of totals (open, ready to merge, held, questions), then only the PRs where you move next, with any restamp cost; `o` opens the full page |
-| Needs Jason | drawn only while something is open. Numbered; the complete line to type comes first (`cd <dir> && ...`) and the reason beneath it, with `result → <task>` on a measurement naming the session that gets the output when you mark it done and `launch` on a crew session's launch line, which runs in a new terminal window and closes by itself when the session joins; the count is what the run needs from you now |
-| Running     | needs you have started that run on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
-| Slots       | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
-| Requests    | pending slot requests, with what will run and for how long |
-| Archive     | drawn only once a session is over: `retired` (its worktree reclaimed) and `gone` (the session left; its last state dimmed beside it), each group collapsed to its heading and count until `c` shows the rows |
+| Tribute owed | drawn only while something is owed. Numbered; the complete line to type comes first (`cd <dir> && ...`) and the reason beneath it, with `result → <task>` on a measurement naming the session that gets the output when you mark it paid and `launch` on a raider's launch line, which runs in a new terminal window and closes by itself when the raider joins; the count is what the raid needs from you now |
+| Tribute agreed | tribute you have agreed that runs on, each with its start time and the note on where it is watched; no command to type, `d` with the result closes each |
+| Dibs        | each held resource with its holder, window and purpose; overdue in red; what the machine says about it; the free resources |
+| Dibs called | pending dibs requests, with what will run and for how long |
+| Archive     | drawn only once a session is over: dismissed (its worktree reclaimed) and gone (the session left; its last state dimmed beside it), each group collapsed to its heading and count until `c` shows the rows |
 
 | Key           | Does |
 |---------------|------|
 | `1` to `9`    | picks a session row (shows its full summary) |
 | `q` to `p`    | picks a request |
 | `g`           | grants the picked request: asks the minutes, then grants as you and messages the grantee |
-| `s`           | marks the picked need started: you typed it and it runs on; the input takes a note on where it is watched |
-| `d`           | marks the picked need done; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
-| `x`           | releases a slot (asks which) |
-| `c`           | shows or collapses the Archive's rows (`retired` and `gone`), collapsed by default to their headings and counts |
-| `o`           | opens the PR page in the browser |
+| `s`           | marks the picked tribute agreed: you typed it and it runs on; the input takes a note on where it is watched |
+| `d`           | marks the picked tribute paid; the input takes the result (or `@<file>`) for a measurement, which goes to the session that wanted it |
+| `x`           | releases dibs (asks which) |
+| `c`           | shows or collapses the Archive's rows (dismissed and gone), collapsed by default to their headings and counts |
+| `o`           | opens the spoils page in the browser |
 | `r`           | refreshes, probing the machine |
-| Esc, or `/mc` | closes |
+| Esc, or `/show-slate` | closes |
 
-`/mc` with arguments is your hand on the ledger from any session, no turn, no model: `/mc start <name> [anyway]`, `/mc grant <resource> <task|branch|name> [minutes]`, `/mc release <resource>`, `/mc done <n>`, `/mc retire <task> [dry]`, `/mc status`, `/mc end [force]` (the full table is in section 2.2). Every write it makes carries `--by-user`, which the hook refuses on any `mc.py` command a model runs, along with `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment. That is a guard against accidents: a variable expanded later, a copied script or a hand-written ledger file get past it.
+The other commands are your hand on the ledger from any session, no turn, no model: `/start-raid <name> [anyway]`, `/grant-dibs <resource> <task|branch|name> [minutes]`, `/release-dibs <resource>`, `/pay-tribute <n>`, `/dismiss-raider <task> [dry]`, `/read-slate`, `/end-raid [force]` (the full table is in section 2.2). Every write they make carries `--by-user`, which the hook refuses on any `warband.py` command a model runs, along with `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment. That is a guard against accidents: a variable expanded later, a copied script or a hand-written ledger file get past it.
 
 ---
 
 ## 4. The tools
 
-Registered in every session where the plugin is on; the CLI refuses the coordinator-only ones from anywhere else. Each tool writes the ledger and then hands the model the exact `SendMessage` call to make, recipient named as `ListAgents` lists it: a message the mod sent itself got no verdict from the auto-mode classifier in every session of the first live run, while the model's own `SendMessage` is judged as usual.
+Registered in every session where the plugin is on; the CLI refuses the chief-only ones from anywhere else. Each tool writes the ledger and then hands the model the exact `SendMessage` call to make, recipient named as `ListAgents` lists it: a message the mod sent itself got no verdict from the auto-mode classifier in every session of the first live raid, while the model's own `SendMessage` is judged as usual.
 
-| Tool        | Who         | Does |
-|-------------|-------------|------|
-| `mc_report` | crew        | state (`briefing`, `working`, `in-slot`, `pr-ready`, `blocked`, `waiting` with what it waits on, `waiting-jason` while a need of its own is open, `done`), one-line summary, PR number |
-| `mc_slot`   | crew        | `request` records the request and hands over the line for the coordinator (what will run, for how long); `release` records the results and hands over the line that reports them |
-| `mc_need`   | anyone      | an item only the user can do: why, the exact command, the directory, and `pr` when it blocks one. Kind `question` is a question for the user, with no command; the answer goes back to the asker when it is marked done. Goes on the board and the PR page; from crew, the line for the coordinator follows. `supersedes` re-issues an earlier need that failed, keeping its kind, recipient and directory |
-| `mc_send`   | anyone      | resolves a task id, branch, session name, `coordinator` or `all` to the recipient names `SendMessage` takes now, so a changed name or ref does not lose a session |
-| `mc_grant`  | coordinator | probes the machine, refuses while busy, grants, then hands over the grant line for the grantee and the notice line for every other crew session |
-| `mc_revoke` | coordinator | releases another session's slot and hands over the line that tells the holder |
-| `mc_assume` | coordinator | sets or changes a numbered shared assumption; every crew prompt carries the list, and the broadcast line follows for each live crew session |
-| `mc_board`  | coordinator | the board as text, probes included |
-| `mc_pr_note` | coordinator | one sentence on a PR's line on the PR page, for what cannot be derived; it disappears once the PR's head, review decision or state moves |
+| Tool                   | Who     | Does |
+|------------------------|---------|------|
+| `warband_report`       | raider  | state (`briefing` reading orders, `working` raiding, `in-slot` holding dibs, `pr-ready` spoils ready, `blocked`, `waiting` with what it waits on, `waiting-jason` awaiting tribute while a tribute of its own is owed, `done`), one-line summary, PR number |
+| `warband_dibs`         | raider  | `request` records the request and hands over the line for the chief (what will run, for how long); `release` records the results and hands over the line that reports them |
+| `warband_tribute`      | anyone  | an item only the user can do: why, the exact command, the directory and `pr` when it blocks one. Kind `question` is a question for the user, with no command; the answer goes back to the asker when it is marked paid. Goes on the slate and the spoils page; from a raider, the line for the chief follows. `supersedes` re-issues an earlier tribute that failed, keeping its kind, recipient and directory |
+| `warband_send`         | anyone  | resolves a task id, branch, session name, `coordinator` or `all` to the recipient names `SendMessage` takes now, so a changed name or ref does not lose a session |
+| `warband_grant`        | chief   | probes the machine, refuses while busy, grants, then hands over the grant line for the grantee and the notice line for every other raider |
+| `warband_revoke`       | chief   | releases another session's dibs and hands over the line that tells the holder |
+| `warband_decree`       | chief   | sets or changes a numbered decree; every raider's prompt carries the list, and the broadcast line follows for each live raider |
+| `warband_slate`        | chief   | the slate as text, probes included |
+| `warband_label_spoils` | chief   | one sentence on a PR's line on the spoils page, for what cannot be derived; it disappears once the PR's head, review decision or state moves |
 
 ---
 
-## 5. The hooks and the slot
+## 5. The hooks and the dibs
 
-Three things enforce the slot; none asks a session to do what its own permissions refuse.
+Three things enforce the dibs; none asks a session to do what its own permissions refuse.
 
-- **`PreToolUse` on Bash** (`scripts/mc.py hook pre-tool-use`): during a run, a command matching a resource's `gate` is refused unless this session holds the slot and runs it from its own worktree. The refusal says who holds it and how to ask, and the attempt appears on the board as a request. A `human_gate` resource gets context instead of a verdict. The same hook gates a command inside `sh -c`, `bash -c` or `zsh -c`, and a subagent's calls count as its parent's. `--by-user`, `--session` and `CLAUDE_CODE_SESSION_ID=` on a model's `mc.py` command line are refused.
-- **The mod's `tool.check` on Bash**: when the project's own hook answers `ask` on a gated command (CHIRPdb's `db-reset-local-anyway`, say), and this session holds the slot, runs from its worktree and the resource is `approve_in_slot`, the mod answers `allow`. A `deny` is never loosened. Off with the `approve_in_slot` option.
-- **`SessionStart`** (`scripts/mc.py hook session-start`): a session starting inside a planned worktree is told its task, the coordinator's name and socket, where its brief is and to invoke `/mission-control:crew`.
+- **`PreToolUse` on Bash** (`scripts/warband.py hook pre-tool-use`): during a raid, a command matching a resource's `gate` is refused unless this session holds the dibs and runs it from its own worktree. The refusal says who holds them and how to ask, and the attempt appears on the slate as a request. A `human_gate` resource (a taboo) gets context instead of a verdict. The same hook gates a command inside `sh -c`, `bash -c` or `zsh -c`, and a subagent's calls count as its parent's. `--by-user`, `--session` and `CLAUDE_CODE_SESSION_ID=` on a model's `warband.py` command line are refused.
+- **The mod's `tool.check` on Bash**: when the project's own hook answers `ask` on a gated command (CHIRPdb's `db-reset-local-anyway`, say), and this session holds the dibs, runs from its worktree and the resource is `approve_in_slot`, the mod answers `allow`. A `deny` is never loosened. Off with the `approve_in_slot` option.
+- **`SessionStart`** (`scripts/warband.py hook session-start`): a session starting inside a planned worktree is told its task, the chief's name and socket, where its orders are and to invoke `/goblin-warband:join-raid`.
 
-A fourth hook has nothing to do with slots: `PreCompact` (`scripts/mc.py hook pre-compact`) tells the compaction summary what a session in a run must keep. `references/config.md` says what each hook does.
+A fourth hook has nothing to do with dibs: `PreCompact` (`scripts/warband.py hook pre-compact`) tells the compaction summary what a session in a raid must keep. `references/config.md` says what each hook does.
 
-Hosted reads, credentials, writes, merges and anything irreversible stay with the user: the config marks them `human_gate`, no slot covers them, and the path is the needs list with the exact command. A hosted command's directory is the main checkout: only that tree is linked to the hosted project (the link is in a git-ignored folder a worktree does not get), so `needs add` moves a worktree directory to the same place in the main checkout and says so on the need.
+Hosted reads, credentials, writes, merges and anything irreversible stay with the user: the config marks them `human_gate` (the taboos), no dibs cover them and the path is the tribute list with the exact command. A hosted command's directory is the main checkout: only that tree is linked to the hosted project (the link is in a git-ignored folder a worktree does not get), so `needs add` moves a worktree directory to the same place in the main checkout and says so on the tribute.
 
 ### 5.1. The push gate
 
-A project opts in with `push_gate` in its config (see `references/config.md`). The same `PreToolUse` hook then refuses a `git push` until `python3 <plugin-root>/scripts/mc.py gate` has printed green for the commit the push names (HEAD when it names none). The gate runs the named `commands` entries in order from the checkout root against the committed HEAD, stops at the first failure and writes a record under the git common dir; it refuses to run over uncommitted tracked changes or untracked files that are not ignored, because the record is for the commit (`mc.py gate --allow-untracked` overrides the second). A push while a gate run is in flight is refused, and a new commit makes the old record stale, and so does a key added to `push_gate` that the record did not run. Dry runs, bare tag pushes and deletions carry no branch tip and pass; `exempt` globs let a docs-only push through when it goes to the branch it is diffed against (the upstream, else origin's HEAD) on the same remote. Glob refspecs, `--all`, `--branches`, `--mirror` and `push.default=matching` name no single tip, so only HEAD's record is read and the other tips they send go unchecked. It applies in any session of the repository, run or no run. Like the rest of the guard it stops accidents: a hand-written record gets past it.
+A project opts in with `push_gate` in its config (see `references/config.md`). The same `PreToolUse` hook then refuses a `git push` until `python3 <plugin-root>/scripts/warband.py gate` has printed green for the commit the push names (HEAD when it names none). The gate runs the named `commands` entries in order from the checkout root against the committed HEAD, stops at the first failure and writes a record under the git common dir; it refuses to run over uncommitted tracked changes or untracked files that are not ignored, because the record is for the commit (`warband.py gate --allow-untracked` overrides the second). A push while a gate run is in flight is refused, and a new commit makes the old record stale, and so does a key added to `push_gate` that the record did not run. Dry runs, bare tag pushes and deletions carry no branch tip and pass; `exempt` globs let a docs-only push through when it goes to the branch it is diffed against (the upstream, else origin's HEAD) on the same remote. Glob refspecs, `--all`, `--branches`, `--mirror` and `push.default=matching` name no single tip, so only HEAD's record is read and the other tips they send go unchecked. It applies in any session of the repository, raid or no raid. Like the rest of the guard it stops accidents: a hand-written record gets past it.
 
 ---
 
 ## 6. Trust between sessions
 
-The user starts the run in the coordinator session; the ledger records that session's id, and reads its messaging socket and name live from Claude Code's session registry on every read, since a restart or a resume changes both while the id stays. Every crew session's system prompt gains a section naming the run, the coordinator's session and socket, the shared assumptions and the human gates. A cross-session message carries its sender's socket in the harness's `from` attribute; the receiving mod marks a message from the coordinator's socket as verified against the ledger, one from a crew session's socket as that crew's, and one from any other socket that opens by speaking as mission control or the coordinator as not the coordinator. Anything else is an ordinary peer and gets no mark. No passphrase, nothing saved to memory, no trust line to type.
+The user starts the raid in the chief's session; the ledger records that session's id, and reads its messaging socket and name live from Claude Code's session registry on every read, since a restart or a resume changes both while the id stays. Every raider's system prompt gains a section naming the raid, the chief's session and socket, the decrees and the taboos. A cross-session message carries its sender's socket in the harness's `from` attribute; the receiving mod marks a message from the chief's socket as verified against the ledger, one from a raider's socket as that raider's and one from any other socket that opens by speaking as the warband or the chief (under the new names or the old) as not the chief. Anything else is an ordinary peer and gets no mark. No passphrase, nothing saved to memory, no trust line to type.
 
-The boundary is honest about what it is: every session on the machine is the same user's, and a peer message is treated as a teammate's by Claude Code already. The mark tells the crew session which teammate carries the user's instructions for this run.
+The boundary is honest about what it is: every session on the machine is the same user's, and a peer message is treated as a teammate's by Claude Code already. The mark tells the raider which teammate carries the user's instructions for this raid.
 
 ---
 
 ## 7. The ledger
 
-`~/.claude/mission-control/<repo slug>/`, one JSON file per fact so sessions never clobber each other: `run.json` (name, coordinator, base, PR approval, collaboration, crew plan, assumptions, needs, the coordinator's pending list), `sessions/<id>.json` (the row, its watch and its scheduled jobs; a row carried over to a new session id leaves `<old id>.json.adopted` behind), `slots/<resource>.json`, `requests/<resource>__<id>.json`, `decisions.jsonl` (what the user decided, appended, with each session's acknowledgement), `prs/<n>.json` (one per PR the run cares about: task, group, pinned, hold and what lifts it, the coordinator's note), `pr-facts.json` and `migrations.json` (the cached GitHub facts and migration scan the PR page reads), `dashboard.html` (the PR page itself, redrawn on every ledger write), `briefs/<task>.md`, `guidance.md`, `log.jsonl`. `mc.py end` moves it under `runs/`. None of it needs a working git: while git works it answers for the checkout and `gh` chooses the repository as it always has; when git fails the checkout and the remote are read from the `.git` entry and the git config file (the remote chosen the way `gh` chooses it: the one `gh repo set-default` marked, else `upstream`, else `github`, else `origin`), every `gh` call names that repository outright, and (a macOS update removing the Command Line Tools, say) the board, `status` and `reconcile` print one line naming the cause and the fix while needs, slots, messages and the watcher carry on; only what needs history (the claim check, `retire`, the author count) waits for git. The CLI identifies a caller by `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for every Bash child; the mod passes its own id. Writes that steer the run are the coordinator's or `--by-user`.
+`~/.claude/goblin-warband/<repo slug>/`, one JSON file per fact so sessions never clobber each other: `run.json` (name, chief, base, PR approval, collaboration, raiders' plan, decrees, tribute, the chief's pending list), `sessions/<id>.json` (the row, its watch and its scheduled jobs; a row carried over to a new session id leaves `<old id>.json.adopted` behind), `slots/<resource>.json` (the dibs), `requests/<resource>__<id>.json`, `decisions.jsonl` (the rulings: what the user decided, appended, with each session's acknowledgement), `prs/<n>.json` (one per PR the raid cares about: task, group, pinned, hold and what lifts it, the chief's note), `pr-facts.json` and `migrations.json` (the cached GitHub facts and migration scan the spoils page reads), `dashboard.html` (the spoils page itself, redrawn on every ledger write), `briefs/<task>.md` (the orders), `guidance.md`, `log.jsonl`. `warband.py end` moves it under `runs/`. None of it needs a working git: while git works it answers for the checkout and `gh` chooses the repository as it always has; when git fails the checkout and the remote are read from the `.git` entry and the git config file (the remote chosen the way `gh` chooses it: the one `gh repo set-default` marked, else `upstream`, else `github`, else `origin`), every `gh` call names that repository outright, and (a macOS update removing the Command Line Tools, say) the slate, `status` and `reconcile` print one line naming the cause and the fix while tribute, dibs, messages and the watcher carry on; only what needs history (the claim check, `retire`, the author count) waits for git. The CLI identifies a caller by `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for every Bash child; the mod passes its own id. Writes that steer the raid are the chief's or `--by-user`.
 
-`python3 <plugin-root>/scripts/mc.py --help` lists every subcommand; `status --probe` is the board as text. `reconcile` diffs the ledger against the live registry, GitHub and the branches on origin (each merged PR's own base, each open PR's own branch) and prints what drifted (gone or unjoined sessions, merged PRs whose row is not done, needs left open, a task whose roadmap carries no claim at the ref where it ought to; a task the roadmap does not list is named once, with no claim expected; a merged task's worktree still on disk an hour on; a merged crew PR whose task still reads `todo` on the roadmap at the trunk, answered by `/roadmap:maintain` from the main checkout; a PR the watcher saw approved and not yet landed, with the time) and who each PR actually waits on. `retire <task>` reclaims a finished crew worktree while the run goes on: it refuses while the session is live, the row is not done, the PR is open, the tree is dirty, a slot is held, something runs in the tree or an open PR is stacked on the branch, then removes the worktree, prunes, deletes the branch with `-d` only and records it on the row; `--dry-run` prints what would go and the disk it holds. `classify` says whether the project is solo or collaborative (stated as `collaboration` in the config or its gitignored `.local` twin, else inferred from 90 days of authors and the reviews on merged PRs) and the team's hours; `start` records the answer on the run. `watch [--pr N]` is a crew session's PR watcher, run in the background: a five-minute `gh` poll that prints the first change (reviews, decision, comments, checks, state) and exits, held outside the team's hours on a collaborative project unless the PR merged or closed.
+`python3 <plugin-root>/scripts/warband.py --help` lists every subcommand; `status --probe` is the slate as text. `reconcile` diffs the ledger against the live registry, GitHub and the branches on origin (each merged PR's own base, each open PR's own branch) and prints what drifted (gone or unjoined sessions, merged PRs whose row is not done, tribute left owed, a waypoint whose roadbook carries no trail at the ref where it ought to; a task the roadbook does not list is named once, with no trail expected; a merged task's worktree still on disk an hour on; a merged raider's PR whose waypoint still reads `todo` on the roadbook at the trunk, answered by `/goblin-scout:tend-roadbook` from the main checkout; a PR the watcher saw approved and not yet landed, with the time) and who each PR actually waits on. `warband.py` reads the roadbook from `.claude/roadbook.json` first and falls back to `.claude/roadmaps.json`. `retire <task>` dismisses a finished raider's worktree while the raid goes on: it refuses while the session is live, the row is not done, the PR is open, the tree is dirty, dibs are held, something runs in the tree or an open PR is stacked on the branch, then removes the worktree, prunes, deletes the branch with `-d` only and records it on the row; `--dry-run` prints what would go and the disk it holds. `classify` says whether the project is solo or collaborative (stated as `collaboration` in the config or its gitignored `.local` twin, else inferred from 90 days of authors and the reviews on merged PRs) and the team's hours; `start` records the answer on the raid. `watch [--pr N]` is a raider's PR watcher, run in the background: a five-minute `gh` poll that prints the first change (reviews, decision, comments, checks, state) and exits, held outside the team's hours on a collaborative project unless the PR merged or closed.
 
 ---
 
@@ -176,8 +176,8 @@ The boundary is honest about what it is: every session on the machine is the sam
 | Option            | Default | What it does |
 |-------------------|---------|--------------|
 | `enabled`         | true    | The one switch. Off, nothing is registered; the command hooks still run |
-| `approve_in_slot` | true    | Answer a project hook's `ask` with `allow` while this session holds the slot and runs from its worktree |
-| `refresh_seconds` | 15      | How often an open board rereads the ledger |
+| `approve_in_slot` | true    | Answer a project hook's `ask` with `allow` while this session holds the dibs and runs from its worktree |
+| `refresh_seconds` | 15      | How often an open slate rereads the ledger |
 
 ---
 
@@ -185,14 +185,14 @@ The boundary is honest about what it is: every session on the machine is the sam
 
 | File                                          | Holds |
 |-----------------------------------------------|-------|
-| `scripts/mc.py`                               | The ledger CLI and both command hooks; `python3 -m unittest test_mc` in that directory runs its tests |
+| `scripts/warband.py`                          | The ledger CLI and both command hooks; `python3 -m unittest test_warband` in that directory runs its tests |
 | `scripts/worktree-bootstrap.sh`               | Symlinks git-ignored `.env*` files and installs every tracked lockfile in a fresh worktree |
-| `hooks/register.tsx`                          | The board, `/mc`, the tools, the prompt section, the message mark, the slot approval; `claude plugin test <plugin-root>` runs `hooks/mc.test.tsx` |
+| `hooks/register.tsx`                          | The slate, the slash commands, the tools, the prompt section, the message mark, the dibs approval; `claude plugin test <plugin-root>` runs `hooks/warband.test.tsx` |
 | `types/index.d.ts`                            | The `$.state` contract |
 | `references/protocol.md`                      | The protocol, with the message shapes |
 | `references/config.md`                        | The project config schema |
-| `references/mission-control.example.json`     | CHIRPdb's config |
-| `templates/brief.md`, `templates/guidance.md` | What kick-off writes per session and per run |
-| `skills/`                                     | `kickoff`, `coordinate`, `crew`, `checkin`, `end`, `configure` |
+| `references/goblin-warband.example.json`      | CHIRPdb's config |
+| `templates/brief.md`, `templates/guidance.md` | What kick-off writes per raider (the orders) and per raid |
+| `skills/`                                     | `declare-raid`, `lead-raid`, `join-raid`, `summon-raiders`, `declare-victory`, `configure-warband` |
 
 Check it with `claude plugin validate <plugin-root> --strict` and `claude plugin test <plugin-root>`.

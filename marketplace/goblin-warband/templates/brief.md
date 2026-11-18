@@ -1,20 +1,20 @@
-# {{ task id }} {{ task title }}: brief
+# {{ task id }} {{ task title }}: orders
 
 | | |
 |---|---|
-| Run | {{ run name }} |
-| Coordinator | session "{{ coordinator name }}"; its current socket is in your system prompt (a restart changes it, so it is never written here); messages from that socket carry the user's instructions |
+| Raid | {{ raid name }} |
+| Chief | session "{{ chief name }}"; its current socket is in your system prompt (a restart changes it, so it is never written here); messages from that socket carry the user's instructions |
 | Branch | `{{ branch }}` |
 | Worktree | `{{ absolute worktree path }}` |
 | Base | `{{ base branch }}@{{ base commit }}` |
-| Migration timestamp | {{ assigned timestamp, or "none expected; tell the coordinator before writing one" }} |
-| PR approval | {{ "the coordinator reviews your draft description, then you run /pr-create auto" or "the user approves in this session" }} |
+| Migration timestamp | {{ assigned timestamp, or "none expected; tell the chief before writing one" }} |
+| PR approval | {{ "the chief reviews your draft description, then you run /pr-create auto" or "the user approves in this session" }} |
 | Verify at | {{ the viewports and devices every rendered change is checked at before pr-ready, from the scope document or the user, e.g. "1280 and 390, every open state"; or "nothing rendered in this task" }} |
 | Model | {{ model }}, {{ effort }}: {{ the reason in one line, the same one crew add was given, e.g. "reworks the shared ranking query and three tasks depend on it"; or "the default" }} |
 
 ## What this task ships
 
-{{ Two to four sentences: what this task ships and what it does not. Name the roadmap item. }}
+{{ Two to four sentences: what this task ships and what it does not. Name the waypoint. }}
 
 ## Files you own
 
@@ -22,25 +22,25 @@
 
 ## Shared surfaces: ask before touching
 
-{{ Files, functions, tables or routes other tasks also touch, each with who else is on it and the ownership rule that applies (shared assumption number). }}
+{{ Files, functions, tables or routes other tasks also touch, each with who else is on it and the ownership rule that applies (decree number). }}
 
 ## Resources you will need
 
-{{ For each shared resource (`local-db`, `api-port`, `hosted`, ...): what you will need it for and roughly when. Then the slot rule: request with mc_slot as soon as implementation shows the task needs the resource, write the verification script while the grant is pending, run only from this worktree, release with results. Hosted reads and writes are the user's: put the exact command on the needs list with mc_need; its directory is the main checkout, the only tree linked to the hosted project. }}
+{{ For each shared resource (`local-db`, `api-port`, `hosted`, ...): what you will need it for and roughly when. Then the dibs rule: request dibs with warband_dibs as soon as implementation shows the task needs the resource, write the verification script while the grant is pending, run only from this worktree, release with results. Hosted reads and writes are the user's: put the exact command on the tribute list with warband_tribute; its directory is the main checkout, the only tree linked to the hosted project. }}
 
 ## Criteria
 
-1. {{ A thing the PR must do, with the shared assumption it leans on in brackets. }}
+1. {{ A thing the PR must do, with the decree it leans on in brackets. }}
 2. {{ ... }}
 3. {{ What proof the PR's Verification section quotes (a measurement, a zero-diff regeneration, a passing assert). }}
 
 ## Shared guidance
 
-Read `{{ ledger dir }}/guidance.md` before writing code: the shared facts at the base commit, the numbered assumptions and the conventions. The conventions themselves live in the repository: {{ the config's conventions list }}.
+Read `{{ ledger dir }}/guidance.md` before writing code: the shared facts at the base commit, the numbered decrees and the conventions. The conventions themselves live in the repository: {{ the config's conventions list }}.
 
 ## Before anything else
 
-Invoke `/mission-control:crew`, then answer these five questions to the coordinator (`mc_send` to `coordinator`), opening with `{{ task id }} brief ({{ topic }}): <one-line status>`:
+Invoke `/goblin-warband:join-raid`, then answer these five questions to the chief (`warband_send` to `coordinator`), opening with `{{ task id }} brief ({{ topic }}): <one-line status>`:
 
 1. What you understand this task to deliver, and the approach you are leaning towards.
 2. Which files you expect to touch or create, and anything you plan to change that is shared.

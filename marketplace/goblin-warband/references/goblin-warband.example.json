@@ -31,7 +31,7 @@
 			"approve_in_slot": true,
 			"run_from": "apps/api",
 			"reset": "poetry run poe db-reset-local-anyway",
-			"notes": "One stack for every worktree. A reset rebuilds from the resetting worktree's migrations alone, so it drops any migration another branch applied until that branch re-runs `supabase migration up --local`. `db-reset-local` refuses when the stack holds a migration this worktree lacks; `db-reset-local-anyway` is the override and is what a slot is for. One full reset per branch, at PR-ready time; prove DDL on a scratch database before that."
+			"notes": "One stack for every worktree. A reset rebuilds from the resetting worktree's migrations alone, so it drops any migration another branch applied until that branch re-runs `supabase migration up --local`. `db-reset-local` refuses when the stack holds a migration this worktree lacks; `db-reset-local-anyway` is the override and is what dibs are for. One full reset per branch, at PR-ready time; prove DDL on a scratch database before that."
 		},
 		"api-port": {
 			"label": "API server on port 8000",
@@ -45,7 +45,7 @@
 			},
 			"approve_in_slot": true,
 			"run_from": "apps/api",
-			"notes": "Every serve task binds 8000; one API server across all worktrees. `uvicorn main:app --port <other>` sidesteps the slot but then nothing that calls the API finds it; say so in the request if you do it."
+			"notes": "Every serve task binds 8000; one API server across all worktrees. `uvicorn main:app --port <other>` sidesteps the dibs but then nothing that calls the API finds it; say so in the request if you do it."
 		},
 		"embeddings-worker": {
 			"label": "embeddings worker on port 8100",
@@ -69,7 +69,7 @@
 			"human_gate": true,
 			"approve_in_slot": false,
 			"run_from": "apps/api",
-			"notes": "Reads, credentials and writes on the hosted project are Jason's to run: the classifier refuses production reads from a session and that refusal is correct. A session asks mission control for a hosted window (read-only, announced, nobody else reading during a cold-cache measurement) and asks Jason for the exact command. A hosted write is never a development step."
+			"notes": "Reads, credentials and writes on the hosted project are the human's to run: the classifier refuses production reads from a session and that refusal is correct. A session asks the chief for a hosted window (read-only, announced, nobody else reading during a cold-cache measurement) and asks the human for the exact command. A hosted write is never a development step."
 		}
 	},
 	"commands": {

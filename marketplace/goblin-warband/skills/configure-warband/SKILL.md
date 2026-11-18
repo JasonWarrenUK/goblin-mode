@@ -1,25 +1,25 @@
 ---
-name: "Mission Control: Configure"
-description: "Write or revise a project's .claude/mission-control.json by interview: the shared resources and how to detect them busy, the gated commands, the check commands, the convention files, the conventions that live only in the user's head and the human gates"
-when_to_use: "When a repository has no .claude/mission-control.json and the user wants to run mission control on it, when a run exposed a convention that was not written down, or when a resource, port or command changed. CHIRPdb's file is the worked example."
+name: "Goblin Warband: Configure Warband"
+description: "Write or revise a project's .claude/goblin-warband.json by interview: the shared resources and how to detect them busy, the gated commands, the check commands, the convention files, the conventions that live only in the user's head and the taboos"
+when_to_use: "When a repository has no .claude/goblin-warband.json and the user wants to raid it with the warband, when a raid exposed a convention that was not written down, or when a resource, port or command changed. CHIRPdb's file is the worked example."
 model: sonnet
 effort: medium
 metadata:
   glyph: ᛊ
-  family: mission-control
-  goblin-spinner: surveying ports|listing gates|writing the config
+  family: warband
+  goblin-spinner: surveying ports|listing taboos|writing the config
 disable-model-invocation: true
 allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python3:*)", "Bash(git:*)", "Bash(ls:*)", "AskUserQuestion"]
 argument-hint: "(no arguments)"
 ---
 
-# Mission Control: Configure
+# Goblin Warband: Configure Warband
 
-The config is what makes the package generic: every resource, gate, command and convention a run leans on comes from this file, so the coordinator never has to assert one. Schema: `${CLAUDE_PLUGIN_ROOT}/references/config.md`; worked example: `${CLAUDE_PLUGIN_ROOT}/references/mission-control.example.json`.
+The config is what makes the package generic: every resource, gate, command and convention a raid leans on comes from this file, so the chief never has to assert one. Schema: `${CLAUDE_PLUGIN_ROOT}/references/config.md`; worked example: `${CLAUDE_PLUGIN_ROOT}/references/goblin-warband.example.json`.
 
 ## Step 1: What exists
 
-`python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/mc.py detect`. Exit 0: read the file and offer to revise it section by section. Exit 2: `mc.py init` writes a skeleton to revise.
+`python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/warband.py detect`. Exit 0: read the file and offer to revise it section by section. Exit 2: `warband.py init` writes a skeleton to revise.
 
 ## Step 2: Survey the repository
 
@@ -27,19 +27,19 @@ Read, where present: the task runner's definitions (`pyproject.toml` `[tool.poe.
 
 - **resources**: anything one process or one database must hold at a time: a local database stack, each port a server binds, each worker, the hosted project. For each: the `gate` globs over the commands that touch it, the `probe` (ports, a process pattern, a database DSN), `approve_in_slot`, `run_from`, `reset`, `notes`.
 - **commands**: test, lint, contract or schema regeneration, a stack status printer.
-- **conventions**: the files a brief should send a session to read.
+- **conventions**: the files a raider's orders should send it to read.
 - **human_gates**: hosted reads, credentials, writes, merges, anything irreversible; the project's own words where its rules have them.
-- **collaboration**: `mode` (`solo` or `collaborative`) and, when collaborative, `hours` (`start`, `end` as `HH:MM`, `days` as `mon-fri` or names) in the reviewers' local time. Draft it from `mc.py classify`, which reads 90 days of authors and the reviews on merged PRs; the user confirms. It can live instead in `.claude/mission-control.local.json` (gitignored, same shape, wins over the committed file) when the answer is the user's and not the repository's.
+- **collaboration**: `mode` (`solo` or `collaborative`) and, when collaborative, `hours` (`start`, `end` as `HH:MM`, `days` as `mon-fri` or names) in the reviewers' local time. Draft it from `warband.py classify`, which reads 90 days of authors and the reviews on merged PRs; the user confirms. It can live instead in `.claude/goblin-warband.local.json` (gitignored, same shape, wins over the committed file) when the answer is the user's and not the repository's.
 
 ## Step 3: Interview
 
-One AskUserQuestion per section, showing the draft and asking what is wrong or missing. Then one free-text question: *which conventions does this project have that are written nowhere?* Each answer goes into `facts` in the user's words. The changelog rule and the env-file layout were the two that bit on the first run; ask about both by name when the survey found no written rule for them.
+One AskUserQuestion per section, showing the draft and asking what is wrong or missing. Then one free-text question: *which conventions does this project have that are written nowhere?* Each answer goes into `facts` in the user's words. The changelog rule and the env-file layout were the two that bit on the first raid; ask about both by name when the survey found no written rule for them.
 
 ## Step 4: Write and prove
 
-Write the file with the keys in the schema's order. Then `mc.py detect` (exit 0) and `mc.py probe` (every resource answers; `unreachable` on a probe is reported and left for the user to fix the DSN). Finish with a dry gate check: `mc.py check --command "<one gated command>"` with no run active prints `decision: null`, which is right; the gate only binds during a run.
+Write the file with the keys in the schema's order. Then `warband.py detect` (exit 0) and `warband.py probe` (every resource answers; `unreachable` on a probe is reported and left for the user to fix the DSN). Finish with a dry gate check: `warband.py check --command "<one gated command>"` with no raid active prints `decision: null`, which is right; the gate only binds during a raid.
 
-Offer to commit the file (`chore(mission-control): project config`); commit on a yes.
+Offer to commit the file (`chore(goblin-warband): project config`); commit on a yes.
 
 ## Never
 
