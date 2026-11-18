@@ -42,7 +42,7 @@ A skill that pinned one model while another answered draws `singleDouble` in `wa
 
 ### 2.1. What it reads from skills and agents
 
-When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. A plugin skill, which Claude Code names `<plugin>:<skill directory>`, is read from `skills/<skill directory>/SKILL.md` in that plugin's install as `~/.claude/plugins/installed_plugins.json` records it. The install chosen is the one that applies to the session's project, ranked as Claude Code ranks scopes: a local install for this project, then a project install for it, then the user's; another project's install is never read. Some plugin skills still read as nothing set:
+When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. A plugin skill, which Claude Code names `<plugin>:<skill directory>`, is read from `skills/<skill directory>/SKILL.md` in that plugin's install as `~/.claude/plugins/installed_plugins.json` records it. The install chosen is the one that applies to the session's project, ranked as Claude Code ranks scopes: a local install for this project, then a project install for it, then the user's; another project's install is never read. A plugin skill gives the goblin its model, family and spinner words exactly as any other skill does, so one that pins a model moves the frame's tier and draws the mismatch frame when another model answers. Some plugin skills still read as nothing set:
 
 - a plugin's commands (`commands/*.md`)
 - plugins with no install record: those loaded with `--plugin-dir`, skills-directory plugins (`@skills-dir`) and plugins synced from claude.ai (`@synced`)
