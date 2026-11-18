@@ -97,65 +97,71 @@ from _roadbook_core import (
 )
 
 # ---------------------------------------------------------------------------
-# Canonical status→colour table: the roadbook's own fixed palette
-# (literal hexes, originally derived from Reasonable Colors shades 1/4 and
-# 6/2; the values are now owned here and no external palette is loaded).
-# The single source of truth for every projection: PHASE.md Mermaid (literal
-# hexes — GitHub cannot resolve CSS vars), the artefact template (semantic
-# vars, inlined at render from this table) and the conventions reference at
-# references/roadbook-conventions.md, which documents this table in
-# prose. Semantics: done=green (finished), todo=gray (blank slate),
-# blocked=red (stop), paused=purple (parked), deferred=cinnamon (shelved),
-# out_of_scope=gray, dotted (struck from play), gate=yellow (external),
-# milestone=sky (structural), inProgress=azure (a claimed task still in
-# play: a display class, never a stored status). Pink is accent-only, never
-# a status. Azure and sky are close in hue, so a claimed task's Mermaid label
-# also carries IN_PROGRESS_MARKER.
-# Every light bg/stroke and dark bg/stroke pair here clears AA (4.5:1).
+# Canonical status→colour table, derived from the goblin theme
+# (templates/chart-theme.css, copied from .claude/themes/goblin-html.json).
+# Every colour is a theme token or a mix of two, written beside it as
+# mix(a, b, t): t of token a over token b in sRGB; test_roadbook.py's
+# StatusDerivation recomputes each one from the copied CSS, so the table
+# cannot drift from the theme. The single source of truth for every
+# projection: PHASE.md Mermaid (literal hexes: GitHub cannot resolve CSS
+# vars), the chart template (semantic vars, carried in its <style>) and the
+# conventions reference at references/roadbook-conventions.md, which
+# documents it in prose. Semantics, as Jason approved them on 2026-11-18:
+# done moss (ok), todo faded ink, inProgress ballpoint (info; a waypoint on
+# a trail, a display class and never a stored status), blocked rust
+# (danger), paused beetroot (accent), deferred ochre (warn), out_of_scope
+# ink half into line, dotted, milestone the exhibit panel (dark fill, pale
+# ink), gate the slime highlighter. Light fills are 8% washes over the
+# pale slip, dark ones 8% over the dark sheet. A node's label is its `text`
+# colour, which is its stroke except where the node is inverted (milestone,
+# gate). Every text/fill pair clears AA (4.5:1) in light and dark.
 # ---------------------------------------------------------------------------
 STATUS_STYLE = {
-    "todo": {
-        "var": "todo", "bg": "#f6f6f6", "stroke": "#6f6f6f",
-        "darkBg": "#222222", "darkStroke": "#8b8b8b", "extra": "",
+    "todo": {  # stroke ink-muted; fill mix(ink-muted, slip, .04) / mix(ink-muted, surface, .04)
+        "var": "todo", "bg": "#f5f6f0", "stroke": "#4b5a3c", "text": "#4b5a3c",
+        "darkBg": "#272b1f", "darkStroke": "#a3ad8c", "darkText": "#a3ad8c", "extra": "",
     },
-    "inProgress": {
-        "var": "in-progress", "bg": "#e8f2ff", "stroke": "#0071af",
-        "darkBg": "#001c30", "darkStroke": "#c6e0ff", "extra": "",
+    "inProgress": {  # info; fill mix(info, slip, .08) / mix(info, surface, .08)
+        "var": "in-progress", "bg": "#ebefef", "stroke": "#2d5a8c", "text": "#2d5a8c",
+        "darkBg": "#2b312a", "darkStroke": "#8db4e8", "darkText": "#8db4e8", "extra": "",
     },
-    "blocked": {
-        "var": "blocked", "bg": "#fff8f6", "stroke": "#e0002b",
-        "darkBg": "#530003", "darkStroke": "#ffddd8", "extra": "stroke-width:2px",
+    "blocked": {  # danger; fill mix(danger, slip, .08) / mix(danger, surface, .08)
+        "var": "blocked", "bg": "#f5ece7", "stroke": "#a3361f", "text": "#a3361f",
+        "darkBg": "#342e20", "darkStroke": "#ff8a6b", "darkText": "#ff8a6b",
+        "extra": "stroke-width:2px",
     },
-    "paused": {
-        "var": "paused", "bg": "#fdf4ff", "stroke": "#b01fe3",
-        "darkBg": "#3a004f", "darkStroke": "#f7d9ff",
+    "paused": {  # accent; fill mix(accent, slip, .08) / mix(accent, surface, .08)
+        "var": "paused", "bg": "#f3eaea", "stroke": "#8c1d4c", "text": "#8c1d4c",
+        "darkBg": "#342e26", "darkStroke": "#ff86b4", "darkText": "#ff86b4",
         "extra": "stroke-dasharray:4 3",
     },
-    "deferred": {
-        "var": "deferred", "bg": "#fff8f3", "stroke": "#ac5c00",
-        "darkBg": "#371d00", "darkStroke": "#ffdfc6",
+    "deferred": {  # warn; fill mix(warn, slip, .08) / mix(warn, surface, .08)
+        "var": "deferred", "bg": "#f3efe4", "stroke": "#8a5a00", "text": "#8a5a00",
+        "darkBg": "#31301e", "darkStroke": "#e0a84a", "darkText": "#e0a84a",
         "extra": "stroke-dasharray:2 4,font-style:italic",
     },
-    "done": {
-        "var": "done", "bg": "#e0ffd9", "stroke": "#008217",
-        "darkBg": "#062800", "darkStroke": "#72ff6c", "extra": "",
+    "done": {  # ok; fill mix(ok, slip, .08) / mix(ok, surface, .08)
+        "var": "done", "bg": "#edf0e6", "stroke": "#3c6a1c", "text": "#3c6a1c",
+        "darkBg": "#2d3420", "darkStroke": "#a6d46a", "darkText": "#a6d46a", "extra": "",
     },
-    # The stroke is as faint as it can be while still clearing 3:1 against
-    # both tier backgrounds (TIER_STYLE below) and 4.5:1 on its own fill.
-    # That lands it within two hex steps of todo's gray, so the dotted
-    # border (and the struck label in task lists) is what tells them apart.
-    "outOfScope": {
-        "var": "out-of-scope", "bg": "#f6f6f6", "stroke": "#717171",
-        "darkBg": "#222222", "darkStroke": "#898989",
+    # Ink half into line: the faintest ink that still clears 4.5:1 on its own
+    # fill and 3:1 on both tier backgrounds. Close to todo's faded ink, so the
+    # dotted border (and the struck label in waypoint lists) tells them apart.
+    "outOfScope": {  # stroke mix(ink, line, .5); fill slip / surface
+        "var": "out-of-scope", "bg": "#fcfcf8", "stroke": "#686e57", "text": "#686e57",
+        "darkBg": "#22261a", "darkStroke": "#969d82", "darkText": "#969d82",
         "extra": "stroke-dasharray:2 2",
     },
-    "mile": {
-        "var": "milestone", "bg": "#e3f7ff", "stroke": "#007590",
-        "darkBg": "#001f28", "darkStroke": "#aee9ff", "extra": "font-weight:bold",
+    "mile": {  # fill exhibit, text exhibit-ink; stroke exhibit / exhibit-ink
+        "var": "milestone", "bg": "#1d2718", "stroke": "#1d2718", "text": "#e7e9cf",
+        "darkBg": "#0a0c07", "darkStroke": "#e3e8cc", "darkText": "#e3e8cc",
+        "extra": "font-weight:bold",
     },
-    "external": {
-        "var": "gate", "bg": "#fff9e5", "stroke": "#7d6f00",
-        "darkBg": "#292300", "darkStroke": "#ffe53e",
+    # Solid slime sits at a tier background's own luminance in light, so the
+    # light gate is a pale slime wash with an ink border; dark keeps it solid.
+    "external": {  # light fill mix(slime, slip, .28), ink; dark fill slime, on-slime
+        "var": "gate", "bg": "#e9f1c0", "stroke": "#1d2718", "text": "#1d2718",
+        "darkBg": "#c5e13e", "darkStroke": "#c5e13e", "darkText": "#1d2718",
         "extra": "stroke-dasharray:4 3,font-style:italic",
     },
 }
@@ -168,28 +174,27 @@ STATUS_TO_CLASS = {
 # ---------------------------------------------------------------------------
 # Tier backgrounds: the fill behind a tier's subgraph in the dependency
 # graph of a tiered phase (see mermaid_source()). Keyed by Mermaid class
-# name, same shape as STATUS_STYLE. Two backgrounds, chosen by the tier's
-# state (tier_states()): slate for a tier that is underway, taupe with a
-# dashed border for one still deferred behind a lower tier. Neither is a
-# node colour. Both are muted mid-tones, because a node's fill is a
-# near-white tint (near-black in dark) and its stroke carries the hue: the
-# background has to sit between the two. Gates every pair must clear, in
-# light and dark alike (test_roadbook.py's TierStyle enforces them):
+# name, same shape as STATUS_STYLE, and derived from the theme the same way.
+# Two backgrounds, chosen by the tier's state (tier_states()): the raised
+# sheet for a tier that is underway, cardboard with a dashed border for one
+# still deferred behind a lower tier. Neither is a node colour. Both sit
+# between the near-white node fills (near-black in dark) and the strokes
+# that carry the hue. Gates every pair must clear, in light and dark alike
+# (test_roadbook.py's TierStyle enforces them):
 #   - 3:1 or better against every node stroke and the diagram's edge line
 #   - 1.35:1 or better against every node fill
 #   - 4.5:1 or better for the tier's own label (its stroke colour)
-# The two backgrounds share a luminance, so hue alone separates them: the
-# dashed border and the state named in the subgraph label carry the same
-# signal without colour.
+# The dashed border and the state named in the subgraph label carry the
+# tier's state without colour.
 # ---------------------------------------------------------------------------
 TIER_STYLE = {
-    "tierUnderway": {
-        "var": "tier-underway", "bg": "#c3cede", "stroke": "#2f3b4c",
-        "darkBg": "#343e4f", "darkStroke": "#d5deea", "extra": "",
+    "tierUnderway": {  # mix(line, surface-raised, .25) / (.75); label ink
+        "var": "tier-underway", "bg": "#cbcfac", "stroke": "#1d2718",
+        "darkBg": "#434a32", "darkStroke": "#e3e8cc", "extra": "",
     },
-    "tierDeferred": {
-        "var": "tier-deferred", "bg": "#dccbb9", "stroke": "#4a3826",
-        "darkBg": "#4a3c2f", "darkStroke": "#ecdccb",
+    "tierDeferred": {  # mix(card, slip, .5) / mix(card, card-dark, .75); label ink / card-ink
+        "var": "tier-deferred", "bg": "#d8c4a8", "stroke": "#1d2718",
+        "darkBg": "#5a4225", "darkStroke": "#f2e8d0",
         "extra": "stroke-dasharray:6 4",
     },
 }
@@ -208,7 +213,7 @@ _LABEL_MAX = 48
 # ordered as the artefact's Overview sort wants them: deferred first (a
 # top-level "shelved" partition, ahead of percentage), then inProgress, todo,
 # done. blocked/paused surface as their own milestone-card colour but are not
-# part of that four-way partition. Azure is shared with claimed tasks (see
+# part of that four-way partition. Ballpoint is shared with trails (see
 # roadbook-conventions.md), the same way the deferred/blocked/paused/done
 # states share their task-status hues: it reads as "live and moving".
 #
@@ -396,13 +401,14 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
     return "todo"
 
 
-_DEV_COLOUR_PALETTE = ["teal", "lime", "magenta", "indigo", "amber", "rose"]
+_DEV_COLOUR_PALETTE = ["beetroot", "moss", "biro", "ochre", "rust"]
 
 
 def dev_colour(assignee):
-    """Stable colour-family name for an assignee chip, disjoint from every
-    status/milestone/gate colour claimed above (green, gray, red, purple,
-    cinnamon, yellow, sky, azure; pink is accent-only and never assigned).
+    """Stable colour-family name for a scout's chip: one of the theme's five
+    inks (accent, accent-2, info, warn, danger), as Jason approved on
+    2026-11-18. They are the status inks too, so a chip is told from a
+    status by its shape (a named pill), never by colour alone.
 
     Uses a stable digest rather than Python's builtin hash(): str hashing is
     salted per-process via PYTHONHASHSEED, so builtin hash() would assign a
@@ -1219,16 +1225,21 @@ def _mermaid_label(text, reserve=0):
 
 
 def _classdef_lines(palette, styles=STATUS_STYLE):
+    """One classDef per style. The label takes the style's `text` colour,
+    which is its stroke unless the node is inverted (a tier has none)."""
     lines = []
     for cls, st in styles.items():
         if palette == "vars":
             bg = f"var(--color-{st['var']}-bg)"
             stroke = f"var(--color-{st['var']})"
+            text = f"var(--color-{st['var']}-text)" if "text" in st else stroke
         elif palette == "dark":
             bg, stroke = st["darkBg"], st["darkStroke"]
+            text = st.get("darkText", stroke)
         else:
             bg, stroke = st["bg"], st["stroke"]
-        parts = [f"fill:{bg}", f"stroke:{stroke}", f"color:{stroke}"]
+            text = st.get("text", stroke)
+        parts = [f"fill:{bg}", f"stroke:{stroke}", f"color:{text}"]
         if st["extra"]:
             parts.append(st["extra"])
         lines.append(f"\tclassDef {cls} {','.join(parts)}")

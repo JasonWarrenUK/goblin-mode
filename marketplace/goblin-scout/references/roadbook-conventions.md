@@ -295,27 +295,34 @@ stay visible in the milestone without holding up everything downstream.
 
 ## Status → colour table (canonical)
 
-One palette for every projection. `STATUS_STYLE` in `roadbook.py` is the
-machine-readable copy; `graph --mermaid` emits literal hexes for PHASE.md
-(GitHub cannot resolve CSS vars) and `--palette vars` emits semantic custom
-properties for the chart. Never restate colours in a skill; regenerate
-diagrams from the CLI.
+One palette for every projection, derived from the goblin theme. `STATUS_STYLE`
+in `roadbook.py` is the machine-readable copy; `graph --mermaid` emits literal
+hexes for PHASE.md (GitHub cannot resolve CSS vars) and `--palette vars` emits
+semantic custom properties for the chart. Every colour is a theme token or a
+mix of two from `templates/chart-theme.css` (the copied goblin theme): mix(a,
+b, t) is t of token a over token b. Light fills are 8% washes over the pale
+slip, dark ones 8% over the dark sheet; `test_roadbook.py`'s StatusDerivation
+recomputes each from the theme CSS. Never restate colours in a skill;
+regenerate diagrams from the CLI.
 
-| Status | Family | Light (bg / stroke) | Dark (bg / stroke) | Non-colour encoding | Semantics |
+A node's label takes its `text` colour, which is its stroke except on an
+inverted node (the milestone's exhibit panel, the gate's slime).
+
+| Status | Theme ink | Light (fill / stroke / label) | Dark (fill / stroke / label) | Non-colour encoding | Semantics |
 |---|---|---|---|---|---|
-| `done` | green | `#e0ffd9` / `#008217` | `#062800` / `#72ff6c` | solid | finished, quietly |
-| `todo` | gray | `#f6f6f6` / `#6f6f6f` | `#222222` / `#8b8b8b` | solid | blank slate |
-| in progress (a trail, see Trails) | azure | `#e8f2ff` / `#0071af` | `#001c30` / `#c6e0ff` | solid + `▸` label marker (azure is close to sky) | a scout is on it |
-| `blocked` | red | `#fff8f6` / `#e0002b` | `#530003` / `#ffddd8` | bold stroke | stop |
-| `paused` | purple | `#fdf4ff` / `#b01fe3` | `#3a004f` / `#f7d9ff` | dasharray 4 3 | deliberately parked |
-| `deferred` | cinnamon | `#fff8f3` / `#ac5c00` | `#371d00` / `#ffdfc6` | dasharray 2 4 + italic | shelved for later |
-| `out_of_scope` | gray, dotted | `#f6f6f6` / `#717171` | `#222222` / `#898989` | dasharray 2 2, struck label | struck from play; drawn only in the full graph, since `--omit-done` (the chart's diagram) drops it |
-| gate (`external`) | yellow | `#fff9e5` / `#7d6f00` | `#292300` / `#ffe53e` | dasharray 4 3 + italic | outside our control |
-| milestone (`mile`) | sky | `#e3f7ff` / `#007590` | `#001f28` / `#aee9ff` | bold | structural marker |
+| `done` | moss (`ok`) | `#edf0e6` / `#3c6a1c` / stroke | `#2d3420` / `#a6d46a` / stroke | solid | finished, quietly |
+| `todo` | faded ink (`ink-muted`) | `#f5f6f0` / `#4b5a3c` / stroke | `#272b1f` / `#a3ad8c` / stroke | solid | blank slate |
+| in progress (a trail, see Trails) | ballpoint (`info`) | `#ebefef` / `#2d5a8c` / stroke | `#2b312a` / `#8db4e8` / stroke | solid + `▸` label marker | a scout is on it |
+| `blocked` | rust (`danger`) | `#f5ece7` / `#a3361f` / stroke | `#342e20` / `#ff8a6b` / stroke | bold stroke | stop |
+| `paused` | beetroot (`accent`) | `#f3eaea` / `#8c1d4c` / stroke | `#342e26` / `#ff86b4` / stroke | dasharray 4 3 | deliberately parked |
+| `deferred` | ochre (`warn`) | `#f3efe4` / `#8a5a00` / stroke | `#31301e` / `#e0a84a` / stroke | dasharray 2 4 + italic | shelved for later |
+| `out_of_scope` | ink half into `line` | `#fcfcf8` / `#686e57` / stroke | `#22261a` / `#969d82` / stroke | dasharray 2 2, struck label | struck from play; drawn only in the full graph, since `--omit-done` (the chart's diagram) drops it |
+| gate (`external`) | slime | `#e9f1c0` / `#1d2718` / `#1d2718` | `#c5e13e` / `#c5e13e` / `#1d2718` | dasharray 4 3 + italic | outside our control |
+| milestone (`mile`) | exhibit panel | `#1d2718` / `#1d2718` / `#e7e9cf` | `#0a0c07` / `#e3e8cc` / `#e3e8cc` | bold | structural marker |
 
-Pink is the primary accent and is never a status
-colour. Shade pattern: light bg = shade 1, stroke/text = shade 4; dark
-inverted. Shade differences ≥ 3 keep WCAG AA.
+Beetroot is also the chart's link and focus colour (the stamp); it marks a
+paused waypoint only with the dashed border beside it. Every label clears
+WCAG AA (4.5:1) on its own fill.
 
 Mermaid class names match statuses (`todo`, `blocked`, `paused`, `deferred`,
 `done`, `outOfScope`) plus `inProgress` for a waypoint on a trail in play,
@@ -324,10 +331,13 @@ for todo and Bootstrap-era hexes; regenerating via `graph --mermaid` replaces
 both. classDef lines always come straight after the `graph LR`/`graph TD`
 line; before it is a silent render failure.
 
-The `out_of_scope` stroke sits within two hex steps of `todo`'s gray, and
-the two share a fill: it is as faint as it can be while still clearing 3:1
-against both tier backgrounds below. The dotted border and the struck label
-tell them apart.
+The `out_of_scope` ink sits close to `todo`'s faded ink: it is as faint as it
+can be while still clearing 4.5:1 on its own fill and 3:1 against both tier
+backgrounds below. The dotted border and the struck label tell them apart.
+
+Solid slime sits at a tier background's own luminance in light, so the light
+gate is a pale slime wash, mix(slime, slip, .28), with an ink border; dark
+keeps solid slime with `on-slime` ink.
 
 ### Tier backgrounds (tiered phases only)
 
@@ -338,9 +348,9 @@ unchanged. `TIER_STYLE` in `roadbook.py` is the machine-readable copy.
 
 | Tier state | Family | Light (bg / label) | Dark (bg / label) | Non-colour encoding | Fires when |
 |---|---|---|---|---|---|
-| `underway` | slate | `#c3cede` / `#2f3b4c` | `#343e4f` / `#d5deea` | solid border, state named in the label | every lower tier is done and this one holds unfinished work |
-| `deferred` | taupe | `#dccbb9` / `#4a3826` | `#4a3c2f` / `#ecdccb` | dashed border, state named in the label | any lower tier still holds unfinished work |
-| `done` | slate (shares `underway`) | as `underway` | as `underway` | state named in the label | the tier holds no unfinished work; drawn only in the full graph, since `--omit-done` drops a finished tier whole (done and `out_of_scope` waypoints alike) |
+| `underway` | raised sheet: mix(line, surface-raised, .25), dark .75 | `#cbcfac` / `#1d2718` | `#434a32` / `#e3e8cc` | solid border, state named in the label | every lower tier is done and this one holds unfinished work |
+| `deferred` | cardboard: mix(card, slip, .5), dark mix(card, card-dark, .75) | `#d8c4a8` / `#1d2718` | `#5a4225` / `#f2e8d0` | dashed border, state named in the label | any lower tier still holds unfinished work |
+| `done` | raised sheet (shares `underway`) | as `underway` | as `underway` | state named in the label | the tier holds no unfinished work; drawn only in the full graph, since `--omit-done` drops a finished tier whole (done and `out_of_scope` waypoints alike) |
 
 The subgraph label reads `{tier} · {state}`, for example `Secondary ·
 deferred`. A waypoint sits in its milestone's tier, a milestone in its own
@@ -352,9 +362,8 @@ muted mid-tone between the two. Gates, enforced by `test_roadbook.py` in
 light and dark alike: 3:1 or better against every node stroke and the
 diagram's edge line, 1.35:1 or better against every node fill, 4.5:1 or
 better for the tier's own label. 3:1 against the fills is out of reach: a
-background that dark would hide the edges. The two backgrounds share a
-luminance, so hue alone separates them; the border and the label carry the
-same signal without colour.
+background that dark would hide the edges. The border and the label carry
+the tier's state without colour.
 
 ## Milestone-level state (chart only)
 
@@ -370,13 +379,13 @@ fires from two different rules); first true rule wins:
 
 | State | Fires when | Colour |
 |---|---|---|
-| `empty` | zero waypoints (a bug, see below) | red (shares the blocked hue) |
-| `done` | every member `done`/`out_of_scope` | green |
-| `deferred` (tier cascade) | tier ≥ 1 and any milestone in a lower tier isn't `done` yet (see Tiers) | cinnamon (shares the waypoint-status hue) |
-| `deferred` (member gate) | no actionable member (`todo`/`blocked`/`paused`) left, and ≥1 member is `deferred`; needs no tier suffix, only the cascade above does. Outranks done percentage: one deferred waypoint and nine done ones still reads `deferred` at 90% | cinnamon |
-| `blocked` | stuck: work remains, every unfinished member (done/out_of_scope excluded) is `blocked` and no member shows in progress (`milestone_all_blocked()`). Outranks `inProgress` below it, so done work never softens it: 7 done and 1 blocked reads `blocked`, since nothing in the milestone can be picked up | red |
-| `inProgress` | ≥1 member `done`, or a member shows in progress (a trail). A trail on a blocked waypoint keeps the milestone here: a scout is on it | **azure**: shared with waypoints on a trail, distinct from sky (milestone-structural) |
-| `todo` | otherwise | gray |
+| `empty` | zero waypoints (a bug, see below) | rust (shares the blocked hue) |
+| `done` | every member `done`/`out_of_scope` | moss |
+| `deferred` (tier cascade) | tier ≥ 1 and any milestone in a lower tier isn't `done` yet (see Tiers) | ochre (shares the waypoint-status hue) |
+| `deferred` (member gate) | no actionable member (`todo`/`blocked`/`paused`) left, and ≥1 member is `deferred`; needs no tier suffix, only the cascade above does. Outranks done percentage: one deferred waypoint and nine done ones still reads `deferred` at 90% | ochre |
+| `blocked` | stuck: work remains, every unfinished member (done/out_of_scope excluded) is `blocked` and no member shows in progress (`milestone_all_blocked()`). Outranks `inProgress` below it, so done work never softens it: 7 done and 1 blocked reads `blocked`, since nothing in the milestone can be picked up | rust |
+| `inProgress` | ≥1 member `done`, or a member shows in progress (a trail). A trail on a blocked waypoint keeps the milestone here: a scout is on it | **ballpoint**: shared with waypoints on a trail |
+| `todo` | otherwise | faded ink |
 
 An all-`out_of_scope` milestone (struck-from-play) reads as `done`: nothing
 remains actionable, whether it finished or was struck out. A tier's deferred
@@ -396,7 +405,7 @@ is no longer a milestone-level state (a paused member falls through to
 A milestone with zero waypoints is a bug, never a legitimate `todo`/empty state
 to render quietly: `roadbook.py validate` reports `{id}: milestone has no
 tasks` (exit 1), and the chart's validation banner surfaces the same line.
-It still renders (`empty`, red, "No tasks") so the chart stays usable
+It still renders (`empty`, rust, "No tasks") so the chart stays usable
 while the roadbook is fixed, and it never counts as "unfinished" for a tier
 cascade: an empty tier-0 milestone must not permanently defer every later
 tier, since that would hide the real problem behind a wrong colour instead
@@ -461,8 +470,11 @@ chart never maps a scout's name to a colour by hand. `roadbook.py`'s
 `dev_colour()` hashes the lowercased, trimmed assignee string with
 `zlib.crc32` (never Python's builtin `hash()`, which is salted per
 `PYTHONHASHSEED` and would assign a different colour to the same scout across
-separate render runs) into a fixed palette, disjoint from every
-status/milestone/gate hue above: teal, lime, magenta, indigo, amber, rose.
+separate render runs) into the theme's five inks: beetroot (`accent`), moss
+(`accent-2`), ballpoint (`info`, named `biro`), ochre (`warn`) and rust
+(`danger`), each on an 8% wash of itself. These are the status inks too, so
+a chip is told from a status by its shape, a named pill, never by colour
+alone.
 
 ## Codebase reconciliation (inference)
 

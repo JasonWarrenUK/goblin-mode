@@ -1244,11 +1244,13 @@ class TierStyle(unittest.TestCase):
                 self.assertGreaterEqual(_contrast(background, fill), 1.35)
 
     def test_every_node_label_still_clears_aa_on_its_own_fill(self):
-        for mode, fill, stroke in self.MODES:
+        # the label is the style's text colour: its stroke, except on an
+        # inverted node (the milestone's exhibit panel, the gate's slime)
+        for (mode, fill, _stroke), text in zip(self.MODES, ("text", "darkText")):
             for node, style in roadbook.STATUS_STYLE.items():
                 with self.subTest(mode=mode, node=node):
                     self.assertGreaterEqual(
-                        _contrast(style[fill], style[stroke]), 4.5)
+                        _contrast(style[fill], style[text]), 4.5)
 
     def test_tier_label_clears_aa_on_its_background(self):
         for mode, fill, stroke in self.MODES:
@@ -1277,14 +1279,88 @@ class TierStyle(unittest.TestCase):
         self.assertEqual(len(palettes), 3)
         tables = {**roadbook.STATUS_STYLE, **roadbook.TIER_STYLE}
         for selector, palette in palettes:
-            fill, stroke = (("bg", "stroke") if selector == ":root"
-                            else ("darkBg", "darkStroke"))
+            fill, stroke, text = (("bg", "stroke", "text") if selector == ":root"
+                                  else ("darkBg", "darkStroke", "darkText"))
             for name, style in tables.items():
                 with self.subTest(selector=selector, name=name):
                     self.assertEqual(
                         (palette[f"--color-{style['var']}-bg"],
-                         palette[f"--color-{style['var']}"]),
-                        (style[fill], style[stroke]))
+                         palette[f"--color-{style['var']}"],
+                         palette[f"--color-{style['var']}-text"]),
+                        (style[fill], style[stroke], style.get(text, style[stroke])))
+
+
+def _theme_tokens():
+    """{"light": {token: hex}, "dark": {...}} from the goblin theme CSS the
+    plugin carries (templates/chart-theme.css)."""
+    css = (Path(roadbook.__file__).resolve().parent.parent
+           / "templates" / "chart-theme.css").read_text()
+    blocks = re.findall(r"(:root[^{]*)\{(.*?)\n\t?\}", css, re.S)
+    light, dark = (dict((k, v.lower()) for k, v in re.findall(
+        r"--([\w-]+):\s*(#[0-9A-Fa-f]{6});", body)) for _sel, body in blocks[:2])
+    return {"light": light, "dark": dark}
+
+
+def _mix(a, b, t):
+    """t of colour a over colour b, per sRGB channel, rounded: how the
+    status table derives its washes from the theme."""
+    pa = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    pb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x * t + y * (1 - t)):02x}" for x, y in zip(pa, pb))
+
+
+class StatusDerivation(unittest.TestCase):
+    """Every colour in STATUS_STYLE and TIER_STYLE is a goblin theme token or
+    a declared mix of two, recomputed here from the copied theme CSS, so the
+    tables cannot drift from the theme (the recipes are the comments beside
+    each entry in roadbook.py, as Jason approved them on 2026-11-18)."""
+
+    WASH = 0.08
+    # (style, key): light recipe, dark recipe; a recipe is a token or (a, b, t)
+    RECIPES = {
+        "todo": {"stroke": ("ink-muted", "ink-muted"), "text": ("ink-muted", "ink-muted"),
+                 "bg": (("ink-muted", "slip", .04), ("ink-muted", "surface", .04))},
+        "inProgress": {"stroke": ("info", "info"), "text": ("info", "info"),
+                       "bg": (("info", "slip", WASH), ("info", "surface", WASH))},
+        "blocked": {"stroke": ("danger", "danger"), "text": ("danger", "danger"),
+                    "bg": (("danger", "slip", WASH), ("danger", "surface", WASH))},
+        "paused": {"stroke": ("accent", "accent"), "text": ("accent", "accent"),
+                   "bg": (("accent", "slip", WASH), ("accent", "surface", WASH))},
+        "deferred": {"stroke": ("warn", "warn"), "text": ("warn", "warn"),
+                     "bg": (("warn", "slip", WASH), ("warn", "surface", WASH))},
+        "done": {"stroke": ("ok", "ok"), "text": ("ok", "ok"),
+                 "bg": (("ok", "slip", WASH), ("ok", "surface", WASH))},
+        "outOfScope": {"stroke": (("ink", "line", .5), ("ink", "line", .5)),
+                       "text": (("ink", "line", .5), ("ink", "line", .5)),
+                       "bg": ("slip", "surface")},
+        "mile": {"stroke": ("exhibit", "exhibit-ink"), "text": ("exhibit-ink", "exhibit-ink"),
+                 "bg": ("exhibit", "exhibit")},
+        "external": {"stroke": ("on-slime", "slime"), "text": ("on-slime", "on-slime"),
+                     "bg": (("slime", "slip", .28), "slime")},
+        "tierUnderway": {"stroke": ("ink", "ink"),
+                         "bg": (("line", "surface-raised", .25), ("line", "surface-raised", .75))},
+        "tierDeferred": {"stroke": ("ink", "card-ink"),
+                         "bg": (("card", "slip", .5), ("card", "card-dark", .75))},
+    }
+    KEYS = {"stroke": ("stroke", "darkStroke"), "text": ("text", "darkText"), "bg": ("bg", "darkBg")}
+
+    def _resolve(self, recipe, tokens):
+        if isinstance(recipe, str):
+            return tokens[recipe]
+        a, b, t = recipe
+        return _mix(tokens[a], tokens[b], t)
+
+    def test_every_colour_is_the_theme_or_a_declared_mix_of_it(self):
+        tokens = _theme_tokens()
+        tables = {**roadbook.STATUS_STYLE, **roadbook.TIER_STYLE}
+        self.assertEqual(set(tables), set(self.RECIPES))
+        for name, recipes in self.RECIPES.items():
+            for part, (light, dark) in recipes.items():
+                for mode, recipe, key in (("light", light, self.KEYS[part][0]),
+                                          ("dark", dark, self.KEYS[part][1])):
+                    with self.subTest(name=name, part=part, mode=mode):
+                        self.assertEqual(tables[name][key],
+                                         self._resolve(recipe, tokens[mode]))
 
 
 class GraphDirection(unittest.TestCase):
@@ -1478,14 +1554,15 @@ class FileBased(unittest.TestCase):
 
     def test_render_dev_colours_in_blob(self):
         data = [phase([{"id": "M1", "name": "m", "tasks": [
-            task("a", assignee="jason"), task("b", assignee="jaz"),
+            task("a", assignee="ravi"), task("b", assignee="noor"),
             task("c")]}], name="My Phase")]
         root, jp = self._project(data)
         roadbook.main(["render", str(jp)])
         out = root / "docs" / "artefacts" / "chart-my-phase.html"
         blob = self._blob(out)
-        self.assertEqual(set(blob["devColours"]), {"jason", "jaz"})
-        self.assertNotEqual(blob["devColours"]["jason"], blob["devColours"]["jaz"])
+        self.assertEqual(set(blob["devColours"]), {"ravi", "noor"})
+        # two scouts this pair of names hashes apart; a chip is never told by colour alone
+        self.assertEqual(blob["devColours"], {"ravi": "biro", "noor": "beetroot"})
 
     def test_render_is_byte_deterministic_across_hash_seeds(self):
         data = [phase([{"id": "M1", "name": "m", "tasks": [

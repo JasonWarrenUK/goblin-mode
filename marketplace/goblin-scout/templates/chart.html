@@ -29,61 +29,61 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-	/* Palette: the roadmap system's own fixed status table (see roadbook.py
-	   STATUS_STYLE); literal hexes so the artefact is self-contained.
-	   Milestone — sky (structural, steel-blue half of the terminal gradient) */
-	--color-milestone:       #007590;
-	--color-milestone-bg:    #e3f7ff;
-	--color-milestone-text:  #001f28;
-	/* Primary accent — pink (warm half of the gradient; never a status) */
-	--color-primary:         #d2008f;
-	--color-primary-bg:      #fff7fb;
-	--color-primary-text:    #4b0030;
-	/* Status semantics: green finished, gray blank, red stop, purple parked,
-	   cinnamon shelved, dotted gray struck, yellow external */
-	--color-done:            #008217;
-	--color-done-bg:         #e0ffd9;
-	--color-todo:            #6f6f6f;
-	--color-todo-bg:         #f6f6f6;
-	--color-blocked:         #e0002b;
-	--color-blocked-bg:      #fff8f6;
-	--color-paused:          #b01fe3;
-	--color-paused-bg:       #fdf4ff;
-	--color-deferred:        #ac5c00;
-	--color-deferred-bg:     #fff8f3;
-	--color-out-of-scope:    #717171;
-	--color-out-of-scope-bg: #f6f6f6;
-	--color-gate:            #7d6f00;
-	--color-gate-bg:         #fff9e5;
-	/* Tier backgrounds (see roadbook.py TIER_STYLE): the fill behind a
-	   tier's subgraph in the dependency graph, slate while the tier is
-	   underway, taupe while it is deferred. Muted mid-tones, never a node
-	   colour: every node stroke clears 3:1 against them. */
-	--color-tier-underway:    #2f3b4c;
-	--color-tier-underway-bg: #c3cede;
-	--color-tier-deferred:    #4a3826;
-	--color-tier-deferred-bg: #dccbb9;
-	/* In progress (see roadbook-conventions.md): azure marks a claimed task
-	   still in play and the milestone state it drives, the way milestone
-	   states share their task-status hues. Distinct from sky (structural),
-	   though close enough that diagram labels also carry a marker. */
-	--color-in-progress:     #0071af;
-	--color-in-progress-bg:  #e8f2ff;
-	/* Dev-chip palette: assignee is free-text with no roster (never
-	   inferred), so chips are coloured by a stable hash, never a hardcoded
-	   name map. Disjoint from every status/milestone/gate hue above. */
-	--color-dev-teal:        #007c6e;
-	--color-dev-teal-bg:     #d7fff7;
-	--color-dev-lime:        #677600;
-	--color-dev-lime-bg:     #f7ffac;
-	--color-dev-magenta:     #ca00b6;
-	--color-dev-magenta-bg:  #fff3fc;
-	--color-dev-indigo:      #0061fc;
-	--color-dev-indigo-bg:   #f3f3ff;
-	--color-dev-amber:       #926700;
-	--color-dev-amber-bg:    #fff8ef;
-	--color-dev-rose:        #db0072;
-	--color-dev-rose-bg:     #fff7f9;
+	/* Status, milestone, gate and tier colours: STATUS_STYLE and TIER_STYLE in
+	   roadbook.py, derived there from the goblin theme (the copied
+	   templates/chart-theme.css, inlined above this block at render). Literal
+	   hexes, because Mermaid's classDefs and the tests read them; a test holds
+	   this block to the tables. Each status has a stroke, a fill (-bg) and a
+	   label (-text): the label is the stroke unless the node is inverted. */
+	--color-todo:              #4b5a3c;
+	--color-todo-bg:           #f5f6f0;
+	--color-todo-text:         #4b5a3c;
+	--color-in-progress:       #2d5a8c;
+	--color-in-progress-bg:    #ebefef;
+	--color-in-progress-text:  #2d5a8c;
+	--color-blocked:           #a3361f;
+	--color-blocked-bg:        #f5ece7;
+	--color-blocked-text:      #a3361f;
+	--color-paused:            #8c1d4c;
+	--color-paused-bg:         #f3eaea;
+	--color-paused-text:       #8c1d4c;
+	--color-deferred:          #8a5a00;
+	--color-deferred-bg:       #f3efe4;
+	--color-deferred-text:     #8a5a00;
+	--color-done:              #3c6a1c;
+	--color-done-bg:           #edf0e6;
+	--color-done-text:         #3c6a1c;
+	--color-out-of-scope:      #686e57;
+	--color-out-of-scope-bg:   #fcfcf8;
+	--color-out-of-scope-text: #686e57;
+	--color-milestone:         #1d2718;
+	--color-milestone-bg:      #1d2718;
+	--color-milestone-text:    #e7e9cf;
+	--color-gate:              #1d2718;
+	--color-gate-bg:           #e9f1c0;
+	--color-gate-text:         #1d2718;
+	--color-tier-underway:     #1d2718;
+	--color-tier-underway-bg:  #cbcfac;
+	--color-tier-underway-text: #1d2718;
+	--color-tier-deferred:     #1d2718;
+	--color-tier-deferred-bg:  #d8c4a8;
+	--color-tier-deferred-text: #1d2718;
+	/* The stamp: beetroot, the theme's accent, for links, the toggle and focus. */
+	--color-primary:           #8c1d4c;
+	--color-primary-bg:        #f3eaea;
+	--color-primary-text:      #8c1d4c;
+	/* Scout chips: an assignee is free text with no roster (never inferred),
+	   so a chip's ink comes from a stable hash over the theme's five inks. */
+	--color-dev-beetroot:      #8c1d4c;
+	--color-dev-beetroot-bg:   #f3eaea;
+	--color-dev-moss:          #3c6a1c;
+	--color-dev-moss-bg:       #edf0e6;
+	--color-dev-biro:          #2d5a8c;
+	--color-dev-biro-bg:       #ebefef;
+	--color-dev-ochre:         #8a5a00;
+	--color-dev-ochre-bg:      #f3efe4;
+	--color-dev-rust:          #a3361f;
+	--color-dev-rust-bg:       #f5ece7;
 
 	--bg: #f6f6f6;
 	--surface: #ffffff;
@@ -94,50 +94,58 @@
 	/* Mermaid chrome (edge stroke, arrowhead, edge-label backing) that the
 	   diagram's own classDefs don't cover — see the render script below for
 	   why this can't just be mermaid's base-theme default. */
-	--diagram-line: #6f6f6f;
-	--diagram-edge-label-bg: #ffffff;
+	--diagram-line: #4b5a3c;
+	--diagram-edge-label-bg: #fcfcf8;
 	--diagram-text: var(--text);
 }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
-		--color-milestone:       #aee9ff;
-		--color-milestone-bg:    #001f28;
-		--color-milestone-text:  #e3f7ff;
-		--color-primary:         #ffdcec;
-		--color-primary-bg:      #4b0030;
-		--color-primary-text:    #fff7fb;
-		--color-done:            #72ff6c;
-		--color-done-bg:         #062800;
-		--color-todo:            #8b8b8b;
-		--color-todo-bg:         #222222;
-		--color-blocked:         #ffddd8;
-		--color-blocked-bg:      #530003;
-		--color-paused:          #f7d9ff;
-		--color-paused-bg:       #3a004f;
-		--color-deferred:        #ffdfc6;
-		--color-deferred-bg:     #371d00;
-		--color-out-of-scope:    #898989;
-		--color-out-of-scope-bg: #222222;
-		--color-gate:            #ffe53e;
-		--color-gate-bg:         #292300;
-		--color-tier-underway:    #d5deea;
-		--color-tier-underway-bg: #343e4f;
-		--color-tier-deferred:    #ecdccb;
-		--color-tier-deferred-bg: #4a3c2f;
-		--color-in-progress:     #c6e0ff;
-		--color-in-progress-bg:  #001c30;
-		--color-dev-teal:        #00ffe4;
-		--color-dev-teal-bg:     #002722;
-		--color-dev-lime:        #d5f200;
-		--color-dev-lime-bg:     #222600;
-		--color-dev-magenta:     #ffd7f6;
-		--color-dev-magenta-bg:  #44003c;
-		--color-dev-indigo:      #deddff;
-		--color-dev-indigo-bg:   #001649;
-		--color-dev-amber:       #ffe0b2;
-		--color-dev-amber-bg:    #302100;
-		--color-dev-rose:        #ffdce5;
-		--color-dev-rose-bg:     #4c0023;
+		--color-todo:              #a3ad8c;
+		--color-todo-bg:           #272b1f;
+		--color-todo-text:         #a3ad8c;
+		--color-in-progress:       #8db4e8;
+		--color-in-progress-bg:    #2b312a;
+		--color-in-progress-text:  #8db4e8;
+		--color-blocked:           #ff8a6b;
+		--color-blocked-bg:        #342e20;
+		--color-blocked-text:      #ff8a6b;
+		--color-paused:            #ff86b4;
+		--color-paused-bg:         #342e26;
+		--color-paused-text:       #ff86b4;
+		--color-deferred:          #e0a84a;
+		--color-deferred-bg:       #31301e;
+		--color-deferred-text:     #e0a84a;
+		--color-done:              #a6d46a;
+		--color-done-bg:           #2d3420;
+		--color-done-text:         #a6d46a;
+		--color-out-of-scope:      #969d82;
+		--color-out-of-scope-bg:   #22261a;
+		--color-out-of-scope-text: #969d82;
+		--color-milestone:         #e3e8cc;
+		--color-milestone-bg:      #0a0c07;
+		--color-milestone-text:    #e3e8cc;
+		--color-gate:              #c5e13e;
+		--color-gate-bg:           #c5e13e;
+		--color-gate-text:         #1d2718;
+		--color-tier-underway:     #e3e8cc;
+		--color-tier-underway-bg:  #434a32;
+		--color-tier-underway-text: #e3e8cc;
+		--color-tier-deferred:     #f2e8d0;
+		--color-tier-deferred-bg:  #5a4225;
+		--color-tier-deferred-text: #f2e8d0;
+		--color-primary:           #ff86b4;
+		--color-primary-bg:        #342e26;
+		--color-primary-text:      #ff86b4;
+		--color-dev-beetroot:      #ff86b4;
+		--color-dev-beetroot-bg:   #342e26;
+		--color-dev-moss:          #a6d46a;
+		--color-dev-moss-bg:       #2d3420;
+		--color-dev-biro:          #8db4e8;
+		--color-dev-biro-bg:       #2b312a;
+		--color-dev-ochre:         #e0a84a;
+		--color-dev-ochre-bg:      #31301e;
+		--color-dev-rust:          #ff8a6b;
+		--color-dev-rust-bg:       #342e20;
 
 		--bg: #121216;
 		--surface: #1b1b21;
@@ -145,7 +153,7 @@
 		--muted: #8b8b8b;
 		--line: #3e3e3e;
 		--grid-line: rgba(174, 233, 255, 0.05);
-		--diagram-line: #8b8b8b;
+		--diagram-line: #a3ad8c;
 		--diagram-edge-label-bg: var(--surface);
 		--diagram-text: var(--text);
 	}
@@ -155,44 +163,52 @@
    control from the artefact conventions; this block is
    what it writes to when a reader picks light or dark explicitly. */
 :root[data-theme="dark"] {
-	--color-milestone:       #aee9ff;
-	--color-milestone-bg:    #001f28;
-	--color-milestone-text:  #e3f7ff;
-	--color-primary:         #ffdcec;
-	--color-primary-bg:      #4b0030;
-	--color-primary-text:    #fff7fb;
-	--color-done:            #72ff6c;
-	--color-done-bg:         #062800;
-	--color-todo:            #8b8b8b;
-	--color-todo-bg:         #222222;
-	--color-blocked:         #ffddd8;
-	--color-blocked-bg:      #530003;
-	--color-paused:          #f7d9ff;
-	--color-paused-bg:       #3a004f;
-	--color-deferred:        #ffdfc6;
-	--color-deferred-bg:     #371d00;
-	--color-out-of-scope:    #898989;
-	--color-out-of-scope-bg: #222222;
-	--color-gate:            #ffe53e;
-	--color-gate-bg:         #292300;
-	--color-tier-underway:    #d5deea;
-	--color-tier-underway-bg: #343e4f;
-	--color-tier-deferred:    #ecdccb;
-	--color-tier-deferred-bg: #4a3c2f;
-	--color-in-progress:     #c6e0ff;
-	--color-in-progress-bg:  #001c30;
-	--color-dev-teal:        #00ffe4;
-	--color-dev-teal-bg:     #002722;
-	--color-dev-lime:        #d5f200;
-	--color-dev-lime-bg:     #222600;
-	--color-dev-magenta:     #ffd7f6;
-	--color-dev-magenta-bg:  #44003c;
-	--color-dev-indigo:      #deddff;
-	--color-dev-indigo-bg:   #001649;
-	--color-dev-amber:       #ffe0b2;
-	--color-dev-amber-bg:    #302100;
-	--color-dev-rose:        #ffdce5;
-	--color-dev-rose-bg:     #4c0023;
+	--color-todo:              #a3ad8c;
+	--color-todo-bg:           #272b1f;
+	--color-todo-text:         #a3ad8c;
+	--color-in-progress:       #8db4e8;
+	--color-in-progress-bg:    #2b312a;
+	--color-in-progress-text:  #8db4e8;
+	--color-blocked:           #ff8a6b;
+	--color-blocked-bg:        #342e20;
+	--color-blocked-text:      #ff8a6b;
+	--color-paused:            #ff86b4;
+	--color-paused-bg:         #342e26;
+	--color-paused-text:       #ff86b4;
+	--color-deferred:          #e0a84a;
+	--color-deferred-bg:       #31301e;
+	--color-deferred-text:     #e0a84a;
+	--color-done:              #a6d46a;
+	--color-done-bg:           #2d3420;
+	--color-done-text:         #a6d46a;
+	--color-out-of-scope:      #969d82;
+	--color-out-of-scope-bg:   #22261a;
+	--color-out-of-scope-text: #969d82;
+	--color-milestone:         #e3e8cc;
+	--color-milestone-bg:      #0a0c07;
+	--color-milestone-text:    #e3e8cc;
+	--color-gate:              #c5e13e;
+	--color-gate-bg:           #c5e13e;
+	--color-gate-text:         #1d2718;
+	--color-tier-underway:     #e3e8cc;
+	--color-tier-underway-bg:  #434a32;
+	--color-tier-underway-text: #e3e8cc;
+	--color-tier-deferred:     #f2e8d0;
+	--color-tier-deferred-bg:  #5a4225;
+	--color-tier-deferred-text: #f2e8d0;
+	--color-primary:           #ff86b4;
+	--color-primary-bg:        #342e26;
+	--color-primary-text:      #ff86b4;
+	--color-dev-beetroot:      #ff86b4;
+	--color-dev-beetroot-bg:   #342e26;
+	--color-dev-moss:          #a6d46a;
+	--color-dev-moss-bg:       #2d3420;
+	--color-dev-biro:          #8db4e8;
+	--color-dev-biro-bg:       #2b312a;
+	--color-dev-ochre:         #e0a84a;
+	--color-dev-ochre-bg:      #31301e;
+	--color-dev-rust:          #ff8a6b;
+	--color-dev-rust-bg:       #342e20;
 
 	--bg: #121216;
 	--surface: #1b1b21;
@@ -200,7 +216,7 @@
 	--muted: #8b8b8b;
 	--line: #3e3e3e;
 	--grid-line: rgba(174, 233, 255, 0.05);
-	--diagram-line: #8b8b8b;
+	--diagram-line: #a3ad8c;
 	--diagram-edge-label-bg: var(--surface);
 	--diagram-text: var(--text);
 }
