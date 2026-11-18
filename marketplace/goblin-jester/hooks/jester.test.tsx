@@ -275,23 +275,38 @@ const goblinProps = async ($: Engine) => {
 	return props
 }
 
-/** installed_plugins.json with goblin-scout installed twice: a project install whose files are gone, then the user's. */
+/** The plugin cache under the test's home. */
+const CACHE = '/home/j/.claude/plugins/cache/goblin-mode/goblin-scout'
+
+/**
+ * installed_plugins.json with goblin-scout installed three times: for another
+ * project, for this one (files gone) and for the user.
+ */
 const INSTALLED = JSON.stringify({
 	version: 2,
 	plugins: {
 		'goblin-scout@goblin-mode': [
-			{ scope: 'project', installPath: '/home/j/.claude/plugins/cache/goblin-mode/goblin-scout/3.0.1' },
-			{ scope: 'user', installPath: '/home/j/.claude/plugins/cache/goblin-mode/goblin-scout/3.0.0' },
+			{ scope: 'project', projectPath: '/code/other', installPath: `${CACHE}/2.4.0` },
+			{ scope: 'project', projectPath: '/code/app', installPath: `${CACHE}/3.0.1` },
+			{ scope: 'user', installPath: `${CACHE}/3.0.0` },
 		],
 	},
 })
 const START_TRAIL = '---\nname: start-trail\nmetadata:\n  family: pr\n  goblin-spinner: marking the trail|lacing boots\n---\nbody'
+const OLD_TRAIL = '---\nname: start-trail\nmetadata:\n  family: clod-lens\n  goblin-spinner: getting lost\n---\nbody'
 
-test("a plugin skill's family and spinner words are read from its install, by the engine's plugin:directory name", async ($, on) => {
+/** The session's project root, as `$.session.root()` reads it. */
+const rootAt = (on: Parameters<typeof mock.clock>[0], root: string): void => {
+	on('session.root', async () => ({ value: root }))
+}
+
+test("a plugin skill's family and spinner words are read from the install that applies here, never another project's", async ($, on) => {
 	world(on)
+	rootAt(on, '/code/app')
 	skillFiles(on, {
 		'/home/j/.claude/plugins/installed_plugins.json': INSTALLED,
-		'/home/j/.claude/plugins/cache/goblin-mode/goblin-scout/3.0.0/skills/start-trail/SKILL.md': START_TRAIL,
+		[`${CACHE}/2.4.0/skills/start-trail/SKILL.md`]: OLD_TRAIL,
+		[`${CACHE}/3.0.0/skills/start-trail/SKILL.md`]: START_TRAIL,
 	})
 	on('ui.render', { component: 'Spinner' }, async ($, e) => {
 		const { Text } = $.ui.resolve(e)
@@ -301,11 +316,12 @@ test("a plugin skill's family and spinner words are read from its install, by th
 	await $.turn.start({ text: '/goblin-scout:start-trail', turnId: 't1' })
 	await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: '' })
 	expect(await goblinProps($)).toMatchObject({ prop: '[#]' })
-	expect(await spinnerWord($)).toMatch(/^••• (mArKiNg tHe tRaIl|lAcInG BoOtS) •••$/i)
+	expect(await spinnerWord($)).toMatch(/^••• (mArKiNg tHe tRaIl|lAcInG bOoTs) •••$/)
 })
 
 test('a plugin skill that is not installed reads as nothing set, and never falls back to a project skill of the same directory name', async ($, on) => {
 	world(on)
+	rootAt(on, '/code/app')
 	skillFiles(on, {
 		'/home/j/.claude/plugins/installed_plugins.json': INSTALLED,
 		'.claude/skills/start-trail/SKILL.md': START_TRAIL,

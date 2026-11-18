@@ -8,13 +8,20 @@ const INSTALLED = JSON.stringify({
 	plugins: {
 		'hookify@claude-plugins-official': [{ scope: 'user', installPath: '/c/hookify/0.1.1', version: '0.1.1' }],
 		'goblin-scout@goblin-mode': [
-			{ scope: 'project', installPath: '/c/goblin-scout/3.0.0', version: '3.0.0' },
+			{ scope: 'project', projectPath: '/code/other', installPath: '/c/goblin-scout/2.4.0', version: '2.4.0' },
 			{ scope: 'user', installPath: '/c/goblin-scout/2.9.0', version: '2.9.0' },
+			{ scope: 'project', projectPath: '/code/app', installPath: '/c/goblin-scout/3.0.0', version: '3.0.0' },
+			{ scope: 'project', projectPath: '/code/app/.claude/worktrees/x', installPath: '/c/goblin-scout/3.1.0', version: '3.1.0' },
+			{ scope: 'local', projectPath: '/code/app', installPath: '/c/goblin-scout/3.2.0', version: '3.2.0' },
+			{ scope: 'project', installPath: '/c/goblin-scout/0.1.0', version: '0.1.0' },
 		],
 		'goblin-scout@elsewhere': [{ scope: 'user', installPath: '/x/goblin-scout/1.0.0', version: '1.0.0' }],
 		'goblin-scouting@goblin-mode': [{ scope: 'user', installPath: '/c/goblin-scouting/1.0.0', version: '1.0.0' }],
 	},
 })
+
+const SCOUT = { plugin: 'goblin-scout', dir: 'start-trail' }
+const at = (version: string, root = '/c'): string => `${root}/goblin-scout/${version}/skills/start-trail/SKILL.md`
 
 describe('pluginSkill', () => {
 	test("splits the engine's plugin:directory name on the first colon", async () => {
@@ -29,27 +36,37 @@ describe('pluginSkill', () => {
 })
 
 describe('pluginSkillPaths', () => {
-	test('names the skill directory under each install of that plugin, in the order the file lists them', async () => {
-		expect(pluginSkillPaths(INSTALLED, { plugin: 'goblin-scout', dir: 'start-trail' })).toEqual([
-			'/c/goblin-scout/3.0.0/skills/start-trail/SKILL.md',
-			'/c/goblin-scout/2.9.0/skills/start-trail/SKILL.md',
-			'/x/goblin-scout/1.0.0/skills/start-trail/SKILL.md',
-		])
+	test("outside any project's installs, only user installs count, in the order the file lists them", async () => {
+		expect(pluginSkillPaths(INSTALLED, SCOUT, '/home/j/.claude')).toEqual([at('2.9.0'), at('1.0.0', '/x')])
+	})
+
+	test("in a project, its local install comes first, then its project install, then the user's, as Claude Code ranks the scopes", async () => {
+		expect(pluginSkillPaths(INSTALLED, SCOUT, '/code/app')).toEqual([at('3.2.0'), at('3.0.0'), at('2.9.0'), at('1.0.0', '/x')])
+	})
+
+	test("from a subdirectory or a worktree inside the project, the most specific project's install wins", async () => {
+		expect(pluginSkillPaths(INSTALLED, SCOUT, '/code/app/src')).toEqual([at('3.2.0'), at('3.0.0'), at('2.9.0'), at('1.0.0', '/x')])
+		expect(pluginSkillPaths(INSTALLED, SCOUT, '/code/app/.claude/worktrees/x')).toEqual([at('3.2.0'), at('3.1.0'), at('3.0.0'), at('2.9.0'), at('1.0.0', '/x')])
+	})
+
+	test("another project's install, a path that only shares a prefix, or a project install without its path is never read", async () => {
+		expect(pluginSkillPaths(INSTALLED, SCOUT, '/code/application')).toEqual([at('2.9.0'), at('1.0.0', '/x')])
+		expect(pluginSkillPaths(INSTALLED, SCOUT, '/code/other')).toEqual([at('2.4.0'), at('2.9.0'), at('1.0.0', '/x')])
 	})
 
 	test('uses the directory name the engine reports, never the frontmatter name', async () => {
-		expect(pluginSkillPaths(INSTALLED, { plugin: 'hookify', dir: 'writing-rules' })).toEqual(['/c/hookify/0.1.1/skills/writing-rules/SKILL.md'])
+		expect(pluginSkillPaths(INSTALLED, { plugin: 'hookify', dir: 'writing-rules' }, '/code/app')).toEqual(['/c/hookify/0.1.1/skills/writing-rules/SKILL.md'])
 	})
 
 	test('a plugin that is not installed, or a file that will not parse or has another shape, names nowhere', async () => {
-		expect(pluginSkillPaths(INSTALLED, { plugin: 'goblin', dir: 'x' })).toEqual([])
-		expect(pluginSkillPaths('{not json', { plugin: 'hookify', dir: 'x' })).toEqual([])
-		expect(pluginSkillPaths('{"plugins": []}', { plugin: 'hookify', dir: 'x' })).toEqual([])
-		expect(pluginSkillPaths('{"plugins": {"hookify@m": [{"installPath": 3}, null]}}', { plugin: 'hookify', dir: 'x' })).toEqual([])
+		expect(pluginSkillPaths(INSTALLED, { plugin: 'goblin', dir: 'x' }, '/code/app')).toEqual([])
+		expect(pluginSkillPaths('{not json', { plugin: 'hookify', dir: 'x' }, '/code/app')).toEqual([])
+		expect(pluginSkillPaths('{"plugins": []}', { plugin: 'hookify', dir: 'x' }, '/code/app')).toEqual([])
+		expect(pluginSkillPaths('{"plugins": {"hookify@m": [{"installPath": 3}, null]}}', { plugin: 'hookify', dir: 'x' }, '/code/app')).toEqual([])
 	})
 
 	test('a skill directory that would climb out of the install is refused', async () => {
-		expect(pluginSkillPaths(INSTALLED, { plugin: 'hookify', dir: '../../etc' })).toEqual([])
+		expect(pluginSkillPaths(INSTALLED, { plugin: 'hookify', dir: '../../etc' }, '/code/app')).toEqual([])
 	})
 })
 

@@ -87,14 +87,22 @@ export const pluginSkill = (skill: string): PluginSkill | null => {
 	return { plugin: skill.slice(0, colon), dir: skill.slice(colon + 1) }
 }
 
+/** How Claude Code ranks install scopes: local overrides project, project overrides user. */
+const SCOPE_RANK: Record<string, number> = { local: 0, project: 1 }
+
+/** True when `dir` is `project` or lies beneath it. */
+const within = (dir: string, project: string): boolean => dir === project || dir.startsWith(`${project.replace(/\/+$/, '')}/`)
+
 /**
  * Where an installed plugin's skill may live, from the text of
  * `~/.claude/plugins/installed_plugins.json`: `<installPath>/skills/<dir>/SKILL.md`
- * for every install of a key named `<plugin>@<marketplace>`, in the order the
- * file lists them. Anything unreadable, of another shape or climbing out of
- * the install names nowhere.
+ * for each install of a key named `<plugin>@<marketplace>`, best first. A
+ * local or project install counts only when the session's project root lies
+ * within its `projectPath`; local ranks before project, the most specific
+ * path first, and user installs follow in the file's order. Anything
+ * unreadable, of another shape or climbing out of the install names nowhere.
  */
-export const pluginSkillPaths = (installedJson: string, skill: PluginSkill): readonly string[] => {
+export const pluginSkillPaths = (installedJson: string, skill: PluginSkill, root: string): readonly string[] => {
 	if (skill.dir.includes('/') || skill.dir.includes('\\') || skill.dir === '.' || skill.dir === '..') return []
 	let parsed: unknown
 	try {
@@ -104,15 +112,23 @@ export const pluginSkillPaths = (installedJson: string, skill: PluginSkill): rea
 	}
 	const plugins = (parsed as { plugins?: unknown } | null)?.plugins
 	if (typeof plugins !== 'object' || plugins === null || Array.isArray(plugins)) return []
-	const paths: string[] = []
+	const found: { path: string; rank: number; depth: number; order: number }[] = []
 	for (const [key, installs] of Object.entries(plugins)) {
 		if (key.split('@')[0] !== skill.plugin || !Array.isArray(installs)) continue
 		for (const install of installs) {
-			const root = (install as { installPath?: unknown } | null)?.installPath
-			if (typeof root === 'string' && root !== '') paths.push(`${root}/skills/${skill.dir}/SKILL.md`)
+			const { installPath, scope, projectPath } = (install ?? {}) as { installPath?: unknown; scope?: unknown; projectPath?: unknown }
+			if (typeof installPath !== 'string' || installPath === '') continue
+			const rank = typeof scope === 'string' ? (SCOPE_RANK[scope] ?? 2) : 2
+			if (rank < 2 && (typeof projectPath !== 'string' || projectPath === '' || !within(root, projectPath))) continue
+			found.push({
+				path: `${installPath}/skills/${skill.dir}/SKILL.md`,
+				rank,
+				depth: rank < 2 ? (projectPath as string).length : 0,
+				order: found.length,
+			})
 		}
 	}
-	return paths
+	return found.sort((a, b) => a.rank - b.rank || b.depth - a.depth || a.order - b.order).map(f => f.path)
 }
 
 /** Widest a minion's face may be, in terminal cells. */

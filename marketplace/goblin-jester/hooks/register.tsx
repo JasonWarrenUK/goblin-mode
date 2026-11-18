@@ -102,8 +102,9 @@ const refreshFrame = async ($: EngineInterface, patch: { served?: Tier; pinned?:
 
 /**
  * A skill's SKILL.md, as Claude Code resolves the name: a plugin skill
- * (`<plugin>:<dir>`) from its install in `installed_plugins.json`, else the
- * personal copy, which shadows the project's. Rejects when none reads.
+ * (`<plugin>:<dir>`) from its install in `installed_plugins.json` that
+ * applies to this session's project, else the personal copy, which shadows
+ * the project's. Rejects when none reads.
  */
 const readSkillFile = async ($: EngineInterface, skill: string): Promise<string> => {
 	const home = await $.env.get('HOME')
@@ -111,7 +112,8 @@ const readSkillFile = async ($: EngineInterface, skill: string): Promise<string>
 	if (fromPlugin) {
 		if (!home) throw new Error('HOME is not set')
 		const installed = await $.fs.read(`${home}/.claude/plugins/installed_plugins.json`)
-		for (const path of pluginSkillPaths(installed, fromPlugin)) {
+		const root = await $.session.root()
+		for (const path of pluginSkillPaths(installed, fromPlugin, root)) {
 			const text = await $.fs.read(path).catch(() => '')
 			if (text) return text
 		}
