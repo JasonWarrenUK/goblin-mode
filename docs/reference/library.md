@@ -49,7 +49,7 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `git-integrate.sh` | `git-integrate` | Mechanical merge/rebase/squash execution; the model only steps in on exit code 3 (conflicts) or to write the squash message |
 | `pr-facts.sh` | `pr-update` | PR metadata, current body, watermark and every commit since it in one dump |
 | `pr-wall.sh` | `hud-pr_wall` | Buckets open PRs by relationship to the user (GraphQL search) and cross-references local clones |
-| `safe-version-next.sh` | `project-tag_version`, `pr-land` | `svu next` with a programmatic guard: never crosses 0.x → 1.x automatically |
+| `safe-version-next.sh` | `project-tag_version`, `pr-land` | `svu next` with a programmatic guard: never crosses 0.x → 1.x automatically, except for a renamed plugin whose `plugin.json` declares `1.0.0`; a renamed plugin continues its old name's series |
 | `config_permit.py` | `config-permit` | Deterministic half of permission-granting: the skill's `allowed-tools` is scoped to only this one script |
 | `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data: fails fast on a malformed finding instead of rendering it wrong |
 | `slop-scan.py` | `red-doc` (report mode); `hooks/commit-msg`, `pr-create`, `pr-update`, `doc-readme`, `doc-changelog` (`--strict`) | Mechanical prose scan: house-rule breaches plus rhetorical-tell candidates; `--strict` is the gate mode (house rules only, code masked, exit 1 on a hit) |

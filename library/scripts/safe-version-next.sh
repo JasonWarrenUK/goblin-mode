@@ -83,9 +83,12 @@ fi
 # A renamed plugin continues its old series. When nothing is tagged under the
 # new prefix, the marketplace's renames map is walked back from this name
 # (newest earlier name first) to the first one with tags; the version is then
-# computed under that prefix, over the new directory's history, and printed
-# under the new one.
+# computed under that prefix and printed under the new one. The commit scan
+# covers the new directory and every walked-back name's directory, so a
+# change made before the move still counts: each directory is that name's
+# source in the marketplace as tagged, else a sibling of the new directory.
 renamed_from=""
+walked=()
 if [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
 	marketplace="$(git rev-parse --show-toplevel)/.claude-plugin/marketplace.json"
 	if [[ -f "$marketplace" ]]; then
@@ -106,6 +109,7 @@ while name not in seen:
 ' "$marketplace" "$plugin" 2>/dev/null)}")
 		for old in "${earlier[@]}"; do
 			[[ -n "$old" ]] || continue
+			walked+=("$old")
 			old_current=$(svu current --tag.prefix "${old}-v" --tag.pattern "${old}-v*" 2>/dev/null) || continue
 			[[ "$old_current" == "${old}-v0.0.0" ]] && continue
 			renamed_from="$old"
@@ -116,7 +120,22 @@ fi
 
 if [[ -n "$renamed_from" ]]; then
 	old_prefix="${renamed_from}-v"
-	old_next=$(svu next --tag.prefix "$old_prefix" --tag.pattern "${old_prefix}*" --log.directory "$dir") || { print -u2 -- "svu next failed"; exit 2 }
+	tagged_marketplace=$(git show "${old_current}:.claude-plugin/marketplace.json" 2>/dev/null)
+	log_dirs=(--log.directory "$dir")
+	for old in "${walked[@]}"; do
+		source=$(print -r -- "$tagged_marketplace" | python3 -I -c '
+import json, sys
+try:
+	for entry in json.load(sys.stdin).get("plugins") or []:
+		if entry.get("name") == sys.argv[1] and isinstance(entry.get("source"), str):
+			print(entry["source"].removeprefix("./"))
+			break
+except (ValueError, AttributeError):
+	pass
+' "$old" 2>/dev/null)
+		log_dirs+=(--log.directory "${source:-${dir:h}/$old}")
+	done
+	old_next=$(svu next --tag.prefix "$old_prefix" --tag.pattern "${old_prefix}*" "${log_dirs[@]}") || { print -u2 -- "svu next failed"; exit 2 }
 	current="${prefix}${old_current#$old_prefix}"
 	next="${prefix}${old_next#$old_prefix}"
 	print -u2 -- "renamed: continuing ${renamed_from}'s series from ${old_current}"
@@ -135,18 +154,23 @@ else
 	next=$(svu next "${next_args[@]}") || { print -u2 -- "svu next failed"; exit 2 }
 fi
 
+cur_major=${${current#$prefix}%%.*}
+next_major=${${next#$prefix}%%.*}
+
+# A rename that declares 1.0.0 out of a 0.x series is the human decision the
+# guard waits for, and the rename alone is the release, whatever its commit
+# type: so it is answered before the nothing-to-release exit.
+if [[ -n "$renamed_from" && "$cur_major" == "0" && "$declared" == "1.0.0" ]]; then
+	print -r -- "${prefix}1.0.0"
+	exit 0
+fi
+
 if [[ "$next" == "$current" ]]; then
 	print -u2 -- "nothing to release: no version-bumping commits since $current"
 	exit 3
 fi
 
-cur_major=${${current#$prefix}%%.*}
-next_major=${${next#$prefix}%%.*}
-
-if [[ -n "$renamed_from" && "$cur_major" == "0" && "$declared" == "1.0.0" ]]; then
-	# A rename that declares 1.0.0 is the human decision the guard waits for.
-	print -r -- "${prefix}1.0.0"
-elif [[ "$cur_major" == "0" && "$next_major" != "0" ]]; then
+if [[ "$cur_major" == "0" && "$next_major" != "0" ]]; then
 	minor=${${${current#$prefix}#*.}%%.*}
 	print -u2 -- "guard: svu proposed $next, but the first 1.x tag is a human decision: emitting a 0.x minor bump instead. Tag ${prefix}1.0.0 manually when the API is ready to be called stable."
 	print "${prefix}0.$((minor + 1)).0"

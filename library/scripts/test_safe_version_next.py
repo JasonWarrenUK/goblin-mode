@@ -127,11 +127,13 @@ class SafeVersionNext(unittest.TestCase):
 		self.assertEqual(result.returncode, 3, result.stderr)
 		self.assertIn("nothing to release", result.stderr)
 
-	def _renamed(self, old_tag: str, renames: dict, declared: str | None = None, message: str = "feat(new)!: rename old to new") -> None:
-		"""Tag `old/` at `old_tag` (none when empty), then move it to `new/` in one commit with the marketplace's renames map."""
+	def _renamed(self, old_tag: str, renames: dict, declared: str | None = None, message: str = "feat(new)!: rename old to new", before_rename: str | None = None) -> None:
+		"""Tag `old/` at `old_tag` (none when empty), optionally commit `before_rename` under `old/`, then move it to `new/` in one commit with the marketplace's renames map."""
 		_commit(self.repo, "old/f", "feat(old): init")
 		if old_tag:
 			_git(self.repo, "tag", old_tag)
+		if before_rename is not None:
+			_commit(self.repo, "old/e", before_rename)
 		_git(self.repo, "mv", "old", "new")
 		if declared is not None:
 			manifest = self.repo / "new" / ".claude-plugin" / "plugin.json"
@@ -162,11 +164,30 @@ class SafeVersionNext(unittest.TestCase):
 		self.assertEqual(result.stdout.strip(), "new-v0.3.0")
 		self.assertIn("guard:", result.stderr)
 
-	def test_a_renamed_plugin_follows_the_chain_to_the_oldest_tagged_name(self) -> None:
+	def test_a_renamed_plugin_follows_the_chain_back_past_an_untagged_name(self) -> None:
 		self._renamed("old-v1.2.0", {"old": "mid", "mid": "new"}, message="fix(new): rename old to new")
 		result = _run(self.repo, "--plugin", "new", "--dir", "new")
 		self.assertEqual(result.returncode, 0, result.stderr)
 		self.assertEqual(result.stdout.strip(), "new-v1.2.1")
+
+	def test_a_renamed_plugin_continues_the_nearest_tagged_earlier_name(self) -> None:
+		self._renamed("old-v1.2.0", {"old": "mid", "mid": "new"}, message="fix(new): rename mid to new")
+		_git(self.repo, "tag", "mid-v2.0.0", "HEAD~1")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v2.0.1")
+
+	def test_commits_under_the_old_directory_since_its_last_tag_count_towards_the_bump(self) -> None:
+		self._renamed("old-v2.4.0", {"old": "new"}, message="fix(new): rename old to new", before_rename="feat(old)!: drop thing")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v3.0.0")
+
+	def test_a_renamed_0x_plugin_declaring_1_0_0_crosses_even_when_the_rename_commit_bumps_nothing(self) -> None:
+		self._renamed("old-v0.2.0", {"old": "new"}, declared="1.0.0", message="chore(new): rename old to new")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v1.0.0")
 
 	def test_a_renamed_plugin_with_no_old_tags_bootstraps_from_its_manifest(self) -> None:
 		self._renamed("", {"old": "new"}, declared="0.3.0")
