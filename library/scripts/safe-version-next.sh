@@ -11,7 +11,11 @@
 #   no flags        root repo: tag prefix "v", history from the whole repo
 #   --plugin --dir  scope to one plugin subtree: tag prefix "NAME-v",
 #                    history and svu's commit scan both limited to PATH, so a
-#                    plugin only bumps on commits that actually touched it
+#                    plugin only bumps on commits that actually touched it;
+#                    a plugin with no tags under NAME-v that the
+#                    marketplace's renames map gives an earlier name
+#                    continues that name's series, and declaring 1.0.0 in
+#                    its plugin.json takes it across the 0.x guard
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
 #             2 environment error,
 #             3 nothing to release (no version-bumping commits since the
@@ -68,7 +72,55 @@ if [[ -n "$plugin" ]]; then
 fi
 
 current=$(svu current "${current_args[@]}" 2>/dev/null) || current="${prefix}0.0.0"
+
+# What the plugin's built plugin.json declares, if anything: the start of a
+# fresh series, and for a renamed plugin the human's word on crossing to 1.x.
+declared=""
+if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
+	declared=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$dir/.claude-plugin/plugin.json" | head -1)
+fi
+
+# A renamed plugin continues its old series. When nothing is tagged under the
+# new prefix, the marketplace's renames map is walked back from this name
+# (newest earlier name first) to the first one with tags; the version is then
+# computed under that prefix, over the new directory's history, and printed
+# under the new one.
+renamed_from=""
 if [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
+	marketplace="$(git rev-parse --show-toplevel)/.claude-plugin/marketplace.json"
+	if [[ -f "$marketplace" ]]; then
+		earlier=("${(@f)$(python3 -I -c '
+import json, sys
+try:
+	renames = json.load(open(sys.argv[1])).get("renames") or {}
+except (OSError, ValueError, AttributeError):
+	renames = {}
+name, seen = sys.argv[2], set()
+while name not in seen:
+	seen.add(name)
+	before = [old for old, new in renames.items() if new == name]
+	if not before:
+		break
+	name = before[0]
+	print(name)
+' "$marketplace" "$plugin" 2>/dev/null)}")
+		for old in "${earlier[@]}"; do
+			[[ -n "$old" ]] || continue
+			old_current=$(svu current --tag.prefix "${old}-v" --tag.pattern "${old}-v*" 2>/dev/null) || continue
+			[[ "$old_current" == "${old}-v0.0.0" ]] && continue
+			renamed_from="$old"
+			break
+		done
+	fi
+fi
+
+if [[ -n "$renamed_from" ]]; then
+	old_prefix="${renamed_from}-v"
+	old_next=$(svu next --tag.prefix "$old_prefix" --tag.pattern "${old_prefix}*" --log.directory "$dir") || { print -u2 -- "svu next failed"; exit 2 }
+	current="${prefix}${old_current#$old_prefix}"
+	next="${prefix}${old_next#$old_prefix}"
+	print -u2 -- "renamed: continuing ${renamed_from}'s series from ${old_current}"
+elif [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
 	# Plugin-only: svu current tolerates zero matching tags (falls back
 	# above); svu next does not, it hard-errors "no tags match" instead of
 	# treating an empty series as a first release. A fresh series starts at
@@ -78,10 +130,6 @@ if [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
 	# Root mode never hits this: an untagged repo's bare "v" pattern still
 	# matches everything, so svu next works unaided and a docs-only history
 	# correctly falls through to the "nothing to release" exit below.
-	declared=""
-	if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
-		declared=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$dir/.claude-plugin/plugin.json" | head -1)
-	fi
 	next="${prefix}${declared:-0.1.0}"
 else
 	next=$(svu next "${next_args[@]}") || { print -u2 -- "svu next failed"; exit 2 }
@@ -95,7 +143,10 @@ fi
 cur_major=${${current#$prefix}%%.*}
 next_major=${${next#$prefix}%%.*}
 
-if [[ "$cur_major" == "0" && "$next_major" != "0" ]]; then
+if [[ -n "$renamed_from" && "$cur_major" == "0" && "$declared" == "1.0.0" ]]; then
+	# A rename that declares 1.0.0 is the human decision the guard waits for.
+	print -r -- "${prefix}1.0.0"
+elif [[ "$cur_major" == "0" && "$next_major" != "0" ]]; then
 	minor=${${${current#$prefix}#*.}%%.*}
 	print -u2 -- "guard: svu proposed $next, but the first 1.x tag is a human decision: emitting a 0.x minor bump instead. Tag ${prefix}1.0.0 manually when the API is ready to be called stable."
 	print "${prefix}0.$((minor + 1)).0"

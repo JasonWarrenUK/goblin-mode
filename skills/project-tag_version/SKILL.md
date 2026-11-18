@@ -17,7 +17,7 @@ disallowed-tools: ["Bash(git push --tags:*)"] # publishes every stray local tag;
 
 [`svu`](https://github.com/caarlos0/svu) derives the next semver tag from conventional-commit history. It only computes the version; it never commits, pushes or merges.
 
-**Hard rule:** the tag always comes from `safe-version-next.sh`, never bare `svu next`. The script is identical to `svu next` except it refuses to cross 0.x → 1.x automatically; declaring the API stable is a human decision, so it emits a 0.x minor bump instead (and says so on stderr; relay the note when it fires). Later major bumps pass through.
+**Hard rule:** the tag always comes from `safe-version-next.sh`, never bare `svu next`. The script is identical to `svu next` except it refuses to cross 0.x → 1.x automatically; declaring the API stable is a human decision, so it emits a 0.x minor bump instead (and says so on stderr; relay the note when it fires). Later major bumps pass through. A renamed plugin with nothing tagged under its new name continues the old name's series, found through the `renames` map in `.claude-plugin/marketplace.json`; its `plugin.json` declaring `1.0.0` counts as the human decision, so the rename itself can cross into 1.x.
 
 ## The one tagging moment: merge to `main`
 

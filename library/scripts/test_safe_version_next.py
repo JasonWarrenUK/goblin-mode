@@ -9,6 +9,7 @@ isn't installed, since every case needs it.
 """
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -125,6 +126,61 @@ class SafeVersionNext(unittest.TestCase):
 		result = _run(self.repo, "--plugin", "pkg", "--dir", "pkg")
 		self.assertEqual(result.returncode, 3, result.stderr)
 		self.assertIn("nothing to release", result.stderr)
+
+	def _renamed(self, old_tag: str, renames: dict, declared: str | None = None, message: str = "feat(new)!: rename old to new") -> None:
+		"""Tag `old/` at `old_tag` (none when empty), then move it to `new/` in one commit with the marketplace's renames map."""
+		_commit(self.repo, "old/f", "feat(old): init")
+		if old_tag:
+			_git(self.repo, "tag", old_tag)
+		_git(self.repo, "mv", "old", "new")
+		if declared is not None:
+			manifest = self.repo / "new" / ".claude-plugin" / "plugin.json"
+			manifest.parent.mkdir(parents=True, exist_ok=True)
+			manifest.write_text(f'{{\n\t"name": "new",\n\t"version": "{declared}"\n}}\n')
+		marketplace = self.repo / ".claude-plugin" / "marketplace.json"
+		marketplace.parent.mkdir(parents=True, exist_ok=True)
+		marketplace.write_text(json.dumps({"plugins": [{"name": "new", "source": "./new"}], "renames": renames}))
+		_commit(self.repo, "new/g", message)
+
+	def test_a_renamed_2x_plugin_with_a_breaking_commit_takes_the_next_major_under_its_new_prefix(self) -> None:
+		self._renamed("old-v2.4.0", {"old": "new"})
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v3.0.0")
+
+	def test_a_renamed_0x_plugin_declaring_1_0_0_crosses_the_guard(self) -> None:
+		self._renamed("old-v0.2.0", {"old": "new"}, declared="1.0.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v1.0.0")
+		self.assertNotIn("guard:", result.stderr)
+
+	def test_a_renamed_0x_plugin_not_declaring_1_0_0_is_still_held_in_0x(self) -> None:
+		self._renamed("old-v0.2.0", {"old": "new"}, declared="0.2.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v0.3.0")
+		self.assertIn("guard:", result.stderr)
+
+	def test_a_renamed_plugin_follows_the_chain_to_the_oldest_tagged_name(self) -> None:
+		self._renamed("old-v1.2.0", {"old": "mid", "mid": "new"}, message="fix(new): rename old to new")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v1.2.1")
+
+	def test_a_renamed_plugin_with_no_old_tags_bootstraps_from_its_manifest(self) -> None:
+		self._renamed("", {"old": "new"}, declared="0.3.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v0.3.0")
+
+	def test_a_plugin_tagged_under_its_new_prefix_ignores_the_renames_map(self) -> None:
+		self._renamed("old-v2.4.0", {"old": "new"})
+		_git(self.repo, "tag", "new-v3.0.0")
+		_commit(self.repo, "new/h", "fix(new): thing")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v3.0.1")
 
 
 if __name__ == "__main__":
