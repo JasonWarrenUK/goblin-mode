@@ -1,7 +1,7 @@
 ---
 name: "Web: Design"
-description: "Design a new interface from a scope document, a roadmap task or an interview: inventory, layout, a wireframe in the product's own tokens with numbered callouts, approval, then the principles check"
-when_to_use: "When a new interface or page is to be designed before it is built. The invocation names a scope document path, a roadmap task id or `interview`; with no argument, the claimed task, then scope documents, then the interview are offered in that order."
+description: "Design a new interface from a scope document, a roadbook waypoint or an interview: inventory, layout, a wireframe in the product's own tokens with numbered callouts, approval, then the principles check"
+when_to_use: "When a new interface or page is to be designed before it is built. The invocation names a scope document path, a waypoint id or `interview`; with no argument, the waypoint on a trail, then scope documents, then the interview are offered in that order."
 model: opus
 effort: high
 metadata:
@@ -10,7 +10,7 @@ metadata:
   goblin-spinner: taking inventory|drawing boxes|numbering callouts
 disable-model-invocation: true
 allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash", "AskUserQuestion"]
-argument-hint: "[path to a scope document | roadmap task id | interview]"
+argument-hint: "[path to a scope document | waypoint id | interview]"
 ---
 
 # Design a new interface
@@ -22,10 +22,10 @@ Load `web-conventions` and `artefact-conventions` first. This skill ends at an a
 `$ARGUMENTS` is one of:
 
 - **A path** to an existing file: the scope document. Go to Step 3.
-- **A roadmap task id** (letters and digits with dots, `2SE.1`): find it with `python3 ~/.claude/marketplace/roadmap/scripts/roadmap.py open --json` and take its description, milestone and notes as the seed of a scope document. Go to Step 2 with the interview narrowed to what the task leaves open.
+- **A waypoint id** (letters and digits with dots, `2SE.1`): find it in the goblin-scout roadbook with `python3 ~/.claude/marketplace/goblin-scout/scripts/roadbook.py open --json` and take its description, milestone and notes as the seed of a scope document. Go to Step 2 with the interview narrowed to what the waypoint leaves open.
 - **`interview`**: go to Step 2.
 - **Nothing**: detect in this order and confirm each hit with one question before using it.
-  1. `roadmap.py ready --json` lists `claimed`; a task claimed by Jason is offered first.
+  1. `roadbook.py ready --json` lists `claimed`; a waypoint on a trail Jason started is offered first.
   2. `docs/**/*scope*.md` and `docs/specs/**/*.md`; every hit is offered.
   3. Neither: offer the interview.
 
@@ -35,7 +35,7 @@ Nothing starts without a confirmation.
 
 ## Step 2: Interview (when chosen)
 
-Rounds of 2 to 4 questions, the `roadmap:create-interview` discipline. Each round ends with *"Anything else, or shall I write up the scope?"*. Work through the scope template's sections in order, skipping any the seed already answers:
+Rounds of 2 to 4 questions, the `goblin-scout:plan-expedition` discipline. Each round ends with *"Anything else, or shall I write up the scope?"*. Work through the scope template's sections in order, skipping any the seed already answers:
 
 1. Who it is for, and what each audience arrives to do.
 2. Devices and viewports, with the source for each (principle 8).

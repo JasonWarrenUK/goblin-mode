@@ -35,7 +35,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
-| `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
+| `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadbook waypoint: suggest, worktree, implement… |
 | `/pr-handle_review` | ᛟ opus | Work through a PR's change requests: verify each independently, fix what holds up, reply to every th… |
 | `/pr-land` | ᛟ opus | Land an approved PR, or several in one run: merge to main, delete the branch, tag the version, sync… |
 | `/project-audit_deps` | ᛊ sonnet | Investigate this repo's dependencies in detail |
@@ -47,7 +47,7 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/theme-factory` | ᛟ opus | Create, update, extend, print or display a project theme family: a core palette plus per-target file… |
 | `/theme-target` | ᛊ sonnet | Define a new theme target type (a consumer of colour/type tokens the theme system doesn't cover yet)… |
 | `/web-check` | ᛊ sonnet | Run the principles check in wireframe, pass or signoff mode: the mechanical half by script, the judg… |
-| `/web-design` | ᛟ opus | Design a new interface from a scope document, a roadmap task or an interview: inventory, layout, a w… |
+| `/web-design` | ᛟ opus | Design a new interface from a scope document, a roadbook waypoint or an interview: inventory, layout… |
 | `/web-review` | ᛟ opus | Review an existing interface: collate its assets, publish an observation logger built for it, run pa… |
 | `/web-walkthrough` | ᛊ sonnet | The sign-off walkthrough: discover every open state, plan every route on every intended device, capt… |
 

@@ -19,7 +19,7 @@ Load `web-conventions` and `artefact-conventions` first. The review is a loop of
 
 ## Step 1: Start
 
-Run the shared start from `web-conventions`. For a review the inventory must also yield: the routes (per `asset-conventions` detection), the UI library in use (for principle 9), the device list (principle 8) and how the app is served locally. Pick the task slug from the roadmap task id or the branch name; everything lands in `docs/artefacts/<slug>/`.
+Run the shared start from `web-conventions`. For a review the inventory must also yield: the routes (per `asset-conventions` detection), the UI library in use (for principle 9), the device list (principle 8) and how the app is served locally. Pick the task slug from the roadbook waypoint id or the branch name; everything lands in `docs/artefacts/<slug>/`.
 
 If `docs/artefacts/<slug>/observations.json` exists and carries an `artifact` URL, this is a **resume**: skip Step 2, read the live store and start Step 3 from what is still open.
 

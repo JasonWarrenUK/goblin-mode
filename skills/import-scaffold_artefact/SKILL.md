@@ -60,7 +60,7 @@ Produce a short written inventory (components, state, deps, backend signals, Rea
 
 ## Step 3: Interview for the project-shaping decisions
 
-Some decisions are the user's to make, not yours to assume. Run a short structured interview, adapting the round discipline of the `roadmap:create-interview` skill: ask **2–4 questions per round**, never dump a long list at once, acknowledge briefly (don't repeat answers verbatim), and end each round with *"Anything else, or shall I write up the config?"*. This is a conversation, not a form.
+Some decisions are the user's to make, not yours to assume. Run a short structured interview, adapting the round discipline of the `goblin-scout:plan-expedition` skill: ask **2–4 questions per round**, never dump a long list at once, acknowledge briefly (don't repeat answers verbatim), and end each round with *"Anything else, or shall I write up the config?"*. This is a conversation, not a form.
 
 Skip any question the arguments or the Step 2 inventory already answers (don't ask about a backend if the artefact is clearly static; don't ask the stack if `react` was passed).
 
@@ -86,7 +86,7 @@ Deploy: Vercel
 Tail: tests + git, skip docs/deploy config for now
 ```
 
-Get explicit approval before scaffolding. Nothing is built until the user signs off; treat this the same as the interview skill treats "nothing is written to the roadmap until approved".
+Get explicit approval before scaffolding. Nothing is built until the user signs off; treat this the same as the interview skill treats "nothing is written to the roadbook until approved".
 
 - [ ] All undetermined decisions covered in 2-4-question rounds, none dumped at once
 - [ ] Closed choices used `AskUserQuestion` with a recommendation
@@ -264,7 +264,7 @@ Summarise: artefact source path; approved config (stack, backend, auth, deploy);
 ## Common Mistakes
 
 - **Dumping all interview questions at once.** 2-4 per round; it should read as a conversation, not a form.
-- **Scaffolding before the config is approved.** The interview's proposal needs a sign-off first, same as the roadmap interviewer never writes before approval.
+- **Scaffolding before the config is approved.** The interview's proposal needs a sign-off first, same as the roadbook interviewer (`goblin-scout:plan-expedition`) never writes before approval.
 - **Porting markup but dropping interactivity.** The state and handlers are the point; catalogue them in Step 2 and verify each live in Step 8.
 - **`useEffect` → `$effect` without checking cleanup.** Teardown timing differs; verify the cleanup fires on the right change.
 - **Turning a `useRef` mutable box into `$state`.** A ref-as-box is intentionally non-reactive; keep it a plain `let`.

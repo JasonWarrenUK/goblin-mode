@@ -119,5 +119,5 @@ Primarily determined by project context, but for tiebreaks use the following pre
 
 #### 1.8.3. Other Ecosystems
 
-Python: Poetry with poethepoet as the task runner is what production work uses; the roadmap plugin's scripts stay stdlib-only. No favoured package manager decided beyond that.
+Python: Poetry with poethepoet as the task runner is what production work uses; the goblin-scout plugin's scripts stay stdlib-only. No favoured package manager decided beyond that.
 

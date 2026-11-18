@@ -225,13 +225,14 @@ two sessions rebasing one chain is the thing to avoid, so it is rare.
   for the stack and the lower PR is merged only as far as GitHub's UI is
   concerned. Consequences: `doc-changelog` cannot build one entry per layer from
   first-parent history (read `git log --no-merges previousTag..tag`, or the
-  stack's PR titles, instead), and the `pr` fields on the lower layers' roadmap
-  tasks still point at the right PR.
+  stack's PR titles, instead), and the `pr` fields on the lower layers' roadbook
+  waypoints still point at the right PR.
 - **One landing, one tag**: a multi-layer merge is a single landing event;
   `pr-land` tags once afterwards, not once per layer.
-- **Roadmap linkage**: a task's optional `pr` field in `roadmaps.json`
-  (see `library/references/roadmap-conventions.md`) records the PR that ships
-  it. `next-task-ship` uses it to detect that a `done` dependency is still
-  unmerged and stack on its branch rather than branching from `main`.
+- **Roadbook linkage**: a waypoint's optional `pr` field in `roadbook.json`
+  (see `marketplace/goblin-scout/references/roadbook-conventions.md`)
+  records the PR that ships it. `next-task-ship` uses it to detect that a
+  `done` dependency is still unmerged and stack on its branch rather than
+  branching from `main`.
 - **`svu` on a child layer** counts the parent's unmerged commits too; a
   pending-bump report on a stacked branch describes the stack, not the layer.

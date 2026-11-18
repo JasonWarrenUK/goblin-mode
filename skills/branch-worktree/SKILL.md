@@ -76,7 +76,7 @@ Existence checks for `new`, after `git fetch origin`: `git show-ref --verify --q
    - New branch: `git worktree add -b <branch> <path> origin/<base>` (the local `<base>` when it has no remote counterpart)
 6. **Move the session:** call `EnterWorktree` with `path` set to the absolute worktree path. Then confirm both facts in one line: `pwd` and `git branch --show-current` match what was asked for. If either does not, say so plainly and stop; do not paper over it with a `cd`.
 7. **Bootstrap, without asking:** run `~/.claude/library/scripts/worktree-bootstrap.sh <path>`. It symlinks the main checkout's git-ignored `.env*` files and installs dependencies for every tracked lockfile. Relay its lines. Exit 1 means a step failed: name it and carry on, do not retry. Generated files (codegen) are not covered; mention them only if the project's docs call for them.
-8. **Close in one line:** the worktree is ready. A roadmap claim or push is not part of this skill; the roadmap hook's nudge keeps its own approval gate.
+8. **Close in one line:** the worktree is ready. Starting a trail on a roadbook waypoint, or a push, is not part of this skill; the goblin-scout hook's nudge keeps its own approval gate.
 
 ---
 
