@@ -107,12 +107,12 @@ Each item has an answer from Jason or waits here. **After the survey** means it 
 |---|---|---|---|
 | O1 | How later writes treat published notes and Linter | Brief item 7 | Answered: guard only while a publishing plugin is enabled. With Digital Garden or Share Note switched on, the archivist never writes to a note carrying `dg-publish: true` or `<prefix>_link`; switched off, flagged notes are ordinary notes. Linter is treated the same way: while it is on, a write the archivist makes may be rewritten on save |
 | O2 | Where `schema.json` lives in the vault | Brief item 8, spec §3.4 Verify | Answered: `<config folder>/archivist/schema.json`, beside the templates and visible in Obsidian, so Jason can read and edit it there. The audit skips that folder. Which config folder is a setting, never a name in this repository |
-| O3 | `$.session.send` is documented for another session or an agent, never the current one; `$.prompt.submit({ text })` starts a turn in the current session (code.claude.com/docs/en/plugins/mods/api.md, read 2026-11-18). R17's hand-off and the holes view's "draft that note" change to `$.prompt.submit` | Brief item 9, spec §3.5 Verify | At slicing: tell Jason the design changes |
-| O4 | How gnawing runs, on which model and at what cost. `claude -p` loads hooks and plugins unless `--bare` is passed, and `--bare` cannot use a subscription login, so a gnaw started that way fires the archivist's own SessionStart and SessionEnd and queues itself | Brief item 10 | At slicing |
-| O5 | The spec's Obsidian checks (backlinks from list properties §5.1; the canvas format §5.7; cell widths in Jason's font §5.8) need the app. Running the Obsidian binary launches the app and does not return; ask Jason before anything that starts it | Brief item 11 | At slicing |
-| O6 | Mismatches between the three sources, listed in section 6 | Brief item 12 | After the survey |
-| O7 | Tasks features that come from what his customised format encodes; a high bar, every earlier idea was turned down | Spec §9.1 | After the survey (section 7 of the report) |
-| O8 | How many lines the whisper may inject | Spec §9.2 | After the survey, from real project notes |
+| O3 | `$.session.send` is documented for another session or an agent, never the current one; `$.prompt.submit({ text })` starts a turn in the current session (code.claude.com/docs/en/plugins/mods/api.md, read 2026-11-18). R17's hand-off and the holes view's "draft that note" change to `$.prompt.submit` | Brief item 9, spec §3.5 Verify | Answered: the pane uses `$.prompt.submit` (Jason, 2026-11-18) |
+| O4 | How gnawing runs, on which model and at what cost. `claude -p` loads hooks and plugins unless `--bare` is passed, and `--bare` cannot use a subscription login, so a gnaw started that way fires the archivist's own SessionStart and SessionEnd and queues itself | Brief item 10 | Answered: `claude -p` on a cheap model (Haiku), started in the background at session start, with an environment variable the archivist sets itself (such as `GOB_ARC_GNAWING=1`); its own hooks see the variable and do nothing, so a gnaw never piles itself. Runs on Jason's subscription. Cost per session to be measured in slice 4 |
+| O5 | The spec's Obsidian checks (backlinks from list properties §5.1; the canvas format §5.7; cell widths in Jason's font §5.8) need the app. Running the Obsidian binary launches the app and does not return; ask Jason before anything that starts it | Brief item 11 | Slices 2 and 5, which rename and move through the CLI |
+| O6 | Mismatches between the three sources, listed in section 7 | Brief item 12 | Recorded; the band line is settled by O11 |
+| O7 | Tasks features that come from what his customised format encodes; a high bar, every earlier idea was turned down | Spec §9.1 | Open. Since the archivist writes no task lines (section 3), any Tasks feature reads the vault's own status scheme and never writes to it. No proposal yet clears the bar |
+| O8 | How many lines the whisper may inject | Spec §9.2 | Slice 3: no note carries a repo binding yet, so there is nothing real to size against until `bind-repo` exists |
 | O9 | Whether all four pane views stay. Jason named all four and cut none; holes goes first if the pane feels crowded | Spec §9.3, §5.8 Assumed | Answered for now |
 | O10 | Whether Obsidian leaves dot-folders out of its index | Spec §3.4 Verify | Moot: the schema lives in a visible folder (O2) |
 | O11 | Whether a second mod can draw in the band | Spec §5.8 Verify | Answered: since Claude Code 2.1.323 each mod that draws in the band gets its own row (code.claude.com/docs/en/plugins/mods/interface.md, read 2026-11-18) |
@@ -120,7 +120,23 @@ Each item has an answer from Jason or waits here. **After the survey** means it 
 | O13 | Whether `session_id`, `transcript_path`, `cwd` and `hook_event_name` reach every hook event | Spec §7 | Hooks slice |
 | O14 | What `${user_config.enabled}` and an unset `directory` option substitute to in skill content. `sniff-vault` treats empty and the literal `${user_config...}` as unset; the boolean's text is unchecked | New | First live run of the skill |
 
-## 6. Mismatches between the sources (O6)
+## 6. Slicing
+
+Approved by Jason on 2026-11-18. One branch and one PR per slice, in this order; 6 to 9 are independent of each other once 4 has landed. The Midden spec gave rummage (R5) no build step; it joins slice 3 because it only reads.
+
+| Slice | Branch | Ships | Roster |
+|---|---|---|---|
+| 1 | `feat/archivist-vault-survey` | `sniff-vault`, the plugin skeleton, this spec | R7 |
+| 2 | `feat/archivist-vault-access` | Read, append and create; `gob-arc-` properties; the git net; the publishing guard; the approved schema written to the vault on Jason's yes | Spec §3.1 to §3.4 |
+| 3 | `feat/archivist-bind-whisper` | `bind-repo`, the SessionStart whisper, `rummage-vault`, the seven states of Midden spec §6 | R1, R5, R6 |
+| 4 | `feat/archivist-pile-gnaw` | SessionEnd onto the pile, `gnaw-leavings`, the transcript reader | R2 to R4 |
+| 5 | `feat/archivist-nitpick` | `nitpick-vault` and its opt-in fix classes, journal migration and case clashes first | R8 |
+| 6 | `feat/archivist-hunches` | Hunch notes, `brood-quandary`, `read-bones`, `topple-hunch`, `gob-arc-revisit` | R9 to R11 |
+| 7 | `feat/archivist-holes-canvas` | `count-holes`, `daub-canvas` | R12, R13 |
+| 8 | `feat/archivist-whiff` | Grudges and the whiff, tuned on slice 4's grudges | R14, R15 |
+| 9 | `feat/archivist-peek-pane` | `/peek-vault`, the band, toasts, the wordmark | R16 to R20 |
+
+## 7. Mismatches between the sources (O6)
 
 | Claim | Midden spec | Design page | Goblin Mode Notice |
 |---|---|---|---|
@@ -132,11 +148,11 @@ Each item has an answer from Jason or waits here. **After the survey** means it 
 
 The counts agree. The band is now settled by O11, so the Notice's line becomes true once the band slice ships.
 
-## 7. For the pane slice
+## 8. For the pane slice
 
 The pane takes the wordmark every goblin-mode pane carries in the right of its header card (raid decree 7, ruling #11): the body lives in goblin-warband's `hooks/register.tsx` (`WORDMARK_WORD`, `WORDMARK_GAP`, `WORDMARK_MIN_FACTS`, `wordmark`, `cells`, `fit`, `packFacts`, `headerLayout` and the drawing block; introduced in commit `33f7ee8`, lines 828 to about 905). Paste it whole and change only `WORDMARK_WORD` to `ARCHIVIST` (17 cells); copy the three tests beside it in `hooks/warband.test.tsx` (lines 171, 178 and 191 in that commit). Read the file on main if the hash has gone.
 
-## 8. Checks
+## 9. Checks
 
 | Check | Command, from the repository root |
 |---|---|
