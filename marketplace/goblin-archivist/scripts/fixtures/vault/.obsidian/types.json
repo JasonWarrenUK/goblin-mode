@@ -1,0 +1,9 @@
+{
+	"types": {
+		"aliases": "aliases",
+		"tags": "tags",
+		"due": "date",
+		"status": "text",
+		"rating": "number"
+	}
+}

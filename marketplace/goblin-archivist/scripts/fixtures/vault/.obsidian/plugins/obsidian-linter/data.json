@@ -1,0 +1,11 @@
+{
+	"ruleConfigs": {
+		"yaml-timestamp": {"enabled": true, "date-created-key": "created", "date-modified-key": "modified"},
+		"format-tags-in-yaml": {"enabled": true},
+		"capitalize-headings": {"enabled": false, "style": "Title Case"},
+		"trailing-spaces": {"enabled": true, "twoSpaceLineBreak": false}
+	},
+	"lintOnSave": true,
+	"foldersToIgnore": ["Templates"],
+	"filesToIgnore": []
+}

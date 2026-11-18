@@ -1,0 +1,4 @@
+{
+	"daily": {"enabled": true, "folder": "Daily", "format": "YYYY-MM-DD", "template": "Templates/Daily.md"},
+	"weekly": {"enabled": false, "folder": "", "format": "gggg-[W]ww", "template": ""}
+}
