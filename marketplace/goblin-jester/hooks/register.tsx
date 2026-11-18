@@ -1,4 +1,4 @@
-// goblin-chrome: the hooks module. Every drawing reads the same state: the
+// goblin-jester: the hooks module. Every drawing reads the same state: the
 // palette (38), the day (37), the frame by tier (36), the vitals (18) and
 // the idle clock (28). The hint (27) and the question mask and heckles (29)
 // read it too. One switch in the options turns the lot off.
@@ -24,16 +24,16 @@ import { goblinCase, pick, seconds } from './text'
 import { CLOD, loadPalette, type Variant } from './theme'
 import { bandRule, DEFAULT_TIER, frameFor, glyphsFor, tierOf } from './tier'
 
-const PLUGIN = 'goblin-chrome'
+const PLUGIN = 'goblin-jester'
 
-const palette = atom({ plugin: 'goblin-chrome', key: 'palette' } as const, CLOD)
-const day = atom({ plugin: 'goblin-chrome', key: 'day' } as const, {
+const palette = atom({ plugin: 'goblin-jester', key: 'palette' } as const, CLOD)
+const day = atom({ plugin: 'goblin-jester', key: 'day' } as const, {
 	state: 'functional',
 	from: 'functional',
 	blend: 1,
 } as Day)
-const frame = atom({ plugin: 'goblin-chrome', key: 'frame' } as const, frameFor(DEFAULT_TIER, null, CLOD))
-const vitals = atom({ plugin: 'goblin-chrome', key: 'vitals' } as const, {
+const frame = atom({ plugin: 'goblin-jester', key: 'frame' } as const, frameFor(DEFAULT_TIER, null, CLOD))
+const vitals = atom({ plugin: 'goblin-jester', key: 'vitals' } as const, {
 	tools: 0,
 	errors: 0,
 	turnMs: 0,
@@ -41,7 +41,7 @@ const vitals = atom({ plugin: 'goblin-chrome', key: 'vitals' } as const, {
 	turnErrors: 0,
 	bounces: 0,
 } as Vitals)
-const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
+const idle = atom({ plugin: 'goblin-jester', key: 'idle' } as const, {
 	lastPromptAt: 0,
 	lastTurnEndAt: 0,
 	sessionStartAt: 0,
@@ -51,7 +51,7 @@ const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
 	sayingUntil: 0,
 } as Idle)
 const NO_RUN: Run = { skill: null, family: null, spinner: [], minions: [] }
-const run = atom({ plugin: 'goblin-chrome', key: 'run' } as const, NO_RUN)
+const run = atom({ plugin: 'goblin-jester', key: 'run' } as const, NO_RUN)
 
 /** How the spinner dresses a skill's word, matching the house `spinnerVerbs`. */
 const spinnerWord = (word: string): string => `••• ${goblinCase(word)} •••`

@@ -1,6 +1,6 @@
 import { expect, mock, test, type Engine } from 'claude-code/testing'
 
-const PLUGIN = 'goblin-chrome'
+const PLUGIN = 'goblin-jester'
 
 /** The world beneath the plugin: a clock at noon on a Wednesday, an empty store, a home. */
 const world = (on: Parameters<typeof mock.clock>[0]) => {

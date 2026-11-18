@@ -1,6 +1,6 @@
 {
-	"name": "goblin-chrome",
-	"version": "0.2.0",
+	"name": "goblin-jester",
+	"version": "1.0.0",
 	"description": "Goblin-mode's face inside Claude Code: a goblin in the band that reacts to the session and holds a prop for the skill that runs, minions for the subagents out, spinner words per skill, hint lines in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours.",
 	"author": {
 		"name": "Jason Warren"
@@ -12,7 +12,7 @@
 	"userConfig": {
 		"enabled": {
 			"type": "boolean",
-			"title": "Chrome on",
+			"title": "Jester on",
 			"description": "The one switch for all of it. Off, every hook passes through and nothing draws.",
 			"default": true
 		},

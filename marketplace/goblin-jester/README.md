@@ -1,4 +1,4 @@
-# goblin-chrome
+# goblin-jester
 
 > [!NOTE]
 > A Claude Code mod from [goblin-mode](https://github.com/JasonWarrenUK/goblin-mode): goblin-mode's face inside the terminal. Pure chrome. It changes nothing Claude does.
@@ -9,10 +9,10 @@
 
 ```sh
 claude plugin marketplace add JasonWarrenUK/goblin-mode
-claude plugin install goblin-chrome@goblin-mode
+claude plugin install goblin-jester@goblin-mode
 ```
 
-Needs Claude Code 2.1.287 or later. Draws in the terminal; the hooks run everywhere else and draw nothing.
+Needs Claude Code 2.1.287 or later. Renamed from `goblin-chrome` at 1.0.0: an existing install moves to the new name by itself, and `/plugin install goblin-jester@goblin-mode` once in a session fetches the new copy if Claude Code reports it not cached. Draws in the terminal; the hooks run everywhere else and draw nothing.
 
 ---
 
@@ -103,4 +103,4 @@ Set in `/config` or under `pluginConfigs` in `settings.json`.
 | `hooks/theme.ts` | Palette resolution per `library/references/theme-conventions.md` |
 | `types/index.d.ts` | The `$.state` contract: `palette`, `day`, `frame`, `vitals`, `idle`, `run`, readable by a plugin that lists this one under `dependencies` |
 
-Check it with `claude plugin validate marketplace/goblin-chrome` and `claude plugin test marketplace/goblin-chrome`; type-check with `tsc -p marketplace/goblin-chrome` once a session has laid the engine's types beside the manifest.
+Check it with `claude plugin validate marketplace/goblin-jester` and `claude plugin test marketplace/goblin-jester`; type-check with `tsc -p marketplace/goblin-jester` once a session has laid the engine's types beside the manifest.

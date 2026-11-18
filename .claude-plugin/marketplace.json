@@ -21,8 +21,8 @@
 			]
 		},
 		{
-			"name": "goblin-chrome",
-			"source": "./marketplace/goblin-chrome",
+			"name": "goblin-jester",
+			"source": "./marketplace/goblin-jester",
 			"description": "A mod: goblin-mode's face inside Claude Code. A goblin in the band that reacts to the session, hint lines in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours. Terminal only.",
 			"category": "productivity",
 			"tags": [
@@ -58,5 +58,8 @@
 				"slots"
 			]
 		}
-	]
+	],
+	"renames": {
+		"goblin-chrome": "goblin-jester"
+	}
 }
