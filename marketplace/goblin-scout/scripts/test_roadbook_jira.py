@@ -690,7 +690,7 @@ class Cli(unittest.TestCase):
         self.assertEqual(json.loads(out)["groups"]["topic"],
                          {"Ask a question": ["T-2"]})
 
-    def test_the_committed_roadmap_is_still_reachable_by_path(self):
+    def test_the_committed_roadbook_is_still_reachable_by_path(self):
         self.start()
         code, out = run("ready", str(self.committed))
         self.assertEqual(code, 0)

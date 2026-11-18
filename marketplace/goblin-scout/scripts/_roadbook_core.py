@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Shared core for the roadmap scripts in this directory.
+"""Shared core for goblin-scout's roadbook scripts in this directory.
 
-The roadmap source of truth is `.claude/roadbook.json`, an array of phase
+The roadbook's source of truth is `.claude/roadbook.json`, an array of phase
 objects `{name, path, archived?, externalGates, milestones}`. The active phase
 is the single non-`archived` entry. Statuses are recomputed mechanically from
 the dependency graph under the precedence rule
@@ -34,7 +34,7 @@ IN_PROGRESS = "in_progress"
 
 
 class RoadbookError(Exception):
-    """Raised when the roadmap cannot be located or parsed (caller → exit 2)."""
+    """Raised when the roadbook cannot be located or parsed (caller → exit 2)."""
 
 
 # A phase's `min_plugin` records the minimum plugin version (major.minor.0) that
@@ -83,7 +83,7 @@ def parse_version(text):
 
 def stamp_for(version):
     """The minimum-plugin stamp a write by `version` leaves: its major.minor
-    with patch 0, so patch releases never churn the roadmap file."""
+    with patch 0, so patch releases never churn the roadbook file."""
     parsed = parse_version(version)
     return f"{parsed[0]}.{parsed[1]}.0" if parsed else None
 
@@ -175,7 +175,7 @@ def _phases(data):
     if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
         raise RoadbookError(
             "roadbook.json is an old-format pointer registry, not a phase array; "
-            "run the roadmap migrate skill first")
+            "run goblin-scout:rebind-roadbook first")
     return data if isinstance(data, list) else [data]
 
 
@@ -195,7 +195,7 @@ def named_phase(data, name):
     chosen = matches[-1]
     if not chosen.get("milestones"):
         raise RoadbookError(
-            f"phase {name!r} has no 'milestones' array: not a rich-format roadmap")
+            f"phase {name!r} has no 'milestones' array: not a rich-format roadbook")
     return chosen
 
 
@@ -227,7 +227,7 @@ def active_phase(data, selector=None):
         chosen = live[0]
     if not chosen.get("milestones"):
         raise RoadbookError(
-            "active phase has no 'milestones' array — not a rich-format roadmap")
+            "active phase has no 'milestones' array: not a rich-format roadbook")
     return chosen
 
 

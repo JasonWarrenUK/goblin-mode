@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""roadbook.py — single CLI for the rich phase-array roadmap system.
+"""roadbook.py — single CLI for goblin-scout's rich phase-array roadbook.
 
 Replaces the former five sibling scripts (detect_format, validate_roadbook,
 recompute_roadbook, roadbook_stats, roadbook_graph) with one entry point and a
@@ -43,11 +43,11 @@ Usage: roadbook.py SUBCOMMAND [PATH] [--phase NAME] [flags]
              post-tool-use); reads the hook JSON on stdin, always exits 0
 
 PATH is optional everywhere (after ID for claim and release); without it the
-roadmap is located by walking up from the cwd. --phase selects one phase by
+roadbook is located by walking up from the cwd. --phase selects one phase by
 name when several are active (without it, multiple active phases are an
 error — never a silent guess).
 
-All subcommands exit 2 when the roadmap cannot be located or parsed.
+All subcommands exit 2 when the roadbook cannot be located or parsed.
 Requires Python 3.8+, stdlib only. British spelling throughout.
 """
 from __future__ import annotations
@@ -97,7 +97,7 @@ from _roadbook_core import (
 )
 
 # ---------------------------------------------------------------------------
-# Canonical status→colour table: the roadmap system's own fixed palette
+# Canonical status→colour table: the roadbook's own fixed palette
 # (literal hexes, originally derived from Reasonable Colors shades 1/4 and
 # 6/2; the values are now owned here and no external palette is loaded).
 # The single source of truth for every projection: PHASE.md Mermaid (literal
@@ -367,7 +367,7 @@ def milestone_state(by_status, done_pct, total=None, in_progress=0,
        tier rewrite. It does NOT fire while actionable work remains: a
        milestone with five todo tasks and one deferred one is still live
        work to pick up, not a shelved milestone; hiding those five behind
-       "deferred" would contradict roadmap:next-group's own ready-set)
+       "deferred" would contradict goblin-scout:survey-waypoints' own ready-set)
     4. stuck (milestone_all_blocked(): work remains, every unfinished task
        is blocked and nobody has a claim in play) -> `blocked`. Done work
        does not soften this: 7 done + 1 blocked reads `blocked`, since
@@ -416,7 +416,7 @@ def dev_colour(assignee):
 
 
 def project_root(json_path):
-    """The project root a roadmap belongs to. roadbook.json conventionally
+    """The project root a roadbook belongs to. roadbook.json conventionally
     lives at <root>/.claude/roadbook.json; when it lives elsewhere, treat its
     own directory as the root rather than blindly taking parent.parent."""
     p = Path(json_path).resolve()
@@ -430,7 +430,7 @@ _ANCHOR_RE = re.compile(r'<a name="m\d|#m\d+-(?:doing|todo|blocked|done)')
 
 
 def _md_paths(data, json_path):
-    """Every .md path referenced by the roadmap json, resolved from its root."""
+    """Every .md path referenced by the roadbook json, resolved from its root."""
     base = project_root(json_path)
     paths = []
     if isinstance(data, list):
@@ -517,9 +517,9 @@ def _validate_phase(phase):
                     f"{tid}: ended {ended!r} is not a YYYY-MM-DD date")
             elif task.get("status") != "done":
                 problems.append(
-                    f"{tid}: ended {ended} on a task whose status is "
+                    f"{tid}: ended {ended} on a waypoint whose status is "
                     f"{task.get('status')!r}, not done (an end date records "
-                    "finished work; remove it when a task is reopened)")
+                    "finished work; remove it when a waypoint is reopened)")
             elif (_is_iso_date(task.get("started"))
                   and ended < task["started"]):
                 problems.append(
@@ -543,7 +543,7 @@ def _validate_phase(phase):
         expected = gate_expected_blocks[gid]
         for missing in sorted(expected - declared):
             problems.append(
-                f"gate {gid}: blocks[] missing {missing} (task depends on gate)")
+                f"gate {gid}: blocks[] missing {missing} (waypoint depends on gate)")
         for extra in sorted(declared - expected):
             problems.append(
                 f"gate {gid}: blocks[] lists {extra} but it does not depend on {gid}")
@@ -601,7 +601,7 @@ def cmd_validate(args) -> int:
             print(f"  - {p}")
         return 1
     print(f"✓ '{phase.get('name')}' clean: "
-          f"{len(tasks)} tasks, {len(milestones)} milestones, {len(gates)} gates.")
+          f"{len(tasks)} waypoints, {len(milestones)} milestones, {len(gates)} gates.")
     return 0
 
 
@@ -630,7 +630,7 @@ def _refuse_if_stamped_newer(data):
         stamp = phase.get(STAMP_KEY)
         if newer_than_running(stamp, PLUGIN_VERSION):
             raise RoadbookError(
-                f"phase {phase.get('name')!r} was written by roadmap plugin "
+                f"phase {phase.get('name')!r} was written by plugin version "
                 f"{stamp}; this is {PLUGIN_VERSION}. Update the plugin before "
                 "writing, so nothing a newer version produced is undone.")
 
@@ -732,7 +732,8 @@ def _migrate_legacy(path, data):
     moves = " and ".join(f"{_shown(s)} to {_shown(t)}" for s, t, _c in plan)
     print(f"goblin-scout {PLUGIN_VERSION} moved {moves}; no value was "
           "rewritten, the chart and projections keep their paths and a 2.x "
-          "roadmap plugin now refuses the file. Commit the move.",
+          "plugin (when it was called roadmap) now refuses the file. Commit "
+          "the move.",
           file=sys.stderr)
     for source, target, _content in plan:
         if target.name not in LOCAL_NAMES:
@@ -760,7 +761,7 @@ def _refuse_if_artefact_newer(out):
     found = _ARTEFACT_VERSION_RE.search(existing)
     if found and newer_than_running(found.group(1), PLUGIN_VERSION):
         raise RoadbookError(
-            f"{out} was rendered by roadmap plugin {found.group(1)}; this is "
+            f"{out} was rendered by plugin version {found.group(1)}; this is "
             f"{PLUGIN_VERSION}. Update the plugin before rendering over it.")
 
 
@@ -976,7 +977,7 @@ def _human_stats(stats):
             lines.append(f"       {active}")
     if stats["invalid"]:
         lines.append("")
-        lines.append(f"WARNING: {len(stats['invalid'])} task(s) with invalid "
+        lines.append(f"WARNING: {len(stats['invalid'])} waypoint(s) with invalid "
                      f"status, excluded from byStatus: "
                      + ", ".join(stats["invalid"]))
     return "\n".join(lines)
@@ -1234,8 +1235,8 @@ def _classdef_lines(palette, styles=STATUS_STYLE):
 
 def _topological_order(ids, order, edges):
     """Stable Kahn's algorithm: among the ready nodes, always emit the one
-    that appears first in the roadmap. Any cycle remainder (invalid, but the
-    diagram should still draw) is appended in roadmap order."""
+    that appears first in the roadbook. Any cycle remainder (invalid, but the
+    diagram should still draw) is appended in roadbook order."""
     indeg = {}
     out = {}
     for e in edges:
@@ -1326,7 +1327,7 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     softDependsOn edges render dotted (-.->) and are fed into the same
     topological ordering as hard edges for layout stability; unlike
     dependsOn they may form cycles (Kahn's tolerates this by appending the
-    remainder in roadmap order) and never impose status, block a milestone
+    remainder in roadbook order) and never impose status, block a milestone
     sink, or fail validation's acyclicity check.
 
     A tiered phase (any milestone in tier >= 1) draws every node inside
@@ -1401,7 +1402,7 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
     return "\n".join(lines)
 
 
-# Estimated on-screen footprint of one Mermaid node in the roadmap artefact's
+# Estimated on-screen footprint of one Mermaid node in the chart's
 # diagram shell (IBM Plex Mono 16px, up to _LABEL_MAX-ish characters wrapped
 # by mermaid, plus its padding) and the gap the layout engine leaves between
 # ranks/nodes. Rough by nature: real layout depends on label length, mermaid
@@ -1683,7 +1684,7 @@ def ready_groups(candidates):
     """Candidate ids keyed by milestone, by topic and by dev, for the
     --json path.
 
-    roadmap:next-group prints one table per group. Left to count for itself, a
+    goblin-scout:survey-waypoints prints one table per group. Left to count for itself, a
     model drops rows and still reports a full total, so the membership of
     every table is fixed here instead. The topic is the task's own `topic`
     when it has one (a mirrored task carries its epic there), else the letters
@@ -1735,10 +1736,10 @@ def cmd_ready(args, horizon="ready") -> int:
         return 0
     noun = "open" if horizon == "open" else "unblocked"
     if not ready["candidates"]:
-        print(f"{ready['phase']}: no {noun} tasks.")
+        print(f"{ready['phase']}: no {noun} waypoints.")
         _print_claimed(ready["claimed"])
         return 0
-    print(f"{ready['phase']}: {len(ready['candidates'])} {noun} task(s), "
+    print(f"{ready['phase']}: {len(ready['candidates'])} {noun} waypoint(s), "
           "highest leverage first")
     for c in ready["candidates"]:
         sink = "  [completes milestone]" if c["isMilestoneSink"] else ""
@@ -1753,7 +1754,7 @@ def cmd_ready(args, horizon="ready") -> int:
 def _print_claimed(claimed):
     if not claimed:
         return
-    print(f"claimed: {len(claimed)} task(s)")
+    print(f"on a trail: {len(claimed)} waypoint(s)")
     for c in claimed:
         who = f" by {c['assignee']}" if c.get("assignee") else ""
         blocked = "" if c["status"] == "todo" else f" ({c['status']})"
@@ -1941,7 +1942,7 @@ def _render_to(json_path, data, phase, out):
             f"{template_html.count('%%DATA%%')} in {template}")
     _assert_header_comment_clean(template_html, template)
     html = (template_html
-            .replace("%%TITLE%%", str(phase.get("name") or "Roadmap"))
+            .replace("%%TITLE%%", str(phase.get("name") or "Roadbook"))
             .replace("%%DATA%%", payload))
     _refuse_if_artefact_newer(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1971,10 +1972,10 @@ PHASE_FIELD_ORDER = ["name", "path", "project", SOURCE_KEY, ARTEFACT_KEY,
 def cmd_config(args) -> int:
     if (args.clear and args.value and not args.path
             and not args.value.lower().endswith(".html")):
-        # `config artefact --clear ROADMAP.json`: both positionals are
-        # optional, so argparse has read the roadmap path as the value.
+        # `config artefact --clear ROADBOOK.json`: both positionals are
+        # optional, so argparse has read the roadbook path as the value.
         # A value that looks like a dashboard path is a mistyped set, left
-        # for the guard below rather than read as the roadmap path.
+        # for the guard below rather than read as the roadbook path.
         args.path, args.value = args.value, None
     if args.clear == bool(args.value):
         print("✗ give a value to set, or --clear to remove the key")
@@ -2009,12 +2010,12 @@ def cmd_config(args) -> int:
     path = _write_roadbook(path, data)
     after = _render_path(path, phase)
     verb = "cleared artefact on" if args.clear else "set artefact on"
-    print(f"{verb} '{name}'; the dashboard path is now {after}")
+    print(f"{verb} '{name}'; the chart path is now {after}")
     # On a case-insensitive filesystem a case-only change leaves one file
     # under two names, so the "old" dashboard is the live one: no note.
     if (before and before != after and before.exists()
             and not (after.exists() and os.path.samefile(before, after))):
-        print(f"note: a dashboard still exists at the old path {before}; "
+        print(f"note: a chart still exists at the old path {before}; "
               "nothing refreshes it any more, so delete it")
     if not after.exists():
         print(f"note: no artefact at {after} yet; run `roadbook.py render"
@@ -2075,12 +2076,12 @@ def _load_for_write(args):
         return None, None, None, 1
     index = build_index(phase)
     if args.id not in index[0]:
-        print(f"✗ no task {args.id!r} in '{phase.get('name')}'")
+        print(f"✗ no waypoint {args.id!r} in '{phase.get('name')}'")
         return None, None, None, 1
     if is_mirrored(phase, index[0][args.id]):
         print(f"✗ {args.id} is mirrored from {_source_label(phase)}: its "
               "status, dates and assignee are set there and arrive with "
-              "`roadbook.py pull`. Only a task marked local can be changed here.")
+              "`roadbook.py pull`. Only a waypoint marked local can be changed here.")
         return None, None, None, 1
     return path, data, index, None
 
@@ -2091,13 +2092,13 @@ def _source_label(phase):
 
 
 def _refuse_history_dates(phase, command):
-    """stamp-ended and backfill-ended read the roadmap file's git history; a
+    """stamp-ended and backfill-ended read the roadbook file's git history; a
     mirrored phase lives outside git and takes its dates from the tracker."""
     if phase_source(phase) is None:
         return False
     print(f"✗ '{phase.get('name')}' is mirrored from {_source_label(phase)}: "
           f"end dates arrive with `roadbook.py pull`, so {command} has nothing "
-          "to do. Date a local task with `roadbook.py end ID`.")
+          "to do. Date a local waypoint with `roadbook.py end ID`.")
     return True
 
 
@@ -2109,13 +2110,13 @@ def cmd_claim(args) -> int:
     task = tasks[args.id]
     cycles = find_cycles(tasks, milestones)
     if cycles:
-        print("✗ cycle detected; refusing to claim until it is resolved:")
+        print("✗ cycle detected; refusing to start a trail until it is resolved:")
         for cycle in cycles:
             print("  - " + " -> ".join(cycle))
         return 1
     if is_claimed(task):
         who = f" by {task['assignee']}" if task.get("assignee") else ""
-        print(f"✗ {args.id} is already claimed{who} (started {task['started']})")
+        print(f"✗ {args.id} is already on a trail{who} (started {task['started']})")
         return 1
     computed = recompute_all(tasks, milestones, gates)
     effective = task.get("status") if is_held(task) else computed.get(args.id)
@@ -2160,7 +2161,7 @@ def cmd_claim(args) -> int:
     _write_roadbook(path, data)
     who = f", assignee {task['assignee']}" if task.get("assignee") else ""
     stacked = f", stacked on {', '.join(stacked_on)}" if stacked_on else ""
-    print(f"✓ claimed {args.id} (started {started}{who}{stacked})")
+    print(f"✓ {args.id} is on a trail (started {started}{who}{stacked})")
     return 0
 
 
@@ -2198,7 +2199,7 @@ def cmd_release(args) -> int:
         return code
     task = index[0][args.id]
     if not is_claimed(task):
-        print(f"✗ {args.id} is not claimed")
+        print(f"✗ {args.id} is not on a trail")
         return 1
     del task["started"]
     if args.unassign:
@@ -2266,7 +2267,7 @@ def cmd_stamp_ended(args) -> int:
     if before is None:
         print(f"✗ cannot read phase {phase.get('name')!r} at the merge-base "
               f"({base[:8]}): the file is missing or unparseable there, or the "
-              "phase was renamed; stamp tasks with `end ID` or run "
+              "phase was renamed; stamp waypoints with `end ID` or run "
               "`backfill-ended`")
         return 1
     tasks = build_index(phase)[0]
@@ -2290,7 +2291,7 @@ def cmd_stamp_ended(args) -> int:
                           "tasks": chosen}))
         return 0
     verb = "would end" if args.dry_run else "ended"
-    print(f"{phase.get('name')}: {verb} {len(chosen)} task(s) on {ended}"
+    print(f"{phase.get('name')}: {verb} {len(chosen)} waypoint(s) on {ended}"
           + (": " + ", ".join(chosen) if chosen else ""))
     return 0
 
@@ -2298,7 +2299,7 @@ def cmd_stamp_ended(args) -> int:
 def ended_from_history(versions, today):
     """{task id: (date, sha, basis)} for every task done in the last version.
 
-    `versions` is the roadmap's history oldest first, each a (sha, date,
+    `versions` is the roadbook's history oldest first, each a (sha, date,
     {id: status}) triple. A task's end date is the date of the version where
     it last became done: a later reopen resets the clock, and a task that was
     done before it ever reached git is dated by the first version showing it
@@ -2437,9 +2438,9 @@ def cmd_backfill_ended(args) -> int:
         return 0
     verb = "would set" if args.dry_run else "set"
     if not rows and not skipped:
-        print(f"{phase.get('name')}: every done task already has an end date.")
+        print(f"{phase.get('name')}: every done waypoint already has an end date.")
         return 0
-    print(f"{phase.get('name')}: {verb} ended on {len(rows)} task(s)")
+    print(f"{phase.get('name')}: {verb} ended on {len(rows)} waypoint(s)")
     for row in rows:
         note = f" [{row['basis']}]" if row["basis"] != "transition" else ""
         where = f" ({row['commit']})" if row["commit"] else ""
@@ -2457,7 +2458,7 @@ def cmd_backfill_ended(args) -> int:
 def _pull_target(args):
     """(path, data, phase) for `pull`: the live mirrored phase, or a new one
     when --project names a Jira project nothing here mirrors yet. A new phase
-    goes into the local roadmap file, created beside the committed one."""
+    goes into the local roadbook file, created beside the committed one."""
     # Only a file that cannot be found starts a new one. A file that exists
     # but does not parse is the user's work, so its error is let through
     # rather than replaced by a fresh file.
@@ -2530,7 +2531,7 @@ def cmd_pull(args) -> int:
         query = f" (jql: {source['jql']})" if source.get("jql") else ""
         print(f"✗ Jira project {source.get('project')}{query} returned no "
               "tasks; nothing written. If the project really is empty now, "
-              "delete the phase from the local roadmap file to start again")
+              "delete the phase from the local roadbook file to start again")
         return 1
     trial = copy.deepcopy(phase)
     report = jira.merge(trial, issues, TASK_FIELD_ORDER)
@@ -2546,7 +2547,7 @@ def cmd_pull(args) -> int:
                   "tasks; pass --allow-removals if Jira really lost them")
         if not args.dry_run:
             print(f"✗ {shrink}; nothing written (`--dry-run` lists the "
-                  "tasks)")
+                  "waypoints)")
             return 1
     phase.clear()
     phase.update(trial)
@@ -2561,7 +2562,7 @@ def cmd_pull(args) -> int:
         git, rel = _git_at_toplevel(path)
         if git is not None and git("check-ignore", "-q", rel) is None:
             print(f"note: {rel} is not ignored by git. It is a mirror of "
-                  f"Jira plus your own tasks; add `{rel}` to .gitignore "
+                  f"Jira plus your own waypoints; add `{rel}` to .gitignore "
                   "unless the team has agreed to share it.")
     return 0
 
@@ -2616,7 +2617,7 @@ def main(argv=None) -> int:
                     help="complete Mermaid source incl. classDefs")
     sp.add_argument("--direction", choices=["LR", "TD"], default="LR")
     sp.add_argument("--omit-done", action="store_true",
-                    help="drop done and out_of_scope tasks and the milestones "
+                    help="drop done and out_of_scope waypoints and the milestones "
                          "they empty")
     sp.add_argument("--palette", choices=["light", "dark", "vars"],
                     default="light",
@@ -2635,15 +2636,15 @@ def main(argv=None) -> int:
     within_flags(common(sub.add_parser(
         "ready", help="actionable todo candidates")))
     within_flags(common(sub.add_parser(
-        "open", help="every task not done or out of scope")))
+        "open", help="every waypoint not done or out of scope")))
 
-    sp = common(sub.add_parser("render", help="write the HTML artefact"))
+    sp = common(sub.add_parser("render", help="write the HTML chart"))
     sp.add_argument("--out", default=None, help="output path override")
 
     sp = sub.add_parser(
         "config", help="set a per-phase option in roadbook.json")
     sp.add_argument("key", choices=[ARTEFACT_KEY],
-                    help="artefact: where render writes the dashboard, "
+                    help="artefact: where render writes the chart, "
                          "relative to the project root")
     sp.add_argument("value", nargs="?", default=None,
                     help="the value to set (omit with --clear)")
@@ -2663,7 +2664,7 @@ def main(argv=None) -> int:
         return sp
 
     sp = claim_common(sub.add_parser(
-        "claim", help="record that someone has started a task"))
+        "claim", help="start a trail: record that a scout has started a waypoint"))
     sp.add_argument("--assignee", default=None,
                     help="who is doing it (asked for, never inferred)")
     sp.add_argument("--reassign", action="store_true",
@@ -2672,7 +2673,7 @@ def main(argv=None) -> int:
                     help="start date YYYY-MM-DD (default today)")
 
     sp = claim_common(sub.add_parser(
-        "assign", help="set or clear who will do a task, without starting it"))
+        "assign", help="set or clear which scout will take a waypoint, without starting it"))
     who = sp.add_mutually_exclusive_group(required=True)
     who.add_argument("--assignee", default=None,
                      help="who will do it (asked for, never inferred)")
@@ -2680,7 +2681,7 @@ def main(argv=None) -> int:
                      help="clear the assignee")
 
     sp = claim_common(sub.add_parser(
-        "end", help="record the date a done task finished"))
+        "end", help="record the date a done waypoint finished"))
     sp.add_argument("--date", default=None,
                     help="end date YYYY-MM-DD (default today)")
     sp.add_argument("--force", action="store_true",
@@ -2688,7 +2689,7 @@ def main(argv=None) -> int:
 
     sp = common(sub.add_parser(
         "backfill-ended",
-        help="date done tasks that lack `ended` from git history"))
+        help="date done waypoints that lack `ended` from git history"))
     sp.add_argument("--dry-run", action="store_true", help="preview, no write")
     sp.add_argument("--json", action="store_true")
     sp.add_argument("--reformat", action="store_true",
@@ -2696,11 +2697,11 @@ def main(argv=None) -> int:
 
     sp = common(sub.add_parser(
         "stamp-ended",
-        help="date the done tasks a branch finished, before it merges"))
+        help="date the done waypoints a branch finished, before it merges"))
     sp.add_argument("--base", default="origin/main",
                     help="ref to take the merge-base with (default origin/main)")
     sp.add_argument("--pr", type=int, default=None,
-                    help="also stamp done tasks whose `pr` is this number")
+                    help="also stamp done waypoints whose `pr` is this number")
     sp.add_argument("--date", default=None,
                     help="end date YYYY-MM-DD (default today)")
     sp.add_argument("--dry-run", action="store_true", help="preview, no write")
@@ -2708,7 +2709,7 @@ def main(argv=None) -> int:
     sp.add_argument("--reformat", action="store_true",
                     help="allow rewriting a non-canonically-formatted file")
 
-    sp = claim_common(sub.add_parser("release", help="drop a claim"))
+    sp = claim_common(sub.add_parser("release", help="drop a trail without finishing it"))
     sp.add_argument("--unassign", action="store_true",
                     help="also clear the assignee")
 
@@ -2724,7 +2725,7 @@ def main(argv=None) -> int:
                          "instead of calling Jira")
     sp.add_argument("--allow-removals", action="store_true",
                     help="write a pull that removes more than half of the "
-                         "mirrored tasks (refused by default)")
+                         "mirrored waypoints (refused by default)")
     sp.add_argument("--dry-run", action="store_true", help="preview, no write")
 
     sp = sub.add_parser("hook", help="Claude Code hook entry point")

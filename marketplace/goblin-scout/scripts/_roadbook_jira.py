@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mirror a Jira project into a roadmap phase: the read half of `roadbook.py pull`.
+"""Mirror a Jira project into a roadbook phase: the read half of `roadbook.py pull`.
 
 A phase whose `source` is `{"kind": "jira", "project": KEY}` is a mirror of
 that Jira project. Jira is the source of truth; nothing here writes to it.

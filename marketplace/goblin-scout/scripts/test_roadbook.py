@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fixture tests for the roadmap system (_roadbook_core.py + roadbook.py).
+"""Fixture tests for goblin-scout's roadbook (_roadbook_core.py + roadbook.py).
 
 Run from this directory: python3 -m unittest test_roadbook -v
 Stdlib only. Each test builds a minimal phase dict; file-based behaviour
@@ -47,7 +47,7 @@ def task(tid, status="todo", depends=None, soft=None, **extra):
 
 
 def phase(milestones, gates=None, name="Test Phase", **extra):
-    p = {"name": name, "path": "docs/roadmaps/TEST.md",
+    p = {"name": name, "path": "docs/roadbook/TEST.md",
          "externalGates": gates or [], "milestones": milestones}
     p.update(extra)
     return p
@@ -197,13 +197,13 @@ class ActivePhase(unittest.TestCase):
 
 
 class MalformedInput(unittest.TestCase):
-    def test_missing_task_id_is_roadmap_error(self):
+    def test_missing_task_id_is_roadbook_error(self):
         ph = phase([{"id": "M1", "name": "m",
                      "tasks": [{"description": "no id", "status": "todo"}]}])
         with self.assertRaises(RoadbookError):
             build_index(ph)
 
-    def test_missing_milestone_id_is_roadmap_error(self):
+    def test_missing_milestone_id_is_roadbook_error(self):
         ph = phase([{"name": "m", "tasks": [task("a")]}])
         with self.assertRaises(RoadbookError):
             build_index(ph)
@@ -258,7 +258,7 @@ class Stats(unittest.TestCase):
                           by_id["M2"]["donePct"]), (1, 1, 100))
         self.assertEqual((stats["byStatus"]["done"], stats["inScope"],
                           stats["donePct"]), (2, 3, 67))
-        # total stays raw: the ROADMAP_OVERVIEW header count reads it
+        # total stays raw: the ROADBOOK_OVERVIEW header count reads it
         self.assertEqual(stats["total"], 6)
         self.assertEqual(by_id["M1"]["total"], 3)
 
@@ -414,7 +414,7 @@ class MilestoneState(unittest.TestCase):
     def test_member_deferred_never_fires_while_actionable_work_remains(self):
         # Five todo tasks are still live work to pick up, not a shelved
         # milestone: hiding them behind "deferred" would contradict
-        # roadmap:next-group's own ready-set, which still lists them.
+        # goblin-scout:survey-waypoints' own ready-set, which still lists them.
         by_status = {"todo": 5, "deferred": 1}
         self.assertEqual(
             roadbook.milestone_state(by_status, 0, total=6), "todo")
@@ -1391,7 +1391,7 @@ class FileBased(unittest.TestCase):
     def test_detect_old_via_md_anchors(self):
         rich = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}])]
         root, jp = self._project(rich)
-        md = root / "docs" / "roadmaps"
+        md = root / "docs" / "roadbook"
         md.mkdir(parents=True)
         (md / "TEST.md").write_text('# Old\n<a name="m1-todo"></a>\n')
         self.assertEqual(roadbook.main(["detect", str(jp)]), 3)
@@ -1620,7 +1620,7 @@ class ArtefactPath(unittest.TestCase):
     def _phase(name, milestones, **extra):
         """A phase dict in canonical field order, so a config write's insertion
         point can be asserted against the whole key sequence."""
-        p = {"name": name, "path": "docs/roadmaps/TEST.md"}
+        p = {"name": name, "path": "docs/roadbook/TEST.md"}
         for key in ("project", "artefact", "archived"):
             if key in extra:
                 p[key] = extra[key]
@@ -1754,14 +1754,14 @@ class ArtefactPath(unittest.TestCase):
 
     def test_config_needs_a_value_or_clear_not_both(self):
         root, jp = self._project(self._data())
-        with contextlib.chdir(root):  # no value, roadmap found from the cwd
+        with contextlib.chdir(root):  # no value, roadbook found from the cwd
             rc, out = self._run(["config", "artefact"])
         self.assertEqual(rc, 2)
         self.assertIn("--clear", out)
         rc, _ = self._run(["config", "artefact", "x.html", str(jp), "--clear"])
         self.assertEqual(rc, 2)
         self.assertNotIn("artefact", json.loads(jp.read_text())[0])
-        # a value with no roadmap path is a mistyped set, not the roadmap path
+        # a value with no roadbook path is a mistyped set, not the roadbook path
         with contextlib.chdir(root):
             rc, out = self._run(["config", "artefact", "docs/x.html", "--clear"])
         self.assertEqual(rc, 2)
@@ -1869,9 +1869,9 @@ class ClaimCommand(unittest.TestCase):
         before = jp.read_text()
         for argv, needle in [
                 (["claim", "b"], "blocked, not todo"),
-                (["claim", "c"], "already claimed"),
+                (["claim", "c"], "already on a trail"),
                 (["claim", "a", "--assignee", "Max"], "--reassign"),
-                (["claim", "zz"], "no task"),
+                (["claim", "zz"], "no waypoint"),
                 (["claim", "a", "--date", "25/09/2026"], "YYYY-MM-DD")]:
             rc, out = self._run(argv[0], argv[1], str(jp), *argv[2:])
             self.assertEqual(rc, 1, argv)
@@ -1905,7 +1905,7 @@ class ClaimCommand(unittest.TestCase):
     def test_release_refuses_an_unclaimed_task(self):
         rc, out = self._run("release", "a", str(self._project([task("a")])))
         self.assertEqual(rc, 1)
-        self.assertIn("not claimed", out)
+        self.assertIn("not on a trail", out)
 
     def test_validate_checks_started_and_points_at_claims(self):
         ph = phase([{"id": "M1", "name": "m", "tasks": [
@@ -2015,7 +2015,7 @@ class StackedClaim(unittest.TestCase):
                          task("b", "blocked", ["a"], assignee="Jaz"),
                          task("c", "blocked", ["a"], started="2026-10-03")])
         for argv, needle in [(["claim", "b", "--assignee", "Max"], "--reassign"),
-                             (["claim", "c"], "already claimed")]:
+                             (["claim", "c"], "already on a trail")]:
             rc, out = self._run(argv[0], argv[1], str(jp), *argv[2:])
             self.assertEqual(rc, 1, argv)
             self.assertIn(needle, out, argv)
@@ -2095,7 +2095,7 @@ class AssignCommand(unittest.TestCase):
         before = jp.read_text()
         for argv, needle in [
                 (["assign", "a", "--assignee", "  "], "needs a name"),
-                (["assign", "zz", "--assignee", "Max"], "no task")]:
+                (["assign", "zz", "--assignee", "Max"], "no waypoint")]:
             rc, out = self._run(argv[0], argv[1], str(jp), *argv[2:])
             self.assertEqual(rc, 1, argv)
             self.assertIn(needle, out, argv)
@@ -2244,7 +2244,7 @@ class GitRoadbook(unittest.TestCase):
                      min_plugin=STAMPED)]
         self.jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
 
-    def _commit(self, tasks, when, message="roadmap"):
+    def _commit(self, tasks, when, message="roadbook"):
         self._write(tasks)
         self._git("add", ".")
         self._git("commit", "-q", "-m", message, when=when)
@@ -2371,7 +2371,7 @@ class StampEnded(GitRoadbook):
                      "2026-09-05")
         rc, out = self._stamp()
         self.assertEqual(rc, 0)
-        self.assertIn("ended 1 task(s) on 2026-10-02: a", out)
+        self.assertIn("ended 1 waypoint(s) on 2026-10-02: a", out)
         tasks = self._tasks()
         self.assertEqual(tasks["a"]["ended"], "2026-10-02")
         self.assertNotIn("ended", tasks["b"])  # done before the branch
@@ -2404,7 +2404,7 @@ class StampEnded(GitRoadbook):
         before = self.jp.read_text()
         rc, out = self._stamp()
         self.assertEqual(rc, 0)
-        self.assertIn("ended 0 task(s)", out)
+        self.assertIn("ended 0 waypoint(s)", out)
         self.assertEqual(self.jp.read_text(), before)
 
     def test_unknown_base_is_an_error(self):
@@ -2464,7 +2464,7 @@ class StampEnded(GitRoadbook):
 @unittest.skipUnless(shutil.which("git"), "git not installed")
 class Hooks(unittest.TestCase):
     """The hook entry points against real repositories: a bare origin, a
-    clone on main and a roadmap with two ready tasks, one blocked and one
+    clone on main and a roadbook with two ready waypoints, one blocked and one
     done (a done task is what a wrong base would misread as a claim)."""
 
     def setUp(self):
@@ -2551,7 +2551,7 @@ class Hooks(unittest.TestCase):
         self.git(self.repo, "checkout", "-q", "feat/remote")
         self.assertEqual(self.hook("post-tool-use", self.repo), "")
 
-    def test_subagents_and_repos_without_a_roadmap_are_silent(self):
+    def test_subagents_and_repos_without_a_roadbook_are_silent(self):
         self.git(self.repo, "checkout", "-q", "-b", "feat/z")
         self.assertEqual(self.hook("post-tool-use", self.repo, agent_id="a1"), "")
         plain = self.root / "plain"
@@ -2808,7 +2808,7 @@ class LegacyHistory(GitRoadbook):
         rc, out = self._run("stamp-ended", str(self.jp), "--base", "base",
                             "--date", "2026-10-02")
         self.assertEqual(rc, 0, out)
-        self.assertIn("ended 1 task(s) on 2026-10-02: a", out)
+        self.assertIn("ended 1 waypoint(s) on 2026-10-02: a", out)
 
     def test_backfill_ended_dates_from_commits_before_the_move(self):
         self._commit_legacy([task("a"), task("b")], "2026-09-01")
