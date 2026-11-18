@@ -814,20 +814,124 @@ const heading = (ui: Ui, label: string, inner: number, dim = false) => {
 	)
 }
 
+// ---------------------------------------------------------------- the wordmark
+//
+// The mod's short name in spaced capitals between two heavy rules, in the right of the header card:
+//
+//   ╺━━━━━━━━━━━╸
+//   W A R B A N D
+//   ╺━━━━━━━━━━━╸
+//
+// To reuse it in another mod, copy WORDMARK_WORD, wordmark, packFacts, headerLayout and the header's
+// drawing, and change only WORDMARK_WORD. Every glyph is one cell (Ghostty draws ╺ ━ ╸ as its own sprites).
+
+export const WORDMARK_WORD = 'WARBAND'
+/** The columns between the facts and the wordmark. */
+export const WORDMARK_GAP = 2
+/** Narrower than this for the facts, and the wordmark is left out: the facts matter more than the name. */
+export const WORDMARK_MIN_FACTS = 24
+
+/** The three lines of the wordmark, each exactly as wide as the spaced word. */
+export const wordmark = (word: string): { rule: string; word: string; width: number } => {
+	const spaced = [...word.toUpperCase()].join(' ')
+	const width = [...spaced].length
+	return { rule: `╺${'━'.repeat(Math.max(0, width - 2))}╸`, word: spaced, width }
+}
+
+const cells = (text: string): number => [...text].length
+
+/** `text` cut to `width` cells, the last one an ellipsis when anything was cut. */
+export const fit = (text: string, width: number): string => {
+	const chars = [...text]
+	if (chars.length <= width) return text
+	return width <= 0 ? '' : `${chars.slice(0, width - 1).join('')}…`
+}
+
+/**
+ * The facts laid over `lines` lines of `width` cells, in order, two spaces apart. A fact that does not fit on the
+ * line it would start goes to the next line; one that fits on none is left out, and the facts after it still get
+ * their turn. Nothing is cut mid-fact, so no line is ever wider than `width`.
+ */
+export const packFacts = (facts: readonly string[], width: number, lines: number): { lines: string[]; dropped: string[] } => {
+	const out: string[] = Array.from({ length: lines }, () => '')
+	const dropped: string[] = []
+	let at = 0
+	for (const fact of facts) {
+		let placed = false
+		for (let line = at; line < lines; line++) {
+			const next = out[line] ? `${out[line]}  ${fact}` : fact
+			if (cells(next) <= width) {
+				out[line] = next
+				at = line
+				placed = true
+				break
+			}
+		}
+		if (!placed) dropped.push(fact)
+	}
+	return { lines: out, dropped }
+}
+
+/**
+ * The header card's text, measured to its content width (the card's inner width less its border and padding):
+ * the title line across the whole width, then three lines whose left holds the facts and whose right holds the
+ * wordmark. The raid name is cut with an ellipsis to leave room for the role; the facts follow packFacts.
+ * Below WORDMARK_MIN_FACTS cells for the facts the wordmark is dropped and the facts take the whole width.
+ */
+export const headerLayout = (name: string, role: string, facts: readonly string[], content: number, word = WORDMARK_WORD) => {
+	const mark = wordmark(word)
+	const withMark = content - mark.width - WORDMARK_GAP >= WORDMARK_MIN_FACTS
+	const left = withMark ? content - mark.width - WORDMARK_GAP : content
+	const title = { name: fit(name, Math.max(1, content - WORDMARK_GAP - cells(role))), role }
+	// the first fact line sits beside the top rule, which carries no word: the facts start one line down, as in the sketch
+	const packed = packFacts(facts, left, withMark ? 2 : 3)
+	const rows = withMark
+		? [
+				{ left: '', right: mark.rule },
+				{ left: packed.lines[0] ?? '', right: mark.word },
+				{ left: packed.lines[1] ?? '', right: mark.rule },
+			]
+		: packed.lines.filter(Boolean).map(line => ({ left: line, right: '' }))
+	return { title, rows, left, markWidth: withMark ? mark.width : 0, dropped: packed.dropped }
+}
+
 const header = (ui: Ui, snap: Snapshot, me: Self, now: number, inner: number) => {
 	const { Box, Text } = ui
 	const run_ = snap.run
 	if (!run_) return null
-	const role = me.isCoordinator ? 'you coordinate' : me.isCrew ? 'you are crew' : 'observer'
+	const role = me.isCoordinator ? 'you are chief' : me.isCrew ? 'you are a raider' : 'onlooker'
+	const facts = [
+		`since ${clock(run_.started_at)}`,
+		`${run_.base.branch}@${run_.base.commit.slice(0, 8)}`,
+		`chief ${run_.coordinator.name || run_.coordinator.session_id.slice(0, 8)}`,
+		`${run_.assumptions.length} decree${run_.assumptions.length === 1 ? '' : 's'}`,
+		`${snap.sessions.filter(s => s.live).length}/${snap.sessions.length} live`,
+		`ledger ${ago(now - snap.at)} ago`,
+	]
+	// the card's content: inner less the round border's two cells, less paddingX 1 a side, plus the 3 that inner already took off
+	const layout = headerLayout(run_.name, role, facts, inner - 1)
 	return (
 		<Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
-			<Box flexDirection="row" columnGap={2} flexWrap="wrap">
-				<Text color="claude" weight="bold">
-					{run_.name}
+			<Box flexDirection="row" columnGap={WORDMARK_GAP}>
+				<Text color="claude" weight="bold" wrap="truncate-end">
+					{layout.title.name}
 				</Text>
-				<Text>{role}</Text>
+				<Text>{layout.title.role}</Text>
 			</Box>
-			<Text color="subtle">{'─'.repeat(Math.max(2, inner - 1))}</Text>
+			{layout.rows.map((row, index) => (
+				<Box key={`header-${index}`} flexDirection="row" columnGap={WORDMARK_GAP}>
+					<Box width={layout.left}>
+						<Text dimColor wrap="truncate-end">
+							{row.left}
+						</Text>
+					</Box>
+					{layout.markWidth ? (
+						<Text color="claude" weight={index === 1 ? 'bold' : undefined}>
+							{row.right}
+						</Text>
+					) : null}
+				</Box>
+			))}
 			{snap.gitProblem ? (
 				<Box flexDirection="row" columnGap={1} flexWrap="wrap">
 					<Text color="error" weight="bold">
@@ -842,23 +946,11 @@ const header = (ui: Ui, snap: Snapshot, me: Self, now: number, inner: number) =>
 						rebind?
 					</Text>
 					<Text color="warning">
-						the coordinator's process now runs as session {run_.rebind.session_id.slice(0, 8)} ({run_.rebind.name || 'unnamed'}); run.json still names {run_.coordinator.session_id.slice(0, 8)}. In that session: /mc adopt coordinator
+						the chief's process now runs as session {run_.rebind.session_id.slice(0, 8)} ({run_.rebind.name || 'unnamed'}); run.json still names {run_.coordinator.session_id.slice(0, 8)}. In that session: /reclaim-post chief
 					</Text>
 				</Box>
 			) : null}
-			{run_.pending.length ? <Text dimColor>{run_.pending.length} open thread{run_.pending.length === 1 ? '' : 's'} on the coordinator's pending list</Text> : null}
-			<Box flexDirection="row" columnGap={2} flexWrap="wrap">
-				<Text dimColor>since {clock(run_.started_at)}</Text>
-				<Text dimColor>
-					{run_.base.branch}@{run_.base.commit.slice(0, 8)}
-				</Text>
-				<Text dimColor>coordinator {run_.coordinator.name || run_.coordinator.session_id.slice(0, 8)}</Text>
-				<Text dimColor>{run_.assumptions.length} assumptions</Text>
-				<Text dimColor>
-					{snap.sessions.filter(s => s.live).length}/{snap.sessions.length} live
-				</Text>
-				<Text dimColor>ledger {ago(now - snap.at)} ago</Text>
-			</Box>
+			{run_.pending.length ? <Text dimColor>{run_.pending.length} open thread{run_.pending.length === 1 ? '' : 's'} on the chief's pending list</Text> : null}
 		</Box>
 	)
 }

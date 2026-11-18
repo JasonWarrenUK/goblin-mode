@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, markFor, needGroups, others, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, socketOf, startsRun } from './register'
+import { carryPrState, clock, crewGroups, foldProbed, handoff, headerLayout, markFor, needGroups, others, packFacts, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, socketOf, startsRun, WORDMARK_GAP, wordmark } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -152,18 +152,54 @@ test('the board draws the crew, the slot, the request and the need', async ($, o
 	expect((await ui.find({ type: 'Text', text: /^local-db$/ }))?.text).toBe('local-db')
 	expect(await ui.find({ type: 'Button', key: 'row-req:api-port:crew-1' })).toBeTruthy()
 	expect((await ui.find({ type: 'Text', text: /cd \/code\/app\/\.claude\/worktrees\/a\/apps\/api && poetry run poe db-reset-local-anyway/ }))?.text).toContain('db-reset-local-anyway')
-	expect((await ui.find({ type: 'Text', text: /you coordinate/ }))?.text).toBe('you coordinate')
+	expect((await ui.find({ type: 'Text', text: /you are chief/ }))?.text).toBe('you are chief')
 	await ui.unmount()
 })
 
-test('the board header sets the run name apart and names the coordinator', async ($, on) => {
+test('the slate header sets the raid name apart, names the chief and draws the wordmark', async ($, on) => {
 	world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^search$/ }))?.text).toBe('search')
-	expect((await ui.find({ type: 'Text', text: /^coordinator mission control$/ }))?.text).toBe('coordinator mission control')
+	expect((await ui.find({ type: 'Text', text: /chief mission control/ }))?.text).toContain('chief mission control')
+	expect((await ui.find({ type: 'Text', text: /^W A R B A N D$/ }))?.text).toBe('W A R B A N D')
+	expect((await ui.findAll({ type: 'Text', text: /^╺━+╸$/ })).length).toBe(2)
 	await ui.unmount()
+})
+
+test('helpers: the wordmark is as wide as its spaced word, rules included', () => {
+	const mark = wordmark('warband')
+	expect(mark).toEqual({ rule: '╺━━━━━━━━━━━╸', word: 'W A R B A N D', width: 13 })
+	expect([...mark.rule].length).toBe(13)
+	expect(wordmark('scout').rule).toBe('╺━━━━━━━╸')
+})
+
+test('helpers: no header line is wider than the card at any width the pane can be', () => {
+	const facts = ['since 15:03', 'main@d6ec36d1', 'chief gobbo', '6 decrees', '2/2 live', 'ledger 0s ago']
+	const name = '"Goblin Mode Enhancements"'
+	for (let content = 40; content <= 200; content++) {
+		const layout = headerLayout(name, 'you are chief', facts, content)
+		expect([...layout.title.name].length + WORDMARK_GAP + [...layout.title.role].length).toBeLessThanOrEqual(content)
+		for (const row of layout.rows) {
+			expect([...row.left].length).toBeLessThanOrEqual(layout.left)
+			expect(layout.left + (layout.markWidth ? WORDMARK_GAP + layout.markWidth : 0)).toBeLessThanOrEqual(content)
+		}
+	}
+})
+
+test('helpers: facts flow over two lines beside the wordmark and drop whole, last that fit nowhere first', () => {
+	const facts = ['since 15:03', 'main@d6ec36d1', 'chief gobbo', '6 decrees', '2/2 live', 'ledger 0s ago']
+	// a pane body of 76 columns (an 80-column terminal less the inline pane's sides): inner 73, the card's content 72
+	const at80 = headerLayout('"Goblin Mode Enhancements"', 'you are chief', facts, 72)
+	expect(at80.rows.map(r => r.right)).toEqual(['╺━━━━━━━━━━━╸', 'W A R B A N D', '╺━━━━━━━━━━━╸'])
+	expect(at80.rows.map(r => r.left)).toEqual(['', 'since 15:03  main@d6ec36d1  chief gobbo  6 decrees', '2/2 live  ledger 0s ago'])
+	expect(at80.dropped).toEqual([])
+	expect(packFacts(['aaaa', 'bbbbbbbbbb', 'cc'], 8, 2)).toEqual({ lines: ['aaaa  cc', ''], dropped: ['bbbbbbbbbb'] })
+	expect(packFacts(['aaaa', 'bbbbbb', 'cc'], 8, 2)).toEqual({ lines: ['aaaa', 'bbbbbb'], dropped: ['cc'] })
+	const narrow = headerLayout('search', 'you are chief', facts, 38)
+	expect(narrow.markWidth).toBe(0)
+	expect(narrow.rows.every(r => r.right === '')).toBe(true)
 })
 
 test('/mc toggles the pane and /mc grant acts as the person', async ($, on) => {
