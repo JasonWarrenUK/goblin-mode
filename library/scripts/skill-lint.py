@@ -7,7 +7,7 @@ the `model:` field, rune for tier, and is omitted when `model` is omitted:
 	ᚺ haiku · ᛊ sonnet · ᛟ opus · ᚠ fable
 
 Nothing enforced that, and a skill drifted (sonnet with Haiku's rune) until
-goblin-chrome happened to read the field. This script is the gate: it reads
+goblin-jester happened to read the field. This script is the gate: it reads
 the frontmatter as text, stdlib only, and reports every skill whose glyph
 disagrees with its model, carries a glyph without a model, or pins a model
 without a glyph.

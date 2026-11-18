@@ -8,7 +8,7 @@ This config's mods live under `marketplace/<name>/` and are served from the repo
 
 | Mod | What it does | Draws |
 |---|---|---|
-| [`goblin-chrome`](../../marketplace/goblin-chrome/README.md) | Goblin-mode's face in the terminal: a goblin in the band that reacts to the session, the hint line in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours. Pure chrome; it changes nothing Claude does. | Band, `TurnDuration`, `PromptHint`, `AskUserQuestion` |
+| [`goblin-jester`](../../marketplace/goblin-jester/README.md) | Goblin-mode's face in the terminal: a goblin in the band that reacts to the session, the hint line in its voice, a mask over every question, frames by model tier, a day cycle and the project theme's colours. Pure chrome; it changes nothing Claude does. | Band, `TurnDuration`, `PromptHint`, `AskUserQuestion` |
 | [`goblin-util`](../../marketplace/goblin-util/README.md) | `/pain` logs friction with Claude Code itself into `library/state/cc-pain-points.json` without a turn, the repo, branch and last failed tool pre-filled; `/fleet` lists every session on the machine from a shared heartbeat and sends one a message. | Two panes, toasts |
 | [`roadmap`](../../marketplace/roadmap/README.md) | `/ready` opens the roadmap's ready set in a pane with the claims in play and milestone progress by release tier; a digit picks, `c` claims after asking who, `r` refreshes, `/ready` again closes. The mod ships inside the roadmap plugin beside its skills and CLI, so one install gives both. | One pane, toasts |
 | [`mission-control`](../../marketplace/mission-control/README.md) | `/mc` opens the board for a run of several sessions on one repository: crew with liveness, who holds which shared resource, pending requests, the needs list with complete commands and, once a PR is recorded, a PRs group listing only the PRs where the user moves next; `g` grants, `d` marks done, `x` releases, `o` opens the run's local PR page. The mod also registers the `mc_*` tools, adds the run section to each session's system prompt, marks coordinator messages verified by socket and answers a project hook's `ask` with `allow` under a held slot. Ships beside the ledger CLI, two command hooks and six skills. | One pane, toasts |
@@ -45,7 +45,7 @@ Two rules the validator holds a module to that are easy to trip: `$` may be pass
 - One `userConfig` switch per mod that turns all of it off, so a demo to someone serious is one toggle.
 - Everything rendered takes its colours from the project theme per [CLAUDE.md §7.5](../../CLAUDE.md), through the mod's own resolution of `.claude/themes/` with the `clod` family as the fallback.
 - State a drawing depends on lives in `$.state`, declared in the contract, never in a module variable: a hot reload loses those.
-- A mod that publishes something other mods read (goblin-chrome's `frame` and `palette`) declares it in its contract; a reader lists the mod under `dependencies` and reads the typed reference.
+- A mod that publishes something other mods read (goblin-jester's `frame` and `palette`) declares it in its contract; a reader lists the mod under `dependencies` and reads the typed reference.
 
 ---
 ← [Wiki home](../README.md) · [Hooks](hooks.md) · [Configuration](configuration.md)

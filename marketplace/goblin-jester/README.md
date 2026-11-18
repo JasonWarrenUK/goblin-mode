@@ -1,5 +1,7 @@
 # goblin-jester
 
+*hElLo. i aM tHe JeStEr. i WaTcH, i hEcKlE, i hOlD tHiNgS. i ToUcH nOtHiNg.*
+
 > [!NOTE]
 > A Claude Code mod from [goblin-mode](https://github.com/JasonWarrenUK/goblin-mode): goblin-mode's face inside the terminal. Pure chrome. It changes nothing Claude does.
 
@@ -40,7 +42,7 @@ A skill that pinned one model while another answered draws `singleDouble` in `wa
 
 ### 2.1. What it reads from skills and agents
 
-When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. Plugin skills live elsewhere and read as nothing set. What is read from a skill lasts until the turn completes; a minion lasts until its own turn completes or the session starts over.
+When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. A plugin skill, which Claude Code names `<plugin>:<skill directory>`, is read from that plugin's install as `~/.claude/plugins/installed_plugins.json` records it, each install in turn until one has the file. Two kinds of skill still read as nothing set: a plugin's commands (`commands/*.md`) and the skills of a plugin loaded with `--plugin-dir`, which that file never lists. What is read from a skill lasts until the turn completes; a minion lasts until its own turn completes or the session starts over.
 
 | Field | Where | What it does |
 |---|---|---|
@@ -62,14 +64,14 @@ There is no slash command and nothing to type: the mod reacts to the session. Wh
 | Turn it off, or back on | `enabled` in `/config`; the hooks then pass through and nothing draws |
 | Dress it in the project's colours | put a theme family in `.claude/themes/` (`/theme-factory` builds one); `theme` picks one when there are several |
 | Change when it is grumpy, prime or feral | `schedule`, as `HH=state` pairs on the local clock |
-| Give a skill a prop and its own spinner words | `metadata.family` and `metadata.goblin-spinner` in that skill's frontmatter, under `~/.claude/skills/` or `<project>/.claude/skills/` |
+| Give a skill a prop and its own spinner words | `metadata.family` and `metadata.goblin-spinner` in that skill's frontmatter, under `~/.claude/skills/`, `<project>/.claude/skills/` or an installed plugin's `skills/` |
 | Give a subagent a face in the parade | `goblin-minion` at the top of the agent file, one to five cells |
 | Hear the cackle when the commit-msg hook bounces a message | `audio` on |
 | Poke it | click the goblin in the band |
 
 Do not:
 
-- **Do not put `goblin-spinner` or `family` in a plugin's skill and expect a prop.** Only skills under `~/.claude/skills/` and the project's `.claude/skills/` are read; a plugin skill reads as nothing set and the goblin walks empty-handed.
+- **Do not put `goblin-spinner` or `family` in a plugin's command, or in a plugin you load with `--plugin-dir`, and expect a prop.** Only `SKILL.md` files are read, and a `--plugin-dir` plugin is in no install record, so the goblin walks empty-handed. Install the plugin to see its props.
 - **Do not expect the frame to change the moment you run `/model`.** The frame follows the model that served the last request, so it switches once a reply has come back from the new one.
 - **Do not use a prop wider than four cells, a minion face wider than five, or an emoji in either.** The band's arithmetic refuses them and falls back to the default.
 - **Do not disable it by removing the hooks from `hooks.json`.** `enabled` is the switch; the manifest is the plugin's own.
