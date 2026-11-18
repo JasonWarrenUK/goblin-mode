@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shared core for the roadmap scripts in this directory.
 
-The roadmap source of truth is `.claude/roadmaps.json`, an array of phase
+The roadmap source of truth is `.claude/roadbook.json`, an array of phase
 objects `{name, path, archived?, externalGates, milestones}`. The active phase
 is the single non-`archived` entry. Statuses are recomputed mechanically from
 the dependency graph under the precedence rule
@@ -15,7 +15,7 @@ A claim is not a status: it is the optional `started` date a person sets when
 they begin a task. Recompute never reads it; views show a claimed task as in
 progress through display_status().
 
-This module is imported by roadmap.py (the single CLI entry point), which
+This module is imported by roadbook.py (the single CLI entry point), which
 lives beside it in scripts/. It has no dependencies outside
 the standard library and requires Python 3.8+. British spelling throughout.
 """
@@ -33,7 +33,7 @@ IMPOSABLE_STATUSES = {"blocked", "paused", "deferred"}
 IN_PROGRESS = "in_progress"
 
 
-class RoadmapError(Exception):
+class RoadbookError(Exception):
     """Raised when the roadmap cannot be located or parsed (caller → exit 2)."""
 
 
@@ -50,8 +50,8 @@ SOURCE_KEY = "source"
 SOURCE_KINDS = {"jira"}
 # The roadmap file for a mirrored phase is normally kept out of git, beside
 # the committed one, and wins when both exist.
-ROADMAP_NAME = "roadmaps.json"
-LOCAL_ROADMAP_NAME = "roadmaps.local.json"
+ROADBOOK_NAME = "roadbook.json"
+LOCAL_ROADBOOK_NAME = "roadbook.local.json"
 
 
 def _read_plugin_version():
@@ -88,42 +88,42 @@ def newer_than_running(stamp, running):
     return bool(have and want and want > have)
 
 
-def resolve_roadmap_path(explicit=None) -> Path:
-    """Locate `.claude/roadmaps.json` with two-tier resolution.
+def resolve_roadbook_path(explicit=None) -> Path:
+    """Locate `.claude/roadbook.json` with two-tier resolution.
 
     1. An explicit path argument (the caller already knows where it is) — used
        directly. This is the deterministic, primary path.
     2. Otherwise walk up from the current working directory looking for
-       `.claude/roadmaps.json`. Scripts are run from the project root, so this
+       `.claude/roadbook.json`. Scripts are run from the project root, so this
        finds the right project. (We deliberately do NOT walk up from __file__:
        this module lives in the plugin, far from any project.)
 
-    Raises RoadmapError if neither yields a readable file.
+    Raises RoadbookError if neither yields a readable file.
     """
     if explicit:
         p = Path(explicit).expanduser()
         if p.is_dir():
-            p = roadmap_in(p) or p / ".claude" / ROADMAP_NAME
+            p = roadbook_in(p) or p / ".claude" / ROADBOOK_NAME
         if not p.exists():
-            raise RoadmapError(f"roadmap not found at {p}")
+            raise RoadbookError(f"roadmap not found at {p}")
         return p
     here = Path.cwd().resolve()
     for parent in [here, *here.parents]:
-        candidate = roadmap_in(parent)
+        candidate = roadbook_in(parent)
         if candidate:
             return candidate
-    raise RoadmapError(
-        "could not locate .claude/roadmaps.json above the current directory; "
+    raise RoadbookError(
+        "could not locate .claude/roadbook.json above the current directory; "
         "pass the path explicitly")
 
 
-def roadmap_in(root):
+def roadbook_in(root):
     """The roadmap file of the project at `root`, or None: its
-    `.claude/roadmaps.local.json` when there is one (a mirrored phase, kept
-    out of git), else `.claude/roadmaps.json`. A project with no local file,
+    `.claude/roadbook.local.json` when there is one (a mirrored phase, kept
+    out of git), else `.claude/roadbook.json`. A project with no local file,
     which is every project that mirrors nothing, resolves as it always did;
     the committed file stays reachable by naming it explicitly."""
-    for name in (LOCAL_ROADMAP_NAME, ROADMAP_NAME):
+    for name in (LOCAL_ROADBOOK_NAME, ROADBOOK_NAME):
         candidate = Path(root) / ".claude" / name
         if candidate.exists():
             return candidate
@@ -149,22 +149,22 @@ def is_mirrored(phase, task):
 
 
 def load(explicit=None):
-    """Return (path, parsed_json). Raises RoadmapError on locate/parse failure."""
-    path = resolve_roadmap_path(explicit)
+    """Return (path, parsed_json). Raises RoadbookError on locate/parse failure."""
+    path = resolve_roadbook_path(explicit)
     try:
         data = json.loads(path.read_text())
     except json.JSONDecodeError as exc:
-        raise RoadmapError(f"{path} is not valid JSON: {exc}") from exc
+        raise RoadbookError(f"{path} is not valid JSON: {exc}") from exc
     return path, data
 
 
 def _phases(data):
     """The phase list behind `data` (a phase array or one phase), rejecting the
     old simple-format pointer registry (`{"roadmaps": [...]}`), which is not a
-    phase array — callers should run `roadmap.py detect` / migrate."""
+    phase array — callers should run `roadbook.py detect` / migrate."""
     if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
-        raise RoadmapError(
-            "roadmaps.json is an old-format pointer registry, not a phase array; "
+        raise RoadbookError(
+            "roadbook.json is an old-format pointer registry, not a phase array; "
             "run the roadmap migrate skill first")
     return data if isinstance(data, list) else [data]
 
@@ -181,10 +181,10 @@ def named_phase(data, name):
     matches = [p for p in phases if p.get("name") == name]
     if not matches:
         names = ", ".join(repr(p.get("name")) for p in phases)
-        raise RoadmapError(f"no phase named {name!r} (phases: {names})")
+        raise RoadbookError(f"no phase named {name!r} (phases: {names})")
     chosen = matches[-1]
     if not chosen.get("milestones"):
-        raise RoadmapError(
+        raise RoadbookError(
             f"phase {name!r} has no 'milestones' array: not a rich-format roadmap")
     return chosen
 
@@ -193,30 +193,30 @@ def active_phase(data, selector=None):
     """The single non-archived phase. `data` may be a phase array or one phase.
 
     Rejects the old simple-format pointer registry (`{"roadmaps": [...]}`),
-    which is not a phase array — callers should run `roadmap.py detect` /
+    which is not a phase array — callers should run `roadbook.py detect` /
     migrate. When more than one non-archived phase exists this raises rather
     than silently picking one; pass `selector` (a phase name) to disambiguate.
     """
     phases = _phases(data)
     live = [p for p in phases if not p.get("archived")]
     if not live:
-        raise RoadmapError("no active (non-archived) phase found")
+        raise RoadbookError("no active (non-archived) phase found")
     if selector:
         matches = [p for p in live if p.get("name") == selector]
         if not matches:
             names = ", ".join(repr(p.get("name")) for p in live)
-            raise RoadmapError(
+            raise RoadbookError(
                 f"no active phase named {selector!r} (active: {names})")
         chosen = matches[-1]
     elif len(live) > 1:
         names = ", ".join(repr(p.get("name")) for p in live)
-        raise RoadmapError(
+        raise RoadbookError(
             f"{len(live)} active phases ({names}); archive the finished ones "
             "or select one with --phase")
     else:
         chosen = live[0]
     if not chosen.get("milestones"):
-        raise RoadmapError(
+        raise RoadbookError(
             "active phase has no 'milestones' array — not a rich-format roadmap")
     return chosen
 
@@ -227,9 +227,9 @@ def count_active_phases(data):
 
 
 def _require_id(obj, kind, context):
-    """Return obj['id'] or raise RoadmapError (clean exit 2, not a KeyError)."""
+    """Return obj['id'] or raise RoadbookError (clean exit 2, not a KeyError)."""
     if not isinstance(obj, dict) or "id" not in obj:
-        raise RoadmapError(f"{kind} in {context} is missing its 'id' field")
+        raise RoadbookError(f"{kind} in {context} is missing its 'id' field")
     return obj["id"]
 
 
@@ -240,7 +240,7 @@ def build_index(phase):
     milestones: {milestone_id: [member task ids]}
     gates: {gate_id: gate_dict}
 
-    Malformed entries (missing 'id') raise RoadmapError so every caller fails
+    Malformed entries (missing 'id') raise RoadbookError so every caller fails
     with a clean exit 2 rather than a KeyError traceback.
     """
     tasks = {}
@@ -290,7 +290,7 @@ def imposed_status(dep, computed, tasks, milestones, gates):
         return worst
     if dep in gates:
         imposed = gates[dep].get("imposes", "blocked")
-        # Bad values are reported by validate_roadmap; degrade to the default
+        # Bad values are reported by validate_roadbook; degrade to the default
         # here so recompute cannot raise a KeyError from RANK.
         return imposed if imposed in RANK else "blocked"
     return "UNRESOLVED"

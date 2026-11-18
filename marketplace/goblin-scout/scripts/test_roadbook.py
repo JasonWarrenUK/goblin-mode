@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Fixture tests for the roadmap system (_roadmap_core.py + roadmap.py).
+"""Fixture tests for the roadmap system (_roadbook_core.py + roadbook.py).
 
-Run from this directory: python3 -m unittest test_roadmap -v
+Run from this directory: python3 -m unittest test_roadbook -v
 Stdlib only. Each test builds a minimal phase dict; file-based behaviour
 (detect, recompute writes) uses a TemporaryDirectory shaped like a project
-root with .claude/roadmaps.json.
+root with .claude/roadbook.json.
 """
 from __future__ import annotations
 
@@ -20,9 +20,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import roadmap
-from _roadmap_core import (
-    RoadmapError,
+import roadbook
+from _roadbook_core import (
+    RoadbookError,
     active_phase,
     build_index,
     display_status,
@@ -34,7 +34,7 @@ from _roadmap_core import (
     unmet_blockers,
 )
 
-STAMPED = stamp_for(roadmap.PLUGIN_VERSION)
+STAMPED = stamp_for(roadbook.PLUGIN_VERSION)
 
 
 def task(tid, status="todo", depends=None, soft=None, **extra):
@@ -177,7 +177,7 @@ class ActivePhase(unittest.TestCase):
     def test_multiple_active_phases_raise(self):
         data = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}], name="P1"),
                 phase([{"id": "M1", "name": "m", "tasks": [task("a")]}], name="P2")]
-        with self.assertRaises(RoadmapError):
+        with self.assertRaises(RoadbookError):
             active_phase(data)
 
     def test_selector_disambiguates(self):
@@ -192,7 +192,7 @@ class ActivePhase(unittest.TestCase):
         self.assertEqual(active_phase(data)["name"], "P2")
 
     def test_pointer_registry_rejected(self):
-        with self.assertRaises(RoadmapError):
+        with self.assertRaises(RoadbookError):
             active_phase({"roadmaps": [{"path": "docs/x.md"}]})
 
 
@@ -200,12 +200,12 @@ class MalformedInput(unittest.TestCase):
     def test_missing_task_id_is_roadmap_error(self):
         ph = phase([{"id": "M1", "name": "m",
                      "tasks": [{"description": "no id", "status": "todo"}]}])
-        with self.assertRaises(RoadmapError):
+        with self.assertRaises(RoadbookError):
             build_index(ph)
 
     def test_missing_milestone_id_is_roadmap_error(self):
         ph = phase([{"name": "m", "tasks": [task("a")]}])
-        with self.assertRaises(RoadmapError):
+        with self.assertRaises(RoadbookError):
             build_index(ph)
 
 
@@ -216,7 +216,7 @@ class GateParity(unittest.TestCase):
                 task("a", "blocked", ["G1"]), task("b")]}],
             gates=[{"id": "G1", "name": "g", "status": "todo",
                     "blocks": ["b"]}])   # missing a, extra b
-        problems = roadmap._validate_phase(ph)
+        problems = roadbook._validate_phase(ph)
         self.assertTrue(any("blocks[] missing a" in p for p in problems))
         self.assertTrue(any("blocks[] lists b" in p for p in problems))
 
@@ -225,7 +225,7 @@ class Stats(unittest.TestCase):
     def test_invalid_status_reported_not_dropped(self):
         ph = phase([{"id": "M1", "name": "m", "tasks": [
             task("a", "done"), task("b", "in_progress")]}])
-        stats = roadmap.build_stats(ph)
+        stats = roadbook.build_stats(ph)
         self.assertEqual(stats["total"], 2)
         self.assertEqual(stats["invalid"], ["b"])
         self.assertEqual(sum(stats["byStatus"].values()) + len(stats["invalid"]),
@@ -236,7 +236,7 @@ class Stats(unittest.TestCase):
             {"id": "M1", "name": "done", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "live", "tasks": [
                 task("b", "done"), task("c", "todo")]}])
-        stats = roadmap.build_stats(ph)
+        stats = roadbook.build_stats(ph)
         by_id = {m["id"]: m for m in stats["milestones"]}
         self.assertEqual(by_id["M1"]["state"], "done")
         self.assertEqual(by_id["M2"]["state"], "inProgress")
@@ -250,7 +250,7 @@ class Stats(unittest.TestCase):
             {"id": "M2", "name": "plain", "tasks": [
                 task("d", "done"), task("e", "out_of_scope"),
                 task("f", "out_of_scope")]}])
-        stats = roadmap.build_stats(ph)
+        stats = roadbook.build_stats(ph)
         by_id = {m["id"]: m for m in stats["milestones"]}
         self.assertEqual((by_id["M1"]["done"], by_id["M1"]["inScope"],
                           by_id["M1"]["donePct"]), (1, 2, 50))
@@ -267,7 +267,7 @@ class Stats(unittest.TestCase):
             {"id": "M1", "name": "struck", "tasks": [
                 task("a", "out_of_scope"), task("b", "out_of_scope")]},
             {"id": "M2", "name": "zero", "tasks": [task("c")]}])
-        stats = roadmap.build_stats(ph)
+        stats = roadbook.build_stats(ph)
         struck = stats["milestones"][0]
         # donePct reads 100, not 0/0's 0: the card's progress bar fills to
         # match its `done` colour and the sort needs no special case
@@ -282,7 +282,7 @@ class Stats(unittest.TestCase):
             {"id": "M1", "name": "struck", "tasks": [task("a", "out_of_scope")]},
             {"id": "M2", "name": "also struck (Secondary)", "tasks": [
                 task("b", "out_of_scope")]}])
-        stats = roadmap.build_stats(ph)
+        stats = roadbook.build_stats(ph)
         self.assertEqual((stats["inScope"], stats["donePct"]), (0, 100))
         tiers = _layout(ph)["tiers"]
         self.assertEqual([g["stats"]["donePct"] for g in tiers], [100, 100])
@@ -290,13 +290,13 @@ class Stats(unittest.TestCase):
     def test_empty_milestone_done_pct_stays_zero(self):
         # no tasks at all is a bug (state `empty`), never finished work
         ph = phase([{"id": "M1", "name": "empty", "tasks": []}])
-        m = roadmap.build_stats(ph)["milestones"][0]
+        m = roadbook.build_stats(ph)["milestones"][0]
         self.assertEqual((m["donePct"], m["state"]), (0, "empty"))
 
     def test_human_stats_print_in_scope_fractions(self):
         ph = phase([{"id": "M1", "name": "mixed", "tasks": [
             task("a", "done"), task("b"), task("c", "out_of_scope")]}])
-        text = roadmap._human_stats(roadmap.build_stats(ph))
+        text = roadbook._human_stats(roadbook.build_stats(ph))
         self.assertIn("1/2 done (50%)", text)
         self.assertIn("M1   1/2", text)
         self.assertNotIn("/3", text)
@@ -304,83 +304,83 @@ class Stats(unittest.TestCase):
 
 class MilestoneState(unittest.TestCase):
     """Milestone-level derived state (distinct from task status): drives the
-    artefact's Overview/Milestones colour and sort (see roadmap-conventions.md
-    and library/templates/roadmap-artefact.html). Rule order: empty -> done
+    artefact's Overview/Milestones colour and sort (see roadbook-conventions.md
+    and library/templates/chart.html). Rule order: empty -> done
     -> deferred (tier cascade) -> deferred (member gate) -> inProgress ->
     blocked -> todo."""
 
     def test_in_progress_when_partially_done(self):
         self.assertEqual(
-            roadmap.milestone_state({"todo": 1, "done": 1}, 50, total=2),
+            roadbook.milestone_state({"todo": 1, "done": 1}, 50, total=2),
             "inProgress")
 
     def test_todo_when_nothing_started(self):
         self.assertEqual(
-            roadmap.milestone_state({"todo": 2}, 0, total=2), "todo")
+            roadbook.milestone_state({"todo": 2}, 0, total=2), "todo")
 
     def test_done_when_fully_done(self):
         self.assertEqual(
-            roadmap.milestone_state({"done": 2}, 100, total=2), "done")
+            roadbook.milestone_state({"done": 2}, 100, total=2), "done")
 
     def test_all_out_of_scope_is_done(self):
         # Struck-from-play (out_of_scope) still reads as done: nothing
         # actionable remains, whether it finished or was struck out.
         by_status = {"out_of_scope": 3}
-        self.assertEqual(roadmap.milestone_state(by_status, 0, total=3), "done")
+        self.assertEqual(roadbook.milestone_state(by_status, 0, total=3), "done")
 
     def test_empty_milestone_is_flagged(self):
         # Zero tasks is a bug (see _validate_phase), never a legitimate
         # state: it must never read as todo/done and hide the problem.
-        self.assertEqual(roadmap.milestone_state({}, 0, total=0), "empty")
+        self.assertEqual(roadbook.milestone_state({}, 0, total=0), "empty")
 
     def test_blocked_outranks_in_progress_when_nothing_can_be_picked_up(self):
         # Done work does not soften a stuck milestone: every remaining
         # task is blocked, so blocked (rule 4) outranks inProgress (rule 5).
         self.assertEqual(
-            roadmap.milestone_state({"done": 2, "blocked": 3}, 40, total=5),
+            roadbook.milestone_state({"done": 2, "blocked": 3}, 40, total=5),
             "blocked")
         self.assertEqual(
-            roadmap.milestone_state({"done": 7, "blocked": 1}, 88, total=8),
+            roadbook.milestone_state({"done": 7, "blocked": 1}, 88, total=8),
             "blocked")
 
     def test_blocked_sets_out_of_scope_tasks_aside(self):
         by_status = {"done": 1, "blocked": 2, "out_of_scope": 1}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 33, total=4), "blocked")
+            roadbook.milestone_state(by_status, 33, total=4), "blocked")
 
     def test_one_actionable_task_keeps_a_milestone_in_progress(self):
         by_status = {"done": 2, "blocked": 3, "todo": 1}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 33, total=6), "inProgress")
+            roadbook.milestone_state(by_status, 33, total=6), "inProgress")
 
     def test_a_claim_on_a_blocked_task_keeps_a_milestone_in_progress(self):
         by_status = {"done": 2, "blocked": 3}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 40, total=5, in_progress=1),
+            roadbook.milestone_state(by_status, 40, total=5, in_progress=1),
             "inProgress")
 
     def test_blocked_when_every_unfinished_task_is_blocked(self):
         by_status = {"blocked": 2}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 0, total=2), "blocked")
+            roadbook.milestone_state(by_status, 0, total=2), "blocked")
 
     def test_claim_gives_in_progress_even_at_zero_done(self):
         by_status = {"todo": 2}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 0, total=2, in_progress=1),
+            roadbook.milestone_state(by_status, 0, total=2, in_progress=1),
             "inProgress")
 
     def test_deferred_when_a_lower_tier_is_not_done(self):
         by_status = {"todo": 2}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 0, total=2, tier=1,
+            roadbook.milestone_state(by_status, 0, total=2, tier=1,
                                     lower_tiers_done=False),
             "deferred")
 
     def test_lower_tiers_done_lets_tier_through_to_its_own_rules(self):
         by_status = {"done": 2}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 100, total=2, tier=1,
+            roadbook.milestone_state(by_status, 100, total=2, tier=1,
                                     lower_tiers_done=True),
             "done")
 
@@ -390,7 +390,7 @@ class MilestoneState(unittest.TestCase):
         # practice) tier>=1 is required for the deferred rule.
         by_status = {"todo": 2}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 0, total=2, tier=0,
+            roadbook.milestone_state(by_status, 0, total=2, tier=0,
                                     lower_tiers_done=False),
             "todo")
 
@@ -400,7 +400,7 @@ class MilestoneState(unittest.TestCase):
         # suffix, unlike the tier-cascade deferred rule above.
         by_status = {"deferred": 4}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 0, total=4), "deferred")
+            roadbook.milestone_state(by_status, 0, total=4), "deferred")
 
     def test_member_deferred_outranks_done_percentage(self):
         # A milestone with one deferred task and nine done ones is still
@@ -409,7 +409,7 @@ class MilestoneState(unittest.TestCase):
         # rewrite (rule 3 fires ahead of inProgress, rule 4).
         by_status = {"done": 9, "deferred": 1}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 90, total=10), "deferred")
+            roadbook.milestone_state(by_status, 90, total=10), "deferred")
 
     def test_member_deferred_never_fires_while_actionable_work_remains(self):
         # Five todo tasks are still live work to pick up, not a shelved
@@ -417,16 +417,16 @@ class MilestoneState(unittest.TestCase):
         # roadmap:next-group's own ready-set, which still lists them.
         by_status = {"todo": 5, "deferred": 1}
         self.assertEqual(
-            roadmap.milestone_state(by_status, 0, total=6), "todo")
+            roadbook.milestone_state(by_status, 0, total=6), "todo")
 
 
 class MilestoneTier(unittest.TestCase):
     def test_no_suffix_is_core(self):
-        self.assertEqual(roadmap.milestone_tier("Search"), 0)
-        self.assertEqual(roadmap.milestone_tier(""), 0)
+        self.assertEqual(roadbook.milestone_tier("Search"), 0)
+        self.assertEqual(roadbook.milestone_tier(""), 0)
 
     def test_labels_spell_core_secondary_tertiary(self):
-        self.assertEqual([roadmap.tier_label(t) for t in range(3)],
+        self.assertEqual([roadbook.tier_label(t) for t in range(3)],
                          ["Core", "Secondary", "Tertiary"])
 
     def test_layout_labels_never_say_primary(self):
@@ -440,30 +440,30 @@ class MilestoneTier(unittest.TestCase):
         self.assertNotIn("Primary", json.dumps(layout))
 
     def test_suffixes_in_order(self):
-        self.assertEqual(roadmap.milestone_tier("Search (Secondary)"), 1)
-        self.assertEqual(roadmap.milestone_tier("Search (Tertiary)"), 2)
-        self.assertEqual(roadmap.milestone_tier("Search (Quaternary)"), 3)
-        self.assertEqual(roadmap.milestone_tier("Search (Quinary)"), 4)
+        self.assertEqual(roadbook.milestone_tier("Search (Secondary)"), 1)
+        self.assertEqual(roadbook.milestone_tier("Search (Tertiary)"), 2)
+        self.assertEqual(roadbook.milestone_tier("Search (Quaternary)"), 3)
+        self.assertEqual(roadbook.milestone_tier("Search (Quinary)"), 4)
 
     def test_case_insensitive(self):
-        self.assertEqual(roadmap.milestone_tier("Search (secondary)"), 1)
-        self.assertEqual(roadmap.milestone_tier("Search (SECONDARY)"), 1)
+        self.assertEqual(roadbook.milestone_tier("Search (secondary)"), 1)
+        self.assertEqual(roadbook.milestone_tier("Search (SECONDARY)"), 1)
 
     def test_suffix_must_be_trailing(self):
-        self.assertEqual(roadmap.milestone_tier("(Secondary) is not this"), 0)
+        self.assertEqual(roadbook.milestone_tier("(Secondary) is not this"), 0)
 
 
 class MilestoneAllDone(unittest.TestCase):
     def test_empty_is_not_done(self):
-        self.assertFalse(roadmap.milestone_all_done({}, 0))
+        self.assertFalse(roadbook.milestone_all_done({}, 0))
 
     def test_all_done_or_out_of_scope(self):
         self.assertTrue(
-            roadmap.milestone_all_done({"done": 1, "out_of_scope": 1}, 2))
+            roadbook.milestone_all_done({"done": 1, "out_of_scope": 1}, 2))
 
     def test_one_actionable_task_is_not_done(self):
         self.assertFalse(
-            roadmap.milestone_all_done({"done": 1, "todo": 1}, 2))
+            roadbook.milestone_all_done({"done": 1, "todo": 1}, 2))
 
 
 class BuildStatsTiers(unittest.TestCase):
@@ -472,7 +472,7 @@ class BuildStatsTiers(unittest.TestCase):
             {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "Extra (Secondary)", "tasks": [task("b")]},
             {"id": "M3", "name": "More (Tertiary)", "tasks": [task("c")]}])
-        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        by_id = {m["id"]: m for m in roadbook.build_stats(ph)["milestones"]}
         self.assertEqual(by_id["M1"]["state"], "done")
         self.assertEqual(by_id["M2"]["state"], "todo")
         self.assertEqual(by_id["M3"]["state"], "deferred")
@@ -482,12 +482,12 @@ class BuildStatsTiers(unittest.TestCase):
             {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "Extra (Secondary)", "tasks": [task("b", "done")]},
             {"id": "M3", "name": "More (Tertiary)", "tasks": [task("c")]}])
-        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        by_id = {m["id"]: m for m in roadbook.build_stats(ph)["milestones"]}
         self.assertEqual(by_id["M3"]["state"], "todo")
 
     def test_empty_milestone_reported_by_validate(self):
         ph = phase([{"id": "M1", "name": "Empty", "tasks": []}])
-        problems = roadmap._validate_phase(ph)
+        problems = roadbook._validate_phase(ph)
         self.assertIn("M1: milestone has no tasks", problems)
 
     def test_empty_milestone_in_an_earlier_tier_never_blocks_the_cascade(self):
@@ -498,7 +498,7 @@ class BuildStatsTiers(unittest.TestCase):
             {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "Whoops", "tasks": []},
             {"id": "M3", "name": "Extra (Secondary)", "tasks": [task("b")]}])
-        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        by_id = {m["id"]: m for m in roadbook.build_stats(ph)["milestones"]}
         self.assertEqual(by_id["M2"]["state"], "empty")
         self.assertEqual(by_id["M3"]["state"], "todo")
 
@@ -509,15 +509,15 @@ class BuildStatsTiers(unittest.TestCase):
         ph = phase([
             {"id": "M1", "name": "Core", "tasks": [task("a")]},
             {"id": "M2", "name": "Extra (Secondary)", "tasks": [task("b")]}])
-        by_id = {m["id"]: m for m in roadmap.build_stats(ph)["milestones"]}
+        by_id = {m["id"]: m for m in roadbook.build_stats(ph)["milestones"]}
         self.assertEqual(by_id["M1"]["tier"], 0)
         self.assertEqual(by_id["M2"]["tier"], 1)
 
 
 def _layout(ph):
-    stats = roadmap.build_stats(ph)
-    ready = roadmap.build_ready(ph)
-    return roadmap.overview_layout(ph, stats, ready)
+    stats = roadbook.build_stats(ph)
+    ready = roadbook.build_ready(ph)
+    return roadbook.overview_layout(ph, stats, ready)
 
 
 class OverviewLayout(unittest.TestCase):
@@ -670,14 +670,14 @@ class OverviewLayout(unittest.TestCase):
 
 class DevColour(unittest.TestCase):
     def test_stable_across_calls(self):
-        self.assertEqual(roadmap.dev_colour("jason"), roadmap.dev_colour("jason"))
+        self.assertEqual(roadbook.dev_colour("jason"), roadbook.dev_colour("jason"))
 
     def test_case_and_whitespace_insensitive(self):
-        self.assertEqual(roadmap.dev_colour("Jason"), roadmap.dev_colour(" jason "))
+        self.assertEqual(roadbook.dev_colour("Jason"), roadbook.dev_colour(" jason "))
 
     def test_empty_or_none_yields_none(self):
-        self.assertIsNone(roadmap.dev_colour(""))
-        self.assertIsNone(roadmap.dev_colour(None))
+        self.assertIsNone(roadbook.dev_colour(""))
+        self.assertIsNone(roadbook.dev_colour(None))
 
     def test_stable_across_process_hash_seed(self):
         # dev_colour must use a stable digest, not builtin hash(), which is
@@ -686,8 +686,8 @@ class DevColour(unittest.TestCase):
         # (crc32 doesn't read PYTHONHASHSEED, so this holds trivially once
         # implemented correctly, and would flake under repeated runs with
         # builtin hash()).
-        script = ("import sys; sys.path.insert(0, %r); import roadmap; "
-                  "print(roadmap.dev_colour('jason'))" % str(Path(__file__).parent))
+        script = ("import sys; sys.path.insert(0, %r); import roadbook; "
+                  "print(roadbook.dev_colour('jason'))" % str(Path(__file__).parent))
         results = set()
         for seed in ("1", "99999"):
             out = subprocess.run(
@@ -707,7 +707,7 @@ class Ready(unittest.TestCase):
             {"id": "M2", "name": "m2", "tasks": [
                 task("c", "blocked", ["M1"]),
                 task("d")]}])                      # ready, unblocks nothing
-        ready = roadmap.build_ready(ph)
+        ready = roadbook.build_ready(ph)
         ids = [c["id"] for c in ready["candidates"]]
         self.assertEqual(set(ids), {"a", "d"})
         by_id = {c["id"]: c for c in ready["candidates"]}
@@ -728,7 +728,7 @@ class Ready(unittest.TestCase):
                 task("gone", "done", ["x"])]},          # closed: counted nowhere
             {"id": "M2", "name": "m2", "tasks": [
                 task("viaM", "blocked", ["M1"])]}])     # waits on all of M1, so a direct dependent: partly
-        by_id = {c["id"]: c for c in roadmap.build_ready(ph)["candidates"]}
+        by_id = {c["id"]: c for c in roadbook.build_ready(ph)["candidates"]}
         x = by_id["x"]
         self.assertEqual(x["unblocksNow"], 1)           # only
         self.assertEqual(x["unblocksPartly"], 2)        # both, viaM
@@ -745,7 +745,7 @@ class Ready(unittest.TestCase):
                 task("n", "blocked", ["M1"]),
                 task("k", "blocked", ["n"]),
                 task("direct", "blocked", ["s", "M1"])]}])  # lists s itself: still counted
-        by_id = {c["id"]: c for c in roadmap.build_ready(ph)["candidates"]}
+        by_id = {c["id"]: c for c in roadbook.build_ready(ph)["candidates"]}
         s = by_id["s"]
         self.assertEqual((s["unblocksNow"], s["unblocksPartly"], s["unblocksLater"]),
                          (0, 1, 0))                      # direct only
@@ -758,7 +758,7 @@ class Ready(unittest.TestCase):
         ph = phase([
             {"id": "M1", "name": "m1", "tasks": [task("last")]},
             {"id": "M2", "name": "m2", "tasks": [task("next", "blocked", ["M1"])]}])
-        c = roadmap.build_ready(ph)["candidates"][0]
+        c = roadbook.build_ready(ph)["candidates"][0]
         self.assertEqual((c["unblocksNow"], c["unblocksPartly"], c["unblocksLater"]),
                          (1, 0, 0))
 
@@ -766,7 +766,7 @@ class Ready(unittest.TestCase):
         ph = phase([{"id": "M1", "name": "m1", "tasks": [
             task("a", assignee="jason"),
             task("b")]}])
-        by_id = {c["id"]: c for c in roadmap.build_ready(ph)["candidates"]}
+        by_id = {c["id"]: c for c in roadbook.build_ready(ph)["candidates"]}
         self.assertEqual(by_id["a"]["assignee"], "jason")
         self.assertEqual(by_id["b"]["assignee"], "")
 
@@ -776,8 +776,8 @@ class Ready(unittest.TestCase):
                 task("1IN.1", assignee="jaz"), task("1UI.2")]},
             {"id": "M2", "name": "m2", "tasks": [
                 task("2IN.1", assignee="Jason"), task("odd")]}])
-        candidates = roadmap.build_ready(ph)["candidates"]
-        groups = roadmap.ready_groups(candidates)
+        candidates = roadbook.build_ready(ph)["candidates"]
+        groups = roadbook.ready_groups(candidates)
         self.assertEqual(groups["milestone"],
                          {"M1": ["1IN.1", "1UI.2"], "M2": ["2IN.1", "odd"]})
         self.assertEqual(groups["topic"],
@@ -806,56 +806,56 @@ class ReadyFilters(unittest.TestCase):
                 task("f", "blocked", ["M1"])]}])
 
     def test_within_none_when_no_filter(self):
-        self.assertIsNone(roadmap.resolve_within(self._phase()))
+        self.assertIsNone(roadbook.resolve_within(self._phase()))
 
     def test_milestones_narrow_ready_and_claimed(self):
         ph = self._phase()
-        within = roadmap.resolve_within(ph, milestones=["m1"])
-        ready = roadmap.build_ready(ph, within=within)
+        within = roadbook.resolve_within(ph, milestones=["m1"])
+        ready = roadbook.build_ready(ph, within=within)
         self.assertEqual([c["id"] for c in ready["candidates"]], ["a"])
         self.assertEqual([c["id"] for c in ready["claimed"]], ["c"])
 
     def test_tier_words_select_every_milestone_in_the_tier(self):
         ph = self._phase()
-        self.assertEqual(roadmap.resolve_within(ph, tiers=["core"]), {"M1", "M2"})
-        self.assertEqual(roadmap.resolve_within(ph, tiers=["Secondary"]), {"M3"})
+        self.assertEqual(roadbook.resolve_within(ph, tiers=["core"]), {"M1", "M2"})
+        self.assertEqual(roadbook.resolve_within(ph, tiers=["Secondary"]), {"M3"})
 
     def test_focus_is_the_underway_tier(self):
         ph = self._phase()
-        self.assertEqual(roadmap.resolve_within(ph, tiers=["focus"]), {"M1", "M2"})
+        self.assertEqual(roadbook.resolve_within(ph, tiers=["focus"]), {"M1", "M2"})
 
     def test_focus_moves_up_when_core_is_done(self):
         ph = phase([
             {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "More (Secondary)", "tasks": [task("b", "blocked", ["M1"])]}])
-        self.assertEqual(roadmap.resolve_within(ph, tiers=["focus"]), {"M2"})
+        self.assertEqual(roadbook.resolve_within(ph, tiers=["focus"]), {"M2"})
 
     def test_focus_errors_when_nothing_is_underway(self):
         ph = phase([{"id": "M1", "name": "Core", "tasks": [task("a", "done")]}])
-        with self.assertRaises(RoadmapError):
-            roadmap.resolve_within(ph, tiers=["focus"])
+        with self.assertRaises(RoadbookError):
+            roadbook.resolve_within(ph, tiers=["focus"])
 
     def test_unknown_milestone_and_tier_error(self):
         ph = self._phase()
-        with self.assertRaisesRegex(RoadmapError, "M9"):
-            roadmap.resolve_within(ph, milestones=["M9"])
-        with self.assertRaisesRegex(RoadmapError, "tertiary"):
-            roadmap.resolve_within(ph, tiers=["tertiary"])
+        with self.assertRaisesRegex(RoadbookError, "M9"):
+            roadbook.resolve_within(ph, milestones=["M9"])
+        with self.assertRaisesRegex(RoadbookError, "tertiary"):
+            roadbook.resolve_within(ph, tiers=["tertiary"])
 
     def test_milestones_and_tiers_are_mutually_exclusive(self):
-        with self.assertRaises(RoadmapError):
-            roadmap.resolve_within(self._phase(), milestones=["M1"], tiers=["core"])
+        with self.assertRaises(RoadbookError):
+            roadbook.resolve_within(self._phase(), milestones=["M1"], tiers=["core"])
 
     def test_candidates_carry_tier(self):
         ph = self._phase()
-        opened = roadmap.build_ready(ph, horizon="open")
+        opened = roadbook.build_ready(ph, horizon="open")
         by_id = {c["id"]: c for c in opened["candidates"]}
         self.assertEqual(by_id["f"]["tierLabel"], "Secondary")
         self.assertEqual(by_id["a"]["tierLabel"], "Core")
 
     def test_open_horizon_includes_blocked_and_claimed_but_not_done(self):
         ph = self._phase()
-        opened = roadmap.build_ready(ph, horizon="open")
+        opened = roadbook.build_ready(ph, horizon="open")
         self.assertEqual({c["id"] for c in opened["candidates"]},
                          {"a", "b", "c", "d", "f"})
         self.assertEqual(opened["claimed"], [])
@@ -866,8 +866,8 @@ class ReadyFilters(unittest.TestCase):
 
     def test_open_with_tier_filter(self):
         ph = self._phase()
-        within = roadmap.resolve_within(ph, tiers=["secondary"])
-        opened = roadmap.build_ready(ph, within=within, horizon="open")
+        within = roadbook.resolve_within(ph, tiers=["secondary"])
+        opened = roadbook.build_ready(ph, within=within, horizon="open")
         self.assertEqual([c["id"] for c in opened["candidates"]], ["f"])
 
 
@@ -875,7 +875,7 @@ class ReadyFilterCli(unittest.TestCase):
     def _project(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp = Path(tmp.name) / ".claude" / "roadbook.json"
         jp.parent.mkdir()
         data = [phase([
             {"id": "M1", "name": "Core", "tasks": [task("a")]},
@@ -885,7 +885,7 @@ class ReadyFilterCli(unittest.TestCase):
 
     def _run(self, *argv):
         with contextlib.redirect_stdout(io.StringIO()) as out:
-            rc = roadmap.main(list(argv))
+            rc = roadbook.main(list(argv))
         return rc, out.getvalue()
 
     def test_ready_json_milestone_filter(self):
@@ -908,7 +908,7 @@ class ReadyFilterCli(unittest.TestCase):
 
 class MilestoneEdgeReduction(unittest.TestCase):
     def edges(self, ph, kind="milestone-complete"):
-        return {(e["from"], e["to"]) for e in roadmap.build_graph(ph)["edges"]
+        return {(e["from"], e["to"]) for e in roadbook.build_graph(ph)["edges"]
                 if e["kind"] == kind}
 
     def shape(self, soft_sink=False):
@@ -958,14 +958,14 @@ class Mermaid(unittest.TestCase):
                 task("c", "blocked", ["M1"])]}])
 
     def test_classdefs_follow_graph_line(self):
-        src = roadmap.mermaid_source(self.ph)
+        src = roadbook.mermaid_source(self.ph)
         lines = src.splitlines()
         self.assertTrue(lines[0].startswith("graph LR"))
         self.assertTrue(all(l.strip().startswith("classDef")
-                            for l in lines[1:1 + len(roadmap.STATUS_STYLE)]))
+                            for l in lines[1:1 + len(roadbook.STATUS_STYLE)]))
 
     def test_status_classes_and_terminal_edges(self):
-        src = roadmap.mermaid_source(self.ph)
+        src = roadbook.mermaid_source(self.ph)
         self.assertIn("class a done", src)
         self.assertIn("class b todo", src)
         self.assertIn("class c blocked", src)
@@ -977,7 +977,7 @@ class Mermaid(unittest.TestCase):
         ph = phase([
             {"id": "M1", "name": "Spent", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "Live", "tasks": [task("b", "blocked", ["M1"])]}])
-        src = roadmap.mermaid_source(ph, omit_done=True)
+        src = roadbook.mermaid_source(ph, omit_done=True)
         self.assertNotIn('a["', src)
         self.assertNotIn("M1", src)
         self.assertIn('b["', src)
@@ -987,7 +987,7 @@ class Mermaid(unittest.TestCase):
             {"id": "M1", "name": "Mixed", "tasks": [
                 task("a", "out_of_scope"), task("b", "todo", ["a"])]},
             {"id": "M2", "name": "Next", "tasks": [task("c", "blocked", ["M1"])]}])
-        src = roadmap.mermaid_source(ph, omit_done=True)
+        src = roadbook.mermaid_source(ph, omit_done=True)
         self.assertNotIn('a["', src)
         self.assertNotIn("a -->", src)
         self.assertNotIn("class a ", src)
@@ -998,7 +998,7 @@ class Mermaid(unittest.TestCase):
         ph = phase([
             {"id": "M1", "name": "Struck", "tasks": [task("a", "out_of_scope")]},
             {"id": "M2", "name": "Live", "tasks": [task("b")]}])
-        src = roadmap.mermaid_source(ph, omit_done=True)
+        src = roadbook.mermaid_source(ph, omit_done=True)
         self.assertNotIn("M1", src)
         self.assertNotIn('a["', src)
         self.assertIn('b["', src)
@@ -1008,23 +1008,23 @@ class Mermaid(unittest.TestCase):
             {"id": "M1", "name": "Core work", "tasks": [
                 task("a", "done"), task("w", "out_of_scope")]},
             {"id": "M2", "name": "More (Secondary)", "tasks": [task("b")]}])
-        inside, _ = _subgraphs(roadmap.mermaid_source(ph, omit_done=True))
+        inside, _ = _subgraphs(roadbook.mermaid_source(ph, omit_done=True))
         self.assertEqual(list(inside), ["tier1"])
 
     def test_the_full_graph_still_draws_out_of_scope_tasks(self):
         ph = phase([{"id": "M1", "name": "m", "tasks": [
             task("a", "out_of_scope"), task("b")]}])
-        self.assertIn('a["', roadmap.mermaid_source(ph))
+        self.assertIn('a["', roadbook.mermaid_source(ph))
 
     def test_out_of_scope_gets_its_classdef(self):
         ph = phase([{"id": "M1", "name": "m",
                      "tasks": [task("a", "out_of_scope")]}])
-        src = roadmap.mermaid_source(ph)
+        src = roadbook.mermaid_source(ph)
         self.assertIn("classDef outOfScope", src)
         self.assertIn("class a outOfScope", src)
 
     def test_vars_palette_uses_custom_properties(self):
-        src = roadmap.mermaid_source(self.ph, palette="vars")
+        src = roadbook.mermaid_source(self.ph, palette="vars")
         self.assertIn("fill:var(--color-todo-bg)", src)
 
     def test_orphan_gates_are_not_drawn(self):
@@ -1034,7 +1034,7 @@ class Mermaid(unittest.TestCase):
                     "blocks": ["a"]},
                    {"id": "G2", "name": "resolved", "status": "todo",
                     "blocks": []}])
-        src = roadmap.mermaid_source(ph)
+        src = roadbook.mermaid_source(ph)
         self.assertIn('G1["', src)
         self.assertNotIn('G2["', src)
 
@@ -1045,13 +1045,13 @@ class Mermaid(unittest.TestCase):
             task("a"), task("b", soft=["a"])]},
             {"id": "M2", "name": "m2", "tasks": [
                 task("c"), task("d", "todo", ["c"])]}])
-        src = roadmap.mermaid_source(ph)
+        src = roadbook.mermaid_source(ph)
         self.assertIn("a -.-> b", src)
         self.assertIn("c --> d", src)
         self.assertNotIn("c -.-> d", src)
 
     def test_nodes_declared_in_topological_order(self):
-        src = roadmap.mermaid_source(self.ph)
+        src = roadbook.mermaid_source(self.ph)
         lines = src.splitlines()
 
         def decl(nid):
@@ -1096,36 +1096,36 @@ class MermaidTiers(unittest.TestCase):
                     "imposes": "deferred", "blocks": ["c", "e"]}])
 
     def test_every_node_sits_inside_its_tier(self):
-        inside, outside = _subgraphs(roadmap.mermaid_source(self.ph))
+        inside, outside = _subgraphs(roadbook.mermaid_source(self.ph))
         self.assertEqual(outside, [])
         self.assertEqual(list(inside), ["tier0", "tier1", "tier2"])
         self.assertEqual(sorted(inside["tier0"][1]), ["M1", "a", "b"])
         self.assertEqual(sorted(inside["tier2"][1]), ["M3", "e"])
 
     def test_gate_sits_in_the_lowest_tier_it_gates(self):
-        inside, _ = _subgraphs(roadmap.mermaid_source(self.ph))
+        inside, _ = _subgraphs(roadbook.mermaid_source(self.ph))
         self.assertEqual(sorted(inside["tier1"][1]), ["G1", "M2", "c", "d"])
 
     def test_labels_name_the_tier_and_its_state(self):
-        inside, _ = _subgraphs(roadmap.mermaid_source(self.ph))
+        inside, _ = _subgraphs(roadbook.mermaid_source(self.ph))
         self.assertEqual([label for label, _ in inside.values()],
                          ["Core · underway", "Secondary · deferred",
                           "Tertiary · deferred"])
 
     def test_tier_classes_follow_the_state(self):
-        src = roadmap.mermaid_source(self.ph)
+        src = roadbook.mermaid_source(self.ph)
         self.assertIn("\tclass tier0 tierUnderway", src)
         self.assertIn("\tclass tier1,tier2 tierDeferred", src)
 
     def test_classdefs_still_follow_the_graph_line(self):
-        lines = roadmap.mermaid_source(self.ph).splitlines()
-        count = len(roadmap.STATUS_STYLE) + len(roadmap.TIER_STYLE)
+        lines = roadbook.mermaid_source(self.ph).splitlines()
+        count = len(roadbook.STATUS_STYLE) + len(roadbook.TIER_STYLE)
         self.assertTrue(all(l.strip().startswith("classDef")
                             for l in lines[1:1 + count]))
         self.assertTrue(lines[1 + count].strip().startswith("subgraph"))
 
     def test_edges_come_after_every_subgraph(self):
-        lines = roadmap.mermaid_source(self.ph).splitlines()
+        lines = roadbook.mermaid_source(self.ph).splitlines()
         last_end = max(i for i, l in enumerate(lines) if l.strip() == "end")
         first_edge = min(i for i, l in enumerate(lines) if "-->" in l)
         self.assertGreater(first_edge, last_end)
@@ -1135,18 +1135,18 @@ class MermaidTiers(unittest.TestCase):
             {"id": "M1", "name": "Core work", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "More (Secondary)", "tasks": [
                 task("b", "todo", ["M1"])]}])
-        inside, _ = _subgraphs(roadmap.mermaid_source(ph))
+        inside, _ = _subgraphs(roadbook.mermaid_source(ph))
         self.assertEqual([label for label, _ in inside.values()],
                          ["Core · done", "Secondary · underway"])
         self.assertIn("\tclass tier0,tier1 tierUnderway",
-                      roadmap.mermaid_source(ph))
+                      roadbook.mermaid_source(ph))
 
     def test_omit_done_drops_a_finished_tier_whole(self):
         ph = phase([
             {"id": "M1", "name": "Core work", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "More (Secondary)", "tasks": [task("b")]}])
         inside, outside = _subgraphs(
-            roadmap.mermaid_source(ph, omit_done=True))
+            roadbook.mermaid_source(ph, omit_done=True))
         self.assertEqual(list(inside), ["tier1"])
         self.assertEqual(outside, [])
 
@@ -1155,20 +1155,20 @@ class MermaidTiers(unittest.TestCase):
             {"id": "M1", "name": "First", "tasks": [task("a")]},
             {"id": "M2", "name": "Second", "tasks": [
                 task("b", "blocked", ["M1"])]}])
-        src = roadmap.mermaid_source(ph)
+        src = roadbook.mermaid_source(ph)
         self.assertNotIn("subgraph", src)
         self.assertNotIn("classDef tier", src)
         self.assertNotIn("\tend", src)
 
     def test_vars_palette_names_the_tier_properties(self):
-        src = roadmap.mermaid_source(self.ph, palette="vars")
+        src = roadbook.mermaid_source(self.ph, palette="vars")
         self.assertIn("fill:var(--color-tier-underway-bg)", src)
         self.assertIn("fill:var(--color-tier-deferred-bg)", src)
 
 
 class TierStates(unittest.TestCase):
     def _states(self, ph):
-        return roadmap.tier_states(roadmap.build_stats(ph)["milestones"])
+        return roadbook.tier_states(roadbook.build_stats(ph)["milestones"])
 
     def test_deferred_while_a_lower_tier_is_unfinished(self):
         ph = phase([
@@ -1210,8 +1210,8 @@ def _contrast(one, other):
 def _template_palettes():
     """[(selector, {custom property: hex})] for each theme block of the
     artefact template: the light root and its two dark counterparts."""
-    html = (Path(roadmap.__file__).resolve().parent.parent
-            / "templates" / "roadmap-artefact.html").read_text()
+    html = (Path(roadbook.__file__).resolve().parent.parent
+            / "templates" / "chart.html").read_text()
     css = html[html.index("<style>"):html.index("</style>")]
     return [(selector.strip(),
              dict(re.findall(r"(--[\w-]+):\s*(#[0-9a-fA-F]{6});", body)))
@@ -1221,15 +1221,15 @@ def _template_palettes():
 
 class TierStyle(unittest.TestCase):
     """The contrast gates a tier background must clear against every node
-    it can contain (see the TIER_STYLE comment in roadmap.py), in both the
+    it can contain (see the TIER_STYLE comment in roadbook.py), in both the
     light and the dark palette."""
 
     MODES = [("light", "bg", "stroke"), ("dark", "darkBg", "darkStroke")]
 
     def _pairs(self):
         for mode, fill, stroke in self.MODES:
-            for tier, tier_style in roadmap.TIER_STYLE.items():
-                for node, node_style in roadmap.STATUS_STYLE.items():
+            for tier, tier_style in roadbook.TIER_STYLE.items():
+                for node, node_style in roadbook.STATUS_STYLE.items():
                     yield (mode, tier, node, tier_style[fill],
                            node_style[fill], node_style[stroke])
 
@@ -1245,14 +1245,14 @@ class TierStyle(unittest.TestCase):
 
     def test_every_node_label_still_clears_aa_on_its_own_fill(self):
         for mode, fill, stroke in self.MODES:
-            for node, style in roadmap.STATUS_STYLE.items():
+            for node, style in roadbook.STATUS_STYLE.items():
                 with self.subTest(mode=mode, node=node):
                     self.assertGreaterEqual(
                         _contrast(style[fill], style[stroke]), 4.5)
 
     def test_tier_label_clears_aa_on_its_background(self):
         for mode, fill, stroke in self.MODES:
-            for tier, style in roadmap.TIER_STYLE.items():
+            for tier, style in roadbook.TIER_STYLE.items():
                 with self.subTest(mode=mode, tier=tier):
                     self.assertGreaterEqual(
                         _contrast(style[fill], style[stroke]), 4.5)
@@ -1260,22 +1260,22 @@ class TierStyle(unittest.TestCase):
     def test_edge_line_clears_three_to_one(self):
         for selector, palette in _template_palettes():
             fill = "bg" if selector == ":root" else "darkBg"
-            for tier, style in roadmap.TIER_STYLE.items():
+            for tier, style in roadbook.TIER_STYLE.items():
                 with self.subTest(selector=selector, tier=tier):
                     self.assertGreaterEqual(
                         _contrast(style[fill], palette["--diagram-line"]), 3)
 
     def test_backgrounds_reuse_no_node_colour(self):
-        node_colours = {style[key] for style in roadmap.STATUS_STYLE.values()
+        node_colours = {style[key] for style in roadbook.STATUS_STYLE.values()
                         for key in ("bg", "stroke", "darkBg", "darkStroke")}
-        tier_colours = {style[key] for style in roadmap.TIER_STYLE.values()
+        tier_colours = {style[key] for style in roadbook.TIER_STYLE.values()
                         for key in ("bg", "darkBg")}
         self.assertEqual(tier_colours & node_colours, set())
 
     def test_template_carries_the_same_colours_as_the_tables(self):
         palettes = _template_palettes()
         self.assertEqual(len(palettes), 3)
-        tables = {**roadmap.STATUS_STYLE, **roadmap.TIER_STYLE}
+        tables = {**roadbook.STATUS_STYLE, **roadbook.TIER_STYLE}
         for selector, palette in palettes:
             fill, stroke = (("bg", "stroke") if selector == ":root"
                             else ("darkBg", "darkStroke"))
@@ -1308,24 +1308,24 @@ class GraphDirection(unittest.TestCase):
         return phase([{"id": "M1", "name": "fan", "tasks": tasks}])
 
     def test_long_thin_chain_picks_td(self):
-        self.assertEqual(roadmap.choose_direction(self._chain()), "TD")
+        self.assertEqual(roadbook.choose_direction(self._chain()), "TD")
 
     def test_wide_fan_picks_lr(self):
-        self.assertEqual(roadmap.choose_direction(self._fan()), "LR")
+        self.assertEqual(roadbook.choose_direction(self._fan()), "LR")
 
     def test_deterministic_across_repeated_calls(self):
         ph = self._fan()
-        results = {roadmap.choose_direction(ph) for _ in range(5)}
+        results = {roadbook.choose_direction(ph) for _ in range(5)}
         self.assertEqual(len(results), 1)
 
     def test_empty_graph_defaults_to_td(self):
         ph = phase([{"id": "M1", "name": "m", "tasks": [task("a", "done")]}])
-        self.assertEqual(roadmap.choose_direction(ph), "TD")
+        self.assertEqual(roadbook.choose_direction(ph), "TD")
 
     def test_longest_path_layers_assigns_by_depth(self):
         ids = ["a", "b", "c"]
         edges = [{"from": "a", "to": "b"}, {"from": "b", "to": "c"}]
-        layers = roadmap._longest_path_layers(ids, edges)
+        layers = roadbook._longest_path_layers(ids, edges)
         self.assertEqual(layers, {"a": 0, "b": 1, "c": 2})
 
     def test_longest_path_layers_takes_the_deepest_predecessor(self):
@@ -1334,7 +1334,7 @@ class GraphDirection(unittest.TestCase):
         ids = ["a", "b", "c", "d"]
         edges = [{"from": "a", "to": "b"}, {"from": "b", "to": "c"},
                  {"from": "a", "to": "d"}, {"from": "c", "to": "d"}]
-        layers = roadmap._longest_path_layers(ids, edges)
+        layers = roadbook._longest_path_layers(ids, edges)
         self.assertEqual(layers["d"], 3)
 
 
@@ -1344,7 +1344,7 @@ class FileBased(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
         (root / ".claude").mkdir()
-        jp = root / ".claude" / "roadmaps.json"
+        jp = root / ".claude" / "roadbook.json"
         jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
         return root, jp
 
@@ -1352,7 +1352,7 @@ class FileBased(unittest.TestCase):
         data = [phase([{"id": "M1", "name": "m", "tasks": [
             task("a", "done"), task("b", "blocked", ["a"])]}])]
         root, jp = self._project(data)
-        rc = roadmap.main(["recompute", str(jp)])
+        rc = roadbook.main(["recompute", str(jp)])
         self.assertEqual(rc, 0)
         after = json.loads(jp.read_text())
         self.assertEqual(after[0]["milestones"][0]["tasks"][1]["status"], "todo")
@@ -1362,10 +1362,10 @@ class FileBased(unittest.TestCase):
             task("a", "done"), task("b", "blocked", ["a"])]}])]
         root, jp = self._project(data)
         jp.write_text(json.dumps(data, indent=2) + "\n")  # space-indented
-        rc = roadmap.main(["recompute", str(jp)])
+        rc = roadbook.main(["recompute", str(jp)])
         self.assertEqual(rc, 1)
         self.assertIn("blocked", jp.read_text())  # untouched
-        rc = roadmap.main(["recompute", str(jp), "--reformat"])
+        rc = roadbook.main(["recompute", str(jp), "--reformat"])
         self.assertEqual(rc, 0)
         self.assertEqual(
             json.loads(jp.read_text())[0]["milestones"][0]["tasks"][1]["status"],
@@ -1375,18 +1375,18 @@ class FileBased(unittest.TestCase):
         data = [phase([{"id": "M1", "name": "m", "tasks": [
             task("a", "todo", ["b"]), task("b", "todo", ["a"])]}])]
         root, jp = self._project(data)
-        self.assertEqual(roadmap.main(["recompute", str(jp)]), 1)
+        self.assertEqual(roadbook.main(["recompute", str(jp)]), 1)
 
     def test_detect_rich_old_and_missing(self):
         rich = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}])]
         root, jp = self._project(rich)
-        self.assertEqual(roadmap.main(["detect", str(jp)]), 0)
+        self.assertEqual(roadbook.main(["detect", str(jp)]), 0)
 
         old = {"roadmaps": [{"path": "docs/roadmaps/mvp.md"}]}
         root2, jp2 = self._project(old)
-        self.assertEqual(roadmap.main(["detect", str(jp2)]), 3)
+        self.assertEqual(roadbook.main(["detect", str(jp2)]), 3)
 
-        self.assertEqual(roadmap.main(["detect", "/nonexistent/nowhere"]), 2)
+        self.assertEqual(roadbook.main(["detect", "/nonexistent/nowhere"]), 2)
 
     def test_detect_old_via_md_anchors(self):
         rich = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}])]
@@ -1394,24 +1394,24 @@ class FileBased(unittest.TestCase):
         md = root / "docs" / "roadmaps"
         md.mkdir(parents=True)
         (md / "TEST.md").write_text('# Old\n<a name="m1-todo"></a>\n')
-        self.assertEqual(roadmap.main(["detect", str(jp)]), 3)
+        self.assertEqual(roadbook.main(["detect", str(jp)]), 3)
 
     def test_validate_clean_and_dirty(self):
         clean = [phase([{"id": "M1", "name": "m", "tasks": [
             task("a", "done"), task("b", "todo", ["a"])]}])]
         _root, jp = self._project(clean)
-        self.assertEqual(roadmap.main(["validate", str(jp)]), 0)
+        self.assertEqual(roadbook.main(["validate", str(jp)]), 0)
 
         dirty = [phase([{"id": "M1", "name": "m", "tasks": [
             task("a"), task("b", "todo", ["a"])]}])]  # b should be blocked
         _root2, jp2 = self._project(dirty)
-        self.assertEqual(roadmap.main(["validate", str(jp2)]), 1)
+        self.assertEqual(roadbook.main(["validate", str(jp2)]), 1)
 
     def test_render_writes_artefact(self):
         data = [phase([{"id": "M1", "name": "m", "tasks": [
             task("a", "done"), task("b", "todo", ["a"])]}], name="My Phase")]
         root, jp = self._project(data)
-        rc = roadmap.main(["render", str(jp)])
+        rc = roadbook.main(["render", str(jp)])
         self.assertEqual(rc, 0)
         out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
         self.assertTrue(out.exists())
@@ -1419,7 +1419,7 @@ class FileBased(unittest.TestCase):
         self.assertIn("My Phase", html)
         self.assertNotIn("%%DATA%%", html)
         self.assertNotIn("%%TITLE%%", html)
-        self.assertIn("roadmap-data", html)
+        self.assertIn("chart-data", html)
 
     def test_soft_edges_survive_recompute_and_reconsecutive_graph_runs(self):
         # The regression this prevents: hand-authored dotted edges wiped by
@@ -1430,15 +1430,15 @@ class FileBased(unittest.TestCase):
             task("a", "done"),
             task("b", "todo", soft=["a"])]}])]
         root, jp = self._project(data)
-        self.assertEqual(roadmap.main(["recompute", str(jp)]), 0)
+        self.assertEqual(roadbook.main(["recompute", str(jp)]), 0)
         after = json.loads(jp.read_text())
         self.assertEqual(
             after[0]["milestones"][0]["tasks"][1]["softDependsOn"], ["a"])
 
-        _path, reloaded = roadmap.load(str(jp))
-        ph = roadmap.active_phase(reloaded)
-        first = roadmap.mermaid_source(ph)
-        second = roadmap.mermaid_source(ph)
+        _path, reloaded = roadbook.load(str(jp))
+        ph = roadbook.active_phase(reloaded)
+        first = roadbook.mermaid_source(ph)
+        second = roadbook.mermaid_source(ph)
         self.assertIn("a -.-> b", first)
         self.assertEqual(first, second)
 
@@ -1446,7 +1446,7 @@ class FileBased(unittest.TestCase):
         data = [phase([{"id": "M1", "name": "m", "tasks": [
             task("a", "todo", assignee="jason")]}], name="My Phase")]
         root, jp = self._project(data)
-        rc = roadmap.main(["render", str(jp)])
+        rc = roadbook.main(["render", str(jp)])
         self.assertEqual(rc, 0)
         out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
         html = out.read_text()
@@ -1454,7 +1454,7 @@ class FileBased(unittest.TestCase):
 
     def _blob(self, out):
         html = out.read_text()
-        start = html.find('<script id="roadmap-data"')
+        start = html.find('<script id="chart-data"')
         start = html.find(">", start) + 1
         end = html.find("</script>", start)
         return json.loads(html[start:end])
@@ -1464,7 +1464,7 @@ class FileBased(unittest.TestCase):
         explicit = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}],
                           name="My Phase", project="Iris")]
         root, jp = self._project(explicit)
-        roadmap.main(["render", str(jp)])
+        roadbook.main(["render", str(jp)])
         out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
         self.assertEqual(self._blob(out)["project"], "Iris")
 
@@ -1472,7 +1472,7 @@ class FileBased(unittest.TestCase):
         implicit = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}],
                           name="My Phase")]
         root2, jp2 = self._project(implicit)
-        roadmap.main(["render", str(jp2)])
+        roadbook.main(["render", str(jp2)])
         out2 = root2 / "docs" / "artefacts" / "roadmap-my-phase.html"
         self.assertEqual(self._blob(out2)["project"], root2.name)
 
@@ -1481,7 +1481,7 @@ class FileBased(unittest.TestCase):
             task("a", assignee="jason"), task("b", assignee="jaz"),
             task("c")]}], name="My Phase")]
         root, jp = self._project(data)
-        roadmap.main(["render", str(jp)])
+        roadbook.main(["render", str(jp)])
         out = root / "docs" / "artefacts" / "roadmap-my-phase.html"
         blob = self._blob(out)
         self.assertEqual(set(blob["devColours"]), {"jason", "jaz"})
@@ -1497,7 +1497,7 @@ class FileBased(unittest.TestCase):
             out_path = root / f"out-{seed}.html"
             env = {**os.environ, "PYTHONHASHSEED": seed}
             subprocess.run(
-                [sys.executable, str(Path(roadmap.__file__)), "render",
+                [sys.executable, str(Path(roadbook.__file__)), "render",
                  str(jp), "--out", str(out_path)],
                 env=env, capture_output=True, text=True, check=True)
             outs.append(out_path.read_text())
@@ -1509,7 +1509,7 @@ class FileBased(unittest.TestCase):
 
 class Claims(unittest.TestCase):
     """A claim is the `started` field; views show it, recompute never reads
-    it (see roadmap-conventions.md, Claims)."""
+    it (see roadbook-conventions.md, Claims)."""
 
     def test_display_status_table(self):
         claimed = {"started": "2026-09-25"}
@@ -1528,7 +1528,7 @@ class Claims(unittest.TestCase):
             task("a", started="2026-09-25"), task("b", "blocked", ["a"])]}])
         t, m, g = build_index(ph)
         self.assertEqual(recompute_all(t, m, g), {"a": "todo", "b": "blocked"})
-        self.assertEqual(roadmap._validate_phase(ph), [])
+        self.assertEqual(roadbook._validate_phase(ph), [])
 
 
 class ClaimViews(unittest.TestCase):
@@ -1542,7 +1542,7 @@ class ClaimViews(unittest.TestCase):
                 task("d", "done"), task("e", started="2026-09-21")]}])
 
     def test_ready_leaves_claims_out_and_lists_them_oldest_first(self):
-        ready = roadmap.build_ready(self._phase())
+        ready = roadbook.build_ready(self._phase())
         self.assertEqual([c["id"] for c in ready["candidates"]], ["c"])
         self.assertEqual(
             [(c["id"], c["status"], c["display"], c["assignee"], c["started"])
@@ -1553,13 +1553,13 @@ class ClaimViews(unittest.TestCase):
     def test_a_claim_on_a_reblocked_task_stays_visible(self):
         ph = phase([{"id": "M1", "name": "m", "tasks": [
             task("a"), task("b", "blocked", ["a"], started="2026-09-20")]}])
-        claim = roadmap.build_ready(ph)["claimed"][0]
+        claim = roadbook.build_ready(ph)["claimed"][0]
         self.assertEqual((claim["status"], claim["display"]), ("blocked", "in_progress"))
         t, m, g = build_index(ph)
         self.assertEqual(recompute_all(t, m, g)["b"], "blocked")
 
     def test_stats_count_claims_as_an_overlay(self):
-        stats = roadmap.build_stats(self._phase())
+        stats = roadbook.build_stats(self._phase())
         self.assertEqual(stats["inProgress"], 2)
         self.assertEqual(sum(stats["byStatus"].values()), stats["total"])
         by_id = {m["id"]: m for m in stats["milestones"]}
@@ -1571,17 +1571,17 @@ class ClaimViews(unittest.TestCase):
 
     def test_a_claim_starts_a_milestone_at_zero_percent(self):
         self.assertEqual(
-            roadmap.milestone_state({"todo": 2}, 0, total=2, in_progress=1),
+            roadbook.milestone_state({"todo": 2}, 0, total=2, in_progress=1),
             "inProgress")
         self.assertEqual(
-            roadmap.milestone_state({"todo": 2}, 0, total=2), "todo")
+            roadbook.milestone_state({"todo": 2}, 0, total=2), "todo")
         self.assertEqual(
-            roadmap.milestone_state({"todo": 1, "blocked": 1}, 0, total=2,
+            roadbook.milestone_state({"todo": 1, "blocked": 1}, 0, total=2,
                                     in_progress=1),
             "inProgress")
 
     def test_mermaid_classes_and_marks_claimed_tasks(self):
-        src = roadmap.mermaid_source(self._phase())
+        src = roadbook.mermaid_source(self._phase())
         self.assertIn("classDef inProgress", src)
         self.assertIn('\ta["a: task a ▸"]', src)
         self.assertIn('\tc["c: task c"]', src)
@@ -1591,14 +1591,14 @@ class ClaimViews(unittest.TestCase):
         long = "x" * 80
         ph = phase([{"id": "M1", "name": "m", "tasks": [
             task("a", started="2026-09-20", description=long)]}])
-        line = next(l for l in roadmap.mermaid_source(ph).splitlines()
+        line = next(l for l in roadbook.mermaid_source(ph).splitlines()
                     if l.startswith('\ta["'))
         label = line[len('\ta["'):-len('"]')]
-        self.assertEqual(len(label), roadmap._LABEL_MAX)
+        self.assertEqual(len(label), roadbook._LABEL_MAX)
         self.assertTrue(label.endswith("… ▸"))
 
     def test_dependency_chips_get_the_display_status(self):
-        kinds = roadmap._dep_kinds(self._phase())
+        kinds = roadbook._dep_kinds(self._phase())
         self.assertEqual(kinds["a"]["display"], "in_progress")
         self.assertEqual(kinds["c"]["display"], "todo")
 
@@ -1612,7 +1612,7 @@ class ArtefactPath(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name).resolve()  # the CLI prints resolved paths
         (root / ".claude").mkdir()
-        jp = root / ".claude" / "roadmaps.json"
+        jp = root / ".claude" / "roadbook.json"
         jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
         return root, jp
 
@@ -1634,7 +1634,7 @@ class ArtefactPath(unittest.TestCase):
 
     def _run(self, argv):
         with contextlib.redirect_stdout(io.StringIO()) as out:
-            rc = roadmap.main(argv)
+            rc = roadbook.main(argv)
         return rc, out.getvalue()
 
     def test_render_honours_artefact_key(self):
@@ -1660,7 +1660,7 @@ class ArtefactPath(unittest.TestCase):
         rc, out = self._run(["recompute", str(jp), "--render"])
         self.assertEqual(rc, 0)
         self.assertIn(f"refreshed artefact: {custom}", out)
-        self.assertIn("roadmap-data", custom.read_text())
+        self.assertIn("chart-data", custom.read_text())
         self.assertFalse(
             (root / "docs" / "artefacts" / "roadmap-tranche-1c-post-dsg.html").exists())
 
@@ -1707,7 +1707,7 @@ class ArtefactPath(unittest.TestCase):
         self.assertEqual(list(after[0]),
                          ["name", "path", "project", "artefact", "min_plugin",
                           "archived", "externalGates", "milestones"])
-        self.assertEqual(text, roadmap._canonical_text(after))
+        self.assertEqual(text, roadbook._canonical_text(after))
         self.assertIn("roadmap-t1c.html", out)
         self.assertIn("no artefact at", out)  # nothing rendered yet
         self.assertIn('render --phase "Tranche 1C: Post-DSG"', out)
@@ -1822,7 +1822,7 @@ class ClaimCommand(unittest.TestCase):
     def _project(self, tasks):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp = Path(tmp.name) / ".claude" / "roadbook.json"
         jp.parent.mkdir()
         data = [phase([{"id": "M1", "name": "m", "tasks": tasks}],
                      min_plugin=STAMPED)]
@@ -1835,7 +1835,7 @@ class ClaimCommand(unittest.TestCase):
 
     def _run(self, *argv):
         with contextlib.redirect_stdout(io.StringIO()) as out:
-            rc = roadmap.main(list(argv))
+            rc = roadbook.main(list(argv))
         return rc, out.getvalue()
 
     def test_claim_writes_started_in_field_order(self):
@@ -1900,7 +1900,7 @@ class ClaimCommand(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("YYYY-MM-DD", out)
         ph = phase([{"id": "M1", "name": "m", "tasks": [task("a", started="2026-W39-5")]}])
-        self.assertTrue(any("not a YYYY-MM-DD date" in p for p in roadmap._validate_phase(ph)))
+        self.assertTrue(any("not a YYYY-MM-DD date" in p for p in roadbook._validate_phase(ph)))
 
     def test_release_refuses_an_unclaimed_task(self):
         rc, out = self._run("release", "a", str(self._project([task("a")])))
@@ -1910,9 +1910,9 @@ class ClaimCommand(unittest.TestCase):
     def test_validate_checks_started_and_points_at_claims(self):
         ph = phase([{"id": "M1", "name": "m", "tasks": [
             task("a", started="soon"), task("b", "in_progress")]}])
-        problems = roadmap._validate_phase(ph)
+        problems = roadbook._validate_phase(ph)
         self.assertTrue(any("started 'soon'" in p for p in problems))
-        self.assertTrue(any("run roadmap.py claim" in p for p in problems))
+        self.assertTrue(any("run roadbook.py claim" in p for p in problems))
 
 
 class StackedClaim(unittest.TestCase):
@@ -1921,7 +1921,7 @@ class StackedClaim(unittest.TestCase):
     def _project(self, milestones, gates=None):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp = Path(tmp.name) / ".claude" / "roadbook.json"
         jp.parent.mkdir()
         data = [phase(milestones, gates, min_plugin=STAMPED)]
         jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
@@ -2105,14 +2105,14 @@ class AssignCommand(unittest.TestCase):
         jp = self._project([task("a")])
         for extra in ([], ["--assignee", "Max", "--unassign"]):
             with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
-                roadmap.main(["assign", "a", str(jp), *extra])
+                roadbook.main(["assign", "a", str(jp), *extra])
             self.assertEqual(caught.exception.code, 2)
 
 
 class EndedField(unittest.TestCase):
     def _problems(self, **fields):
         ph = phase([{"id": "M1", "name": "m", "tasks": [task("a", **fields)]}])
-        return roadmap._validate_phase(ph)
+        return roadbook._validate_phase(ph)
 
     def test_valid_ended_on_done_is_clean(self):
         self.assertEqual(self._problems(status="done", started="2026-09-25",
@@ -2132,14 +2132,14 @@ class EndedField(unittest.TestCase):
         self.assertTrue(any("before started" in p for p in problems))
 
     def test_ended_sits_between_started_and_pr(self):
-        self.assertEqual(roadmap.TASK_FIELD_ORDER[-3:], ["started", "ended", "pr"])
+        self.assertEqual(roadbook.TASK_FIELD_ORDER[-3:], ["started", "ended", "pr"])
 
 
 class EndCommand(unittest.TestCase):
     def _project(self, tasks):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp = Path(tmp.name) / ".claude" / "roadbook.json"
         jp.parent.mkdir()
         data = [phase([{"id": "M1", "name": "m", "tasks": tasks}],
                      min_plugin=STAMPED)]
@@ -2152,7 +2152,7 @@ class EndCommand(unittest.TestCase):
 
     def _run(self, *argv):
         with contextlib.redirect_stdout(io.StringIO()) as out:
-            rc = roadmap.main(list(argv))
+            rc = roadbook.main(list(argv))
         return rc, out.getvalue()
 
     def test_end_writes_ended_in_field_order(self):
@@ -2167,7 +2167,7 @@ class EndCommand(unittest.TestCase):
     def test_end_defaults_to_today(self):
         jp = self._project([task("a", "done")])
         self.assertEqual(self._run("end", "a", str(jp))[0], 0)
-        self.assertEqual(self._task(jp, "a")["ended"], roadmap.date.today().isoformat())
+        self.assertEqual(self._task(jp, "a")["ended"], roadbook.date.today().isoformat())
 
     def test_end_refuses_a_task_that_is_not_done(self):
         jp = self._project([task("a")])
@@ -2197,38 +2197,38 @@ class EndedFromHistory(unittest.TestCase):
         versions = [("s1", "2026-09-01", {"a": "todo"}),
                     ("s2", "2026-09-10", {"a": "done"}),
                     ("s3", "2026-09-20", {"a": "done", "b": "todo"})]
-        found = roadmap.ended_from_history(versions, "2026-10-02")
+        found = roadbook.ended_from_history(versions, "2026-10-02")
         self.assertEqual(found, {"a": ("2026-09-10", "s2", "transition")})
 
     def test_reopened_then_redone_uses_the_latest_finish(self):
         versions = [("s1", "2026-09-01", {"a": "done"}),
                     ("s2", "2026-09-05", {"a": "todo"}),
                     ("s3", "2026-09-09", {"a": "done"})]
-        self.assertEqual(roadmap.ended_from_history(versions, "x")["a"][0],
+        self.assertEqual(roadbook.ended_from_history(versions, "x")["a"][0],
                          "2026-09-09")
 
     def test_done_on_first_sight_is_flagged_first_seen(self):
         versions = [("s1", "2026-09-01", {"a": "done"}),
                     ("s2", "2026-09-05", {"a": "done", "b": "done"})]
-        found = roadmap.ended_from_history(versions, "x")
+        found = roadbook.ended_from_history(versions, "x")
         self.assertEqual(found["a"], ("2026-09-01", "s1", "first-seen"))
         self.assertEqual(found["b"], ("2026-09-05", "s2", "first-seen"))
 
     def test_working_tree_only_done_is_dated_today(self):
         versions = [("s1", "2026-09-01", {"a": "todo"}),
                     ("", "", {"a": "done"})]
-        self.assertEqual(roadmap.ended_from_history(versions, "2026-10-02")["a"],
+        self.assertEqual(roadbook.ended_from_history(versions, "2026-10-02")["a"],
                          ("2026-10-02", "", "uncommitted"))
 
     def test_task_no_longer_done_at_the_end_is_dropped(self):
         versions = [("s1", "2026-09-01", {"a": "done"}),
                     ("s2", "2026-09-05", {"a": "todo"})]
-        self.assertEqual(roadmap.ended_from_history(versions, "x"), {})
+        self.assertEqual(roadbook.ended_from_history(versions, "x"), {})
 
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")
-class GitRoadmap(unittest.TestCase):
-    """A temporary repository holding .claude/roadmaps.json, with dated
+class GitRoadbook(unittest.TestCase):
+    """A temporary repository holding .claude/roadbook.json, with dated
     commits. Helpers only; the test classes below add the cases."""
 
     def _git(self, *argv, when=None):
@@ -2253,13 +2253,13 @@ class GitRoadmap(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
-        self.jp = self.root / ".claude" / "roadmaps.json"
+        self.jp = self.root / ".claude" / "roadbook.json"
         self.jp.parent.mkdir()
         self._git("init", "-q", "-b", "main")
 
     def _run(self, *argv):
         with contextlib.redirect_stdout(io.StringIO()) as out:
-            rc = roadmap.main(list(argv))
+            rc = roadbook.main(list(argv))
         return rc, out.getvalue()
 
     def _tasks(self):
@@ -2268,7 +2268,7 @@ class GitRoadmap(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")
-class BackfillEnded(GitRoadmap):
+class BackfillEnded(GitRoadbook):
     """backfill-ended against a real repository with dated commits."""
 
     def test_dates_come_from_the_commit_where_each_task_became_done(self):
@@ -2305,7 +2305,7 @@ class BackfillEnded(GitRoadmap):
         self._write([task("a", "done")])
         rc, _ = self._run("backfill-ended", str(self.jp))
         self.assertEqual(rc, 0)
-        self.assertEqual(self._tasks()["a"]["ended"], roadmap.date.today().isoformat())
+        self.assertEqual(self._tasks()["a"]["ended"], roadbook.date.today().isoformat())
 
     def _commit_done_before_started(self):
         self._commit([task("a", started="2026-09-15")], "2026-09-01")
@@ -2342,7 +2342,7 @@ class BackfillEnded(GitRoadmap):
     def test_outside_a_repository_is_an_error(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        jp = Path(tmp.name) / ".claude" / "roadmaps.json"
+        jp = Path(tmp.name) / ".claude" / "roadbook.json"
         jp.parent.mkdir()
         data = [phase([{"id": "M1", "name": "m", "tasks": [task("a", "done")]}])]
         jp.write_text(json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
@@ -2352,7 +2352,7 @@ class BackfillEnded(GitRoadmap):
 
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")
-class StampEnded(GitRoadmap):
+class StampEnded(GitRoadbook):
     """stamp-ended: the done tasks a branch finished, for pr-land."""
 
     def setUp(self):
@@ -2483,7 +2483,7 @@ class Hooks(unittest.TestCase):
         data = [phase([{"id": "M1", "name": "m", "tasks": [
             task("a", assignee="Jaz"), task("b"), task("c", "blocked", ["a"]),
             task("d", "done")]}])]
-        (self.repo / ".claude" / "roadmaps.json").write_text(
+        (self.repo / ".claude" / "roadbook.json").write_text(
             json.dumps(data, indent="\t", ensure_ascii=False) + "\n")
         self.git(self.repo, "add", ".")
         self.git(self.repo, "commit", "-qm", "init")
@@ -2495,7 +2495,7 @@ class Hooks(unittest.TestCase):
                               capture_output=True, text=True, check=True).stdout.strip()
 
     def cli(self, *args, stdin=""):
-        return subprocess.run([sys.executable, str(Path(roadmap.__file__)), *args],
+        return subprocess.run([sys.executable, str(Path(roadbook.__file__)), *args],
                               input=stdin, env=self.env, cwd=self.root,
                               capture_output=True, text=True)
 
@@ -2525,7 +2525,7 @@ class Hooks(unittest.TestCase):
         nudge = self.hook("session-start", self.repo)
         self.assertIn("claims no roadmap task", nudge)
         self.assertIn("roadmap:claim skill", nudge)
-        self.assertEqual(self.cli("claim", "b", str(self.repo / ".claude" / "roadmaps.json")).returncode, 0)
+        self.assertEqual(self.cli("claim", "b", str(self.repo / ".claude" / "roadbook.json")).returncode, 0)
         self.assertEqual(self.hook("session-start", self.repo).strip(),
                          "Roadmap: branch `feat/x` claims b.")
 
@@ -2533,7 +2533,7 @@ class Hooks(unittest.TestCase):
         wt = self.root / "wt"
         self.git(self.repo, "worktree", "add", "-q", str(wt), "-b", "feat/y")
         text = self.context(self.hook("post-tool-use", self.repo))
-        self.assertIn(f"claim <ID> {wt / '.claude' / 'roadmaps.json'}", text)
+        self.assertIn(f"claim <ID> {wt / '.claude' / 'roadbook.json'}", text)
         self.assertIn(f"git -C {wt} commit", text)
         self.assertNotIn(str(self.repo / ".claude"), text)
 
@@ -2597,8 +2597,8 @@ class VersionStamp(unittest.TestCase):
     RUNNING = "2.7.0"
 
     def setUp(self):
-        self.addCleanup(setattr, roadmap, "PLUGIN_VERSION", roadmap.PLUGIN_VERSION)
-        roadmap.PLUGIN_VERSION = self.RUNNING
+        self.addCleanup(setattr, roadbook, "PLUGIN_VERSION", roadbook.PLUGIN_VERSION)
+        roadbook.PLUGIN_VERSION = self.RUNNING
 
     def _project(self, stored="blocked", started=None, **extra):
         """`stored` is b's status on disk; "blocked" makes recompute write.
@@ -2607,7 +2607,7 @@ class VersionStamp(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name).resolve()
         (root / ".claude").mkdir()
-        jp = root / ".claude" / "roadmaps.json"
+        jp = root / ".claude" / "roadbook.json"
         data = [phase([{"id": "M1", "name": "m", "tasks": [
             task("a", "done"), task("b", stored, ["a"],
                                                   **({"started": started} if started else {}))]}],
@@ -2618,7 +2618,7 @@ class VersionStamp(unittest.TestCase):
     def _run(self, *argv):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            rc = roadmap.main(list(argv))
+            rc = roadbook.main(list(argv))
         return rc, out.getvalue()
 
     def test_a_write_stamps_the_live_phase_with_the_running_version(self):
@@ -2683,13 +2683,13 @@ class VersionStamp(unittest.TestCase):
 
     def test_a_patch_release_leaves_the_stamp_alone(self):
         _root, jp = self._project(min_plugin="2.7.0")
-        roadmap.PLUGIN_VERSION = "2.7.3"
+        roadbook.PLUGIN_VERSION = "2.7.3"
         self.assertEqual(self._run("recompute", str(jp))[0], 0)
         self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], "2.7.0")
 
     def test_a_newer_minor_raises_the_stamp(self):
         _root, jp = self._project(min_plugin="2.7.0")
-        roadmap.PLUGIN_VERSION = "2.9.1"
+        roadbook.PLUGIN_VERSION = "2.9.1"
         self.assertEqual(self._run("recompute", str(jp))[0], 0)
         self.assertEqual(json.loads(jp.read_text())[0]["min_plugin"], "2.9.0")
 
@@ -2720,10 +2720,10 @@ class CrossTierEdges(unittest.TestCase):
 
     @staticmethod
     def _flagged(ph):
-        return [p for p in roadmap._validate_phase(ph) if "sits in" in p]
+        return [p for p in roadbook._validate_phase(ph) if "sits in" in p]
 
     def test_lower_tier_task_next_to_its_milestone_is_flagged(self):
-        found = roadmap.redundant_cross_tier_edges(
+        found = roadbook.redundant_cross_tier_edges(
             self._tiered(["M10", "10SE.4"]))
         self.assertEqual(found, [("13SE.5", "10SE.4", "M10", 1, "M10")])
         problems = self._flagged(self._tiered(["M10", "10SE.4"]))
@@ -2733,19 +2733,19 @@ class CrossTierEdges(unittest.TestCase):
         self.assertIn("name 10SE.4 in notes", problems[0])
 
     def test_reached_through_a_lower_tier_task_names_that_task(self):
-        found = roadmap.redundant_cross_tier_edges(
+        found = roadbook.redundant_cross_tier_edges(
             self._tiered(["10SE.5", "10SE.3"]))
         self.assertEqual(found, [("13SE.5", "10SE.3", "M10", 1, "10SE.5")])
 
     def test_uncovered_lower_tier_task_edge_stays_authored(self):
         self.assertEqual(
-            roadmap.redundant_cross_tier_edges(self._tiered(["10SE.4"])), [])
+            roadbook.redundant_cross_tier_edges(self._tiered(["10SE.4"])), [])
 
     def test_milestone_entries_are_never_flagged(self):
         # ["M1", "M10", "13SE.1"] reaches M10 twice, but that is the tier
         # pattern itself, as 8RT.10 ["M1", "M6", "8RT.9"] is in CHIRPdb.
         ph = self._tiered(["M1", "M10", "13SE.1"])
-        self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
+        self.assertEqual(roadbook.redundant_cross_tier_edges(ph), [])
         self.assertEqual(self._flagged(ph), [])
 
     def test_same_tier_task_edges_are_never_flagged(self):
@@ -2754,14 +2754,14 @@ class CrossTierEdges(unittest.TestCase):
                 task("10SE.3", "todo"),
                 task("10SE.5", "blocked", ["10SE.3"]),
                 task("10SE.6", "blocked", ["10SE.5", "10SE.3"])]}])
-        self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
+        self.assertEqual(roadbook.redundant_cross_tier_edges(ph), [])
 
     def test_untiered_phase_is_never_checked(self):
         ph = phase([
             {"id": "M1", "name": "Core", "tasks": [task("a", "done")]},
             {"id": "M2", "name": "More", "tasks": [
                 task("b", "todo", ["M1", "a"])]}])
-        self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
+        self.assertEqual(roadbook.redundant_cross_tier_edges(ph), [])
 
     def test_soft_member_is_not_reached_through_its_milestone(self):
         ph = phase([
@@ -2769,7 +2769,7 @@ class CrossTierEdges(unittest.TestCase):
                 task("a", "done"), task("s", "todo", softMilestone=True)]},
             {"id": "M2", "name": "More (Secondary)", "tasks": [
                 task("b", "todo", ["M1", "s"])]}])
-        self.assertEqual(roadmap.redundant_cross_tier_edges(ph), [])
+        self.assertEqual(roadbook.redundant_cross_tier_edges(ph), [])
 
     def test_soft_member_reached_through_a_hard_member(self):
         # M1 cannot finish before hard h, and h waits on soft s, so the
@@ -2779,7 +2779,7 @@ class CrossTierEdges(unittest.TestCase):
                 task("h", "todo", ["s"]), task("s", "todo", softMilestone=True)]},
             {"id": "M2", "name": "More (Secondary)", "tasks": [
                 task("b", "todo", ["M1", "s"])]}])
-        self.assertEqual(roadmap.redundant_cross_tier_edges(ph),
+        self.assertEqual(roadbook.redundant_cross_tier_edges(ph),
                          [("b", "s", "M1", 0, "M1")])
 
     def test_soft_member_reached_transitively(self):
@@ -2792,7 +2792,7 @@ class CrossTierEdges(unittest.TestCase):
                 task("s", "todo", softMilestone=True)]},
             {"id": "M2", "name": "More (Secondary)", "tasks": [
                 task("b", "todo", ["M1", "s"])]}])
-        self.assertEqual(roadmap.redundant_cross_tier_edges(ph),
+        self.assertEqual(roadbook.redundant_cross_tier_edges(ph),
                          [("b", "s", "M1", 0, "M1")])
 
     def test_soft_member_reached_through_another_gate_milestone(self):
@@ -2804,17 +2804,17 @@ class CrossTierEdges(unittest.TestCase):
                 task("10.1", "todo"), task("s", "todo", softMilestone=True)]},
             {"id": "M13", "name": "D (Secondary)", "tasks": [
                 task("b", "todo", ["M7", "s"])]}])
-        self.assertEqual(roadmap.redundant_cross_tier_edges(ph),
+        self.assertEqual(roadbook.redundant_cross_tier_edges(ph),
                          [("b", "s", "M10", 0, "M7")])
 
     def test_validate_cli_reports_the_edge(self):
         with tempfile.TemporaryDirectory() as td:
-            jp = Path(td) / ".claude" / "roadmaps.json"
+            jp = Path(td) / ".claude" / "roadbook.json"
             jp.parent.mkdir()
             jp.write_text(json.dumps([self._tiered(["M10", "10SE.4"])]))
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
-                rc = roadmap.main(["validate", str(jp)])
+                rc = roadbook.main(["validate", str(jp)])
             self.assertEqual(rc, 1)
             self.assertIn("13SE.5: dependsOn '10SE.4' sits in M10", buf.getvalue())
 

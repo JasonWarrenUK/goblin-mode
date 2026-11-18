@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <!--
-	roadmap-artefact.html: template consumed by `roadmap.py render`.
+	chart.html: template consumed by `roadbook.py render`.
 	Two placeholders, each substituted exactly once below: the phase-name
 	title (in the head; the h1 is overwritten by JS from project/phase, since
 	the two placeholders cannot diverge) and the JSON data blob
 	(project, phase, generated, stats, overview, tasks, ready, mermaid,
 	graphDirection, validation, devColours, depKinds), which lands in the
-	roadmap-data script element near the foot of the document. `overview` is
-	roadmap.py's own sort/tier-group computation for the Overview and
-	Milestones sections (see overview_layout() and roadmap-conventions.md);
+	chart-data script element near the foot of the document. `overview` is
+	roadbook.py's own sort/tier-group computation for the Overview and
+	Milestones sections (see overview_layout() and roadbook-conventions.md);
 	the template renders it as given and never re-sorts or re-groups
 	milestones itself. Render does a global string replace, so the data-blob token
 	must appear verbatim exactly once in this file (the render step asserts
@@ -18,7 +18,7 @@
 	comment-close sequence.
 	Everything else is static so regenerated artefacts diff cleanly.
 	Palette: the canonical status/milestone-state/dev-chip colour table from
-	references/roadmap-conventions.md (STATUS_STYLE in roadmap.py).
+	references/roadbook-conventions.md (STATUS_STYLE in roadbook.py).
 -->
 <html lang="en-GB">
 <head>
@@ -29,7 +29,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-	/* Palette: the roadmap system's own fixed status table (see roadmap.py
+	/* Palette: the roadmap system's own fixed status table (see roadbook.py
 	   STATUS_STYLE); literal hexes so the artefact is self-contained.
 	   Milestone — sky (structural, steel-blue half of the terminal gradient) */
 	--color-milestone:       #007590;
@@ -55,7 +55,7 @@
 	--color-out-of-scope-bg: #f6f6f6;
 	--color-gate:            #7d6f00;
 	--color-gate-bg:         #fff9e5;
-	/* Tier backgrounds (see roadmap.py TIER_STYLE): the fill behind a
+	/* Tier backgrounds (see roadbook.py TIER_STYLE): the fill behind a
 	   tier's subgraph in the dependency graph, slate while the tier is
 	   underway, taupe while it is deferred. Muted mid-tones, never a node
 	   colour: every node stroke clears 3:1 against them. */
@@ -63,7 +63,7 @@
 	--color-tier-underway-bg: #c3cede;
 	--color-tier-deferred:    #4a3826;
 	--color-tier-deferred-bg: #dccbb9;
-	/* In progress (see roadmap-conventions.md): azure marks a claimed task
+	/* In progress (see roadbook-conventions.md): azure marks a claimed task
 	   still in play and the milestone state it drives, the way milestone
 	   states share their task-status hues. Distinct from sky (structural),
 	   though close enough that diagram labels also carry a marker. */
@@ -508,18 +508,18 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 	</main>
 </div>
 
-<script id="roadmap-data" type="application/json">%%DATA%%</script>
+<script id="chart-data" type="application/json">%%DATA%%</script>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 
-const DATA = JSON.parse(document.getElementById("roadmap-data").textContent);
+const DATA = JSON.parse(document.getElementById("chart-data").textContent);
 const esc = s => String(s ?? "").replace(/[&<>"']/g,
 	c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 document.getElementById("pageTitle").textContent =
 	DATA.project ? `${DATA.project}: ${DATA.phase}` : DATA.phase;
 document.getElementById("meta").textContent =
-	`generated ${DATA.generated} · source .claude/roadmaps.json`;
+	`generated ${DATA.generated} · source .claude/roadbook.json`;
 
 /* Validation banner (empty when clean) */
 if (DATA.validation && DATA.validation.length) {
@@ -530,10 +530,10 @@ if (DATA.validation && DATA.validation.length) {
 }
 
 /* Milestone-level state (distinct from task status): computed server-side by
-   roadmap.py's milestone_state() and carried as m.state, so the artefact
+   roadbook.py's milestone_state() and carried as m.state, so the artefact
    never re-derives it and cannot disagree with the CLI's own stats/render
    paths. Milestone states: empty, done, deferred, inProgress, blocked, todo
-   (see roadmap-conventions.md; `empty` is a flagged bug, not a legitimate
+   (see roadbook-conventions.md; `empty` is a flagged bug, not a legitimate
    state, and borrows the blocked/red colour). The same map also colours
    dependency chips by a *task's* display status, which still uses `paused`
    and adds in_progress (a claimed task) and out_of_scope: task status and
@@ -544,8 +544,8 @@ const STATE_VAR = {
 	paused: "paused", in_progress: "in-progress", out_of_scope: "out-of-scope",
 };
 /* Overview cards and Milestones details both render DATA.overview.milestones
-   in the order roadmap.py's overview_layout() already sorted (see
-   roadmap-conventions.md's milestone sort rules): partially-done first,
+   in the order roadbook.py's overview_layout() already sorted (see
+   roadbook-conventions.md's milestone sort rules): partially-done first,
    then tier, then donePct, then milestone id. The artefact never re-sorts. */
 const sortedMilestones = DATA.overview.milestones;
 
@@ -571,7 +571,7 @@ const depChip = id => {
    CSS), and the headline is the only thing left visible once collapsed. */
 const st = DATA.stats;
 /* Every done/total readout counts in-scope tasks only (inScope, computed by
-   roadmap.py's build_stats()): an out_of_scope task is struck from play, so
+   roadbook.py's build_stats()): an out_of_scope task is struck from play, so
    it is neither done nor outstanding. One readout shape serves the project
    headline and each tier's own. */
 const readout = s =>
@@ -596,8 +596,8 @@ const milestoneCard = m => `
 	</div>`;
 
 /* Section 2 groups lead with actionable work; milestones themselves follow
-   DATA.overview's own sort/tier-group order (roadmap.py's overview_layout,
-   see roadmap-conventions.md), so a reader scanning top-to-bottom sees the
+   DATA.overview's own sort/tier-group order (roadbook.py's overview_layout,
+   see roadbook-conventions.md), so a reader scanning top-to-bottom sees the
    same priority twice across Overview and Milestones, not two different
    orderings of the same data; Overview's tier grouping mirrors it too. */
 /* The fourth field marks a group that renders as its own closed <details>:
@@ -674,7 +674,7 @@ if (DATA.overview.tiers) {
 }
 
 /* Section 3 — Dependency graph */
-/* A tiered phase draws each tier as its own subgraph (roadmap.py's
+/* A tiered phase draws each tier as its own subgraph (roadbook.py's
    mermaid_source()), so its legend gains the two tier backgrounds; an
    untiered phase has no subgraph and keeps the keys hidden. */
 document.getElementById("tier-keys").hidden = !DATA.overview.tiers;
@@ -727,10 +727,10 @@ const renderGraph = async () => {
 	});
 	const src = DATA.mermaid.replace(/var\((--[\w-]+)\)/g, (_, name) => cssVar(name));
 	try {
-		const { svg } = await mermaid.render("roadmap-graph", src);
+		const { svg } = await mermaid.render("chart-graph", src);
 		diagram.innerHTML = svg;
 	} catch (err) {
-		document.getElementById("droadmap-graph")?.remove();
+		document.getElementById("dchart-graph")?.remove();
 		diagram.innerHTML = `<p class="depnote">Dependency graph failed to render: ${esc(String(err))}</p>`;
 		return;
 	}
@@ -766,7 +766,7 @@ wrap.addEventListener("pointerdown", e => { drag = { x: e.clientX - tx, y: e.cli
 wrap.addEventListener("pointermove", e => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); } });
 wrap.addEventListener("pointerup", () => { drag = null; });
 
-/* Section 4 — Next Up (pre-vetted by roadmap.py ready). Same chip structure
+/* Section 4 — Next Up (pre-vetted by roadbook.py ready). Same chip structure
    as the Milestones section (A5); grouped by dev only when the READY SET
    (the candidates actually shown here, not the whole phase) has more than
    one distinct assignee, so a solo project (or a phase where only one dev's

@@ -7,9 +7,9 @@
 // (replacing any assignee it already had), `a` assigns or, left blank, clears
 // an assignee without starting anything, `g` cycles what the set is grouped
 // by, `s` asks which subgroups lead, `r` refreshes. An assignee is never
-// inferred. The CLI is the plugin's own scripts/roadmap.py, the same file the
+// inferred. The CLI is the plugin's own scripts/roadbook.py, the same file the
 // skills run, so the pane needs python3 and nothing else. Nothing here edits
-// roadmaps.json except through `claim` and `assign`.
+// roadbook.json except through `claim` and `assign`.
 //
 // The grouping lives in the plugin's store, a file of this machine's, so each
 // dev keeps their own without anything in the roadmap saying so.
@@ -52,7 +52,7 @@ const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v)
 
 // No cwd: the default is the session's working directory read per call, so a
 // move into a worktree takes the pane with it and the CLI finds that branch's
-// roadmaps.json by walking up from there.
+// roadbook.json by walking up from there.
 const run = ($: EngineInterface, args: readonly string[]) => $.process.run(['python3', cli, ...args], { timeoutMs: 15_000 })
 
 const firstLine = (text: string): string => text.trim().split('\n')[0] ?? ''
@@ -266,7 +266,7 @@ const claim = async ($: EngineInterface, id: string, assignee: string): Promise<
 		// The person typed the name on purpose, so a different assignee gives way to it.
 		const ran = await run($, ['claim', id, `--assignee=${who}`, '--reassign'])
 		if (ran.exitCode !== 0) return reasonOf(ran, `claim ${id} refused`)
-		return `claimed ${id} for ${who}. commit roadmaps.json when you are ready.`
+		return `claimed ${id} for ${who}. commit roadbook.json when you are ready.`
 	} catch {
 		return 'the CLI could not run'
 	}
@@ -278,7 +278,7 @@ const assign = async ($: EngineInterface, id: string, assignee: string): Promise
 	try {
 		const ran = await run($, who ? ['assign', id, `--assignee=${who}`] : ['assign', id, '--unassign'])
 		if (ran.exitCode !== 0) return reasonOf(ran, `assign ${id} refused`)
-		return `${who ? `assigned ${id} to ${who}` : `cleared ${id}'s assignee`}. commit roadmaps.json when you are ready.`
+		return `${who ? `assigned ${id} to ${who}` : `cleared ${id}'s assignee`}. commit roadbook.json when you are ready.`
 	} catch {
 		return 'the CLI could not run'
 	}
@@ -324,7 +324,7 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 				: {
 						glyph: '◇',
 						title: 'No roadmap in this project',
-						lead: 'Nothing at .claude/roadmaps.json above this directory.',
+						lead: 'Nothing at .claude/roadbook.json above this directory.',
 						steps: [step(ui, 1, 'Start one', '/roadmap:create'), step(ui, 2, 'Reopen', '/ready or press r')],
 					}
 	return (
@@ -503,7 +503,7 @@ const claimedRows = ($: EngineInterface, ui: Ui, claimed: readonly Claimed[], pi
 
 export const register: Register = on => {
 	on('session.start', async ($, e, next) => {
-		cli = `${$.plugin.root}/scripts/roadmap.py`
+		cli = `${$.plugin.root}/scripts/roadbook.py`
 		await loadGrouping($)
 		try {
 			await $.command.register({

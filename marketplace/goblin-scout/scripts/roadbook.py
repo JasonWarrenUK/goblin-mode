@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""roadmap.py — single CLI for the rich phase-array roadmap system.
+"""roadbook.py — single CLI for the rich phase-array roadmap system.
 
-Replaces the former five sibling scripts (detect_format, validate_roadmap,
-recompute_roadmap, roadmap_stats, roadmap_graph) with one entry point and a
-shared argument parser. Graph logic lives in _roadmap_core.py; this file owns
+Replaces the former five sibling scripts (detect_format, validate_roadbook,
+recompute_roadbook, roadbook_stats, roadbook_graph) with one entry point and a
+shared argument parser. Graph logic lives in _roadbook_core.py; this file owns
 presentation (Mermaid, HTML render) and the subcommand plumbing.
 
-Usage: roadmap.py SUBCOMMAND [PATH] [--phase NAME] [flags]
+Usage: roadbook.py SUBCOMMAND [PATH] [--phase NAME] [flags]
 
   detect     rich vs old-simple format verdict          (exit 0 rich / 3 old)
   validate   graph integrity + status correctness       (exit 0 clean / 1 not)
@@ -64,7 +64,7 @@ import zlib
 from datetime import date, datetime
 from pathlib import Path
 
-from _roadmap_core import (
+from _roadbook_core import (
     IMPOSABLE_STATUSES,
     IN_PROGRESS,
     PLUGIN_VERSION,
@@ -72,13 +72,13 @@ from _roadmap_core import (
     SOURCE_KINDS,
     STAMP_KEY,
     VALID_STATUSES,
-    RoadmapError,
+    RoadbookError,
     active_phase,
     build_index,
     display_status,
     find_cycles,
     is_claimed,
-    LOCAL_ROADMAP_NAME,
+    LOCAL_ROADBOOK_NAME,
     is_held,
     is_mirrored,
     _phases,
@@ -88,7 +88,7 @@ from _roadmap_core import (
     newer_than_running,
     phase_source,
     recompute_all,
-    resolve_roadmap_path,
+    resolve_roadbook_path,
     stamp_for,
     unmet_blockers,
 )
@@ -100,7 +100,7 @@ from _roadmap_core import (
 # The single source of truth for every projection: PHASE.md Mermaid (literal
 # hexes — GitHub cannot resolve CSS vars), the artefact template (semantic
 # vars, inlined at render from this table) and the conventions reference at
-# references/roadmap-conventions.md, which documents this table in
+# references/roadbook-conventions.md, which documents this table in
 # prose. Semantics: done=green (finished), todo=gray (blank slate),
 # blocked=red (stop), paused=purple (parked), deferred=cinnamon (shelved),
 # out_of_scope=gray, dotted (struck from play), gate=yellow (external),
@@ -171,7 +171,7 @@ STATUS_TO_CLASS = {
 # node colour. Both are muted mid-tones, because a node's fill is a
 # near-white tint (near-black in dark) and its stroke carries the hue: the
 # background has to sit between the two. Gates every pair must clear, in
-# light and dark alike (test_roadmap.py's TierStyle enforces them):
+# light and dark alike (test_roadbook.py's TierStyle enforces them):
 #   - 3:1 or better against every node stroke and the diagram's edge line
 #   - 1.35:1 or better against every node fill
 #   - 4.5:1 or better for the tier's own label (its stroke colour)
@@ -206,7 +206,7 @@ _LABEL_MAX = 48
 # top-level "shelved" partition, ahead of percentage), then inProgress, todo,
 # done. blocked/paused surface as their own milestone-card colour but are not
 # part of that four-way partition. Azure is shared with claimed tasks (see
-# roadmap-conventions.md), the same way the deferred/blocked/paused/done
+# roadbook-conventions.md), the same way the deferred/blocked/paused/done
 # states share their task-status hues: it reads as "live and moving".
 #
 # The state->CSS-var mapping lives once, in the artefact template's own
@@ -220,7 +220,7 @@ _TIER_SUFFIXES = ["Secondary", "Tertiary", "Quaternary", "Quinary"]
 def milestone_tier(name):
     """A milestone's release tier from a `(Secondary)`/`(Tertiary)`/…
     suffix on its name, case-insensitive: 0 for no suffix (Core), 1 for
-    Secondary, 2 for Tertiary and so on. See roadmap-conventions.md's Tiers
+    Secondary, 2 for Tertiary and so on. See roadbook-conventions.md's Tiers
     section: a phase may split into tiers released one after another by
     gate, not by date, and the dashboard reads the suffix to group and
     colour milestones by tier."""
@@ -244,7 +244,7 @@ def redundant_cross_tier_edges(phase):
     every hard member, a task requires everything in its `dependsOn`. A
     tertiary task listing `10SE.4` next to `M10` is the shape this catches;
     the milestone already carries the edge, so the task edge adds nothing
-    and breaks the tier pattern (roadmap-conventions.md, Tiers). Milestone
+    and breaks the tier pattern (roadbook-conventions.md, Tiers). Milestone
     entries are never reported, since `["M1", "M6", "8RT.9"]` is the
     pattern itself even when `8RT.9` carries M1 and M6 too; nor is a
     lower-tier task nothing else reaches, which may be a deliberate
@@ -413,8 +413,8 @@ def dev_colour(assignee):
 
 
 def project_root(json_path):
-    """The project root a roadmap belongs to. roadmaps.json conventionally
-    lives at <root>/.claude/roadmaps.json; when it lives elsewhere, treat its
+    """The project root a roadmap belongs to. roadbook.json conventionally
+    lives at <root>/.claude/roadbook.json; when it lives elsewhere, treat its
     own directory as the root rather than blindly taking parent.parent."""
     p = Path(json_path).resolve()
     return p.parent.parent if p.parent.name == ".claude" else p.parent
@@ -445,12 +445,12 @@ def _md_paths(data, json_path):
 def cmd_detect(args) -> int:
     try:
         path, data = load(args.path)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
 
     if isinstance(data, dict) and "roadmaps" in data:
-        print("old: roadmaps.json is a pointer registry, not a phase array")
+        print("old: roadbook.json is a pointer registry, not a phase array")
         return 3
 
     for md in _md_paths(data, path):
@@ -466,7 +466,7 @@ def cmd_detect(args) -> int:
             print(f"old: {md.name} uses graph TD + prose depends-on")
             return 3
 
-    print("rich: phase-array roadmaps.json, no old-format markers")
+    print("rich: phase-array roadbook.json, no old-format markers")
     return 0
 
 
@@ -498,7 +498,7 @@ def _validate_phase(phase):
     gate_expected_blocks = {gid: set() for gid in gates}
     for tid, task in tasks.items():
         if task.get("status") not in VALID_STATUSES:
-            hint = (" (a claim is the `started` field: run roadmap.py claim)"
+            hint = (" (a claim is the `started` field: run roadbook.py claim)"
                     if task.get("status") == IN_PROGRESS else "")
             problems.append(f"{tid}: invalid status {task.get('status')!r}{hint}")
         if "local" in task and task["local"] is not True:
@@ -587,7 +587,7 @@ def cmd_validate(args) -> int:
     try:
         _path, data = load(args.path)
         phase = active_phase(data, args.phase)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     problems = _validate_phase(phase)
@@ -626,14 +626,14 @@ def _refuse_if_stamped_newer(data):
     for phase in _phases(data):
         stamp = phase.get(STAMP_KEY)
         if newer_than_running(stamp, PLUGIN_VERSION):
-            raise RoadmapError(
+            raise RoadbookError(
                 f"phase {phase.get('name')!r} was written by roadmap plugin "
                 f"{stamp}; this is {PLUGIN_VERSION}. Update the plugin before "
                 "writing, so nothing a newer version produced is undone.")
 
 
-def _write_roadmap(path, data):
-    """Write roadmaps.json after the version check, stamping each live phase
+def _write_roadbook(path, data):
+    """Write roadbook.json after the version check, stamping each live phase
     with the running plugin's major.minor. The one writer for the roadmap file."""
     _refuse_if_stamped_newer(data)
     stamp = stamp_for(PLUGIN_VERSION)
@@ -659,7 +659,7 @@ def _refuse_if_artefact_newer(out):
         return
     found = _ARTEFACT_VERSION_RE.search(existing)
     if found and newer_than_running(found.group(1), PLUGIN_VERSION):
-        raise RoadmapError(
+        raise RoadbookError(
             f"{out} was rendered by roadmap plugin {found.group(1)}; this is "
             f"{PLUGIN_VERSION}. Update the plugin before rendering over it.")
 
@@ -668,7 +668,7 @@ def cmd_recompute(args) -> int:
     try:
         path, data = load(args.path)
         phase = active_phase(data, args.phase)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     tasks, milestones, gates = build_index(phase)
@@ -704,14 +704,14 @@ def cmd_recompute(args) -> int:
         # would silently reformat the whole file. Refuse unless told not to.
         original = path.read_text()
         if _canonical_text(data) != original and not args.reformat:
-            print("✗ roadmaps.json is not in canonical form (tab-indented, "
+            print("✗ roadbook.json is not in canonical form (tab-indented, "
                   "ensure_ascii off, trailing newline); a write would reformat "
                   "the whole file, not just statuses. Re-run with --reformat "
                   "to accept that, or normalise the file first.")
             return 1
         for tid, _old, new in changes:
             tasks[tid]["status"] = new
-        _write_roadmap(path, data)
+        _write_roadbook(path, data)
 
     if changes:
         verb = "would change" if args.check else "changed"
@@ -724,14 +724,14 @@ def cmd_recompute(args) -> int:
     if args.render and not args.check:
         try:
             out = _render_path(path, phase)
-        except RoadmapError as exc:
+        except RoadbookError as exc:
             print(f"✗ {exc}")
             return 1
         if out.exists():
             _render_to(path, data, phase, out)
             print(f"refreshed artefact: {out}")
         else:
-            print(f"note: no artefact at {out}; run `roadmap.py render` to create one")
+            print(f"note: no artefact at {out}; run `roadbook.py render` to create one")
     return 0
 
 
@@ -890,7 +890,7 @@ def _milestone_natural_key(mid):
 def overview_layout(phase, stats, ready):
     """Sort order and tier grouping for the artefact's Overview/Milestones
     sections, computed once here so the template only renders what this
-    says (see roadmap-conventions.md's Milestone sort/tier-group rules).
+    says (see roadbook-conventions.md's Milestone sort/tier-group rules).
 
     Per-milestone: `tier`, `tierLabel` (see tier_label(): "Core" for tier
     0, else the matching suffix) and `devs` (every distinct assignee
@@ -1015,7 +1015,7 @@ def cmd_stats(args) -> int:
     try:
         _path, data = load(args.path)
         stats = build_stats(active_phase(data, args.phase))
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     print(json.dumps(stats, indent="\t") if args.json else _human_stats(stats))
@@ -1343,7 +1343,7 @@ def _longest_path_layers(ids, edges):
 def choose_direction(phase):
     """`TD` or `LR` for the phase's dependency graph, picked deterministically
     from the same live nodes/edges mermaid_source(omit_done=True) draws (see
-    roadmap-conventions.md).
+    roadbook-conventions.md).
 
     Width-only fit: the diagram shell (`.mermaid-wrap` in the template) has
     no height cap, the SVG renders at natural size and the page simply
@@ -1382,7 +1382,7 @@ def cmd_graph(args) -> int:
     try:
         _path, data = load(args.path)
         phase = active_phase(data, args.phase)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     if args.mermaid:
@@ -1401,16 +1401,16 @@ def resolve_within(phase, milestones=None, tiers=None):
     for the whole phase. `milestones` is a list of ids (`M2`); `tiers` is a
     list of tier words (`core`, `secondary`, …) or the single word `focus`,
     the one tier `tier_states()` calls underway. The two are mutually
-    exclusive. Raises RoadmapError on an unknown id or tier, on both being
+    exclusive. Raises RoadbookError on an unknown id or tier, on both being
     given, and on `focus` when no tier is underway."""
     if milestones and tiers:
-        raise RoadmapError("milestones and tiers are mutually exclusive")
+        raise RoadbookError("milestones and tiers are mutually exclusive")
     entries = build_stats(phase)["milestones"]
     if milestones:
         known = {m["id"].lower(): m["id"] for m in entries}
         unknown = [m for m in milestones if m.lower() not in known]
         if unknown:
-            raise RoadmapError(
+            raise RoadbookError(
                 f"unknown milestone(s) {', '.join(unknown)}; "
                 f"{phase.get('name')} has {', '.join(m['id'] for m in entries)}")
         return {known[m.lower()] for m in milestones}
@@ -1421,12 +1421,12 @@ def resolve_within(phase, milestones=None, tiers=None):
     if [t.lower() for t in tiers] == ["focus"]:
         underway = [t for t, state in states.items() if state == "underway"]
         if not underway:
-            raise RoadmapError(f"no tier is underway in {phase.get('name')}")
+            raise RoadbookError(f"no tier is underway in {phase.get('name')}")
         wanted = set(underway)
     else:
         unknown = [t for t in tiers if t.lower() not in words]
         if unknown:
-            raise RoadmapError(
+            raise RoadbookError(
                 f"unknown tier(s) {', '.join(unknown)}; "
                 f"{phase.get('name')} has {', '.join(sorted(words, key=words.get))}")
         wanted = {words[t.lower()] for t in tiers}
@@ -1625,7 +1625,7 @@ def cmd_ready(args, horizon="ready") -> int:
         phase = active_phase(data, args.phase)
         within = resolve_within(phase, _csv(args.milestones), _csv(args.tiers))
         ready = build_ready(phase, within=within, horizon=horizon)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     if args.json:
@@ -1664,7 +1664,7 @@ def _print_claimed(claimed):
 # render
 # ---------------------------------------------------------------------------
 def _template_path():
-    return Path(__file__).resolve().parent.parent / "templates" / "roadmap-artefact.html"
+    return Path(__file__).resolve().parent.parent / "templates" / "chart.html"
 
 
 def _slug(name):
@@ -1709,7 +1709,7 @@ def _render_path(json_path, phase, override=None):
         return Path(override)
     problems = _artefact_problems(phase)
     if problems:
-        raise RoadmapError("; ".join(problems))
+        raise RoadbookError("; ".join(problems))
     custom = phase.get(ARTEFACT_KEY)
     if custom:
         return project_root(json_path) / custom
@@ -1742,7 +1742,7 @@ def _assert_header_comment_clean(template_html, template):
     header = template_html[start:root]
     closes = header.count(close_marker)
     if closes != 1:
-        raise RoadmapError(
+        raise RoadbookError(
             f"template header comment must contain exactly one comment-close "
             f"sequence before <html>, found {closes} in {template}: a stray "
             "close in the prose spills the page. Reword so the comment holds "
@@ -1751,7 +1751,7 @@ def _assert_header_comment_clean(template_html, template):
 
 def _project_name(json_path, phase):
     """Optional `project` field on the phase, falling back to the project
-    root directory name. See roadmap-conventions.md for the field."""
+    root directory name. See roadbook-conventions.md for the field."""
     explicit = phase.get("project")
     if explicit:
         return explicit
@@ -1778,7 +1778,7 @@ def _render_to(json_path, data, phase, out):
     _refuse_if_stamped_newer(data)
     template = _template_path()
     if not template.exists():
-        raise RoadmapError(f"render template missing at {template}")
+        raise RoadbookError(f"render template missing at {template}")
     tasks = []
     assignees = set()
     for m in phase.get("milestones", []):
@@ -1826,7 +1826,7 @@ def _render_to(json_path, data, phase, out):
                .replace(">", "\\u003e"))
     template_html = template.read_text()
     if template_html.count("%%DATA%%") != 1:
-        raise RoadmapError(
+        raise RoadbookError(
             "template must contain exactly one %%DATA%% placeholder; found "
             f"{template_html.count('%%DATA%%')} in {template}")
     _assert_header_comment_clean(template_html, template)
@@ -1844,7 +1844,7 @@ def cmd_render(args) -> int:
         phase = _phase_for(data, args.phase)
         out = _render_path(path, phase, args.out)
         _render_to(path, data, phase, out)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     print(f"wrote {out}")
@@ -1872,11 +1872,11 @@ def cmd_config(args) -> int:
     try:
         path, data = load(args.path)
         phase = _phase_for(data, args.phase)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     if _canonical_text(data) != path.read_text() and not args.reformat:
-        print("✗ roadmaps.json is not in canonical form (tab-indented, "
+        print("✗ roadbook.json is not in canonical form (tab-indented, "
               "ensure_ascii off, trailing newline); a write would reformat "
               "the whole file. Re-run with --reformat to accept that.")
         return 1
@@ -1896,7 +1896,7 @@ def cmd_config(args) -> int:
                 print(f"  - {p}")
             return 1
         _set_phase_field(phase, ARTEFACT_KEY, args.value)
-    _write_roadmap(path, data)
+    _write_roadbook(path, data)
     after = _render_path(path, phase)
     verb = "cleared artefact on" if args.clear else "set artefact on"
     print(f"{verb} '{name}'; the dashboard path is now {after}")
@@ -1907,7 +1907,7 @@ def cmd_config(args) -> int:
         print(f"note: a dashboard still exists at the old path {before}; "
               "nothing refreshes it any more, so delete it")
     if not after.exists():
-        print(f"note: no artefact at {after} yet; run `roadmap.py render"
+        print(f"note: no artefact at {after} yet; run `roadbook.py render"
               f" --phase \"{name}\"` to create it")
     return 0
 
@@ -1955,11 +1955,11 @@ def _load_for_write(args):
     try:
         path, data = load(args.path)
         phase = active_phase(data, args.phase)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return None, None, None, 2
     if _canonical_text(data) != path.read_text() and not args.reformat:
-        print("✗ roadmaps.json is not in canonical form (tab-indented, "
+        print("✗ roadbook.json is not in canonical form (tab-indented, "
               "ensure_ascii off, trailing newline); a write would reformat "
               "the whole file. Re-run with --reformat to accept that.")
         return None, None, None, 1
@@ -1970,7 +1970,7 @@ def _load_for_write(args):
     if is_mirrored(phase, index[0][args.id]):
         print(f"✗ {args.id} is mirrored from {_source_label(phase)}: its "
               "status, dates and assignee are set there and arrive with "
-              "`roadmap.py pull`. Only a task marked local can be changed here.")
+              "`roadbook.py pull`. Only a task marked local can be changed here.")
         return None, None, None, 1
     return path, data, index, None
 
@@ -1986,8 +1986,8 @@ def _refuse_history_dates(phase, command):
     if phase_source(phase) is None:
         return False
     print(f"✗ '{phase.get('name')}' is mirrored from {_source_label(phase)}: "
-          f"end dates arrive with `roadmap.py pull`, so {command} has nothing "
-          "to do. Date a local task with `roadmap.py end ID`.")
+          f"end dates arrive with `roadbook.py pull`, so {command} has nothing "
+          "to do. Date a local task with `roadbook.py end ID`.")
     return True
 
 
@@ -2047,7 +2047,7 @@ def cmd_claim(args) -> int:
         if not current or current.strip().lower() != name.lower():
             _set_task_field(task, "assignee", name)
     _set_task_field(task, "started", started)
-    _write_roadmap(path, data)
+    _write_roadbook(path, data)
     who = f", assignee {task['assignee']}" if task.get("assignee") else ""
     stacked = f", stacked on {', '.join(stacked_on)}" if stacked_on else ""
     print(f"✓ claimed {args.id} (started {started}{who}{stacked})")
@@ -2065,7 +2065,7 @@ def cmd_assign(args) -> int:
             print(f"✓ {args.id} has no assignee")
             return 0
         del task["assignee"]
-        _write_roadmap(path, data)
+        _write_roadbook(path, data)
         print(f"✓ cleared {args.id}'s assignee (was {current})")
         return 0
     name = args.assignee.strip()
@@ -2076,7 +2076,7 @@ def cmd_assign(args) -> int:
         print(f"✓ {args.id} already assigned to {current}")
         return 0
     _set_task_field(task, "assignee", name)
-    _write_roadmap(path, data)
+    _write_roadbook(path, data)
     was = f" (was {current})" if current else ""
     print(f"✓ assigned {args.id} to {name}{was}")
     return 0
@@ -2093,7 +2093,7 @@ def cmd_release(args) -> int:
     del task["started"]
     if args.unassign:
         task.pop("assignee", None)
-    _write_roadmap(path, data)
+    _write_roadbook(path, data)
     print(f"✓ released {args.id}" + (" and cleared its assignee" if args.unassign else ""))
     return 0
 
@@ -2119,7 +2119,7 @@ def cmd_end(args) -> int:
         print(f"✗ --date {ended} is before {args.id} started {task['started']}")
         return 1
     _set_task_field(task, "ended", ended)
-    _write_roadmap(path, data)
+    _write_roadbook(path, data)
     print(f"✓ ended {args.id} ({ended})")
     return 0
 
@@ -2131,13 +2131,13 @@ def cmd_stamp_ended(args) -> int:
     try:
         path, data = load(args.path)
         phase = active_phase(data, args.phase)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     if _refuse_history_dates(phase, "stamp-ended"):
         return 1
     if _canonical_text(data) != path.read_text() and not args.reformat:
-        print("✗ roadmaps.json is not in canonical form; re-run with "
+        print("✗ roadbook.json is not in canonical form; re-run with "
               "--reformat to accept a whole-file rewrite.")
         return 1
     ended = args.date or date.today().isoformat()
@@ -2146,7 +2146,7 @@ def cmd_stamp_ended(args) -> int:
         return 1
     git, rel = _git_at_toplevel(path)
     if git is None:
-        print("✗ roadmaps.json is not inside a git repository")
+        print("✗ roadbook.json is not inside a git repository")
         return 1
     base = (git("merge-base", "HEAD", args.base) or "").strip()
     if not base:
@@ -2173,7 +2173,7 @@ def cmd_stamp_ended(args) -> int:
         for tid in chosen:
             _set_task_field(tasks[tid], "ended", ended)
         if chosen:
-            _write_roadmap(path, data)
+            _write_roadbook(path, data)
     if args.json:
         print(json.dumps({"phase": phase.get("name"), "ended": ended,
                           "written": not args.dry_run and bool(chosen),
@@ -2212,7 +2212,7 @@ def ended_from_history(versions, today):
 
 
 def _phase_statuses(text, phase_name):
-    """{task id: status} for the phase named `phase_name` in roadmaps.json
+    """{task id: status} for the phase named `phase_name` in roadbook.json
     `text`, or None when the text does not parse or has no such phase."""
     try:
         loaded = json.loads(text)
@@ -2245,7 +2245,7 @@ def _git_at_toplevel(path):
     return git, path.resolve().relative_to(top_dir[0].resolve()).as_posix()
 
 
-def _roadmap_versions(path, phase_name):
+def _roadbook_versions(path, phase_name):
     """Oldest-first (sha, date, {id: status}) history of one phase from git,
     ending with the working-tree file as ("", "", ...). None when the file
     is not in a git repository."""
@@ -2272,18 +2272,18 @@ def cmd_backfill_ended(args) -> int:
     try:
         path, data = load(args.path)
         phase = active_phase(data, args.phase)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
     if _refuse_history_dates(phase, "backfill-ended"):
         return 1
     if _canonical_text(data) != path.read_text() and not args.reformat:
-        print("✗ roadmaps.json is not in canonical form; re-run with "
+        print("✗ roadbook.json is not in canonical form; re-run with "
               "--reformat to accept a whole-file rewrite.")
         return 1
-    versions = _roadmap_versions(path, phase.get("name"))
+    versions = _roadbook_versions(path, phase.get("name"))
     if versions is None:
-        print("✗ roadmaps.json is not inside a git repository; there is no "
+        print("✗ roadbook.json is not inside a git repository; there is no "
               "history to read dates from")
         return 1
     found = ended_from_history(versions, date.today().isoformat())
@@ -2302,7 +2302,7 @@ def cmd_backfill_ended(args) -> int:
         for row in rows:
             _set_task_field(tasks[row["id"]], "ended", row["ended"])
         if rows:
-            _write_roadmap(path, data)
+            _write_roadbook(path, data)
     if args.json:
         print(json.dumps({"phase": phase.get("name"), "written": not args.dry_run,
                           "tasks": rows, "skipped": skipped}, indent="\t"))
@@ -2334,8 +2334,8 @@ def _pull_target(args):
     # but does not parse is the user's work, so its error is let through
     # rather than replaced by a fresh file.
     try:
-        resolve_roadmap_path(args.path)
-    except RoadmapError:
+        resolve_roadbook_path(args.path)
+    except RoadbookError:
         if not args.project:
             raise
         path, data = None, []
@@ -2348,30 +2348,30 @@ def _pull_target(args):
             and (not args.project or phase_source(p).get("project") == args.project)]
     if len(live) > 1:
         names = ", ".join(repr(p.get("name")) for p in live)
-        raise RoadmapError(f"{len(live)} mirrored phases ({names}); pick one with --phase")
+        raise RoadbookError(f"{len(live)} mirrored phases ({names}); pick one with --phase")
     if live:
         return path, data, live[0]
     if not args.project:
-        raise RoadmapError(
+        raise RoadbookError(
             "no mirrored phase here; start one with "
-            "`roadmap.py pull --project KEY [--name NAME]`")
+            "`roadbook.py pull --project KEY [--name NAME]`")
     name = args.name or args.phase or args.project
     if any(p.get("name") == name for p in phases):
-        raise RoadmapError(f"a phase named {name!r} already exists; pass another --name")
+        raise RoadbookError(f"a phase named {name!r} already exists; pass another --name")
     phase = {"name": name,
              SOURCE_KEY: {"kind": "jira", "project": args.project},
              "externalGates": [], "milestones": []}
-    if path is not None and path.name == LOCAL_ROADMAP_NAME:
+    if path is not None and path.name == LOCAL_ROADBOOK_NAME:
         data = phases + [phase]
         return path, data, phase
     if path is not None:
         root = project_root(path)
     else:
         start = Path(args.path).expanduser() if args.path else Path.cwd()
-        git, _rel = _git_at_toplevel(start / LOCAL_ROADMAP_NAME)
+        git, _rel = _git_at_toplevel(start / LOCAL_ROADBOOK_NAME)
         top = (git("rev-parse", "--show-toplevel") or "").strip() if git else ""
         root = Path(top) if top else start
-    return root / ".claude" / LOCAL_ROADMAP_NAME, [phase], phase
+    return root / ".claude" / LOCAL_ROADBOOK_NAME, [phase], phase
 
 
 # A pull that removes more than half of at least this many mirrored tasks is
@@ -2380,7 +2380,7 @@ SHRINK_FLOOR = 4
 
 
 def cmd_pull(args) -> int:
-    import _roadmap_jira as jira
+    import _roadbook_jira as jira
     path, data, phase = _pull_target(args)
     source = phase_source(phase)
     if source.get("kind") != "jira":
@@ -2424,7 +2424,7 @@ def cmd_pull(args) -> int:
     phase.update(trial)
     if not args.dry_run:
         path.parent.mkdir(parents=True, exist_ok=True)
-        _write_roadmap(path, data)
+        _write_roadbook(path, data)
     for line in jira.describe(report, phase.get("name"), args.dry_run):
         print(line)
     if shrink:
@@ -2442,8 +2442,8 @@ def cmd_hook(args) -> int:
     """Claude Code hook entry point. A hook must never fail the session, so
     every error is swallowed and the exit code is always 0."""
     try:
-        import _roadmap_hooks
-        _roadmap_hooks.run(args.event, sys.stdin, Path(__file__).resolve(),
+        import _roadbook_hooks
+        _roadbook_hooks.run(args.event, sys.stdin, Path(__file__).resolve(),
                            build_ready)
     except Exception:  # noqa: BLE001 - a hook must never break the session
         pass
@@ -2455,13 +2455,13 @@ def cmd_hook(args) -> int:
 # ---------------------------------------------------------------------------
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        prog="roadmap.py", description=__doc__,
+        prog="roadbook.py", description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     def common(sp):
         sp.add_argument("path", nargs="?", default=None,
-                        help="roadmaps.json path or project dir (optional)")
+                        help="roadbook.json path or project dir (optional)")
         sp.add_argument("--phase", default=None,
                         help="phase name when several are active")
         return sp
@@ -2513,7 +2513,7 @@ def main(argv=None) -> int:
     sp.add_argument("--out", default=None, help="output path override")
 
     sp = sub.add_parser(
-        "config", help="set a per-phase option in roadmaps.json")
+        "config", help="set a per-phase option in roadbook.json")
     sp.add_argument("key", choices=[ARTEFACT_KEY],
                     help="artefact: where render writes the dashboard, "
                          "relative to the project root")
@@ -2624,7 +2624,7 @@ def main(argv=None) -> int:
     }
     try:
         return commands[args.cmd](args)
-    except RoadmapError as exc:
+    except RoadbookError as exc:
         print(f"✗ {exc}")
         return 2
 

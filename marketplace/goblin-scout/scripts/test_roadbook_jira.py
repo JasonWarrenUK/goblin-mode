@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Tests for phases mirrored from Jira (_roadmap_jira.py, `roadmap.py pull`
+"""Tests for phases mirrored from Jira (_roadbook_jira.py, `roadbook.py pull`
 and the gating a `source` switches on).
 
-Run from this directory: python3 -m unittest test_roadmap_jira -v
-Stdlib only; no test touches the network. The old suite in test_roadmap.py
+Run from this directory: python3 -m unittest test_roadbook_jira -v
+Stdlib only; no test touches the network. The old suite in test_roadbook.py
 covers every phase without a source and must keep passing unchanged.
 """
 from __future__ import annotations
@@ -17,12 +17,12 @@ import unittest.mock
 import urllib.request
 from pathlib import Path
 
-import _roadmap_hooks
-import _roadmap_jira as jira
-import roadmap
-from _roadmap_core import build_index, resolve_roadmap_path
+import _roadbook_hooks
+import _roadbook_jira as jira
+import roadbook
+from _roadbook_core import build_index, resolve_roadbook_path
 
-ORDER = roadmap.TASK_FIELD_ORDER
+ORDER = roadbook.TASK_FIELD_ORDER
 VERSIONS = {
     "R1": {"id": "100", "name": "Release 1", "startDate": "2026-11-16",
            "releaseDate": "2026-12-18"},
@@ -87,7 +87,7 @@ def pull(phase, issues):
 def run(*argv):
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
-        code = roadmap.main(list(argv))
+        code = roadbook.main(list(argv))
     return code, out.getvalue()
 
 
@@ -115,7 +115,7 @@ class Mapping(unittest.TestCase):
             {"T-2": "todo", "T-3": "blocked", "T-4": "blocked"})
 
     def test_the_result_validates(self):
-        self.assertEqual(roadmap._validate_phase(self.phase), [])
+        self.assertEqual(roadbook._validate_phase(self.phase), [])
 
     def test_first_pull_reports_everything_as_added(self):
         self.assertEqual(len(self.report["added"]), 3)
@@ -150,7 +150,7 @@ class Mapping(unittest.TestCase):
         tasks = build_index(phase)[0]
         self.assertEqual(tasks["T-8"]["dependsOn"], ["T-2"])
         self.assertEqual(tasks["T-8"]["status"], "blocked")
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_a_story_split_off_a_loop_that_jira_does_not_hold_is_no_cycle(self):
         # ABC-1 waits on ABC-2, ABC-2 waits on ABC-3 and ABC-3 is a sub-task
@@ -166,7 +166,7 @@ class Mapping(unittest.TestCase):
         self.assertEqual(
             {tid: t["status"] for tid, t in tasks.items()},
             {"ABC-1": "blocked", "ABC-2": "blocked", "ABC-3": "todo"})
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_two_inherited_edges_that_only_loop_together_keep_one(self):
         phase = empty_phase()
@@ -181,7 +181,7 @@ class Mapping(unittest.TestCase):
         self.assertEqual(len(report["warnings"]), 1)
         self.assertIn("S-4", report["warnings"][0])
         self.assertIn("Y-1", report["warnings"][0])
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_an_inherited_blocker_dropped_for_one_loop_is_not_a_warning(self):
         phase = empty_phase()
@@ -191,7 +191,7 @@ class Mapping(unittest.TestCase):
         self.assertEqual(report["warnings"], [])
 
     def test_an_issue_without_a_key_is_an_error_naming_it(self):
-        with self.assertRaisesRegex(roadmap.RoadmapError, "key"):
+        with self.assertRaisesRegex(roadbook.RoadbookError, "key"):
             jira.normalise({"fields": {"summary": "orphan"}})
 
     def test_a_blocks_link_without_a_key_is_skipped(self):
@@ -202,7 +202,7 @@ class Mapping(unittest.TestCase):
 
     def test_a_genuine_cycle_in_jira_still_refuses_the_pull(self):
         phase = empty_phase()
-        with self.assertRaisesRegex(roadmap.RoadmapError, "cycle"):
+        with self.assertRaisesRegex(roadbook.RoadbookError, "cycle"):
             pull(phase, [raw("ABC-1", blocked_by=["ABC-2"]),
                          raw("ABC-2", blocked_by=["ABC-1"])])
 
@@ -217,7 +217,7 @@ class Mapping(unittest.TestCase):
         task = build_index(phase)[0]["T-2"]
         self.assertEqual(task["dependsOn"], ["G1"])
         self.assertEqual(task["status"], "blocked")
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
 
 class OutsideBlockers(unittest.TestCase):
@@ -240,7 +240,7 @@ class OutsideBlockers(unittest.TestCase):
         self.assertEqual(tasks["T-5"]["status"], "blocked")
         self.assertEqual(gates["OPS-9"]["blocks"], ["T-5"])
         self.assertEqual(gates["OPS-9"]["tracker"], {"issue": "OPS-9"})
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_the_pull_says_which_task_a_new_gate_holds(self):
         phase = empty_phase()
@@ -260,14 +260,14 @@ class OutsideBlockers(unittest.TestCase):
         self.assertEqual(phase["externalGates"], [])
         self.assertEqual(task["dependsOn"], [])
         self.assertEqual(task["status"], "todo")
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_removing_the_link_retires_the_gate(self):
         phase = self.phase_with()
         pull(phase, board() + [self.story({}, blocked_by=())])
         self.assertEqual(phase["externalGates"], [])
         self.assertEqual(build_index(phase)[0]["T-5"]["dependsOn"], [])
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_a_hand_made_gate_survives_beside_a_generated_one(self):
         phase = self.phase_with()
@@ -279,7 +279,7 @@ class OutsideBlockers(unittest.TestCase):
             pull(phase, board() + [self.story({"OPS-9": "new"})])
             self.assertEqual(sorted(g["id"] for g in phase["externalGates"]),
                              ["G1", "OPS-9"])
-            self.assertEqual(roadmap._validate_phase(phase), [])
+            self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_a_child_inherits_its_storys_outside_blocker(self):
         phase = self.phase_with(
@@ -287,7 +287,7 @@ class OutsideBlockers(unittest.TestCase):
         tasks, _milestones, gates = build_index(phase)
         self.assertEqual(tasks["T-6"]["status"], "blocked")
         self.assertEqual(gates["OPS-9"]["blocks"], ["T-5", "T-6"])
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_a_second_pull_with_an_outside_blocker_changes_nothing(self):
         phase = self.phase_with()
@@ -325,7 +325,7 @@ class OutsideBlockers(unittest.TestCase):
             "id": "OPS-9", "description": "mine", "status": "todo",
             "dependsOn": [], "local": True})
         before = json.dumps(phase)
-        with self.assertRaisesRegex(roadmap.RoadmapError, "OPS-9"):
+        with self.assertRaisesRegex(roadbook.RoadbookError, "OPS-9"):
             pull(phase, board() + [self.story({"OPS-9": "new"})])
         self.assertEqual(json.dumps(phase), before)
 
@@ -338,10 +338,10 @@ class OutsideBlockers(unittest.TestCase):
                 code, out = run("pull", root, "--project", "T", "--name", "P",
                                 "--issues", str(issues))
                 self.assertEqual(code, 0, out)
-            data = json.loads(Path(root, ".claude", "roadmaps.local.json").read_text())
+            data = json.loads(Path(root, ".claude", "roadbook.local.json").read_text())
             self.assertEqual(data[0]["externalGates"][0]["tracker"],
                              {"issue": "OPS-9"})
-            self.assertEqual(roadmap._validate_phase(data[0]), [])
+            self.assertEqual(roadbook._validate_phase(data[0]), [])
 
 
 class Statuses(unittest.TestCase):
@@ -361,7 +361,7 @@ class Statuses(unittest.TestCase):
         self.assertEqual(tasks["T-3"]["status"], "todo")
         self.assertEqual(tasks["T-3"]["started"], "2026-11-19")
         self.assertEqual(tasks["T-3"]["tracker"]["status"], "In Review")
-        self.assertEqual(roadmap._validate_phase(phase), [])
+        self.assertEqual(roadbook._validate_phase(phase), [])
 
     def test_a_reopened_issue_loses_its_dates(self):
         phase = empty_phase()
@@ -390,7 +390,7 @@ class Statuses(unittest.TestCase):
         phase = empty_phase()
         issues = board()
         issues[1] = raw("T-2", parent="T-1", version="R1", blocked_by=["T-3"])
-        with self.assertRaises(roadmap.RoadmapError):
+        with self.assertRaises(roadbook.RoadbookError):
             pull(phase, issues)
         self.assertEqual(phase["milestones"], [])
 
@@ -422,7 +422,7 @@ class LocalWork(unittest.TestCase):
         self.assertEqual(tasks["L1"]["description"], "Spike the streaming transport")
         self.assertEqual(tasks["T-3"]["dependsOn"], ["T-2", "L1"])
         self.assertEqual(report["local"], 2)
-        self.assertEqual(roadmap._validate_phase(self.phase), [])
+        self.assertEqual(roadbook._validate_phase(self.phase), [])
 
     def test_a_vanished_issue_orphans_the_edge_and_keeps_the_task(self):
         report = pull(self.phase, board()[:3])
@@ -432,7 +432,7 @@ class LocalWork(unittest.TestCase):
         self.assertEqual(tasks["L2"]["status"], "todo")
         self.assertTrue(any(line.startswith("T-4") for line in report["removed"]))
         self.assertTrue(any("L2" in line for line in report["orphans"]))
-        self.assertEqual(roadmap._validate_phase(self.phase), [])
+        self.assertEqual(roadbook._validate_phase(self.phase), [])
 
     def test_the_edge_returns_with_the_issue(self):
         pull(self.phase, board()[:3])
@@ -451,7 +451,7 @@ class LocalWork(unittest.TestCase):
         self.assertEqual(self.phase["milestones"][-1]["id"], "GONE")
         self.assertEqual(tasks["T-3"]["dependsOn"], ["L1"])
         self.assertTrue(any("parked" in line for line in report["removed"]))
-        self.assertEqual(roadmap._validate_phase(self.phase), [])
+        self.assertEqual(roadbook._validate_phase(self.phase), [])
         again = pull(self.phase, board()[:1] + board()[2:])
         self.assertEqual(again["removed"], [])
         self.assertIn("T-2", build_index(self.phase)[0])
@@ -464,7 +464,7 @@ class LocalWork(unittest.TestCase):
                          ("todo", "branch feat/stream-answers", 212))
         self.assertNotIn("local", task)
         self.assertNotIn("GONE", [m["id"] for m in self.phase["milestones"]])
-        self.assertEqual(roadmap._validate_phase(self.phase), [])
+        self.assertEqual(roadbook._validate_phase(self.phase), [])
 
     def test_a_vanished_issue_without_notes_is_dropped(self):
         pull(self.phase, board()[:3])
@@ -473,13 +473,13 @@ class LocalWork(unittest.TestCase):
 
     def test_a_parked_task_renders_and_counts_out_of_scope(self):
         pull(self.phase, board()[:1] + board()[2:])
-        stats = roadmap.build_stats(self.phase)
+        stats = roadbook.build_stats(self.phase)
         self.assertEqual(stats["total"], 5)
-        roadmap.mermaid_source(self.phase)
+        roadbook.mermaid_source(self.phase)
         with tempfile.TemporaryDirectory() as root:
             (Path(root) / ".claude").mkdir()
-            path = Path(root) / ".claude" / "roadmaps.local.json"
-            path.write_text(roadmap._canonical_text([self.phase]))
+            path = Path(root) / ".claude" / "roadbook.local.json"
+            path.write_text(roadbook._canonical_text([self.phase]))
             code, out = run("render", root, "--out", str(Path(root) / "d.html"))
             self.assertEqual(code, 0, out)
 
@@ -498,15 +498,15 @@ class Cli(unittest.TestCase):
         self.addCleanup(self.dir.cleanup)
         self.root = Path(self.dir.name)
         (self.root / ".claude").mkdir()
-        self.committed = self.root / ".claude" / "roadmaps.json"
-        self.committed.write_text(roadmap._canonical_text([{
+        self.committed = self.root / ".claude" / "roadbook.json"
+        self.committed.write_text(roadbook._canonical_text([{
             "name": "Tranche 1", "externalGates": [], "milestones": [{
                 "id": "M1", "name": "One", "tasks": [{
                     "id": "1A.1", "description": "old-style task",
                     "status": "todo", "dependsOn": []}]}]}]))
         self.issues = self.root / "issues.json"
         self.issues.write_text(json.dumps({"issues": board()}))
-        self.local = self.root / ".claude" / "roadmaps.local.json"
+        self.local = self.root / ".claude" / "roadbook.local.json"
 
     def start(self):
         return run("pull", str(self.root), "--project", "T", "--name",
@@ -519,7 +519,7 @@ class Cli(unittest.TestCase):
         self.assertEqual(self.committed.read_text(), before)
         data = json.loads(self.local.read_text())
         self.assertEqual(data[0]["source"], {"kind": "jira", "project": "T"})
-        self.assertEqual(resolve_roadmap_path(str(self.root)), self.local)
+        self.assertEqual(resolve_roadbook_path(str(self.root)), self.local)
 
     def test_dry_run_writes_nothing(self):
         code, out = run("pull", str(self.root), "--project", "T",
@@ -534,7 +534,7 @@ class Cli(unittest.TestCase):
         data[0]["milestones"][0]["tasks"].append({
             "id": "L1", "description": "mine", "status": "todo",
             "dependsOn": [], "local": True})
-        self.local.write_text(roadmap._canonical_text(data))
+        self.local.write_text(roadbook._canonical_text(data))
         return self.local.read_text()
 
     def test_an_empty_answer_is_refused_and_moves_nothing(self):
@@ -644,7 +644,7 @@ class Cli(unittest.TestCase):
         self.start()
         data = json.loads(self.local.read_text())
         data[0]["source"]["jql"] = "project = T AND labels = nope"
-        self.local.write_text(roadmap._canonical_text(data))
+        self.local.write_text(roadbook._canonical_text(data))
         self.issues.write_text("[]")
         code, out = run("pull", str(self.root), "--issues", str(self.issues))
         self.assertEqual(code, 1, out)
@@ -652,8 +652,8 @@ class Cli(unittest.TestCase):
         self.assertIn("delete the phase", out)
 
     def test_pull_without_a_mirror_or_a_project_is_refused(self):
-        with self.assertRaises(roadmap.RoadmapError):
-            roadmap.cmd_pull(roadmap.argparse.Namespace(
+        with self.assertRaises(roadbook.RoadbookError):
+            roadbook.cmd_pull(roadbook.argparse.Namespace(
                 path=str(self.root), phase=None, project=None, name=None,
                 issues=str(self.issues), dry_run=False))
 
@@ -671,7 +671,7 @@ class Cli(unittest.TestCase):
         data[0]["milestones"][0]["tasks"].append({
             "id": "L1", "description": "mine", "status": "todo",
             "dependsOn": [], "local": True})
-        self.local.write_text(roadmap._canonical_text(data))
+        self.local.write_text(roadbook._canonical_text(data))
         code, out = run("claim", "L1", str(self.root), "--assignee", "Jason")
         self.assertEqual(code, 0, out)
         self.assertEqual(run("validate", str(self.root))[0], 0)
@@ -681,7 +681,7 @@ class Cli(unittest.TestCase):
         for command in ("stamp-ended", "backfill-ended"):
             code, out = run(command, str(self.root))
             self.assertEqual(code, 1)
-            self.assertIn("arrive with `roadmap.py pull`", out)
+            self.assertIn("arrive with `roadbook.py pull`", out)
 
     def test_ready_groups_by_epic(self):
         self.start()
@@ -697,15 +697,15 @@ class Cli(unittest.TestCase):
         self.assertIn("1A.1", out)
 
     def test_hooks_stay_silent_beside_a_mirror(self):
-        self.assertIsNotNone(_roadmap_hooks.load_roadmap(self.root))
+        self.assertIsNotNone(_roadbook_hooks.load_roadbook(self.root))
         self.start()
-        self.assertIsNone(_roadmap_hooks.load_roadmap(self.root))
+        self.assertIsNone(_roadbook_hooks.load_roadbook(self.root))
 
     def test_a_bad_source_fails_validate(self):
         self.start()
         data = json.loads(self.local.read_text())
         data[0]["source"] = {"kind": "trello"}
-        self.local.write_text(roadmap._canonical_text(data))
+        self.local.write_text(roadbook._canonical_text(data))
         code, out = run("validate", str(self.root))
         self.assertEqual(code, 1)
         self.assertIn("source: kind 'trello'", out)
@@ -725,13 +725,13 @@ class Reading(unittest.TestCase):
     def test_missing_credentials_name_what_is_missing(self):
         with tempfile.TemporaryDirectory() as root:
             with unittest.mock.patch.dict("os.environ", {}, clear=True):
-                with self.assertRaisesRegex(roadmap.RoadmapError, "JIRA_EMAIL"):
+                with self.assertRaisesRegex(roadbook.RoadbookError, "JIRA_EMAIL"):
                     jira.credentials(root)
 
     def test_missing_credentials_name_both_env_files(self):
         with tempfile.TemporaryDirectory() as root:
             with unittest.mock.patch.dict("os.environ", {}, clear=True):
-                with self.assertRaises(roadmap.RoadmapError) as caught:
+                with self.assertRaises(roadbook.RoadbookError) as caught:
                     jira.credentials(root)
         message = str(caught.exception)
         self.assertIn("environment", message)
@@ -742,7 +742,7 @@ class Reading(unittest.TestCase):
         called = []
         creds = {"JIRA_BASE_URL": "http://example.test", "JIRA_EMAIL": "a",
                  "JIRA_API_TOKEN": "b"}
-        with self.assertRaisesRegex(roadmap.RoadmapError, "https"):
+        with self.assertRaisesRegex(roadbook.RoadbookError, "https"):
             jira.fetch_issues({"project": "TST"}, creds,
                               lambda *a, **k: called.append(a))
         self.assertEqual(called, [])
@@ -753,7 +753,7 @@ class Reading(unittest.TestCase):
             headers={"Authorization": "Basic secret"})
         handler = jira._NoRedirect()
         for target in ("http://example.test/x", "https://elsewhere.test/x"):
-            with self.assertRaisesRegex(roadmap.RoadmapError, "redirect"):
+            with self.assertRaisesRegex(roadbook.RoadbookError, "redirect"):
                 handler.redirect_request(request, None, 302, "Found", {}, target)
 
     def test_the_default_opener_carries_the_redirect_refusal(self):
@@ -763,7 +763,7 @@ class Reading(unittest.TestCase):
     def test_a_base_url_with_no_host_is_refused(self):
         creds = {"JIRA_BASE_URL": "https://", "JIRA_EMAIL": "a",
                  "JIRA_API_TOKEN": "b"}
-        with self.assertRaisesRegex(roadmap.RoadmapError, "host"):
+        with self.assertRaisesRegex(roadbook.RoadbookError, "host"):
             jira.fetch_issues({"project": "TST"}, creds)
 
     def test_a_trailing_comment_in_the_env_file_is_not_part_of_the_value(self):
@@ -796,13 +796,13 @@ class Reading(unittest.TestCase):
     def test_the_no_host_error_shows_the_value_as_given(self):
         creds = {"JIRA_BASE_URL": "https://", "JIRA_EMAIL": "a",
                  "JIRA_API_TOKEN": "b"}
-        with self.assertRaisesRegex(roadmap.RoadmapError, "'https://'"):
+        with self.assertRaisesRegex(roadbook.RoadbookError, "'https://'"):
             jira.fetch_issues({"project": "TST"}, creds)
 
     def test_a_schemeless_base_url_is_refused(self):
         creds = {"JIRA_BASE_URL": "example.atlassian.net", "JIRA_EMAIL": "a",
                  "JIRA_API_TOKEN": "b"}
-        with self.assertRaisesRegex(roadmap.RoadmapError, "https"):
+        with self.assertRaisesRegex(roadbook.RoadbookError, "https"):
             jira.fetch_issues({"project": "TST"}, creds)
 
     def test_https_is_accepted_in_any_case(self):
@@ -815,7 +815,7 @@ class Reading(unittest.TestCase):
         self.assertEqual(jira.fetch_issues({"project": "TST"}, creds, opener), [])
 
     def test_a_project_key_that_could_break_the_query_is_refused(self):
-        with self.assertRaises(roadmap.RoadmapError):
+        with self.assertRaises(roadbook.RoadbookError):
             jira.fetch_issues({"project": 'T" OR 1=1'}, {})
 
     def test_fetch_follows_pages(self):

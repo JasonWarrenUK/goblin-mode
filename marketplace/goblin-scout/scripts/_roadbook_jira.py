@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mirror a Jira project into a roadmap phase: the read half of `roadmap.py pull`.
+"""Mirror a Jira project into a roadmap phase: the read half of `roadbook.py pull`.
 
 A phase whose `source` is `{"kind": "jira", "project": KEY}` is a mirror of
 that Jira project. Jira is the source of truth; nothing here writes to it.
@@ -48,8 +48,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from _roadmap_core import (
-    RoadmapError,
+from _roadbook_core import (
+    RoadbookError,
     build_index,
     find_cycles,
     is_held,
@@ -92,7 +92,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
     Jira's search never needs to redirect; refuse rather than follow."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise RoadmapError(
+        raise RoadbookError(
             f"Jira answered {code} with a redirect to {newurl}; not followed, "
             "so the API token is not sent there. Check JIRA_BASE_URL")
 
@@ -117,7 +117,7 @@ def credentials(root):
                     found.setdefault(match.group(1), value)
     missing = [k for k in ENV_KEYS if not found.get(k)]
     if missing:
-        raise RoadmapError(
+        raise RoadbookError(
             f"{', '.join(missing)} not set in the environment or in "
             f"{root}/.env.local or {root}/.env; a pull needs all of "
             f"{', '.join(ENV_KEYS)}")
@@ -128,18 +128,18 @@ def fetch_issues(source, creds, opener=_OPENER.open):
     """Every issue of the source's project, as Jira's search returns them."""
     project = str(source.get("project", ""))
     if not _PROJECT_KEY.fullmatch(project):
-        raise RoadmapError(f"source project {project!r} is not a Jira project key")
+        raise RoadbookError(f"source project {project!r} is not a Jira project key")
     jql = source.get("jql") or f'project = "{project}" ORDER BY key'
     auth = base64.b64encode(
         f"{creds['JIRA_EMAIL']}:{creds['JIRA_API_TOKEN']}".encode()).decode()
     base = creds["JIRA_BASE_URL"].rstrip("/")
     parts = urllib.parse.urlsplit(base)
     if parts.scheme.lower() != "https":
-        raise RoadmapError(
+        raise RoadbookError(
             f"JIRA_BASE_URL {creds['JIRA_BASE_URL']!r} must use https; the "
             "API token is sent with every request")
     if not parts.netloc:
-        raise RoadmapError(f"JIRA_BASE_URL {creds['JIRA_BASE_URL']!r} has no host")
+        raise RoadbookError(f"JIRA_BASE_URL {creds['JIRA_BASE_URL']!r} has no host")
     url = base + "/rest/api/3/search/jql"
     issues, token = [], None
     while True:
@@ -156,9 +156,9 @@ def fetch_issues(source, creds, opener=_OPENER.open):
                 page = json.loads(response.read())
         except urllib.error.HTTPError as exc:
             detail = exc.read()[:200].decode("utf-8", "replace")
-            raise RoadmapError(f"Jira answered {exc.code} to the search: {detail}") from exc
+            raise RoadbookError(f"Jira answered {exc.code} to the search: {detail}") from exc
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
-            raise RoadmapError(f"could not read Jira: {exc}") from exc
+            raise RoadbookError(f"could not read Jira: {exc}") from exc
         issues.extend(page.get("issues", []))
         token = page.get("nextPageToken")
         if not token:
@@ -174,7 +174,7 @@ def _day(stamp):
 def normalise(raw):
     """One search-result issue as the flat dict merge() reads."""
     if not isinstance(raw, dict) or not raw.get("key"):
-        raise RoadmapError(
+        raise RoadbookError(
             f"a Jira issue has no key: {json.dumps(raw, default=str)[:80]}")
     fields = raw.get("fields") or {}
     issue_type = fields.get("issuetype") or {}
@@ -236,7 +236,7 @@ def _milestone_number(mid):
 def merge(phase, issues, field_order):
     """Rewrite the phase's mirrored tasks from `issues` (normalise() output),
     leaving local tasks and local milestones in place, then recompute every
-    status. Returns the report; raises RoadmapError on a dependency cycle,
+    status. Returns the report; raises RoadbookError on a dependency cycle,
     before anything in `phase` has changed."""
     old_milestones = phase.get("milestones") or []
     old_tasks, old_home = {}, {}
@@ -274,7 +274,7 @@ def merge(phase, issues, field_order):
     parked_ids = (was_parked - set(work)) | set(newly_parked)
     clash = sorted(set(work) & set(local), key=_natural)
     if clash:
-        raise RoadmapError(
+        raise RoadbookError(
             f"local task id(s) {', '.join(clash)} are also Jira keys; rename "
             "the local task(s)")
 
@@ -388,7 +388,7 @@ def merge(phase, issues, field_order):
                  | {g.get("id") for g in hand_gates})
     for blocker in sorted(gate_blocks, key=_natural):
         if blocker in taken_ids:
-            raise RoadmapError(
+            raise RoadbookError(
                 f"Jira blocker {blocker} would become a gate, but {blocker} "
                 "is already a local task, milestone or gate id; rename the "
                 "local one")
@@ -565,7 +565,7 @@ def merge(phase, issues, field_order):
     tasks, milestones, gates = build_index(candidate)
     cycles = find_cycles(tasks, milestones)
     if cycles:
-        raise RoadmapError(
+        raise RoadbookError(
             "the Jira links and parent/child tickets form a cycle, so nothing "
             "was written: " + "; ".join(" -> ".join(c) for c in cycles))
     computed = recompute_all(tasks, milestones, gates)

@@ -2,7 +2,7 @@
 """Claude Code hooks for roadmap claims: notice when work starts on a branch
 and have Claude offer to claim the task it implements.
 
-Called through `roadmap.py hook EVENT`, which swallows every error, because a
+Called through `roadbook.py hook EVENT`, which swallows every error, because a
 hook must never break a session.
 
 - session-start: on a feature branch that claims nothing, add a context line
@@ -31,9 +31,9 @@ import subprocess
 import time
 from pathlib import Path
 
-from _roadmap_core import (
-    LOCAL_ROADMAP_NAME,
-    RoadmapError,
+from _roadbook_core import (
+    LOCAL_ROADBOOK_NAME,
+    RoadbookError,
     active_phase,
     build_index,
 )
@@ -41,7 +41,7 @@ from _roadmap_core import (
 WINDOW_SECONDS = 120
 MARKER = "roadmapClaim"
 MAX_CANDIDATES = 8
-ROADMAP = ".claude/roadmaps.json"
+ROADMAP = ".claude/roadbook.json"
 SUBAGENT_BRANCH = "worktree-agent-"
 _CREATED = "branch: Created from "
 _REFLOG_LINE = re.compile(
@@ -50,7 +50,7 @@ _REFLOG_LINE = re.compile(
 
 def run(event, stream, cli_path, ready_fn):
     """Read the hook payload from `stream` and print this event's output.
-    `ready_fn` is roadmap.py's build_ready, passed in to avoid a circular
+    `ready_fn` is roadbook.py's build_ready, passed in to avoid a circular
     import."""
     try:
         payload = json.loads(stream.read() or "{}")
@@ -99,16 +99,16 @@ def default_branch_name(base):
     return base.split("/", 1)[1] if base.startswith("origin/") else base
 
 
-def load_roadmap(checkout):
+def load_roadbook(checkout):
     """The active phase of the roadmap at the root of `checkout`, or None.
     None too when the checkout holds a local roadmap file: that is a phase
     mirrored from a tracker, where work is assigned in the tracker and a
     branch claims nothing."""
-    if (Path(checkout) / ".claude" / LOCAL_ROADMAP_NAME).exists():
+    if (Path(checkout) / ".claude" / LOCAL_ROADBOOK_NAME).exists():
         return None
     try:
         return active_phase(json.loads((Path(checkout) / ROADMAP).read_text()))
-    except (OSError, ValueError, RoadmapError):
+    except (OSError, ValueError, RoadbookError):
         return None
 
 
@@ -131,7 +131,7 @@ def branch_claims(checkout, base, phase):
         if not same:
             return None
         before = build_index(same[-1])[0]
-    except (ValueError, RoadmapError):
+    except (ValueError, RoadbookError):
         return None
     claimed = []
     for tid, task in tasks.items():
@@ -195,7 +195,7 @@ def session_start(cwd, cli_path, ready_fn):
         return ""
     if _git(top, "config", "--get", f"branch.{branch}.{MARKER}") == "none":
         return ""
-    phase = load_roadmap(top)
+    phase = load_roadbook(top)
     if phase is None or branch.startswith(SUBAGENT_BRANCH):
         return ""
     claims = branch_claims(top, base, phase)
@@ -229,7 +229,7 @@ def post_tool_use(cwd, cli_path, ready_fn):
         if checkouts is None:
             checkouts = worktrees(top)
         checkout = checkouts.get(branch)
-        phase = load_roadmap(checkout) if checkout else None
+        phase = load_roadbook(checkout) if checkout else None
         if phase is None:
             continue
         base = base_ref(checkout)

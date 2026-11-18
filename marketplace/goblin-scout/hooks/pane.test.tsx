@@ -53,7 +53,7 @@ const world = (on: On, detectExit = 0, readyRefusal: string | null = null, ready
 		expect(e.init?.cwd).toBeUndefined()
 		const sub = argv[2]
 		const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
-		if (sub === 'detect') return { value: { exitCode: detectExit, stdout: detectExit === 2 ? '✗ could not locate .claude/roadmaps.json above the current directory' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+		if (sub === 'detect') return { value: { exitCode: detectExit, stdout: detectExit === 2 ? '✗ could not locate .claude/roadbook.json above the current directory' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
 		if (sub === 'ready' && readyRefusal !== null) return { value: { exitCode: 2, stdout: readyRefusal, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
 		if (sub === 'ready') return ok(ready)
 		if (sub === 'stats') return ok(STATS)
@@ -166,7 +166,7 @@ test('/ready refreshes from the CLI and draws the header, the ready set in order
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	expect(await $.command.run({ ...RUN, command: 'ready' })).toEqual({})
 	expect(calls.map(c => c[2])).toEqual(['detect', 'ready', 'stats'])
-	expect(calls[0]?.[1]).toEndWith('/scripts/roadmap.py')
+	expect(calls[0]?.[1]).toEndWith('/scripts/roadbook.py')
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ type: 'Text', text: 'Phase 2' })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: '42%' })).toBeDefined()
@@ -205,7 +205,7 @@ test('a picked row offers claim; claim asks who and runs the CLI', async ($, on)
 	expect(toasts).toEqual(['a claim needs a name.'])
 	await ui.input({ key: 'assignee', text: 'Jaz' })
 	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=Jaz --reassign')).toBe(true)
-	expect(toasts[1]).toBe('claimed 2SE.1 for Jaz. commit roadmaps.json when you are ready.')
+	expect(toasts[1]).toBe('claimed 2SE.1 for Jaz. commit roadbook.json when you are ready.')
 	expect(await ui.find({ type: 'Input' })).toBeUndefined()
 })
 
@@ -233,7 +233,7 @@ test('assign asks who and sets the assignee without claiming', async ($, on) => 
 	await ui.input({ key: 'assignee', text: 'Jaz' })
 	expect(calls.some(c => c.slice(2).join(' ') === 'assign 2SE.1 --assignee=Jaz')).toBe(true)
 	expect(calls.some(c => c[2] === 'claim')).toBe(false)
-	expect(toasts).toEqual(['assigned 2SE.1 to Jaz. commit roadmaps.json when you are ready.'])
+	expect(toasts).toEqual(['assigned 2SE.1 to Jaz. commit roadbook.json when you are ready.'])
 	expect(await ui.find({ type: 'Input' })).toBeUndefined()
 })
 
@@ -246,7 +246,7 @@ test('a blank assign clears the assignee', async ($, on) => {
 	await ui.press({ key: 'assign' })
 	await ui.input({ key: 'assignee', text: '  ' })
 	expect(calls.some(c => c.slice(2).join(' ') === 'assign 2SE.4 --unassign')).toBe(true)
-	expect(toasts).toEqual(["cleared 2SE.4's assignee. commit roadmaps.json when you are ready."])
+	expect(toasts).toEqual(["cleared 2SE.4's assignee. commit roadbook.json when you are ready."])
 })
 
 test('a claim in play can be picked and reassigned, but not claimed again', async ($, on) => {
