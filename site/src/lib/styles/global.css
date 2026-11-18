@@ -1,0 +1,116 @@
+/*
+	The goblin's desk. Every colour, face and radius below is a token from
+	src/lib/generated/theme.css, emitted from .claude/themes/goblin-html.json;
+	this file decides layout and materials only and holds no colour values.
+*/
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) { color-scheme: dark; }
+}
+:root[data-theme='dark'] { color-scheme: dark; }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-padding-top: 1.5rem; }
+
+body {
+	margin: 0;
+	background-color: var(--desk);
+	background-image:
+		radial-gradient(ellipse 22rem 14rem at 8% 12rem, var(--blot), transparent 70%),
+		radial-gradient(ellipse 18rem 20rem at 96% 46rem, var(--blot), transparent 70%);
+	color: var(--ink);
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	line-height: var(--leading);
+	padding-left: max(16px, env(safe-area-inset-left, 0px));
+	padding-right: max(16px, env(safe-area-inset-right, 0px));
+	padding-block: max(2rem, env(safe-area-inset-top, 0px)) max(4rem, env(safe-area-inset-bottom, 0px));
+}
+
+h1, h2, h3 {
+	font-family: var(--font-display);
+	font-weight: 700;
+	text-wrap: balance;
+	margin: 0;
+	line-height: 1.05;
+}
+
+a { color: var(--accent); text-underline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+code { font-family: var(--font-mono); }
+
+.desk { max-width: 76rem; margin: 0 auto; display: grid; gap: 2.5rem; }
+
+/* materials */
+.sheet {
+	position: relative;
+	background: var(--surface);
+	color: var(--ink);
+	border: 2px solid var(--ink);
+	border-radius: var(--wonk);
+	box-shadow: var(--shadow);
+}
+.slip {
+	position: relative;
+	background: var(--slip);
+	color: var(--slip-ink);
+	font-family: var(--font-print);
+	box-shadow: var(--shadow);
+}
+.slip a { color: var(--slip-accent); }
+.tape {
+	position: absolute;
+	width: 7rem;
+	height: 1.6rem;
+	background: var(--tape);
+	top: -0.8rem;
+	left: 2rem;
+	transform: rotate(-4deg);
+}
+.tape.right { left: auto; right: 2.5rem; transform: rotate(5deg); }
+
+.stamp {
+	justify-self: start;
+	font-family: var(--font-print);
+	font-weight: 600;
+	font-size: 0.7rem;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	border: 2px solid currentColor;
+	padding: 0.05rem 0.4rem;
+	transform: rotate(-3deg);
+	background: var(--surface);
+}
+.stamp.shipped { color: var(--ok); }
+.stamp.proposed { color: var(--accent); }
+
+/* a command wraps at its spaces rather than hiding behind a scroller */
+.cmd {
+	display: block;
+	min-width: 0;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	background: var(--exhibit);
+	color: var(--exhibit-ink);
+	padding: 0.45rem 0.6rem;
+	border-radius: var(--radius-sm);
+	font-size: 0.8rem;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+	.sheet { transform: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { transition: none !important; animation: none !important; }
+}
