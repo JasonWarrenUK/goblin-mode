@@ -37,10 +37,22 @@ Every line below is a decision Jason made in the SITE interview on 2026-11-18, u
 |---|---|
 | F1 | Keeps the title notice ("Every Human Need Goblin Mode") and its why. |
 | F2 | Keeps the two schedules, Snacks (goblin-seneschal, goblin-jester) and Feasts (goblin-scout, goblin-warband, goblin-archivist). |
-| F3 | Gains an install slip: the marketplace add command and an install command. |
-| F4 | Layout is a desk of papers, replacing the artifact's single vertical scroll: the notice pinned, the five mods as cardboard folders laid out by schedule, the install slip taped beside them. Stacks at 390. |
-| F5 | Clicking a folder opens it in place to a brief description of the mod, with a link to its page. |
-| F6 | The ledger table and the sources slip leave the front page. **Open:** the notice's why is the ledger (Mod, Present Deficiency, Remedy), so dropping one and keeping the other needs a ruling; see the wireframe's callout. |
+| F3 | Gains an install slip: the marketplace add command and an install command. It is the only place that answers how to install; opening a folder switches its picker to that mod. |
+| F4 | Layout is a desk of papers, replacing the artifact's single vertical scroll: the notice pinned, the five mods as cardboard folders laid out by schedule, the install slip taped beside the notice. Folders run as banded rows at 390. |
+| F5 | Clicking a folder opens a drawer notched under it, holding the mod's name, Deficiency and Remedy, the goblin's paragraph and a link to its page. One drawer at a time; the page scrolls so the pressed folder stays still. The page loads with every folder shut. |
+| F6 | The ledger table and the sources slip leave the front page. The lede carries the why; each folder carries its own Deficiency and Remedy. |
+| F7 | Closed folders name what the mod does in plain words; the joke lives in the drawer. Status uses one vocabulary: stamps "Goblin Approve" and "Soon. Very Soon.", meta line "goblin-approved" and "soon". |
+
+### Front page regions
+
+| Region | Holds | Actions |
+|---|---|---|
+| Notice | eyebrow, theme toggle, title, lede (one generated count), meta line (5 generated facts; hidden at 390) | 3 theme buttons |
+| Install slip | 2 commands, the longest 57 characters of monospace; a picker of the installable mods (4 today) | 2 copy buttons, 1 picker |
+| Schedule header (x2) | title, one sentence with 1 or 2 generated counts | none |
+| Folder, closed (x5) | numeral, name, one-line plain description, status stamp | the folder itself (open or close) |
+| Drawer, open (one at a time) | mod name, 2 labelled fields, 1 goblin paragraph, 1 link; archivist adds a stamp | 1 link |
+| Box file | label, one sentence, 5 links | 5 links |
 
 ## Mod pages
 

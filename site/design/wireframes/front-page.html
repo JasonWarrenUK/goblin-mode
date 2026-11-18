@@ -1,4 +1,5 @@
 <title>Goblin Desk</title>
+<meta charset="utf-8">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@700&family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&family=Permanent+Marker&family=Special+Elite&display=swap">
 <!-- Tokens: bun library/scripts/theme/emit.ts .claude/themes/goblin-html.json -->
@@ -115,15 +116,16 @@ body { background: var(--surface); color: var(--ink); font-family: var(--font-bo
 <style>
 /*
 	Layout: a desk of papers. The notice is pinned top left with the install slip
-	taped beside it; the five mods are cardboard folders laid out in two rows by
-	schedule (Snacks, Feasts); a box file for the skills wing and a collapsed
-	sources slip sit at the bottom. One folder opens at a time into a drawer that
-	lies under its row at desktop width and directly under the folder at 390.
+	taped beside it, wide enough for its longest command; the five mods are
+	cardboard folders laid out in two rows by schedule (Snacks, Feasts); a box file
+	for the skills wing closes the desk. One folder opens at a time into a drawer
+	notched under its folder; the page scrolls to keep the pressed folder still.
 
 	Mapping notes: every colour, face and radius is a token emitted by
 	bun library/scripts/theme/emit.ts .claude/themes/goblin-html.json (the block
 	above). Fonts load from Google Fonts in this wireframe only; the built site
 	self-hosts them (R5). Wireframe chrome (callout pins, legend) uses --info.
+	Version 2: redrawn after the principles check of 2026-11-18 and Jason's rulings.
 */
 body{
 	background-color:var(--desk);
@@ -141,8 +143,8 @@ a{color:var(--accent)}
 :focus-visible{outline:3px solid var(--accent); outline-offset:3px}
 code,.cmd{font-family:var(--font-mono)}
 
-/* top row: notice + slip */
-.top{display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:2rem; align-items:start}
+/* top row: notice + slip, sized so the longest command fits on one line at 1280 */
+.top{display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); gap:2rem; align-items:start}
 .sheet{
 	position:relative; background:var(--surface); color:var(--ink);
 	border:2px solid var(--ink); border-radius:var(--wonk);
@@ -157,7 +159,7 @@ code,.cmd{font-family:var(--font-mono)}
 .toggle button{all:unset; cursor:pointer; padding:.15rem .55rem; font-size:.8rem; color:var(--ink)}
 .toggle button[aria-pressed="true"]{background:var(--ink); color:var(--surface)}
 .toggle button:focus-visible{outline:3px solid var(--accent); outline-offset:-3px}
-h1{font-size:clamp(2.6rem,7vw,5.2rem); margin-top:.6rem; letter-spacing:.01em}
+h1{font-size:clamp(2.6rem,6vw,4.8rem); margin-top:.6rem; letter-spacing:.01em}
 h1 span{display:inline-block}
 h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rotate(1.5deg)}
 .lede{max-width:44rem; font-size:1.12rem; margin:1rem 0 0}
@@ -175,61 +177,63 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 .slip h2{font-family:var(--font-print); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.14em; color:var(--slip-accent)}
 .slip ol{margin:.75rem 0 0; padding-left:1.2rem; display:grid; gap:.9rem}
 .slip li{min-width:0}
-.slip li p{margin:0 0 .35rem; font-size:.92rem}
+.slip li p, .slip label{margin:0 0 .35rem; font-size:.92rem; display:block}
 .cmdrow{display:flex; gap:.4rem; align-items:stretch; min-width:0}
-.cmd{flex:1; min-width:0; overflow-x:auto; white-space:nowrap; background:var(--exhibit); color:var(--exhibit-ink);
+/* a command wraps at its spaces rather than hiding behind a scroller */
+.cmd{flex:1; min-width:0; white-space:pre-wrap; overflow-wrap:anywhere; background:var(--exhibit); color:var(--exhibit-ink);
 	padding:.45rem .6rem; border-radius:var(--radius-sm); font-size:.8rem}
 .copy{all:unset; cursor:pointer; font-size:.75rem; font-weight:600; padding:0 .6rem; border:2px solid var(--slip-ink); border-radius:var(--radius-sm)}
 .copy:focus-visible{outline:3px solid var(--slip-accent); outline-offset:2px}
 .slip select{font:inherit; font-size:.85rem; margin-bottom:.35rem; max-width:100%}
-.slip label{font-size:.85rem; display:block}
 
 /* schedules */
 .schedule{display:grid; gap:1rem}
 .schedule header{display:flex; align-items:baseline; gap:1.25rem; flex-wrap:wrap}
-.schedule h2{font-size:clamp(1.9rem,4vw,2.6rem); color:var(--ink); background:var(--slime); color:var(--on-slime); padding:0 .4rem; transform:rotate(-1deg)}
+.schedule h2{font-size:clamp(1.9rem,4vw,2.6rem); background:var(--slime); color:var(--on-slime); padding:0 .4rem; transform:rotate(-1deg)}
 .schedule header p{margin:0; max-width:42rem; color:var(--ink)}
 .folders{display:grid; gap:1.25rem 1.5rem; align-items:start}
 .snacks .folders{grid-template-columns:repeat(2,minmax(0,1fr))}
 .feasts .folders{grid-template-columns:repeat(3,minmax(0,1fr))}
 .folder{
-	all:unset; box-sizing:border-box; cursor:pointer; position:relative; display:grid; gap:.35rem;
+	all:unset; box-sizing:border-box; cursor:pointer; position:relative; display:grid; gap:.35rem; align-content:start;
 	background:var(--card); color:var(--card-ink); padding:1.6rem 1.25rem 1.1rem;
 	border-radius:0 var(--radius-lg) var(--radius-md) var(--radius-md);
 	box-shadow:var(--shadow); order:1; margin-top:1.1rem; min-height:9.5rem;
 }
 .folder::before{content:""; position:absolute; top:-1.1rem; left:0; width:42%; height:1.2rem;
-	background:var(--card); border-radius:var(--radius-md) var(--radius-md) 0 0}
+	background:inherit; border-radius:var(--radius-md) var(--radius-md) 0 0}
 .folder:hover{transform:translateY(-2px)}
 .folder:focus-visible{outline:3px solid var(--accent); outline-offset:4px}
-.folder[aria-expanded="true"]{background:var(--card-dark); transform:translateY(4px)}
-.folder[aria-expanded="true"]::before{background:var(--card-dark)}
+/* open: the folder keeps its own card and gains an ink edge that the drawer's notch meets */
+.folder[aria-expanded="true"]{box-shadow:0 0 0 3px var(--ink), var(--shadow)}
 .num{font-family:var(--font-marker); font-size:1.4rem; line-height:1}
 .folder h3{font-size:1.6rem}
 .tag{font-size:.95rem}
 .stamp{justify-self:start; font-family:var(--font-print); font-weight:600; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase;
 	border:2px solid currentColor; padding:.05rem .4rem; transform:rotate(-3deg); margin-top:.25rem; background:var(--surface)}
 .stamp.ok{color:var(--ok)} .stamp.soon{color:var(--accent)}
-.drawer{position:relative; order:2; grid-column:1/-1; background:var(--surface); color:var(--ink);
+.drawer{position:relative; order:2; grid-column:1/-1; background:var(--surface); color:var(--ink); margin-top:.9rem;
 	border:2px solid var(--ink); border-radius:var(--wonk-2); padding:1.5rem clamp(1rem,3vw,2rem); box-shadow:var(--shadow)}
+/* the notch points up at the open folder; --notch-x is set from the folder's centre */
+.drawer::before{content:""; position:absolute; top:-.95rem; left:calc(var(--notch-x, 3rem) - .9rem);
+	border:.9rem solid transparent; border-top:0; border-bottom:.95rem solid var(--ink)}
+.drawer::after{content:""; position:absolute; top:-.7rem; left:calc(var(--notch-x, 3rem) - .7rem);
+	border:.7rem solid transparent; border-top:0; border-bottom:.75rem solid var(--surface)}
+.drawer-title{font-size:1.5rem; margin-bottom:1rem}
 .drawer-grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1.25rem 2rem}
 .drawer h4{font-family:var(--font-print); font-weight:600; font-size:.75rem; letter-spacing:.14em; text-transform:uppercase; margin:0 0 .3rem; color:var(--ink-muted)}
 .drawer p{margin:0}
 .goblin{grid-column:1/-1; font-family:var(--font-marker); font-size:1.05rem; line-height:1.5; color:var(--accent-2); max-width:62rem}
-.drawer-foot{grid-column:1/-1; display:flex; flex-wrap:wrap; gap:1rem 2rem; align-items:center; justify-content:space-between; border-top:2px dashed var(--line); padding-top:1rem}
-.drawer-foot .cmd{flex:0 1 auto}
+.drawer-foot{grid-column:1/-1; display:flex; flex-wrap:wrap; gap:1rem 2rem; align-items:center; justify-content:flex-end; border-top:2px dashed var(--line); padding-top:1rem}
+.drawer-foot .stamp{margin-right:auto}
 .open-file{font-family:var(--font-display); font-size:1.35rem; color:var(--accent); text-decoration-thickness:2px}
 
-/* bottom row: box file + sources */
-.bottom{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:2rem; align-items:start}
-.boxfile{position:relative; background:var(--surface-raised); color:var(--ink); padding:1.5rem; border:2px solid var(--ink); border-radius:var(--radius-md); box-shadow:var(--shadow)}
+/* bottom: the box file */
+.boxfile{position:relative; background:var(--surface-raised); color:var(--ink); padding:1.5rem; border:2px solid var(--ink); border-radius:var(--radius-md); box-shadow:var(--shadow);
+	display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem 2rem; align-items:start}
 .boxfile .label{display:inline-block; background:var(--slip); color:var(--slip-ink); font-family:var(--font-marker); padding:.2rem .7rem; transform:rotate(-1.5deg); font-size:1.15rem}
-.boxfile p{margin:.8rem 0}
+.boxfile p{margin:.8rem 0 0}
 .boxfile ul{margin:0; padding-left:1.1rem; display:grid; gap:.3rem}
-.sources{background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); padding:1rem 1.25rem; box-shadow:var(--shadow); transform:rotate(-.6deg)}
-.sources summary{cursor:pointer; font-weight:600}
-.sources ul{font-size:.85rem; padding-left:1.1rem}
-.sources code{font-size:.8rem}
 
 /* wireframe chrome */
 .pin{position:absolute; z-index:3; top:-.7rem; right:-.7rem; width:1.7rem; height:1.7rem; border-radius:50%;
@@ -242,16 +246,29 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 .legend button{font:inherit; font-size:.85rem}
 .legend ol{margin:.75rem 0 0; padding-left:1.5rem; display:grid; gap:.6rem; font-size:.92rem}
 .legend b{font-variant-numeric:tabular-nums}
-.legend .q{color:var(--accent)}
 .wf-banner{font-family:var(--font-print); font-size:.8rem; color:var(--ink); background:var(--surface); border:2px dashed var(--info); padding:.4rem .8rem; justify-self:start}
 
 @media (max-width:760px){
-	.top,.bottom{grid-template-columns:minmax(0,1fr)}
-	.snacks .folders,.feasts .folders{grid-template-columns:minmax(0,1fr)}
-	.folder,.drawer{order:0}
+	.desk{gap:1.75rem}
+	.top,.boxfile{grid-template-columns:minmax(0,1fr)}
+	.top{gap:1.25rem}
+	/* a compact notice so the slip is on the first screen at 390 */
+	.sheet{transform:none; padding:1.25rem 1rem 1rem}
+	.tape{display:none}
+	h1{font-size:2.3rem}
+	.lede{font-size:1rem; margin-top:.6rem}
+	.meta{display:none}
+	.slip{transform:none; margin-top:0}
+	/* folders become banded rows: numeral, name and stamp on one line, tagline beneath */
+	.snacks .folders,.feasts .folders{grid-template-columns:minmax(0,1fr); gap:.9rem}
+	.folder{order:0; min-height:0; margin-top:.9rem; padding:.85rem 1rem .8rem;
+		grid-template-columns:auto minmax(0,1fr) auto; column-gap:.6rem; align-items:baseline}
+	.folder::before{top:-.8rem; height:.85rem; width:30%}
+	.folder h3{font-size:1.3rem}
+	.folder .tag{grid-column:1/-1; font-size:.88rem}
+	.folder .stamp{grid-column:3; grid-row:1; margin-top:0; font-size:.6rem}
+	.drawer{order:0; margin-top:.4rem}
 	.drawer-grid{grid-template-columns:minmax(0,1fr)}
-	.sheet,.slip{transform:none}
-	.slip{margin-top:0}
 }
 @media (prefers-reduced-motion:reduce){
 	*{transition:none!important}
@@ -260,7 +277,7 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 </style>
 
 <main class="desk" id="desk">
-	<p class="wf-banner">Wireframe · front page · goblin theme · 2026-11-18 · numbered pins map to <code>site/design/scope.md</code></p>
+	<p class="wf-banner">Wireframe v2 · front page · goblin theme · 2026-11-18 · pins map to <code>site/design/scope.md</code> and <code>site/design/observations.json</code></p>
 
 	<div class="top">
 		<section class="sheet" aria-labelledby="notice-title">
@@ -275,12 +292,12 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 				</span>
 			</div>
 			<h1 id="notice-title"><span>Every</span> <span>Human</span> <span>Need</span> <span>Goblin</span> <span>Mode</span></h1>
-			<p class="lede">Claude Code is built for professional developers, and this needs to be rectified immediately. Here are five mods that can make your config more arcane, opaque and finicky.</p>
+			<p class="lede">Claude Code is built for professional developers, and this needs to be rectified immediately. Here are <span class="gen">five</span> mods that can make your config more arcane, opaque and finicky.</p>
 			<p class="meta" aria-label="Facts generated at build">
 				<span><span class="gen">5</span> mods</span>
-				<span><span class="gen">4</span> shipped</span>
-				<span><span class="gen">1</span> proposed</span>
-				<span>marketplace <span class="gen">v8.0.1</span></span>
+				<span><span class="gen">4</span> goblin-approved</span>
+				<span><span class="gen">1</span> soon</span>
+				<span>goblin-mode <span class="gen">v8.0.1</span></span>
 				<span>built from <span class="gen">d6ec36d</span></span>
 				<span class="pin inline" aria-hidden="true">2</span>
 			</p>
@@ -297,136 +314,117 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 				<li>
 					<label for="mod-pick">Install a mod.</label>
 					<select id="mod-pick">
-						<option value="goblin-seneschal">goblin-seneschal</option>
-						<option value="goblin-jester" selected>goblin-jester</option>
-						<option value="goblin-scout">goblin-scout</option>
-						<option value="goblin-warband">goblin-warband</option>
+						<option value="seneschal">goblin-seneschal</option>
+						<option value="jester">goblin-jester</option>
+						<option value="scout">goblin-scout</option>
+						<option value="warband">goblin-warband</option>
 					</select>
-					<div class="cmdrow"><code class="cmd" id="cmd-install">claude plugin install goblin-jester@goblin-mode</code><button type="button" class="copy" data-copy="cmd-install">Copy</button></div>
+					<div class="cmdrow"><code class="cmd" id="cmd-install">claude plugin install goblin-seneschal@goblin-mode</code><button type="button" class="copy" data-copy="cmd-install">Copy</button></div>
 				</li>
 			</ol>
 		</section>
 	</div>
 
 	<section class="schedule snacks" aria-labelledby="snacks-title">
-		<header><h2 id="snacks-title">Snacks</h2><p>Two mods requiring almost no commitment. One files your complaints. The other is a goblin.</p></header>
+		<header><h2 id="snacks-title">Snacks</h2><p><span class="gen">Two</span> mods requiring almost no commitment. One files your complaints. The other is a goblin.</p></header>
 		<div class="folders">
-			<button type="button" class="folder" aria-expanded="true" aria-controls="drawer-seneschal" id="folder-seneschal">
+			<button type="button" class="folder" data-mod="seneschal" aria-expanded="false" aria-controls="drawer-seneschal" id="folder-seneschal">
 				<span class="pin" aria-hidden="true">4</span>
 				<span class="num">I</span><h3>goblin-seneschal</h3>
-				<span class="tag">Files your grievances and keeps count of your underlings.</span>
+				<span class="tag">Logs your complaints about Claude Code and keeps watch on your other sessions.</span>
 				<span class="stamp ok">Goblin Approve</span>
 			</button>
-			<section class="drawer" id="drawer-seneschal" aria-labelledby="folder-seneschal">
+			<section class="drawer" id="drawer-seneschal" aria-labelledby="drawer-seneschal-title" hidden>
 				<span class="pin" aria-hidden="true">5</span>
+				<h3 class="drawer-title" id="drawer-seneschal-title">goblin-seneschal</h3>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>When the tool annoys you, you are expected to get over it.</p></div>
-					<div><h4>Remedy</h4><p>Grievances are filed to a JSON log with the branch attached, and every session broadcasts a heartbeat every <span class="gen">fifteen</span> seconds. <span class="gen">Five</span> readouts inform you of things you had been trusted to know for yourself.</p></div>
-					<p class="goblin">Human get annoyed at Claude Code and annoyance just LEAVE. Not any more. Every grievance go in JSON file, with branch and last thing that broke. Every session report in every fifteen second, so goblin know who gone quiet.</p>
-					<div class="drawer-foot">
-						<code class="cmd">claude plugin install goblin-seneschal@goblin-mode</code>
-						<a class="open-file" href="#desk">Open the file on goblin-seneschal</a>
-					</div>
+					<div><h4>Remedy</h4><p>Grievances are filed to a JSON log with the branch attached, and every session broadcasts a heartbeat every <span class="gen">fifteen</span> seconds. Readouts inform you of things you had been trusted to know for yourself.</p></div>
+					<p class="goblin">Readout tell human what human cannot be trusted to know: which worktree human is standing in, what changelog say, if comma has lapsed, who is in the files and what human did one hour ago.</p>
+					<div class="drawer-foot"><a class="open-file" href="#desk">Open the file on goblin-seneschal</a></div>
 				</div>
 			</section>
-			<button type="button" class="folder" aria-expanded="false" aria-controls="drawer-jester" id="folder-jester">
+			<button type="button" class="folder" data-mod="jester" aria-expanded="false" aria-controls="drawer-jester" id="folder-jester">
 				<span class="num">II</span><h3>goblin-jester</h3>
-				<span class="tag">A goblin in your terminal. It affects nothing.</span>
+				<span class="tag">A goblin drawn into Claude Code's interface. It changes nothing Claude does.</span>
 				<span class="stamp ok">Goblin Approve</span>
 			</button>
-			<section class="drawer" id="drawer-jester" aria-labelledby="folder-jester" hidden>
+			<section class="drawer" id="drawer-jester" aria-labelledby="drawer-jester-title" hidden>
+				<h3 class="drawer-title" id="drawer-jester-title">goblin-jester</h3>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>The interface ships without a goblin and nobody has been held accountable.</p></div>
 					<div><h4>Remedy</h4><p>A goblin with <span class="gen">nine</span> moods, a sleep schedule and props, drawn by hand in box characters. It affects nothing.</p></div>
 					<p class="goblin">Claude Code have NO goblin in it. Goblin check twice. So goblin put goblin in. Is <span class="gen">1,281</span> line of TypeScript. It change nothing Claude does. Is COOL.</p>
-					<div class="drawer-foot">
-						<code class="cmd">claude plugin install goblin-jester@goblin-mode</code>
-						<a class="open-file" href="#desk">Open the file on goblin-jester</a>
-					</div>
+					<div class="drawer-foot"><a class="open-file" href="#desk">Open the file on goblin-jester</a></div>
 				</div>
 			</section>
 		</div>
 	</section>
 
 	<section class="schedule feasts" aria-labelledby="feasts-title">
-		<header><h2 id="feasts-title">Feasts</h2><p>Three mods that each arrive with a config file, a protocol and a list of things you must never do. One has not been built, which has not reduced its paperwork.</p></header>
+		<header><h2 id="feasts-title">Feasts</h2><p><span class="gen">Three</span> mods that each arrive with a config file, a protocol and a list of things you must never do. <span class="gen">One</span> has not been built, which has not reduced its paperwork.</p></header>
 		<div class="folders">
-			<button type="button" class="folder" aria-expanded="false" aria-controls="drawer-scout" id="folder-scout">
+			<button type="button" class="folder" data-mod="scout" aria-expanded="false" aria-controls="drawer-scout" id="folder-scout">
 				<span class="num">III</span><h3>goblin-scout</h3>
-				<span class="tag">Your plan becomes a roadbook you may not touch.</span>
+				<span class="tag">Keeps your project plan as a dependency graph that skills update for you.</span>
 				<span class="stamp ok">Goblin Approve</span>
 			</button>
-			<section class="drawer" id="drawer-scout" aria-labelledby="folder-scout" hidden>
+			<section class="drawer" id="drawer-scout" aria-labelledby="drawer-scout-title" hidden>
+				<h3 class="drawer-title" id="drawer-scout-title">goblin-scout</h3>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>Your plan is a text file, which you are simply trusted to edit.</p></div>
 					<div><h4>Remedy</h4><p>Your plan is a roadbook: a JSON dependency graph you are forbidden to edit by hand. <span class="gen">Twelve</span> skills, a command line and a pane edit it for you.</p></div>
 					<p class="goblin">Plan was just list. Human edit list with own hand. ANYONE could. Goblin put stop to this. If human tick box by hand, graph untick it at next recompute. Graph always win.</p>
-					<div class="drawer-foot">
-						<code class="cmd">claude plugin install goblin-scout@goblin-mode</code>
-						<a class="open-file" href="#desk">Open the file on goblin-scout</a>
-					</div>
+					<div class="drawer-foot"><a class="open-file" href="#desk">Open the file on goblin-scout</a></div>
 				</div>
 			</section>
-			<button type="button" class="folder" aria-expanded="false" aria-controls="drawer-warband" id="folder-warband">
+			<button type="button" class="folder" data-mod="warband" aria-expanded="false" aria-controls="drawer-warband" id="folder-warband">
 				<span class="pin" aria-hidden="true">6</span>
 				<span class="num">IV</span><h3>goblin-warband</h3>
-				<span class="tag">One session leads a raid; the rest take dibs.</span>
+				<span class="tag">Runs several Claude Code sessions on one repository without collisions.</span>
 				<span class="stamp ok">Goblin Approve</span>
 			</button>
-			<section class="drawer" id="drawer-warband" aria-labelledby="folder-warband" hidden>
+			<section class="drawer" id="drawer-warband" aria-labelledby="drawer-warband-title" hidden>
+				<h3 class="drawer-title" id="drawer-warband-title">goblin-warband</h3>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>Any session may use the database without applying for a permit.</p></div>
 					<div><h4>Remedy</h4><p>One session leads the others through a ledger of JSON files, timed dibs on the database and a numbered list of tribute for you to pay.</p></div>
-					<p class="goblin">Four session on one repository and NOBODY in charge. Goblin fix. One session is chief. Each raider get own worktree, and dibs with time limit before it may touch database. There are <span class="gen">thirteen</span> rule. Goblin know all thirteen.</p>
-					<div class="drawer-foot">
-						<code class="cmd">claude plugin install goblin-warband@goblin-mode</code>
-						<a class="open-file" href="#desk">Open the file on goblin-warband</a>
-					</div>
+					<p class="goblin">Four session on one repository and NOBODY in charge. Goblin fix. One session is chief. Each raider get own worktree, and dibs with time limit before it may touch database. There are <span class="gen">thirteen</span> rule. Goblin know all <span class="gen">thirteen</span>.</p>
+					<div class="drawer-foot"><a class="open-file" href="#desk">Open the file on goblin-warband</a></div>
 				</div>
 			</section>
-			<button type="button" class="folder" aria-expanded="false" aria-controls="drawer-archivist" id="folder-archivist">
+			<button type="button" class="folder" data-mod="archivist" aria-expanded="false" aria-controls="drawer-archivist" id="folder-archivist">
 				<span class="pin" aria-hidden="true">7</span>
 				<span class="num">V</span><h3>goblin-archivist</h3>
-				<span class="tag">Reads your vault and keeps a file on every belief.</span>
+				<span class="tag">Reads and writes your Obsidian vault from every session.</span>
 				<span class="stamp soon">Soon. Very Soon.</span>
 			</button>
-			<section class="drawer" id="drawer-archivist" aria-labelledby="folder-archivist" hidden>
+			<section class="drawer" id="drawer-archivist" aria-labelledby="drawer-archivist-title" hidden>
+				<h3 class="drawer-title" id="drawer-archivist-title">goblin-archivist</h3>
 				<div class="drawer-grid">
 					<div><h4>Present Deficiency</h4><p>Your notes sit in Obsidian, unread by Claude, as though they were private.</p></div>
-					<div><h4>Remedy</h4><p>Every session reads your Obsidian vault, writes in it and files a note on each belief you hold so it can report when one has collapsed. Not yet built.</p></div>
+					<div><h4>Remedy</h4><p>Every session reads your Obsidian vault, writes in it and files a note on each belief you hold so it can report when one has collapsed.</p></div>
 					<p class="goblin">Human vault and human code live APART. Never meet. Goblin will end this. One spec. No code yet. Soon. Very soon.</p>
-					<div class="drawer-foot">
-						<span class="stamp soon">Not yet installable</span>
-						<a class="open-file" href="#desk">Open the file on goblin-archivist</a>
-					</div>
+					<div class="drawer-foot"><span class="stamp soon">Not yet installable</span><a class="open-file" href="#desk">Open the file on goblin-archivist</a></div>
 				</div>
 			</section>
 		</div>
 	</section>
 
-	<div class="bottom">
-		<section class="boxfile" aria-labelledby="build-title">
-			<span class="pin" aria-hidden="true">8</span>
+	<section class="boxfile" aria-labelledby="build-title">
+		<span class="pin" aria-hidden="true">8</span>
+		<div>
 			<h2 id="build-title"><span class="label">Build Your Own</span></h2>
-			<p>How the skills in this config are put together, written up one family at a time.</p>
-			<ul>
-				<li><a href="#desk">A Skill Is One Goblin</a></li>
-				<li><a href="#desk">Metadata Is Whatever I Say It Is</a></li>
-				<li><a href="#desk">Some Assembly Required</a></li>
-				<li><a href="#desk">Everyone Gets a File</a></li>
-				<li><a href="#desk">The Red Family</a></li>
-			</ul>
-		</section>
-		<details class="sources">
-			<summary>Proof Goblin Not Lying</summary>
-			<span class="pin" aria-hidden="true">9</span>
-			<ul>
-				<li>Mod names, versions and install commands: <code>.claude-plugin/marketplace.json</code> at the build commit</li>
-				<li>Counts: generated at build from <code>marketplace/</code> and <code>skills/</code></li>
-				<li>Every situation in the mod files is invented for illustration</li>
-			</ul>
-		</details>
-	</div>
+			<p>How the skills behind these mods are put together, a topic at a time.</p>
+		</div>
+		<ul>
+			<li><a href="#desk">A Skill Is One Goblin</a></li>
+			<li><a href="#desk">Metadata Is Whatever I Say It Is</a></li>
+			<li><a href="#desk">Some Assembly Required</a></li>
+			<li><a href="#desk">Everyone Gets a File</a></li>
+			<li><a href="#desk">The Red Family</a></li>
+		</ul>
+	</section>
 
 	<section class="legend" aria-labelledby="legend-title">
 		<div class="legend-head">
@@ -434,15 +432,14 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 			<button type="button" id="toggle-pins" aria-pressed="false">Hide pins</button>
 		</div>
 		<ol>
-			<li><b>F1, F6.</b> The notice and its why. The notice's why <em>is</em> the ledger (Mod, Present Deficiency, Remedy), so keeping one and dropping the other splits one object. <span class="q">Proposal: the lede carries the why on the front; each mod's Deficiency and Remedy move into its folder (pin 5).</span></li>
-			<li><b>R7.</b> Dotted underlines mark every figure generated at build: mod counts, the marketplace version, the commit. None is typed by hand.</li>
-			<li><b>F3, A2.</b> The install slip: the primary action, beside the notice so it is on screen without scrolling at 1280. The picker and every install line are generated from <code>.claude-plugin/marketplace.json</code> at build, so they list exactly what main ships. The site merges last, after every rename, so the new names are live on main before the page is.</li>
-			<li><b>F4.</b> A closed folder: numeral, name, one line and the status stamp. The whole folder is the button.</li>
-			<li><b>F5.</b> The open folder's drawer: Deficiency and Remedy, the goblin's paragraph, that mod's own install line and the link to its page. One drawer open at a time; at 1280 it lies under its row, at 390 directly under its folder. Without JavaScript each folder is a plain link to its page.</li>
-			<li><b>R6, R8.</b> Copy keeps the one goblin voice but names each mod's own things by their real names (chief, raider, dibs, tribute). <span class="q">Confirm, or keep the notice's original nouns.</span></li>
-			<li><b>M3.</b> goblin-archivist: proposed stamp, no install line.</li>
-			<li><b>A1, S1.</b> The skills wing as a box file, for visitors who came to learn how to build their own. Titles are today's; each changes as its page is reworked.</li>
-			<li><b>F6, honesty rule.</b> The sources leave the front page body but a collapsed slip stays as the footer, since every page carries its provenance. Each mod page carries its own sources.</li>
+			<li><b>F1, F6.</b> The notice and its why: the lede carries the why; each mod's Deficiency and Remedy live in its folder (pin 5), so the ledger table is gone and nothing lists the mods twice. At 390 the notice drops its tape and meta line so the install slip is on the first screen (observation 19).</li>
+			<li><b>R7.</b> Dotted underlines mark every figure generated at build, including the counts in the lede and the schedule headers. The meta line uses the stamps' words (goblin-approved, soon). "Four session" is the story of the warband's first run, not a count of anything in the repository.</li>
+			<li><b>F3, A2.</b> The install slip, the one place that answers how to install: opening a folder switches its picker to that mod. It sits beside the notice, reading F4's "beside them" as beside the desk's contents, so it is on the first screen at 1280 and 390. The top row is split 3:2 and commands wrap at their spaces, so neither command hides behind a scroller.</li>
+			<li><b>F4.</b> A closed folder: numeral, name, what the mod does in plain words, and the status stamp. At 390 folders run as banded rows. The whole folder is the button; the page loads with every folder shut.</li>
+			<li><b>F5.</b> The open drawer: the mod's name, Deficiency and Remedy, the goblin's paragraph and the link to its page. Its notch points at the open folder, which gains an ink edge. One drawer at a time; the page scrolls by however far the closing drawer moved things, so the folder just pressed stays under the pointer. Without JavaScript each folder is a plain link to its page.</li>
+			<li><b>R6.</b> The goblin names each mod's own things by their real names (chief, raider, dibs, tribute); approved 2026-11-18.</li>
+			<li><b>M3.</b> goblin-archivist: proposed stamp on the folder, "Not yet installable" in the drawer and absent from the slip's picker.</li>
+			<li><b>A1.</b> The skills wing as a box file, for visitors who came to learn how to build their own. Titles are today's; each changes as its page is reworked. Sources live on each mod page (F6), not on the front page.</li>
 		</ol>
 	</section>
 </main>
@@ -450,26 +447,44 @@ h1 span:nth-child(2){transform:rotate(-2deg)} h1 span:nth-child(4){transform:rot
 <script>
 (() => {
 	const folders = [...document.querySelectorAll('.folder')];
-	const setOpen = (target) => {
-		for (const folder of folders) {
-			const open = folder === target && folder.getAttribute('aria-expanded') !== 'true';
-			folder.setAttribute('aria-expanded', String(open));
-			document.getElementById(folder.getAttribute('aria-controls')).hidden = !open;
-		}
-	};
-	for (const folder of folders) folder.addEventListener('click', () => setOpen(folder));
-
 	const pick = document.getElementById('mod-pick');
 	const install = document.getElementById('cmd-install');
-	pick.addEventListener('change', () => { install.textContent = `claude plugin install ${pick.value}@goblin-mode`; });
+	const names = { seneschal: 'goblin-seneschal', jester: 'goblin-jester', scout: 'goblin-scout', warband: 'goblin-warband' };
+	const setInstall = (key) => {
+		if (!names[key]) return;
+		pick.value = key;
+		install.textContent = `claude plugin install ${names[key]}@goblin-mode`;
+	};
+	pick.addEventListener('change', () => setInstall(pick.value));
+
+	const placeNotch = (folder, drawer) => {
+		const f = folder.getBoundingClientRect(), d = drawer.getBoundingClientRect();
+		drawer.style.setProperty('--notch-x', `${Math.round(f.left + f.width / 2 - d.left)}px`);
+	};
+	const toggle = (pressed) => {
+		const before = pressed.getBoundingClientRect().top;
+		for (const folder of folders) {
+			const open = folder === pressed && folder.getAttribute('aria-expanded') !== 'true';
+			folder.setAttribute('aria-expanded', String(open));
+			const drawer = document.getElementById(folder.getAttribute('aria-controls'));
+			drawer.hidden = !open;
+			if (open) { placeNotch(folder, drawer); setInstall(folder.dataset.mod); }
+		}
+		// keep the pressed folder where the pointer left it
+		window.scrollBy(0, pressed.getBoundingClientRect().top - before);
+	};
+	for (const folder of folders) folder.addEventListener('click', () => toggle(folder));
+	window.addEventListener('resize', () => {
+		const open = folders.find((f) => f.getAttribute('aria-expanded') === 'true');
+		if (open) placeNotch(open, document.getElementById(open.getAttribute('aria-controls')));
+	});
 
 	for (const button of document.querySelectorAll('.copy')) {
 		button.addEventListener('click', () => {
 			const text = document.getElementById(button.dataset.copy).textContent;
 			const done = () => { button.textContent = 'Copied'; setTimeout(() => { button.textContent = 'Copy'; }, 1500); };
-			try {
-				navigator.clipboard.writeText(text).then(done, () => selectText(button.dataset.copy));
-			} catch { selectText(button.dataset.copy); }
+			try { navigator.clipboard.writeText(text).then(done, () => selectText(button.dataset.copy)); }
+			catch { selectText(button.dataset.copy); }
 		});
 	}
 	function selectText(id) {

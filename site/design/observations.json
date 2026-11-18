@@ -1,0 +1,373 @@
+{
+	"exported": "2026-11-18T19:49:11+00:00",
+	"artifact": "https://claude.ai/artifact/ULu4YYHazD1DRpXv8gJmpd",
+	"entries": [
+		{
+			"seq": 1,
+			"where": "Front page",
+			"whereDetail": "scope.md and the wireframe's layout comment",
+			"severity": "minor",
+			"areas": [
+				"layout"
+			],
+			"title": "No region inventory, so nothing shows the layout following from content",
+			"detail": "Add a short inventory table to scope.md under Front page: each region's contents, counts and actions.",
+			"status": "fixed",
+			"resolution": "Region inventory added to scope.md under Front page.",
+			"source": "check",
+			"principle": 1,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 2,
+			"where": "Install slip",
+			"whereDetail": "both command rows, 1280 and 390",
+			"severity": "major",
+			"areas": [
+				"layout"
+			],
+			"title": "The primary action's commands are wider than the cell they sit in",
+			"detail": "Marketplace command 442px in a 278px cell at 1280, 225px at 390; cut off behind a scroller. Give the slip the width its longest command needs or wrap the command at its spaces.",
+			"status": "fixed",
+			"resolution": "Top row split 3:2 and commands wrap at their spaces; no scroller, 0px overflow at 1280 and 390 (measured in v2).",
+			"source": "check",
+			"principle": 2,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 3,
+			"where": "Snacks and Feasts",
+			"whereDetail": "closed folders at 390",
+			"severity": "minor",
+			"areas": [
+				"layout"
+			],
+			"title": "Each closed folder is 185px tall at 390 for one line of content",
+			"detail": "At 390 drop the min-height and run folders as banded rows, keeping the tab.",
+			"status": "fixed",
+			"resolution": "Folders run as banded rows at 390; closed folder 104px tall (was 185).",
+			"source": "check",
+			"principle": 2,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 4,
+			"where": "Snacks and Feasts",
+			"whereDetail": "open folder and its drawer",
+			"severity": "major",
+			"areas": [
+				"feedback",
+				"interaction"
+			],
+			"title": "Which folder owns the open drawer is carried only by a darker card",
+			"detail": "At 1280 a full-row drawer points at no folder; in dark mode card-dark reads as recessed. Join folder and drawer into one surface or notch the drawer under its folder; give the drawer the mod name as a heading.",
+			"status": "fixed",
+			"resolution": "Drawer notched under its folder (notch centre matches folder centre, measured), mod name as drawer heading, open folder keeps its card and gains an ink edge (Jason's ruling).",
+			"source": "check",
+			"principle": 3,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 5,
+			"where": "Snacks and Feasts",
+			"whereDetail": "folder buttons when switching drawers",
+			"severity": "major",
+			"areas": [
+				"interaction"
+			],
+			"title": "Pressing a folder below an open drawer moves the folder away from the pointer",
+			"detail": "With seneschal open, pressing scout moved it 341px at 1280 and 728px at 390. Open drawers independently, or close the earlier one and compensate the scroll so the pressed folder stays put.",
+			"status": "fixed",
+			"resolution": "One drawer at a time with scroll compensation; pressed folder moved 0px at 1280 and 390 (measured in v2; Jason's ruling).",
+			"source": "check",
+			"principle": 4,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 6,
+			"where": "Install slip",
+			"whereDetail": "picker and command against each drawer's install line",
+			"severity": "major",
+			"areas": [
+				"interaction",
+				"layout"
+			],
+			"title": "Two elements answer 'how do I install this mod'",
+			"detail": "The slip picker and each drawer's install line answer the same question and disagree (Copy on one, not the other). Merge them.",
+			"status": "fixed",
+			"resolution": "Opening a folder sets the slip's picker; drawer foot keeps only the link (Jason's ruling).",
+			"source": "check",
+			"principle": 5,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 7,
+			"where": "Snacks",
+			"whereDetail": "goblin-seneschal drawer, Remedy and goblin paragraph",
+			"severity": "minor",
+			"areas": [
+				"copy"
+			],
+			"title": "The goblin paragraph repeats the Remedy's two facts, one with a hand-typed figure",
+			"detail": "Give the goblin something the Remedy does not say.",
+			"status": "fixed",
+			"resolution": "Seneschal's goblin paragraph now lists the readouts instead of repeating the Remedy.",
+			"source": "check",
+			"principle": 5,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 8,
+			"where": "Feasts",
+			"whereDetail": "goblin-archivist folder and drawer",
+			"severity": "nit",
+			"areas": [
+				"copy"
+			],
+			"title": "The proposed state is stated three times inside one folder",
+			"detail": "Drop 'Not yet built.' from the Remedy.",
+			"status": "fixed",
+			"resolution": "'Not yet built.' removed from the archivist Remedy.",
+			"source": "check",
+			"principle": 5,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 9,
+			"where": "Notice",
+			"whereDetail": "callout 1 proposal",
+			"severity": "praise",
+			"areas": [
+				"layout",
+				"copy"
+			],
+			"title": "Moving each ledger row into its folder makes one element answer 'what is it and why'",
+			"detail": "Keep it.",
+			"status": "fixed",
+			"resolution": "Kept, as approved.",
+			"source": "check",
+			"principle": 5,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 10,
+			"where": "Sources slip",
+			"whereDetail": "callout 9 and the bottom row",
+			"severity": "major",
+			"areas": [
+				"layout"
+			],
+			"title": "Callout 9 reverses F6 without marking it as a proposal",
+			"detail": "F6 removes the sources slip from the front page; callout 9 keeps it, unmarked. Put it to Jason; if kept, draw it full width under the desk.",
+			"status": "fixed",
+			"resolution": "Jason ruled the sources slip off the front page (F6 stands); removed in v2.",
+			"source": "check",
+			"principle": 6,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 11,
+			"where": "Notice",
+			"whereDetail": "callout 2 and the copy it covers",
+			"severity": "major",
+			"areas": [
+				"copy",
+				"data"
+			],
+			"title": "Callout 2 says no figure is typed by hand; several are",
+			"detail": "'five mods', 'Two mods', 'Three mods', 'One has not been built', 'fifteen second' are hand-typed. Generate each or remove the count.",
+			"status": "fixed",
+			"resolution": "Counts in the lede and schedule headers are generated and marked; 'Four session' is narrative, said so in callout 2.",
+			"source": "check",
+			"principle": 6,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 12,
+			"where": "Install slip",
+			"whereDetail": "callout 3 against F4",
+			"severity": "minor",
+			"areas": [
+				"layout"
+			],
+			"title": "The slip is taped to the notice where F4 tapes it beside the folders",
+			"detail": "Say which reading of F4 the drawing took.",
+			"status": "fixed",
+			"resolution": "Callout 3 states the reading of F4; scope F4 updated.",
+			"source": "check",
+			"principle": 6,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 13,
+			"where": "Sources slip",
+			"whereDetail": "pin 9",
+			"severity": "nit",
+			"areas": [
+				"layout"
+			],
+			"title": "Pin 9 sits inside the closed details, so its target cannot be seen",
+			"detail": "Move the pin onto the summary.",
+			"status": "fixed",
+			"resolution": "Sources slip removed, so pin 9 is gone.",
+			"source": "check",
+			"principle": 6,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 14,
+			"where": "Callouts legend",
+			"whereDetail": "callouts 6 and 8",
+			"severity": "nit",
+			"areas": [
+				"copy"
+			],
+			"title": "Two callouts cite requirements they do not answer",
+			"detail": "Drop R8 from callout 6 and S1 from callout 8.",
+			"status": "fixed",
+			"resolution": "Stray citations dropped from callouts 6 and 8.",
+			"source": "check",
+			"principle": 6,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 15,
+			"where": "Snacks and Feasts",
+			"whereDetail": "folder stamps against the notice's meta line",
+			"severity": "minor",
+			"areas": [
+				"copy"
+			],
+			"title": "Two vocabularies for one state: 'shipped' and 'proposed' against 'Goblin Approve' and 'Soon. Very Soon.'",
+			"detail": "Make the stamps and the meta line use the same words.",
+			"status": "fixed",
+			"resolution": "Meta line uses the stamps' words: goblin-approved, soon (Jason's ruling).",
+			"source": "check",
+			"principle": 10,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 16,
+			"where": "Build Your Own box file",
+			"whereDetail": "intro line",
+			"severity": "minor",
+			"areas": [
+				"copy"
+			],
+			"title": "'this config' and 'one family at a time' are in-house words to the learner",
+			"detail": "Name it in the visitor's terms.",
+			"status": "fixed",
+			"resolution": "Box file reads 'How the skills behind these mods are put together, a topic at a time.' (Jason's ruling).",
+			"source": "check",
+			"principle": 10,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 17,
+			"where": "Feasts",
+			"whereDetail": "goblin-warband and goblin-archivist taglines",
+			"severity": "minor",
+			"areas": [
+				"copy"
+			],
+			"title": "Brief is silent on whether a closed folder may state what the mod is for",
+			"detail": "Ask Jason whether a tagline may name the plain function.",
+			"status": "fixed",
+			"resolution": "Jason ruled that closed folders name the plain function; all five taglines rewritten.",
+			"source": "check",
+			"principle": 10,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 18,
+			"where": "Notice",
+			"whereDetail": "eyebrow",
+			"severity": "nit",
+			"areas": [
+				"copy",
+				"colour-type"
+			],
+			"title": "Plain site information set in the goblin's marker",
+			"detail": "Set the eyebrow in --font-print.",
+			"status": "declined",
+			"resolution": "Jason kept the eyebrow in the goblin's marker.",
+			"source": "check",
+			"principle": 10,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 19,
+			"where": "Front page at 390",
+			"whereDetail": "first screen",
+			"severity": "major",
+			"areas": [
+				"layout",
+				"navigation"
+			],
+			"title": "At 390 the first screen is the notice alone: no install slip, no folder",
+			"detail": "Shorten the notice at 390 so the slip shows, and run folders as rows.",
+			"status": "fixed",
+			"resolution": "At 390 the notice drops tape and meta line and shrinks its title; the slip starts at 576px in an 844px screen (measured).",
+			"source": "check",
+			"principle": 11,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		},
+		{
+			"seq": 20,
+			"where": "Snacks",
+			"whereDetail": "goblin-seneschal drawer open on load",
+			"severity": "minor",
+			"areas": [
+				"layout",
+				"navigation"
+			],
+			"title": "The page loads with a drawer open, so the map does not start folded",
+			"detail": "State that the page loads with every drawer shut.",
+			"status": "fixed",
+			"resolution": "The page loads with every folder shut; callout 4 says so.",
+			"source": "check",
+			"principle": 11,
+			"screenshot": null,
+			"createdAt": "2026-11-18T19:44:03+00:00",
+			"updatedAt": "2026-11-18T19:49:11+00:00"
+		}
+	]
+}
