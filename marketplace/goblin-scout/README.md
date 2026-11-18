@@ -1,6 +1,6 @@
 # goblin-scout
 
-<!-- persona line: three candidates are with Jason; the chosen one goes here -->
+*Scouted it, wrote it in the roadbook, lost the pencil. It keeps your plan as a map of what waits on what.*
 
 goblin-scout keeps a **roadbook**: a project's plan as a dependency graph in `.claude/roadbook.json`. Its words, used everywhere you read them:
 
