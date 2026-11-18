@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import { bar, groupByTier, nextGroupBy, parseFirst, parseGrouping, parseSnapshot, reasonOf, ruleTail, subgroup, tierHue } from './register'
 
-const PLUGIN = 'roadmap'
+const PLUGIN = 'goblin-scout'
 const NOON = new Date(2026, 9, 7, 12, 0).getTime()
 
 const READY = JSON.stringify({
@@ -78,8 +78,8 @@ const PANE = {
 	plugin: PLUGIN,
 	surface: 'terminal',
 	component: 'Pane',
-	requestId: 'ready',
-	props: { title: 'ready', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} },
+	requestId: 'waypoints',
+	props: { title: 'waypoints', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 16 }, view: {} },
 } as const
 
 test('the snapshot is read defensively from the two CLI documents', async () => {
@@ -109,12 +109,12 @@ test('the drawing helpers are pure', () => {
 		[0, 'Core', ['M1', 'M2']],
 		[1, 'Secondary', ['M3']],
 	])
-	expect(nextGroupBy('dev')).toBe('milestone')
-	expect(nextGroupBy('none')).toBe('dev')
+	expect(nextGroupBy('scout')).toBe('milestone')
+	expect(nextGroupBy('none')).toBe('scout')
 	expect(parseFirst(' Jason, jaz ,, ')).toEqual(['Jason', 'jaz'])
-	expect(parseGrouping(undefined, undefined)).toEqual({ by: 'dev', first: [] })
+	expect(parseGrouping(undefined, undefined)).toEqual({ by: 'scout', first: [] })
 	expect(parseGrouping('tier', ['Jaz', 7, ' '])).toEqual({ by: 'tier', first: ['Jaz'] })
-	expect(parseGrouping('weekday', 'Jaz')).toEqual({ by: 'dev', first: [] })
+	expect(parseGrouping('weekday', 'Jaz')).toEqual({ by: 'scout', first: [] })
 })
 
 const candidate = (id: string, assignee: string, milestone: string, tier: number) => ({
@@ -133,16 +133,16 @@ const candidate = (id: string, assignee: string, milestone: string, tier: number
 test('the ready set splits into subgroups that keep leverage order, led by the names asked for', () => {
 	const set = [candidate('A', 'Jaz', 'M11', 1), candidate('B', '', 'M8', 1), candidate('C', 'Jason', 'M2', 0), candidate('D', 'jaz', 'M8', 1), candidate('E', '', 'M2', 0)]
 	const ids = (groups: ReturnType<typeof subgroup>) => groups.map(g => [g.label, g.members.map(c => c.id)])
-	// devs alphabetically, the unassigned last, the two spellings of Jaz kept apart since the roadmap keeps them apart
-	expect(ids(subgroup(set, 'dev', []))).toEqual([
+	// scouts alphabetically, the unassigned last, the two spellings of Jaz kept apart since the roadbook keeps them apart
+	expect(ids(subgroup(set, 'scout', []))).toEqual([
 		['Jason', ['C']],
 		['Jaz', ['A']],
 		['jaz', ['D']],
 		['unassigned', ['B', 'E']],
 	])
 	// a name put first leads whatever its case; the rest keep the natural order
-	expect(ids(subgroup(set, 'dev', ['JAZ'])).map(g => g[0])).toEqual(['Jaz', 'jaz', 'Jason', 'unassigned'])
-	expect(ids(subgroup(set, 'dev', ['unassigned', 'Jason'])).map(g => g[0])).toEqual(['unassigned', 'Jason', 'Jaz', 'jaz'])
+	expect(ids(subgroup(set, 'scout', ['JAZ'])).map(g => g[0])).toEqual(['Jaz', 'jaz', 'Jason', 'unassigned'])
+	expect(ids(subgroup(set, 'scout', ['unassigned', 'Jason'])).map(g => g[0])).toEqual(['unassigned', 'Jason', 'Jaz', 'jaz'])
 	// milestones by number, not by string, so M8 comes before M11
 	expect(ids(subgroup(set, 'milestone', []))).toEqual([
 		['M2 about M2', ['C', 'E']],
@@ -161,21 +161,21 @@ test('the ready set splits into subgroups that keep leverage order, led by the n
 	expect(ids(subgroup(set, 'none', []))).toEqual([['', ['A', 'B', 'C', 'D', 'E']]])
 })
 
-test('/ready refreshes from the CLI and draws the header, the ready set in order and the claims', async ($, on) => {
+test('/scout-waypoints refreshes from the CLI and draws the header, the ready set in order and the claims', async ($, on) => {
 	const { calls } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	expect(await $.command.run({ ...RUN, command: 'ready' })).toEqual({})
+	expect(await $.command.run({ ...RUN, command: 'scout-waypoints' })).toEqual({})
 	expect(calls.map(c => c[2])).toEqual(['detect', 'ready', 'stats'])
 	expect(calls[0]?.[1]).toEndWith('/scripts/roadbook.py')
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ type: 'Text', text: 'Phase 2' })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: '42%' })).toBeDefined()
-	expect(await ui.find({ type: 'Text', text: '5/12 tasks' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '5/12 waypoints' })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: /Core/ })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: /Secondary/ })).toBeDefined()
 	const rows = await ui.findAll({ type: 'Button' })
 	// grouped by dev out of the box: Jaz's row leads, the unassigned one follows, the digits follow the drawn order
-	expect(rows.map(r => r.props.label)).toEqual(['2SE.4', '2SE.1', '2SE.2', 'group: dev', 'first: natural', 'refresh'])
+	expect(rows.map(r => r.props.label)).toEqual(['2SE.4', '2SE.1', '2SE.2', 'group: scout', 'first: natural', 'refresh'])
 	expect(rows.map(r => r.props.hotkey)).toEqual(['1', '2', 'q', 'g', 's', 'r'])
 	expect(await ui.find({ type: 'Text', text: 'Ready now · 2' })).toBeDefined()
 	expect(await ui.find({ key: 'sub-Jaz' })).toBeDefined()
@@ -190,7 +190,7 @@ test('/ready refreshes from the CLI and draws the header, the ready set in order
 test('a picked row offers claim; claim asks who and runs the CLI', async ($, on) => {
 	const { calls, toasts } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ key: 'claim' })).toBeUndefined()
 	expect(await ui.find({ type: 'Text', text: '▶' })).toBeUndefined()
@@ -199,20 +199,20 @@ test('a picked row offers claim; claim asks who and runs the CLI', async ($, on)
 	expect(await ui.find({ key: 'claim' })).toBeDefined()
 	await ui.press({ key: 'claim' })
 	const input = await ui.find({ type: 'Input', key: 'assignee' })
-	expect(input?.props.label).toBe('who is doing 2SE.1')
+	expect(input?.props.label).toBe('which scout is on 2SE.1')
 	expect(input?.props.value).toBeUndefined()
 	await ui.input({ key: 'assignee', text: '  ' })
-	expect(toasts).toEqual(['a claim needs a name.'])
+	expect(toasts).toEqual(["a trail needs a scout's name."])
 	await ui.input({ key: 'assignee', text: 'Jaz' })
 	expect(calls.some(c => c.slice(2).join(' ') === 'claim 2SE.1 --assignee=Jaz --reassign')).toBe(true)
-	expect(toasts[1]).toBe('claimed 2SE.1 for Jaz. commit roadbook.json when you are ready.')
+	expect(toasts[1]).toBe('Jaz is on the trail to 2SE.1. commit roadbook.json when you are ready.')
 	expect(await ui.find({ type: 'Input' })).toBeUndefined()
 })
 
 test('claiming a row that already has an assignee replaces it', async ($, on) => {
 	const { calls } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	await ui.press({ key: 'row-2SE.4' })
 	await ui.press({ key: 'claim' })
@@ -223,13 +223,13 @@ test('claiming a row that already has an assignee replaces it', async ($, on) =>
 test('assign asks who and sets the assignee without claiming', async ($, on) => {
 	const { calls, toasts } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ key: 'assign' })).toBeUndefined()
 	await ui.press({ key: 'row-2SE.1' })
 	await ui.press({ key: 'assign' })
 	const input = await ui.find({ type: 'Input', key: 'assignee' })
-	expect(input?.props.label).toBe('who will do 2SE.1')
+	expect(input?.props.label).toBe('which scout will take 2SE.1')
 	await ui.input({ key: 'assignee', text: 'Jaz' })
 	expect(calls.some(c => c.slice(2).join(' ') === 'assign 2SE.1 --assignee=Jaz')).toBe(true)
 	expect(calls.some(c => c[2] === 'claim')).toBe(false)
@@ -240,7 +240,7 @@ test('assign asks who and sets the assignee without claiming', async ($, on) => 
 test('a blank assign clears the assignee', async ($, on) => {
 	const { calls, toasts } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	await ui.press({ key: 'row-2SE.4' })
 	await ui.press({ key: 'assign' })
@@ -249,10 +249,10 @@ test('a blank assign clears the assignee', async ($, on) => {
 	expect(toasts).toEqual(["cleared 2SE.4's assignee. commit roadbook.json when you are ready."])
 })
 
-test('a claim in play can be picked and reassigned, but not claimed again', async ($, on) => {
+test('a trail in play can be picked and reassigned, but not started again', async ($, on) => {
 	const { calls } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	await ui.press({ key: 'claimed-row-2SE.2' })
 	expect(await ui.find({ key: 'claim' })).toBeUndefined()
@@ -266,7 +266,7 @@ test('a claim past the ninth has no hotkey but can still be picked and reassigne
 	const claimed = Array.from({ length: 10 }, (_, i) => ({ id: `9X.${i + 1}`, description: `claim ${i + 1}`, assignee: 'Max', started: '2026-10-01' }))
 	const { calls } = world(on, 0, null, JSON.stringify({ ...JSON.parse(READY), claimed }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	await ui.press({ key: 'claimed-row-9X.10' })
 	expect(await ui.find({ type: 'Text', text: '▶' })).toBeDefined()
@@ -280,7 +280,7 @@ test('every ready row draws; past the ninth a row has no digit but can still be 
 	const candidates = Array.from({ length: 12 }, (_, i) => candidate(`9R.${i + 1}`, '', 'M9', 1))
 	world(on, 0, null, JSON.stringify({ ...JSON.parse(READY), candidates }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	const rows = (await ui.findAll({ type: 'Button' })).filter(r => r.key?.startsWith('row-'))
 	expect(rows).toHaveLength(12)
@@ -289,13 +289,13 @@ test('every ready row draws; past the ninth a row has no digit but can still be 
 	await ui.press({ key: 'row-9R.12' })
 	expect(await ui.find({ key: 'claim' })).toBeDefined()
 	await ui.press({ key: 'claim' })
-	expect((await ui.find({ type: 'Input', key: 'assignee' }))?.props.label).toBe('who is doing 9R.12')
+	expect((await ui.find({ type: 'Input', key: 'assignee' }))?.props.label).toBe('which scout is on 9R.12')
 })
 
 test('g cycles what the set is grouped by and the store remembers it', async ($, on) => {
 	const { saved } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ key: 'sub-Jaz' })).toBeDefined()
 	await ui.press({ key: 'group' })
@@ -313,14 +313,14 @@ test('g cycles what the set is grouped by and the store remembers it', async ($,
 	expect(await ui.find({ key: 'sub-M2' })).toBeUndefined()
 	expect(await ui.find({ key: 'sub-Jaz' })).toBeUndefined()
 	await ui.press({ key: 'group' })
-	expect((await ui.find({ key: 'group' }))?.props.label).toBe('group: dev')
+	expect((await ui.find({ key: 'group' }))?.props.label).toBe('group: scout')
 })
 
 test('s asks which subgroups lead; the names reorder the rows and their digits, and the store keeps them', async ($, on) => {
 	const candidates = [candidate('1J.1', 'Jason', 'M1', 0), candidate('1Z.1', 'Jaz', 'M1', 0), candidate('1Z.2', 'Jaz', 'M1', 0), candidate('1U.1', '', 'M1', 0)]
 	const { saved } = world(on, 0, null, JSON.stringify({ ...JSON.parse(READY), candidates }))
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	const order = async () => (await ui.findAll({ type: 'Button' })).filter(r => r.key?.startsWith('row-')).map(r => `${r.props.hotkey}:${r.props.label}`)
 	expect(await order()).toEqual(['1:1J.1', '2:1Z.1', '3:1Z.2', '4:1U.1'])
@@ -344,7 +344,7 @@ test('s asks which subgroups lead; the names reorder the rows and their digits, 
 test('picking a row closes the order field, as it closes the assignee field', async ($, on) => {
 	world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	await ui.press({ key: 'order' })
 	expect(await ui.find({ type: 'Input', key: 'first' })).toBeDefined()
@@ -358,9 +358,9 @@ test('picking a row closes the order field, as it closes the assignee field', as
 
 test('a grouping kept on this machine is read at the start of the session', async ($, on) => {
 	const candidates = [candidate('1J.1', 'Jason', 'M1', 0), candidate('1Z.1', 'Jaz', 'M1', 0)]
-	world(on, 0, null, JSON.stringify({ ...JSON.parse(READY), candidates }), { groupBy: 'dev', groupOrder: ['Jaz'] })
+	world(on, 0, null, JSON.stringify({ ...JSON.parse(READY), candidates }), { groupBy: 'scout', groupOrder: ['Jaz'] })
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	const rows = (await ui.findAll({ type: 'Button' })).filter(r => r.key?.startsWith('row-'))
 	expect(rows.map(r => r.props.label)).toEqual(['1Z.1', '1J.1'])
@@ -370,7 +370,7 @@ test('a grouping kept on this machine is read at the start of the session', asyn
 test('a name that starts with a dash is bound to --assignee, not read as an option', async ($, on) => {
 	const { calls } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	await ui.press({ key: 'row-2SE.1' })
 	await ui.press({ key: 'claim' })
@@ -385,7 +385,7 @@ test('a name that starts with a dash is bound to --assignee, not read as an opti
 test('refresh is offered before a row is picked, and hidden while the assignee input is open', async ($, on) => {
 	const { calls } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
 	expect(await ui.find({ key: 'claim' })).toBeUndefined()
 	expect(await ui.find({ key: 'refresh' })).toBeDefined()
@@ -397,13 +397,13 @@ test('refresh is offered before a row is picked, and hidden while the assignee i
 	expect(await ui.find({ key: 'refresh' })).toBeUndefined()
 })
 
-test('/ready opens the pane and runs again to close it', async ($, on) => {
+test('/scout-waypoints opens the pane and runs again to close it', async ($, on) => {
 	const { calls, panes } = world(on)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
-	expect(panes.open).toEqual(['ready'])
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
+	expect(panes.open).toEqual(['waypoints'])
 	const runs = calls.length
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	expect(panes.open).toEqual([])
 	// closing runs no CLI
 	expect(calls).toHaveLength(runs)
@@ -411,31 +411,31 @@ test('/ready opens the pane and runs again to close it', async ($, on) => {
 	expect(await ui.find({ key: 'start' })).toBeUndefined()
 })
 
-test('no roadmap draws a card that says so and names the skill that starts one', async ($, on) => {
+test('no roadbook draws a card that says so and names the skill that starts one', async ($, on) => {
 	world(on, 2)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
-	expect(await ui.find({ type: 'Text', text: 'No roadmap in this project' })).toBeDefined()
-	expect(await ui.find({ type: 'Text', text: '/roadmap:create' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: 'No roadbook in this project' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '/goblin-scout:start-roadbook' })).toBeDefined()
 	expect(await ui.find({ key: 'refresh' })).toBeDefined()
 	expect(await ui.find({ key: 'claim' })).toBeUndefined()
 })
 
-test('the old single-file format points at migrate', async ($, on) => {
+test('the old single-file format points at rebind-roadbook', async ($, on) => {
 	world(on, 3)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
-	expect(await ui.find({ type: 'Text', text: 'Old roadmap format' })).toBeDefined()
-	expect(await ui.find({ type: 'Text', text: '/roadmap:migrate' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: 'Old single-file roadmap' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: '/goblin-scout:rebind-roadbook' })).toBeDefined()
 })
 
 test("the CLI's own refusal reaches the pane", async ($, on) => {
 	world(on, 0, '✗ 2 active phases; pass --phase NAME\n')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
-	await $.command.run({ ...RUN, command: 'ready' })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
 	const ui = await $.ui.mount(PANE)
-	expect(await ui.find({ type: 'Text', text: 'The roadmap would not load' })).toBeDefined()
+	expect(await ui.find({ type: 'Text', text: 'The roadbook would not load' })).toBeDefined()
 	expect(await ui.find({ type: 'Text', text: '✗ 2 active phases; pass --phase NAME' })).toBeDefined()
 })

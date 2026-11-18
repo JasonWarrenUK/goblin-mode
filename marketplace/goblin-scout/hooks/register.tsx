@@ -1,44 +1,46 @@
-// The roadmap pane: `/ready` opens the whole ready set the CLI computes, in
-// leverage order, with the claims in play and the milestones' progress, and
-// runs again to close it. The ready set is split into subgroups (by dev unless
-// this person chose otherwise), the body scrolls when it outgrows the pane,
-// and the first nine rows take a digit; the rest are reached with Tab. A
-// letter picks a claim in play; `c` claims a ready row after asking who
-// (replacing any assignee it already had), `a` assigns or, left blank, clears
-// an assignee without starting anything, `g` cycles what the set is grouped
-// by, `s` asks which subgroups lead, `r` refreshes. An assignee is never
-// inferred. The CLI is the plugin's own scripts/roadbook.py, the same file the
-// skills run, so the pane needs python3 and nothing else. Nothing here edits
-// roadbook.json except through `claim` and `assign`.
+// The scout's pane: `/scout-waypoints` opens every ready waypoint the CLI
+// computes, in leverage order, with the trails in play and the milestones'
+// progress, and runs again to close it. The ready set is split into subgroups
+// (by scout unless this person chose otherwise), the body scrolls when it
+// outgrows the pane, and the first nine rows take a digit; the rest are
+// reached with Tab. A letter picks a trail in play; `c` starts a trail on a
+// ready row after asking which scout (replacing any assignee it already had),
+// `a` assigns or, left blank, clears an assignee without starting anything,
+// `g` cycles what the set is grouped by, `s` asks which subgroups lead, `r`
+// refreshes. An assignee is never inferred. The CLI is the plugin's own
+// scripts/roadbook.py, the same file the skills run, so the pane needs python3
+// and nothing else. Nothing here edits roadbook.json except through `claim`
+// and `assign`.
 //
 // The grouping lives in the plugin's store, a file of this machine's, so each
-// dev keeps their own without anything in the roadmap saying so.
+// scout keeps their own without anything in the roadbook saying so.
 //
 // Colours are the engine's theme keys, never raw values: the pane follows
 // whichever theme the person runs. A release tier takes one hue everywhere it
-// appears (the tier row, its milestone chips, the task ids drawn from it).
+// appears (the tier row, its milestone chips, the waypoint ids drawn from it).
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Asking, Candidate, Claimed, GroupBy, Grouping, Milestone, Problem, Snapshot } from '../types'
 
-const PANE = 'ready'
+const COMMAND = 'scout-waypoints'
+const PANE = 'waypoints'
 // Only the first nine ready rows take a digit; the rest are reached with Tab.
 const DIGITS = 9
-// Hotkeys for the claims in play; digits belong to the ready rows and c, a, g, s, r to the actions.
+// Hotkeys for the trails in play; digits belong to the ready rows and c, a, g, s, r to the actions.
 const IN_PLAY_KEYS = 'qwetyuiop'
 const BAR_CELLS = 5
 const TIER_LABEL_WIDTH = 11
-const GROUP_BYS: readonly GroupBy[] = ['dev', 'milestone', 'tier', 'none']
-const DEFAULT_GROUPING: Grouping = { by: 'dev', first: [] }
+const GROUP_BYS: readonly GroupBy[] = ['scout', 'milestone', 'tier', 'none']
+const DEFAULT_GROUPING: Grouping = { by: 'scout', first: [] }
 const UNASSIGNED = 'unassigned'
 
-const snapshot = atom({ plugin: 'roadmap', key: 'snapshot' } as const, null as Snapshot | null)
-const selected = atom({ plugin: 'roadmap', key: 'selected' } as const, null as string | null)
-const asking = atom({ plugin: 'roadmap', key: 'asking' } as const, null as Asking | null)
-const grouping = atom({ plugin: 'roadmap', key: 'grouping' } as const, null as Grouping | null)
-const ordering = atom({ plugin: 'roadmap', key: 'ordering' } as const, false)
+const snapshot = atom({ plugin: 'goblin-scout', key: 'snapshot' } as const, null as Snapshot | null)
+const selected = atom({ plugin: 'goblin-scout', key: 'selected' } as const, null as string | null)
+const asking = atom({ plugin: 'goblin-scout', key: 'asking' } as const, null as Asking | null)
+const grouping = atom({ plugin: 'goblin-scout', key: 'grouping' } as const, null as Grouping | null)
+const ordering = atom({ plugin: 'goblin-scout', key: 'ordering' } as const, false)
 
 // Module-level because the validator holds `$` to top-level functions; only
 // the CLI path lives here, which no drawing reads.
@@ -90,14 +92,14 @@ export const ruleTail = (label: string, columns: number): string => '─'.repeat
 
 const isGroupBy = (v: unknown): v is GroupBy => typeof v === 'string' && (GROUP_BYS as readonly string[]).includes(v)
 
-/** The grouping the store holds, read defensively; anything unset or odd falls back to grouping by dev in natural order. */
+/** The grouping the store holds, read defensively; anything unset or odd falls back to grouping by scout in natural order. */
 export const parseGrouping = (by: unknown, first: unknown): Grouping => ({
 	by: isGroupBy(by) ? by : DEFAULT_GROUPING.by,
 	first: Array.isArray(first) ? first.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map(s => s.trim()) : [],
 })
 
 /** The next key in the cycle after `by`. */
-export const nextGroupBy = (by: GroupBy): GroupBy => GROUP_BYS[(GROUP_BYS.indexOf(by) + 1) % GROUP_BYS.length] ?? 'dev'
+export const nextGroupBy = (by: GroupBy): GroupBy => GROUP_BYS[(GROUP_BYS.indexOf(by) + 1) % GROUP_BYS.length] ?? 'scout'
 
 /** The names typed into the order field: comma-separated, trimmed, blanks dropped. */
 export const parseFirst = (text: string): string[] =>
@@ -117,7 +119,7 @@ export type Subgroup = { key: string; label: string; members: Candidate[] }
  * The ready set split by `by`, each subgroup in leverage order. The subgroups
  * named in `first` lead in that order (matched case-insensitively on the
  * key, or on the label for a tier, whose key is only its index); the rest
- * follow in natural order: devs alphabetically with the unassigned last,
+ * follow in natural order: scouts alphabetically with the unassigned last,
  * milestones by number, tiers lowest first. Grouping by nothing gives one
  * unlabelled subgroup.
  */
@@ -126,7 +128,7 @@ export const subgroup = (candidates: readonly Candidate[], by: GroupBy, first: r
 	const groups = new Map<string, Subgroup>()
 	for (const c of candidates) {
 		const { key, label } =
-			by === 'dev'
+			by === 'scout'
 				? { key: c.assignee.trim() || UNASSIGNED, label: c.assignee.trim() || UNASSIGNED }
 				: by === 'milestone'
 					? { key: c.milestone, label: c.milestoneName ? `${c.milestone} ${c.milestoneName}` : c.milestone }
@@ -136,7 +138,7 @@ export const subgroup = (candidates: readonly Candidate[], by: GroupBy, first: r
 		groups.set(key, group)
 	}
 	const natural = (a: Subgroup, b: Subgroup): number => {
-		if (by === 'dev') {
+		if (by === 'scout') {
 			if (a.key === UNASSIGNED) return 1
 			if (b.key === UNASSIGNED) return -1
 			return a.key.localeCompare(b.key, undefined, { sensitivity: 'base' })
@@ -172,7 +174,7 @@ const saveGrouping = async ($: EngineInterface, next: Grouping): Promise<void> =
 	}
 }
 
-/** Milestones grouped by release tier, lowest tier first, each group in roadmap order. */
+/** Milestones grouped by release tier, lowest tier first, each group in roadbook order. */
 export const groupByTier = (milestones: readonly Milestone[]): { tier: number; label: string; milestones: Milestone[] }[] => {
 	const tiers = [...new Set(milestones.map(m => m.tier))].sort((a, b) => a - b)
 	return tiers.map(tier => {
@@ -246,7 +248,7 @@ const refresh = async ($: EngineInterface): Promise<void> => {
 	try {
 		const detect = await run($, ['detect'])
 		if (detect.exitCode === 3) return void (await update($, snapshot, () => failed('legacy', 'old single-file roadmap')))
-		if (detect.exitCode === 2) return void (await update($, snapshot, () => failed('missing', reasonOf(detect, 'no roadmap above this directory'))))
+		if (detect.exitCode === 2) return void (await update($, snapshot, () => failed('missing', reasonOf(detect, 'no roadbook above this directory'))))
 		if (detect.exitCode !== 0) return void (await update($, snapshot, () => failed('broken', reasonOf(detect, 'the CLI refused'))))
 		const [ready, stats] = await Promise.all([run($, ['ready', '--json']), run($, ['stats', '--json'])])
 		if (ready.exitCode !== 0 || stats.exitCode !== 0) {
@@ -261,18 +263,18 @@ const refresh = async ($: EngineInterface): Promise<void> => {
 
 const claim = async ($: EngineInterface, id: string, assignee: string): Promise<string> => {
 	const who = assignee.trim()
-	if (!who) return 'a claim needs a name.'
+	if (!who) return "a trail needs a scout's name."
 	try {
 		// The person typed the name on purpose, so a different assignee gives way to it.
 		const ran = await run($, ['claim', id, `--assignee=${who}`, '--reassign'])
-		if (ran.exitCode !== 0) return reasonOf(ran, `claim ${id} refused`)
-		return `claimed ${id} for ${who}. commit roadbook.json when you are ready.`
+		if (ran.exitCode !== 0) return reasonOf(ran, `trail on ${id} refused`)
+		return `${who} is on the trail to ${id}. commit roadbook.json when you are ready.`
 	} catch {
 		return 'the CLI could not run'
 	}
 }
 
-/** Sets who will do a task without starting it; a blank name clears the assignee. */
+/** Sets which scout will take a waypoint without starting it; a blank name clears the assignee. */
 const assign = async ($: EngineInterface, id: string, assignee: string): Promise<string> => {
 	const who = assignee.trim()
 	try {
@@ -302,7 +304,7 @@ const step = (ui: Ui, n: number, what: string, pointer: string) => {
 	)
 }
 
-/** No roadmap to draw: a framed card that says why and what to do about it. */
+/** No roadbook to draw: a framed card that says why and what to do about it. */
 const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) => {
 	const { Box, Text, Button } = ui
 	const frame = snap.problem === 'broken' ? 'error' : 'subtle'
@@ -310,22 +312,22 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 		snap.problem === 'legacy'
 			? {
 					glyph: '◈',
-					title: 'Old roadmap format',
-					lead: 'This roadmap is a single file. The pane reads the phase-array format.',
-					steps: [step(ui, 1, 'Convert it', '/roadmap:migrate'), step(ui, 2, 'Reopen', '/ready or press r')],
+					title: 'Old single-file roadmap',
+					lead: 'This project keeps its plan in one Markdown file. The pane reads a roadbook.',
+					steps: [step(ui, 1, 'Convert it', '/goblin-scout:rebind-roadbook'), step(ui, 2, 'Reopen', `/${COMMAND} or press r`)],
 				}
 			: snap.problem === 'broken'
 				? {
 						glyph: '✗',
-						title: 'The roadmap would not load',
+						title: 'The roadbook would not load',
 						lead: snap.reason,
-						steps: [step(ui, 1, 'Check it', '/roadmap:maintain'), step(ui, 2, 'Then', 'r or refresh')],
+						steps: [step(ui, 1, 'Check it', '/goblin-scout:tend-roadbook'), step(ui, 2, 'Then', 'r or refresh')],
 					}
 				: {
 						glyph: '◇',
-						title: 'No roadmap in this project',
+						title: 'No roadbook in this project',
 						lead: 'Nothing at .claude/roadbook.json above this directory.',
-						steps: [step(ui, 1, 'Start one', '/roadmap:create'), step(ui, 2, 'Reopen', '/ready or press r')],
+						steps: [step(ui, 1, 'Start one', '/goblin-scout:start-roadbook'), step(ui, 2, 'Reopen', `/${COMMAND} or press r`)],
 					}
 	return (
 		<Box flexDirection="column" width={width} rowGap={1}>
@@ -339,12 +341,12 @@ const emptyState = ($: EngineInterface, ui: Ui, snap: Snapshot, width: number) =
 				<Text color={snap.problem === 'broken' ? 'error' : undefined} dimColor={snap.problem !== 'broken'}>
 					{content.lead}
 				</Text>
-				{snap.problem === 'missing' && <Text dimColor>A roadmap holds your tasks as a dependency graph. This pane then shows what is unblocked, what it unlocks and who has claimed what.</Text>}
+				{snap.problem === 'missing' && <Text dimColor>A roadbook holds your waypoints as a dependency graph. This pane then shows what is unblocked, what it unlocks and which scout is on which trail.</Text>}
 				<Box flexDirection="column">{content.steps}</Box>
 			</Box>
 			<Box flexDirection="row" columnGap={2}>
 				<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($)} />
-				<Text dimColor>esc or /ready closes</Text>
+				<Text dimColor>esc or /{COMMAND} closes</Text>
 			</Box>
 		</Box>
 	)
@@ -358,12 +360,12 @@ const header = (ui: Ui, snap: Snapshot, inner: number) => {
 	return (
 		<Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1} width={inner + 4}>
 			<Box flexDirection="row" columnGap={2} flexWrap="wrap">
-				<Text bold>{snap.phase || 'roadmap'}</Text>
+				<Text bold>{snap.phase || 'roadbook'}</Text>
 				<Text color={snap.donePct >= 100 ? 'success' : 'claude'}>{bar(snap.donePct, barCells)}</Text>
 				<Text bold>{snap.donePct}%</Text>
 				{snap.inScope > 0 && (
 					<Text dimColor>
-						{snap.doneCount}/{snap.inScope} tasks
+						{snap.doneCount}/{snap.inScope} waypoints
 					</Text>
 				)}
 			</Box>
@@ -416,7 +418,7 @@ const heading = (ui: Ui, label: string, inner: number) => {
 /** A subgroup's heading inside the ready set: who or what it is, and how many rows it holds. */
 const subheading = (ui: Ui, group: Subgroup, by: GroupBy) => {
 	const { Box, Text } = ui
-	const colour = by === 'dev' ? (group.key === UNASSIGNED ? undefined : 'warning') : tierHue(group.members[0]?.tier ?? 0)
+	const colour = by === 'scout' ? (group.key === UNASSIGNED ? undefined : 'warning') : tierHue(group.members[0]?.tier ?? 0)
 	return (
 		<Box key={`sub-${group.key}`} flexDirection="row" columnGap={1} paddingLeft={1}>
 			<Text color={colour} bold>
@@ -427,7 +429,7 @@ const subheading = (ui: Ui, group: Subgroup, by: GroupBy) => {
 	)
 }
 
-/** One ready task: hotkey (the first nine) and id on the first line with the description, the leverage signals beneath. */
+/** One ready waypoint: hotkey (the first nine) and id on the first line with the description, the leverage signals beneath. */
 const taskRow = ($: EngineInterface, ui: Ui, c: Candidate, i: number, picked: string | null, inner: number) => {
 	const { Box, Text, Button } = ui
 	const hue = tierHue(c.tier)
@@ -472,7 +474,7 @@ const taskRow = ($: EngineInterface, ui: Ui, c: Candidate, i: number, picked: st
 	)
 }
 
-/** Claims in play: who holds which task, and since when. The first nine take a letter hotkey so an assignee can be handed over. */
+/** Trails in play: which scout is on which waypoint, and since when. The first nine take a letter hotkey so an assignee can be handed over. */
 const claimedRows = ($: EngineInterface, ui: Ui, claimed: readonly Claimed[], picked: string | null, inner: number) => {
 	const { Box, Text, Button } = ui
 	return claimed.map((c, i) => (
@@ -507,8 +509,8 @@ export const register: Register = on => {
 		await loadGrouping($)
 		try {
 			await $.command.register({
-				name: 'ready',
-				description: 'The roadmap ready set in a pane, or closes it: a digit picks, c claims, a assigns, g groups, s orders, r refreshes',
+				name: COMMAND,
+				description: 'The ready waypoints of the roadbook in a pane, or closes it: a digit picks, c starts a trail, a assigns a scout, g groups, s orders, r refreshes',
 				immediate: true,
 			})
 		} catch {
@@ -525,24 +527,25 @@ export const register: Register = on => {
 
 	// Open or close: the pane is a tab beside any other, /diff included, and
 	// the same command takes it down again.
-	on('command.run', { command: 'ready' }, async $ => {
+	on('command.run', { command: COMMAND }, async $ => {
 		if (await isPaneOpen($)) {
 			await $.ui.close({ id: PANE })
 			return {}
 		}
 		await refresh($)
 		// the whole ready set draws, so ask for the room; the body scrolls past what the layout spares
-		await $.ui.open({ id: PANE, title: 'ready', focus: true, closeOnEscape: true, rows: 28 })
+		await $.ui.open({ id: PANE, title: 'waypoints', focus: true, closeOnEscape: true, rows: 28 })
 		return {}
 	})
 
-	// A change to the roadmap by any route redraws the pane while it is open.
+	// A change to the roadbook by any route redraws the pane while it is open,
+	// a 2.x project's roadmaps.json included until its first write moves it.
 	on('tool.call', async ($, e, next) => {
 		const ran = await next(e)
 		if (e.agentId) return ran
 		const touched =
-			((e.tool === 'Edit' || e.tool === 'Write') && /roadmaps\.json$/.test(e.file_path)) ||
-			(e.tool === 'Bash' && /roadmap\.py|roadmaps\.json/.test(e.command))
+			((e.tool === 'Edit' || e.tool === 'Write') && /(roadbook|roadmaps)(\.local)?\.json$/.test(e.file_path)) ||
+			(e.tool === 'Bash' && /roadbook\.py|(roadbook|roadmaps)(\.local)?\.json/.test(e.command))
 		if (touched && (await isPaneOpen($))) await refresh($)
 		return ran
 	})
@@ -552,7 +555,7 @@ export const register: Register = on => {
 		const ui = $.ui.resolve(e)
 		const { Box, Text, Button, Input } = ui
 		const [snap, picked, ask, kept, isOrdering] = await Promise.all([read($, snapshot), read($, selected), read($, asking), read($, grouping), read($, ordering)])
-		if (!snap) return <Text dimColor>reading the roadmap…</Text>
+		if (!snap) return <Text dimColor>reading the roadbook…</Text>
 		const width = Math.max(40, e.props.bodyColumns)
 		if (!snap.ok) return emptyState($, ui, snap, width - 1)
 		// the header's frame and padding take four columns; every line inside it shares the measure
@@ -564,7 +567,7 @@ export const register: Register = on => {
 		const pickedReady = ordered.find(c => c.id === picked) ?? null
 		const pickedInPlay = pickedReady ? null : (snap.claimed.find(c => c.id === picked) ?? null)
 		const current = pickedReady ?? pickedInPlay
-		// a task already in play is past claiming; it can only change hands
+		// a waypoint already on a trail is past starting; it can only change hands
 		const claimable = pickedReady !== null
 		const asked = current && ask?.id === current.id ? ask : null
 		let index = 0
@@ -573,7 +576,7 @@ export const register: Register = on => {
 				{header(ui, snap, inner)}
 				<Box flexDirection="column" paddingX={1}>
 					{heading(ui, `Ready now · ${snap.candidates.length}`, inner)}
-					{ordered.length === 0 && <Text dimColor>nothing is ready. a blocker or a gate holds everything; /roadmap:review names it.</Text>}
+					{ordered.length === 0 && <Text dimColor>nothing is ready. a blocker or a gate holds everything; /goblin-scout:review-roadbook names it.</Text>}
 					<Box flexDirection="column" rowGap={1}>
 						{groups.map(g => (
 							<Box key={`group-${g.key}`} flexDirection="column" rowGap={1}>
@@ -585,7 +588,7 @@ export const register: Register = on => {
 				</Box>
 				{snap.claimed.length > 0 && (
 					<Box flexDirection="column" paddingX={1}>
-						{heading(ui, `In play · ${snap.claimed.length}`, inner)}
+						{heading(ui, `On the trail · ${snap.claimed.length}`, inner)}
 						{claimedRows($, ui, snap.claimed, picked, inner)}
 					</Box>
 				)}
@@ -593,7 +596,7 @@ export const register: Register = on => {
 					{ask === null && !isOrdering && (
 						<Box flexDirection="row" columnGap={2} flexWrap="wrap">
 							{current && claimable && (
-								<Button key="claim" label="claim" hotkey="c" variant="primary" onPress={() => update($, asking, () => ({ id: current.id, mode: 'claim' }))} />
+								<Button key="claim" label="start trail" hotkey="c" variant="primary" onPress={() => update($, asking, () => ({ id: current.id, mode: 'claim' }))} />
 							)}
 							{current && <Button key="assign" label="assign" hotkey="a" onPress={() => update($, asking, () => ({ id: current.id, mode: 'assign' }))} />}
 							<Button key="group" label={`group: ${group.by}`} hotkey="g" onPress={() => saveGrouping($, { ...group, by: nextGroupBy(group.by) })} />
@@ -618,13 +621,13 @@ export const register: Register = on => {
 					{current && asked && (
 						<Input
 							key="assignee"
-							label={asked.mode === 'claim' ? `who is doing ${current.id}` : `who will do ${current.id}`}
+							label={asked.mode === 'claim' ? `which scout is on ${current.id}` : `which scout will take ${current.id}`}
 							placeholder={asked.mode === 'claim' ? 'a name; never inferred, never pre-filled' : 'a name, or blank to clear; never inferred'}
 							submitLabel={asked.mode}
 							autoFocus
 							onSubmit={async value => {
 								if (asked.mode === 'claim' && !value.trim()) {
-									$.ui.toast('a claim needs a name.')
+									$.ui.toast("a trail needs a scout's name.")
 									return
 								}
 								$.ui.toast(asked.mode === 'claim' ? await claim($, current.id, value) : await assign($, current.id, value))
@@ -633,7 +636,7 @@ export const register: Register = on => {
 							}}
 						/>
 					)}
-					<Text dimColor>1-9 pick (tab past nine) · q-p in play · c claim · a assign · g group by · s order · r refresh · esc or /ready closes</Text>
+					<Text dimColor>1-9 pick (tab past nine) · q-p on the trail · c start trail · a assign · g group by · s order · r refresh · esc or /{COMMAND} closes</Text>
 				</Box>
 			</Box>
 		)
