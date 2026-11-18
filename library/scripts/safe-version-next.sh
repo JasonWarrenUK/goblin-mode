@@ -5,7 +5,9 @@
 # version is 0.x and svu proposes 1.0.0: crossing into 1.x is a human decision
 # (it declares the public API stable), so the script emits a minor bump within
 # 0.x instead: semver's own convention for breaking changes pre-1.0. Later
-# major bumps (1 -> 2, 2 -> 3, ...) pass through untouched.
+# major bumps (1 -> 2, 2 -> 3, ...) pass through untouched. One exception: a
+# renamed plugin whose plugin.json declares 1.0.0 out of a 0.x series has
+# made that decision in its rename, and gets 1.0.0 (see --plugin below).
 #
 # usage: safe-version-next.sh [--plugin NAME --dir PATH]
 #   no flags        root repo: tag prefix "v", history from the whole repo
@@ -81,12 +83,15 @@ if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
 fi
 
 # A renamed plugin continues its old series. When nothing is tagged under the
-# new prefix, the marketplace's renames map is walked back from this name
-# (newest earlier name first) to the first one with tags; the version is then
+# new prefix, the marketplace's renames map is walked back from this name,
+# nearest earlier names first (several at once where names folded into one,
+# which is reported), to the first one with tags; the version is then
 # computed under that prefix and printed under the new one. The commit scan
 # covers the new directory and every walked-back name's directory, so a
 # change made before the move still counts: each directory is that name's
 # source in the marketplace as tagged, else a sibling of the new directory.
+# A map that cannot be read says why on stderr, as the policy reader does, so
+# falling back to a fresh series is never a silent one.
 renamed_from=""
 walked=()
 if [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
@@ -95,18 +100,26 @@ if [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
 		earlier=("${(@f)$(python3 -I -c '
 import json, sys
 try:
-	renames = json.load(open(sys.argv[1])).get("renames") or {}
-except (OSError, ValueError, AttributeError):
-	renames = {}
-name, seen = sys.argv[2], set()
-while name not in seen:
-	seen.add(name)
-	before = [old for old, new in renames.items() if new == name]
-	if not before:
-		break
-	name = before[0]
-	print(name)
-' "$marketplace" "$plugin" 2>/dev/null)}")
+	manifest = json.load(open(sys.argv[1]))
+except (OSError, ValueError) as error:
+	sys.exit(f"renames: cannot read {sys.argv[1]} ({error}); treating {sys.argv[2]} as unrenamed")
+renames = manifest.get("renames") if isinstance(manifest, dict) else None
+if renames is None:
+	sys.exit(0)
+if not isinstance(renames, dict):
+	sys.exit(f"renames: the map in {sys.argv[1]} is not an object; treating {sys.argv[2]} as unrenamed")
+queue, seen = [sys.argv[2]], {sys.argv[2]}
+while queue:
+	name = queue.pop(0)
+	before = [old for old, new in renames.items() if new == name and old not in seen]
+	if len(before) > 1:
+		names = ", ".join(before)
+		print(f"renames: {name} has several earlier names ({names}); trying each", file=sys.stderr)
+	for old in before:
+		seen.add(old)
+		queue.append(old)
+		print(old)
+' "$marketplace" "$plugin")}")
 		for old in "${earlier[@]}"; do
 			[[ -n "$old" ]] || continue
 			walked+=("$old")
@@ -166,7 +179,9 @@ if [[ -n "$renamed_from" && "$cur_major" == "0" && "$declared" == "1.0.0" ]]; th
 fi
 
 if [[ "$next" == "$current" ]]; then
-	print -u2 -- "nothing to release: no version-bumping commits since $current"
+	since="$current"
+	[[ -n "$renamed_from" ]] && since="$old_current"
+	print -u2 -- "nothing to release: no version-bumping commits since $since"
 	exit 3
 fi
 

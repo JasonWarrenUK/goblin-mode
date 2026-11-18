@@ -195,6 +195,29 @@ class SafeVersionNext(unittest.TestCase):
 		self.assertEqual(result.returncode, 0, result.stderr)
 		self.assertEqual(result.stdout.strip(), "new-v0.3.0")
 
+	def test_two_earlier_names_folding_into_one_are_both_tried_and_the_fold_is_reported(self) -> None:
+		# insertion order puts the untagged name first; the tagged one must still be found
+		self._renamed("old-v3.1.0", {"other": "new", "old": "new"}, message="fix(new): fold old and other into new")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v3.1.1")
+		self.assertIn("several earlier names", result.stderr)
+
+	def test_an_unreadable_renames_map_says_so_instead_of_starting_a_fresh_series_in_silence(self) -> None:
+		self._renamed("old-v2.4.0", {"old": "new"})
+		listed = '"plugins": [{"name": "new", "source": "./new"}]'
+		for broken in (f'{{{listed}, "renames": ["old", "new"]}}', f'{{{listed}, "renames": {{"old": "new"}},}}'):
+			(self.repo / ".claude-plugin" / "marketplace.json").write_text(broken)
+			result = _run(self.repo, "--plugin", "new", "--dir", "new")
+			self.assertEqual(result.returncode, 0, result.stderr)
+			self.assertIn("renames:", result.stderr, broken)
+
+	def test_a_rename_with_nothing_to_release_names_the_old_tag(self) -> None:
+		self._renamed("old-v0.4.0", {"old": "new"}, message="chore(new): rename old to new")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 3, result.stderr)
+		self.assertIn("since old-v0.4.0", result.stderr)
+
 	def test_a_plugin_tagged_under_its_new_prefix_ignores_the_renames_map(self) -> None:
 		self._renamed("old-v2.4.0", {"old": "new"})
 		_git(self.repo, "tag", "new-v3.0.0")
