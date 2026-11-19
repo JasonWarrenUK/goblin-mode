@@ -4848,7 +4848,8 @@ def migrate_from_mission_control(cwd: str) -> str | None:
         ledger = old_root is not None and old_root.is_dir() and not new_root.exists() and old_root.resolve() != new_root.resolve()
         # a config moves only where git cannot see the move: ignored under both names (config_note says what to do otherwise)
         configs = [(root / old_rel, root / new_rel) for root in roots for old_rel, new_rel in OLD_CONFIG_RELS
-                   if (root / old_rel).is_file() and not (root / new_rel).exists() and git_ignores(root, old_rel) and git_ignores(root, new_rel)]
+                   if (root / old_rel).is_file() and not (root / old_rel).is_symlink() and not (root / new_rel).exists()
+                   and git_ignores(root, old_rel) and git_ignores(root, new_rel)]
         return ledger, configs
 
     if pending() == (False, []):
@@ -4889,10 +4890,20 @@ def move_from_mission_control(old_root: Path | None, new_root: Path, ledger_move
         shutil.move(str(old_root), str(new_root))
         archived = len(list((new_root / "runs").iterdir())) if (new_root / "runs").is_dir() else 0
         moved.append(f"the ledger {old_root} to {new_root} ({archived} archived raid{'s' if archived != 1 else ''})")
+    unlinked = []
     for old_path, new_path in config_moves:
         shutil.move(str(old_path), str(new_path))
         moved.append(f"{old_path} to {new_path.name}")
-    notice = "goblin-warband: moved " + "; ".join(moved) + " (renamed from mission-control)."
+        # a session still on mission-control 0.13.1 reads the old name only; a relative link there keeps its push gate
+        # until it restarts (review 5978864222). Git ignores the old name, or the config would not have moved.
+        try:
+            os.symlink(new_path.name, old_path)
+        except OSError as error:
+            unlinked.append(f"{old_path.name} ({error.strerror or error})")
+    links = "; the old names stay as links for sessions not yet restarted, safe to delete once every session has restarted" if config_moves and not unlinked else ""
+    warning = (f"; could not leave a link at {', '.join(unlinked)}, so a session still on mission-control pushes with no gate "
+               f"until you restart it") if unlinked else ""
+    notice = "goblin-warband: moved " + "; ".join(moved) + f" (renamed from mission-control){links}{warning}."
     # stderr from a hook reaches nobody: the first status (the mod's first refresh, which toasts it) tells it instead
     with contextlib.suppress(OSError):
         new_root.mkdir(parents=True, exist_ok=True)

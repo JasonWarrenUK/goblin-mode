@@ -3826,13 +3826,22 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertEqual(len(list((self.new / "runs").iterdir())), 2, "archived raids came with it")
         self.assertTrue((self.new / "-elsewhere-app" / "log.jsonl").is_file(), "another project's ledger came with it")
         claude = self.box.repo / ".claude"
-        self.assertFalse((claude / "mission-control.json").exists())
-        self.assertFalse((claude / "mission-control.local.json").exists())
+        # review 5978864222: the old names stay as relative links, so a session still on 0.13.1 keeps its push gate until restarted
+        for old, new in (("mission-control.json", "goblin-warband.json"), ("mission-control.local.json", "goblin-warband.local.json")):
+            self.assertTrue((claude / old).is_symlink(), old)
+            self.assertEqual(os.readlink(claude / old), new)
+            self.assertFalse((claude / new).is_symlink(), f"{new} is the real file")
+        self.assertIn("push_gate", json.loads((claude / "mission-control.json").read_text()), "a 0.13.1 read of the old name still finds the gate")
+        self.assertIn("links", notice[0], "the notice says the old names stay as links")
         self.assertTrue((claude / "goblin-warband.json").is_file())
         self.assertEqual(json.loads((claude / "goblin-warband.local.json").read_text()), {"collaboration": {"mode": "solo"}})
         self.assertTrue(json.loads(done.stdout)["config"], "the command that moved the config then read it")
-        again = self.box.mc("status")
-        self.assertNotIn("goblin-warband: moved", again.stderr, "the move happens once")
+        self.assertEqual(Path(json.loads(done.stdout)["config_path"]).resolve(), (claude / "goblin-warband.json").resolve())
+        self.assertEqual(Path(json.loads(done.stdout)["config_path"]).name, "goblin-warband.json", "the new name is the one read")
+        again = self.box.mc("--json", "status")
+        self.assertNotIn("goblin-warband: moved", again.stderr, "the move happens once; the link is never taken for an old config")
+        self.assertTrue((claude / "mission-control.json").is_symlink())
+        self.assertNotIn("config_note", json.loads(again.stdout))
 
     def tree(self, root):
         return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.name != "run.lock")
@@ -3993,10 +4002,26 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertNotIn("carrying", status)
         self.assertIn("stray", status.get("old_ledger_note", ""))
         self.assertTrue((self.box.repo / ".claude" / "goblin-warband.local.json").is_file(), "the pending config moved")
-        self.assertFalse((self.box.repo / ".claude" / "mission-control.local.json").exists())
+        self.assertTrue((self.box.repo / ".claude" / "mission-control.local.json").is_symlink(), "the old name stays as a link")
         verdict = json.loads(self.box.hook("pre-tool-use", reset))["hookSpecificOutput"]
         self.assertEqual(verdict["permissionDecision"], "deny", "the dibs gate still rules from the new root")
         self.assertTrue((stray / "run.json").is_file())
+
+    def test_a_link_that_cannot_be_made_warns_and_the_move_still_lands(self):
+        """Review 5978864222: the link is for sessions not yet restarted; one the filesystem refuses (permissions) says so in
+        the notice and never fails the move."""
+        from unittest import mock
+        import warband as mc_module
+        root = self.box.tmp / "linkless"
+        (root / ".claude").mkdir(parents=True)
+        old_path, new_path = root / ".claude" / "mission-control.json", root / ".claude" / "goblin-warband.json"
+        old_path.write_text(json.dumps({"push_gate": {}}))
+        with mock.patch.object(mc_module.os, "symlink", side_effect=PermissionError("denied")):
+            notice = mc_module.move_from_mission_control(None, self.box.tmp / "no-ledger", False, [(old_path, new_path)])
+        self.assertTrue(new_path.is_file())
+        self.assertFalse(old_path.exists() or old_path.is_symlink())
+        self.assertIn("could not leave a link", notice)
+        self.assertIn("restart", notice)
 
     def test_an_old_ledger_beside_the_new_one_is_named_even_with_no_live_raid(self):
         self.old_world(live=False)
