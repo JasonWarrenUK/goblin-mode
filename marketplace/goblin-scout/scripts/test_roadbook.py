@@ -2963,6 +2963,29 @@ class LegacyMigration(LegacyFixture):
         rc, out, _err = self._run("claim", "j1", str(self.root), "--date", "2026-11-18")
         self.assertEqual(rc, 0, out)
 
+    def test_a_sibling_that_is_not_utf8_still_moves_byte_for_byte(self):
+        # round 2's repro: one Latin-1 byte in either sibling must not crash
+        # the move; such a file is not a phase array and travels untouched
+        mirror = json.dumps([phase([{"id": "M9", "name": "caf\u00e9",
+                                     "tasks": [task("j1", local=True)]}],
+                                   name="Jira", source={"kind": "jira", "project": "J"})],
+                            ensure_ascii=False, indent="\t") + "\n"
+        latin = mirror.encode("latin-1")
+        for written, odd, odd_target, argv in (
+                (self.legacy, self.legacy_local, self.new_local, ("claim", "d")),
+                (self.legacy_local, self.legacy, self.new, ("claim", "j1"))):
+            with self.subTest(odd=odd.name):
+                for f in (self.legacy, self.legacy_local, self.new, self.new_local):
+                    f.unlink(missing_ok=True)
+                if written == self.legacy:
+                    self._write(self.legacy, self._phases())
+                else:
+                    self.legacy_local.write_text(mirror)
+                odd.write_bytes(latin)
+                rc, out, _err = self._run(*argv, str(written), "--date", "2026-11-18")
+                self.assertEqual(rc, 0, out)
+                self.assertEqual(odd_target.read_bytes(), latin)
+
     def test_clearing_the_chart_path_on_an_unmoved_file_clears_it(self):
         data = self._phases()
         data[1]["artefact"] = "site/plan.html"

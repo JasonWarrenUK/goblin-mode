@@ -728,8 +728,8 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
         if source == path:
             content = data
         else:
-            text = source.read_text()
             try:
+                text = source.read_text()  # not UTF-8 is a ValueError too
                 content = json.loads(text)
                 _phases(content)
             except (ValueError, RoadbookError):
