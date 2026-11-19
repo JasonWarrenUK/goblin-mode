@@ -2,6 +2,7 @@
 // artifact (read 2026-11-18), under the November 2026 names; every count comes
 // from the generated facts, never from this file.
 
+import { MOD_FILES } from '#lib/content/mod-files.ts';
 import { countWord, CountWord, MOD_NAMES, type Facts, type ModKey } from '#lib/facts.ts';
 
 export type Schedule = 'snacks' | 'feasts';
@@ -17,6 +18,8 @@ export interface ModSummary {
 	deficiency: string;
 	remedy: string;
 	goblin: string;
+	/** The mod's README opener, quoted in its drawer; null until one is settled. */
+	persona: string | null;
 	shipped: boolean;
 	installCommand: string | null;
 }
@@ -96,6 +99,7 @@ export const modSummary = (facts: Facts, key: ModKey): ModSummary => {
 		deficiency: copy.deficiency,
 		remedy: copy.remedy(facts),
 		goblin: copy.goblin(facts),
+		persona: MOD_FILES[key].persona,
 		shipped: facts.mods[key].installable,
 		installCommand: facts.mods[key].installCommand,
 	};

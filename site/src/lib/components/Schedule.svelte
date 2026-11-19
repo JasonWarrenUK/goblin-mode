@@ -78,6 +78,7 @@
 				hidden={open !== mod.key}
 			>
 				<h3 class="drawer-title" id={`drawer-${mod.key}-title`}>{mod.name}</h3>
+				{#if mod.persona}<p class="motto">{mod.persona}</p>{/if}
 				<div class="drawer-grid">
 					<div>
 						<h4>Present Deficiency</h4>
@@ -190,6 +191,11 @@
 		border-bottom-color: var(--surface);
 	}
 	.drawer-title { font-size: 1.5rem; margin-bottom: 1rem; }
+	/* the mod speaking for itself: its README opener, set apart from the goblin's voice */
+	.drawer-title:has(+ .motto) { margin-bottom: 0.35rem; }
+	.motto { margin: 0 0 1rem; font-family: var(--font-print); font-style: italic; color: var(--ink-muted); max-width: 52rem; }
+	.motto::before { content: '\201C'; }
+	.motto::after { content: '\201D'; }
 	.drawer-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem 2rem; }
 	h4 {
 		font-family: var(--font-print);

@@ -59,6 +59,40 @@ code { font-family: var(--font-mono); }
 	box-shadow: var(--shadow);
 }
 .slip a { color: var(--slip-accent); }
+/*
+	Torn paper: the slip's paper is a backing layer clipped to one of the theme's
+	ragged outlines; the shadow follows the tear through drop-shadow and a strip
+	of tape holds it on. Set --rag on the element to choose the outline.
+*/
+.slip.torn {
+	background: none;
+	box-shadow: none;
+	isolation: isolate;
+	filter: drop-shadow(var(--shadow));
+	--rag: var(--rag-a);
+}
+.slip.torn::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	background: var(--slip);
+	clip-path: var(--rag);
+}
+.slip.torn::before {
+	content: '';
+	position: absolute;
+	z-index: 1;
+	top: -0.6rem;
+	left: 50%;
+	width: 4.2rem;
+	height: 1.15rem;
+	margin-left: -2.1rem;
+	background: var(--tape);
+	transform: rotate(-2.5deg);
+	clip-path: polygon(0 12%, 6% 0, 12% 14%, 100% 0, 97% 40%, 100% 70%, 95% 100%, 10% 92%, 4% 100%, 0 60%);
+}
+
 .tape {
 	position: absolute;
 	width: 7rem;
