@@ -20,7 +20,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import archivist
-from _sniff import SniffError, inline_tags, moment_regex, shape, survey, task_signature, write_outputs
+from _sniff import TASK_LINE, SniffError, inline_tags, moment_regex, shape, survey, task_signature, write_outputs
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'vault'
 
@@ -47,6 +47,16 @@ class HelperTest(unittest.TestCase):
 			self.assertEqual(survey(vault)['tasks']['statuses_in_use'], {' ': 1, 'x': 1})
 		finally:
 			shutil.rmtree(vault)
+
+	def test_task_lines_match_tasks_own_pattern(self) -> None:
+		# obsidian-tasks src/Task/TaskRegularExpressions.ts: indentation [\\s\\t>]*, a list marker,
+		# one or more spaces, [status], then ' *' before the description
+		for line, status in (('- [ ]', ' '), ('- [x]Done', 'x'), ('- [ ] spaced', ' '), ('1) [/] numbered', '/'), ('> - [?] quoted', '?')):
+			match = TASK_LINE.match(line)
+			self.assertIsNotNone(match, line)
+			self.assertEqual(match.group('status'), status, line)
+		for line in ('-[ ] no space after the marker', 'text - [ ] mid-line', '- [] empty box'):
+			self.assertIsNone(TASK_LINE.match(line), line)
 
 	def test_task_signature_orders_metadata(self) -> None:
 		self.assertEqual(task_signature('Mend 🔼 ⏳ 2026-01-06 🔁 every week'), 'text · priority medium · scheduled · recurrence')

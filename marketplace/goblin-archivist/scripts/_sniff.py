@@ -37,7 +37,9 @@ TYPE_KEYS = ('type', 'fileclass', 'category', 'kind')
 TAG_KEYS = ('tags', 'tag')
 DEPRECATED_KEYS = {'tag': 'tags', 'alias': 'aliases', 'cssclass': 'cssclasses'}
 
-TASK_LINE = re.compile(r'^(?:[ \t]*>)*(?P<indent>[ \t]*)(?:[-*+]|\d+[.)])[ \t]+\[(?P<status>.)\][ \t]+(?P<text>.*)$')
+# The Tasks plugin's own pattern (obsidian-tasks src/Task/TaskRegularExpressions.ts):
+# indentation that may hold `>`, a list marker, spaces, [status], then ' *'.
+TASK_LINE = re.compile(r'^(?P<indent>[\s>]*)(?:[-*+]|[0-9]+[.)]) +\[(?P<status>.)\] *(?P<text>.*)$')
 FENCE = re.compile(r'^[ \t]*(```|~~~)')
 INLINE_CODE = re.compile(r'`[^`]*`')
 INLINE_TAG = re.compile(r'(?:^|(?<=[\s(]))#([^\s#!@$%^&*(),.?":{}|<>\[\]\'`;+=~\\]+)')
