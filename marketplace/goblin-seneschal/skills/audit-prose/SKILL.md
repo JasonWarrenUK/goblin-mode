@@ -44,7 +44,7 @@ Print the script's output as it came: the status lines, any `tree hits` list and
 
 ## Step 3: Turn every WARN and FAIL into a next action
 
-One line per check that is neither PASS nor SKIP, naming the file to open or the command to run. `skills` reads SKIP, and is never a FAIL, for a named prose or commit skill that is not installed on this machine.
+One line per check that is neither PASS nor SKIP, naming the file to open or the command to run. `skills` reads SKIP only when none of the named prose and commit skills is installed on this machine; when some are and some are not, it reads WARN and names the absent ones, since a renamed or deleted skill looks the same as one never installed. A missing skill is never a FAIL.
 
 | Check         | Fix |
 |---------------|-----|
@@ -52,7 +52,7 @@ One line per check that is neither PASS nor SKIP, naming the file to open or the
 | `style`       | Edit the output style file's frontmatter (`output_style` option), or run the strict scan on it and fix the hits |
 | `hook`        | `git config --global core.hooksPath <the hook's folder>`, `chmod +x <the commit_msg_hook option>`, or reinstall python3 |
 | `hook-log`    | Informational; a rejection rate above about 20% over a week means the commit skills are not pre-checking their messages |
-| `skills`      | Open the named skill; the gate text or the `allowed-tools` entry was removed. Restore it from git history |
+| `skills`      | FAIL: open the named skill; the gate text or the `allowed-tools` entry was removed. Restore it from git history. WARN: for each absent skill, say whether it was renamed, deleted or never installed here (`git log --diff-filter=D --name-only -- skills/` in `~/.claude` shows a deletion); a rename means `SKILL_WIRING` in the plugin's `prose-health.py` wants the new name, which is a change to the plugin |
 | `frontmatter` | Open the named file; usually an unquoted colon in a `description:` value |
 | `tree`        | Run `slop-scan.py --strict` from the `prose_scripts_dir` option on the listed files and fix them. If the new hits are clause-joining commas, say so: the tolerance is `RESIDUAL_TOLERANCE` in the plugin's own `prose-health.py`, which an update replaces, so raising it is a change to the plugin, never an edit in the cache (the tolerance carries headroom above the audited count, so tripping it means several have accumulated) |
 | `tests`       | Run `python3 -m pytest test_slop_scan.py test_prose_metrics.py test_commit_msg_hook.py` in the `prose_scripts_dir` folder and read the failure |
