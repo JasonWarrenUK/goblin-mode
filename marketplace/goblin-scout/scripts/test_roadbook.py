@@ -3294,6 +3294,27 @@ class RebindCommand(LegacyFixture):
         self.assertEqual(rc, 0, out)
         self.assertNotIn(b"\r", self.new.read_bytes())
 
+    def test_outputs_rename_the_keys_even_with_no_output_on_disk_yet(self):
+        # round 3: a first write pinned the 2.x chart and kept the 2.x
+        # projection path, and nothing has been rendered yet
+        self._write(self.legacy, self._phases())
+        rc, out, _err = self._run("claim", "d", str(self.legacy), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        before = self.new.read_text()
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs", "--dry-run")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("nothing to rebind", out)
+        self.assertIn("docs/roadmaps/TEST.md -> docs/roadbook/TEST.md", out)
+        self.assertIn("docs/artefacts/roadmap-phase-2.html", out)
+        self.assertEqual(self.new.read_text(), before)
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs")
+        self.assertEqual(rc, 0, out)
+        after = json.loads(self.new.read_text())
+        self.assertTrue(all("artefact" not in p for p in after))
+        self.assertTrue(all(p["path"] == "docs/roadbook/TEST.md" for p in after))
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs", "--dry-run")
+        self.assertIn("nothing to rebind", out)
+
     def test_a_named_old_file_beside_a_roadbook_refuses_in_the_dry_run_too(self):
         # round 3: the dry run said "would move" where the real run refused
         self._write(self.new, self._phases()[1:])

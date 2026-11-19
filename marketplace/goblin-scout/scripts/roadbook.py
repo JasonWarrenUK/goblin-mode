@@ -2641,12 +2641,14 @@ def _rebind_files(path):
 
 
 def _rebind_outputs(path, data, root, claimed=frozenset()):
-    """(moves, stale) for the phases in `data`: a (source, target) for each
-    2.x default output, each phase updated to the roadbook's names as it
-    goes, and each 2.x chart left beside the chart that replaced it.
-    `claimed` holds every chart path a phase in either file names in
-    `artefact`; such a file is that phase's own chart, never a 2.x default."""
-    moves, stale = [], []
+    """(moves, stale, rekeyed) for the phases in `data`: a (source, target)
+    for each 2.x default output, each phase updated to the roadbook's names
+    as it goes; each 2.x chart left beside the chart that replaced it; and a
+    (source, target) for each path the roadbook itself changes, which is
+    work to do even before the output is on disk. `claimed` holds every
+    chart path a phase in either file names in `artefact`; such a file is
+    that phase's own chart, never a 2.x default."""
+    moves, stale, rekeyed = [], [], []
     for phase in _phases(data):
         if not isinstance(phase, dict):
             continue
@@ -2656,6 +2658,8 @@ def _rebind_outputs(path, data, root, claimed=frozenset()):
             pass  # another phase's own chart: neither moved nor named stale
         elif phase.get(ARTEFACT_KEY, legacy_chart if path.name in LEGACY_NAMES else None) == legacy_chart:
             moves.append((root / legacy_chart, _default_render_path(path, phase)))
+            if ARTEFACT_KEY in phase:
+                rekeyed.append(moves[-1])
             phase.pop(ARTEFACT_KEY, None)
         elif ARTEFACT_KEY not in phase and (root / legacy_chart).exists():
             # a local file moved byte for byte carries no chart pin, so its
@@ -2671,7 +2675,8 @@ def _rebind_outputs(path, data, root, claimed=frozenset()):
             new = PROJECTION_DIR + projection[len(LEGACY_PROJECTION_DIR):]
             _set_phase_field(phase, "path", new)
             moves.append((root / projection, root / new))
-    return moves, stale
+            rekeyed.append(moves[-1])
+    return moves, stale, rekeyed
 
 
 def cmd_rebind(args) -> int:
@@ -2705,15 +2710,17 @@ def cmd_rebind(args) -> int:
     root = project_root(path)
     moves = []  # (source, target) project files, deduplicated
     stale = []  # (left, current): a 2.x chart beside the one that replaced it
+    rekeyed = []  # (old, new): a path the roadbook changes, file on disk or not
     if args.outputs:
         # read before _rebind_outputs pops any `artefact` it moves
         claimed = {os.path.normpath(ph[ARTEFACT_KEY]) for _each, data in files
                    for ph in _phases(data)
                    if isinstance(ph, dict) and isinstance(ph.get(ARTEFACT_KEY), str)}
         for each, data in files:
-            found, left = _rebind_outputs(each, data, root, claimed)
+            found, left, keys = _rebind_outputs(each, data, root, claimed)
             moves.extend(found)
             stale.extend(left)
+            rekeyed.extend(keys)
         moves.append((root / LEGACY_OVERVIEW, root / OVERVIEW))
         seen = set()
         moves = [(s, t) for s, t in moves
@@ -2730,6 +2737,14 @@ def cmd_rebind(args) -> int:
             return 2
     plan = [f"{_shown(each)} -> .claude/{LEGACY_NAMES[each.name]}" for each in renamed] \
         + [f"{shown(s)} -> {shown(t)}" for s, t in moves]
+    # a path the roadbook changes whose file is not on disk yet is still a
+    # change to the roadbook, so it is planned and written, not "nothing"
+    unrendered = []
+    for source, target in rekeyed:
+        line = f"{shown(source)} -> {shown(target)} (in the roadbook; not on disk yet)"
+        if not source.exists() and line not in unrendered:
+            unrendered.append(line)
+    plan += unrendered
     left_lines = [f"{shown(left)} is stale: {shown(current)} is the chart now; "
                   "delete it once nothing links to it" for left, current in stale]
     if not plan:
