@@ -2,16 +2,16 @@
 
 Durable personal usage data, not project config. Files here are gitignored (see root `.gitignore`); this README and any schema docs are tracked so the shape survives even though the data doesn't.
 
-## `cc-pain-points.json`
+## `grievances.json`
 
-Logged friction with Claude Code itself (the CLI/harness, not any project it's working in): bugs hit, missing features, annoying limitations. Written by `track-cc_pain` and by the `goblin-util` mod's `/pain` command, read by `hud-cc_releases` to decide which changelog fixes actually clear the "you'd recognise this" bar before surfacing them.
+Logged grievances with Claude Code itself (the CLI/harness, not any project it's working in): bugs hit, missing features, annoying limitations. Written by goblin-seneschal's `overhear-grievance` skill and its `/log-grievance` command, read by its `proclaim-releases` skill to decide which changelog fixes actually clear the "you'd recognise this" bar before surfacing them. The plugin's `grievances_file` option can move it; this is the default. Before goblin-seneschal 1.0.0 the same entries lived in `cc-pain-points.json`, which the mod carries over once and leaves in place to be deleted.
 
-Schema, one entry per pain point:
+Schema, one entry per grievance:
 
 ```json
 {
   "id": "kebab-case-slug",
-  "description": "free-text account of the friction, in Jason's own words/framing",
+  "description": "free-text account of the grievance, in Jason's own words/framing",
   "logged": "YYYY-MM-DD",
   "sourceSession": "optional short context, e.g. project or task at the time",
   "resolvedIn": null,
@@ -19,14 +19,14 @@ Schema, one entry per pain point:
 }
 ```
 
-- `resolvedIn`: version tag once `hud-cc_releases` finds a matching fix and Jason confirms it addresses the entry. `null` while open.
+- `resolvedIn`: version tag once `proclaim-releases` finds a matching fix and Jason confirms it addresses the entry. `null` while open.
 - `resolvedNoted`: date the confirmation happened. `null` while open.
 
-Resolved entries are kept, not deleted: a quiet log of what's been fixed over time. `hud-cc_releases` only matches against entries where `resolvedIn` is `null`.
+Resolved entries are kept, not deleted: a quiet log of what's been fixed over time. `proclaim-releases` only matches against entries where `resolvedIn` is `null`.
 
 ## `commit-msg-log.jsonl`
 
-One line per commit that passed through `hooks/commit-msg`, pass or reject, appended by the hook itself. Read by `prose-health.py` (via `hud-prose_health`) to report how often the gate fires.
+One line per commit that passed through `hooks/commit-msg`, pass or reject, appended by the hook itself. Read by `prose-health.py` (via goblin-seneschal's `audit-prose`) to report how often the gate fires.
 
 ```json
 {"ts": "2026-09-11T09:14:02Z", "repo": "wyrd-tui", "result": "reject", "rules": "em dash|Oxford comma"}

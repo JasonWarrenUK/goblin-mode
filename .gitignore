@@ -31,7 +31,7 @@ library/references/stud.7z
 /library/profiles/dossier/*
 !/library/profiles/dossier/README.md
 
-# Personal usage data (pain points, etc.) stays local; the schema does not
+# Personal usage data (grievances, etc.) stays local; the schema does not
 /library/state/*.json
 /library/state/*.jsonl
 !/library/state/README.md

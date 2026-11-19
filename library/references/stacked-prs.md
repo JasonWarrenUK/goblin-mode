@@ -1,7 +1,7 @@
 # Stacked Pull Requests
 
 Shared reference for every skill that touches branch topology (`next-task-ship`,
-`pr-create`, `pr-land`, `pr-handle_review`, `hud-worktrees`,
+`pr-create`, `pr-land`, `pr-handle_review`, goblin-seneschal's `inspect-chambers`,
 `clod-role-git_manager`). Skills point here instead of restating the mechanics.
 
 GitHub's native stacked PRs entered public preview on 2026-07-30 and are

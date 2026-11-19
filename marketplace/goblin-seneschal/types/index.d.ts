@@ -1,5 +1,5 @@
-// The state contract for goblin-util: what the fleet pane and the pain pane
-// draw from, held by the host for the session.
+// The state contract for goblin-seneschal: what the underlings pane and the
+// grievance pane draw from, held by the host for the session.
 
 export type LastError = {
 	tool: string
@@ -19,7 +19,7 @@ export type Heartbeat = {
 	at: number
 }
 
-/** This session as the fleet sees it, held in state so a hot reload keeps it. */
+/** This underling as the muster sees it, held in state so a hot reload keeps it. */
 export type Self = {
 	sessionId: string
 	startedAt: number
@@ -31,7 +31,7 @@ export type Self = {
 
 declare module 'claude-code' {
 	interface PluginState {
-		'goblin-util': {
+		'goblin-seneschal': {
 			selected: string | null
 			lastError: LastError | null
 			branch: string

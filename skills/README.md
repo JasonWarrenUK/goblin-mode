@@ -34,7 +34,6 @@ User-invocable slash commands (`disable-model-invocation: true`).
 | `/branch-worktree` | ᛊ sonnet | Move this session into a new worktree on a given branch (existing, or new from a base), move into a… |
 | `/do-minima` |  | Achieve the stated outcome with the smallest change that satisfies it |
 | `/do-stud` | ᛊ sonnet | Plan a non-trivial feature by interviewing to resolve unknowns, then studding every function as a ru… |
-| `/hud-prose_health` | ᛊ sonnet | Check every layer of the prose-gating suite is still wired and report how Claude's own output is tre… |
 | `/import-scaffold_artefact` | ᛊ sonnet | Convert an exported Claude artefact (HTML or JSX) into a working Svelte 5 / SvelteKit 2 project |
 | `/next-task-ship` | ᚠ fable | Autonomously run the full delivery loop for the next roadmap task: suggest, worktree, implement, roa… |
 | `/pr-handle_review` | ᛟ opus | Work through a PR's change requests: verify each independently, fix what holds up, reply to every th… |
@@ -68,15 +67,10 @@ Claude can load these automatically when relevant.
 | `/doc-changelog` | ᛊ sonnet | Build or update the changelog from conventional commits and project it to every surface the project… |
 | `/doc-readme` | ᛟ opus | Create or update a README for the project root or any directory |
 | `/dossier-record` |  | Record a durable fact about a person Jason works with, in their own dossier file |
-| `/hud-cc_releases` | ᛊ sonnet | Summarise Claude Code's own CHANGELOG.md, filtered and grouped for what actually matters to Jason |
-| `/hud-profiles` | ᛊ sonnet | Show the profiles stored in the dossier and persona stores |
-| `/hud-whats_new` | ᛊ sonnet | Summarise what the user can now see or do that they couldn't before this unit of work |
-| `/hud-worktrees` | ᛊ sonnet | Map every worktree in this repo in plain language: where each one is, what state it is in and whethe… |
 | `/pr-create` | ᛟ opus | Create a pull request to main, or a stacked PR onto a parent branch: wordy or shiny (with screenshot… |
 | `/pr-review` | ᛟ opus | Review a pull request and post it as a GitHub review |
 | `/pr-review-dry_run` | ᛟ opus | Review a pull request's diff and print structured findings to the terminal. Holds the canonical revi… |
 | `/pr-update` | ᛊ sonnet | Update a PR description to account for commits made since it was last written |
-| `/track-cc_pain` |  | Silently log friction with Claude Code itself (bugs, missing features, annoying limitations) for hud… |
 
 ---
 

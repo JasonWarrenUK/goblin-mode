@@ -2,7 +2,8 @@
 # worktree-state.sh: reports whether a worktree is dirty and how far its HEAD
 # sits ahead of and behind a base, for the read-only worktree map.
 #
-# It exists so hud-worktrees can allow one script instead of `git -C * ...`
+# It exists so branch-worktree, and goblin-seneschal's inspect-chambers through
+# its own copy, can allow one script instead of `git -C * ...`
 # rules: a `*` before the git subcommand also matches `-c core.fsmonitor=...`,
 # which makes git run a program. Here every git flag is fixed, the path is only
 # ever the value of `-C` and the base is resolved to a commit id before
