@@ -170,6 +170,15 @@ class SafeVersionNext(unittest.TestCase):
 		self.assertEqual(result.stdout.strip(), "new-v0.3.0")
 		self.assertIn("guard:", result.stderr)
 
+	def test_a_renamed_0x_plugin_declaring_above_1_0_0_is_held_in_0x(self) -> None:
+		# only exactly 1.0.0 is the human's word on crossing; a higher hand-set number is not
+		self._renamed("old-v0.13.0", {"old": "new"}, declared="2.0.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v0.14.0")
+		self.assertIn("guard:", result.stderr)
+		self.assertIn("declares 2.0.0", result.stderr)
+
 	def test_a_renamed_plugin_follows_the_chain_back_past_an_untagged_name(self) -> None:
 		self._renamed("old-v1.2.0", {"old": "mid", "mid": "new"}, message="fix(new): rename old to new")
 		result = _run(self.repo, "--plugin", "new", "--dir", "new")

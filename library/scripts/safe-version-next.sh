@@ -19,8 +19,8 @@
 #                    continues that name's series, and declaring 1.0.0 in
 #                    its plugin.json takes it across the 0.x guard
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
-#             2 environment error, a matching tag svu cannot read, or two
-#               tagged earlier names at one distance (a person picks),
+#             2 environment error; also a matching tag svu cannot read
+#               and two tagged earlier names at one distance (a person picks),
 #             3 nothing to release (no version-bumping commits since the
 #               current tag: creating a tag would fail on a duplicate),
 #             4 omitted by policy (the target is in omit-gh-tag in the
