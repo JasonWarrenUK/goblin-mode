@@ -1293,14 +1293,20 @@ def roadmap_task(main: Path, task: str, ref: str = "origin/main") -> dict | str 
         return None
     if run_git(main, "rev-parse", "--verify", "--quiet", ref) is None:
         return None
-    raw = next((text for text in (run_git(main, "show", f"{ref}:{rel}") for rel in ROADBOOK_RELS) if text is not None), None)
-    if raw is None:
-        return None
-    try:
-        phases = json.loads(raw)
-    except ValueError:
-        return None
-    if not isinstance(phases, list):
+    # the first name at the ref that parses as a roadbook: a roadbook.json that does not parse falls back to roadmaps.json
+    phases = None
+    for rel in ROADBOOK_RELS:
+        raw = run_git(main, "show", f"{ref}:{rel}")
+        if raw is None:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(parsed, list):
+            phases = parsed
+            break
+    if phases is None:
         return None
     for phase in phases:
         for milestone in (phase.get("milestones") or []) if isinstance(phase, dict) else []:
@@ -2102,6 +2108,9 @@ def cmd_init(args) -> int:
     target = root / CONFIG_REL
     if target.exists() and not args.force:
         raise Refusal(f"{target} exists; pass --force to overwrite it")
+    # a starter under the new name is read first and would shadow the real config, and the gates with it (review 5981937523)
+    if (root / OLD_CONFIG_REL).exists() and not args.force:
+        raise Refusal(f"{root / OLD_CONFIG_REL} is this repository's config under its old name; rename it, or pass --force to write a starter that takes its place")
     example = Path(__file__).resolve().parent.parent / "references" / "goblin-warband.example.json"
     data = read_json(example, {})
     data["project"] = root.name
@@ -2392,7 +2401,9 @@ def cmd_status(args) -> int:
         status["carrying"] = CARRYING
         if not args.json:
             print(CARRYING)
-    note = config_note(found[0]) if found else None
+    # while a raid is carried on, the config is at its old name because nothing moves mid-raid; the move renames it (and
+    # leaves the link) after the raid ends, so no note blames the ignore rule or prints a rename in the meantime
+    note = config_note(found[0]) if found and not CARRYING else None
     if note:
         status["config_note"] = note
         if not args.json:
@@ -2487,7 +2498,8 @@ def stop_watch(ledger: Ledger, row: dict, number: int) -> int:
         print(f"#{number}: no watcher is running for this PR (status {watch.get('status')}); nothing to stop")
         return 0
     code, command = sh(["ps", "-o", "command=", "-p", str(int(pid))])
-    if code != 0 or "warband.py" not in command or "watch" not in command:
+    # mc.py too: a watcher started by the old CLI before the rename is still this row's watcher (review 5981937523)
+    if code != 0 or not any(name in command for name in ("warband.py", "mc.py")) or "watch" not in command:
         print(f"#{number}: the recorded pid {pid} is not a warband.py watcher; nothing to stop")
         return 0
     with ledger.locked():
@@ -3742,7 +3754,7 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
             if fact:
                 chips.append('<span class="chip {}">{}</span>'.format(*review_chip(fact)))
                 word = fact.get("checks") or "good"
-                chips.append(f'<span class="chip {word}">{CHECK_LABELS.get(word, word)}</span>')
+                chips.append(f'<span class="chip {escape(word)}">{escape(CHECK_LABELS.get(word, word))}</span>')
                 if fact.get("mergeable") == "CONFLICTING":
                     chips.append('<span class="chip bad">conflicts with base</span>')
             if who.get("cost"):
@@ -4786,11 +4798,14 @@ def config_note(path: Path) -> str | None:
     root = path.parent.parent
     rel = f".claude/{path.name}"
     new_rel = rel.replace("mission-control", "goblin-warband")
+    # every rename printed here keeps a session still on mission-control 0.13.1 gated, as the move's own link does
+    # (review 5981937523): a committed rename can leave no link, so it waits until no such session is left
     if run_git(root, "ls-files", "--error-unmatch", rel) is not None:
-        return (f"goblin-warband: {path} is committed under its old name and is read from there; rename it in a commit when it suits "
-                f"(git mv {rel} {new_rel}).")
+        return (f"goblin-warband: {path} is committed under its old name and is read from there; rename it in a commit "
+                f"once no session still runs mission-control (git mv {rel} {new_rel}).")
     return (f"goblin-warband: {path} is read from its old name because the ignore rule that hides it does not cover {new_rel}; "
-            f"widen the rule, then rename the file (mv {rel} {new_rel}).")
+            f"widen the rule, then rename the file and leave a link for sessions still on mission-control "
+            f"(mv {rel} {new_rel} && ln -s {path.name.replace('mission-control', 'goblin-warband')} {rel}).")
 
 
 # Set for the life of this process when a raid is live in the old ledger: the one line that says so.

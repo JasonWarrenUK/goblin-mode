@@ -39,22 +39,24 @@ h2 .count { font: 1rem/1 var(--font-marker); }
 .tribute-owed h2 { color: var(--slip-ink); }
 .cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--space) * 3); }
 
-/* a card: the PR, taped down; a layered PR sits a little in, on darker card, under the one it waits on */
+/* a card: the PR, taped down; a layered PR sits a little in, on darker card, under the one it waits on. Its ink is the
+   slip's, which reads 4.96:1 on the darker card in light and more in dark, where the card's own ink read 3.04:1. No text on
+   a card is thinned with opacity: at .85 none of the ink tokens clears 4.5:1 on the darker card. */
 .card { position: relative; background: var(--card); color: var(--card-ink); border-radius: var(--wonk); box-shadow: var(--shadow); padding: calc(var(--space) * 2.5) calc(var(--space) * 2) calc(var(--space) * 2); transform: rotate(-.4deg); }
 .card:nth-child(2n) { transform: rotate(.5deg); border-radius: var(--wonk-2); }
 .card::before { content: ""; position: absolute; top: -9px; left: 50%; width: 76px; height: 18px; margin-left: -38px; background: var(--tape); transform: rotate(-4deg); box-shadow: 0 1px 0 var(--blot); }
-.card.layer { margin-left: calc(var(--depth, 0) * 18px); background: var(--card-dark); }
+.card.layer { margin-left: calc(var(--depth, 0) * 18px); background: var(--card-dark); color: var(--slip); }
 .card.layer::before { width: 44px; margin-left: -22px; transform: rotate(5deg); }
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space); }
 .num { font: 1.5rem/1 var(--font-marker); color: inherit; text-decoration: none; font-variant-numeric: tabular-nums; }
 .num:hover, .num:focus-visible { text-decoration: underline; text-decoration-thickness: 2px; }
-.num .waits { font: .8rem/1 var(--font-print); margin-right: 6px; opacity: .85; }
+.num .waits { font: .8rem/1 var(--font-print); margin-right: 6px; }
 .order { display: inline-grid; place-items: center; min-width: 1.6rem; height: 1.6rem; margin-right: 8px; border-radius: 50%; background: var(--slime); color: var(--on-slime); font: .85rem/1 var(--font-marker); vertical-align: 4px; }
 .margin-tally { display: inline-flex; align-items: center; gap: 6px; font: .8rem/1 var(--font-body); }
 .line { margin: calc(var(--space) * 1.25) 0 0; font-size: 1rem; }
-.meta { margin: 4px 0 0; font-size: .85rem; opacity: .85; overflow-wrap: anywhere; }
+.meta { margin: 4px 0 0; font-size: .85rem; overflow-wrap: anywhere; }
 .note { margin: var(--space) 0 0; padding-left: var(--space); border-left: 3px solid currentColor; font-size: .9rem; }
-.note small { opacity: .8; }
+.note small { font-style: italic; }
 
 /* who moves next, and the facts: paper labels stuck on the card, legible on it in light and dark */
 .who { display: inline-block; margin-right: var(--space); border-radius: var(--radius-sm); padding: 0 7px; font: 600 .78rem/1.6 var(--font-print); background: var(--slip); color: var(--slip-ink); vertical-align: 1px; }

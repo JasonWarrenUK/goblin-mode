@@ -910,6 +910,18 @@ class LedgerFlow(unittest.TestCase):
         result = self._reconcile_with(self._gh(self._merged(231)))
         self.assertEqual([item["kind"] for item in result["drift"] if item["kind"] == "claim-missing"], ["claim-missing"], "roadbook.json was read")
 
+    def test_a_roadbook_that_does_not_parse_falls_back_to_roadmaps_at_the_ref(self):
+        """Review 5981937523: a roadbook.json at a ref that does not parse no longer stops the read of a valid roadmaps.json there."""
+        self._roadmap_repo_with_origin()
+        (self.box.repo / ".claude" / "roadbook.json").write_text("{ not a roadbook")
+        git(self.box.repo, "add", ".claude/roadbook.json")
+        git(self.box.repo, "commit", "-q", "-m", "chore: a broken roadbook beside the old one")
+        sys.path.insert(0, str(HERE))
+        import warband as mc_module
+        row = mc_module.roadmap_task(self.box.repo, "10SE.2", "HEAD")
+        self.assertIsInstance(row, dict, "the old roadmaps.json is read when the new name does not parse")
+        self.assertEqual(row["id"], "10SE.2")
+
     def test_a_ref_cut_before_the_roadbook_move_is_read_under_the_old_name(self):
         """The main checkout has moved roadmaps.json to roadbook.json, but the refs reconcile reads still carry the old file:
         the old name is read at the ref, so the missing claim is still found."""
@@ -2697,6 +2709,20 @@ class LedgerFlow(unittest.TestCase):
                 proc.kill()
                 proc.wait()
 
+    def test_watch_stop_stops_a_watcher_the_old_cli_started(self):
+        """Review 5981937523: a watcher started as `mc.py watch` before the rename is still a watcher."""
+        self._watching_session(263)
+        old = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "mc.py", "watch", "--pr", "263"])
+        try:
+            self._set_watch(263, "watching", old.pid)
+            done = self.box.mc("watch", "--stop", "--pr", "263", session="crew-1", cwd=self.box.worktree)
+            self.assertNotIn("nothing to stop", done.stdout)
+            self.assertIn(f"pid {old.pid}", done.stdout)
+            old.wait(timeout=5)
+        finally:
+            old.kill()
+            old.wait()
+
     def _set_watch(self, pr, status, pid):
         row_path = list(self.box.ledger_root.glob("*/sessions/crew-1.json"))[0]
         row = json.loads(row_path.read_text())
@@ -3702,6 +3728,49 @@ class Dashboard(unittest.TestCase):
         rows = {r["number"]: r for r in json.loads(self.box.mc("--json", "prs", "list").stdout)}
         self.assertEqual(rows[286]["group"], "Outside the run", "the stored group keeps its word")
 
+    def test_the_checks_word_is_escaped_on_the_page(self):
+        """Review 5981937523: the one value that reached the page unescaped. Only rollup_word writes it, but a hand-edited
+        pr-facts.json can put anything there."""
+        base = {"state": "OPEN", "review_decision": "", "requested": [], "changes_requested_by": [], "approved_by": [], "base": "main",
+                "head": "abc", "head_branch": "feat/a", "mergeable": "MERGEABLE", "draft": False, "checks": '"><img src=x onerror=alert(1)>', "title": "t", "author": "jw"}
+        self.seed_facts(n8=base)
+        self.box.mc("prs", "add", "8", "--task", "T", session="coord-1")
+        page = (self.dir / "dashboard.html").read_text()
+        self.assertNotIn("<img", page)
+        self.assertNotIn("onerror=alert", page.replace("onerror=alert(1)&gt;", ""))
+
+    def test_every_card_reads_at_4_5_to_1_in_both_themes(self):
+        """Review 5981937523: a stacked card's ink on its darker card, and the small text, at WCAG AA for body text in light
+        and dark. Ratios are worked out from the theme's tokens; no opacity thins the ink on a card."""
+        import re
+        theme = (HERE.parent / "templates" / "dashboard-theme.css").read_text()
+        css = (HERE.parent / "templates" / "dashboard.css").read_text()
+        light = dict(re.findall(r"\t(--[\w-]+): (#[0-9A-Fa-f]{6});", theme.split("@media")[0]))
+        dark = dict(re.findall(r"\t+(--[\w-]+): (#[0-9A-Fa-f]{6});", theme.split(':root[data-theme="dark"]')[1]))
+        dark = {**light, **dark}
+
+        def lum(hex_colour):
+            parts = [int(hex_colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+            parts = [p / 12.92 if p <= 0.03928 else ((p + 0.055) / 1.055) ** 2.4 for p in parts]
+            return 0.2126 * parts[0] + 0.7152 * parts[1] + 0.0722 * parts[2]
+
+        def ratio(a, b):
+            high, low = sorted((lum(a), lum(b)), reverse=True)
+            return (high + 0.05) / (low + 0.05)
+
+        def colour_of(selector):
+            rule = re.search(re.escape(selector) + r" \{([^}]*)\}", css).group(1)
+            found = re.search(r"(?<![\w-])color: var\((--[\w-]+)\)", rule)
+            return found.group(1) if found else None
+
+        card_ink, layer_ink = colour_of(".card"), colour_of(".card.layer") or colour_of(".card")
+        for tokens in (light, dark):
+            self.assertGreaterEqual(ratio(tokens[card_ink], tokens["--card"]), 4.5)
+            self.assertGreaterEqual(ratio(tokens[layer_ink], tokens["--card-dark"]), 4.5)
+        for selector in (".meta", ".num .waits", ".note small"):
+            rule = re.search(re.escape(selector) + r" \{([^}]*)\}", css).group(1)
+            self.assertNotIn("opacity", rule, f"{selector} thins its ink below the ratio")
+
     def test_tally_marks_group_in_fives_and_stop_at_the_cap(self):
         sys.path.insert(0, str(HERE))
         import warband as mc_module
@@ -3775,7 +3844,16 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertEqual(porcelain, "", "git sees no change to the config")
         self.assertTrue(status["config"])
         self.assertIn("git mv .claude/mission-control.json .claude/goblin-warband.json", status.get("config_note", ""))
+        self.assertIn("once no session still runs mission-control", status["config_note"], "a committed rename leaves no link, so it waits")
         self.assertFalse(self.old.exists(), "the ledger still moved")
+
+    def test_init_refuses_beside_a_config_read_from_its_old_name(self):
+        """Review 5981937523: a starter written beside the old-named config is read first and shadows it, and the gates go."""
+        self.old_world(live=False, tracked=True)
+        done = self.box.mc("init", expect=1)
+        self.assertIn("mission-control.json", done.stdout + done.stderr)
+        self.assertIn("--force", done.stdout + done.stderr)
+        self.assertFalse((self.box.repo / ".claude" / "goblin-warband.json").exists(), "no starter shadows the real config")
 
     def test_a_config_ignored_only_by_its_old_name_stays_put(self):
         """An ignore rule that names the old file alone would leave the new name untracked in the tree: the config stays."""
@@ -3785,6 +3863,8 @@ class MoveFromMissionControl(unittest.TestCase):
         status = json.loads(self.box.mc("--json", "status").stdout)
         self.assertTrue((self.box.repo / ".claude" / "mission-control.json").is_file())
         self.assertIn("ignore rule", status.get("config_note", ""))
+        # the rename it prints leaves a link at the old name, as the move does, so a session still on 0.13.1 keeps its gate
+        self.assertIn("ln -s goblin-warband.json .claude/mission-control.json", status["config_note"])
 
     def test_a_raid_whose_repository_has_gone_does_not_hold_the_move_back(self):
         """A live raid in the old ledger whose repo_root no longer exists can never be ended there; it is not carried on and the move goes ahead."""
@@ -3861,6 +3941,10 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertTrue((self.box.repo / ".claude" / "mission-control.json").is_file(), "the config stays with the live raid")
         self.assertFalse((self.box.repo / ".claude" / "goblin-warband.json").exists())
         self.assertIn("carrying on", self.box.mc("status").stdout.splitlines()[0], "read-slate says so in one line")
+        # review 5981937523: the config is at its old name because nothing moves mid-raid, so no note blames the ignore
+        # rule or prints a rename that would take the link (and the gate) from a session still on 0.13.1
+        self.assertNotIn("config_note", status)
+        self.assertNotIn("mv .claude", self.box.mc("status").stdout)
 
     def test_a_live_old_raid_keeps_the_dibs_gate_shut_from_the_old_root(self):
         self.old_world(live=True)
