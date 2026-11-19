@@ -54,6 +54,26 @@ class HelperTest(unittest.TestCase):
 		self.assertEqual(task_signature('📅️ 2026-01-01 Odd order'), 'due')
 		self.assertEqual(task_signature(''), '(empty)')
 
+	def test_task_signature_reads_every_date_signifier_tasks_accepts(self) -> None:
+		# obsidian-tasks src/TaskSerializer/DefaultTaskSerializer.ts: due is 📅, 📆 or 🗓; scheduled is ⏳ or ⌛
+		for emoji in ('📅', '📆', '🗓'):
+			self.assertEqual(task_signature(f'Post {emoji} 2026-01-07'), 'text · due', emoji)
+		for emoji in ('⏳', '⌛'):
+			self.assertEqual(task_signature(f'Wait {emoji} 2026-01-07'), 'text · scheduled', emoji)
+
+	def test_global_filter_limits_what_counts_as_a_task(self) -> None:
+		vault = Path(tempfile.mkdtemp())
+		try:
+			plugin = vault / '.obsidian' / 'plugins' / 'obsidian-tasks-plugin'
+			plugin.mkdir(parents=True)
+			(plugin / 'data.json').write_text(json.dumps({'globalFilter': '#task'}), encoding='utf-8')
+			(vault / 'Note.md').write_text('- [ ] #task real\n- [ ] just a checklist\n', encoding='utf-8')
+			tasks = survey(vault)['tasks']
+			self.assertEqual(tasks['statuses_in_use'], {' ': 1})
+			self.assertEqual(tasks['outside_global_filter'], 1)
+		finally:
+			shutil.rmtree(vault)
+
 	def test_shapes(self) -> None:
 		self.assertEqual(shape('2026-01-05'), 'date')
 		self.assertEqual(shape('2026-01-05T10:00'), 'datetime')
@@ -203,6 +223,26 @@ class OutputTest(unittest.TestCase):
 		self.assertFalse((repo / 'reports').exists())
 		write_outputs(FIXTURE, repo / 'private' / 'reports')
 		self.assertTrue((repo / 'private' / 'reports' / 'report.md').exists())
+
+	def test_refuses_a_repository_that_ignores_only_some_output_files(self) -> None:
+		repo = self.tmp / 'mdonly'
+		repo.mkdir()
+		subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+		(repo / '.gitignore').write_text('*.md\n', encoding='utf-8')
+		with self.assertRaises(SniffError):
+			write_outputs(FIXTURE, repo / 'archivist-sniff')
+		self.assertFalse((repo / 'archivist-sniff').exists())
+
+	def test_symlinked_folders_are_reported(self) -> None:
+		vault = self.tmp / 'vault'
+		shutil.copytree(FIXTURE, vault)
+		elsewhere = self.tmp / 'elsewhere'
+		elsewhere.mkdir()
+		(elsewhere / 'Linked.md').write_text('Linked note.\n', encoding='utf-8')
+		(vault / 'Linked').symlink_to(elsewhere, target_is_directory=True)
+		data = survey(vault)
+		self.assertEqual(data['problems']['symlinked_folders'], ['Linked'])
+		self.assertEqual(data['totals']['notes'], 12)
 
 	def test_draft_schema(self) -> None:
 		paths = write_outputs(FIXTURE, self.tmp / 'out')

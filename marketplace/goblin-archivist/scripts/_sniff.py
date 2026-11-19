@@ -29,6 +29,7 @@ OPTIONAL_AT = 0.1
 EXAMPLES = 3
 TOP_VALUES = 5
 CELL_WIDTH = 80
+OUTPUT_NAMES = ('survey.json', 'report.md', 'schema.draft.json', 'schema.notes.md')
 
 TYPE_KEYS = ('type', 'fileclass', 'category', 'kind')
 TAG_KEYS = ('tags', 'tag')
@@ -48,6 +49,9 @@ LINK = re.compile(r'^!?\[\[[^\]]+\]\]$')
 
 TASK_SIGNIFIERS = {
 	'📅': 'due',
+	'📆': 'due',
+	'🗓': 'due',
+	'⌛': 'scheduled',
 	'⏳': 'scheduled',
 	'🛫': 'start',
 	'✅': 'done',
@@ -102,6 +106,7 @@ class Walk:
 	attachments: Counter[str] = field(default_factory=Counter)
 	hidden: list[str] = field(default_factory=list)
 	unreadable: list[str] = field(default_factory=list)
+	symlinked: list[str] = field(default_factory=list)
 
 
 def top_folder(path: str) -> str:
@@ -132,7 +137,10 @@ def walk_vault(vault: Path) -> Walk:
 		hidden = sorted(name for name in dirs if name.startswith('.'))
 		if not relative_root:
 			result.hidden.extend(hidden)
-		dirs[:] = sorted(name for name in dirs if not name.startswith('.'))
+		for name in sorted(dirs):
+			if not name.startswith('.') and (Path(root) / name).is_symlink():
+				result.symlinked.append(f'{relative_root}/{name}' if relative_root else name)
+		dirs[:] = sorted(name for name in dirs if not name.startswith('.') and not (Path(root) / name).is_symlink())
 		if relative_root:
 			result.folders[relative_root] += 0
 		for name in sorted(files):
@@ -508,6 +516,12 @@ def survey(vault: Path) -> dict[str, object]:
 	garden_keys: Counter[str] = Counter()
 	shared: list[str] = []
 
+	tasks_config = config.plugin_data.get('obsidian-tasks-plugin')
+	global_filter = ''
+	if isinstance(tasks_config, dict) and isinstance(tasks_config.get('globalFilter'), str):
+		global_filter = tasks_config['globalFilter'].strip()
+	outside_filter = 0
+
 	for note in walk.notes:
 		front = note.frontmatter
 		type_counts[note.note_type] += 1
@@ -552,7 +566,9 @@ def survey(vault: Path) -> dict[str, object]:
 			tag_sources[tag]['frontmatter'] += 1
 		for line in body_lines(front.body):
 			task = TASK_LINE.match(line)
-			if task:
+			if task and global_filter and global_filter not in task.group('text'):
+				outside_filter += 1
+			elif task:
 				statuses[task.group('status')] += 1
 				signature = task_signature(task.group('text'))
 				signatures[signature] += 1
@@ -695,6 +711,7 @@ def survey(vault: Path) -> dict[str, object]:
 		'tasks': {
 			'plugin': tasks_settings,
 			'statuses_in_use': dict(sorted_counts(statuses)),
+			'outside_global_filter': outside_filter,
 			'by_folder': dict(sorted_counts(task_folders)),
 			'signatures': {
 				signature: {'count': count, 'folders': dict(sorted_counts(signature_folders[signature])), 'examples': signature_examples[signature]}
@@ -728,6 +745,7 @@ def survey(vault: Path) -> dict[str, object]:
 			'decode_errors': decode_problems,
 			'unreadable_config': sorted(config.unreadable),
 			'unreadable_notes': walk.unreadable,
+			'symlinked_folders': walk.symlinked,
 		},
 	}
 
@@ -874,6 +892,8 @@ def render_report(data: dict[str, object], schema: dict[str, object]) -> str:
 	undefined = {symbol: count for symbol, count in tasks['statuses_in_use'].items() if symbol not in defined}
 	if undefined:
 		out += ['Status symbols in use that the Tasks plugin does not define: ' + counts_text({f'[{key}]': value for key, value in undefined.items()}) + '.', '']
+	if tasks['outside_global_filter']:
+		out += [f'{plural(tasks["outside_global_filter"], "checkbox line")} without the global filter, which Tasks does not treat as tasks, are left out of the counts here.', '']
 	out += ['Task line formats, as the order of their metadata (`text` is the description):', '']
 	out += table(['Format', 'Lines', 'Folders', 'Examples'], [[signature, info['count'], counts_text(info['folders']), ' ⁂ '.join(info['examples'])] for signature, info in tasks['signatures'].items()])
 
@@ -919,6 +939,8 @@ def render_report(data: dict[str, object], schema: dict[str, object]) -> str:
 		out += ['Keys set twice in one block (the last value is the one counted):', ''] + [f'- {item["path"]}: {", ".join(item["keys"])}' for item in problems['duplicate_keys']] + ['']
 	if problems['decode_errors']:
 		out += ['Notes that are not valid UTF-8:', ''] + [f'- {path}' for path in problems['decode_errors']] + ['']
+	if problems['symlinked_folders']:
+		out += ['Folders that are symbolic links, not followed, so nothing in them is counted:', ''] + [f'- {path}' for path in problems['symlinked_folders']] + ['']
 	if problems['unreadable_notes']:
 		out += ['Notes that could not be read (a broken link, or no permission):', ''] + [f'- {path}' for path in problems['unreadable_notes']] + ['']
 	if problems['unreadable_config']:
@@ -958,7 +980,8 @@ def committable(path: Path) -> str | None:
 	"""The repository that would track a file at path, or None.
 
 	None when no existing folder above path is in a git work tree, when git
-	ignores the path there, or when git cannot be run.
+	ignores every file the survey and the skill write there or when git
+	cannot be run.
 	"""
 	anchor = next((candidate for candidate in (path, *path.parents) if candidate.is_dir()), None)
 	if anchor is None:
@@ -967,11 +990,13 @@ def committable(path: Path) -> str | None:
 		top = subprocess.run(['git', '-C', str(anchor), 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=False)
 		if top.returncode != 0:
 			return None
-		probe = path / 'report.md'
-		ignored = subprocess.run(['git', '-C', str(anchor), 'check-ignore', '-q', str(probe)], capture_output=True, check=False)
+		for name in OUTPUT_NAMES:
+			ignored = subprocess.run(['git', '-C', str(anchor), 'check-ignore', '-q', str(path / name)], capture_output=True, check=False)
+			if ignored.returncode != 0:
+				return top.stdout.strip()
 	except OSError:
 		return None
-	return None if ignored.returncode == 0 else top.stdout.strip()
+	return None
 
 
 def write_outputs(vault: Path, out: Path) -> dict[str, Path]:
