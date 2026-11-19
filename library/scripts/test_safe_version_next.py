@@ -336,7 +336,8 @@ class SafeVersionNext(unittest.TestCase):
 
 	def test_a_declared_version_that_is_not_three_numbers_exits_2_naming_the_file_and_the_value(self) -> None:
 		# printed as a fresh series' tag, p-v0.3 would be refused by the tag-shape check at the very next release
-		for declared in ("0", "0.3", "0.5", "0.3.0."):
+		# a leading zero is not semver; whitespace around the digits is a typo, never nothing declared
+		for declared in ("0", "0.3", "0.5", "0.3.0.", "0.03.0", "0.3.00", " 1.0.0", "1.0 "):
 			with self.subTest(declared=declared):
 				self.tearDown()
 				self.setUp()
@@ -354,6 +355,25 @@ class SafeVersionNext(unittest.TestCase):
 		self._renamed("old-v0.2.0", {"old": "new"}, declared="1.0")
 		result = _run(self.repo, "--plugin", "new", "--dir", "new")
 		self.assertEqual(result.returncode, 2, result.stderr)
+		self.assertIn('"1.0"', result.stderr)
+
+	def test_a_renamed_plugin_declaring_a_leading_zero_exits_2(self) -> None:
+		self._renamed("old-v0.2.0", {"old": "new"}, declared="01.0.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 2, result.stderr)
+		self.assertIn('"01.0.0"', result.stderr)
+
+	def test_a_series_already_tagged_still_exits_2_on_a_malformed_manifest(self) -> None:
+		# the tag would come out right, but the manifest is wrong whatever the series and pr-land would write over it unasked
+		_commit(self.repo, "pkg/f", "feat(pkg): init")
+		_git(self.repo, "tag", "pkg-v0.2.0")
+		manifest = self.repo / "pkg" / ".claude-plugin" / "plugin.json"
+		manifest.parent.mkdir(parents=True)
+		manifest.write_text('{\n\t"name": "pkg",\n\t"version": "1.0"\n}\n')
+		_commit(self.repo, "pkg/g", "fix(pkg): thing")
+		result = _run(self.repo, "--plugin", "pkg", "--dir", "pkg")
+		self.assertEqual(result.returncode, 2, result.stderr)
+		self.assertEqual(result.stdout, "")
 		self.assertIn('"1.0"', result.stderr)
 
 	def test_a_declared_pre_release_still_reads_as_nothing_declared(self) -> None:
