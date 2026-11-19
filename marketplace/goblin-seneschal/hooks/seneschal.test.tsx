@@ -221,20 +221,32 @@ test('an id the grievances file already holds is never carried twice, even when 
 	expect(JSON.parse(files.text() ?? '')).toEqual([resolved, OLD_ENTRIES[1], OLD_ENTRIES[2]])
 })
 
-test('the first carry-over records where it went, so a changed grievances_file starts empty instead of copying the snapshot again', { options: { grievances_file: '~/notes/grievances.json' } }, async ($, on) => {
+test('a changed grievances_file never takes the old snapshot again, yet an entry logged to the old file since arrives there', { options: { grievances_file: '~/notes/grievances.json' } }, async ($, on) => {
 	const moved = '/home/j/notes/grievances.json'
-	// the earlier path got the old file at the first carry-over; the option has since moved
-	const store = world(on, { carriedInto: GRIEVANCES })
+	// the earlier path got the old file at the first carry-over, which recorded every entry it carried; the option has since moved
+	const store = world(on, { carriedInto: GRIEVANCES, carriedKeys: OLD_ENTRIES.map(e => `id:${e.id}`) })
 	const files = disk(on, { [OLD_FILE]: listed([...OLD_ENTRIES, LATE]), [GRIEVANCES]: OLD_TEXT })
 	const toasts = toastsOf(on)
 	await $.session.start(START)
-	expect(files.writes).toEqual([])
-	expect(toasts).toEqual([])
+	expect(JSON.parse(files.text(moved) ?? '')).toEqual([LATE])
+	expect(toasts).toEqual(['1 grievance carried over from cc-pain-points.json, which you may now delete.'])
 	const run = await $.command.run({ ...RUN, command: 'log-grievance', args: 'something bit' })
 	expect(run.text).toBe('logged something-bit')
-	expect((JSON.parse(files.text(moved) ?? '') as { id: string }[]).map(e => e.id)).toEqual(['something-bit'])
+	expect((JSON.parse(files.text(moved) ?? '') as { id: string }[]).map(e => e.id)).toEqual(['logged-late', 'something-bit'])
 	expect(files.text()).toBe(OLD_TEXT)
 	expect(store.map.get('carriedInto')).toBe(GRIEVANCES)
+	// nothing new in the old file: the next start writes nothing
+	await $.session.start(START)
+	expect(toasts).toHaveLength(1)
+})
+
+test('a changed grievances_file with nothing new in the old file starts empty', { options: { grievances_file: '~/notes/grievances.json' } }, async ($, on) => {
+	world(on, { carriedInto: GRIEVANCES, carriedKeys: OLD_ENTRIES.map(e => `id:${e.id}`) })
+	const files = disk(on, { [OLD_FILE]: OLD_TEXT, [GRIEVANCES]: OLD_TEXT })
+	await $.session.start(START)
+	expect(files.writes).toEqual([])
+	await $.command.run({ ...RUN, command: 'log-grievance', args: 'something bit' })
+	expect((JSON.parse(files.text('/home/j/notes/grievances.json') ?? '') as { id: string }[]).map(e => e.id)).toEqual(['something-bit'])
 })
 
 test('the first carry-over records the path it wrote', async ($, on) => {
