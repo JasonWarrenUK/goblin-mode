@@ -196,7 +196,10 @@ export const step = (live: State, drawn: string, props: IdleProps, columns: numb
 // The props as last drawn, the clock's state as it runs (ahead of the state
 // last drawn) and the picture last drawn, for the tick to read. Module
 // variables are fine here: a reload of the plugin drops this environment with
-// its timer. A draw writes `drawn` and never state, so it schedules nothing.
+// its timer. They assume one goblin per environment, which is what the band
+// mounts (one Client under the key `goblin`); two instances would share the
+// clock and pace at double speed. A draw writes `drawn` and never state, so
+// it schedules nothing.
 let latest: IdleProps | null = null
 let live: State | null = null
 let drawn = ''

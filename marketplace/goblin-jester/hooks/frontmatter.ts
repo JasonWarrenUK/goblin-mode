@@ -150,7 +150,7 @@ export const pluginSkillPaths = (installedJson: string, skill: PluginSkill, root
 			if (typeof installPath !== 'string' || installPath === '') continue
 			const rank = typeof scope === 'string' && Object.hasOwn(SCOPE_RANK, scope) ? (SCOPE_RANK[scope] as number) : 2
 			// any install bound to a project path (whatever its scope's name) applies only within that project
-			if ((rank < 2 || (projectPath !== undefined && projectPath !== null)) &&(typeof projectPath !== 'string' || projectPath === '' || !within(root, projectPath))) continue
+			if ((rank < 2 || (projectPath !== undefined && projectPath !== null)) && (typeof projectPath !== 'string' || projectPath === '' || !within(root, projectPath))) continue
 			found.push({
 				path: `${installPath}/skills/${skill.dir}/SKILL.md`,
 				rank,
