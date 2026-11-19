@@ -119,7 +119,7 @@ Opens a pane with the raid, or closes it. In a fullscreen terminal of 110 column
 | `r`           | refreshes, probing the machine |
 | Esc, or `/show-slate` | closes |
 
-The other commands are your hand on the ledger from any session, no turn, no model: `/start-raid <name> [anyway]`, `/grant-dibs <resource> <task|branch|name> [minutes]`, `/release-dibs <resource>`, `/pay-tribute <n>`, `/dismiss-raider <task> [dry]`, `/read-slate`, `/end-raid [force]` (the full table is in section 2.2). Every write they make carries `--by-user`, which the hook refuses on any `warband.py` command a model runs, along with `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment. That is a guard against accidents: a variable expanded later, a copied script or a hand-written ledger file get past it.
+The other commands are your hand on the ledger from any session, no turn, no model: `/start-raid <name> [anyway]`, `/grant-dibs <resource> <task|branch|name> [minutes]`, `/release-dibs <resource>`, `/pay-tribute <n>`, `/dismiss-raider <task> [dry]`, `/read-slate`, `/end-raid [force]` (the full table is in section 2.2). Every write they make carries `--by-user`, which the hook refuses on any `warband.py` command a model runs (and on the old plugin's `mc.py`, which can still write to a carried-on ledger), along with `--session` and a `CLAUDE_CODE_SESSION_ID=` assignment. That is a guard against accidents: a variable expanded later, a copied script or a hand-written ledger file get past it.
 
 ---
 

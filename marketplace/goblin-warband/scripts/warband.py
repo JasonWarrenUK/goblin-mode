@@ -3997,7 +3997,8 @@ def overrides_identity(command: str, depth: int = 0) -> bool:
         tokens = list(lexer)
     except ValueError:
         tokens = command.split()
-    if any(os.path.basename(token) == "warband.py" for token in tokens):
+    # mc.py too: while a raid is carried on from the old ledger, the cached mission-control CLI writes to the same root
+    if any(os.path.basename(token) in ("warband.py", "mc.py") for token in tokens):
         for token in tokens:
             name = token.split("=", 1)[0]
             if token.startswith(SESSION_ENV + "=") or token == SESSION_ENV:

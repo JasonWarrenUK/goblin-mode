@@ -2949,6 +2949,19 @@ class Hooks(unittest.TestCase):
         ]:
             self.assertEqual(self.decision(command)["permissionDecision"], "deny", command)
 
+    def test_identity_overrides_on_the_old_mission_control_cli_are_denied(self):
+        """Review 5976730930: while a raid is carried on from the old ledger, the cached 0.13.1 mc.py writes to the same root,
+        so the guard holds for its name too."""
+        old_cli = "/home/u/.claude/plugins/cache/goblin-mode/mission-control/0.13.1/scripts/mc.py"
+        for command in [
+            f"python3 {old_cli} grant local-db --to me --by-user",
+            f"python3 {old_cli} --session coord-1 grant local-db --to me",
+            f"CLAUDE_CODE_SESSION_ID=coord-1 python3 {old_cli} grant local-db --to me",
+            "python3 mc.py grant local-db --to me --by-user",
+        ]:
+            self.assertEqual(self.decision(command)["permissionDecision"], "deny", command)
+        self.assertIsNone(self.decision(f"python3 {old_cli} status --json"))
+
     def test_plain_mc_and_foreign_session_flags_are_not_denied(self):
         self.assertIsNone(self.decision("python3 warband.py status --json"))
         self.assertIsNone(self.decision("git log --session"))
