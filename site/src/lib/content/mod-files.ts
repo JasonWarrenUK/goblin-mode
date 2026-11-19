@@ -412,10 +412,10 @@ export const MOD_FILES: Record<ModKey, ModFile> = {
 			],
 			configure: [
 				'There are no options in <code>/config</code>. <code>/goblin-scout:configure-roadbook artefact &lt;path&gt;</code> sets where <code>/goblin-scout:unroll-chart</code> writes the chart, and that setting is kept in the roadbook. The pane\'s grouping and order are set with <code>g</code> and <code>s</code> and kept in the plugin\'s own store on your machine, so each scout\'s pane can lead with their own waypoints from the same roadbook.',
-				'When a branch appears, Claude asks which waypoint it is. For a branch that is not roadbook work, <code>git config branch.&lt;name&gt;.roadmapClaim none</code> stops the question.',
+				'When a branch appears, Claude asks which waypoint it is. For a branch that is not roadbook work, <code>git config branch.&lt;name&gt;.roadbookClaim none</code> stops the question.',
 			],
 			remove: [
-				'There is no master switch. The branch question is switched off one branch at a time with <code>git config branch.&lt;name&gt;.roadmapClaim none</code>.',
+				'There is no master switch. The branch question is switched off one branch at a time with <code>git config branch.&lt;name&gt;.roadbookClaim none</code>.',
 				'To remove the plugin, run <code>claude plugin uninstall goblin-scout@goblin-mode</code>. The roadbook stays in your repository as plain JSON, with the waypoint list and overview projected from it. Any chart you rendered stays where it was written, and the <code>roadmapClaim</code> keys stay in your git config. The plugin\'s own data directory under <code>~/.claude/plugins/data/</code> is removed unless you add <code>--keep-data</code>.',
 			],
 		},
