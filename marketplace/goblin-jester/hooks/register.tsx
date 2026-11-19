@@ -1,4 +1,4 @@
-// goblin-chrome: the hooks module. Every drawing reads the same state: the
+// goblin-jester: the hooks module. Every drawing reads the same state: the
 // palette (38), the day (37), the frame by tier (36), the vitals (18) and
 // the idle clock (28). The hint (27) and the question mask and heckles (29)
 // read it too. One switch in the options turns the lot off.
@@ -9,7 +9,7 @@ import type { EngineInterface, Register, RenderElement } from 'claude-code'
 import type { Day, Frame, Idle, Palette, Run, Tier, Vitals } from '../types'
 import { mix, shade } from './colour'
 import { dayAt, parseSchedule, STYLE } from './day'
-import { readMinionFace, readSkill } from './frontmatter'
+import { pluginSkill, pluginSkillPaths, readMinionFace, readSkill } from './frontmatter'
 import {
 	DEFAULT_MINION,
 	faceCells,
@@ -24,16 +24,16 @@ import { goblinCase, pick, seconds } from './text'
 import { CLOD, loadPalette, type Variant } from './theme'
 import { bandRule, DEFAULT_TIER, frameFor, glyphsFor, tierOf } from './tier'
 
-const PLUGIN = 'goblin-chrome'
+const PLUGIN = 'goblin-jester'
 
-const palette = atom({ plugin: 'goblin-chrome', key: 'palette' } as const, CLOD)
-const day = atom({ plugin: 'goblin-chrome', key: 'day' } as const, {
+const palette = atom({ plugin: 'goblin-jester', key: 'palette' } as const, CLOD)
+const day = atom({ plugin: 'goblin-jester', key: 'day' } as const, {
 	state: 'functional',
 	from: 'functional',
 	blend: 1,
 } as Day)
-const frame = atom({ plugin: 'goblin-chrome', key: 'frame' } as const, frameFor(DEFAULT_TIER, null, CLOD))
-const vitals = atom({ plugin: 'goblin-chrome', key: 'vitals' } as const, {
+const frame = atom({ plugin: 'goblin-jester', key: 'frame' } as const, frameFor(DEFAULT_TIER, null, CLOD))
+const vitals = atom({ plugin: 'goblin-jester', key: 'vitals' } as const, {
 	tools: 0,
 	errors: 0,
 	turnMs: 0,
@@ -41,7 +41,7 @@ const vitals = atom({ plugin: 'goblin-chrome', key: 'vitals' } as const, {
 	turnErrors: 0,
 	bounces: 0,
 } as Vitals)
-const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
+const idle = atom({ plugin: 'goblin-jester', key: 'idle' } as const, {
 	lastPromptAt: 0,
 	lastTurnEndAt: 0,
 	sessionStartAt: 0,
@@ -51,7 +51,7 @@ const idle = atom({ plugin: 'goblin-chrome', key: 'idle' } as const, {
 	sayingUntil: 0,
 } as Idle)
 const NO_RUN: Run = { skill: null, family: null, spinner: [], minions: [] }
-const run = atom({ plugin: 'goblin-chrome', key: 'run' } as const, NO_RUN)
+const run = atom({ plugin: 'goblin-jester', key: 'run' } as const, NO_RUN)
 
 /** How the spinner dresses a skill's word, matching the house `spinnerVerbs`. */
 const spinnerWord = (word: string): string => `••• ${goblinCase(word)} •••`
@@ -98,6 +98,29 @@ const refreshFrame = async ($: EngineInterface, patch: { served?: Tier; pinned?:
 	await update($, frame, current =>
 		frameFor(patch.served ?? current.served, patch.pinned === undefined ? current.pinned : patch.pinned, p),
 	)
+}
+
+/**
+ * A skill's SKILL.md, as Claude Code resolves the name: a plugin skill
+ * (`<plugin>:<dir>`) from its install in `installed_plugins.json` that
+ * applies to this session's project, else the personal copy, which shadows
+ * the project's. Rejects when none reads.
+ */
+const readSkillFile = async ($: EngineInterface, skill: string): Promise<string> => {
+	const home = await $.env.get('HOME')
+	const fromPlugin = pluginSkill(skill)
+	if (fromPlugin) {
+		if (!home) throw new Error('HOME is not set')
+		const installed = await $.fs.read(`${home}/.claude/plugins/installed_plugins.json`)
+		const root = await $.session.root()
+		for (const path of pluginSkillPaths(installed, fromPlugin, root)) {
+			const text = await $.fs.read(path).catch(() => '')
+			if (text) return text
+		}
+		throw new Error(`${skill} is not installed`)
+	}
+	const personal = home ? await $.fs.read(`${home}/.claude/skills/${skill}/SKILL.md`).catch(() => '') : ''
+	return personal || (await $.fs.read(`.claude/skills/${skill}/SKILL.md`))
 }
 
 export const register: Register = (on, options) => {
@@ -207,18 +230,14 @@ export const register: Register = (on, options) => {
 	})
 
 	// The skill's frontmatter sets the frame's pin, the prop in the goblin's
-	// hand and the spinner's words, all until the turn completes. Plugin skills
-	// live elsewhere and read as nothing set.
+	// hand and the spinner's words, all until the turn completes. A skill whose
+	// file cannot be found reads as nothing set.
 	on('skill.prompt', async ($, e, next) => {
 		let pinned: Tier | null = null
 		let family: string | null = null
 		let spinner: readonly string[] = []
 		try {
-			// Personal shadows project, as Claude Code resolves a skill of the same name.
-			const home = await $.env.get('HOME')
-			const personal = home ? await $.fs.read(`${home}/.claude/skills/${e.skill}/SKILL.md`).catch(() => '') : ''
-			const text = personal || (await $.fs.read(`.claude/skills/${e.skill}/SKILL.md`))
-			const fm = readSkill(text)
+			const fm = readSkill(await readSkillFile($, e.skill))
 			pinned = fm.model ? tierOf(fm.model) : null
 			family = fm.family
 			spinner = fm.spinner

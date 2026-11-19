@@ -1,6 +1,6 @@
 import { expect, mock, test, type Engine } from 'claude-code/testing'
 
-const PLUGIN = 'goblin-chrome'
+const PLUGIN = 'goblin-jester'
 
 /** The world beneath the plugin: a clock at noon on a Wednesday, an empty store, a home. */
 const world = (on: Parameters<typeof mock.clock>[0]) => {
@@ -14,7 +14,7 @@ const BAND = {
 	plugin: PLUGIN,
 	surface: 'terminal',
 	component: 'AbovePrompt',
-	props: { hasSurvey: false, isWorking: false, maxRows: 6, bodyColumns: 100, scroll: { offset: 0, bodyRows: 6 }, view: {} },
+	props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 6, bodyColumns: 100, scroll: { offset: 0, bodyRows: 6 }, view: {} },
 } as const
 
 test('the band is one hand-drawn frame: rune, goblin and dialogue ranges split by dividers that join the rules', async ($, on) => {
@@ -274,6 +274,65 @@ const goblinProps = async ($: Engine) => {
 	await ui.unmount()
 	return props
 }
+
+/** The plugin cache under the test's home. */
+const CACHE = '/home/j/.claude/plugins/cache/goblin-mode/goblin-scout'
+
+/**
+ * installed_plugins.json with goblin-scout installed three times: for another
+ * project, for this one (files gone) and for the user.
+ */
+const INSTALLED = JSON.stringify({
+	version: 2,
+	plugins: {
+		'goblin-scout@goblin-mode': [
+			{ scope: 'project', projectPath: '/code/other', installPath: `${CACHE}/2.4.0` },
+			{ scope: 'project', projectPath: '/code/app', installPath: `${CACHE}/3.0.1` },
+			{ scope: 'user', installPath: `${CACHE}/3.0.0` },
+		],
+	},
+})
+const START_TRAIL = '---\nname: start-trail\nmetadata:\n  family: pr\n  goblin-spinner: marking the trail|lacing boots\n---\nbody'
+const OLD_TRAIL = '---\nname: start-trail\nmetadata:\n  family: clod-lens\n  goblin-spinner: getting lost\n---\nbody'
+
+/** The session's project root, as `$.session.root()` reads it. */
+const rootAt = (on: Parameters<typeof mock.clock>[0], root: string): void => {
+	on('session.root', async () => ({ value: root }))
+}
+
+test("a plugin skill's family and spinner words are read from the install that applies here, never another project's", async ($, on) => {
+	world(on)
+	rootAt(on, '/code/app')
+	skillFiles(on, {
+		'/home/j/.claude/plugins/installed_plugins.json': INSTALLED,
+		[`${CACHE}/2.4.0/skills/start-trail/SKILL.md`]: OLD_TRAIL,
+		[`${CACHE}/3.0.0/skills/start-trail/SKILL.md`]: START_TRAIL,
+	})
+	on('ui.render', { component: 'Spinner' }, async ($, e) => {
+		const { Text } = $.ui.resolve(e)
+		return Text({ children: [e.props.word] })
+	})
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	await $.turn.start({ text: '/goblin-scout:start-trail', turnId: 't1' })
+	await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '[#]' })
+	expect(await spinnerWord($)).toMatch(/^••• (mArKiNg tHe tRaIl|lAcInG bOoTs) •••$/)
+})
+
+test('a plugin skill that is not installed reads as nothing set, and never falls back to a project skill of the same directory name', async ($, on) => {
+	world(on)
+	rootAt(on, '/code/app')
+	skillFiles(on, {
+		'/home/j/.claude/plugins/installed_plugins.json': INSTALLED,
+		'.claude/skills/start-trail/SKILL.md': START_TRAIL,
+	})
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	await $.turn.start({ text: '/elsewhere:start-trail', turnId: 't1' })
+	await $.skill.prompt({ skill: 'elsewhere:start-trail', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+	await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: '' })
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+})
 
 test("the goblin holds the family's prop while the skill runs and drops it when the turn completes", async ($, on) => {
 	world(on)

@@ -53,10 +53,18 @@ describe('props', () => {
 	test('every family in the config has a prop, and no two families share one', async () => {
 		const families = [
 			'artefact', 'asset', 'branch', 'clod-approach', 'clod-config', 'clod-lens', 'clod-role', 'clod-stack', 'commit', 'do', 'doc',
-			'dossier', 'hud', 'import', 'next-task', 'pr', 'project', 'red', 'skill-creator', 'theme', 'track',
+			'dossier', 'hud', 'import', 'next-task', 'pr', 'project', 'red', 'scout', 'skill-creator', 'theme', 'track', 'warband',
 		]
 		for (const family of families) expect(propFor(family), family).not.toBe('')
 		expect(new Set(Object.values(PROPS)).size).toBe(Object.keys(PROPS).length)
+	})
+
+	test("the plugin families hold the props Jason picked: a compass for the scout's skills, a banner for the warband's", async () => {
+		expect(propFor('scout')).toBe('(+)')
+		expect(propFor('warband')).toBe('|▓▒')
+		// the shades are ambiguous-width, drawn one cell each as the band's frame assumes
+		expect(cells(PROPS.scout!)).toBe(3)
+		expect(cells(PROPS.warband!)).toBe(3)
 	})
 
 	test('an unknown or missing family walks empty-handed', async () => {

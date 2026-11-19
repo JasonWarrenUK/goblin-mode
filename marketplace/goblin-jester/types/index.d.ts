@@ -1,6 +1,6 @@
-// The state contract for goblin-chrome: every value the module keeps in
+// The state contract for goblin-jester: every value the module keeps in
 // `$.state`, declared so `claude plugin validate` can hold the module to it
-// and a plugin that lists goblin-chrome under `dependencies` can read the
+// and a plugin that lists goblin-jester under `dependencies` can read the
 // frame and palette it publishes.
 
 export type Tier = 'top' | 'mid' | 'small' | 'fable'
@@ -90,7 +90,7 @@ export type Run = {
 
 declare module 'claude-code' {
 	interface PluginState {
-		'goblin-chrome': {
+		'goblin-jester': {
 			palette: Palette
 			day: Day
 			frame: Frame

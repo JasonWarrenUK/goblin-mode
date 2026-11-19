@@ -55,9 +55,11 @@ export const PROPS: Record<string, string> = {
 	pr: '[#]', // a parcel
 	project: '[✓]', // a clipboard tick
 	red: '[!]', // a red flag
+	scout: '(+)', // a compass, for goblin-scout's skills
 	'skill-creator': '─*', // a wand
 	theme: '[%]', // a swatch
 	track: '[:]', // tally marks
+	warband: '|▓▒', // a banner, for goblin-warband's skills
 }
 
 /** Widest a prop may be, in terminal cells. */
