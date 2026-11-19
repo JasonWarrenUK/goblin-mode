@@ -20,7 +20,7 @@ Usage: roadbook.py SUBCOMMAND [PATH] [--phase NAME] [flags]
                                                          --milestones --tiers]
   open       every task not done or out of scope        [--json
                                                          --milestones --tiers]
-  render     deterministic HTML artefact from template   [--out PATH]
+  render     deterministic HTML chart from template      [--out PATH]
   config     KEY VALUE: set a per-phase option; `artefact` is where render
              writes the dashboard, relative to the project root
                                                         [--clear --reformat]
@@ -822,7 +822,7 @@ def cmd_recompute(args) -> int:
         # would silently reformat the whole file. Refuse unless told not to.
         original = path.read_text()
         if _canonical_text(data) != original and not args.reformat:
-            print("✗ roadbook.json is not in canonical form (tab-indented, "
+            print(f"✗ {path.name} is not in canonical form (tab-indented, "
                   "ensure_ascii off, trailing newline); a write would reformat "
                   "the whole file, not just statuses. Re-run with --reformat "
                   "to accept that, or normalise the file first.")
@@ -2048,7 +2048,7 @@ def cmd_config(args) -> int:
         print(f"✗ {exc}")
         return 2
     if _canonical_text(data) != path.read_text() and not args.reformat:
-        print("✗ roadbook.json is not in canonical form (tab-indented, "
+        print(f"✗ {path.name} is not in canonical form (tab-indented, "
               "ensure_ascii off, trailing newline); a write would reformat "
               "the whole file. Re-run with --reformat to accept that.")
         return 1
@@ -2132,7 +2132,7 @@ def _load_for_write(args):
         print(f"✗ {exc}")
         return None, None, None, 2
     if _canonical_text(data) != path.read_text() and not args.reformat:
-        print("✗ roadbook.json is not in canonical form (tab-indented, "
+        print(f"✗ {path.name} is not in canonical form (tab-indented, "
               "ensure_ascii off, trailing newline); a write would reformat "
               "the whole file. Re-run with --reformat to accept that.")
         return None, None, None, 1
@@ -2310,7 +2310,7 @@ def cmd_stamp_ended(args) -> int:
     if _refuse_history_dates(phase, "stamp-ended"):
         return 1
     if _canonical_text(data) != path.read_text() and not args.reformat:
-        print("✗ roadbook.json is not in canonical form; re-run with "
+        print(f"✗ {path.name} is not in canonical form; re-run with "
               "--reformat to accept a whole-file rewrite.")
         return 1
     ended = args.date or date.today().isoformat()
@@ -2319,7 +2319,7 @@ def cmd_stamp_ended(args) -> int:
         return 1
     git, rel = _git_at_toplevel(path)
     if git is None:
-        print("✗ roadbook.json is not inside a git repository")
+        print(f"✗ {path.name} is not inside a git repository")
         return 1
     base = (git("merge-base", "HEAD", args.base) or "").strip()
     if not base:
@@ -2469,12 +2469,12 @@ def cmd_backfill_ended(args) -> int:
     if _refuse_history_dates(phase, "backfill-ended"):
         return 1
     if _canonical_text(data) != path.read_text() and not args.reformat:
-        print("✗ roadbook.json is not in canonical form; re-run with "
+        print(f"✗ {path.name} is not in canonical form; re-run with "
               "--reformat to accept a whole-file rewrite.")
         return 1
     versions = _roadbook_versions(path, phase.get("name"))
     if versions is None:
-        print("✗ roadbook.json is not inside a git repository; there is no "
+        print(f"✗ {path.name} is not inside a git repository; there is no "
               "history to read dates from")
         return 1
     found = ended_from_history(versions, date.today().isoformat())
@@ -2630,9 +2630,19 @@ def cmd_rebind(args) -> int:
     try:
         path, _data = load(args.path)
         files = []
+        noncanonical = set()  # read before --outputs changes anything in memory
         for each in _rebind_files(path):
             data = json.loads(each.read_text())
-            _phases(data)
+            if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
+                print(f"✗ {each.name} is an old-format pointer registry, not a "
+                      "phase array; rebind moves phase arrays only. Convert it "
+                      "with goblin-scout:rebind-roadbook's single-file conversion.")
+                return 2
+            # every file is checked before any is written, the dry run
+            # included, so a refusal never leaves the project half moved
+            _refuse_if_stamped_newer(data)
+            if _canonical_text(data) != each.read_text():
+                noncanonical.add(each)
             files.append((each, data))
     except (ValueError, RoadbookError) as exc:
         print(f"✗ {exc}")
@@ -2658,6 +2668,13 @@ def cmd_rebind(args) -> int:
         if target.exists():
             print(f"✗ {shown(target)} already exists; nothing moved")
             return 1
+    for each, data in files:
+        if (each in renamed or args.outputs) and each in noncanonical and not args.reformat:
+            print(f"✗ {each.name} is not in canonical form (tab-indented, "
+                  "ensure_ascii off, trailing newline); rebind would reformat "
+                  "the whole file, which hides the move from git's rename "
+                  "detection. Re-run with --reformat to accept that.")
+            return 1
     if args.dry_run:
         print("would move:")
         for line in plan:
@@ -2677,7 +2694,7 @@ def cmd_rebind(args) -> int:
     return 0
 
 
-# A pull that removes more than half of at least this many mirrored tasks is
+# A pull that removes more than half of at least this many mirrored waypoints is
 # refused unless --allow-removals is passed.
 SHRINK_FLOOR = 4
 
@@ -2779,7 +2796,7 @@ def main(argv=None) -> int:
     sp.add_argument("--reformat", action="store_true",
                     help="allow rewriting a non-canonically-formatted file")
     sp.add_argument("--render", action="store_true",
-                    help="refresh an existing HTML artefact after writing")
+                    help="refresh an existing chart after writing")
 
     sp = common(sub.add_parser("stats", help="status counts"))
     sp.add_argument("--json", action="store_true")
@@ -2831,7 +2848,7 @@ def main(argv=None) -> int:
     def claim_common(sp):
         # the task id comes first so `claim 2RT.17 path` never reads the id
         # as the path
-        sp.add_argument("id", help="task id")
+        sp.add_argument("id", help="waypoint id")
         common(sp)
         sp.add_argument("--reformat", action="store_true",
                         help="allow rewriting a non-canonically-formatted file")
@@ -2910,6 +2927,8 @@ def main(argv=None) -> int:
                     help="also move the chart, the projections and the prose "
                          "overview from their 2.x default names to the "
                          "roadbook's")
+    sp.add_argument("--reformat", action="store_true",
+                    help="allow rewriting a non-canonically-formatted file")
     sp.add_argument("--dry-run", action="store_true", help="preview, no write")
 
     sp = sub.add_parser("hook", help="Claude Code hook entry point")

@@ -39,7 +39,7 @@ Show `git status` and advise the user to commit or stash first: every job here r
 
 Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadbook.py rebind --dry-run` and show the user the move. On their go-ahead run it without `--dry-run`. It does what goblin-scout 3.0.0's first write would: moves `.claude/roadmaps.json` (and `roadmaps.local.json` beside it) to the roadbook names, rewrites no value, pins each phase's chart to the path a 2.x plugin rendered it to, and stamps the live phase so a 2.x plugin refuses the file. Relay its notice line, and any note that a moved local file is no longer ignored by git.
 
-Commit the move on its own: `git add .claude` and `git commit -m "chore(roadbook): move roadmaps.json to roadbook.json"`. If the user also wants the outputs moved, carry on into **B** before committing, so the whole rebind is one commit.
+Commit the move on its own, staging the two committed paths by name: `git add .claude/roadmaps.json .claude/roadbook.json` and `git commit -m "chore(roadbook): move roadmaps.json to roadbook.json"`. Never stage the whole `.claude` folder: `roadbook.local.json` is a tracker mirror kept out of git, and when the CLI notes it is no longer ignored, ask the user to add `.claude/roadbook.local.json` to `.gitignore` (beside the old name) before committing. If the user also wants the outputs moved, carry on into **B** before committing, so the whole rebind is one commit.
 
 ## B. Move the outputs (on request only)
 
@@ -51,10 +51,10 @@ A 2.x project keeps its chart, projections and overview where they were: the mig
 | a phase's projection | `docs/roadmaps/{PHASE}.md` | `docs/roadbook/{PHASE}.md` |
 | the prose overview | `docs/reports/ROADMAP_OVERVIEW.md` | `docs/reports/ROADBOOK_OVERVIEW.md` |
 
-1. Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadbook.py rebind --outputs --dry-run` and show the user every move it lists. A path the project chose for itself (an `artefact` or `path` outside those defaults) is left alone and does not appear. If a target already exists the CLI refuses before moving anything; relay that and stop.
+1. Run `python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/roadbook.py rebind --outputs --dry-run` and show the user every move it lists; it plans the committed file and the local one beside it, each with its own outputs, and what it lists is exactly what runs. If it refuses because a file is not in canonical form, say that a rebind would reformat the whole file and add `--reformat` to both runs solely when the user agrees. A path the project chose for itself (an `artefact` or `path` outside those defaults) is left alone and does not appear. If a target already exists the CLI refuses before moving anything; relay that and stop.
 2. On the user's go-ahead run it without `--dry-run`. It moves the roadbook file too when it is still `roadmaps.json`, clears the pinned `artefact` so the chart takes the new default, rewrites each default `path`, and moves the files with `git mv` where git tracks them.
 3. Search the project for links to the old paths (`grep -rn "docs/roadmaps/\|ROADMAP_OVERVIEW\|artefacts/roadmap-"`, skipping `.git`) and show the user each hit. Update a link only where the user agrees; a dated record (a changelog entry, an old report) keeps its words.
-4. Commit everything in one commit: `git add -A .claude docs` plus any link the user agreed to update, then `git commit -m "chore(roadbook): move the chart, projections and overview to the roadbook's names"`.
+4. Commit everything in one commit. The moves of tracked outputs are already staged (`git mv`); stage the roadbook files by name, `git add .claude/roadmaps.json .claude/roadbook.json` (leave `roadbook.local.json` out, as in **A**), any output the CLI moved that git did not yet track, and any link the user agreed to update, then `git commit -m "chore(roadbook): move the chart, projections and overview to the roadbook's names"`.
 
 ## C. Convert the old format
 

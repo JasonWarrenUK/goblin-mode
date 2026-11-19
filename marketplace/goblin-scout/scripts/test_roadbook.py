@@ -3067,6 +3067,41 @@ class RebindCommand(LegacyFixture):
             self.assertTrue((self.root / rel).exists(), rel)
         self.assertFalse(self.legacy.exists() or self.legacy_local.exists())
 
+    def test_a_newer_stamp_on_either_file_refuses_before_anything_is_written(self):
+        data = self._phases()
+        self._write(self.new, data)
+        newer = self._mirror()
+        newer[0]["min_plugin"] = "9.0.0"
+        self._write(self.legacy_local, newer)
+        self._outputs()
+        before = (self.new.read_text(), self.legacy_local.read_text())
+        for argv in (("rebind", str(self.root), "--outputs", "--dry-run"),
+                     ("rebind", str(self.root), "--outputs")):
+            with self.subTest(argv=argv):
+                rc, out, _err = self._run(*argv)
+                self.assertEqual(rc, 2, out)
+                self.assertIn("9.0.0", out)
+                self.assertEqual((self.new.read_text(), self.legacy_local.read_text()), before)
+                self.assertTrue((self.root / "docs" / "roadmaps" / "TEST.md").exists())
+
+    def test_a_non_canonical_file_needs_reformat_before_rebind_rewrites_it(self):
+        self.legacy.write_text(json.dumps(self._phases(), indent=2) + "\n")
+        before = self.legacy.read_text()
+        rc, out, _err = self._run("rebind", str(self.root))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("roadmaps.json is not in canonical form", out)
+        self.assertEqual(self.legacy.read_text(), before)
+        rc, out, _err = self._run("rebind", str(self.root), "--reformat")
+        self.assertEqual(rc, 0, out)
+        self.assertTrue(self.new.exists())
+
+    def test_a_pointer_registry_is_named_as_the_file_it_is(self):
+        self.legacy.write_text(json.dumps({"roadmaps": [{"path": "docs/roadmaps/mvp.md"}]}) + "\n")
+        rc, out, _err = self._run("rebind", str(self.root))
+        self.assertEqual(rc, 2)
+        self.assertIn("roadmaps.json is an old-format pointer registry", out)
+        self.assertNotIn("run goblin-scout:rebind-roadbook first", out)
+
     def test_rebind_without_outputs_moves_and_pins_both_files(self):
         self._write(self.legacy, self._phases())
         self._write(self.legacy_local, self._mirror())

@@ -174,8 +174,8 @@ def _phases(data):
     phase array — callers should run `roadbook.py detect` / migrate."""
     if isinstance(data, dict) and "roadmaps" in data and "milestones" not in data:
         raise RoadbookError(
-            "roadbook.json is an old-format pointer registry, not a phase array; "
-            "run goblin-scout:rebind-roadbook first")
+            "the roadbook file is an old-format pointer registry, not a phase "
+            "array; convert it with goblin-scout:rebind-roadbook")
     return data if isinstance(data, list) else [data]
 
 
