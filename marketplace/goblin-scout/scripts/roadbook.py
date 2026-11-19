@@ -78,10 +78,12 @@ from _roadbook_core import (
     display_status,
     find_cycles,
     is_claimed,
+    LEGACY_LOCAL_ROADBOOK_NAME,
     LEGACY_NAMES,
     LEGACY_ROADBOOK_NAME,
     LOCAL_NAMES,
     LOCAL_ROADBOOK_NAME,
+    ROADBOOK_NAME,
     is_held,
     is_mirrored,
     _phases,
@@ -459,7 +461,7 @@ def cmd_detect(args) -> int:
         return 2
 
     if isinstance(data, dict) and "roadmaps" in data:
-        print("old: roadbook.json is a pointer registry, not a phase array")
+        print(f"old: {path.name} is a pointer registry, not a phase array")
         return 3
 
     for md in _md_paths(data, path):
@@ -475,7 +477,7 @@ def cmd_detect(args) -> int:
             print(f"old: {md.name} uses graph TD + prose depends-on")
             return 3
 
-    print("rich: phase-array roadbook.json, no old-format markers")
+    print(f"rich: phase-array {path.name}, no old-format markers")
     return 0
 
 
@@ -654,16 +656,19 @@ def _stamp_live_phases(data):
                 _set_phase_field(phase, STAMP_KEY, stamp)
 
 
-def _write_roadbook(path, data, pin=True):
+def _write_roadbook(path, data, pin=True, unpinned=(), siblings=True):
     """Write roadbook.json after the version check, stamping each live phase
     with the running plugin's major.minor. The one writer for the roadbook
     file. Returns the path written, which is not `path` when `path` was a
     pre-3.0.0 file: that first write moves it (_migrate_legacy). `pin` False
-    leaves the chart paths of `data` as they are, for `rebind --outputs`."""
+    leaves the chart paths of `data` as they are, for `rebind --outputs`;
+    `unpinned` names phases of `data` not to pin (one whose chart path the
+    write itself clears); `siblings` False moves this file alone, for
+    `rebind`, which moves each file itself."""
     _refuse_if_stamped_newer(data)
     path = Path(path)
     if path.name in LEGACY_NAMES:
-        return _migrate_legacy(path, data, pin)
+        return _migrate_legacy(path, data, pin, unpinned, siblings)
     _stamp_live_phases(data)
     _atomic_write(path, _canonical_text(data))
     _note_legacy_beside(path)
@@ -686,16 +691,19 @@ def _note_legacy_beside(path):
                   "delete it once nothing needs it", file=sys.stderr)
 
 
-def _pin_legacy_chart(data):
+def _pin_legacy_chart(data, unpinned=()):
     """Give every phase with no `artefact` the path a 2.x plugin rendered its
     chart to, so a migrated project's chart stays where it was; a new
-    roadbook takes the new default (_default_render_path)."""
+    roadbook takes the new default (_default_render_path). A phase in
+    `unpinned` (by identity) is left without one."""
     for phase in _phases(data):
+        if any(phase is skip for skip in unpinned):
+            continue
         if isinstance(phase, dict) and ARTEFACT_KEY not in phase:
             _set_phase_field(phase, ARTEFACT_KEY, _legacy_render_rel(phase))
 
 
-def _migrate_legacy(path, data, pin=True):
+def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
     """Move a roadmap plugin's .claude/roadmaps.json, and the local file
     beside it, to the roadbook names on the first write by 3.0.0. No value
     is rewritten: each phase is stamped (so a 2.x plugin refuses the file),
@@ -707,7 +715,7 @@ def _migrate_legacy(path, data, pin=True):
     plan = []
     for old, new in LEGACY_NAMES.items():
         source, target = folder / old, folder / new
-        if source != path and not source.exists():
+        if source != path and (not siblings or not source.exists()):
             continue
         if target.exists():
             if source == path:
@@ -726,7 +734,7 @@ def _migrate_legacy(path, data, pin=True):
         if content is not None:
             _refuse_if_stamped_newer(content)
             if pin or source != path:
-                _pin_legacy_chart(content)
+                _pin_legacy_chart(content, unpinned if source == path else ())
             _stamp_live_phases(content)
         plan.append((source, target, content))
     for source, target, content in plan:
@@ -738,10 +746,11 @@ def _migrate_legacy(path, data, pin=True):
         if content is not None:
             source.unlink()
     moves = " and ".join(f"{_shown(s)} to {_shown(t)}" for s, t, _c in plan)
+    outputs = ("the chart and projections keep their paths" if pin
+               else "the outputs move as rebind lists them")
     print(f"goblin-scout {PLUGIN_VERSION} moved {moves}; no value was "
-          "rewritten, the chart and projections keep their paths and a 2.x "
-          "plugin (when it was called roadmap) now refuses the file. Commit "
-          "the move.",
+          f"rewritten, {outputs} and a 2.x plugin (when it was called "
+          "roadmap) now refuses the file. Commit the move.",
           file=sys.stderr)
     for source, target, _content in plan:
         if target.name not in LOCAL_NAMES:
@@ -2059,7 +2068,8 @@ def cmd_config(args) -> int:
                 print(f"  - {p}")
             return 1
         _set_phase_field(phase, ARTEFACT_KEY, args.value)
-    path = _write_roadbook(path, data)
+    # a cleared phase on a file not yet moved must stay cleared, not be pinned
+    path = _write_roadbook(path, data, unpinned=(phase,) if args.clear else ())
     after = _render_path(path, phase)
     verb = "cleared artefact on" if args.clear else "set artefact on"
     print(f"{verb} '{name}'; the chart path is now {after}")
@@ -2576,40 +2586,69 @@ def _move_file(source, target):
     os.replace(source, target)
 
 
+def _rebind_files(path):
+    """Every roadbook file of the project `path` belongs to, committed first:
+    for each of the committed and the local file, the roadbook name, else the
+    2.x name, when one exists. `path` itself is always among them."""
+    folder = path.parent
+    files = []
+    for new, old in ((ROADBOOK_NAME, LEGACY_ROADBOOK_NAME), (LOCAL_ROADBOOK_NAME, LEGACY_LOCAL_ROADBOOK_NAME)):
+        for name in (new, old):
+            if (folder / name).exists():
+                files.append(folder / name)
+                break
+    return files if path in files else [path]
+
+
+def _rebind_outputs(path, data, root):
+    """(source, target) for each 2.x default output of the phases in `data`,
+    each phase updated to the roadbook's names as it goes."""
+    moves = []
+    for phase in _phases(data):
+        if not isinstance(phase, dict):
+            continue
+        # an unmoved file's phase with no `artefact` renders to the 2.x default too
+        legacy_chart = _legacy_render_rel(phase)
+        if phase.get(ARTEFACT_KEY, legacy_chart if path.name in LEGACY_NAMES else None) == legacy_chart:
+            moves.append((root / legacy_chart, _default_render_path(path, phase)))
+            phase.pop(ARTEFACT_KEY, None)
+        projection = phase.get("path")
+        if isinstance(projection, str) and projection.startswith(LEGACY_PROJECTION_DIR):
+            new = PROJECTION_DIR + projection[len(LEGACY_PROJECTION_DIR):]
+            _set_phase_field(phase, "path", new)
+            moves.append((root / projection, root / new))
+    return moves
+
+
 def cmd_rebind(args) -> int:
-    """Move a 2.x .claude/roadmaps.json to .claude/roadbook.json now (what
-    the first write would do), and with --outputs move the chart, the
-    projections and the prose overview from the 2.x default names to the
-    roadbook's. A path the project chose itself is left where it is."""
+    """Move a 2.x .claude/roadmaps.json (and the roadmaps.local.json beside
+    it) to the roadbook names now, as the first write would, and with
+    --outputs move the chart, the projections and the prose overview of
+    every phase in both files from the 2.x default names to the roadbook's.
+    A path the project chose itself is left where it is. What --dry-run
+    lists is exactly what runs."""
     try:
-        path, data = load(args.path)
-        phases = _phases(data)
-    except RoadbookError as exc:
+        path, _data = load(args.path)
+        files = []
+        for each in _rebind_files(path):
+            data = json.loads(each.read_text())
+            _phases(data)
+            files.append((each, data))
+    except (ValueError, RoadbookError) as exc:
         print(f"✗ {exc}")
         return 2
     root = project_root(path)
     moves = []  # (source, target) project files, deduplicated
     if args.outputs:
-        for phase in phases:
-            if not isinstance(phase, dict):
-                continue
-            # an unmoved file's phase with no `artefact` renders to the 2.x default too
-            legacy_chart = _legacy_render_rel(phase)
-            if phase.get(ARTEFACT_KEY, legacy_chart if path.name in LEGACY_NAMES else None) == legacy_chart:
-                moves.append((root / legacy_chart, _default_render_path(path, phase)))
-                phase.pop(ARTEFACT_KEY, None)
-            projection = phase.get("path")
-            if isinstance(projection, str) and projection.startswith(LEGACY_PROJECTION_DIR):
-                new = PROJECTION_DIR + projection[len(LEGACY_PROJECTION_DIR):]
-                _set_phase_field(phase, "path", new)
-                moves.append((root / projection, root / new))
+        for each, data in files:
+            moves.extend(_rebind_outputs(each, data, root))
         moves.append((root / LEGACY_OVERVIEW, root / OVERVIEW))
         seen = set()
         moves = [(s, t) for s, t in moves
                  if s.exists() and s not in seen and not seen.add(s)]
     shown = lambda p: p.relative_to(root).as_posix()
-    renamed = path.name in LEGACY_NAMES
-    plan = ([f"{_shown(path)} -> .claude/{LEGACY_NAMES[path.name]}"] if renamed else []) \
+    renamed = [each for each, _data in files if each.name in LEGACY_NAMES]
+    plan = [f"{_shown(each)} -> .claude/{LEGACY_NAMES[each.name]}" for each in renamed] \
         + [f"{shown(s)} -> {shown(t)}" for s, t in moves]
     if not plan:
         print("nothing to rebind: the roadbook and its outputs already use "
@@ -2624,8 +2663,9 @@ def cmd_rebind(args) -> int:
         for line in plan:
             print(f"  {line}")
         return 0
-    if renamed or args.outputs:
-        _write_roadbook(path, data, pin=not args.outputs)
+    for each, data in files:
+        if each in renamed or args.outputs:
+            _write_roadbook(each, data, pin=not args.outputs, siblings=False)
     for source, target in moves:
         _move_file(source, target)
     print("moved:")

@@ -2872,6 +2872,40 @@ class LegacyMigration(LegacyFixture):
         self.assertEqual(self._without_migration_marks(moved, {"Phase 1", "Phase 2"}),
                          self._phases())
 
+    def test_one_fixture_moves_with_one_line_and_a_2x_plugin_refuses_both_files(self):
+        self._write(self.legacy, self._phases())
+        self._write(self.legacy_local, [phase(
+            [{"id": "M9", "name": "mirror", "tasks": [task("j1", local=True)]}],
+            name="Jira", source={"kind": "jira", "project": "J"})])
+        rc, out, err = self._run("claim", "j1", str(self.root), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(len(err.splitlines()), 1, err)
+        before = {p: p.read_text() for p in (self.new, self.new_local)}
+        roadbook.PLUGIN_VERSION = "2.10.0"
+        for target, argv in ((self.new, ("claim", "d")), (self.new_local, ("release", "j1"))):
+            with self.subTest(file=target.name):
+                rc, out, _err = self._run(*argv, str(target))
+                self.assertEqual(rc, 2)
+                self.assertIn("3.0.0", out)
+        self.assertEqual({p: p.read_text() for p in before}, before)
+
+    def test_clearing_the_chart_path_on_an_unmoved_file_clears_it(self):
+        data = self._phases()
+        data[1]["artefact"] = "site/plan.html"
+        self._write(self.legacy, data)
+        rc, out, _err = self._run("config", "artefact", "--clear", str(self.legacy),
+                                  "--phase", "Phase 2")
+        self.assertEqual(rc, 0, out)
+        moved = json.loads(self.new.read_text())
+        self.assertNotIn("artefact", moved[1])  # cleared, as asked
+        self.assertEqual(moved[0]["artefact"], "docs/artefacts/roadmap-phase-1.html")
+
+    def test_detect_names_the_file_it_read(self):
+        self._write(self.legacy, self._phases())
+        _rc, out, _err = self._run("detect", str(self.root))
+        self.assertIn("roadmaps.json", out)
+        self.assertNotIn("roadbook.json", out)
+
     def test_a_new_file_beside_an_old_one_wins_and_the_old_one_is_left_alone(self):
         self._write(self.new, self._phases()[1:])
         self._write(self.legacy, self._phases())
@@ -2980,6 +3014,52 @@ class RebindCommand(LegacyFixture):
         self.assertIn("docs/roadbook/TEST.md already exists", out)
         self.assertEqual(self.legacy.read_text(), before)
         self.assertTrue((self.root / "docs" / "roadmaps" / "TEST.md").exists())
+
+    def _mirror(self):
+        """A 2.x local file: a Jira mirror with its own chart and projection."""
+        return [phase([{"id": "M9", "name": "mirror", "tasks": [task("j1", local=True)]}],
+                      name="Jira", path="docs/roadmaps/JIRA.md",
+                      source={"kind": "jira", "project": "J"})]
+
+    def test_a_local_file_beside_the_old_one_is_planned_and_moved_with_it(self):
+        self._write(self.legacy, self._phases())
+        self._write(self.legacy_local, self._mirror())
+        self._outputs()
+        for rel in ("docs/artefacts/roadmap-jira.html", "docs/roadmaps/JIRA.md"):
+            (self.root / rel).write_text(rel)
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs", "--dry-run")
+        self.assertEqual(rc, 0, out)
+        for line in (".claude/roadmaps.json -> .claude/roadbook.json",
+                     ".claude/roadmaps.local.json -> .claude/roadbook.local.json",
+                     "docs/artefacts/roadmap-phase-2.html -> docs/artefacts/chart-phase-2.html",
+                     "docs/artefacts/roadmap-jira.html -> docs/artefacts/chart-jira.html",
+                     "docs/roadmaps/TEST.md -> docs/roadbook/TEST.md",
+                     "docs/roadmaps/JIRA.md -> docs/roadbook/JIRA.md"):
+            self.assertIn(line, out)
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs")
+        self.assertEqual(rc, 0, out)
+        committed = json.loads(self.new.read_text())
+        local = json.loads(self.new_local.read_text())
+        self.assertTrue(all("artefact" not in p for p in committed + local))
+        self.assertEqual([p["path"] for p in committed], ["docs/roadbook/TEST.md"] * 2)
+        self.assertEqual(local[0]["path"], "docs/roadbook/JIRA.md")
+        for rel in ("docs/artefacts/chart-phase-2.html", "docs/artefacts/chart-jira.html",
+                    "docs/roadbook/TEST.md", "docs/roadbook/JIRA.md"):
+            self.assertTrue((self.root / rel).exists(), rel)
+        self.assertFalse(self.legacy.exists() or self.legacy_local.exists())
+
+    def test_rebind_without_outputs_moves_and_pins_both_files(self):
+        self._write(self.legacy, self._phases())
+        self._write(self.legacy_local, self._mirror())
+        rc, out, _err = self._run("rebind", str(self.root), "--dry-run")
+        self.assertIn(".claude/roadmaps.json -> .claude/roadbook.json", out)
+        self.assertIn(".claude/roadmaps.local.json -> .claude/roadbook.local.json", out)
+        rc, out, _err = self._run("rebind", str(self.root))
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(json.loads(self.new_local.read_text())[0]["artefact"],
+                         "docs/artefacts/roadmap-jira.html")
+        self.assertEqual(json.loads(self.new.read_text())[1]["artefact"],
+                         "docs/artefacts/roadmap-phase-2.html")
 
     @unittest.skipUnless(shutil.which("git"), "git not installed")
     def test_tracked_outputs_are_moved_with_git(self):
