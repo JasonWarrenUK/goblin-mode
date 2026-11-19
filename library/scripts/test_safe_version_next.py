@@ -276,6 +276,28 @@ class SafeVersionNext(unittest.TestCase):
 		self.assertIn("old-v1.2.0", result.stderr)
 		self.assertIn("mid-v2.0.0", result.stderr)
 
+	def test_a_tagged_name_behind_an_untagged_sibling_is_never_dropped(self) -> None:
+		# old and b both became new; c became b. old is tagged one hop back, c two hops back behind b
+		for c_tag, declared in (("c-v5.0.0", "1.0.0"), ("c-v0.9.0", "0.3.0")):
+			with self.subTest(c_tag=c_tag):
+				self.tearDown()
+				self.setUp()
+				self._renamed("old-v0.3.0", {"old": "new", "b": "new", "c": "b"}, declared=declared, message="fix(new): fold old and b into new")
+				_git(self.repo, "tag", c_tag, "HEAD~1")
+				result = _run(self.repo, "--plugin", "new", "--dir", "new")
+				self.assertEqual(result.returncode, 2, result.stderr)
+				self.assertEqual(result.stdout, "")
+				self.assertIn("old-v0.3.0", result.stderr)
+				self.assertIn(c_tag, result.stderr)
+
+	def test_each_branch_of_the_map_continues_to_its_own_nearest_tag(self) -> None:
+		# b is untagged and c, behind it, is the only tagged name: its series goes on
+		self._renamed("", {"old": "new", "b": "new", "c": "b"}, message="fix(new): fold old and b into new")
+		_git(self.repo, "tag", "c-v2.1.0", "HEAD~1")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v2.1.1")
+
 	def test_a_cycle_in_the_renames_map_ends_and_still_finds_the_tagged_name(self) -> None:
 		for renames in ({"old": "new", "new": "old"}, {"old": "new", "new": "mid", "mid": "old"}):
 			with self.subTest(renames=renames):
