@@ -35,7 +35,7 @@ python3 <plugin-root>/scripts/roadbook.py <subcommand> [PATH] [--phase NAME]
 | `assign ID` | set or clear an assignee without starting a trail (see Trails) | `--assignee NAME` or `--unassign` (exactly one) | 0 · 1 refusal · 2 |
 | `release ID` | drop a trail | `--unassign` | 0 · 1 no trail · 2 |
 | `pull` | refresh a phase mirrored from Jira; read-only towards Jira (see Mirrored phases) | `--project KEY --name NAME` (start a mirror) `--issues FILE` `--allow-removals` `--dry-run` | 0 · 1 nothing to mirror, or more than half the mirror would go · 2 no credentials, Jira unreachable, cycle, issue without a key |
-| `rebind` | move a 2.x `.claude/roadmaps.json` to `roadbook.json` now, without waiting for the first write; `--outputs` also moves the chart, the projections and the prose overview from their 2.x default names | `--outputs` `--dry-run` | 0 · 1 a target already exists · 2 |
+| `rebind` | move a 2.x `.claude/roadmaps.json` to `roadbook.json` now, without waiting for the first write; `--outputs` also moves the chart, the projections and the prose overview from their 2.x default names | `--outputs` `--reformat` `--dry-run` | 0 · 1 a target already exists, or a file not in canonical form without `--reformat` · 2 not found or not parsed, a newer stamp, or a roadbook file beside the old one named |
 | `hook EVENT` | Claude Code hook entry point (`session-start`, `post-tool-use`); reads the hook JSON on stdin | | always 0 |
 
 `PATH` is optional; the roadbook is located by walking up from the cwd. Multiple

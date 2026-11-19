@@ -25,7 +25,7 @@ Requires `python3` (3.8+, stdlib only) on `PATH`. The `/scout-waypoints` pane ne
 
 ### 1a. Coming from the roadmap plugin (2.x)
 
-goblin-scout 3.0.0 is the roadmap plugin renamed. The marketplace's `renames` map moves your `enabledPlugins` entry across. A project's `.claude/roadmaps.json` keeps working: goblin-scout reads it where it is, and its first write moves it (and `roadmaps.local.json` beside it) to `.claude/roadbook.json` with one line of notice. No value in the file is rewritten; the live phase is stamped so a 2.x plugin refuses the moved file, and the chart, projections and overview stay at their old paths. `/goblin-scout:rebind-roadbook` does the move on request, and with `outputs` moves those three to the roadbook's names in one commit.
+goblin-scout 3.0.0 is the roadmap plugin renamed. The marketplace's `renames` map moves your `enabledPlugins` entry across. A project's `.claude/roadmaps.json` keeps working: goblin-scout reads it where it is, and its first write moves it to `.claude/roadbook.json` (and a `roadmaps.local.json` beside it to `.claude/roadbook.local.json`) with a line of notice. No value in the file is rewritten; the live phase is stamped so a 2.x plugin refuses the moved file, and the chart, projections and overview stay at their old paths. The one exception is a phase in the local file with no chart path of its own: its chart renders to the new default name from then on, the notice names each such phase and `rebind --outputs` moves its old chart across. `/goblin-scout:rebind-roadbook` does the move on request, and with `outputs` moves those three to the roadbook's names in one commit.
 
 | Was | Is |
 |---|---|
