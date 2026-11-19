@@ -334,6 +334,35 @@ class SafeVersionNext(unittest.TestCase):
 				self.assertEqual(result.returncode, 0, result.stderr)
 				self.assertEqual(result.stdout.strip(), "new-v3.0.0")
 
+	def test_a_declared_version_that_is_not_three_numbers_exits_2_naming_the_file_and_the_value(self) -> None:
+		# printed as a fresh series' tag, p-v0.3 would be refused by the tag-shape check at the very next release
+		for declared in ("0", "0.3", "0.5", "0.3.0."):
+			with self.subTest(declared=declared):
+				self.tearDown()
+				self.setUp()
+				_commit(self.repo, "pkg/f", "feat(pkg): init")
+				manifest = self.repo / "pkg" / ".claude-plugin" / "plugin.json"
+				manifest.parent.mkdir(parents=True)
+				manifest.write_text(f'{{\n\t"name": "pkg",\n\t"version": "{declared}"\n}}\n')
+				result = _run(self.repo, "--plugin", "pkg", "--dir", "pkg")
+				self.assertEqual(result.returncode, 2, result.stderr)
+				self.assertEqual(result.stdout, "")
+				self.assertIn("plugin.json", result.stderr)
+				self.assertIn(f'"{declared}"', result.stderr)
+
+	def test_a_renamed_plugin_declaring_a_two_part_version_exits_2_rather_than_losing_the_warning(self) -> None:
+		self._renamed("old-v0.2.0", {"old": "new"}, declared="1.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 2, result.stderr)
+		self.assertIn('"1.0"', result.stderr)
+
+	def test_a_declared_pre_release_still_reads_as_nothing_declared(self) -> None:
+		# a semver pre-release is a valid version, so it is not refused; it never crosses the guard either
+		self._renamed("old-v0.2.0", {"old": "new"}, declared="1.0.0-rc.1")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v0.3.0")
+
 	def test_each_branch_of_the_map_continues_to_its_own_nearest_tag(self) -> None:
 		# b is untagged and c, behind it, is the only tagged name: its series goes on
 		self._renamed("", {"old": "new", "b": "new", "c": "b"}, message="fix(new): fold old and b into new")
