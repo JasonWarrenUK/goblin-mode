@@ -20,9 +20,9 @@ Vocabulary specific to this config. General Claude Code terms (session, context 
 
 **Deterministic half**: A shell/Python script in `library/scripts/` that does a skill's fact-gathering with one correct answer (parsing git output, validating a schema), so the model's context is spent on judgement rather than orchestration. See [Architecture](architecture.md#the-deterministic-half-pattern).
 
-**`paths:` glob**: A frontmatter field on some role skills (e.g. `role-linguist-svelte`) that auto-triggers the skill when a matching file is read or edited, independent of keyword matching.
+**`paths:` glob**: A frontmatter field on some role skills (e.g. `clod-stack-svelte`, `clod-role-frontend_styler`) that auto-triggers the skill when a matching file is read or edited, independent of keyword matching.
 
-**Fork context** (`context: fork`): A skill frontmatter setting that runs the skill in a separate agent context rather than the main conversation, used when a skill's read footprint would otherwise bloat the main session (`project-analyse-critique`, `project-investigate-concept`).
+**Fork context** (`context: fork`): A skill frontmatter setting that runs the skill in a separate agent context rather than the main conversation, used when a skill's read footprint would otherwise bloat the main session (`project-audit_deps`).
 
 **Agent**: An autonomous multi-step workflow (`agents/*.md`) Claude delegates to, running in its own context window with its own model. Distinct from a skill: skills tell Claude what to *know* or a fixed sequence to run; agents investigate and decide. See [Agents](reference/agents.md).
 
