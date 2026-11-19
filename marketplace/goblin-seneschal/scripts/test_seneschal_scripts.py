@@ -78,7 +78,7 @@ class Scripts(unittest.TestCase):
 		self.assertEqual(result.returncode, 2, result.stderr)
 		self.assertIn(str(self.root / "suite" / "slop-scan.py"), result.stderr)
 
-	def test_a_named_skill_that_is_not_installed_reads_skip_and_an_installed_one_still_fails(self) -> None:
+	def test_skills_skip_when_none_is_installed_warn_on_a_partial_set_and_fail_on_missing_gate_text(self) -> None:
 		health = _load("prose_health", "prose-health.py")
 		health.CONFIG_DIR = self.root
 		(self.root / "skills").mkdir()
@@ -92,8 +92,19 @@ class Scripts(unittest.TestCase):
 		self.assertIn("pr-create: slop-scan.py --strict", detail)
 		(skill / "SKILL.md").write_text("slop-scan.py --strict\nBash(~/.claude/library/scripts/slop-scan.py:*)\n")
 		status, _, detail = health.check_skills()
+		# a partial set may mean a renamed or deleted skill, so it warns rather than passes
+		self.assertEqual(status, "WARN", detail)
+		self.assertIn(f"{len(health.SKILL_WIRING) - 1} of {len(health.SKILL_WIRING)} not installed", detail)
+		# the warning names what has gone, so a renamed skill is found without a search
+		absent = [name for name in health.SKILL_WIRING if name != "pr-create"]
+		for name in absent:
+			self.assertIn(name, detail)
+		for name, needles in health.SKILL_WIRING.items():
+			(self.root / "skills" / name).mkdir(exist_ok=True)
+			(self.root / "skills" / name / "SKILL.md").write_text("\n".join(needles) + "\n")
+		status, _, detail = health.check_skills()
 		self.assertEqual(status, "PASS", detail)
-		self.assertIn(f"{len(health.SKILL_WIRING) - 1} not installed, skipped", detail)
+		self.assertNotIn("not installed", detail)
 
 	@unittest.skipUnless(HAS_YAML, "PyYAML not installed")
 	def test_frontmatter_check_leaves_a_missing_style_file_to_the_style_check(self) -> None:
@@ -133,9 +144,24 @@ class Scripts(unittest.TestCase):
 		result = _run("profiles.py", "--dossier-dir", str(self.root / "no-dossier"), "--personas-dir", str(personas), "count", "--store", "personas")
 		self.assertEqual(result.returncode, 0, result.stderr)
 		self.assertEqual(result.stdout.strip(), "personas: 1")
-		shown = _run("profiles.py", "--personas-dir", str(personas), "get", "tam", "--store", "personas")
+		shown = _run("profiles.py", "--dossier-dir", str(self.root / "no-dossier"), "--personas-dir", str(personas), "get", "tam", "--store", "personas")
 		self.assertEqual(shown.returncode, 0, shown.stderr)
 		self.assertIn("## personas: tam", shown.stdout)
+
+	@unittest.skipUnless(HAS_YAML, "PyYAML not installed")
+	def test_profiles_reads_the_store_that_is_there_when_the_other_is_missing(self) -> None:
+		personas = self.root / "personas"
+		personas.mkdir()
+		(personas / "tam.md").write_text(PERSONA)
+		stores = ("--dossier-dir", str(self.root / "no-dossier"), "--personas-dir", str(personas))
+		shown = _run("profiles.py", *stores, "get", "tam")
+		self.assertEqual(shown.returncode, 0, shown.stderr)
+		self.assertIn("## personas: tam", shown.stdout)
+		self.assertIn("skipped: dossier store", shown.stderr)
+		counted = _run("profiles.py", *stores, "count")
+		self.assertEqual(counted.returncode, 0, counted.stderr)
+		self.assertIn("dossier: 0", counted.stdout)
+		self.assertIn("personas: 1", counted.stdout)
 
 
 if __name__ == "__main__":
