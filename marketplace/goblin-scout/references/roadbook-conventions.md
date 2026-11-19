@@ -53,7 +53,10 @@ chart's old default path pinned there, so the chart stays where it was. A local
 file moved alongside the one being written travels byte for byte (no pin, no
 stamp, no reformat), so a mirrored phase in it with no `artefact` renders its
 chart to `chart-<phase>.html` after the move; `rebind` moves the local file
-with its own pin, and `rebind --reformat` is the one way to reformat it. Such a
+with its own pin, and `rebind --reformat` is the one way to reformat it. A
+write to the local file that would move a committed `roadmaps.json` not in
+canonical form is refused, with both files untouched; `rebind --reformat` moves
+the two and accepts the reformat. Such a
 project also keeps its projections under `docs/roadmaps/` (each phase's `path`
 says where) and its overview at `docs/reports/ROADMAP_OVERVIEW.md` until
 `rebind --outputs` moves them to the roadbook names.

@@ -727,13 +727,25 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
         if source == path:
             content = data
         else:
+            text = source.read_text()
             try:
-                content = json.loads(source.read_text())
+                content = json.loads(text)
                 _phases(content)
             except (ValueError, RoadbookError):
                 content = None  # not a phase array: moved byte for byte
         if content is not None:
             _refuse_if_stamped_newer(content)
+            if (source != path and source.name not in LOCAL_NAMES
+                    and _canonical_text(content) != text):
+                # every other write refuses to reformat a file wholesale; this
+                # one would do it to a file the caller never named
+                raise RoadbookError(
+                    f"{_shown(source)} is not in canonical form (tab-indented, "
+                    "ensure_ascii off, trailing newline), and this write would "
+                    f"move it to {_shown(target)} reformatted, which hides the "
+                    "move from git's rename detection; nothing was written. "
+                    "Run `roadbook.py rebind --reformat` to move both files "
+                    "and accept the reformat, then run this again")
             if source != path and source.name in LOCAL_NAMES:
                 # Ruled 2026-11-19: a local file moved alongside the one being
                 # written travels byte for byte. Nobody asked for it to be

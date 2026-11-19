@@ -2923,6 +2923,25 @@ class LegacyMigration(LegacyFixture):
         self.assertEqual(len(err.splitlines()), 1, err)
         self.assertIn(".claude/roadmaps.local.json to .claude/roadbook.local.json", err)
 
+    def test_a_write_to_the_local_file_refuses_to_reformat_the_committed_one(self):
+        # the review's repro: a two-space roadmaps.json beside a local file,
+        # and a claim that writes the local one
+        self.legacy.write_text(json.dumps(self._phases(), indent=2) + "\n")
+        self._write(self.legacy_local, [phase(
+            [{"id": "M9", "name": "mirror", "tasks": [task("j1", local=True)]}],
+            name="Jira", source={"kind": "jira", "project": "J"})])
+        before = {f: f.read_bytes() for f in (self.legacy, self.legacy_local)}
+        rc, out, _err = self._run("claim", "j1", str(self.root), "--date", "2026-11-18")
+        self.assertEqual(rc, 2, out)
+        self.assertIn(".claude/roadmaps.json is not in canonical form", out)
+        self.assertIn("rebind --reformat", out)
+        self.assertEqual({f: f.read_bytes() for f in before}, before)
+        self.assertFalse(self.new.exists() or self.new_local.exists())
+        rc, out, _err = self._run("rebind", str(self.root), "--reformat")
+        self.assertEqual(rc, 0, out)
+        rc, out, _err = self._run("claim", "j1", str(self.root), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+
     def test_clearing_the_chart_path_on_an_unmoved_file_clears_it(self):
         data = self._phases()
         data[1]["artefact"] = "site/plan.html"

@@ -528,6 +528,24 @@ class Cli(unittest.TestCase):
         self.assertFalse(self.local.exists())
         self.assertIn("would mirror 3", out)
 
+    def test_a_pull_refuses_to_reformat_a_committed_2x_file_it_would_move(self):
+        # the first pull after the upgrade writes the local file, and its move
+        # takes the committed file along; a write is refused rather than
+        # reformat a file the user never pointed it at
+        self.start()
+        legacy = self.root / ".claude" / "roadmaps.json"
+        legacy_local = self.root / ".claude" / "roadmaps.local.json"
+        legacy.write_text(json.dumps(json.loads(self.committed.read_text()), indent=2) + "\n")
+        self.committed.unlink()
+        self.local.rename(legacy_local)
+        before = {f: f.read_bytes() for f in (legacy, legacy_local)}
+        code, out = run("pull", str(self.root), "--issues", str(self.issues))
+        self.assertEqual(code, 2, out)
+        self.assertIn(".claude/roadmaps.json is not in canonical form", out)
+        self.assertIn("rebind --reformat", out)
+        self.assertEqual({f: f.read_bytes() for f in before}, before)
+        self.assertFalse(self.committed.exists() or self.local.exists())
+
     def mirror_with_local_task(self):
         self.start()
         data = json.loads(self.local.read_text())
