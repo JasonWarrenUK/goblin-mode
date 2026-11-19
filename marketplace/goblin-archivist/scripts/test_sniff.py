@@ -39,6 +39,7 @@ class HelperTest(unittest.TestCase):
 		self.assertEqual(inline_tags('# Heading #real and `#code` and x#no'), ['real'])
 		self.assertEqual(inline_tags('see https://a.invalid/p#frag (#paren)'), ['paren'])
 		self.assertEqual(inline_tags('#123 #y2k #a/b/'), ['y2k', 'a/b'])
+		self.assertEqual(inline_tags('see [top](#top) and [[Note#Heading]] but #real'), ['real'])
 
 	def test_tasks_in_blockquotes_and_callouts(self) -> None:
 		vault = Path(tempfile.mkdtemp())

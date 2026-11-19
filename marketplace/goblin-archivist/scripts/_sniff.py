@@ -45,7 +45,8 @@ TASK_LINE = re.compile(r'^(?P<indent>[\s>]*)(?:[-*+]|[0-9]+[.)]) +\[(?P<status>.
 # A fence may sit inside a block quote or callout, behind any depth of `>`.
 FENCE = re.compile(r'^(?:[ \t]*>)*[ \t]*(`{3,}|~{3,})(.*)$')
 INLINE_CODE = re.compile(r'`[^`]*`')
-INLINE_TAG = re.compile(r'(?:^|(?<=[\s(]))#([^\s#!@$%^&*(),.?":{}|<>\[\]\'`;+=~\\]+)')
+# `(#x` is a tag except straight after `]`, where it is a link to a heading.
+INLINE_TAG = re.compile(r'(?:^|(?<=\s)|(?<=[^\]]\()|(?<=^\())#([^\s#!@$%^&*(),.?":{}|<>\[\]\'`;+=~\\]+)')
 WIKILINK = re.compile(r'!?\[\[[^\]]+\]\]')
 DATAVIEW_FIELD = re.compile(r'[\[(]([\w\- ]+)::[^\])]*[\])]')
 BLOCK_ID = re.compile(r'\s\^[\w-]+\s*$')
