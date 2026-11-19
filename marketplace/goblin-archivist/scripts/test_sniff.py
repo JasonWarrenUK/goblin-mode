@@ -205,6 +205,40 @@ class OutputTest(unittest.TestCase):
 			write_outputs(vault, probe / 'reports')
 		self.assertFalse((vault / 'reports').exists())
 
+	def test_refuses_an_output_file_that_links_into_the_vault(self) -> None:
+		vault = self.tmp / 'vault'
+		shutil.copytree(FIXTURE, vault)
+		note = vault / 'Untitled.md'
+		before = note.read_bytes()
+		for name in ('report.md', 'survey.json', 'schema.draft.json'):
+			out = self.tmp / f'sym-{name}'
+			out.mkdir()
+			(out / name).symlink_to(note)
+			with self.assertRaises(SniffError, msg=name):
+				write_outputs(vault, out)
+		hard = self.tmp / 'hard'
+		hard.mkdir()
+		os.link(note, hard / 'survey.json')
+		with self.assertRaises(SniffError):
+			write_outputs(vault, hard)
+		self.assertEqual(note.read_bytes(), before)
+
+	def test_refuses_an_output_folder_that_is_a_link_into_the_vault(self) -> None:
+		vault = self.tmp / 'vault'
+		shutil.copytree(FIXTURE, vault)
+		(self.tmp / 'sniff').symlink_to(vault / 'Ideas', target_is_directory=True)
+		with self.assertRaises(SniffError):
+			write_outputs(vault, self.tmp / 'sniff')
+		self.assertFalse((vault / 'Ideas' / 'report.md').exists())
+
+	def test_a_rerun_replaces_files_rather_than_writing_through_them(self) -> None:
+		out = self.tmp / 'out'
+		write_outputs(FIXTURE, out)
+		inode = (out / 'report.md').stat().st_ino
+		write_outputs(FIXTURE, out)
+		self.assertNotEqual((out / 'report.md').stat().st_ino, inode)
+		self.assertEqual(sorted(path.name for path in out.iterdir()), ['report.md', 'schema.draft.json', 'survey.json'])
+
 	def test_unreadable_note_is_reported_not_fatal(self) -> None:
 		vault = self.tmp / 'vault'
 		shutil.copytree(FIXTURE, vault)

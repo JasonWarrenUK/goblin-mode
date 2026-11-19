@@ -16,7 +16,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 import subprocess
+import tempfile
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -999,6 +1001,44 @@ def committable(path: Path) -> str | None:
 	return None
 
 
+def check_output_file(target: Path, vault: Path) -> None:
+	"""Refuse an output file that a write could follow somewhere else.
+
+	A symbolic link, a file with a second hard link or anything that is
+	itself inside the vault would let the survey write through it into a
+	note, so none of them is written over.
+	"""
+	if target.is_symlink():
+		raise SniffError(f'{target} is a symbolic link; the survey will not write through it')
+	if not target.exists():
+		return
+	status = target.stat()
+	if not stat.S_ISREG(status.st_mode):
+		raise SniffError(f'{target} is not a plain file; the survey will not write over it')
+	if status.st_nlink > 1:
+		raise SniffError(f'{target} has another hard link, which may be a note in the vault; the survey will not write through it')
+	if is_within(target, vault):
+		raise SniffError(f'{target} is inside the vault; the survey writes nothing there')
+
+
+def write_replacing(target: Path, text: str) -> None:
+	"""Write text to a temporary file beside target, then move it into place.
+
+	The move replaces whatever name sits at target instead of writing
+	through it, and a failure part-way leaves the old file whole.
+	"""
+	handle, temporary = tempfile.mkstemp(dir=target.parent, prefix=f'.{target.name}.', suffix='.tmp')
+	try:
+		with os.fdopen(handle, 'w', encoding='utf-8') as stream:
+			stream.write(text)
+			stream.flush()
+			os.fsync(stream.fileno())
+		os.replace(temporary, target)
+	except BaseException:
+		Path(temporary).unlink(missing_ok=True)
+		raise
+
+
 def write_outputs(vault: Path, out: Path) -> dict[str, Path]:
 	"""Survey the vault and write the three files.
 
@@ -1012,11 +1052,16 @@ def write_outputs(vault: Path, out: Path) -> dict[str, Path]:
 	repository = committable(out)
 	if repository:
 		raise SniffError(f'the output folder {out} is inside the repository {repository}, which does not ignore it; the report quotes the vault, so it must never be committed')
+	paths = {'survey': out / 'survey.json', 'report': out / 'report.md', 'schema': out / 'schema.draft.json'}
+	for target in paths.values():
+		check_output_file(target, vault)
 	data = survey(vault)
 	schema = draft_schema(data)
+	texts = {'survey': dump(data), 'schema': dump(schema), 'report': render_report(data, schema)}
 	out.mkdir(parents=True, exist_ok=True)
-	paths = {'survey': out / 'survey.json', 'report': out / 'report.md', 'schema': out / 'schema.draft.json'}
-	paths['survey'].write_text(dump(data), encoding='utf-8')
-	paths['schema'].write_text(dump(schema), encoding='utf-8')
-	paths['report'].write_text(render_report(data, schema), encoding='utf-8')
+	if is_within(out, vault):
+		raise SniffError(f'the output folder {out} is inside the vault; the survey writes nothing there')
+	for key in ('survey', 'schema', 'report'):
+		check_output_file(paths[key], vault)
+		write_replacing(paths[key], texts[key])
 	return paths
