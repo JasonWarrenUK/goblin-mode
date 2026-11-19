@@ -25,6 +25,8 @@ def _run(cwd: Path, *args: str) -> subprocess.CompletedProcess:
 		cwd=cwd,
 		capture_output=True,
 		text=True,
+		# a walk that never ends (a cycle in the renames map) fails here instead of hanging
+		timeout=60,
 	)
 
 
@@ -127,8 +129,8 @@ class SafeVersionNext(unittest.TestCase):
 		self.assertEqual(result.returncode, 3, result.stderr)
 		self.assertIn("nothing to release", result.stderr)
 
-	def _renamed(self, old_tag: str, renames: dict, declared: str | None = None, message: str = "feat(new)!: rename old to new", before_rename: str | None = None) -> None:
-		"""Tag `old/` at `old_tag` (none when empty), optionally commit `before_rename` under `old/`, then move it to `new/` in one commit with the marketplace's renames map."""
+	def _renamed(self, old_tag: str, renames: dict, declared: str | None = None, message: str = "feat(new)!: rename old to new", before_rename: str | None = None, manifest_text: str | None = None) -> None:
+		"""Tag `old/` at `old_tag` (none when empty), optionally commit `before_rename` under `old/`, then move it to `new/` in one commit with the marketplace's renames map. `manifest_text` writes new/'s plugin.json verbatim."""
 		_commit(self.repo, "old/f", "feat(old): init")
 		if old_tag:
 			_git(self.repo, "tag", old_tag)
@@ -139,6 +141,10 @@ class SafeVersionNext(unittest.TestCase):
 			manifest = self.repo / "new" / ".claude-plugin" / "plugin.json"
 			manifest.parent.mkdir(parents=True, exist_ok=True)
 			manifest.write_text(f'{{\n\t"name": "new",\n\t"version": "{declared}"\n}}\n')
+		if manifest_text is not None:
+			manifest = self.repo / "new" / ".claude-plugin" / "plugin.json"
+			manifest.parent.mkdir(parents=True, exist_ok=True)
+			manifest.write_text(manifest_text)
 		marketplace = self.repo / ".claude-plugin" / "marketplace.json"
 		marketplace.parent.mkdir(parents=True, exist_ok=True)
 		marketplace.write_text(json.dumps({"plugins": [{"name": "new", "source": "./new"}], "renames": renames}))
@@ -211,6 +217,7 @@ class SafeVersionNext(unittest.TestCase):
 			result = _run(self.repo, "--plugin", "new", "--dir", "new")
 			self.assertEqual(result.returncode, 0, result.stderr)
 			self.assertIn("renames:", result.stderr, broken)
+			self.assertEqual(result.stdout.strip(), "new-v0.1.0", broken)
 
 	def test_a_rename_with_nothing_to_release_names_the_old_tag(self) -> None:
 		self._renamed("old-v0.4.0", {"old": "new"}, message="chore(new): rename old to new")
@@ -225,6 +232,89 @@ class SafeVersionNext(unittest.TestCase):
 		result = _run(self.repo, "--plugin", "new", "--dir", "new")
 		self.assertEqual(result.returncode, 0, result.stderr)
 		self.assertEqual(result.stdout.strip(), "new-v3.0.1")
+
+	def _moved_from_elsewhere(self) -> None:
+		"""`old` lives at legacy/old, and the marketplace already lists it when old-v2.4.0 is tagged, so its directory can only come from the tagged marketplace (the sibling guess, mp/old, is wrong). A breaking commit under legacy/old follows the tag, then it moves to mp/new."""
+		marketplace = self.repo / ".claude-plugin" / "marketplace.json"
+		marketplace.parent.mkdir(parents=True, exist_ok=True)
+		marketplace.write_text(json.dumps({"plugins": [{"name": "old", "source": "./legacy/old"}]}))
+		_commit(self.repo, "legacy/old/f", "feat(old): init")
+		_git(self.repo, "tag", "old-v2.4.0")
+		_commit(self.repo, "legacy/old/e", "feat(old)!: drop thing")
+		(self.repo / "mp").mkdir()
+		_git(self.repo, "mv", "legacy/old", "mp/new")
+		marketplace.write_text(json.dumps({"plugins": [{"name": "new", "source": "./mp/new"}], "renames": {"old": "new"}}))
+		_commit(self.repo, "mp/new/g", "fix(new): move old to new")
+
+	def test_the_old_directory_comes_from_the_marketplace_as_tagged(self) -> None:
+		self._moved_from_elsewhere()
+		result = _run(self.repo, "--plugin", "new", "--dir", "mp/new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v3.0.0")
+
+	def test_a_run_from_a_subdirectory_still_scans_the_old_directory(self) -> None:
+		self._moved_from_elsewhere()
+		result = _run(self.repo / "mp", "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v3.0.0")
+
+	def test_two_tagged_earlier_names_at_one_depth_exit_2_naming_both(self) -> None:
+		self._renamed("old-v1.2.0", {"old": "new", "mid": "new"}, message="fix(new): fold old and mid into new")
+		_git(self.repo, "tag", "mid-v2.0.0", "HEAD~1")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 2, result.stderr)
+		self.assertEqual(result.stdout, "", "no tag is printed while a person has to pick")
+		self.assertIn("old-v1.2.0", result.stderr)
+		self.assertIn("mid-v2.0.0", result.stderr)
+
+	def test_a_cycle_in_the_renames_map_ends_and_still_finds_the_tagged_name(self) -> None:
+		for renames in ({"old": "new", "new": "old"}, {"old": "new", "new": "mid", "mid": "old"}):
+			with self.subTest(renames=renames):
+				self.tearDown()
+				self.setUp()
+				self._renamed("old-v1.2.0", renames, message="fix(new): rename old to new")
+				result = _run(self.repo, "--plugin", "new", "--dir", "new")
+				self.assertEqual(result.returncode, 0, result.stderr)
+				self.assertEqual(result.stdout.strip(), "new-v1.2.1")
+
+	def test_a_sibling_plugin_whose_name_extends_the_old_one_is_not_read_as_its_series(self) -> None:
+		self._renamed("old-v2.4.0", {"old": "new"}, message="fix(new): rename old to new")
+		_git(self.repo, "tag", "old-viewer-v9.0.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v2.4.1")
+
+	def test_a_tag_svu_cannot_read_exits_2_instead_of_reading_as_untagged(self) -> None:
+		for bad in ("old-v1.2.3.4", "new-v1.2.3.4"):
+			with self.subTest(bad=bad):
+				self.tearDown()
+				self.setUp()
+				self._renamed("old-v2.4.0", {"old": "new"}, message="fix(new): rename old to new")
+				_git(self.repo, "tag", bad)
+				result = _run(self.repo, "--plugin", "new", "--dir", "new")
+				self.assertEqual(result.returncode, 2, result.stderr)
+				self.assertEqual(result.stdout, "")
+				self.assertIn(bad, result.stderr)
+
+	def test_only_the_top_level_version_counts_as_declared(self) -> None:
+		nested = '{\n\t"name": "new",\n\t"dependencies": [\n\t\t{\n\t\t\t"name": "x",\n\t\t\t"version": "1.0.0"\n\t\t}\n\t],\n\t"version": "0.13.1"\n}\n'
+		one_line = '{"name": "new", "version": "0.13.1", "engine": {"version": "1.0.0"}}\n'
+		for text in (nested, one_line):
+			with self.subTest(text=text):
+				self.tearDown()
+				self.setUp()
+				self._renamed("old-v0.13.1", {"old": "new"}, manifest_text=text)
+				result = _run(self.repo, "--plugin", "new", "--dir", "new")
+				self.assertEqual(result.returncode, 0, result.stderr)
+				self.assertEqual(result.stdout.strip(), "new-v0.14.0")
+				self.assertIn("guard:", result.stderr)
+
+	def test_a_renamed_plugin_whose_manifest_disagrees_with_the_series_says_so(self) -> None:
+		self._renamed("old-v2.4.0", {"old": "new"}, declared="3.0.0", message="chore(new): rename old to new", before_rename="feat(old): thing")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v2.5.0")
+		self.assertIn("declares 3.0.0", result.stderr)
 
 
 if __name__ == "__main__":
