@@ -5,6 +5,17 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-19
+
+### Changed
+
+- Renamed from goblin-chrome. The goblin's look, dialogue and behaviour are unchanged; existing installs follow through the marketplace's `renames` record, and one `/plugin install goblin-jester@goblin-mode` settles an install that reports itself not cached.
+
+### Added
+
+- Skills from installed plugins give the goblin their model, family and spinner words, read from the install that applies to the session's project. A plugin skill that pins a model now moves the band's frame and shows the mismatch frame, as a personal skill always has.
+- Props for the `scout` and `warband` families: a compass (`(+)`) and a banner (`|▓▒`).
+
 ## [0.2.0] - 2026-10-08
 
 ### Added

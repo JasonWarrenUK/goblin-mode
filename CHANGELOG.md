@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [9.0.0] - 2026-11-19
+
+### Breaking
+
+- `goblin-chrome` plugin is now `goblin-jester` 1.0.0. The marketplace's new `renames` map moves existing installs and their settings across; a mod that read goblin-chrome's published state reads it under `goblin-jester`.
+
+### Added
+
+- `goblin-jester` plugin 1.0.0: skills from installed plugins now set the goblin's model frame, the prop it holds and the spinner's words, where only personal and project skills could before.
+
 ## [8.0.2] - 2026-11-19
 
 ### Fixed
