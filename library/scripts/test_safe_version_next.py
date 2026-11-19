@@ -290,6 +290,50 @@ class SafeVersionNext(unittest.TestCase):
 				self.assertIn("old-v0.3.0", result.stderr)
 				self.assertIn(c_tag, result.stderr)
 
+	def test_a_fold_below_the_first_level_never_drops_a_tagged_series(self) -> None:
+		# b became new; c and d became b; e became d. c is tagged two hops back, e three hops back behind the untagged d
+		for c_tag, e_tag, declared in (("c-v1.0.0", "e-v5.0.0", None), ("c-v0.3.0", "e-v2.1.0", "1.0.0")):
+			with self.subTest(c_tag=c_tag, e_tag=e_tag):
+				self.tearDown()
+				self.setUp()
+				self._renamed("", {"b": "new", "c": "b", "d": "b", "e": "d"}, declared=declared, message="fix(new): fold into new")
+				_git(self.repo, "tag", c_tag, "HEAD~1")
+				_git(self.repo, "tag", e_tag, "HEAD~1")
+				result = _run(self.repo, "--plugin", "new", "--dir", "new")
+				self.assertEqual(result.returncode, 2, result.stderr)
+				self.assertEqual(result.stdout, "")
+				self.assertIn(c_tag, result.stderr)
+				self.assertIn(e_tag, result.stderr)
+
+	def test_a_sibling_plugin_named_with_a_digit_after_the_v_is_refused_not_read_as_a_version(self) -> None:
+		# api-v2 is another plugin; its tag api-v2-v0.1.0 matches api-v[0-9]* and svu would read it as 2.0.0
+		_commit(self.repo, "api/f", "feat(api): init")
+		_git(self.repo, "tag", "api-v0.3.0")
+		_commit(self.repo, "api-v2/f", "feat(api-v2): init")
+		_git(self.repo, "tag", "api-v2-v0.1.0")
+		_commit(self.repo, "api/g", "fix(api): thing")
+		result = _run(self.repo, "--plugin", "api", "--dir", "api")
+		self.assertEqual(result.returncode, 2, result.stderr)
+		self.assertEqual(result.stdout, "")
+		self.assertIn("api-v2-v0.1.0", result.stderr)
+
+	def test_a_sibling_named_with_a_digit_after_the_v_is_refused_on_the_rename_path_too(self) -> None:
+		self._renamed("old-v0.3.0", {"old": "new"}, message="fix(new): rename old to new")
+		_git(self.repo, "tag", "old-v2-v0.1.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 2, result.stderr)
+		self.assertEqual(result.stdout, "")
+		self.assertIn("old-v2-v0.1.0", result.stderr)
+
+	def test_dir_given_as_dot_from_inside_the_plugin_still_finds_the_old_sibling(self) -> None:
+		# no marketplace listed old when it was tagged, so its directory is the sibling guess
+		self._renamed("old-v2.4.0", {"old": "new"}, message="fix(new): rename old to new", before_rename="feat(old)!: drop thing")
+		for given in (".", "./"):
+			with self.subTest(given=given):
+				result = _run(self.repo / "new", "--plugin", "new", "--dir", given)
+				self.assertEqual(result.returncode, 0, result.stderr)
+				self.assertEqual(result.stdout.strip(), "new-v3.0.0")
+
 	def test_each_branch_of_the_map_continues_to_its_own_nearest_tag(self) -> None:
 		# b is untagged and c, behind it, is the only tagged name: its series goes on
 		self._renamed("", {"old": "new", "b": "new", "c": "b"}, message="fix(new): fold old and b into new")
