@@ -40,6 +40,10 @@ class HelperTest(unittest.TestCase):
 		self.assertEqual(inline_tags('see https://a.invalid/p#frag (#paren)'), ['paren'])
 		self.assertEqual(inline_tags('#123 #y2k #a/b/'), ['y2k', 'a/b'])
 		self.assertEqual(inline_tags('see [top](#top) and [[Note#Heading]] but #real'), ['real'])
+		# CommonMark 0.31.2 section 6.1: a span closes on a backtick run as long as its opener
+		self.assertEqual(inline_tags('Write ``#notatag`` to show a tag.'), [])
+		self.assertEqual(inline_tags('`` ` #nottag `` and #real'), ['real'])
+		self.assertEqual(inline_tags('`#a` #b `#c`'), ['b'])
 
 	def test_tasks_in_blockquotes_and_callouts(self) -> None:
 		vault = Path(tempfile.mkdtemp())

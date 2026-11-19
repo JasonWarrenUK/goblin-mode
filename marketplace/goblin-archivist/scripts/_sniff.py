@@ -45,7 +45,9 @@ TASK_LINE = re.compile(r'^(?P<indent>[\s>]*)(?:[-*+]|[0-9]+[.)]) +\[(?P<status>.
 # A fence line, matched on what is left once the quote markers are taken off.
 QUOTE_PREFIX = re.compile(r'^(?:[ \t]*>)*')
 FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,})(.*)$')
-INLINE_CODE = re.compile(r'`[^`]*`')
+# A code span closes on a backtick run as long as the one that opened it
+# (CommonMark 0.31.2, 6.1), so ``#x`` and `` ` `` are spans too.
+INLINE_CODE = re.compile(r'(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)')
 # `(#x` is a tag except straight after `]`, where it is a link to a heading.
 INLINE_TAG = re.compile(r'(?:^|(?<=\s)|(?<=[^\]]\()|(?<=^\())#([^\s#!@$%^&*(),.?":{}|<>\[\]\'`;+=~\\]+)')
 WIKILINK = re.compile(r'!?\[\[[^\]]+\]\]')
