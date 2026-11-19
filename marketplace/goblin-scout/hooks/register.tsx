@@ -730,7 +730,7 @@ export const register: Register = on => {
 							key="assignee"
 							label={asked.mode === 'claim' ? `which scout is on ${current.id}` : `which scout will take ${current.id}`}
 							placeholder={asked.mode === 'claim' ? 'a name; never inferred, never pre-filled' : 'a name, or blank to clear; never inferred'}
-							submitLabel={asked.mode}
+							submitLabel={asked.mode === 'claim' ? 'start trail' : 'assign'}
 							autoFocus
 							onSubmit={async value => {
 								if (asked.mode === 'claim' && !value.trim()) {

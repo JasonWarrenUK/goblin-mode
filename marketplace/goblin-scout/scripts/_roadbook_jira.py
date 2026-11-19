@@ -275,8 +275,8 @@ def merge(phase, issues, field_order):
     clash = sorted(set(work) & set(local), key=_natural)
     if clash:
         raise RoadbookError(
-            f"local task id(s) {', '.join(clash)} are also Jira keys; rename "
-            "the local task(s)")
+            f"local waypoint id(s) {', '.join(clash)} are also Jira keys; rename "
+            "the local waypoint(s)")
 
     def topic_of(key):
         seen = set()
@@ -390,7 +390,7 @@ def merge(phase, issues, field_order):
         if blocker in taken_ids:
             raise RoadbookError(
                 f"Jira blocker {blocker} would become a gate, but {blocker} "
-                "is already a local task, milestone or gate id; rename the "
+                "is already a local waypoint, milestone or gate id; rename the "
                 "local one")
     generated_gates = [
         {"id": blocker,
@@ -645,10 +645,10 @@ def describe(report, phase_name, dry_run):
     verb = "would mirror" if dry_run else "mirrored"
     lines = [f"✓ {verb} {report['tasks']} Jira task(s) into '{phase_name}' "
              f"across {report['milestones']} milestone(s); "
-             f"{report['local']} local task(s) untouched"]
+             f"{report['local']} local waypoint(s) untouched"]
     for title, key in (("added", "added"), ("gone from Jira", "removed"),
                        ("changed", "changed"), ("Jira and the graph disagree", "drift"),
-                       ("local tasks that lost something", "orphans"),
+                       ("local waypoints that lost something", "orphans"),
                        ("warnings", "warnings")):
         if report[key]:
             lines.append(f"{title} ({len(report[key])}):")

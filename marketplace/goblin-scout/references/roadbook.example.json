@@ -1,9 +1,9 @@
 [
 	{
 		"name": "Example Phase",
-		"path": "docs/roadmaps/EXAMPLE.md",
+		"path": "docs/roadbook/EXAMPLE.md",
 		"project": "Example Project",
-		"artefact": "docs/artefacts/roadmap-example.html",
+		"artefact": "docs/artefacts/chart-example.html",
 		"archived": false,
 		"externalGates": [
 			{

@@ -491,7 +491,7 @@ def _validate_phase(phase):
 
     for m in phase.get("milestones", []):
         if not m.get("tasks"):
-            problems.append(f"{m['id']}: milestone has no tasks")
+            problems.append(f"{m['id']}: milestone has no waypoints")
 
     problems.extend(_artefact_problems(phase))
 
@@ -847,9 +847,9 @@ def cmd_recompute(args) -> int:
             return 1
         if out.exists():
             _render_to(path, data, phase, out)
-            print(f"refreshed artefact: {out}")
+            print(f"refreshed chart: {out}")
         else:
-            print(f"note: no artefact at {out}; run `roadbook.py render` to create one")
+            print(f"note: no chart at {out}; run `roadbook.py render` to create one")
     return 0
 
 
@@ -2080,7 +2080,7 @@ def cmd_config(args) -> int:
         print(f"note: a chart still exists at the old path {before}; "
               "nothing refreshes it any more, so delete it")
     if not after.exists():
-        print(f"note: no artefact at {after} yet; run `roadbook.py render"
+        print(f"note: no chart at {after} yet; run `roadbook.py render"
               f" --phase \"{name}\"` to create it")
     return 0
 
@@ -2197,10 +2197,10 @@ def cmd_claim(args) -> int:
                          for kind, ident in unmet
                          if kind == "gate" or not is_claimed(tasks[ident])]
         if not unmet or unclaimed:
-            hint = ("only a task that is ready to start can be claimed"
+            hint = ("only a waypoint that is ready to start can take a trail"
                     if not unclaimed else
-                    "it can be claimed once every blocker is claimed (a gate "
-                    "cannot be); not claimed: " + ", ".join(unclaimed))
+                    "it can take a trail once every blocker is on one (a gate "
+                    "cannot be); not on a trail: " + ", ".join(unclaimed))
             print(f"✗ {args.id} is {effective}, not todo: {hint}")
             return 1
     started = args.date or date.today().isoformat()

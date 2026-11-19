@@ -488,7 +488,7 @@ class BuildStatsTiers(unittest.TestCase):
     def test_empty_milestone_reported_by_validate(self):
         ph = phase([{"id": "M1", "name": "Empty", "tasks": []}])
         problems = roadbook._validate_phase(ph)
-        self.assertIn("M1: milestone has no tasks", problems)
+        self.assertIn("M1: milestone has no waypoints", problems)
 
     def test_empty_milestone_in_an_earlier_tier_never_blocks_the_cascade(self):
         # A bug (empty milestone) must never masquerade as "still in
@@ -1364,6 +1364,25 @@ class StatusDerivation(unittest.TestCase):
                         self.assertEqual(tables[name][key],
                                          self._resolve(recipe, tokens[mode]))
 
+    def test_the_chips_accent_and_diagram_chrome_are_the_theme_too(self):
+        # the template's colours outside the two tables: scout chips, the
+        # stamp accent and the route's edge colours, per palette block
+        tokens = _theme_tokens()
+        chips = dict(zip(roadbook._DEV_COLOUR_PALETTE,
+                         ("accent", "accent-2", "info", "warn", "danger")))
+        for selector, palette in _template_palettes():
+            mode, base = (("light", "slip") if selector == ":root" else ("dark", "surface"))
+            t = tokens[mode]
+            expected = {"--diagram-line": t["ink-muted"], "--diagram-edge-label-bg": t[base],
+                        "--color-primary": t["accent"], "--color-primary-text": t["accent"],
+                        "--color-primary-bg": _mix(t["accent"], t[base], self.WASH)}
+            for chip, token in chips.items():
+                expected[f"--color-dev-{chip}"] = t[token]
+                expected[f"--color-dev-{chip}-bg"] = _mix(t[token], t[base], self.WASH)
+            for name, value in expected.items():
+                with self.subTest(selector=selector, name=name):
+                    self.assertEqual(palette[name], value)
+
 
 class GraphDirection(unittest.TestCase):
     """choose_direction() picks by estimated width only: the artefact's
@@ -1768,7 +1787,7 @@ class ArtefactPath(unittest.TestCase):
         custom.write_text("stale")
         rc, out = self._run(["recompute", str(jp), "--render"])
         self.assertEqual(rc, 0)
-        self.assertIn(f"refreshed artefact: {custom}", out)
+        self.assertIn(f"refreshed chart: {custom}", out)
         self.assertIn("chart-data", custom.read_text())
         self.assertFalse(
             (root / "docs" / "artefacts" / "chart-tranche-1c-post-dsg.html").exists())
@@ -1777,7 +1796,7 @@ class ArtefactPath(unittest.TestCase):
         root, jp = self._project(self._data(artefact="docs/artefacts/chart-t1c.html"))
         rc, out = self._run(["recompute", str(jp), "--render"])
         self.assertEqual(rc, 0)
-        self.assertIn("no artefact at", out)
+        self.assertIn("no chart at", out)
         self.assertIn("chart-t1c.html", out)
 
     def test_render_phase_accepts_an_archived_phase(self):
@@ -1818,7 +1837,7 @@ class ArtefactPath(unittest.TestCase):
                           "archived", "externalGates", "milestones"])
         self.assertEqual(text, roadbook._canonical_text(after))
         self.assertIn("chart-t1c.html", out)
-        self.assertIn("no artefact at", out)  # nothing rendered yet
+        self.assertIn("no chart at", out)  # nothing rendered yet
         self.assertIn('render --phase "Tranche 1C: Post-DSG"', out)
 
     def test_config_notes_a_dashboard_left_at_the_old_path(self):
@@ -1848,7 +1867,7 @@ class ArtefactPath(unittest.TestCase):
                              str(jp)])
         self.assertEqual(rc, 0, out)
         self.assertNotIn("old path", out)
-        self.assertNotIn("no artefact at", out)
+        self.assertNotIn("no chart at", out)
 
     def test_config_clear_removes_key_with_path_in_either_position(self):
         root, jp = self._project(self._data(artefact="docs/artefacts/chart-t1c.html"))
@@ -2060,8 +2079,8 @@ class StackedClaim(unittest.TestCase):
         before = jp.read_text()
         rc, out = self._run("claim", "b", str(jp))
         self.assertEqual(rc, 1)
-        self.assertIn("not claimed: c", out)
-        self.assertNotIn("not claimed: a", out)
+        self.assertIn("not on a trail: c", out)
+        self.assertNotIn("not on a trail: a", out)
         self.assertEqual(jp.read_text(), before)
 
     def test_a_milestone_blocker_needs_each_unfinished_member_claimed(self):
@@ -2071,7 +2090,7 @@ class StackedClaim(unittest.TestCase):
             {"id": "M2", "name": "two", "tasks": [task("b", "blocked", ["M1"])]}])
         rc, out = self._run("claim", "b", str(jp))
         self.assertEqual(rc, 1)
-        self.assertIn("not claimed: m3", out)
+        self.assertIn("not on a trail: m3", out)
         self.assertNotIn("m2", out)
         members[2]["started"] = "2026-10-01"
         jp = self._project([
