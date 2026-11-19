@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { DEFAULT_GRIEVANCES, ago, expandHome, localDate, slug } from './register'
+import { DEFAULT_GRIEVANCES, ago, entryKey, expandHome, localDate, slug } from './register'
 
 const PLUGIN = 'goblin-seneschal'
 const NOON = new Date(2026, 9, 7, 12, 0).getTime()
@@ -244,7 +244,7 @@ test('an id the grievances file already holds is never carried twice, even when 
 test('a changed grievances_file never takes the old snapshot again, yet an entry logged to the old file since arrives there', { options: { grievances_file: '~/notes/grievances.json' } }, async ($, on) => {
 	const moved = '/home/j/notes/grievances.json'
 	// the earlier path got the old file at the first carry-over, which recorded every entry it carried; the option has since moved
-	const store = world(on, { carriedInto: GRIEVANCES, carriedKeys: OLD_ENTRIES.map(e => `id:${e.id}`) })
+	const store = world(on, { carriedInto: GRIEVANCES, carriedKeys: OLD_ENTRIES.map(entryKey) })
 	const files = disk(on, { [OLD_FILE]: listed([...OLD_ENTRIES, LATE]), [GRIEVANCES]: OLD_TEXT })
 	const toasts = toastsOf(on)
 	await $.session.start(START)
@@ -261,7 +261,7 @@ test('a changed grievances_file never takes the old snapshot again, yet an entry
 })
 
 test('a changed grievances_file with nothing new in the old file starts empty', { options: { grievances_file: '~/notes/grievances.json' } }, async ($, on) => {
-	world(on, { carriedInto: GRIEVANCES, carriedKeys: OLD_ENTRIES.map(e => `id:${e.id}`) })
+	world(on, { carriedInto: GRIEVANCES, carriedKeys: OLD_ENTRIES.map(entryKey) })
 	const files = disk(on, { [OLD_FILE]: OLD_TEXT, [GRIEVANCES]: OLD_TEXT })
 	await $.session.start(START)
 	expect(files.writes).toEqual([])

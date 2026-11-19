@@ -108,8 +108,13 @@ const readOldGrievances = async ($: EngineInterface, path: string): Promise<{ en
 	return { entries: parsed, text }
 }
 
-/** What identifies an entry for the merge: its `id`, or its whole text when it has none. */
-const entryKey = (entry: unknown): string => (isRecord(entry) && typeof entry.id === 'string' ? `id:${entry.id}` : `json:${JSON.stringify(entry)}`)
+/**
+ * What identifies an entry for the merge: its `id` with its description, or
+ * its whole text when it has no id. The id alone is not enough: both plugins
+ * slug the first 48 characters, so two grievances can share one.
+ */
+export const entryKey = (entry: unknown): string =>
+	isRecord(entry) && typeof entry.id === 'string' ? `id:${entry.id}\u0000${JSON.stringify(entry.description ?? null)}` : `json:${JSON.stringify(entry)}`
 
 /**
  * The move from the file this plugin kept before 1.0.0, safe to repeat at
@@ -117,8 +122,9 @@ const entryKey = (entry: unknown): string => (isRecord(entry) && typeof entry.id
  *
  * When the grievances file is missing, the old file's text is written to it
  * byte for byte, and the store records that path. When both files parse, the
- * old entries whose `id` the grievances file lacks are appended after its own,
- * which keep their place and fields: a session still on the old plugin can go
+ * old entries the grievances file lacks (matched by `entryKey`) are appended
+ * after its own, which keep their place and fields, a clashing id taking the
+ * next free suffix: a session still on the old plugin can go
  * on logging to the old file, and its entries arrive at the next start. The
  * store keeps every entry already carried, so one a person deletes from the
  * grievances file is never carried back. A changed `grievances_file` takes
@@ -176,12 +182,23 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 	const stored = await $.store.get(CARRIED_KEYS)
 	const carried = new Set(Array.isArray(stored) ? stored.filter((k): k is string => typeof k === 'string') : [])
 	const held = new Set([...current.entries.map(entryKey), ...carried])
-	const missing = old.entries.filter((_, i) => {
+	// An old entry whose id another grievance already uses arrives under the
+	// next free suffix, as /log-grievance would have named it.
+	const ids = new Set(current.entries.map(e => e.id).filter((id): id is string => typeof id === 'string'))
+	const missing: unknown[] = []
+	for (const [i, entry] of old.entries.entries()) {
 		const key = oldKeys[i] as string
-		if (held.has(key)) return false
+		if (held.has(key)) continue
 		held.add(key)
-		return true
-	})
+		if (!isRecord(entry) || typeof entry.id !== 'string') {
+			missing.push(entry)
+			continue
+		}
+		let id = entry.id
+		for (let n = 2; ids.has(id); n++) id = `${entry.id}-${n}`
+		ids.add(id)
+		missing.push(id === entry.id ? entry : { ...entry, id })
+	}
 	const record = async (): Promise<void> => {
 		if (oldKeys.some(key => !carried.has(key))) await $.store.set(CARRIED_KEYS, [...new Set([...carried, ...oldKeys])])
 	}
@@ -230,12 +247,15 @@ const logGrievance = async ($: EngineInterface, description: string): Promise<st
 	} catch {
 		// A write that stopped partway leaves a file nobody wrote by hand; the
 		// way back is to delete it, when the old file is there to carry again.
+		// After the option moved, the old file's entries went to the earlier path
+		// and deleting this one carries nothing back, so promise nothing then.
 		const { oldFile } = await grievancePaths($)
+		const carriedInto = await $.store.get(CARRIED_INTO)
 		const oldReads = await readOldGrievances($, oldFile).then(
 			old => old !== null,
 			() => false,
 		)
-		if (oldReads)
+		if (oldReads && (typeof carriedInto !== 'string' || carriedInto === path))
 			return `${fileName(path)} will not parse; nothing written. fix it, or delete it and log again to carry ${fileName(oldFile)} over afresh (anything logged since the first carry-over goes with it).`
 		return `${fileName(path)} will not parse; nothing written. fix the file first.`
 	}
@@ -355,7 +375,7 @@ export const register: Register = (on, options) => {
 		// The old file's entries become grievances before anything reads them.
 		try {
 			const carried = await carryOverOldGrievances($)
-			if (carried.kind === 'moved') $.ui.toast(`${counted(carried.count, 'grievance')} carried over from cc-pain-points.json, which you may now delete.`)
+			if (carried.kind === 'moved') $.ui.toast(`${counted(carried.count, 'grievance')} carried over from cc-pain-points.json; delete it once no session still runs goblin-util.`)
 			if (carried.kind === 'unreadable') $.ui.toast('cc-pain-points.json will not parse; fix it and its grievances carry over at the next session.')
 		} catch {
 			// the move is retried at the next session or the next grievance
