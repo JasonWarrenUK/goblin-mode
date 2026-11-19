@@ -706,10 +706,10 @@ test('/extend-dibs runs a grant to the holder and tells only the holder; /pay-tr
 	expect(extend).toContain('crew-1')
 	expect(extend).toContain('20')
 	expect(extend).not.toContain('--force')
-	expect(sent.some(m => m.text.startsWith('Slot extended by the user: local-db'))).toBe(true)
+	expect(sent.some(m => m.text.startsWith('Dibs extended by the user: local-db'))).toBe(true)
 	const done = await $.command.run({ ...RUN, command: 'pay-tribute', args: '1 p95 410ms' })
 	expect(done.text).toContain('result sent to 10SE.2')
-	expect(sent.some(m => m.text.includes('Result of need #1') && m.text.includes('p95 410ms'))).toBe(true)
+	expect(sent.some(m => m.text.includes('Result of tribute #1') && m.text.includes('p95 410ms'))).toBe(true)
 })
 
 test('/reclaim-post takes the warband’s words and hands the CLI its stored roles', async ($, on) => {
