@@ -121,9 +121,9 @@ const entryKey = (entry: unknown): string => (isRecord(entry) && typeof entry.id
  * which keep their place and fields: a session still on the old plugin can go
  * on logging to the old file, and its entries arrive at the next start. The
  * store keeps every entry already carried, so one a person deletes from the
- * grievances file is never carried back. Once the store names a path, only
- * that path is merged into, so a changed `grievances_file` starts empty
- * rather than taking the old snapshot again.
+ * grievances file is never carried back. A changed `grievances_file` takes
+ * only the entries never carried, so it starts without the old snapshot and
+ * still gets anything logged to the old file since.
  *
  * The old file is left where it is (a mod can write but not delete). An old
  * file that will not parse is reported, never moved, so the caller can hold
@@ -141,7 +141,9 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 	}
 	if (paths.grievances === paths.oldFile) return { kind: 'nothing' }
 	const carriedInto = await $.store.get(CARRIED_INTO)
-	if (typeof carriedInto === 'string' && carriedInto !== paths.grievances) return { kind: 'nothing' }
+	// The option points somewhere new since the first carry-over: that path
+	// takes only what was never carried, never the snapshot again.
+	const movedOn = typeof carriedInto === 'string' && carriedInto !== paths.grievances
 	let old: Awaited<ReturnType<typeof readOldGrievances>>
 	try {
 		old = await readOldGrievances($, paths.oldFile)
@@ -158,7 +160,7 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 		return { kind: 'nothing' }
 	}
 	const oldKeys = old.entries.map(entryKey)
-	if (current.text === null) {
+	if (current.text === null && !movedOn) {
 		// $.fs has no exclusive create, so look again straight before writing: a
 		// session that carried over and logged in the meantime keeps its entry.
 		if (await $.fs.exists(paths.grievances)) return { kind: 'nothing' }
@@ -169,7 +171,8 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 	}
 	if (typeof carriedInto !== 'string') await $.store.set(CARRIED_INTO, paths.grievances)
 	// A key carried once and since gone from the grievances file was deleted
-	// there by a person; it is never carried back.
+	// there by a person, or went to the path the option named before; it is
+	// never carried again.
 	const stored = await $.store.get(CARRIED_KEYS)
 	const carried = new Set(Array.isArray(stored) ? stored.filter((k): k is string => typeof k === 'string') : [])
 	const held = new Set([...current.entries.map(entryKey), ...carried])
@@ -187,7 +190,7 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 		return { kind: 'nothing' }
 	}
 	// Another session may have written since the read: give up and merge at the next start.
-	if ((await $.fs.read(paths.grievances)) !== current.text) return { kind: 'nothing' }
+	if (current.text === null ? await $.fs.exists(paths.grievances) : (await $.fs.read(paths.grievances)) !== current.text) return { kind: 'nothing' }
 	await $.fs.write(paths.grievances, JSON.stringify([...current.entries, ...missing], null, '\t') + '\n')
 	await record()
 	return { kind: 'moved', count: missing.length }
