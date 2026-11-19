@@ -5,6 +5,17 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-19
+
+### Changed
+
+- Renamed from goblin-util. `/pain` is `/log-grievance` and `/fleet` is `/muster-underlings`; grievances are kept in `grievances.json`, carried over unchanged from `cc-pain-points.json` the first time the plugin runs.
+
+### Added
+
+- Six skills: `overhear-grievance`, `proclaim-releases`, `proclaim-changes`, `inspect-chambers`, `audit-prose` and `consult-dossiers`, invoked as `/goblin-seneschal:<name>`.
+- Eight options for the locations the mod and those skills read, each defaulting to the layout this config uses; a skill whose files are missing says what is missing and stops.
+
 ## [0.1.0] - 2026-10-05
 
 ### Added

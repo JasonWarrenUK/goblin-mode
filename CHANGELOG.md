@@ -5,6 +5,17 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [10.0.0] - 2026-11-19
+
+### Breaking
+
+- `goblin-util` plugin is now `goblin-seneschal` 1.0.0, and its commands are now `/log-grievance` (was `/pain`) and `/muster-underlings` (was `/fleet`).
+- Six skills leave `skills/` and move into `goblin-seneschal`: `track-cc_pain`, `hud-cc_releases`, `hud-whats_new`, `hud-worktrees`, `hud-prose_health` and `hud-profiles` are now `/goblin-seneschal:overhear-grievance`, `proclaim-releases`, `proclaim-changes`, `inspect-chambers`, `audit-prose` and `consult-dossiers`.
+
+### Changed
+
+- The pain-points log becomes the grievances log, `library/state/grievances.json`, carried over unchanged on the plugin's first run.
+
 ## [9.0.0] - 2026-11-19
 
 ### Breaking
