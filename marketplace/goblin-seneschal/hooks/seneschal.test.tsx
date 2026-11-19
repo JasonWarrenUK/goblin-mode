@@ -251,6 +251,19 @@ test('the merge keeps what it does not understand in the grievances file', async
 	expect(JSON.parse(files.text() ?? '')).toEqual([MINE, 'a stray note', 3, null, LATE])
 })
 
+test('an empty old file still ends the first start: a clash logged to it later arrives under a suffix', async ($, on) => {
+	world(on)
+	const mine = { ...MINE, id: 'the-status-line-ate-my-prompt', description: 'the status line ate my prompt when I resized the window' }
+	const theirs = { ...LATE, id: 'the-status-line-ate-my-prompt', description: 'the status line ate my prompt when I resized the pane' }
+	const files = disk(on, { [OLD_FILE]: '[]\n', [GRIEVANCES]: listed([mine]) })
+	await $.session.start(START)
+	expect(files.writes).toEqual([])
+	// a session still on the old plugin logs a grievance whose id this file already uses
+	files.files.set(OLD_FILE, listed([theirs]))
+	await $.session.start(START)
+	expect(JSON.parse(files.text() ?? '')).toEqual([mine, { ...theirs, id: 'the-status-line-ate-my-prompt-2' }])
+})
+
 test('after grievances_file has moved, an unreadable grievances file is never promised a fresh carry-over', { options: { grievances_file: '~/notes/grievances.json' } }, async ($, on) => {
 	world(on, { carriedInto: GRIEVANCES, carriedKeys: [] })
 	const files = disk(on, { [OLD_FILE]: OLD_TEXT, '/home/j/notes/grievances.json': '[{"id": "half' })
