@@ -96,6 +96,8 @@ const readGrievances = async ($: EngineInterface, path: string): Promise<{ entri
 
 /** The store key naming the grievances file the old file was first carried into. */
 const CARRIED_INTO = 'carriedInto'
+/** The store key listing every old entry already carried, so one deleted from the grievances file stays deleted. */
+const CARRIED_KEYS = 'carriedKeys'
 
 /** The old file's entries, or null when it is missing; throws on a file that will not parse. */
 const readOldGrievances = async ($: EngineInterface, path: string): Promise<{ entries: unknown[]; text: string } | null> => {
@@ -117,9 +119,11 @@ const entryKey = (entry: unknown): string => (isRecord(entry) && typeof entry.id
  * byte for byte, and the store records that path. When both files parse, the
  * old entries whose `id` the grievances file lacks are appended after its own,
  * which keep their place and fields: a session still on the old plugin can go
- * on logging to the old file, and its entries arrive at the next start. Once
- * the store names a path, only that path is merged into, so a changed
- * `grievances_file` starts empty rather than taking the old snapshot again.
+ * on logging to the old file, and its entries arrive at the next start. The
+ * store keeps every entry already carried, so one a person deletes from the
+ * grievances file is never carried back. Once the store names a path, only
+ * that path is merged into, so a changed `grievances_file` starts empty
+ * rather than taking the old snapshot again.
  *
  * The old file is left where it is (a mod can write but not delete). An old
  * file that will not parse is reported, never moved, so the caller can hold
@@ -153,26 +157,39 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 		// the grievances file is the person's to fix; /log-grievance says how
 		return { kind: 'nothing' }
 	}
+	const oldKeys = old.entries.map(entryKey)
 	if (current.text === null) {
 		// $.fs has no exclusive create, so look again straight before writing: a
 		// session that carried over and logged in the meantime keeps its entry.
 		if (await $.fs.exists(paths.grievances)) return { kind: 'nothing' }
 		await $.fs.write(paths.grievances, old.text)
 		await $.store.set(CARRIED_INTO, paths.grievances)
+		await $.store.set(CARRIED_KEYS, [...new Set(oldKeys)])
 		return { kind: 'moved', count: old.entries.length }
 	}
 	if (typeof carriedInto !== 'string') await $.store.set(CARRIED_INTO, paths.grievances)
-	const held = new Set(current.entries.map(entryKey))
-	const missing = old.entries.filter(entry => {
-		const key = entryKey(entry)
+	// A key carried once and since gone from the grievances file was deleted
+	// there by a person; it is never carried back.
+	const stored = await $.store.get(CARRIED_KEYS)
+	const carried = new Set(Array.isArray(stored) ? stored.filter((k): k is string => typeof k === 'string') : [])
+	const held = new Set([...current.entries.map(entryKey), ...carried])
+	const missing = old.entries.filter((entry, i) => {
+		const key = oldKeys[i] as string
 		if (held.has(key)) return false
 		held.add(key)
 		return true
 	})
-	if (missing.length === 0) return { kind: 'nothing' }
+	const record = async (): Promise<void> => {
+		if (oldKeys.some(key => !carried.has(key))) await $.store.set(CARRIED_KEYS, [...new Set([...carried, ...oldKeys])])
+	}
+	if (missing.length === 0) {
+		await record()
+		return { kind: 'nothing' }
+	}
 	// Another session may have written since the read: give up and merge at the next start.
 	if ((await $.fs.read(paths.grievances)) !== current.text) return { kind: 'nothing' }
 	await $.fs.write(paths.grievances, JSON.stringify([...current.entries, ...missing], null, '\t') + '\n')
+	await record()
 	return { kind: 'moved', count: missing.length }
 }
 
