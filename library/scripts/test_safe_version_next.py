@@ -376,6 +376,26 @@ class SafeVersionNext(unittest.TestCase):
 		self.assertEqual(result.stdout, "")
 		self.assertIn('"1.0"', result.stderr)
 
+	def test_a_declared_0_0_0_reads_as_nothing_declared_and_starts_at_0_1_0(self) -> None:
+		# 0.0.0 is the usual placeholder for a package with no release yet; read as declared it equals the untagged placeholder and never tags
+		for message in ("feat(pkg): init", "feat(pkg)!: break it"):
+			with self.subTest(message=message):
+				self.tearDown()
+				self.setUp()
+				_commit(self.repo, "pkg/f", message)
+				manifest = self.repo / "pkg" / ".claude-plugin" / "plugin.json"
+				manifest.parent.mkdir(parents=True)
+				manifest.write_text('{\n\t"name": "pkg",\n\t"version": "0.0.0"\n}\n')
+				result = _run(self.repo, "--plugin", "pkg", "--dir", "pkg")
+				self.assertEqual(result.returncode, 0, result.stderr)
+				self.assertEqual(result.stdout.strip(), "pkg-v0.1.0")
+
+	def test_a_rename_with_no_old_tags_declaring_0_0_0_starts_at_0_1_0(self) -> None:
+		self._renamed("", {"old": "new"}, declared="0.0.0")
+		result = _run(self.repo, "--plugin", "new", "--dir", "new")
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(result.stdout.strip(), "new-v0.1.0")
+
 	def test_a_declared_pre_release_still_reads_as_nothing_declared(self) -> None:
 		# a semver pre-release is a valid version, so it is not refused; it never crosses the guard either
 		self._renamed("old-v0.2.0", {"old": "new"}, declared="1.0.0-rc.1")
