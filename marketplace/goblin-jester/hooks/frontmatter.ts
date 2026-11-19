@@ -56,7 +56,7 @@ export const metadataKey = (block: string, key: string): string | null => {
 	return null
 }
 
-/** Longest a spinner word may be, in code points: the longest in use is 23. */
+/** Longest a spinner word may be, in code points: the longest in use is 26. */
 export const SPINNER_WORD_MAX = 40
 
 /**
