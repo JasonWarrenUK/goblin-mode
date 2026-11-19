@@ -129,13 +129,17 @@ current=$(series_current "$prefix" "${current_args[@]}") || exit 2
 # as a fresh series' tag it is one the tag-shape check refuses at the next
 # release, and in a series already tagged it is a manifest pr-land would
 # write over unasked. Anything else (none, a pre-release) reads as nothing
-# declared.
+# declared, and so does 0.0.0, the usual placeholder for nothing released
+# yet: read as declared it would equal the untagged series' 0.0.0 and the
+# plugin would never be tagged.
 declared=""
 if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
 	declared=$(python3 -I -c '
 import json, re, sys
 version = json.load(open(sys.argv[1])).get("version")
-if isinstance(version, str) and re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+if version == "0.0.0":
+	pass
+elif isinstance(version, str) and re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
 	print(version)
 elif isinstance(version, str) and re.fullmatch(r"\s*[0-9.]+\s*", version):
 	print("malformed:" + version)
