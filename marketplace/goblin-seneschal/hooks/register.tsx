@@ -221,7 +221,8 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 		missing.push(id === entry.id ? entry : { ...entry, id })
 	}
 	const record = async (): Promise<void> => {
-		if (oldKeys.some(key => !carried.has(key))) await $.store.set(CARRIED_KEYS, [...new Set([...carried, ...oldKeys])])
+		// a first start writes its record even with nothing in it, so an empty old file ends the first start too
+		if (firstRun || oldKeys.some(key => !carried.has(key))) await $.store.set(CARRIED_KEYS, [...new Set([...carried, ...oldKeys])])
 	}
 	if (missing.length === 0) {
 		await record()
