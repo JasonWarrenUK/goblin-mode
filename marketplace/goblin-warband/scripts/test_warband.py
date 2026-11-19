@@ -3939,6 +3939,35 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertEqual(len(list((self.new / "runs").iterdir())), 2)
         self.assertFalse((self.new / "mission-control").exists(), "nothing was moved inside the new root")
 
+    def test_a_live_raid_that_turns_up_in_the_old_ledger_after_the_move_is_never_carried_on(self):
+        """Review 5976730930: once the new root exists it is the ledger, whatever appears in the old one later (a session still
+        on the cached mission-control 0.13.1 starting a raid, or a start racing the move). The stray raid is named in one line
+        and never read, and the raids under the new root keep their dibs gate."""
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", session="crew-1", cwd=self.box.worktree)
+        reset = {"tool_name": "Bash", "tool_input": {"command": "cd apps/api && poetry run poe db-reset-local-anyway"}}
+        self.assertEqual(json.loads(self.box.hook("pre-tool-use", reset))["hookSpecificOutput"]["permissionDecision"], "deny")
+        stray = self.old / "-elsewhere-app"
+        stray.mkdir(parents=True)
+        (stray / "run.json").write_text(json.dumps({"name": "stray", "repo_root": str(self.box.tmp), "started_at": 1}))
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertEqual((status.get("run") or {}).get("name"), "search", "the new root's raid is still the one read")
+        self.assertNotIn("carrying", status)
+        self.assertIn(str(self.old), status.get("old_ledger_note", ""))
+        self.assertIn("stray", status["old_ledger_note"])
+        verdict = json.loads(self.box.hook("pre-tool-use", reset))["hookSpecificOutput"]
+        self.assertEqual(verdict["permissionDecision"], "deny", "the dibs gate still rules from the new root")
+        self.assertTrue((stray / "run.json").is_file(), "nothing in the old root is moved or touched")
+        self.assertIn(status["old_ledger_note"], self.box.mc("status").stdout, "read-slate says it in one line")
+
+    def test_an_old_ledger_beside_the_new_one_is_named_even_with_no_live_raid(self):
+        self.old_world(live=False)
+        self.new.mkdir(parents=True)
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertIn(str(self.old), status.get("old_ledger_note", ""))
+        self.assertTrue((self.old / "runs").is_dir())
+
     def test_a_sandbox_never_reads_the_default_old_ledger(self):
         """With GOBLIN_WARBAND_HOME set and no MISSION_CONTROL_HOME, nothing derived from HOME or CLAUDE_CONFIG_DIR is moved."""
         default_old = self.box.tmp / "home" / ".claude" / "mission-control"

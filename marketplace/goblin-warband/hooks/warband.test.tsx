@@ -174,6 +174,8 @@ test('helpers: movedNotice finds the move notice a status carries, and nothing i
 	expect(movedNotice('not json')).toBeNull()
 	expect(movedNotice(JSON.stringify({ ...STATUS, carrying: 'goblin-warband: carrying on 1 live raid' }), 'carrying')).toBe('goblin-warband: carrying on 1 live raid')
 	expect(movedNotice(JSON.stringify({ ...STATUS, carrying: 'x' }))).toBeNull()
+	expect(movedNotice(JSON.stringify({ ...STATUS, old_ledger_note: 'goblin-warband: the old mission-control ledger at a is still there' }), 'old_ledger_note')).toBe('goblin-warband: the old mission-control ledger at a is still there')
+	expect(movedNotice(JSON.stringify({ ...STATUS, old_ledger_note: 'x' }), 'carrying')).toBeNull()
 })
 
 test('helpers: the wordmark is as wide as its spaced word, rules included', () => {

@@ -2397,6 +2397,10 @@ def cmd_status(args) -> int:
         status["config_note"] = note
         if not args.json:
             print(note)
+    if OLD_LEDGER_NOTE:
+        status["old_ledger_note"] = OLD_LEDGER_NOTE
+        if not args.json:
+            print(OLD_LEDGER_NOTE)
     if args.json:
         print(json.dumps(status))
     else:
@@ -4790,6 +4794,17 @@ def config_note(path: Path) -> str | None:
 
 # Set for the life of this process when a raid is live in the old ledger: the one line that says so.
 CARRYING: str | None = None
+# Set for the life of this process when the old ledger exists beside the new one: the one line that says so.
+OLD_LEDGER_NOTE: str | None = None
+
+
+def old_ledger_note(old_root: Path, new_root: Path) -> str:
+    """The one line for an old ledger found beside the new one. The new root is the ledger once it exists, so nothing in the
+    old one is read or moved; a raid there was started by a session still on mission-control 0.13.1, or raced the move."""
+    live = live_raids_in(old_root)
+    held = f" and holds {len(live)} live raid{'s' if len(live) != 1 else ''} ({', '.join(live)}) this CLI never reads" if live else ""
+    return (f"goblin-warband: the old mission-control ledger at {old_root} is still there beside {new_root}{held}; "
+            f"restart any session still on mission-control, end its raid there, then move or delete that folder by hand.")
 
 
 def carry_on_from(old_root: Path, live: list[str]) -> None:
@@ -4808,16 +4823,21 @@ def migrate_from_mission_control(cwd: str) -> str | None:
 
     Returns the one line of notice when something moved, None when nothing needed to. While the old ledger holds a live raid
     nothing moves: a ledger is never moved mid-raid, and this process carries the raid on from the old ledger instead
-    (carry_on_from). The ledger moves whole (archived raids under runs/ included) and only when the new root does not exist
-    yet; a config moves only when its new name is free. Gate records under <git-common-dir>/mission-control/ are a per-commit
-    cache and stay where they are."""
+    (carry_on_from), but only while the new root does not exist yet. Once it exists it is the ledger, whatever turns up in the
+    old one later, which is named in one line (old_ledger_note) and never read. The ledger moves whole (archived raids under
+    runs/ included) and only when the new root does not exist yet; a config moves only when its new name is free. Gate
+    records under <git-common-dir>/mission-control/ are a per-commit cache and stay where they are."""
+    global OLD_LEDGER_NOTE
     old_root = old_ledger_root()
     new_root = LEDGER_ROOT
     if old_root is not None and old_root.is_dir() and old_root.resolve() != new_root.resolve():
-        live = live_raids_in(old_root)
-        if live:
-            carry_on_from(old_root, live)
-            return None
+        if new_root.exists():
+            OLD_LEDGER_NOTE = old_ledger_note(old_root, new_root)
+        else:
+            live = live_raids_in(old_root)
+            if live:
+                carry_on_from(old_root, live)
+                return None
     roots = []
     for root in (toplevel(cwd), main_checkout(cwd)):
         if root is not None and root not in roots:

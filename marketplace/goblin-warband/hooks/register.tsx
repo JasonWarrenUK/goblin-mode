@@ -309,10 +309,12 @@ export const foldProbed = (prev: Snapshot | null, probed: Snapshot): Snapshot | 
 
 let carryingTold = false
 let configNoteTold = false
+let oldLedgerTold = false
 
 /** A line from the move in a status reply (`notice` once it moved, `carrying` while a raid is carried on from the old ledger,
- * `config_note` while a config git sees is read from its old name), or null. */
-export const movedNotice = (stdout: string, key: 'notice' | 'carrying' | 'config_note' = 'notice'): string | null => {
+ * `config_note` while a config git sees is read from its old name, `old_ledger_note` while the old ledger sits beside the
+ * new one), or null. */
+export const movedNotice = (stdout: string, key: 'notice' | 'carrying' | 'config_note' | 'old_ledger_note' = 'notice'): string | null => {
 	try {
 		const data: unknown = JSON.parse(stdout)
 		const line = isRecord(data) ? data[key] : null
@@ -345,6 +347,12 @@ const refresh = async ($: EngineInterface, withProbes = false): Promise<Snapshot
 			if (configNote && !configNoteTold) {
 				configNoteTold = true
 				$.ui.toast(configNote)
+			}
+			// the old ledger still beside the new one, never read: said once a session too
+			const oldLedger = movedNotice(ran.stdout, 'old_ledger_note')
+			if (oldLedger && !oldLedgerTold) {
+				oldLedgerTold = true
+				$.ui.toast(oldLedger)
 			}
 		}
 	} catch (error) {
