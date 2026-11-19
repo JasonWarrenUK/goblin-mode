@@ -140,15 +140,27 @@ test('the old file is carried over at session start: every entry and every field
 	expect(files.writes).toEqual([GRIEVANCES])
 })
 
-test('a grievances file another session writes between the check and the copy is not overwritten', async ($, on) => {
+test('a grievances file another session writes between the check and the copy is never overwritten: its entries keep their place and the old ones follow', async ($, on) => {
 	world(on)
-	const theirs = '[{"id":"theirs","description":"theirs","logged":"2026-11-19","sourceSession":"","resolvedIn":null,"resolvedNoted":null}]\n'
-	// the old file is read after the first look finds no grievances file; another session writes one in that gap
+	const theirs = { id: 'theirs', description: 'theirs', logged: '2026-11-19', sourceSession: '', resolvedIn: null, resolvedNoted: null }
+	// the old file is read before the grievances file is looked at; another session writes one in that gap
 	const files = disk(on, { [OLD_FILE]: OLD_TEXT }, null, (path, held) => {
-		if (path === OLD_FILE) held.set(GRIEVANCES, theirs)
+		if (path === OLD_FILE && !held.has(GRIEVANCES)) held.set(GRIEVANCES, listed([theirs]))
 	})
 	await $.session.start(START)
-	expect(files.text()).toBe(theirs)
+	expect(JSON.parse(files.text() ?? '')).toEqual([theirs, ...OLD_ENTRIES])
+})
+
+test('a grievances file another session changes between the merge reading it and writing it is left as that session wrote it', async ($, on) => {
+	world(on)
+	const late = listed([MINE, LATE])
+	let reads = 0
+	const files = disk(on, { [OLD_FILE]: OLD_TEXT, [GRIEVANCES]: listed([MINE]) }, null, (path, held) => {
+		// the merge's second read, straight before its write, finds the other session's text
+		if (path === GRIEVANCES && ++reads === 2) held.set(GRIEVANCES, late)
+	})
+	await $.session.start(START)
+	expect(files.text()).toBe(late)
 	expect(files.writes).toEqual([])
 })
 
