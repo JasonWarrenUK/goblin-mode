@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MOD_NAMES, type Facts, type ModFacts, type ModKey } from '../src/lib/mod-names';
+import { MOD_NAMES, type CommandFact, type Facts, type ModFacts, type ModKey, type OptionFact } from '../src/lib/mod-names';
 
 const SITE = fileURLToPath(new URL('..', import.meta.url));
 const REPO = resolve(SITE, '..');
@@ -58,6 +58,48 @@ const skillCount = (pluginDir: string): number => {
 	return readdirSync(skills).filter((entry) => existsSync(join(skills, entry, 'SKILL.md'))).length;
 };
 
+/** A frontmatter field's value from a SKILL.md, unquoted. */
+const frontmatterField = (markdown: string, field: string): string => {
+	const head = /^---\n([\s\S]*?)\n---/.exec(markdown)?.[1] ?? '';
+	const raw = new RegExp(`^${field}:\\s*(.*)$`, 'm').exec(head)?.[1]?.trim() ?? '';
+	return raw.replace(/^(["'])([\s\S]*)\1$/, '$2');
+};
+
+/** Slash commands a mod registers in hooks/register.tsx: `$.command.register({ name, description })`. */
+export const registeredCommands = (source: string): CommandFact[] =>
+	[...source.matchAll(/\$\.command\.register\(\{\s*name:\s*'([^']+)',\s*description:\s*'((?:[^'\\]|\\.)*)'/g)].map(
+		(match) => ({ invocation: `/${match[1]}`, description: (match[2] ?? '').replace(/\\'/g, "'") }),
+	);
+
+/** The mod's commands, then its skills as /<plugin>:<skill>, each described by its own file. */
+const commandsOf = (pluginDir: string, pluginName: string): CommandFact[] => {
+	const register = join(pluginDir, 'hooks/register.tsx');
+	const commands = existsSync(register) ? registeredCommands(readFileSync(register, 'utf8')) : [];
+	const skillsDir = join(pluginDir, 'skills');
+	const skills = existsSync(skillsDir)
+		? readdirSync(skillsDir)
+				.filter((entry) => existsSync(join(skillsDir, entry, 'SKILL.md')))
+				.sort()
+				.map((entry) => ({
+					invocation: `/${pluginName}:${entry}`,
+					description: frontmatterField(readFileSync(join(skillsDir, entry, 'SKILL.md'), 'utf8'), 'description'),
+				}))
+		: [];
+	return [...commands, ...skills];
+};
+
+/** The plugin's userConfig as a table of options. */
+const optionsOf = (manifestPath: string): OptionFact[] => {
+	const manifest = readJson<{ userConfig?: Record<string, Record<string, unknown>> }>(manifestPath);
+	return Object.entries(manifest.userConfig ?? {}).map(([key, option]) => ({
+		key,
+		title: String(option.title ?? key),
+		type: String(option.type ?? ''),
+		default: option.default === undefined ? '' : String(option.default),
+		description: String(option.description ?? ''),
+	}));
+};
+
 /** The "Do not" list in a README: every bullet that opens with a bold "Do not". */
 export const doNotRules = (readme: string): number =>
 	readme.split('\n').filter((line) => /^- \*\*Do not\b/.test(line)).length;
@@ -85,6 +127,8 @@ export const collect = async (): Promise<Facts> => {
 			installCommand: entry ? `claude plugin install ${entry.name}@${marketplace.name}` : null,
 			skills: dir ? skillCount(dir) : 0,
 			typescriptLines: dir ? typescriptLines(dir) : 0,
+			commands: dir && entry ? commandsOf(dir, entry.name) : [],
+			options: manifest && existsSync(manifest) ? optionsOf(manifest) : [],
 		};
 	}
 

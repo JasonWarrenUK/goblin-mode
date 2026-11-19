@@ -12,6 +12,20 @@ export const MOD_NAMES: Record<ModKey, readonly [string, ...string[]]> = {
 	archivist: ['goblin-archivist', 'midden'],
 };
 
+export interface CommandFact {
+	/** As typed: "/scout-waypoints" or "/goblin-scout:start-roadbook". */
+	invocation: string;
+	description: string;
+}
+
+export interface OptionFact {
+	key: string;
+	title: string;
+	type: string;
+	default: string;
+	description: string;
+}
+
 export interface ModFacts {
 	key: ModKey;
 	/** The name in marketplace.json today; null when the mod is not in the marketplace. */
@@ -21,6 +35,10 @@ export interface ModFacts {
 	installCommand: string | null;
 	skills: number;
 	typescriptLines: number;
+	/** Slash commands the mod registers, then its skills, each with the description its own file gives. */
+	commands: CommandFact[];
+	/** The plugin's userConfig, from plugin.json. */
+	options: OptionFact[];
 }
 
 export interface Facts {
