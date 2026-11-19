@@ -1009,6 +1009,16 @@ def is_within(path: Path, folder: Path) -> bool:
 	return False
 
 
+# Git's whole sentence for 'no repository here' at the very end of stderr, in
+# both its forms (the second is the answer at a mount point). A warning may
+# come first and may quote a path, so no single line is trusted on its own.
+NO_REPOSITORY = re.compile(
+	r'^fatal: not a git repository \((?:or any of the parent directories\): \.git'
+	r'|or any parent up to mount point .*\)\nStopping at filesystem boundary \(GIT_DISCOVERY_ACROSS_FILESYSTEM not set\)\.)\n?\Z',
+	re.MULTILINE,
+)
+
+
 def git_environment() -> dict[str, str]:
 	"""The environment the repository guard runs git in.
 
@@ -1037,8 +1047,7 @@ def committable(path: Path) -> str | None:
 		environment = git_environment()
 		top = subprocess.run(['git', '-C', str(anchor), 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=False, env=environment)
 		if top.returncode != 0:
-			# Each line, since git may print a warning before its answer.
-			if any(line.startswith('fatal: not a git repository') for line in top.stderr.splitlines()):
+			if NO_REPOSITORY.search(top.stderr):
 				return None
 			raise SniffError(f'git could not say whether {path} is in a repository ({top.stderr.strip()}); the survey writes nothing it cannot keep out of one')
 		for name in OUTPUT_NAMES:

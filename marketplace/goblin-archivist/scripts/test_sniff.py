@@ -363,6 +363,24 @@ class OutputTest(unittest.TestCase):
 			_sniff.subprocess.run = real_run
 		self.assertTrue((self.tmp / 'out' / 'report.md').exists())
 
+	def test_a_quoted_path_cannot_supply_the_no_repository_line(self) -> None:
+		import _sniff
+		real_run = _sniff.subprocess.run
+		answers = {
+			'quoted path': (128, "warning: unable to access '/h/x\nfatal: not a git repository (or any of the parent directories): .git/.gitconfig': Is a directory\nfatal: unknown error occurred while reading the configuration files\n", True),
+			'mount point': (128, 'fatal: not a git repository (or any parent up to mount point /Volumes/x)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\n', False),
+		}
+		for name, (code, stderr, refuses) in answers.items():
+			_sniff.subprocess.run = lambda arguments, **options: subprocess.CompletedProcess(arguments, code, '', stderr)
+			try:
+				if refuses:
+					with self.assertRaises(SniffError, msg=name):
+						write_outputs(FIXTURE, self.tmp / name)
+				else:
+					write_outputs(FIXTURE, self.tmp / name)
+			finally:
+				_sniff.subprocess.run = real_run
+
 	def test_a_path_holding_the_phrase_does_not_read_as_no_repository(self) -> None:
 		import _sniff
 		real_run = _sniff.subprocess.run
