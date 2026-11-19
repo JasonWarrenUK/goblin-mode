@@ -2654,8 +2654,11 @@ def _rebind_outputs(path, data, root, claimed=frozenset()):
             continue
         # an unmoved file's phase with no `artefact` renders to the 2.x default too
         legacy_chart = _legacy_render_rel(phase)
-        if ARTEFACT_KEY not in phase and os.path.normpath(legacy_chart) in claimed:
-            pass  # another phase's own chart: neither moved nor named stale
+        if os.path.normpath(legacy_chart) in claimed:
+            # another phase's own chart, whether this phase has no `artefact`
+            # or the first write pinned it to that same 2.x default: neither
+            # moved nor named stale
+            pass
         elif phase.get(ARTEFACT_KEY, legacy_chart if path.name in LEGACY_NAMES else None) == legacy_chart:
             moves.append((root / legacy_chart, _default_render_path(path, phase)))
             if ARTEFACT_KEY in phase:
@@ -2712,10 +2715,14 @@ def cmd_rebind(args) -> int:
     stale = []  # (left, current): a 2.x chart beside the one that replaced it
     rekeyed = []  # (old, new): a path the roadbook changes, file on disk or not
     if args.outputs:
-        # read before _rebind_outputs pops any `artefact` it moves
+        # read before _rebind_outputs pops any `artefact` it moves. Only a
+        # path a project chose counts: a phase pinned to its own 2.x default
+        # claims nothing another phase could lose
         claimed = {os.path.normpath(ph[ARTEFACT_KEY]) for _each, data in files
                    for ph in _phases(data)
-                   if isinstance(ph, dict) and isinstance(ph.get(ARTEFACT_KEY), str)}
+                   if isinstance(ph, dict) and isinstance(ph.get(ARTEFACT_KEY), str)
+                   and os.path.normpath(ph[ARTEFACT_KEY])
+                   != os.path.normpath(_legacy_render_rel(ph))}
         for each, data in files:
             found, left, keys = _rebind_outputs(each, data, root, claimed)
             moves.extend(found)
