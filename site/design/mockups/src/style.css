@@ -1,0 +1,262 @@
+/*
+	Tutorial directions: four layouts for one lesson (Some Assembly Required,
+	level 2), shown one at a time from the sticky switcher. Materials copied
+	from the mod-page and front-page wireframes: wonky sheets, torn slips with
+	tape, cardboard tabs, exhibit panels for code. Every colour, face and shape
+	is a token emitted from .claude/themes/goblin-html.json; tints are
+	color-mix() of those tokens. No marker face outside the zine drawing.
+*/
+[hidden]{display:none !important}
+*,*::before,*::after{box-sizing:border-box}
+body{
+	margin:0;
+	background-color:var(--desk);
+	background-image:radial-gradient(ellipse 22rem 14rem at 8% 12rem, var(--blot), transparent 70%);
+	color:var(--ink); font-family:var(--font-body); font-size:1.03rem; line-height:1.6;
+	padding-left:max(16px, env(safe-area-inset-left, 0px));
+	padding-right:max(16px, env(safe-area-inset-right, 0px));
+	padding-bottom:4rem;
+}
+h1,h2,h3,h4{font-family:var(--font-display); font-weight:700; text-wrap:balance; margin:0; line-height:1.08}
+p{margin:0}
+a{color:var(--accent); text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
+code{font-family:var(--font-mono); font-size:.86em; overflow-wrap:anywhere}
+.vh{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+
+/* switcher: a cardboard strip that stays at the top */
+.switcher{position:sticky; top:0; z-index:30; max-width:76rem; margin:0 auto;
+	display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.4rem 1rem;
+	background:var(--card); color:var(--card-ink); padding:.55rem .8rem;
+	border-radius:0 0 var(--radius-md) var(--radius-md); box-shadow:var(--shadow)}
+.switcher h1{font-size:1.2rem}
+.switch-buttons{display:flex; flex-wrap:wrap; gap:.4rem}
+.switch-buttons button{appearance:none; cursor:pointer; background:transparent; color:var(--card-ink);
+	border:2px solid var(--card-ink); border-radius:var(--radius-sm);
+	font-family:var(--font-print); font-weight:600; font-size:.85rem; line-height:1.2; padding:.35rem .65rem}
+.switch-buttons button[aria-pressed="true"]{background:var(--card-ink); color:var(--card)}
+.switch-buttons button:focus-visible{outline:3px solid var(--card-ink); outline-offset:2px}
+
+.desk{max-width:76rem; margin:0 auto; display:grid}
+.mockup{display:grid; gap:2rem; padding-top:1.5rem; scroll-margin-top:4rem; min-width:0}
+.mockup > *{min-width:0}
+.caption{justify-self:start; max-width:100%; background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); font-size:.92rem;
+	padding:.45rem .8rem; box-shadow:var(--shadow); transform:rotate(-.4deg)}
+.caption b{color:var(--slip-accent)}
+
+/* materials */
+.sheet{position:relative; min-width:0; background:var(--surface); color:var(--ink); border:2px solid var(--ink);
+	border-radius:var(--wonk); box-shadow:var(--shadow); padding:1.5rem clamp(1rem,3vw,2.25rem)}
+.sheet.alt{border-radius:var(--wonk-2)}
+.sheet > * + *{margin-top:.9rem}
+.sheet code{background:var(--surface-raised); padding:0 .25em; border-radius:var(--radius-sm)}
+.kicker{font-family:var(--font-print); font-weight:600; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted)}
+.lvl-head h2,.spec-head h2{font-size:clamp(2rem,5.2vw,3.5rem); margin-top:.35rem}
+.lede{font-size:1.1rem; max-width:46rem}
+.sec{font-size:clamp(1.6rem,3.4vw,2.3rem)}
+.snum{font-family:var(--font-print); font-weight:600; font-size:.6em; vertical-align:.25em; color:var(--card-ink);
+	background:var(--card); padding:.05em .4em; border-radius:var(--radius-sm); margin-right:.2em}
+.tag{font-family:var(--font-mono); font-size:.82em; white-space:nowrap; background:var(--exhibit); color:var(--slime); padding:0 .35em; border-radius:var(--radius-sm)}
+
+.slip{position:relative; background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); box-shadow:var(--shadow)}
+.slip code{background:none; color:var(--slip-accent); padding:0}
+.slip :focus-visible{outline-color:var(--slip-accent)}
+.slip.torn{background:none; box-shadow:none; isolation:isolate; filter:drop-shadow(var(--shadow)); --rag:var(--rag-a)}
+.slip.torn::after{content:""; position:absolute; inset:0; z-index:-1; background:var(--slip); clip-path:var(--rag)}
+.slip.torn::before{content:""; position:absolute; z-index:1; top:-.6rem; left:50%; width:4.2rem; height:1.15rem; margin-left:-2.1rem;
+	background:var(--tape); transform:rotate(-2.5deg);
+	clip-path:polygon(0 12%,6% 0,12% 14%,100% 0,97% 40%,100% 70%,95% 100%,10% 92%,4% 100%,0 60%)}
+
+/* code on an exhibit panel: one block span per line, so lines wrap under a gutter */
+.file{min-width:0}
+.sheet .file + .file,.after-step .file + .file{margin-top:1rem}
+.fname{display:inline-block; max-width:100%; overflow-wrap:anywhere; background:var(--card); color:var(--card-ink);
+	font-family:var(--font-mono); font-size:.74rem; padding:.2rem .6rem; border-radius:var(--radius-md) var(--radius-md) 0 0}
+.code{margin:0; background:var(--exhibit); color:var(--exhibit-ink); font-family:var(--font-mono); font-size:.8rem; line-height:1.6;
+	padding:.7rem 0; border-radius:0 var(--radius-md) var(--radius-md) var(--radius-md); tab-size:2; min-width:0}
+.code code{display:block; background:none; padding:0; font-size:inherit; color:inherit}
+.code .ln{display:block; position:relative; min-height:1.6em; white-space:pre-wrap; overflow-wrap:anywhere; padding:0 .9rem 0 2.4rem}
+.code .ln.cut{color:color-mix(in oklab, var(--exhibit-ink) 55%, var(--exhibit))}
+.code .ln.add{background:color-mix(in oklab, var(--slime) 17%, var(--exhibit))}
+.code .ln.add::before{content:"+"; position:absolute; left:.9rem; color:var(--slime); font-weight:600}
+.code.tagged .ln{padding-left:4.3rem}
+.code.tagged .ln.add::before{content:"+ " attr(data-step); left:.6rem; font-size:.85em}
+.code.marked .ln.mk{background:color-mix(in oklab, var(--card) 22%, var(--exhibit))}
+.code.marked .ln.mk::before{content:attr(data-mark); position:absolute; left:.6rem; color:var(--card); font-size:1.05em}
+.file.small .code{font-size:.76rem}
+.code :focus-visible{outline-color:var(--slime)}
+
+.logslip{margin-top:1rem; max-width:24rem}
+
+/* folded answer and exercise */
+.exercise{padding:1.6rem clamp(1rem,3vw,1.75rem) 1.2rem; max-width:52rem; transform:rotate(-.3deg); --rag:var(--rag-b)}
+.exercise h3{font-family:var(--font-display); font-size:1.5rem; color:var(--slip-ink)}
+.exercise > * + *{margin-top:.75rem}
+.exercise details > * + *{margin-top:.75rem}
+.exercise summary{cursor:pointer; font-weight:600; color:var(--slip-accent)}
+.exercise .file{margin-top:.75rem}
+q{quotes:"\201C" "\201D"}
+
+/* ========== 1. workshop ledger ========== */
+.levelbar{display:flex; align-items:end; flex-wrap:wrap; gap:.4rem 1.25rem; margin-bottom:-2rem; padding-left:1.5rem; position:relative; z-index:1}
+.lvl-count{font-family:var(--font-print); font-weight:600; font-size:.8rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink); padding-bottom:.4rem}
+.ltabs{display:flex; gap:.3rem; margin:0; padding:0; list-style:none}
+.ltabs a{display:block; min-width:2.6rem; text-align:center; text-decoration:none; background:var(--card); color:var(--card-ink);
+	font-family:var(--font-print); font-weight:600; padding:.35rem .7rem .3rem; border-radius:var(--radius-md) var(--radius-md) 0 0; box-shadow:var(--shadow)}
+.ltabs a[aria-current]{background:var(--surface); color:var(--ink); border:2px solid var(--ink); border-bottom:0; box-shadow:none; padding-bottom:.55rem; margin-bottom:-2px; position:relative}
+.ltabs a:focus-visible{outline-offset:-1px}
+#ledger .lvl-head{border-top-left-radius:var(--radius-md)}
+.prevnext{display:flex; flex-wrap:wrap; justify-content:space-between; gap:.5rem 1.5rem; font-family:var(--font-display); font-size:1.15rem; border-top:2px dashed var(--line); padding-top:.8rem}
+.spread{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:2rem; align-items:start}
+.steps{display:grid; gap:1.5rem; min-width:0}
+.step h3{font-size:clamp(1.5rem,3vw,2rem)}
+.step .pointer{font-size:.92rem; color:var(--ink-muted)}
+.step .also{font-family:var(--font-print); font-size:.9rem; font-weight:600}
+.step:nth-child(odd){border-radius:var(--wonk-2)}
+.filesheet{position:sticky; top:4.5rem; align-self:start; max-height:calc(100vh - 5.5rem); overflow:auto;
+	background:var(--slip); color:var(--slip-ink); padding:1.2rem 1.1rem 1.1rem; box-shadow:var(--shadow)}
+.filesheet h3{font-family:var(--font-print); font-weight:600; font-size:.82rem; letter-spacing:.14em; text-transform:uppercase; color:var(--slip-accent)}
+.filesheet .legend{font-size:.85rem; margin:.4rem 0 .8rem}
+.filesheet:focus-visible{outline-color:var(--slip-accent)}
+/* pointing at a step lights up its lines on the sheet */
+.spread:has(.step[data-step="2.1"]:is(:hover,:focus-within)) .filesheet .ln[data-step="2.1"],
+.spread:has(.step[data-step="2.2"]:is(:hover,:focus-within)) .filesheet .ln[data-step="2.2"],
+.spread:has(.step[data-step="2.3"]:is(:hover,:focus-within)) .filesheet .ln[data-step="2.3"]{
+	background:color-mix(in oklab, var(--slime) 40%, var(--exhibit)); box-shadow:inset 4px 0 0 var(--slime)}
+.real{display:grid; gap:1rem}
+.real > p{max-width:52rem}
+.realtabs{display:none; gap:.4rem; flex-wrap:wrap}
+.realtabs button{appearance:none; cursor:pointer; background:var(--card); color:var(--card-ink); border:2px solid var(--card-ink); border-radius:var(--radius-md) var(--radius-md) 0 0;
+	font-family:var(--font-print); font-weight:600; font-size:.85rem; padding:.4rem .7rem}
+.realtabs button[aria-pressed="true"]{background:var(--surface); color:var(--ink); border-color:var(--ink)}
+.pair{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); gap:1.5rem; align-items:start}
+.panel h4{font-size:1.35rem}
+.panel .note{font-size:.92rem; color:var(--ink-muted)}
+.marks{list-style:none; margin:0; padding:0; display:grid; gap:.7rem}
+.marks li{display:grid; grid-template-columns:2rem minmax(0,1fr); align-items:baseline}
+.marks .glyph{font-family:var(--font-print); font-size:1.35rem; color:var(--accent); line-height:1}
+
+/* ========== 2. scroll story ========== */
+.story{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.15fr); gap:2rem; align-items:start}
+.beats{display:grid; gap:1.5rem; min-width:0}
+.beat h3{font-size:clamp(1.4rem,2.8vw,1.9rem)}
+.beat .show{display:none}
+.pinned{display:none}
+.after-step{min-width:0}
+@media (min-width:761px) and (prefers-reduced-motion:no-preference){
+	.js .story .after-step{display:none}
+	.js .pinned{display:block; position:sticky; top:4.5rem; align-self:start}
+	.js .beats{gap:40vh; padding-block:10vh 30vh}
+	.js .beat{transition:box-shadow 160ms ease, transform 160ms ease}
+	.js .beat.on{box-shadow:0 0 0 3px var(--accent), var(--shadow)}
+	.js .beat .show{display:block; position:static; margin-top:1rem; appearance:none; cursor:pointer;
+		background:transparent; color:var(--ink); border:2px solid var(--ink); border-radius:var(--radius-sm);
+		font-family:var(--font-print); font-weight:600; font-size:.82rem; padding:.3rem .6rem}
+	/* the whole card is the button's hit area */
+	.js .beat .show::after{content:""; position:absolute; inset:0; border-radius:inherit}
+	.js .beat .show[aria-pressed="true"]{background:var(--ink); color:var(--surface)}
+	.js .pinned .ln{transition:background-color 200ms ease}
+	.js .pinned .ln.hl{background:color-mix(in oklab, var(--slime) 22%, var(--exhibit))}
+	.js .pinned .ln.hl::before{content:"+"; position:absolute; left:.9rem; color:var(--slime); font-weight:600}
+	.js .pinned .code.marked .ln.mk.hl::before{content:attr(data-mark); color:var(--slime)}
+	.js .pinned .code.marked .ln.mk.hl{background:color-mix(in oklab, var(--slime) 22%, var(--exhibit))}
+}
+
+/* ========== 3. specimen sheets ========== */
+.specimen{padding:1.75rem clamp(1rem,3vw,2.5rem) 2rem}
+.spec-head .key{font-family:var(--font-print); font-size:.88rem; display:flex; flex-wrap:wrap; gap:.4rem .6rem; align-items:center}
+mark{padding:0 .25em; border-radius:var(--radius-sm)}
+mark.m1{background:var(--slime); color:var(--on-slime)}
+mark.m2{background:var(--card); color:var(--card-ink)}
+mark.m3{background:var(--info); color:var(--surface)}
+.code.spec .ln.m1{background:color-mix(in oklab, var(--slime) 22%, var(--exhibit)); box-shadow:inset 5px 0 0 var(--slime)}
+.code.spec .ln.m2{background:color-mix(in oklab, var(--card) 30%, var(--exhibit)); box-shadow:inset 5px 0 0 var(--card)}
+.code.spec .ln.m3{background:color-mix(in oklab, var(--info) 40%, var(--exhibit)); box-shadow:inset 5px 0 0 color-mix(in oklab, var(--info) 55%, var(--exhibit-ink))}
+.code.spec .ln[data-n]::before{content:attr(data-n); position:absolute; left:.55rem; top:.2em; width:1.25rem; height:1.25rem; border-radius:50%;
+	display:grid; place-items:center; font-family:var(--font-print); font-weight:600; font-size:.72rem; line-height:1}
+.code.spec .ln.m1[data-n]::before{background:var(--slime); color:var(--on-slime)}
+.code.spec .ln.m2[data-n]::before{background:var(--card); color:var(--card-ink)}
+.code.spec .ln.m3[data-n]::before{background:var(--info); color:var(--surface)}
+.badge{display:inline-grid; place-items:center; width:1.5rem; height:1.5rem; border-radius:50%; font-family:var(--font-print); font-weight:600; font-size:.8rem; line-height:1; margin-right:.45rem; vertical-align:.1em}
+.badge.m1{background:var(--slime); color:var(--on-slime)}
+.badge.m2{background:var(--card); color:var(--card-ink)}
+.badge.m3{background:var(--info); color:var(--surface)}
+.callouts{list-style:none; margin:1rem 0 0; padding:0; display:grid; gap:.8rem}
+.co{background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); font-size:.88rem; line-height:1.5; padding:.7rem .85rem; box-shadow:var(--shadow)}
+.co code{background:none; color:var(--slip-accent); padding:0}
+.co b{font-weight:600}
+.stage{position:relative}
+.stage2{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:1rem 1.5rem; align-items:start; margin-top:2rem}
+.stage2 .callouts{margin:0}
+.stage2 .logslip{grid-column:1; margin-top:0}
+@media (min-width:1100px){
+	/* callouts pinned beside the line they describe */
+	.stage{padding:0 15.25rem 5rem}
+	.stage .callouts{margin:0}
+	.stage .co{position:absolute; width:14rem; top:calc(1.6rem + .7rem + var(--at) * 1.28rem)}
+	.stage .co.left{left:0; transform:rotate(-.6deg)}
+	.stage .co.right{right:0; transform:rotate(.5deg)}
+	/* the edge facing the file carries the step colour */
+	.stage .co.left{border-right:5px solid var(--edge)}
+	.stage .co.right{border-left:5px solid var(--edge)}
+	.stage .co.m1{--edge:var(--slime)} .stage .co.m2{--edge:var(--card)} .stage .co.m3{--edge:var(--info)}
+	.stage .code{font-size:.8rem}
+	.stage .code .ln{white-space:pre}
+}
+.small-sheet{max-width:62rem}
+.realgrid{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:1.25rem; align-items:start}
+
+/* ========== 4. zine pages ========== */
+.zine{display:grid; gap:1.5rem; max-width:46rem; width:100%; margin:0 auto}
+.panel-fig{margin:0; padding:1rem}
+.zine-svg{display:block; width:100%; height:auto}
+.z-edge{stroke:var(--ink); stroke-width:3; stroke-linejoin:round; stroke-linecap:round}
+.z-edge2{stroke:var(--ink); stroke-width:2.5}
+.z-ledger{fill:var(--slip)}
+.z-rule{fill:none; stroke:var(--slip-line); stroke-width:2}
+.z-scrawl{fill:none; stroke:var(--slip-accent); stroke-width:3; stroke-linecap:round}
+.z-clip{fill:var(--card-dark)}
+.z-wire{fill:none; stroke:var(--ink); stroke-width:3; stroke-linecap:round}
+.z-skill{fill:var(--surface-raised)}
+.z-fold{fill:var(--line)}
+.z-front{fill:none; stroke:var(--accent-2); stroke-width:5; stroke-linecap:round}
+.z-body{fill:none; stroke:var(--ink-muted); stroke-width:3; stroke-linecap:round}
+.z-script{fill:var(--exhibit)}
+.z-code{fill:var(--slime); font-family:var(--font-mono); font-size:20px}
+.z-tape{fill:var(--tape)}
+.z-arrow{fill:none; stroke:var(--accent); stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round}
+.z-letter{font-family:var(--font-marker); fill:var(--accent)}
+.z-title{font-size:34px; fill:var(--ink)}
+.z-small{font-size:26px; fill:var(--slip-ink)}
+.z-tag{font-size:38px}
+.z-cap{font-size:54px; fill:var(--ink)}
+.transcript{padding:.8rem 1.1rem}
+.transcript summary{cursor:pointer; font-weight:600; color:var(--slip-accent)}
+.transcript p{margin-top:.6rem}
+.zpage{padding-bottom:2.4rem}
+.zpage h3{font-size:clamp(1.5rem,3.2vw,2rem)}
+.folio{position:absolute; right:1.4rem; bottom:.7rem; font-family:var(--font-print); font-size:.8rem; color:var(--ink-muted)}
+.zine .exercise{max-width:none}
+
+/* ========== narrow ========== */
+@media (max-width:760px){
+	.sheet,.sheet.alt,.step:nth-child(odd){border-radius:var(--radius-md)}
+	.caption,.filesheet,.exercise,.co{transform:none}
+	.spread,.story,.pair,.stage2,.realgrid{grid-template-columns:minmax(0,1fr)}
+	.filesheet{position:static; max-height:none; overflow:visible}
+	.js .realtabs{display:flex}
+	.js .real[data-show="ours"] .panel.yours,.js .real[data-show="yours"] .panel.ours{display:none}
+	.pair{gap:0}
+	.code .ln{padding-left:2rem; padding-right:.6rem}
+	.code .ln.add::before{left:.65rem}
+	.code.tagged .ln{padding-left:3.8rem}
+	.code.tagged .ln.add::before{left:.45rem}
+	.levelbar{padding-left:.5rem}
+	.switcher h1{font-size:1rem}
+	.panel-fig{padding:.4rem}
+	.switch-buttons button{font-size:.8rem; padding:.3rem .5rem}
+}
+
+@media (prefers-reduced-motion:reduce){
+	*,*::before,*::after{transition:none !important; scroll-behavior:auto !important}
+}
