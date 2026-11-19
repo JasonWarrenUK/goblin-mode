@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { askPrompt, carryPrState, clock, crewColumns, crewGroups, crewLineWidth, foldProbed, handoff, HOTKEY_CELLS, headerLayout, markFor, movedNotice, needGroups, others, packFacts, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, SLATE_COLUMNS, socketOf, startsRun, WORDMARK_GAP, wordmark } from './register'
+import { askPrompt, carryPrState, cells, clock, crewColumns, crewGroups, crewLineWidth, fit, foldProbed, handoff, HOTKEY_CELLS, headerLayout, markFor, movedNotice, needGroups, others, packFacts, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, SLATE_COLUMNS, socketOf, startsRun, WORDMARK_GAP, wordmark } from './register'
 import type { CrewCells } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
@@ -182,7 +182,23 @@ const RAIDERS = {
 		{ ...RAIDER, session_id: 's-scout', task: 'SCOUT', name: 'scout', branch: 'feat/goblin-scout-rename', worktree: '/code/app/.claude/worktrees/scout', state: 'pr-ready', pr: 78, watching: true, context_percent: 19, summary: 'PR open, watching' },
 		{ ...RAIDER, session_id: 's-war', task: 'WAR', name: 'war', branch: 'feat/goblin-warband-rename', worktree: '/code/app/.claude/worktrees/war', state: 'waiting-jason', pr: 123, pr_state: 'MERGED', context_percent: 85, live_status: 'waiting', summary: 'waiting on the gate tribute' },
 		{ ...RAIDER, session_id: 's-jest', task: 'JEST', name: 'jest', branch: 'feat/goblin-jester-rename', worktree: '/code/app/.claude/worktrees/jest', state: 'done', summary: 'landed' },
+		// the chief's own row (◀ you) and enough more for a tenth row, which has no hotkey
+		{ ...RAIDER, session_id: 'coord-1', task: 'CHIEF', name: 'mission control', branch: 'main', worktree: '/code/app', state: 'working', context_percent: 40, summary: 'coordinating' },
+		{ ...RAIDER, session_id: 's-sen', task: 'SEN', name: 'sen', branch: 'feat/goblin-seneschal-rename', worktree: '/code/app/.claude/worktrees/sen', state: 'briefing', summary: 'reading orders' },
+		{ ...RAIDER, session_id: 's-site', task: 'SITE', name: 'site', branch: 'feat/pages-site', worktree: '/code/app/.claude/worktrees/site', state: 'blocked', context_percent: 72, summary: 'blocked on the Pages switch' },
+		{ ...RAIDER, session_id: 's-cjk', task: '検索タスク', name: 'kensaku', branch: 'feat/search', worktree: '/code/app/.claude/worktrees/search', state: 'working', summary: 'a task id two cells a glyph' },
+		{ ...RAIDER, session_id: 's-tenth', task: 'TENTH', name: 'tenth', branch: 'feat/tenth', worktree: '/code/app/.claude/worktrees/tenth', state: 'working', context_percent: 5, summary: 'the tenth row' },
 	],
+}
+
+/** What a found element draws: its own text, else its children's, read whatever shape the harness hands them in. */
+const drawn = (node: unknown): string => {
+	if (typeof node === 'string' || typeof node === 'number') return String(node)
+	if (!node || typeof node !== 'object') return ''
+	const element = node as { text?: unknown; props?: { label?: unknown }; children?: unknown }
+	if (typeof element.text === 'string' && element.text) return element.text
+	if (typeof element.props?.label === 'string') return element.props.label
+	return Array.isArray(element.children) ? element.children.map(drawn).join('') : ''
 }
 
 const cellsRow = (over: Partial<CrewCells>): CrewCells => ({ label: 'RAG', state: 'holding dibs', pr: '#79', ctx: 'ctx 56%', ctxHigh: false, age: '1m ago', you: false, ...over })
@@ -190,14 +206,32 @@ const cellsRow = (over: Partial<CrewCells>): CrewCells => ({ label: 'RAG', state
 test('crewColumns: the first line never passes the pane at any width, and context stays while a row warns', () => {
 	const calm = [cellsRow({}), cellsRow({ label: 'SCOUT', state: 'spoils ready', pr: '#78', ctx: 'ctx 19%' }), cellsRow({ label: 'WAR', state: 'awaiting tribute', pr: '#123 merged', ctx: 'ctx 11%', age: '12m ago', you: true })]
 	const warning = [...calm, cellsRow({ label: 'FIX', ctx: 'ctx 85%', ctxHigh: true })]
+	// review 5979400434: three-letter tasks only, so the task column starts under the floor the cut keeps
+	const short = [cellsRow({ label: 'RAG' }), cellsRow({ label: 'FIX', ctx: 'ctx 85%', ctxHigh: true }), cellsRow({ label: 'WAR', state: 'awaiting tribute', pr: '#123 merged' })]
+	const letter = [cellsRow({ label: 'X', state: 'awaiting tribute', pr: '#123 merged', ctx: 'ctx 85%', ctxHigh: true })]
 	for (let inner = 40; inner <= 200; inner++) {
-		for (const rows of [calm, warning]) {
+		for (const rows of [calm, warning, short, letter]) {
 			const w = crewColumns(rows, inner)
+			const natural = HOTKEY_CELLS + Math.min(12, Math.max(...rows.map(row => cells(row.label))))
 			expect(crewLineWidth(w)).toBeLessThanOrEqual(inner)
-			expect(w.label).toBeGreaterThanOrEqual(HOTKEY_CELLS + 4)
+			expect(w.label).toBeGreaterThanOrEqual(Math.min(natural, HOTKEY_CELLS + 4))
+			expect(w.label).toBeLessThanOrEqual(natural)
 		}
 		expect(crewColumns(warning, inner).ctx).toBe(7)
 	}
+	// the cells the floor used to add to a short task column go to the state instead (the old floor left it 11 in both)
+	expect(crewColumns(short, 41)).toEqual({ label: HOTKEY_CELLS + 3, state: 12, pr: 11, ctx: 7, age: 0, you: 0 })
+	expect(crewColumns(letter, 41)).toEqual({ label: HOTKEY_CELLS + 1, state: 14, pr: 11, ctx: 7, age: 0, you: 0 })
+	// display width: a CJK glyph takes two cells and an emoji with default emoji presentation two; the box rules and ◀ one
+	expect(cells('RAG')).toBe(3)
+	expect(cells('検索')).toBe(4)
+	expect(cells('🔥')).toBe(2)
+	expect(cells('◀ you')).toBe(5)
+	expect(cells('╺━╸')).toBe(3)
+	expect(cells('é')).toBe(1)
+	expect(fit('検索タスク', 5)).toBe('検索…')
+	expect(cells(fit('検索タスク名前です', 9))).toBeLessThanOrEqual(9)
+	expect(crewColumns([cellsRow({ label: '検索タスク名前です' })], 120).label).toBe(HOTKEY_CELLS + 12)
 	// at the widths the user reads it (80 and 120 columns, inner 77 and 117), every column is there
 	for (const inner of [77, 117]) {
 		const w = crewColumns(calm, inner)
@@ -211,22 +245,45 @@ test('crewColumns: the first line never passes the pane at any width, and contex
 	expect(crewColumns([cellsRow({ label: 'a-very-long-task-name-indeed' })], 120).label).toBe(HOTKEY_CELLS + 12)
 })
 
-test('the raider rows line up: every row takes the same width in each column, at 80 and 120 columns', async ($, on) => {
+test('the raider rows line up: every row takes the same width in each column, and what each cell draws fits it', async ($, on) => {
 	world(on, 'coord-1', RAIDERS)
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
-	for (const bodyColumns of [80, 120]) {
+	// 54 is the dock a 120-column terminal gives (45%), where age drops; 80 and 120 are inline panes, where nothing does
+	for (const bodyColumns of [54, 80, 120]) {
 		const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns } })
 		const inner = bodyColumns - 3
 		const widths: Record<string, number> = {}
 		for (const column of ['label', 'state', 'pr', 'ctx', 'age']) {
 			const seen = new Set<unknown>()
-			for (const s of RAIDERS.sessions) seen.add((await ui.find({ type: 'Box', key: `cell-${column}-${s.session_id}` }))?.props.width)
+			for (const s of RAIDERS.sessions) {
+				const box = await ui.find({ type: 'Box', key: `cell-${column}-${s.session_id}` })
+				seen.add(box?.props.width)
+				if (!box) continue
+				const text = drawn(box)
+				expect(cells(text)).toBeLessThanOrEqual(Number(box.props.width) - (column === 'label' ? HOTKEY_CELLS : 0))
+				if (column === 'label' || column === 'state') expect(text.length).toBeGreaterThan(0)
+			}
 			expect(seen.size).toBe(1)
-			widths[column] = Number([...seen][0])
-			expect(widths[column]).toBeGreaterThan(0)
+			const width = [...seen][0]
+			if (width !== undefined) widths[column] = Number(width)
 		}
-		expect(2 + Object.values(widths).reduce((n, w) => n + w + 1, 0)).toBeLessThanOrEqual(inner)
+		expect(widths.label).toBeGreaterThan(0)
+		expect(widths.state).toBeGreaterThan(0)
+		expect(widths.ctx).toBeGreaterThan(0)
+		if (bodyColumns === 54) expect(widths.age).toBeUndefined()
+		else expect(widths.age).toBeGreaterThan(0)
+		const you = (await ui.findAll({ type: 'Text', text: /^◀ you$/ })).length
+		// the marker and its gap (2), the task column, then a gap before each later column, as crewLineWidth counts them
+		expect(1 + Object.values(widths).reduce((n, w) => n + w + 1, 0) + (you ? cells('◀ you') + 1 : 0)).toBeLessThanOrEqual(inner)
+		expect(you).toBe(1)
+		// the tenth row drawn (rows run in state-group order) has no hotkey and keeps its task under the others
+		const unkeyed: string[] = []
+		for (const s of RAIDERS.sessions) if ((await ui.find({ type: 'Button', key: `row-sess:${s.session_id}` }))?.props.hotkey === undefined) unkeyed.push(s.session_id)
+		expect(unkeyed.length).toBe(1)
+		expect((await ui.find({ type: 'Box', key: `cell-label-${unkeyed[0]}` }))?.props.paddingLeft).toBe(HOTKEY_CELLS)
+		// the waiting mark is never squeezed: its box does not shrink, so the summary takes the cut
+		expect((await ui.find({ type: 'Box', key: 'waiting-s-war' }))?.props.flexShrink).toBe(0)
 		// line 2 opens with what the raider said; the branch follows, so the cut at the edge takes the branch
 		const fix = await ui.find({ type: 'Text', text: /three findings fixed/ })
 		expect(fix?.text.startsWith('three findings fixed · fix/merged-rename-review-findings')).toBe(true)
@@ -245,18 +302,29 @@ test('the slate asks the dock for 100 columns', async ($, on) => {
 	expect(panes.columns).toContain(100)
 })
 
-test('a note input asks its question on a line of its own and leaves the field the full width', async ($, on) => {
+test('each note input asks its question on a line of its own and leaves the field the full width', async ($, on) => {
 	world(on, 'coord-1')
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
-	const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns: 80 } })
-	await ui.press({ key: 'row-need:1' })
-	await ui.press({ key: 'started' })
-	const field = await ui.find({ type: 'Input', key: 'started-ref' })
-	expect(field).toBeDefined()
-	expect(field?.props.label).toBeUndefined()
-	expect((await ui.find({ type: 'Text', text: /^tribute 1 is agreed: / }))?.text).toBe('tribute 1 is agreed: a note on where to watch it (a task id, the session), else enter')
-	await ui.unmount()
+	const opens = [
+		{ field: 'grant-minutes', presses: ['row-req:api-port:crew-1', 'grant'], prompt: 'grant api-port: minutes' },
+		{ field: 'release-resource', presses: ['release'], prompt: 'release which resource' },
+		{ field: 'done-ref', presses: ['row-need:1', 'done'], prompt: 'mark tribute 1 paid: paste the result (or @<file>) for a measurement, else enter' },
+		{ field: 'started-ref', presses: ['row-need:1', 'started'], prompt: 'tribute 1 is agreed: a note on where to watch it (a task id, the session), else enter' },
+	]
+	for (const open of opens) {
+		const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns: 80 } })
+		for (const key of open.presses) await ui.press({ key })
+		const field = await ui.find({ type: 'Input', key: open.field })
+		expect(field).toBeDefined()
+		expect(field?.props.label).toBeUndefined()
+		const prompt = await ui.find({ type: 'Text', text: new RegExp(`^${open.prompt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) })
+		expect(prompt?.text).toBe(open.prompt)
+		expect(prompt?.props.wrap).toBe('wrap')
+		// submitting closes the question, which outlives a mount, so the next one starts from the buttons
+		await ui.input({ key: open.field, text: '' })
+		await ui.unmount()
+	}
 	for (const kind of ['grant', 'release', 'done', 'started'] as const) expect(askPrompt({ kind, resource: 'local-db', sessionId: 'crew-1', ref: '4' }).length).toBeGreaterThan(10)
 })
 

@@ -880,13 +880,30 @@ export const wordmark = (word: string): { rule: string; word: string; width: num
 	return { rule: `╺${'━'.repeat(Math.max(0, width - 2))}╸`, word: spaced, width }
 }
 
-const cells = (text: string): number => [...text].length
+// East Asian wide and fullwidth blocks: two cells each, as a terminal draws them
+const WIDE = /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦\u{20000}-\u{3FFFD}]/u
+// combining marks, zero-width spaces and joiners, variation selectors: no cell of their own
+const ZERO = /[\p{Mn}\p{Me}​-‏⁠︀-️]/u
+
+/** Cells one character takes: two for a wide CJK glyph or an emoji drawn as emoji by default, none for a mark that joins
+ * the one before, one for the rest (the ambiguous-width box rules and arrows included, as Ghostty draws them). */
+const cellsOf = (char: string): number => (ZERO.test(char) ? 0 : WIDE.test(char) || /\p{Emoji_Presentation}/u.test(char) ? 2 : 1)
+
+/** Cells a string takes on a terminal. */
+export const cells = (text: string): number => [...text].reduce((n, char) => n + cellsOf(char), 0)
 
 /** `text` cut to `width` cells, the last one an ellipsis when anything was cut. */
 export const fit = (text: string, width: number): string => {
-	const chars = [...text]
-	if (chars.length <= width) return text
-	return width <= 0 ? '' : `${chars.slice(0, width - 1).join('')}…`
+	if (cells(text) <= width) return text
+	if (width <= 0) return ''
+	let kept = ''
+	let used = 0
+	for (const char of text) {
+		if (used + cellsOf(char) > width - 1) break
+		kept += char
+		used += cellsOf(char)
+	}
+	return `${kept}…`
 }
 
 /** The question a note input asks, drawn on its own line above the field (as the field's label it squeezed the field). */
@@ -957,7 +974,8 @@ export const crewColumns = (rows: readonly CrewCells[], inner: number): CrewWidt
 	const over = (): number => crewLineWidth(w) - inner
 	if (over() > 0) w.age = 0
 	if (over() > 0 && !rows.some(row => row.ctxHigh)) w.ctx = 0
-	if (over() > 0) w.label = Math.max(HOTKEY_CELLS + 4, w.label - over())
+	// the floor never widens a column already under it: those cells go to the state (review 5979400434)
+	if (over() > 0) w.label = Math.max(Math.min(w.label, HOTKEY_CELLS + 4), w.label - over())
 	if (over() > 0) w.state = Math.max(4, w.state - over())
 	if (over() > 0) w.pr = 0
 	if (over() > 0) w.you = 0
@@ -1216,7 +1234,12 @@ const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], 
 					{c.you && widths.you > 0 ? <Text dimColor>{YOU_MARK}</Text> : null}
 				</Box>
 				<Box key={`line2-${s.session_id}`} flexDirection="row" paddingLeft={2 + HOTKEY_CELLS} columnGap={1} width={inner}>
-					{waiting ? <Text color="error">waiting on you (prompt)</Text> : null}
+					{waiting ? (
+						// a box that never shrinks, so a long line cuts the summary and the mark stays on one line
+						<Box key={`waiting-${s.session_id}`} flexShrink={0}>
+							<Text color="error">waiting on you (prompt)</Text>
+						</Box>
+					) : null}
 					<Text dimColor wrap={picked === key ? 'wrap' : 'truncate-end'}>
 						{[summary, ...reference].join(' · ')}
 					</Text>
