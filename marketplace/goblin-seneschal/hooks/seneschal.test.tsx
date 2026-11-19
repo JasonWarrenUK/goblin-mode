@@ -134,7 +134,7 @@ test('the old file is carried over at session start: every entry and every field
 	}
 	expect(files.text(OLD_FILE)).toBe(OLD_TEXT)
 	expect(files.writes).toEqual([GRIEVANCES])
-	expect(toasts).toEqual(['3 grievances carried over from cc-pain-points.json, which you may now delete.'])
+	expect(toasts).toEqual(['3 grievances carried over from cc-pain-points.json; delete it once no session still runs goblin-util.'])
 	// a second session finds the grievances file there and moves nothing
 	await $.session.start(START)
 	expect(files.writes).toEqual([GRIEVANCES])
@@ -176,7 +176,7 @@ test('both files present: the old entries the grievances file lacks are appended
 	await $.session.start(START)
 	expect(JSON.parse(files.text() ?? '')).toEqual([MINE, ...OLD_ENTRIES])
 	expect(files.text(OLD_FILE)).toBe(OLD_TEXT)
-	expect(toasts).toEqual(['3 grievances carried over from cc-pain-points.json, which you may now delete.'])
+	expect(toasts).toEqual(['3 grievances carried over from cc-pain-points.json; delete it once no session still runs goblin-util.'])
 	// safe to run again: everything is there, so the next session writes nothing and says nothing
 	await $.session.start(START)
 	expect(files.writes).toEqual([GRIEVANCES])
@@ -195,7 +195,7 @@ test('an entry an older session logs to the old file after the first copy is car
 	const ids = (JSON.parse(files.text() ?? '') as { id: string }[]).map(e => e.id)
 	expect(ids).toEqual([...OLD_ENTRIES.map(e => e.id), 'logged-late', 'the-band-flickered'])
 	await $.session.start(START)
-	expect(toasts).toEqual(['3 grievances carried over from cc-pain-points.json, which you may now delete.'])
+	expect(toasts).toEqual(['3 grievances carried over from cc-pain-points.json; delete it once no session still runs goblin-util.'])
 	expect((JSON.parse(files.text() ?? '') as unknown[]).length).toBe(5)
 })
 
@@ -210,6 +210,26 @@ test('a grievance deleted from the grievances file after it was carried stays de
 	files.files.set(OLD_FILE, listed([...OLD_ENTRIES, LATE]))
 	await $.session.start(START)
 	expect(JSON.parse(files.text() ?? '')).toEqual([...OLD_ENTRIES.slice(1), LATE])
+})
+
+test('an old entry whose id clashes with a different grievance arrives under a suffixed id, and only once', async ($, on) => {
+	world(on)
+	// both plugins slug the first 48 characters, so two different grievances can share an id
+	const mine = { ...MINE, id: 'the-status-line-ate-my-prompt', description: 'the status line ate my prompt when I resized the window' }
+	const theirs = { ...LATE, id: 'the-status-line-ate-my-prompt', description: 'the status line ate my prompt when I resized the pane' }
+	const files = disk(on, { [OLD_FILE]: listed([theirs]), [GRIEVANCES]: listed([mine]) })
+	await $.session.start(START)
+	expect(JSON.parse(files.text() ?? '')).toEqual([mine, { ...theirs, id: 'the-status-line-ate-my-prompt-2' }])
+	await $.session.start(START)
+	expect(files.writes).toEqual([GRIEVANCES])
+})
+
+test('after grievances_file has moved, an unreadable grievances file is never promised a fresh carry-over', { options: { grievances_file: '~/notes/grievances.json' } }, async ($, on) => {
+	world(on, { carriedInto: GRIEVANCES, carriedKeys: [] })
+	const files = disk(on, { [OLD_FILE]: OLD_TEXT, '/home/j/notes/grievances.json': '[{"id": "half' })
+	const run = await $.command.run({ ...RUN, command: 'log-grievance', args: 'something bit' })
+	expect(run.text).toBe('grievances.json will not parse; nothing written. fix the file first.')
+	expect(files.writes).toEqual([])
 })
 
 test('an id the grievances file already holds is never carried twice, even when the old copy differs', async ($, on) => {
@@ -229,7 +249,7 @@ test('a changed grievances_file never takes the old snapshot again, yet an entry
 	const toasts = toastsOf(on)
 	await $.session.start(START)
 	expect(JSON.parse(files.text(moved) ?? '')).toEqual([LATE])
-	expect(toasts).toEqual(['1 grievance carried over from cc-pain-points.json, which you may now delete.'])
+	expect(toasts).toEqual(['1 grievance carried over from cc-pain-points.json; delete it once no session still runs goblin-util.'])
 	const run = await $.command.run({ ...RUN, command: 'log-grievance', args: 'something bit' })
 	expect(run.text).toBe('logged something-bit')
 	expect((JSON.parse(files.text(moved) ?? '') as { id: string }[]).map(e => e.id)).toEqual(['logged-late', 'something-bit'])
@@ -316,7 +336,7 @@ test('one entry carried over reads in the singular', async ($, on) => {
 	disk(on, { [OLD_FILE]: JSON.stringify([OLD_ENTRIES[0]]) })
 	const toasts = toastsOf(on)
 	await $.session.start(START)
-	expect(toasts).toEqual(['1 grievance carried over from cc-pain-points.json, which you may now delete.'])
+	expect(toasts).toEqual(['1 grievance carried over from cc-pain-points.json; delete it once no session still runs goblin-util.'])
 })
 
 test('a carry-over that cannot write says so, never that HOME is unset', async ($, on) => {
