@@ -13,6 +13,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -38,6 +39,14 @@ class HelperTest(unittest.TestCase):
 		self.assertEqual(inline_tags('# Heading #real and `#code` and x#no'), ['real'])
 		self.assertEqual(inline_tags('see https://a.invalid/p#frag (#paren)'), ['paren'])
 		self.assertEqual(inline_tags('#123 #y2k #a/b/'), ['y2k', 'a/b'])
+
+	def test_tasks_in_blockquotes_and_callouts(self) -> None:
+		vault = Path(tempfile.mkdtemp())
+		try:
+			(vault / 'Note.md').write_text('> [!todo]\n> - [ ] in a callout 📅 2026-01-01\n>> - [x] nested quote\n', encoding='utf-8')
+			self.assertEqual(survey(vault)['tasks']['statuses_in_use'], {' ': 1, 'x': 1})
+		finally:
+			shutil.rmtree(vault)
 
 	def test_task_signature_orders_metadata(self) -> None:
 		self.assertEqual(task_signature('Mend 🔼 ⏳ 2026-01-06 🔁 every week'), 'text · priority medium · scheduled · recurrence')
@@ -165,6 +174,35 @@ class OutputTest(unittest.TestCase):
 		with self.assertRaises(SniffError):
 			write_outputs(vault, vault / 'reports')
 		self.assertFalse((vault / 'reports').exists())
+
+	def test_refuses_the_vault_named_in_a_different_case(self) -> None:
+		vault = self.tmp / 'casevault'
+		shutil.copytree(FIXTURE, vault)
+		probe = self.tmp / 'CASEVAULT'
+		if not probe.exists():
+			self.skipTest('case-sensitive file system')
+		with self.assertRaises(SniffError):
+			write_outputs(vault, probe / 'reports')
+		self.assertFalse((vault / 'reports').exists())
+
+	def test_unreadable_note_is_reported_not_fatal(self) -> None:
+		vault = self.tmp / 'vault'
+		shutil.copytree(FIXTURE, vault)
+		(vault / 'Dangling.md').symlink_to(self.tmp / 'nowhere.md')
+		data = survey(vault)
+		self.assertEqual(data['problems']['unreadable_notes'], ['Dangling.md'])
+		self.assertEqual(data['totals']['notes'], 12)
+
+	def test_refuses_an_output_folder_a_repository_would_commit(self) -> None:
+		repo = self.tmp / 'repo'
+		repo.mkdir()
+		subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+		(repo / '.gitignore').write_text('private/\n', encoding='utf-8')
+		with self.assertRaises(SniffError):
+			write_outputs(FIXTURE, repo / 'reports')
+		self.assertFalse((repo / 'reports').exists())
+		write_outputs(FIXTURE, repo / 'private' / 'reports')
+		self.assertTrue((repo / 'private' / 'reports' / 'report.md').exists())
 
 	def test_draft_schema(self) -> None:
 		paths = write_outputs(FIXTURE, self.tmp / 'out')

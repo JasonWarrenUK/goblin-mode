@@ -58,6 +58,13 @@ class ScalarTest(unittest.TestCase):
 		result = read_frontmatter(note('status: draft # not yet\ntags: #looks-like-a-tag'))
 		self.assertEqual(result.properties, {'status': 'draft', 'tags': None})
 
+	def test_tab_before_a_comment(self) -> None:
+		self.assertEqual(read_frontmatter(note('status: draft\t# not yet')).properties, {'status': 'draft'})
+
+	def test_leading_zeros_are_an_integer(self) -> None:
+		self.assertIs(type(parse_scalar('007')), int)
+		self.assertEqual(parse_scalar('007'), 7)
+
 	def test_url_value(self) -> None:
 		result = read_frontmatter(note('link: https://example.invalid/a#b'))
 		self.assertEqual(result.properties, {'link': 'https://example.invalid/a#b'})
@@ -71,6 +78,16 @@ class ListTest(unittest.TestCase):
 	def test_block_list_indented_and_flush(self) -> None:
 		result = read_frontmatter(note('a:\n  - one\n  - "[[Two]]"\nb:\n- three\n- four'))
 		self.assertEqual(result.properties, {'a': ['one', '[[Two]]'], 'b': ['three', 'four']})
+
+	def test_apostrophe_inside_a_plain_flow_item(self) -> None:
+		result = read_frontmatter(note("aliases: [Bob's plan, it's fine]\ndg-publish: true"))
+		self.assertEqual(result.errors, [])
+		self.assertEqual(result.properties, {'aliases': ["Bob's plan", "it's fine"], 'dg-publish': True})
+
+	def test_escaped_quote_inside_a_quoted_flow_item(self) -> None:
+		result = read_frontmatter(note('k: ["a\\"b", c]'))
+		self.assertEqual(result.errors, [])
+		self.assertEqual(result.properties, {'k': ['a"b', 'c']})
 
 	def test_empty_flow_list(self) -> None:
 		self.assertEqual(read_frontmatter(note('tags: []')).properties, {'tags': []})

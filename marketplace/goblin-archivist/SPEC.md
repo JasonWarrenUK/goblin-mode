@@ -118,7 +118,7 @@ Each item has an answer from Jason or waits here. **After the survey** means it 
 | O11 | Whether a second mod can draw in the band | Spec §5.8 Verify | Answered: since Claude Code 2.1.323 each mod that draws in the band gets its own row (code.claude.com/docs/en/plugins/mods/interface.md, read 2026-11-18) |
 | O12 | Heavy rule and half-block characters at the round border's cell width in Jason's font | Spec §5.8 Verify | Pane slice; check with `ghostty +show-face --string=` |
 | O13 | Whether `session_id`, `transcript_path`, `cwd` and `hook_event_name` reach every hook event | Spec §7 | Hooks slice |
-| O14 | What `${user_config.enabled}` and an unset `directory` option substitute to in skill content. `sniff-vault` treats empty and the literal `${user_config...}` as unset; the boolean's text is unchecked | New | First live run of the skill |
+| O14 | What `${user_config.enabled}` and an unset `directory` option substitute to in skill content. `sniff-vault` treats empty and the literal `${user_config...}` as unset, and carries on only when the switch reads exactly `true`, so an unsubstituted switch fails closed. The boolean's substituted text is unchecked | New | First live run of the skill |
 
 ## 6. Slicing
 

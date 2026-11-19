@@ -9,7 +9,7 @@ metadata:
   family: archivist
   goblin-spinner: sniffing|tallying|rummaging|squinting
 disable-model-invocation: true # reads every note in the vault; the user starts it
-allowed-tools: ["Bash(python3:*)", "Read", "Write"]
+allowed-tools: ["Read"] # every python3 run and every write asks first
 ---
 
 # Sniff Vault
@@ -18,7 +18,7 @@ The archivist noses through the whole vault before it touches anything. A fixed 
 
 ## Step 0: The switch
 
-The archivist is on: `${user_config.enabled}`. If that reads `false`, say goblin-archivist is switched off (`/config`, goblin-archivist, Archivist on) and stop.
+The archivist is on: `${user_config.enabled}`. Carry on only if that reads exactly `true`. Anything else (`false`, empty, or the placeholder itself) means stop: say goblin-archivist is switched off, or its options did not load (`/config`, goblin-archivist, Archivist on).
 
 ## Step 1: Where to read and where to write
 
@@ -36,12 +36,12 @@ A value that is empty or still reads `${user_config...}` is unset.
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/archivist.py" sniff --vault "<vault>" --base "<archivist folder>"
 ```
 
-The script reads every Markdown note and the named files in `.obsidian` (plugin manifests and the settings of Tasks, Templater, Periodic Notes, Digital Garden, Share Note and Linter). It never reads `.trash` or any other dot-folder's notes, and it refuses an output folder inside the vault. It prints the three paths as JSON.
+The script reads every Markdown note and the named files in `.obsidian` (plugin manifests and the settings of Tasks, Templater, Periodic Notes, Digital Garden, Share Note and Linter). It never reads `.trash` or any other dot-folder's notes. It refuses an output folder inside the vault, and one inside a git repository that does not ignore it, since the report quotes the vault. It prints the three paths as JSON.
 
 | Exit | Meaning | Do |
 |---|---|---|
 | 0 | Done | Step 3 |
-| 2 | Bad path, or the output folder is inside the vault | Report the message; stop |
+| 2 | Bad path, or the output folder is inside the vault or an unignored repository | Report the message; stop |
 | 3 | Vault unset | Step 1.2 |
 | 4 | Archivist folder unset | Step 1.1 |
 
@@ -53,9 +53,9 @@ Read `report.md` whole, then `schema.draft.json`. Read individual notes only to 
 
 Write `schema.notes.md` in the same folder. The script never touches that file, so annotations survive a rerun; if it already exists, read it first and add a dated section rather than replacing what is there. Never edit `schema.draft.json` or `report.md`.
 
-The draft is mechanical: a property is required for a type when at least 90% of that type's notes carry it, optional from 10%. Annotate where the mechanism misleads, one entry per point, each with what the draft says, what you propose, why, and the question for the user:
+The draft is mechanical: a property is required for a type when at least 90% of that type's notes carry it, optional from 10%. Annotate where the mechanism misleads, one entry per point, each with what the draft says, what you propose, why and the question for the user:
 
-- **Types:** apparent types that are one type under two names (`project` beside `untyped in Projects`), or one name covering two kinds of note.
+- **Types:** apparent types that are one type under two names (`idea` beside `untyped in Ideas`), or one name covering two kinds of note.
 - **Properties:** case or spelling variants (section 4 lists them), conflicting value shapes, values that are templating code rather than data, properties that look abandoned.
 - **Tags:** case variants and near-duplicates; whether a nested family wants a root.
 - **Tasks:** the line formats in use against the statuses defined; formats that look like typing slips rather than choices.

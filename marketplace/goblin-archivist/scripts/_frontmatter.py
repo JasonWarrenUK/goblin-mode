@@ -11,6 +11,7 @@ invalid, as Obsidian does when it shows no properties for a broken block.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 __all__ = ['Frontmatter', 'Unparsed', 'parse_scalar', 'read_frontmatter', 'split_frontmatter']
@@ -46,7 +47,7 @@ _CLOSE = re.compile(r'^(---|\.\.\.)\s*$')
 _KEY = re.compile(
 	r"""^(?P<key>"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^\s#'"\-?:,\[\]{}&*!|>%@`][^:]*?|-[^\s:][^:]*?)\s*:(?=\s|$)\s*(?P<rest>.*)$"""
 )
-_INT = re.compile(r'^[-+]?(0|[1-9][0-9]*)$')
+_INT = re.compile(r'^[-+]?[0-9]+$')
 _OCT = re.compile(r'^0o[0-7]+$')
 _HEX = re.compile(r'^0x[0-9a-fA-F]+$')
 _FLOAT = re.compile(r'^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$')
@@ -163,12 +164,13 @@ def _unquote_key(key: str, number: int) -> str:
 	return key.strip()
 
 
+_COMMENT = re.compile(r'(^|[ \t])#')
+
+
 def _strip_comment(text: str) -> str:
-	"""Drop a plain scalar's trailing ` # comment`."""
-	position = text.find(' #')
-	if text.startswith('#'):
-		return ''
-	return text if position < 0 else text[:position]
+	"""Drop a plain scalar's trailing comment: a `#` at the start or after a space or tab."""
+	match = _COMMENT.search(text)
+	return text if match is None else text[: match.start()]
 
 
 def _parse_value(rest: str, children: list[str], first_child_line: int) -> object:
@@ -307,20 +309,54 @@ def _sequence_item(parts: list[str], line: int) -> object:
 	return parse_scalar(_fold_lines([_strip_comment(part).strip() for part in parts]))
 
 
-def _flow_sequence(text: str, line: int) -> object:
-	depth = 0
+def _flow_chars(text: str, previous: str = '') -> Iterator[tuple[int, str, bool]]:
+	"""Walk a flow collection: (position, character, inside a quoted item).
+
+	A quote opens a quoted item only where an item starts, after `[`, `{`, `,`
+	or `:`, so the apostrophe in `[Bob's plan]` is plain text. Inside double
+	quotes a backslash escapes the next character; inside single quotes `''`
+	is a quote.
+	"""
 	quote = ''
-	end = -1
-	for position, char in enumerate(text):
+	position = 0
+	while position < len(text):
+		char = text[position]
 		if quote:
-			if char == '\\' and quote == '"':
+			if quote == '"' and char == '\\':
+				yield position, char, True
+				if position + 1 < len(text):
+					yield position + 1, text[position + 1], True
+				position += 2
+				continue
+			if char == quote and quote == "'" and text[position + 1: position + 2] == "'":
+				yield position, char, True
+				yield position + 1, char, True
+				position += 2
 				continue
 			if char == quote:
 				quote = ''
+				previous = char
+			yield position, char, True
+			position += 1
 			continue
-		if char in '"\'':
+		if char in '"\'' and previous in ('', '[', '{', ',', ':'):
 			quote = char
-		elif char in '[{':
+			yield position, char, True
+			position += 1
+			continue
+		yield position, char, False
+		if not char.isspace():
+			previous = char
+		position += 1
+
+
+def _flow_sequence(text: str, line: int) -> object:
+	depth = 0
+	end = -1
+	for position, char, quoted in _flow_chars(text):
+		if quoted:
+			continue
+		if char in '[{':
 			depth += 1
 		elif char in ']}':
 			depth -= 1
@@ -352,34 +388,16 @@ def _flow_sequence(text: str, line: int) -> object:
 
 
 def _outside_quotes(text: str) -> str:
-	out: list[str] = []
-	quote = ''
-	for char in text:
-		if quote:
-			if char == quote:
-				quote = ''
-			continue
-		if char in '"\'':
-			quote = char
-			continue
-		out.append(char)
-	return ''.join(out)
+	"""The characters of a flow list's inside that are not in a quoted item."""
+	return ''.join(char for _, char, quoted in _flow_chars(text, '[') if not quoted)
 
 
 def _split_commas(text: str) -> list[str]:
+	"""A flow list's inside split at the commas outside quoted items."""
 	pieces: list[str] = []
 	current: list[str] = []
-	quote = ''
-	for char in text:
-		if quote:
-			current.append(char)
-			if char == quote:
-				quote = ''
-			continue
-		if char in '"\'':
-			quote = char
-			current.append(char)
-		elif char == ',':
+	for _, char, quoted in _flow_chars(text, '['):
+		if char == ',' and not quoted:
 			pieces.append(''.join(current))
 			current = []
 		else:

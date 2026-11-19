@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,7 +34,7 @@ TYPE_KEYS = ('type', 'fileclass', 'category', 'kind')
 TAG_KEYS = ('tags', 'tag')
 DEPRECATED_KEYS = {'tag': 'tags', 'alias': 'aliases', 'cssclass': 'cssclasses'}
 
-TASK_LINE = re.compile(r'^(?P<indent>[ \t]*)(?:[-*+]|\d+[.)])[ \t]+\[(?P<status>.)\][ \t]+(?P<text>.*)$')
+TASK_LINE = re.compile(r'^(?:[ \t]*>)*(?P<indent>[ \t]*)(?:[-*+]|\d+[.)])[ \t]+\[(?P<status>.)\][ \t]+(?P<text>.*)$')
 FENCE = re.compile(r'^[ \t]*(```|~~~)')
 INLINE_CODE = re.compile(r'`[^`]*`')
 INLINE_TAG = re.compile(r'(?:^|(?<=[\s(]))#([^\s#!@$%^&*(),.?":{}|<>\[\]\'`;+=~\\]+)')
@@ -100,6 +101,7 @@ class Walk:
 	bases: list[str] = field(default_factory=list)
 	attachments: Counter[str] = field(default_factory=Counter)
 	hidden: list[str] = field(default_factory=list)
+	unreadable: list[str] = field(default_factory=list)
 
 
 def top_folder(path: str) -> str:
@@ -139,7 +141,11 @@ def walk_vault(vault: Path) -> Walk:
 			path = f'{relative_root}/{name}' if relative_root else name
 			suffix = Path(name).suffix.lower()
 			if suffix == '.md':
-				data = (Path(root) / name).read_bytes()
+				try:
+					data = (Path(root) / name).read_bytes()
+				except OSError:
+					result.unreadable.append(path)
+					continue
 				try:
 					text, decode_errors = data.decode('utf-8'), False
 				except UnicodeDecodeError:
@@ -721,6 +727,7 @@ def survey(vault: Path) -> dict[str, object]:
 			'duplicate_keys': duplicates,
 			'decode_errors': decode_problems,
 			'unreadable_config': sorted(config.unreadable),
+			'unreadable_notes': walk.unreadable,
 		},
 	}
 
@@ -912,6 +919,8 @@ def render_report(data: dict[str, object], schema: dict[str, object]) -> str:
 		out += ['Keys set twice in one block (the last value is the one counted):', ''] + [f'- {item["path"]}: {", ".join(item["keys"])}' for item in problems['duplicate_keys']] + ['']
 	if problems['decode_errors']:
 		out += ['Notes that are not valid UTF-8:', ''] + [f'- {path}' for path in problems['decode_errors']] + ['']
+	if problems['unreadable_notes']:
+		out += ['Notes that could not be read (a broken link, or no permission):', ''] + [f'- {path}' for path in problems['unreadable_notes']] + ['']
 	if problems['unreadable_config']:
 		out += ['Config files that would not parse: ' + ', '.join(f'`{name}`' for name in problems['unreadable_config']) + '.', '']
 
@@ -930,12 +939,54 @@ def dump(value: object) -> str:
 	return json.dumps(value, indent='\t', ensure_ascii=False, sort_keys=False) + '\n'
 
 
+def is_within(path: Path, folder: Path) -> bool:
+	"""Whether path is folder or below it, compared by file identity.
+
+	Comparing names would miss `Vault` against `vault` on a file system that
+	ignores case, which macOS does by default.
+	"""
+	for candidate in (path, *path.parents):
+		try:
+			if candidate.exists() and candidate.samefile(folder):
+				return True
+		except OSError:
+			continue
+	return False
+
+
+def committable(path: Path) -> str | None:
+	"""The repository that would track a file at path, or None.
+
+	None when no existing folder above path is in a git work tree, when git
+	ignores the path there, or when git cannot be run.
+	"""
+	anchor = next((candidate for candidate in (path, *path.parents) if candidate.is_dir()), None)
+	if anchor is None:
+		return None
+	try:
+		top = subprocess.run(['git', '-C', str(anchor), 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=False)
+		if top.returncode != 0:
+			return None
+		probe = path / 'report.md'
+		ignored = subprocess.run(['git', '-C', str(anchor), 'check-ignore', '-q', str(probe)], capture_output=True, check=False)
+	except OSError:
+		return None
+	return None if ignored.returncode == 0 else top.stdout.strip()
+
+
 def write_outputs(vault: Path, out: Path) -> dict[str, Path]:
-	"""Survey the vault and write the three files; refuse an out folder inside the vault."""
+	"""Survey the vault and write the three files.
+
+	Refuses an output folder inside the vault, and one inside a repository
+	that does not ignore it, since the report quotes the vault freely.
+	"""
 	vault = vault.resolve()
 	out = out.resolve()
-	if out == vault or vault in out.parents:
+	if is_within(out, vault):
 		raise SniffError(f'the output folder {out} is inside the vault; the survey writes nothing there')
+	repository = committable(out)
+	if repository:
+		raise SniffError(f'the output folder {out} is inside the repository {repository}, which does not ignore it; the report quotes the vault, so it must never be committed')
 	data = survey(vault)
 	schema = draft_schema(data)
 	out.mkdir(parents=True, exist_ok=True)
