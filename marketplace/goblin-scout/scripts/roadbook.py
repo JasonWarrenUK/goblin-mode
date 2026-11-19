@@ -739,10 +739,11 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
         if content is not None:
             _refuse_if_stamped_newer(content)
             if (source != path and source.name not in LOCAL_NAMES
-                    and _canonical_text(content).encode("utf-8") != raw):
+                    and _canonical_text(content) != raw.decode("utf-8")):
                 # every other write refuses to reformat a file wholesale; this
-                # one would do it to a file the caller never named. Bytes,
-                # since read_text() would fold CRLF into LF and hide it
+                # one would do it to a file the caller never named. The bytes
+                # decoded, since read_text() would fold CRLF into LF and hide
+                # it, and encoding the canonical text fails on a surrogate
                 raise RoadbookError(
                     f"{_shown(source)} is not in canonical form (tab-indented, "
                     "ensure_ascii off, trailing newline), and this write would "

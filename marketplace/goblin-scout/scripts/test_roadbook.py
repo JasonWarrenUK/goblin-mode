@@ -2999,6 +2999,22 @@ class LegacyMigration(LegacyFixture):
         self.assertIn(".claude/roadmaps.json is not in canonical form", out)
         self.assertEqual({f: f.read_bytes() for f in before}, before)
 
+    def test_a_lone_surrogate_in_the_committed_file_refuses_without_a_traceback(self):
+        # round 3: the shape JSON.stringify gives a string cut through an
+        # emoji; canonical text holds a surrogate UTF-8 cannot encode
+        data = self._phases()
+        data[1]["milestones"][0]["tasks"][1]["description"] = "cut SURROGATE"
+        text = json.dumps(data, indent="\t", ensure_ascii=False) + "\n"
+        self.legacy.write_text(text.replace("SURROGATE", "\\ud83d"))
+        self._write(self.legacy_local, [phase(
+            [{"id": "M9", "name": "mirror", "tasks": [task("j1", local=True)]}],
+            name="Jira", source={"kind": "jira", "project": "J"})])
+        before = {f: f.read_bytes() for f in (self.legacy, self.legacy_local)}
+        rc, out, _err = self._run("claim", "j1", str(self.root), "--date", "2026-11-18")
+        self.assertEqual(rc, 2, out)
+        self.assertIn(".claude/roadmaps.json is not in canonical form", out)
+        self.assertEqual({f: f.read_bytes() for f in before}, before)
+
     def test_clearing_the_chart_path_on_an_unmoved_file_clears_it(self):
         data = self._phases()
         data[1]["artefact"] = "site/plan.html"
