@@ -51,7 +51,9 @@ FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,})(.*)$')
 # `- [ ] ```sh` is paragraph text, not an opener. Read that way, its closer
 # opens a fence that blanks the rest of the note, which no reader intends, so
 # the box is taken off too and the task on that line still counts.
-LIST_PREFIX = re.compile(r'^(?:[ \t]*(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?:\[.\][ \t]+)?)+')
+LIST_PREFIX = re.compile(r'^(?:[ \t]*(?:>[ \t]?|(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?:\[.\][ \t]+)?))+')
+LIST_MARKER = re.compile(r'(?:[-*+]|[0-9]{1,9}[.)])[ \t]+')
+TASK_BOX = re.compile(r'\[.\]')
 # A code span closes on a backtick run as long as the one that opened it
 # (CommonMark 0.31.2, 6.1), so ``#x`` and `` ` `` are spans too.
 INLINE_CODE = re.compile(r'(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)')
@@ -191,6 +193,21 @@ def walk_vault(vault: Path) -> Walk:
 	return result
 
 
+def width(text: str) -> int:
+	"""Columns text takes, a tab stopping at the next multiple of four."""
+	return len(text.expandtabs(4))
+
+
+def strip_quotes(line: str, count: int) -> str:
+	"""The line after its first count quote markers."""
+	for _ in range(count):
+		marker = re.match(r'[ \t]*>', line)
+		if not marker:
+			break
+		line = line[marker.end():]
+	return line
+
+
 def body_lines(body: str) -> list[str]:
 	"""The body's lines with fenced code blanked, so nothing inside a fence counts.
 
@@ -198,17 +215,24 @@ def body_lines(body: str) -> list[str]:
 	It closes only on a matching fence at that same depth, so a quoted line
 	inside an unquoted block is content, and it ends on the first line with
 	fewer `>`, since a fence opened in a quote ends where the quote does.
+	A fence that opens on a list marker line also ends with its list item
+	(5.2): on the first non-blank line indented less than the item's text.
 	"""
 	out: list[str] = []
 	fence = ''
 	depth = 0
+	item_level = 0
+	item_column = 0
 	for raw in body.split('\n'):
 		line = raw.rstrip('\r')
 		prefix = QUOTE_PREFIX.match(line).group(0)
 		level = prefix.count('>')
 		content = line[len(prefix):]
 		if fence:
-			if level < depth:
+			inside = strip_quotes(line, item_level)
+			if item_column and inside.strip() and width(inside) - width(inside.lstrip(' \t')) < item_column:
+				fence = ''
+			elif level < depth:
 				fence = ''
 			else:
 				match = FENCE.match(content)
@@ -222,7 +246,11 @@ def body_lines(body: str) -> list[str]:
 		match = FENCE.match(content[len(lead):])
 		if match and not (match.group(1)[0] == '`' and '`' in match.group(2)):
 			fence = match.group(1)
-			depth = level
+			# '>' inside the lead nests a quote within the item; a task box such as [>] is not one.
+			depth = level + TASK_BOX.sub('', lead).count('>')
+			markers = list(LIST_MARKER.finditer(TASK_BOX.sub('[ ]', lead)))
+			item_level = level
+			item_column = width(lead[: markers[-1].end()]) if markers else 0
 			# A fence on a list line keeps its marker, so a task box before it still counts.
 			out.append((prefix + lead).rstrip() if lead else '')
 			continue

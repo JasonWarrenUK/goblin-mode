@@ -87,12 +87,14 @@ class HelperTest(unittest.TestCase):
 	def test_a_fence_opening_on_its_list_marker_line(self) -> None:
 		# CommonMark 0.31.2 section 5.3, example 318: a fence may open on the line of its list marker
 		rest = '- then the rest\n\n- [ ] water the ferns #garden\n- [x] mend the kite #sky\n'
-		for opener in ('- ```sh', '1. ```sh', '* ~~~', '> - ```sh'):
-			quote = '> ' if opener.startswith('>') else ''
+		for opener in ('- ```sh', '1. ```sh', '* ~~~', '> - ```sh', '- > ```sh'):
+			quote = '> ' if opener.startswith('>') else '  > ' if opener.startswith('- >') else ''
 			closer = '~~~' if '~' in opener else '```'
-			body = f'{opener}\n{quote}  echo hello #notatag\n{quote}  {closer}\n' + rest
+			# Continuation lines sit at the item's text column: two for '- ', three for '1. '.
+			indent = '' if quote.startswith('  ') else ' ' * len(opener.removeprefix('> ').split('`')[0].split('~')[0])
+			body = f'{opener}\n{quote}{indent}echo hello #notatag\n{quote}{indent}{closer}\n' + rest
 			# The opener line keeps only its marker ('-', '1.', '*', '> -'), which holds no task or tag.
-			visible = [line for line in body_lines(body) if line and line not in ('-', '1.', '*', '> -')]
+			visible = self.visible(body)
 			self.assertEqual(visible, ['- then the rest', '- [ ] water the ferns #garden', '- [x] mend the kite #sky'], opener)
 
 	def test_a_fence_opening_after_a_task_box_keeps_the_task(self) -> None:
@@ -100,6 +102,36 @@ class HelperTest(unittest.TestCase):
 		lines = [line for line in body_lines(body) if line]
 		self.assertEqual(lines, ['- [ ]', '- [ ] water the ferns #garden'])
 		self.assertEqual([TASK_LINE.match(line).group('status') for line in lines], [' ', ' '])
+
+	def visible(self, body: str) -> list[str]:
+		# An opener line keeps only its marker, which holds no task or tag.
+		return [line for line in body_lines(body) if line and line.strip(' >-*+.0123456789')]
+
+	def test_an_unclosed_fence_on_a_bullet_ends_with_its_item(self) -> None:
+		# CommonMark 0.31.2 section 5.2: a fence opened in a list item ends where the item does
+		body = '- ``` opens a block\n- [ ] next #garden\nplain #sky\n'
+		self.assertEqual(self.visible(body), ['- [ ] next #garden', 'plain #sky'])
+
+	def test_a_list_fence_ends_at_a_less_indented_line(self) -> None:
+		body = '- ```sh\n  code #nottag\nplain #real\n'
+		self.assertEqual(self.visible(body), ['plain #real'])
+		numbered = '1. ```\n   x #nottag\n2. next #real\n'
+		self.assertEqual(self.visible(numbered), ['2. next #real'])
+		nested = '- a\n  - ```\n    x #nottag\n  - b #real\n'
+		self.assertEqual(self.visible(nested), ['- a', '  - b #real'])
+
+	def test_blank_lines_stay_inside_a_list_fence(self) -> None:
+		body = '- ```sh\n  a #nottag\n\n  b #nottag\n  ```\n- after #real\n'
+		self.assertEqual(self.visible(body), ['- after #real'])
+
+	def test_a_fence_behind_a_quote_on_the_marker_line(self) -> None:
+		body = '- > ```sh\n  > echo #notatag\n  > ```\n- [ ] after #garden\n'
+		self.assertEqual(self.visible(body), ['- [ ] after #garden'])
+
+	def test_a_forwarded_task_box_is_not_a_quote(self) -> None:
+		body = '- [>] ```sh\n  x #nottag\n  ```\n- after #real\n'
+		lines = [line for line in body_lines(body) if line]
+		self.assertEqual(lines, ['- [>]', '- after #real'])
 
 	def test_inline_code_on_a_list_line_is_not_a_fence(self) -> None:
 		body = '- ```inline``` text #real\n- [ ] next\n'
