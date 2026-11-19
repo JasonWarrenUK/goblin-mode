@@ -1,5 +1,7 @@
 # goblin-archivist
 
+*Goblin keeps everything. Goblin knows where everything is. Goblin has not decided yet whether to tell you.*
+
 > [!NOTE]
 > A Claude Code plugin from [goblin-mode](https://github.com/JasonWarrenUK/goblin-mode) that connects every session on one Mac to one local Obsidian vault. This first release does one thing: it sniffs the vault, read-only, and tells you what is in it.
 

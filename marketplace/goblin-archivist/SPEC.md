@@ -80,6 +80,7 @@ Pane views: **here**, **pile**, **hunches**, **holes** (the Midden spec's Here, 
 | Survey output | `<base>/vault/sniff/`: `survey.json`, `report.md` and `schema.draft.json` from the script; `schema.notes.md` from Claude, which the script never touches |
 | Draft schema | The script drafts it by fixed thresholds (required at 90% of a type's notes, optional from 10%); Claude annotates beside it; Jason rules |
 | The off switch | `enabled` stops the mod registering anything and stops every skill at its first step, since skills do not pass through the mod |
+| Persona line | The README and the marketplace description open with: *Goblin keeps everything. Goblin knows where everything is. Goblin has not decided yet whether to tell you.* Jason's choice on 2026-11-19, from three candidates; the renamed mods' ruling did not cover the archivist, so he was asked |
 | This repository | Commits the plugin, its tests and an invented fixture vault. Nothing read from the real vault is ever committed |
 | Archivist properties | Every property the archivist writes carries the prefix `gob-arc-` (`gob-arc-repo`, `gob-arc-revisit`), so it is plain which mod wrote it. The Midden spec's `repo` property on a project note becomes `gob-arc-repo` |
 | What the schema covers | The `gob-arc-` properties and the notes the archivist creates. Jason's own properties and `type` values stay untouched. Separately, `nitpick-vault` offers opt-in fix classes for Jason's own notes (journal migration, properties whose names differ only in case, empty duplicates), each approved as a class |

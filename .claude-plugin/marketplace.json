@@ -61,7 +61,7 @@
 		{
 			"name": "goblin-archivist",
 			"source": "./marketplace/goblin-archivist",
-			"description": "Connects Claude Code sessions on one Mac to one Obsidian vault. First slice: /goblin-archivist:sniff-vault surveys the vault read-only (layout, note types, properties, tags, templates, Tasks formats, plugins, published notes, Linter rules) and drafts a schema.",
+			"description": "Goblin keeps everything. Goblin knows where everything is. Goblin has not decided yet whether to tell you. Connects Claude Code sessions on one Mac to one Obsidian vault. First slice: /goblin-archivist:sniff-vault surveys the vault read-only (layout, note types, properties, tags, templates, Tasks formats, plugins, published notes, Linter rules) and drafts a schema.",
 			"category": "productivity",
 			"tags": [
 				"mod",
