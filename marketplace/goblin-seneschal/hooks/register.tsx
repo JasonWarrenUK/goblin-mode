@@ -173,7 +173,7 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 	const stored = await $.store.get(CARRIED_KEYS)
 	const carried = new Set(Array.isArray(stored) ? stored.filter((k): k is string => typeof k === 'string') : [])
 	const held = new Set([...current.entries.map(entryKey), ...carried])
-	const missing = old.entries.filter((entry, i) => {
+	const missing = old.entries.filter((_, i) => {
 		const key = oldKeys[i] as string
 		if (held.has(key)) return false
 		held.add(key)
