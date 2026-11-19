@@ -593,7 +593,7 @@ export const MOD_FILES: Record<ModKey, ModFile> = {
 	},
 	archivist: {
 		key: 'archivist',
-		persona: null,
+		persona: 'Goblin keeps everything. Goblin knows where everything is. Goblin has not decided yet whether to tell you.',
 		situations: [
 			{
 				num: 'V.1',
