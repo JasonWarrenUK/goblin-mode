@@ -198,7 +198,29 @@ code{font-family:var(--font-mono); font-size:.88em}
 .ruling .label{justify-self:start; background:var(--slime); color:var(--on-slime); font-family:var(--font-print); font-weight:600; font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; padding:.05rem .4rem}
 .ruling p{margin:0; font-family:var(--font-marker); color:var(--accent-2); font-size:1.08rem}
 
-.roster{position:sticky; top:1rem; padding:1rem 1.1rem}
+/*
+	Torn paper: the slip's paper is drawn on a backing layer clipped to a ragged
+	edge (the notice's own technique for its folders), the shadow follows the
+	torn outline through drop-shadow, and a strip of tape holds it on. Three
+	edge shapes alternate so no two neighbouring slips tear alike.
+	TODO before build: the rag shapes become shape tokens in the goblin theme.
+*/
+:root{
+	--rag-a:polygon(0.0% 1.9px,4.5% 2.2px,9.1% 0.8px,13.6% 0.4px,18.2% 0.9px,22.7% 0.5px,27.3% 1.9px,31.8% 0.6px,36.4% 1.6px,40.9% 3.1px,45.5% 1.1px,50.0% 3.9px,54.5% 3.6px,59.1% 1.0px,63.6% 0.6px,68.2% 0.8px,72.7% 1.0px,77.3% 3.3px,81.8% 4.2px,86.4% 3.6px,90.9% 0.9px,95.5% 3.7px,100.0% 3.1px,calc(100% - 0.6px) 16.7%,calc(100% - 2.0px) 33.3%,calc(100% - 1.3px) 50.0%,calc(100% - 0.9px) 66.7%,calc(100% - 1.8px) 83.3%,100.0% calc(100% - 1.9px),95.5% calc(100% - 1.3px),90.9% calc(100% - 4.8px),86.4% calc(100% - 0.6px),81.8% calc(100% - 3.5px),77.3% calc(100% - 1.7px),72.7% calc(100% - 1.6px),68.2% calc(100% - 0.1px),63.6% calc(100% - 1.7px),59.1% calc(100% - 1.2px),54.5% calc(100% - 1.9px),50.0% calc(100% - 4.1px),45.5% calc(100% - 3.6px),40.9% calc(100% - 1.3px),36.4% calc(100% - 1.6px),31.8% calc(100% - 3.8px),27.3% calc(100% - 0.8px),22.7% calc(100% - 1.5px),18.2% calc(100% - 4.1px),13.6% calc(100% - 4.7px),9.1% calc(100% - 4.6px),4.5% calc(100% - 4.8px),0.0% calc(100% - 1.7px),2.7px 83.3%,1.0px 66.7%,2.8px 50.0%,1.1px 33.3%,1.8px 16.7%);
+	--rag-b:polygon(0.0% 4.0px,4.5% 3.1px,9.1% 0.9px,13.6% 3.3px,18.2% 1.1px,22.7% 0.3px,27.3% 2.0px,31.8% 0.8px,36.4% 1.0px,40.9% 3.2px,45.5% 0.9px,50.0% 0.5px,54.5% 2.4px,59.1% 0.8px,63.6% 1.5px,68.2% 3.7px,72.7% 1.9px,77.3% 1.6px,81.8% 3.8px,86.4% 5.0px,90.9% 1.3px,95.5% 3.7px,100.0% 0.9px,calc(100% - 0.4px) 16.7%,calc(100% - 1.9px) 33.3%,calc(100% - 0.3px) 50.0%,calc(100% - 2.1px) 66.7%,calc(100% - 0.0px) 83.3%,100.0% calc(100% - 2.4px),95.5% calc(100% - 3.1px),90.9% calc(100% - 2.3px),86.4% calc(100% - 1.9px),81.8% calc(100% - 3.9px),77.3% calc(100% - 0.2px),72.7% calc(100% - 0.5px),68.2% calc(100% - 1.6px),63.6% calc(100% - 4.7px),59.1% calc(100% - 1.0px),54.5% calc(100% - 1.9px),50.0% calc(100% - 4.2px),45.5% calc(100% - 1.8px),40.9% calc(100% - 4.8px),36.4% calc(100% - 0.2px),31.8% calc(100% - 5.0px),27.3% calc(100% - 1.6px),22.7% calc(100% - 0.5px),18.2% calc(100% - 2.2px),13.6% calc(100% - 0.2px),9.1% calc(100% - 4.3px),4.5% calc(100% - 0.1px),0.0% calc(100% - 1.8px),1.4px 83.3%,0.3px 66.7%,1.9px 50.0%,2.6px 33.3%,2.1px 16.7%);
+	--rag-c:polygon(0.0% 4.1px,4.5% 4.3px,9.1% 0.6px,13.6% 0.7px,18.2% 3.1px,22.7% 1.5px,27.3% 0.2px,31.8% 3.6px,36.4% 3.2px,40.9% 4.7px,45.5% 1.7px,50.0% 3.3px,54.5% 0.8px,59.1% 1.2px,63.6% 1.3px,68.2% 1.5px,72.7% 1.1px,77.3% 1.6px,81.8% 1.6px,86.4% 0.7px,90.9% 3.1px,95.5% 1.6px,100.0% 1.8px,calc(100% - 1.9px) 16.7%,calc(100% - 2.6px) 33.3%,calc(100% - 1.7px) 50.0%,calc(100% - 2.1px) 66.7%,calc(100% - 0.1px) 83.3%,100.0% calc(100% - 1.3px),95.5% calc(100% - 0.9px),90.9% calc(100% - 0.4px),86.4% calc(100% - 2.1px),81.8% calc(100% - 1.2px),77.3% calc(100% - 1.2px),72.7% calc(100% - 1.7px),68.2% calc(100% - 4.6px),63.6% calc(100% - 3.6px),59.1% calc(100% - 3.7px),54.5% calc(100% - 1.0px),50.0% calc(100% - 2.0px),45.5% calc(100% - 4.7px),40.9% calc(100% - 1.2px),36.4% calc(100% - 0.2px),31.8% calc(100% - 0.8px),27.3% calc(100% - 1.8px),22.7% calc(100% - 1.4px),18.2% calc(100% - 3.9px),13.6% calc(100% - 1.2px),9.1% calc(100% - 1.9px),4.5% calc(100% - 4.5px),0.0% calc(100% - 1.1px),2.2px 83.3%,1.6px 66.7%,2.2px 50.0%,1.3px 33.3%,1.8px 16.7%);
+}
+.slip.torn{background:none; box-shadow:none; isolation:isolate; filter:drop-shadow(var(--shadow)); --rag:var(--rag-a)}
+.slip.torn::after{content:""; position:absolute; inset:0; z-index:-1; background:var(--slip); clip-path:var(--rag)}
+.slip.torn::before{content:""; position:absolute; z-index:1; top:-.6rem; left:50%; width:4.2rem; height:1.15rem; margin-left:-2.1rem;
+	background:var(--tape); transform:rotate(-2.5deg);
+	clip-path:polygon(0 12%,6% 0,12% 14%,100% 0,97% 40%,100% 70%,95% 100%,10% 92%,4% 100%,0 60%)}
+.howto details.torn:nth-of-type(3n+2){--rag:var(--rag-b); transform:rotate(.35deg)}
+.howto details.torn:nth-of-type(3n){--rag:var(--rag-c); transform:rotate(-.3deg)}
+.howto details.torn:nth-of-type(3n+1){transform:rotate(-.45deg)}
+.howto details.torn::before{left:auto; right:1.5rem; margin-left:0; transform:rotate(4deg)}
+.howto details.torn:nth-of-type(even)::before{left:1.5rem; right:auto; transform:rotate(-5deg)}
+.roster{position:sticky; top:1rem; padding:1.4rem 1.1rem 1.1rem; transform:rotate(.6deg); --rag:var(--rag-b)}
 .roster h2{font-family:var(--font-print); font-weight:600; font-size:.8rem; letter-spacing:.14em; text-transform:uppercase; color:var(--slip-accent); margin-bottom:.6rem}
 .roster table{border-collapse:collapse; width:100%; font-size:.82rem}
 .roster td{padding:.3rem .25rem; border-bottom:1px solid var(--slip-line); vertical-align:top}
@@ -366,7 +388,7 @@ code{font-family:var(--font-mono); font-size:.88em}
 			</details>
 		</div>
 
-		<aside class="slip roster" aria-labelledby="roster-title">
+		<aside class="slip torn roster" aria-labelledby="roster-title">
 			<span class="pin" aria-hidden="true">4</span>
 			<h2 id="roster-title">Everything goblin-scout Does</h2>
 			<table>
@@ -394,14 +416,14 @@ code{font-family:var(--font-mono); font-size:.88em}
 	<section class="howto" id="how-to" aria-labelledby="howto-title">
 		<span class="pin rel" aria-hidden="true">5</span>
 		<h2 id="howto-title">How to Use It</h2>
-		<details class="slip">
+		<details class="slip torn">
 			<summary>Install and first run</summary>
 			<p>Add the marketplace once, then install the mod.</p>
 			<div class="cmdrow"><code class="cmd">claude plugin marketplace add JasonWarrenUK/goblin-mode
 claude plugin install goblin-scout@goblin-mode</code><button type="button" class="copy">Copy</button></div>
 			<p>It needs <code>python3</code> 3.8 or later on your <code>PATH</code>. The <code>/scout-waypoints</code> pane needs Claude Code <span class="gen">2.1.287</span> or later; the skills work on any version. In a project with no roadbook, run <code>/goblin-scout:start-roadbook</code>, then <code>/scout-waypoints</code> to see what is ready.</p>
 		</details>
-		<details class="slip">
+		<details class="slip torn">
 			<summary>Configure it</summary>
 			<p>goblin-scout takes <span class="gen">no options</span> in Claude Code's plugin settings. Its one setting lives in the roadbook: where the chart is written.</p>
 			<div class="scroll"><table>
@@ -409,11 +431,11 @@ claude plugin install goblin-scout@goblin-mode</code><button type="button" class
 				<tbody><tr><td>Where the chart is written, per phase</td><td><code>/goblin-scout:configure-roadbook artefact &lt;path&gt;</code></td><td>beside the roadbook</td></tr></tbody>
 			</table></div>
 		</details>
-		<details class="slip" open>
+		<details class="slip torn" open>
 			<summary>Commands and skills</summary>
 			<p><span class="gen">Generated from each skill's own file at build.</span></p>
 			<div class="scroll"><table>
-				<thead><tr><th>Type</th><th>What it does</th></tr></thead>
+				<thead><tr><th>Command</th><th>What it does</th></tr></thead>
 				<tbody>
 					<tr><td><code>/scout-waypoints</code></td><td>The pane: every ready waypoint, most useful first</td></tr>
 					<tr><td><code>/goblin-scout:start-roadbook</code></td><td>Create a roadbook with its waypoint list and overview</td></tr>
@@ -431,7 +453,7 @@ claude plugin install goblin-scout@goblin-mode</code><button type="button" class
 				</tbody>
 			</table></div>
 		</details>
-		<details class="slip">
+		<details class="slip torn">
 			<summary>Turn it off or remove it</summary>
 			<p>To stop the branch question on one branch: <code>git config branch.&lt;name&gt;.roadmapClaim none</code> <span class="q">(today's key; the rename may change it)</span>. To remove the mod: <code>claude plugin uninstall goblin-scout@goblin-mode</code>. Your roadbook stays in <code>.claude/roadbook.json</code>; it is plain JSON and nothing else reads it.</p>
 		</details>
