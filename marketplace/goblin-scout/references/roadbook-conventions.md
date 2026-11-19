@@ -47,7 +47,7 @@ pass `--phase NAME`.
 
 **Before 3.0.0** the plugin was called roadmap and kept `.claude/roadmaps.json`
 (and `.claude/roadmaps.local.json`). Both are still read. The first write by
-3.0.0 or later moves them to `roadbook.json` and `roadbook.local.json` with one
+3.0.0 or later moves them to `roadbook.json` and `roadbook.local.json` with a
 line of notice; no value is rewritten, and a phase with no `artefact` gets the
 chart's old default path pinned there, so the chart stays where it was. A local
 file moved alongside the one being written travels byte for byte (no pin, no
