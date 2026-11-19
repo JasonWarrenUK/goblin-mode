@@ -123,22 +123,25 @@ current=$(series_current "$prefix" "${current_args[@]}") || exit 2
 # What the plugin's built plugin.json declares at its top level, if anything:
 # the start of a fresh series, and for a renamed plugin the human's word on
 # crossing to 1.x. A nested "version" (a dependency's, say) never counts. Only
-# major.minor.patch counts as declared: a run of digits and dots of another
-# shape (0.3, 1.0, 0.3.0.) exits 2 naming it, since printed as a tag it is
-# one the tag-shape check refuses at the next release. Anything else (none, a
-# pre-release) reads as nothing declared.
+# major.minor.patch, with no leading zero (semver's rule), counts as declared.
+# A run of digits and dots of another shape (0.3, 1.0, 0.3.0., 0.03.0), or
+# one with whitespace around it, exits 2 naming it, for any series: printed
+# as a fresh series' tag it is one the tag-shape check refuses at the next
+# release, and in a series already tagged it is a manifest pr-land would
+# write over unasked. Anything else (none, a pre-release) reads as nothing
+# declared.
 declared=""
 if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
 	declared=$(python3 -I -c '
 import json, re, sys
 version = json.load(open(sys.argv[1])).get("version")
-if isinstance(version, str) and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+if isinstance(version, str) and re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
 	print(version)
-elif isinstance(version, str) and re.fullmatch(r"[0-9.]+", version):
+elif isinstance(version, str) and re.fullmatch(r"\s*[0-9.]+\s*", version):
 	print("malformed:" + version)
 ' "$dir/.claude-plugin/plugin.json" 2>/dev/null)
 	if [[ "$declared" == malformed:* ]]; then
-		print -u2 -- "$dir/.claude-plugin/plugin.json declares version \"${declared#malformed:}\", which is not major.minor.patch; set it to three numbers and run this again"
+		print -u2 -- "$dir/.claude-plugin/plugin.json declares version \"${declared#malformed:}\", which is not major.minor.patch; set it to three numbers with no leading zero and nothing around them, then run this again"
 		exit 2
 	fi
 fi
