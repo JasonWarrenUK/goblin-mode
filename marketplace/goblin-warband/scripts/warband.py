@@ -2110,7 +2110,10 @@ def cmd_init(args) -> int:
         raise Refusal(f"{target} exists; pass --force to overwrite it")
     # a starter under the new name is read first and would shadow the real config, and the gates with it (review 5981937523)
     if (root / OLD_CONFIG_REL).exists() and not args.force:
-        raise Refusal(f"{root / OLD_CONFIG_REL} is this repository's config under its old name; rename it, or pass --force to write a starter that takes its place")
+        # never "rename it": a rename by hand takes the gates from a session still on 0.13.1 (review 5983523136)
+        raise Refusal(f"{root / OLD_CONFIG_REL} is this repository's config under its old name, and the warband reads it there; "
+                      f"leave it where it is while any session still runs mission-control (the move takes care of it, leaving a link, once no "
+                      f"raid is live in the old ledger). Pass --force only to write a starter that takes its place.")
     example = Path(__file__).resolve().parent.parent / "references" / "goblin-warband.example.json"
     data = read_json(example, {})
     data["project"] = root.name

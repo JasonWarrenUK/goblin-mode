@@ -3767,7 +3767,7 @@ class Dashboard(unittest.TestCase):
         for tokens in (light, dark):
             self.assertGreaterEqual(ratio(tokens[card_ink], tokens["--card"]), 4.5)
             self.assertGreaterEqual(ratio(tokens[layer_ink], tokens["--card-dark"]), 4.5)
-        for selector in (".meta", ".num .waits", ".note small"):
+        for selector in (".meta", ".num .waits", ".note small", ".tributes .agreed"):
             rule = re.search(re.escape(selector) + r" \{([^}]*)\}", css).group(1)
             self.assertNotIn("opacity", rule, f"{selector} thins its ink below the ratio")
 
@@ -3851,8 +3851,13 @@ class MoveFromMissionControl(unittest.TestCase):
         """Review 5981937523: a starter written beside the old-named config is read first and shadows it, and the gates go."""
         self.old_world(live=False, tracked=True)
         done = self.box.mc("init", expect=1)
-        self.assertIn("mission-control.json", done.stdout + done.stderr)
-        self.assertIn("--force", done.stdout + done.stderr)
+        said = done.stdout + done.stderr
+        self.assertIn("mission-control.json", said)
+        self.assertIn("--force", said)
+        # review 5983523136: renaming it by hand takes the gates from a session still on 0.13.1, so the refusal never says to
+        refusal = next(line for line in said.splitlines() if "mission-control.json is this repository's config" in line)
+        self.assertNotIn("rename", refusal.lower())
+        self.assertIn("leave it where it is while any session still runs mission-control", refusal)
         self.assertFalse((self.box.repo / ".claude" / "goblin-warband.json").exists(), "no starter shadows the real config")
 
     def test_a_config_ignored_only_by_its_old_name_stays_put(self):
