@@ -42,15 +42,11 @@ A skill that pinned one model while another answered draws `singleDouble` in `wa
 
 ### 2.1. What it reads from skills and agents
 
-When a skill's prompt is expanded, the mod reads its `SKILL.md` from `~/.claude/skills/` first, then `<project>/.claude/skills/`. A plugin skill, which Claude Code names `<plugin>:<skill directory>`, is read from `skills/<skill directory>/SKILL.md` in that plugin's install as `~/.claude/plugins/installed_plugins.json` records it. The install chosen is the one that applies to the session's project, ranked as Claude Code ranks scopes: a local install for this project, then a project install for it, then the user's; another project's install is never read. A plugin skill gives the goblin its model, family and spinner words exactly as any other skill does, so one that pins a model moves the frame's tier and draws the mismatch frame when another model answers. Some plugin skills still read as nothing set:
+When a skill's prompt is expanded, Claude Code hands the mod the path of the file it loaded and that file's frontmatter, already parsed. The mod reads the three fields below from that frontmatter, so whichever copy the session runs is the one read: a personal or project skill, an installed plugin's, a plugin loaded with `--plugin-dir` (even one that shadows an installed copy), a plugin command's own `.md` file. A plugin skill gives the goblin its model, family and spinner words exactly as any other skill does, so one that pins a model moves the frame's tier and draws the mismatch frame when another model answers. Spinner words are cut to 40 characters and lose any control characters, since a plugin's author writes them too. A skill with no file (a built-in, an MCP server's, a plugin command written inline in its manifest) reads as nothing set, as does one whose frontmatter Claude Code set aside as too large.
 
-- a plugin's commands (`commands/*.md`)
-- plugins with no install record: those loaded with `--plugin-dir`, skills-directory plugins (`@skills-dir`) and plugins synced from claude.ai (`@synced`)
-- skills a plugin keeps outside its `skills/` folder (a `skills` path in its manifest or marketplace entry, or a single `SKILL.md` at its root)
-- a plugin whose manifest `name` differs from its marketplace entry name, since the skill is named after the first and the install record after the second
-- every plugin, when `CLAUDE_CODE_PLUGIN_CACHE_DIR` moves the plugins root away from `~/.claude/plugins`
+An older Claude Code hands no path (2.1.295 did not; 2.1.309 does). There the mod looks the file up itself: `~/.claude/skills/` first, then `<project>/.claude/skills/`, and a plugin skill (named `<plugin>:<skill directory>`) from `skills/<skill directory>/SKILL.md` in the install `~/.claude/plugins/installed_plugins.json` records for this project, ranked as Claude Code ranks scopes: a local install for this project, then a project install for it, then the user's. That lookup cannot see a `--plugin-dir` copy, a plugin with no install record, skills kept outside a plugin's `skills/` folder, a manifest `name` that differs from the marketplace entry or a plugins root moved by `CLAUDE_CODE_PLUGIN_CACHE_DIR`; each reads as nothing set.
 
-A project install is taken to apply when the session's project root lies within its recorded path; Claude Code's own matching rule is not documented. What is read from a skill lasts until the turn completes; a minion lasts until its own turn completes or the session starts over.
+What is read from a skill lasts until the turn completes; a minion lasts until its own turn completes or the session starts over.
 
 | Field | Where | What it does |
 |---|---|---|
@@ -79,7 +75,7 @@ There is no slash command and nothing to type: the mod reacts to the session. Wh
 
 Do not:
 
-- **Do not expect a prop from a plugin skill the goblin cannot find.** Only installed plugins' `skills/<name>/SKILL.md` files are read; every other case in section 2.1 walks empty-handed. Install the plugin from a marketplace to see its props.
+- **Do not expect a prop from a skill with no file.** A built-in, an MCP server's skill or a command written inline in a plugin's manifest has no frontmatter to read and walks empty-handed. On a Claude Code older than 2.1.309, so does every plugin skill the install lookup in section 2.1 cannot find.
 - **Do not expect the frame to change the moment you run `/model`.** The frame follows the model that served the last request, so it switches once a reply has come back from the new one.
 - **Do not use a prop wider than four cells, a minion face wider than five, or an emoji in either.** The band's arithmetic refuses them and falls back to the default.
 - **Do not disable it by removing the hooks from `hooks.json`.** `enabled` is the switch; the manifest is the plugin's own.
