@@ -93,7 +93,7 @@ Pane views: **here**, **pile**, **hunches**, **holes** (the Midden spec's Here, 
 - `hooks/register.tsx`: registers nothing yet; returns at once when switched off.
 - `skills/sniff-vault/SKILL.md`: runs the survey, annotates the draft, walks Jason through it.
 - `scripts/archivist.py`: the command line (`vaults`, `sniff`). `scripts/_frontmatter.py`: the YAML subset. `scripts/_sniff.py`: the survey, the draft and the report.
-- `scripts/fixtures/vault/`: an invented vault (made-up notes, invented people only) covering broken frontmatter, nested maps, lists of maps, inline and nested tags, tags in code and URLs, custom Tasks statuses, Dataview inline fields, a canvas, a base, excluded folders, `.trash`, and Digital Garden, Share Note and Linter settings with fake secrets the survey must never print.
+- `scripts/fixtures/vault/`: an invented vault (made-up notes, invented people only) covering broken frontmatter, nested maps, lists of maps, inline and nested tags, tags in code and URLs, custom Tasks statuses, Dataview inline fields, a canvas, a base, excluded folders and `.trash`, plus Digital Garden, Share Note and Linter settings with fake secrets the survey must never print.
 
 What the survey reports, per Midden spec step 1 and the raid brief: folder layout; note counts by apparent type and the rule that typed them; every property with its value shapes, frequency, top values, declared Obsidian type and case variants; every tag with where it was found; the templates and which templating they use; daily and periodic note settings; the Tasks plugin's statuses and every task line format in use; installed and enabled plugins; every note Digital Garden or Share Note publishes; Linter's switches and the rules that rewrite notes; and every note whose frontmatter will not parse.
 
@@ -150,7 +150,7 @@ The counts agree. The band is now settled by O11, so the Notice's line becomes t
 
 ## 8. For the pane slice
 
-The pane takes the wordmark every goblin-mode pane carries in the right of its header card (raid decree 7, ruling #11): the body lives in goblin-warband's `hooks/register.tsx` (`WORDMARK_WORD`, `WORDMARK_GAP`, `WORDMARK_MIN_FACTS`, `wordmark`, `cells`, `fit`, `packFacts`, `headerLayout` and the drawing block; introduced in commit `33f7ee8`, lines 828 to about 905). Paste it whole and change only `WORDMARK_WORD` to `ARCHIVIST` (17 cells); copy the three tests beside it in `hooks/warband.test.tsx` (lines 171, 178 and 191 in that commit). Read the file on main if the hash has gone.
+The pane takes the wordmark every goblin-mode pane carries in the right of its header card (raid decree 7, ruling #11): the body lives in goblin-warband's `hooks/register.tsx` (`WORDMARK_WORD`, `WORDMARK_GAP`, `WORDMARK_MIN_FACTS`, `wordmark`, `cells`, `fit`, `packFacts`, `headerLayout` and the drawing block; introduced in commit `33f7ee8`, lines 828 to about 905). Paste it whole and change only `WORDMARK_WORD` to `ARCHIVIST` (17 cells); copy the three tests beside it in `hooks/warband.test.tsx` (lines 171, 178 and 191 in that commit). That commit sits on goblin-warband's rename branch until it merges; after that, read the file on main.
 
 ## 9. Checks
 

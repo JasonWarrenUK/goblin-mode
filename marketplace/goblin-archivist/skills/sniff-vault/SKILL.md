@@ -18,7 +18,7 @@ The archivist noses through the whole vault before it touches anything. A fixed 
 
 ## Step 0: The switch
 
-The archivist is on: `${user_config.enabled}`. Carry on only if that reads exactly `true`. Anything else (`false`, empty, or the placeholder itself) means stop: say goblin-archivist is switched off, or its options did not load (`/config`, goblin-archivist, Archivist on).
+The archivist is on: `${user_config.enabled}`. Carry on only if that reads exactly `true`. Anything else (`false`, empty or the placeholder itself) means stop: say goblin-archivist is switched off, or its options did not load (`/config`, goblin-archivist, Archivist on).
 
 ## Step 1: Where to read and where to write
 

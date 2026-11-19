@@ -34,7 +34,7 @@ Surveys the whole vault and writes nothing in it. A fixed script, with no model 
 
 | File | Holds |
 |---|---|
-| `report.md` | Folder layout, note types, every property with its value shapes, tags, templates, Tasks line formats, plugins, published notes, Linter rules, frontmatter that will not parse, and the draft schema in brief |
+| `report.md` | Folder layout, note types, every property with its value shapes, tags, templates, Tasks line formats, plugins, published notes, Linter rules and frontmatter that will not parse, with the draft schema in brief |
 | `survey.json` | The same counts, whole |
 | `schema.draft.json` | A schema drafted from the counts by fixed thresholds |
 
