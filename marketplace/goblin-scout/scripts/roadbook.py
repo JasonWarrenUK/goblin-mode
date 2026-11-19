@@ -729,17 +729,18 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
             content = data
         else:
             try:
-                text = source.read_text()  # not UTF-8 is a ValueError too
-                content = json.loads(text)
+                raw = source.read_bytes()
+                content = json.loads(raw.decode("utf-8"))  # not UTF-8 is a ValueError too
                 _phases(content)
             except (ValueError, RoadbookError):
                 content = None  # not a phase array: moved byte for byte
         if content is not None:
             _refuse_if_stamped_newer(content)
             if (source != path and source.name not in LOCAL_NAMES
-                    and _canonical_text(content) != text):
+                    and _canonical_text(content).encode("utf-8") != raw):
                 # every other write refuses to reformat a file wholesale; this
-                # one would do it to a file the caller never named
+                # one would do it to a file the caller never named. Bytes,
+                # since read_text() would fold CRLF into LF and hide it
                 raise RoadbookError(
                     f"{_shown(source)} is not in canonical form (tab-indented, "
                     "ensure_ascii off, trailing newline), and this write would "

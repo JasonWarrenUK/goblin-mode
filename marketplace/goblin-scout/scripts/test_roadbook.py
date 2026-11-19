@@ -2986,6 +2986,19 @@ class LegacyMigration(LegacyFixture):
                 self.assertEqual(rc, 0, out)
                 self.assertEqual(odd_target.read_bytes(), latin)
 
+    def test_a_crlf_committed_file_counts_as_not_canonical(self):
+        # read_text() folds CRLF into LF, so the comparison must be on bytes
+        canonical = json.dumps(self._phases(), indent="\t", ensure_ascii=False) + "\n"
+        self.legacy.write_bytes(canonical.replace("\n", "\r\n").encode("utf-8"))
+        self._write(self.legacy_local, [phase(
+            [{"id": "M9", "name": "mirror", "tasks": [task("j1", local=True)]}],
+            name="Jira", source={"kind": "jira", "project": "J"})])
+        before = {f: f.read_bytes() for f in (self.legacy, self.legacy_local)}
+        rc, out, _err = self._run("claim", "j1", str(self.root), "--date", "2026-11-18")
+        self.assertEqual(rc, 2, out)
+        self.assertIn(".claude/roadmaps.json is not in canonical form", out)
+        self.assertEqual({f: f.read_bytes() for f in before}, before)
+
     def test_clearing_the_chart_path_on_an_unmoved_file_clears_it(self):
         data = self._phases()
         data[1]["artefact"] = "site/plan.html"
