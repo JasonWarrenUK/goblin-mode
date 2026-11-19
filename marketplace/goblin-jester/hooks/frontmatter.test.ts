@@ -77,6 +77,13 @@ describe('pluginSkillPaths', () => {
 		expect(pluginSkillPaths(slashed, SCOUT, '/a/proj-two')).toEqual([])
 	})
 
+	test('a user install recorded with a null project path is read; a project install with one is not', async () => {
+		const user = JSON.stringify({ plugins: { 'goblin-scout@m': [{ scope: 'user', projectPath: null, installPath: '/c/s' }] } })
+		const project = JSON.stringify({ plugins: { 'goblin-scout@m': [{ scope: 'project', projectPath: null, installPath: '/c/s' }] } })
+		expect(pluginSkillPaths(user, SCOUT, '/a/proj')).toEqual(['/c/s/skills/start-trail/SKILL.md'])
+		expect(pluginSkillPaths(project, SCOUT, '/a/proj')).toEqual([])
+	})
+
 	test("an install of an unrecognised scope bound to another project's path is never read", async () => {
 		for (const scope of ['workspace', 'constructor', 'toString']) {
 			const bound = JSON.stringify({ plugins: { 'goblin-scout@m': [{ scope, projectPath: '/other', installPath: '/c/s' }] } })
@@ -142,6 +149,10 @@ describe('readSkill', () => {
 		expect(splitBar('\u001b[31mred\u001b[0m|tab\there|bell\u0007')).toEqual(['[31mred[0m', 'tabhere', 'bell'])
 		// a word that was nothing but control characters is dropped, never drawn blank
 		expect(splitBar('\u001b\u0007|ok')).toEqual(['ok'])
+	})
+
+	test('a spinner word loses bidi overrides, isolates, zero-width characters and line separators too', async () => {
+		expect(splitBar('\u202eevil\u202c|\u2066iso\u2069|zero\u200bwidth|line\u2028para\u2029end')).toEqual(['evil', 'iso', 'zerowidth', 'lineparaend'])
 	})
 })
 

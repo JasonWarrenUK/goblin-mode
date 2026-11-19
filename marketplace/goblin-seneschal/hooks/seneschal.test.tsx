@@ -224,6 +224,32 @@ test('an old entry whose id clashes with a different grievance arrives under a s
 	expect(files.writes).toEqual([GRIEVANCES])
 })
 
+test('the first start after 1.0.0, with no record yet, takes an id both files hold as carried even when its description was edited', async ($, on) => {
+	world(on)
+	const edited = { ...OLD_ENTRIES[0], description: 'the status line ate my prompt, with the typo fixed' }
+	const files = disk(on, { [OLD_FILE]: OLD_TEXT, [GRIEVANCES]: listed([edited, OLD_ENTRIES[1], OLD_ENTRIES[2]]) })
+	await $.session.start(START)
+	expect(files.writes).toEqual([])
+	expect(JSON.parse(files.text() ?? '')).toEqual([edited, OLD_ENTRIES[1], OLD_ENTRIES[2]])
+})
+
+test('an entry already carried under a suffixed id is not carried again when the record of it was never written', async ($, on) => {
+	// the session that carried it ended between writing the file and writing the record
+	world(on, { carriedInto: GRIEVANCES, carriedKeys: [] })
+	const mine = { ...MINE, id: 'the-status-line-ate-my-prompt', description: 'the status line ate my prompt when I resized the window' }
+	const theirs = { ...LATE, id: 'the-status-line-ate-my-prompt', description: 'the status line ate my prompt when I resized the pane' }
+	const files = disk(on, { [OLD_FILE]: listed([theirs]), [GRIEVANCES]: listed([mine, { ...theirs, id: 'the-status-line-ate-my-prompt-2' }]) })
+	await $.session.start(START)
+	expect(files.writes).toEqual([])
+})
+
+test('the merge keeps what it does not understand in the grievances file', async ($, on) => {
+	world(on)
+	const files = disk(on, { [OLD_FILE]: listed([LATE]), [GRIEVANCES]: listed([MINE, 'a stray note', 3, null]) })
+	await $.session.start(START)
+	expect(JSON.parse(files.text() ?? '')).toEqual([MINE, 'a stray note', 3, null, LATE])
+})
+
 test('after grievances_file has moved, an unreadable grievances file is never promised a fresh carry-over', { options: { grievances_file: '~/notes/grievances.json' } }, async ($, on) => {
 	world(on, { carriedInto: GRIEVANCES, carriedKeys: [] })
 	const files = disk(on, { [OLD_FILE]: OLD_TEXT, '/home/j/notes/grievances.json': '[{"id": "half' })
