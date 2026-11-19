@@ -8,7 +8,7 @@ Vocabulary specific to this config. General Claude Code terms (session, context 
 
 **Role skill**: A skill Claude loads automatically on keyword or file-path match, never invoked directly. Frontmatter carries `user-invocable: false`. Formerly called a "knowledge skill" in older material.
 
-**Model-invocable command skill**: A command skill Claude *can* also self-invoke (`disable-model-invocation: false`), used when one skill needs to call another (`pr-review-comment` calling `pr-review`) or as an automatic wrap-up (`help-whats_new`).
+**Model-invocable command skill**: A command skill Claude *can* also self-invoke (`disable-model-invocation: false`), used when one skill needs to call another (`next-task-ship`'s self-review calling `pr-review`) or when its moment is one Claude sees first; most say why in a comment on that frontmatter line. The automatic wrap-up after a unit of work lands is `goblin-seneschal:proclaim-changes`, a plugin skill. See [Skills](reference/skills.md).
 
 **Runic glyph**: The `𝚫𝚫𝚫`/`ƔƔƔ`/`𝛀𝛀𝛀` prefix on a command skill's description, signalling Haiku/Sonnet/Opus. Superseded the old Greek-letter convention (`ᚻᛕ`/`ᛇᚤ`/`ᛜᚹ`/`ᚨᛔ`). See [Skills](reference/skills.md#the-runic-glyph-convention).
 
@@ -20,9 +20,9 @@ Vocabulary specific to this config. General Claude Code terms (session, context 
 
 **Deterministic half**: A shell/Python script in `library/scripts/` that does a skill's fact-gathering with one correct answer (parsing git output, validating a schema), so the model's context is spent on judgement rather than orchestration. See [Architecture](architecture.md#the-deterministic-half-pattern).
 
-**`paths:` glob**: A frontmatter field on some role skills (e.g. `role-linguist-svelte`) that auto-triggers the skill when a matching file is read or edited, independent of keyword matching.
+**`paths:` glob**: A frontmatter field on some role skills (e.g. `clod-stack-svelte`, `clod-role-frontend_styler`) that auto-triggers the skill when a matching file is read or edited, independent of keyword matching.
 
-**Fork context** (`context: fork`): A skill frontmatter setting that runs the skill in a separate agent context rather than the main conversation, used when a skill's read footprint would otherwise bloat the main session (`project-analyse-critique`, `project-investigate-concept`).
+**Fork context** (`context: fork`): A skill frontmatter setting that runs the skill in a separate agent context rather than the main conversation, used when a skill's read footprint would otherwise bloat the main session (`project-audit_deps`).
 
 **Agent**: An autonomous multi-step workflow (`agents/*.md`) Claude delegates to, running in its own context window with its own model. Distinct from a skill: skills tell Claude what to *know* or a fixed sequence to run; agents investigate and decide. See [Agents](reference/agents.md).
 

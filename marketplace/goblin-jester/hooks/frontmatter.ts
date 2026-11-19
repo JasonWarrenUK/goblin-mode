@@ -56,13 +56,21 @@ export const metadataKey = (block: string, key: string): string | null => {
 	return null
 }
 
-/** A `|`-separated list, trimmed, empties dropped. */
+/** Longest a spinner word may be, in code points: the longest in use is 26. */
+export const SPINNER_WORD_MAX = 40
+
+/**
+ * A `|`-separated list, trimmed, empties dropped. Plugin authors write these
+ * too, so each word loses its control and format characters (an escape would
+ * reach the terminal; a bidi override would reorder the band) and its line
+ * separators, and is cut to `SPINNER_WORD_MAX`.
+ */
 export const splitBar = (value: string | null): readonly string[] =>
 	value === null
 		? []
 		: value
 				.split('|')
-				.map(s => s.trim())
+				.map(s => Array.from(s.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, '').trim()).slice(0, SPINNER_WORD_MAX).join('').trim())
 				.filter(s => s.length > 0)
 
 /** Everything the mod reads from a SKILL.md. A file without frontmatter reads as nothing set. */
@@ -77,6 +85,25 @@ export const readSkill = (markdown: string): SkillFrontmatter => {
 	}
 }
 
+/**
+ * Everything the mod reads, from the frontmatter the engine parsed itself and
+ * hands to `skill.prompt`: the same three keys `readSkill` reads from text.
+ */
+export const fromEngine = (frontmatter: Readonly<Record<string, unknown>>): SkillFrontmatter => {
+	const own = (record: Readonly<Record<string, unknown>>, key: string): string | null => {
+		const value = Object.hasOwn(record, key) ? record[key] : undefined
+		return typeof value === 'string' && value.trim() !== '' ? value.trim() : null
+	}
+	const metadata = Object.hasOwn(frontmatter, 'metadata') ? frontmatter.metadata : undefined
+	const nested = typeof metadata === 'object' && metadata !== null && !Array.isArray(metadata) ? (metadata as Readonly<Record<string, unknown>>) : {}
+	const model = own(frontmatter, 'model')
+	return {
+		model: model === 'inherit' ? null : model,
+		family: own(nested, 'family'),
+		spinner: splitBar(own(nested, 'goblin-spinner')),
+	}
+}
+
 /** A plugin skill as the engine names it in `skill.prompt`: `<plugin>:<skill directory>`, never the frontmatter `name`. */
 export type PluginSkill = { plugin: string; dir: string }
 
@@ -88,10 +115,13 @@ export const pluginSkill = (skill: string): PluginSkill | null => {
 }
 
 /** How Claude Code ranks install scopes: local overrides project, project overrides user. */
-const SCOPE_RANK: Record<string, number> = { local: 0, project: 1 }
+const SCOPE_RANK: Readonly<Record<string, number>> = { local: 0, project: 1 }
 
-/** True when `dir` is `project` or lies beneath it. */
-const within = (dir: string, project: string): boolean => dir === project || dir.startsWith(`${project.replace(/\/+$/, '')}/`)
+/** True when `dir` is `project` or lies beneath it, a trailing slash on either side aside. */
+const within = (dir: string, project: string): boolean => {
+	const base = project.replace(/\/+$/, '')
+	return dir === base || dir.startsWith(`${base}/`)
+}
 
 /**
  * Where an installed plugin's skill may live, from the text of
@@ -118,8 +148,9 @@ export const pluginSkillPaths = (installedJson: string, skill: PluginSkill, root
 		for (const install of installs) {
 			const { installPath, scope, projectPath } = (install ?? {}) as { installPath?: unknown; scope?: unknown; projectPath?: unknown }
 			if (typeof installPath !== 'string' || installPath === '') continue
-			const rank = typeof scope === 'string' ? (SCOPE_RANK[scope] ?? 2) : 2
-			if (rank < 2 && (typeof projectPath !== 'string' || projectPath === '' || !within(root, projectPath))) continue
+			const rank = typeof scope === 'string' && Object.hasOwn(SCOPE_RANK, scope) ? (SCOPE_RANK[scope] as number) : 2
+			// any install bound to a project path (whatever its scope's name) applies only within that project
+			if ((rank < 2 || (projectPath !== undefined && projectPath !== null)) && (typeof projectPath !== 'string' || projectPath === '' || !within(root, projectPath))) continue
 			found.push({
 				path: `${installPath}/skills/${skill.dir}/SKILL.md`,
 				rank,

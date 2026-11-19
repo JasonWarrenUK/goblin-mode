@@ -19,7 +19,11 @@
 #                    continues that name's series, and declaring 1.0.0 in
 #                    its plugin.json takes it across the 0.x guard
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
-#             2 environment error,
+#             2 environment error; also a matching tag that is not a version
+#               (another plugin's, or one svu cannot read), a plugin.json
+#               version of digits and dots that is not major.minor.patch, and
+#               tagged earlier names on separate paths of the renames map (a
+#               person picks),
 #             3 nothing to release (no version-bumping commits since the
 #               current tag: creating a tag would fail on a duplicate),
 #             4 omitted by policy (the target is in omit-gh-tag in the
@@ -58,35 +62,103 @@ if [[ -f "$policy" ]] && python3 "$policy" check tag "$target" >/dev/null; then
 	exit 4
 fi
 
+# The current tag under one prefix (svu's own arguments follow it), or
+# <prefix>0.0.0 when no tag matches. Any other svu failure (a tag it cannot
+# read as a version, say) is named on stderr and returns 1, so the caller exits
+# 2 instead of reading a broken series as an untagged one. A glob cannot tell
+# a version from another plugin's tag (api-v[0-9]* matches api-v2-v0.1.0,
+# which svu reads as 2.0.0), so every tag the pattern matches must read as
+# <prefix><major>.<minor>.<patch>, with only a pre-release or build after it.
+series_current() {
+	local tag_prefix="$1" err_file out code err pattern tag
+	local -a bad
+	shift
+	local -a given=("$@")
+	pattern="${given[${given[(i)--tag.pattern]}+1]:-}"
+	if [[ -n "$pattern" ]]; then
+		for tag in ${(f)"$(git tag -l "$pattern")"}; do
+			[[ "${tag#$tag_prefix}" =~ '^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$' ]] || bad+=("$tag")
+		done
+		if (( ${#bad} )); then
+			print -u2 -- "tags matching ${pattern} that do not read as ${tag_prefix} versions (another plugin's, or a malformed one of its own): ${(j:, :)bad}; rename a plugin whose name has a digit after the -v, or retag a malformed one, then run this again"
+			return 1
+		fi
+	fi
+	err_file=$(mktemp) || return 1
+	out=$(svu current "$@" 2>"$err_file")
+	code=$?
+	err=$(tr -s '[:space:]' ' ' <"$err_file")
+	rm -f "$err_file"
+	if (( code == 0 )); then
+		print -r -- "$out"
+		return 0
+	fi
+	if [[ "$err" == *"no tags match"* ]]; then
+		print -r -- "${tag_prefix}0.0.0"
+		return 0
+	fi
+	print -u2 -- "svu current failed for ${tag_prefix}:${err}"
+	return 1
+}
+
 # svu current has no --log.directory (it only needs the latest matching tag,
 # not a commit scan); svu next needs it to limit which commits count towards
 # a bump. Passing --log.directory to `current` fails with "Unknown flag" and
-# would otherwise be swallowed by the 2>/dev/null fallback below, so the two
-# commands get their own argument lists rather than one shared array.
+# would otherwise read as an untagged series below, so the two commands get
+# their own argument lists rather than one shared array. Each pattern ends in
+# a digit after the "-v", so a plugin named "<name>-v<letters>" (roadmap and
+# roadmap-viewer) never lands in another's series.
 current_args=()
 next_args=()
 prefix="v"
 if [[ -n "$plugin" ]]; then
 	[[ -d "$dir" ]] || { print -u2 -- "$dir: not a directory"; exit 2 }
 	prefix="${plugin}-v"
-	current_args=(--tag.prefix "$prefix" --tag.pattern "${prefix}*")
+	current_args=(--tag.prefix "$prefix" --tag.pattern "${prefix}[0-9]*")
 	next_args=("${current_args[@]}" --log.directory "$dir")
 fi
 
-current=$(svu current "${current_args[@]}" 2>/dev/null) || current="${prefix}0.0.0"
+current=$(series_current "$prefix" "${current_args[@]}") || exit 2
 
-# What the plugin's built plugin.json declares, if anything: the start of a
-# fresh series, and for a renamed plugin the human's word on crossing to 1.x.
+# What the plugin's built plugin.json declares at its top level, if anything:
+# the start of a fresh series, and for a renamed plugin the human's word on
+# crossing to 1.x. A nested "version" (a dependency's, say) never counts. Only
+# major.minor.patch, with no leading zero (semver's rule), counts as declared.
+# A run of digits and dots of another shape (0.3, 1.0, 0.3.0., 0.03.0), or
+# one with whitespace around it, exits 2 naming it, for any series: printed
+# as a fresh series' tag it is one the tag-shape check refuses at the next
+# release, and in a series already tagged it is a manifest pr-land would
+# write over unasked. Anything else (none, a pre-release) reads as nothing
+# declared, and so does 0.0.0, the usual placeholder for nothing released
+# yet: read as declared it would equal the untagged series' 0.0.0 and the
+# plugin would never be tagged.
 declared=""
 if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
-	declared=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$dir/.claude-plugin/plugin.json" | head -1)
+	declared=$(python3 -I -c '
+import json, re, sys
+version = json.load(open(sys.argv[1])).get("version")
+if version == "0.0.0":
+	pass
+elif isinstance(version, str) and re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+	print(version)
+elif isinstance(version, str) and re.fullmatch(r"\s*[0-9.]+\s*", version):
+	print("malformed:" + version)
+' "$dir/.claude-plugin/plugin.json" 2>/dev/null)
+	if [[ "$declared" == malformed:* ]]; then
+		print -u2 -- "$dir/.claude-plugin/plugin.json declares version \"${declared#malformed:}\", which is not major.minor.patch; set it to three numbers with no leading zero and nothing around them, then run this again"
+		exit 2
+	fi
 fi
 
 # A renamed plugin continues its old series. When nothing is tagged under the
 # new prefix, the marketplace's renames map is walked back from this name,
 # nearest earlier names first (several at once where names folded into one,
-# which is reported), to the first one with tags; the version is then
-# computed under that prefix and printed under the new one. The commit scan
+# which is reported). Every path back through the map is followed to its own
+# nearest tagged name, and a name behind a tagged one is not walked; the
+# version is then computed under that prefix and printed under the new one.
+# More than one tagged name on separate paths exits 2 naming them all: which
+# series goes on is a person's call, never the map's order or how far back a
+# name sits. The commit scan
 # covers the new directory and every walked-back name's directory, so a
 # change made before the move still counts: each directory is that name's
 # source in the marketplace as tagged, else a sibling of the new directory.
@@ -118,16 +190,31 @@ while queue:
 	for old in before:
 		seen.add(old)
 		queue.append(old)
-		print(old)
+		print(f"{name}\t{old}")
 ' "$marketplace" "$plugin")}")
-		for old in "${earlier[@]}"; do
-			[[ -n "$old" ]] || continue
+		typeset -A behind
+		tagged=()
+		for line in "${earlier[@]}"; do
+			[[ -n "$line" ]] || continue
+			parent="${line%%$'\t'*}"
+			old="${line#*$'\t'}"
+			# a name behind a tagged one is not walked: that path already has its nearest tag
+			if [[ -n "${behind[$parent]:-}" ]]; then
+				behind[$old]=1
+				continue
+			fi
 			walked+=("$old")
-			old_current=$(svu current --tag.prefix "${old}-v" --tag.pattern "${old}-v*" 2>/dev/null) || continue
-			[[ "$old_current" == "${old}-v0.0.0" ]] && continue
+			found=$(series_current "${old}-v" --tag.prefix "${old}-v" --tag.pattern "${old}-v[0-9]*") || exit 2
+			[[ "$found" == "${old}-v0.0.0" ]] && continue
+			behind[$old]=1
+			tagged+=("$found")
 			renamed_from="$old"
-			break
+			old_current="$found"
 		done
+		if (( ${#tagged} > 1 )); then
+			print -u2 -- "renames: $plugin has several tagged earlier names (${(j:, :)tagged}); a person picks which series goes on: tag ${prefix}<version> by hand from the one chosen, or drop the other from the renames map"
+			exit 2
+		fi
 	fi
 fi
 
@@ -146,9 +233,11 @@ try:
 except (ValueError, AttributeError):
 	pass
 ' "$old" 2>/dev/null)
-		log_dirs+=(--log.directory "${source:-${dir:h}/$old}")
+		# a tagged source is relative to the repository's top level, wherever this runs from;
+		# the sibling guess is beside --dir, resolved first so that --dir . from inside the plugin works
+		log_dirs+=(--log.directory "${source:+$(git rev-parse --show-toplevel)/}${source:-${dir:A:h}/$old}")
 	done
-	old_next=$(svu next --tag.prefix "$old_prefix" --tag.pattern "${old_prefix}*" "${log_dirs[@]}") || { print -u2 -- "svu next failed"; exit 2 }
+	old_next=$(svu next --tag.prefix "$old_prefix" --tag.pattern "${old_prefix}[0-9]*" "${log_dirs[@]}") || { print -u2 -- "svu next failed"; exit 2 }
 	current="${prefix}${old_current#$old_prefix}"
 	next="${prefix}${old_next#$old_prefix}"
 	print -u2 -- "renamed: continuing ${renamed_from}'s series from ${old_current}"
@@ -166,6 +255,18 @@ elif [[ -n "$plugin" && "$current" == "${prefix}0.0.0" ]]; then
 else
 	next=$(svu next "${next_args[@]}") || { print -u2 -- "svu next failed"; exit 2 }
 fi
+
+# Print the tag. A renamed plugin whose plugin.json declares neither the
+# current version nor the one printed has a hand-set number the commits did
+# not earn (a 3.0.0 with no breaking commit, say): said on stderr, before
+# pr-land writes the printed version over it.
+emit() {
+	local version="${1#$prefix}"
+	if [[ -n "$renamed_from" && -n "$declared" && "$declared" != "$version" && "$declared" != "${current#$prefix}" ]]; then
+		print -u2 -- "renamed: plugin.json declares $declared, but the series gives $version; settle which is right before the manifest is rewritten"
+	fi
+	print -r -- "$1"
+}
 
 cur_major=${${current#$prefix}%%.*}
 next_major=${${next#$prefix}%%.*}
@@ -188,7 +289,7 @@ fi
 if [[ "$cur_major" == "0" && "$next_major" != "0" ]]; then
 	minor=${${${current#$prefix}#*.}%%.*}
 	print -u2 -- "guard: svu proposed $next, but the first 1.x tag is a human decision: emitting a 0.x minor bump instead. Tag ${prefix}1.0.0 manually when the API is ready to be called stable."
-	print "${prefix}0.$((minor + 1)).0"
+	emit "${prefix}0.$((minor + 1)).0"
 else
-	print -r -- "$next"
+	emit "$next"
 fi

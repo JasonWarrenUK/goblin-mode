@@ -65,8 +65,8 @@ export const PROPS: Record<string, string> = {
 /** Widest a prop may be, in terminal cells. */
 export const PROP_MAX_CELLS = 4
 
-/** The prop for a family, or empty when the family has none. */
-export const propFor = (family: string | null): string => (family === null ? '' : (PROPS[family] ?? ''))
+/** The prop for a family, or empty when the family has none; only the table's own keys count, never `constructor` and its kin. */
+export const propFor = (family: string | null): string => (family !== null && Object.hasOwn(PROPS, family) ? (PROPS[family] ?? '') : '')
 
 /** The face a subagent wears in the parade when its agent file sets none. */
 export const DEFAULT_MINION = 'o.o'

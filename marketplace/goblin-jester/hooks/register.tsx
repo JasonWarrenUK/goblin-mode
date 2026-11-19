@@ -9,7 +9,7 @@ import type { EngineInterface, Register, RenderElement } from 'claude-code'
 import type { Day, Frame, Idle, Palette, Run, Tier, Vitals } from '../types'
 import { mix, shade } from './colour'
 import { dayAt, parseSchedule, STYLE } from './day'
-import { pluginSkill, pluginSkillPaths, readMinionFace, readSkill } from './frontmatter'
+import { fromEngine, pluginSkill, pluginSkillPaths, readMinionFace, readSkill } from './frontmatter'
 import {
 	DEFAULT_MINION,
 	faceCells,
@@ -104,7 +104,8 @@ const refreshFrame = async ($: EngineInterface, patch: { served?: Tier; pinned?:
  * A skill's SKILL.md, as Claude Code resolves the name: a plugin skill
  * (`<plugin>:<dir>`) from its install in `installed_plugins.json` that
  * applies to this session's project, else the personal copy, which shadows
- * the project's. Rejects when none reads.
+ * the project's. Rejects when none reads. Only for an engine whose
+ * `skill.prompt` carries no `path`: a newer one names the file it loaded.
  */
 const readSkillFile = async ($: EngineInterface, skill: string): Promise<string> => {
 	const home = await $.env.get('HOME')
@@ -237,7 +238,11 @@ export const register: Register = (on, options) => {
 		let family: string | null = null
 		let spinner: readonly string[] = []
 		try {
-			const fm = readSkill(await readSkillFile($, e.skill))
+			// The engine names the file it loaded and hands its frontmatter, parsed
+			// and scrubbed: that is the copy this session runs, a --plugin-dir one
+			// included. An engine from before those fields has no path, and the file
+			// is looked up as Claude Code would resolve the name.
+			const fm = typeof e.path === 'string' && e.path !== '' ? fromEngine(e.frontmatter ?? {}) : readSkill(await readSkillFile($, e.skill))
 			pinned = fm.model ? tierOf(fm.model) : null
 			family = fm.family
 			spinner = fm.spinner

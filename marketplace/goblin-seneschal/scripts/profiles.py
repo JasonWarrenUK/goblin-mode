@@ -116,10 +116,13 @@ def main() -> int:
 	args = parser.parse_args()
 	STORE_DIRS["dossier"] = args.dossier_dir.expanduser()
 	STORE_DIRS["personas"] = args.personas_dir.expanduser()
-	missing = [f"{label} store {directory}" for label, directory in _stores(args.store) if not directory.is_dir()]
-	if missing:
+	asked = _stores(args.store)
+	missing = [f"{label} store {directory}" for label, directory in asked if not directory.is_dir()]
+	if len(missing) == len(asked):
 		print(f"missing: {'; '.join(missing)} (the dossier_dir and personas_dir options)", file=sys.stderr)
 		return 2
+	if missing:
+		print(f"skipped: {'; '.join(missing)} is not there", file=sys.stderr)
 	return args.func(args)
 
 

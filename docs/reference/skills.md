@@ -16,7 +16,7 @@ For the full generated list with descriptions, see **[skills/README.md](../../sk
 | **Purpose** | Repeatable workflows you consciously reach for | Domain knowledge that should colour every relevant response, whether or not you thought to ask | A workflow another skill needs to call into |
 | **Description prefix** | Runic model glyph (see below) | None: no `model:` field to signal | Runic glyph |
 
-The two model-invocable exceptions are `help-whats_new` (useful as an automatic wrap-up) and `pr-review` (`disable-model-invocation: false` specifically so `pr-review-comment` can call it internally).
+A command skill Claude may invoke sets `disable-model-invocation: false` and most say why in a comment on that line (`pr-review`, for one, so `next-task-ship`'s self-review can call it). The automatic wrap-up after a unit of work lands is `goblin-seneschal:proclaim-changes`, a plugin skill, which takes the place of `help-whats_new`.
 
 ## The runic glyph convention
 

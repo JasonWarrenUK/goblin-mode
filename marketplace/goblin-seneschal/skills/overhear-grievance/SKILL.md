@@ -15,9 +15,9 @@ Claude Code's changelog is thousands of lines the reader will never proactively 
 
 ## The grievances file
 
-The file is `${user_config.grievances_file}`; a leading `~/` is the user's home, so expand it before reading or writing. The seneschal's mod and its `/log-grievance` command write the same file.
+The file is `${user_config.grievances_file}`; a leading `~/` is the user's home, so expand it before reading or writing. A value that is neither an absolute path nor one under `~/` would land in whichever project the session started in, so use `~/.claude/library/state/grievances.json` instead and say so in one line, as the mod does. The seneschal's mod and its `/log-grievance` command write the same file.
 
-- **Missing, with an old file beside it:** if the grievances file does not exist and `~/.claude/library/state/cc-pain-points.json` does, the plugin kept its grievances there under its earlier name. If that file parses as a JSON list, copy its text into the grievances file unchanged, then carry on; if it does not, say so in one line and stop, writing nothing, so its entries are never stranded behind a new file. The mod does the same at session start, so this only happens with the mod switched off.
+- **Missing, with an old file beside it:** if the grievances file does not exist and `~/.claude/library/state/cc-pain-points.json` does, the plugin kept its grievances there under its earlier name. If that file parses as a JSON list, copy its text into the grievances file unchanged, then carry on; if it does not, say so in one line and stop, writing nothing, so its entries are never stranded behind a new file. The mod does the same at every session start, and also appends each old entry the grievances file lacks, matched on `id` and description together, so this only happens with the mod switched off.
 - **Missing altogether:** create it as `[]`.
 - **Will not parse:** say so in one line and stop. Never overwrite it.
 

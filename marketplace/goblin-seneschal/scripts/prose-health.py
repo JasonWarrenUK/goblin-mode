@@ -163,12 +163,16 @@ def check_hook_log() -> Result:
 
 
 def check_skills() -> Result:
-	"""A named skill that is installed must carry its gate text; one that is not installed is skipped."""
+	"""A named skill that is installed must carry its gate text. None installed is a SKIP (a machine
+	that never had them); some installed is a WARN naming the rest, since a renamed or deleted
+	skill looks the same as one never installed."""
 	missing = []
 	present = []
+	absent = []
 	for skill, needles in SKILL_WIRING.items():
 		path = CONFIG_DIR / "skills" / skill / "SKILL.md"
 		if not path.is_file():
+			absent.append(skill)
 			continue
 		present.append(skill)
 		text = path.read_text(encoding="utf-8", errors="replace")
@@ -179,9 +183,9 @@ def check_skills() -> Result:
 		return ("FAIL", "skills", "; ".join(missing))
 	if not present:
 		return ("SKIP", "skills", f"none of the {len(SKILL_WIRING)} prose and commit skills is installed")
-	skipped = len(SKILL_WIRING) - len(present)
-	tail = f"; {skipped} not installed, skipped" if skipped else ""
-	return ("PASS", "skills", f"{len(present)} skills carry their gate text{tail}")
+	if absent:
+		return ("WARN", "skills", f"{len(present)} skills carry their gate text; {len(absent)} of {len(SKILL_WIRING)} not installed: {', '.join(absent)}")
+	return ("PASS", "skills", f"{len(present)} skills carry their gate text")
 
 
 def check_frontmatter() -> Result:
