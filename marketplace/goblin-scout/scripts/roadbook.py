@@ -2637,17 +2637,21 @@ def _rebind_files(path):
     return files if path in files else [path]
 
 
-def _rebind_outputs(path, data, root):
+def _rebind_outputs(path, data, root, claimed=frozenset()):
     """(moves, stale) for the phases in `data`: a (source, target) for each
     2.x default output, each phase updated to the roadbook's names as it
-    goes, and each 2.x chart left beside the chart that replaced it."""
+    goes, and each 2.x chart left beside the chart that replaced it.
+    `claimed` holds every chart path a phase in either file names in
+    `artefact`; such a file is that phase's own chart, never a 2.x default."""
     moves, stale = [], []
     for phase in _phases(data):
         if not isinstance(phase, dict):
             continue
         # an unmoved file's phase with no `artefact` renders to the 2.x default too
         legacy_chart = _legacy_render_rel(phase)
-        if phase.get(ARTEFACT_KEY, legacy_chart if path.name in LEGACY_NAMES else None) == legacy_chart:
+        if ARTEFACT_KEY not in phase and os.path.normpath(legacy_chart) in claimed:
+            pass  # another phase's own chart: neither moved nor named stale
+        elif phase.get(ARTEFACT_KEY, legacy_chart if path.name in LEGACY_NAMES else None) == legacy_chart:
             moves.append((root / legacy_chart, _default_render_path(path, phase)))
             phase.pop(ARTEFACT_KEY, None)
         elif ARTEFACT_KEY not in phase and (root / legacy_chart).exists():
@@ -2698,8 +2702,12 @@ def cmd_rebind(args) -> int:
     moves = []  # (source, target) project files, deduplicated
     stale = []  # (left, current): a 2.x chart beside the one that replaced it
     if args.outputs:
+        # read before _rebind_outputs pops any `artefact` it moves
+        claimed = {os.path.normpath(ph[ARTEFACT_KEY]) for _each, data in files
+                   for ph in _phases(data)
+                   if isinstance(ph, dict) and isinstance(ph.get(ARTEFACT_KEY), str)}
         for each, data in files:
-            found, left = _rebind_outputs(each, data, root)
+            found, left = _rebind_outputs(each, data, root, claimed)
             moves.extend(found)
             stale.extend(left)
         moves.append((root / LEGACY_OVERVIEW, root / OVERVIEW))

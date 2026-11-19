@@ -3199,6 +3199,45 @@ class RebindCommand(LegacyFixture):
                 self.assertEqual((old_chart.read_text(), new_chart.read_text()),
                                  ("2.x chart", "3.0 chart"))
 
+    def test_a_chart_another_phase_names_is_never_taken_for_a_2x_default(self):
+        # round 2's repro: Alpha renders to the file that would be Beta's 2.x
+        # default; Beta has no artefact. That file is Alpha's, not stale.
+        data = [phase([{"id": "M1", "name": "a", "tasks": [task("a1")]}], name="Alpha",
+                      artefact="docs/artefacts/roadmap-beta.html"),
+                phase([{"id": "M2", "name": "b", "tasks": [task("b1")]}], name="Beta")]
+        self._write(self.new, data)
+        alpha_chart = self.root / "docs/artefacts/roadmap-beta.html"
+        alpha_chart.parent.mkdir(parents=True)
+        alpha_chart.write_text("Alpha's chart")
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs", "--dry-run")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("roadmap-beta.html", out)
+        (self.root / "docs/artefacts/chart-beta.html").write_text("Beta's chart")
+        for argv in (("rebind", str(self.root), "--outputs", "--dry-run"),
+                     ("rebind", str(self.root), "--outputs")):
+            with self.subTest(argv=argv):
+                rc, out, _err = self._run(*argv)
+                self.assertEqual(rc, 0, out)
+                self.assertNotIn("roadmap-beta.html", out)
+                self.assertEqual(alpha_chart.read_text(), "Alpha's chart")
+
+    def test_an_unmoved_file_never_takes_another_phase_chart_either(self):
+        # the same file under the 2.x name, where a phase with no artefact
+        # falls back to the 2.x default without looking at the disk
+        data = [phase([{"id": "M1", "name": "a", "tasks": [task("a1")]}], name="Alpha",
+                      artefact="docs/artefacts/roadmap-beta.html"),
+                phase([{"id": "M2", "name": "b", "tasks": [task("b1")]}], name="Beta")]
+        self._write(self.legacy, data)
+        alpha_chart = self.root / "docs/artefacts/roadmap-beta.html"
+        alpha_chart.parent.mkdir(parents=True)
+        alpha_chart.write_text("Alpha's chart")
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("roadmap-beta.html", out)
+        self.assertEqual(alpha_chart.read_text(), "Alpha's chart")
+        self.assertEqual(json.loads(self.new.read_text())[0]["artefact"],
+                         "docs/artefacts/roadmap-beta.html")
+
     def test_a_newer_stamp_on_either_file_refuses_before_anything_is_written(self):
         data = self._phases()
         self._write(self.new, data)
