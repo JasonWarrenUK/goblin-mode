@@ -27,7 +27,7 @@ Search for each asset kind and say where it was found or that it was not. Explic
 |---|---|
 | Tokens and themes | `.claude/themes/` (resolution per `theme-conventions.md`); the product's own `:root` blocks in `src/**/*.css`, `app.css`, `tailwind.config.*`; the UI library in `package.json` (skeleton, shadcn, daisyui, bits-ui, melt and the like) |
 | Component library | `src/lib/components/`, `src/components/`, a Storybook, a `ui/` package in a monorepo |
-| Scope documents | `docs/**/*scope*.md`, `docs/specs/`, feature specs from `library/templates/feature-spec.md`, the roadmap task's own text (`roadmap.py open --json`) |
+| Scope documents | `docs/**/*scope*.md`, `docs/specs/`, feature specs from `library/templates/feature-spec.md`, the waypoint's own text in a goblin-scout roadbook (`roadbook.py open --json`) |
 | Brand files | `docs/brand/`, `static/`, logo and wordmark files, a brand guide PDF |
 | Device intent (principle 8) | The scope document, the client's brief, analytics where they exist |
 | Copy brief (principle 10) | `docs/**/copy*.md`, a tone-of-voice document, the scope document's audience section |
@@ -42,7 +42,7 @@ Every row without a find is a gap. Say which gaps block the task (device intent 
 
 ### 3. Fill them with Jason
 
-Rounds of 2 to 4 questions, the `roadmap:create-interview` discipline: never a long list at once, and every round ends with *"Anything else, or shall I go ahead?"*. Skip any question the found assets already answer. A gap Jason declines to fill is written down as an assumption in the scope document (design) or the artefact index (review), never silently guessed.
+Rounds of 2 to 4 questions, the `goblin-scout:plan-expedition` discipline: never a long list at once, and every round ends with *"Anything else, or shall I go ahead?"*. Skip any question the found assets already answer. A gap Jason declines to fill is written down as an assumption in the scope document (design) or the artefact index (review), never silently guessed.
 
 - [ ] Inventory table printed
 - [ ] Blocking gaps named before the first question

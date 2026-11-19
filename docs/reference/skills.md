@@ -12,7 +12,7 @@ For the full generated list with descriptions, see **[skills/README.md](../../sk
 |---|---|---|---|
 | **Invoked by** | `/skill-name`: explicit, manual | Claude's judgement, on keywords or file paths | Either: same shape as command skills but Claude can also self-invoke |
 | **Frontmatter flag** | `disable-model-invocation: true` | `user-invocable: false` | `disable-model-invocation: false`, with a comment explaining why |
-| **Naming** | `Group: Action` Title Case (`"PR: Create"`, `"Roadmap: Maintain"`) | Mixed: kebab-case (`svelte-ninja`), Title Case (`Data Ontologist`), or the `role-<family>-<name>` directory prefix | Same as command skills |
+| **Naming** | `Group: Action` Title Case (`"PR: Create"`, `"Web: Design"`) | Mixed: kebab-case (`svelte-ninja`), Title Case (`Data Ontologist`), or the `role-<family>-<name>` directory prefix | Same as command skills |
 | **Purpose** | Repeatable workflows you consciously reach for | Domain knowledge that should colour every relevant response, whether or not you thought to ask | A workflow another skill needs to call into |
 | **Description prefix** | Runic model glyph (see below) | None: no `model:` field to signal | Runic glyph |
 
@@ -52,7 +52,7 @@ Three command families share one knowledge skill that every member loads first, 
 |---|---|---|
 | `asset-*` | `asset-conventions`: output layout, project type detection, theme resolution, the capture naming rule, the quality gate | `asset-shot`, `asset-demo`, `asset-still`, `asset-card`, `asset-pdf` |
 | `artefact-*` | `artefact-conventions`: location, aesthetic reuse or interview, the shared design rules | `artefact-audit`, `artefact-intro`, `artefact-playground`, `artefact-research` |
-| `web-*` | `web-conventions`: how every design task starts (collate, gaps, rounds), what it produces, the observation store contract, shelving; carries `principles.md` and the dev util artefact library as sidecars | `web-design` (scope, roadmap task or interview into a wireframe), `web-review` (passes over a logger), `web-check` (the principles check, three modes), `web-walkthrough` (sign-off capture) |
+| `web-*` | `web-conventions`: how every design task starts (collate, gaps, rounds), what it produces, the observation store contract, shelving; carries `principles.md` and the dev util artefact library as sidecars | `web-design` (scope, roadbook waypoint or interview into a wireframe), `web-review` (passes over a logger), `web-check` (the principles check, three modes), `web-walkthrough` (sign-off capture) |
 
 ## `when_to_use` vs `description`
 

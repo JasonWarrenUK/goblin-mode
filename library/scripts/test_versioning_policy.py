@@ -125,12 +125,12 @@ class VersioningPolicy(unittest.TestCase):
 		self.assertEqual(out.returncode, 2)
 		self.assertIn("unknown ref nope", out.stderr)
 		# a plugin added at the ref but absent from the checkout is a known target under --ref
-		(self.repo / ".claude-plugin" / "marketplace.json").write_text(json.dumps({"plugins": [{"name": "mission-control"}, {"name": "roadmap"}]}))
+		(self.repo / ".claude-plugin" / "marketplace.json").write_text(json.dumps({"plugins": [{"name": "mission-control"}, {"name": "goblin-scout"}]}))
 		self._git("add", "-A")
-		self._git("commit", "-qm", "roadmap plugin")
+		self._git("commit", "-qm", "goblin-scout plugin")
 		self._git("checkout", "-q", "HEAD~1")
-		self.assertEqual(_run(self.repo, "check", "release", "roadmap").returncode, 2, "unknown in this checkout")
-		self.assertEqual(_run(self.repo, "check", "release", "roadmap", "--ref", "main").returncode, 1, "known at the ref")
+		self.assertEqual(_run(self.repo, "check", "release", "goblin-scout").returncode, 2, "unknown in this checkout")
+		self.assertEqual(_run(self.repo, "check", "release", "goblin-scout", "--ref", "main").returncode, 1, "known at the ref")
 
 	def test_allow_notes_an_omission_the_other_file_still_holds(self) -> None:
 		_run(self.repo, "set", "omit", "tag", "root")

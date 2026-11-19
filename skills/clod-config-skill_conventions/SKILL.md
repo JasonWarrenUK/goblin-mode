@@ -31,7 +31,7 @@ model: opus          # explicit on every command skill; omit on knowledge skills
 effort: high         # explicit on every command skill; omit on knowledge skills (inherit)
 metadata:
   glyph: ᛟ           # mirrors the model: field; omit when model is omitted
-  family: pr         # the skill's family prefix (pr, roadmap, doc, clod-lens, …)
+  family: pr         # the skill's family prefix (pr, scout, doc, clod-lens, …)
   goblin-spinner: merging|deleting evidence|tagging   # a few verbs (3 or 4), bar-separated
 ```
 

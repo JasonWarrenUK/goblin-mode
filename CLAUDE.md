@@ -170,7 +170,7 @@ Tags come from `safe-version-next.sh`, never bare `svu next`. See the `project-t
 
 ### 8.2a. Docs Straight to Main
 
-Docs-only commits (changelog promotions, README fixes, roadmap projections) go straight to `main`: a throwaway worktree on `origin/main`, commit, fast-forward push, never a `docs/` branch and PR. Code still goes through PRs. Recipe: `doc-changelog` Step 3.
+Docs-only commits (changelog promotions, README fixes, roadbook projections) go straight to `main`: a throwaway worktree on `origin/main`, commit, fast-forward push, never a `docs/` branch and PR. Code still goes through PRs. Recipe: `doc-changelog` Step 3.
 
 ### 8.3. Commit Granularity
 

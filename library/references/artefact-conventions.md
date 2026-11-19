@@ -172,7 +172,7 @@ also ships an **in-page toggle control** depends on the pathway:
 
 | Pathway | Both token states | In-page control |
 |---|---|---|
-| Standalone `docs/artefacts/*.html`, a `site/` page, the roadmap template | required | **required** |
+| Standalone `docs/artefacts/*.html`, a `site/` page, the goblin-scout chart template | required | **required** |
 | claude.ai / Cowork `Artifact` publish | required | **omitted**: the host provides one |
 
 The `Artifact` tool's own contract stamps `data-theme="dark"` /
@@ -287,7 +287,7 @@ and which is available depends on pathway:
   publish: artifacts render Mermaid natively from fenced `mermaid` code
   blocks and `<pre class="mermaid">`, so page JS has no handle to
   re-initialise it.
-  Prior art already in this repo: `roadmap.py graph --palette vars` emits a
+  Prior art already in this repo: `roadbook.py graph --palette vars` emits a
   CSS-variable-driven Mermaid palette; reuse that approach rather than
   inventing a new one.
 - **Re-render on change.** Standalone pathway only. The watcher must cover
@@ -300,7 +300,7 @@ and which is available depends on pathway:
   	{ attributes: true, attributeFilter: ["data-theme"] });
   ```
 
-  This is the pattern already in `library/templates/roadmap-artefact.html`
+  This is the pattern already in `marketplace/goblin-scout/templates/chart.html`
   (around the graph's render call); treat it as the reference
   implementation rather than re-deriving it per artefact.
 

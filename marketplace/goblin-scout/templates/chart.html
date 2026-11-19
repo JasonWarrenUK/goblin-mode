@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<!--
+	chart.html: template consumed by `roadbook.py render`.
+	Four placeholders. Three are substituted exactly once, in this order: the
+	goblin theme's custom properties (templates/chart-theme.css) and the
+	embedded faces (templates/fonts/, as @font-face rules) in the head, then
+	the JSON data blob below. The phase-name title fills the <title> and the
+	h1 (which JS overwrites from project/phase, so the two cannot diverge).
+	The data blob carries
+	(project, phase, generated, stats, overview, tasks, ready, mermaid,
+	graphDirection, validation, devColours, depKinds), which lands in the
+	chart-data script element near the foot of the document. `overview` is
+	roadbook.py's own sort/tier-group computation for the Overview and
+	Milestones sections (see overview_layout() and roadbook-conventions.md);
+	the template renders it as given and never re-sorts or re-groups
+	milestones itself. Render does a global string replace, so the data-blob token
+	must appear verbatim exactly once in this file (the render step asserts
+	this); a second copy here would inject the blob into this comment and the
+	mermaid edge arrows would close the comment early and spill the JSON onto
+	the page. For the same reason this comment must not contain a raw
+	comment-close sequence.
+	Everything else is static so regenerated artefacts diff cleanly.
+	Palette: the goblin theme for the page, and the status, milestone-state
+	and scout-chip table derived from it (STATUS_STYLE in roadbook.py,
+	documented in references/roadbook-conventions.md).
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>%%TITLE%% · chart</title>
+<style>
+%%THEME%%
+%%FONTS%%
+</style>
+<style>
+:root {
+	/* Status, milestone, gate and tier colours: STATUS_STYLE and TIER_STYLE in
+	   roadbook.py, derived there from the goblin theme (the copied
+	   templates/chart-theme.css, inlined above this block at render). Literal
+	   hexes, because Mermaid's classDefs and the tests read them; a test holds
+	   this block to the tables. Each status has a stroke, a fill (-bg) and a
+	   label (-text): the label is the stroke unless the node is inverted. */
+	--color-todo:              #4b5a3c;
+	--color-todo-bg:           #f5f6f0;
+	--color-todo-text:         #4b5a3c;
+	--color-in-progress:       #2d5a8c;
+	--color-in-progress-bg:    #ebefef;
+	--color-in-progress-text:  #2d5a8c;
+	--color-blocked:           #a3361f;
+	--color-blocked-bg:        #f5ece7;
+	--color-blocked-text:      #a3361f;
+	--color-paused:            #8c1d4c;
+	--color-paused-bg:         #f3eaea;
+	--color-paused-text:       #8c1d4c;
+	--color-deferred:          #8a5a00;
+	--color-deferred-bg:       #f3efe4;
+	--color-deferred-text:     #8a5a00;
+	--color-done:              #3c6a1c;
+	--color-done-bg:           #edf0e6;
+	--color-done-text:         #3c6a1c;
+	--color-out-of-scope:      #686e57;
+	--color-out-of-scope-bg:   #fcfcf8;
+	--color-out-of-scope-text: #686e57;
+	--color-milestone:         #1d2718;
+	--color-milestone-bg:      #1d2718;
+	--color-milestone-text:    #e7e9cf;
+	--color-gate:              #1d2718;
+	--color-gate-bg:           #e9f1c0;
+	--color-gate-text:         #1d2718;
+	--color-tier-underway:     #1d2718;
+	--color-tier-underway-bg:  #cbcfac;
+	--color-tier-underway-text: #1d2718;
+	--color-tier-deferred:     #1d2718;
+	--color-tier-deferred-bg:  #d8c4a8;
+	--color-tier-deferred-text: #1d2718;
+	/* The stamp: beetroot, the theme's accent, for links, the toggle and focus. */
+	--color-primary:           #8c1d4c;
+	--color-primary-bg:        #f3eaea;
+	--color-primary-text:      #8c1d4c;
+	/* Scout chips: an assignee is free text with no roster (never inferred),
+	   so a chip's ink comes from a stable hash over the theme's five inks. */
+	--color-dev-beetroot:      #8c1d4c;
+	--color-dev-beetroot-bg:   #f3eaea;
+	--color-dev-moss:          #3c6a1c;
+	--color-dev-moss-bg:       #edf0e6;
+	--color-dev-biro:          #2d5a8c;
+	--color-dev-biro-bg:       #ebefef;
+	--color-dev-ochre:         #8a5a00;
+	--color-dev-ochre-bg:      #f3efe4;
+	--color-dev-rust:          #a3361f;
+	--color-dev-rust-bg:       #f5ece7;
+
+	/* The page's own names for the theme's roles (the theme's custom
+	   properties arrive in the style block above): the sheet, the raised panels
+	   ruled onto it, ink and faded ink, the rules and the survey grid. They
+	   follow the theme into dark by themselves. */
+	--page: var(--surface);
+	--panel: var(--surface-raised);
+	--text: var(--ink);
+	--muted: var(--ink-muted);
+	--rule: var(--line);
+	--grid-minor: color-mix(in srgb, var(--line) 45%, transparent);
+	--grid-major: var(--line);
+	/* Mermaid chrome (edge stroke, arrowhead, edge-label backing) that the
+	   diagram's own classDefs don't cover: see the render script below for
+	   why this can't just be mermaid's base-theme default. */
+	--diagram-line: #4b5a3c;
+	--diagram-edge-label-bg: #fcfcf8;
+	--diagram-text: var(--text);
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--color-todo:              #a3ad8c;
+		--color-todo-bg:           #272b1f;
+		--color-todo-text:         #a3ad8c;
+		--color-in-progress:       #8db4e8;
+		--color-in-progress-bg:    #2b312a;
+		--color-in-progress-text:  #8db4e8;
+		--color-blocked:           #ff8a6b;
+		--color-blocked-bg:        #342e20;
+		--color-blocked-text:      #ff8a6b;
+		--color-paused:            #ff86b4;
+		--color-paused-bg:         #342e26;
+		--color-paused-text:       #ff86b4;
+		--color-deferred:          #e0a84a;
+		--color-deferred-bg:       #31301e;
+		--color-deferred-text:     #e0a84a;
+		--color-done:              #a6d46a;
+		--color-done-bg:           #2d3420;
+		--color-done-text:         #a6d46a;
+		--color-out-of-scope:      #969d82;
+		--color-out-of-scope-bg:   #22261a;
+		--color-out-of-scope-text: #969d82;
+		--color-milestone:         #e3e8cc;
+		--color-milestone-bg:      #0a0c07;
+		--color-milestone-text:    #e3e8cc;
+		--color-gate:              #c5e13e;
+		--color-gate-bg:           #c5e13e;
+		--color-gate-text:         #1d2718;
+		--color-tier-underway:     #e3e8cc;
+		--color-tier-underway-bg:  #434a32;
+		--color-tier-underway-text: #e3e8cc;
+		--color-tier-deferred:     #f2e8d0;
+		--color-tier-deferred-bg:  #5a4225;
+		--color-tier-deferred-text: #f2e8d0;
+		--color-primary:           #ff86b4;
+		--color-primary-bg:        #342e26;
+		--color-primary-text:      #ff86b4;
+		--color-dev-beetroot:      #ff86b4;
+		--color-dev-beetroot-bg:   #342e26;
+		--color-dev-moss:          #a6d46a;
+		--color-dev-moss-bg:       #2d3420;
+		--color-dev-biro:          #8db4e8;
+		--color-dev-biro-bg:       #2b312a;
+		--color-dev-ochre:         #e0a84a;
+		--color-dev-ochre-bg:      #31301e;
+		--color-dev-rust:          #ff8a6b;
+		--color-dev-rust-bg:       #342e20;
+
+		--diagram-line: #a3ad8c;
+		--diagram-edge-label-bg: #22261a;
+		--diagram-text: var(--text);
+	}
+}
+/* Third theming state: an explicit toggle wins in both directions, even
+   against a light OS preference. The masthead ships the light/system/dark
+   control from the artefact conventions; this block is
+   what it writes to when a reader picks light or dark explicitly. */
+:root[data-theme="dark"] {
+	--color-todo:              #a3ad8c;
+	--color-todo-bg:           #272b1f;
+	--color-todo-text:         #a3ad8c;
+	--color-in-progress:       #8db4e8;
+	--color-in-progress-bg:    #2b312a;
+	--color-in-progress-text:  #8db4e8;
+	--color-blocked:           #ff8a6b;
+	--color-blocked-bg:        #342e20;
+	--color-blocked-text:      #ff8a6b;
+	--color-paused:            #ff86b4;
+	--color-paused-bg:         #342e26;
+	--color-paused-text:       #ff86b4;
+	--color-deferred:          #e0a84a;
+	--color-deferred-bg:       #31301e;
+	--color-deferred-text:     #e0a84a;
+	--color-done:              #a6d46a;
+	--color-done-bg:           #2d3420;
+	--color-done-text:         #a6d46a;
+	--color-out-of-scope:      #969d82;
+	--color-out-of-scope-bg:   #22261a;
+	--color-out-of-scope-text: #969d82;
+	--color-milestone:         #e3e8cc;
+	--color-milestone-bg:      #0a0c07;
+	--color-milestone-text:    #e3e8cc;
+	--color-gate:              #c5e13e;
+	--color-gate-bg:           #c5e13e;
+	--color-gate-text:         #1d2718;
+	--color-tier-underway:     #e3e8cc;
+	--color-tier-underway-bg:  #434a32;
+	--color-tier-underway-text: #e3e8cc;
+	--color-tier-deferred:     #f2e8d0;
+	--color-tier-deferred-bg:  #5a4225;
+	--color-tier-deferred-text: #f2e8d0;
+	--color-primary:           #ff86b4;
+	--color-primary-bg:        #342e26;
+	--color-primary-text:      #ff86b4;
+	--color-dev-beetroot:      #ff86b4;
+	--color-dev-beetroot-bg:   #342e26;
+	--color-dev-moss:          #a6d46a;
+	--color-dev-moss-bg:       #2d3420;
+	--color-dev-biro:          #8db4e8;
+	--color-dev-biro-bg:       #2b312a;
+	--color-dev-ochre:         #e0a84a;
+	--color-dev-ochre-bg:      #31301e;
+	--color-dev-rust:          #ff8a6b;
+	--color-dev-rust-bg:       #342e20;
+
+	--diagram-line: #a3ad8c;
+	--diagram-edge-label-bg: #22261a;
+	--diagram-text: var(--text);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	line-height: var(--leading);
+	background: var(--page);
+	color: var(--text);
+}
+.layout { display: flex; max-width: 1200px; margin: 0 auto; gap: 2rem; padding: 0 1.25rem; }
+nav {
+	position: sticky; top: 0; align-self: flex-start;
+	width: 180px; flex-shrink: 0; padding: 2rem 0;
+	font-family: var(--font-print); font-size: 0.85rem;
+}
+nav a { display: block; padding: 0.35rem 0.6rem; color: var(--muted); text-decoration: none; border-left: 2px solid var(--rule); }
+nav a:hover, nav a.active { color: var(--accent); border-left-color: var(--accent); }
+nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+main { flex: 1; min-width: 0; padding: 2rem 0 4rem; }
+
+/* The title block: the phase as a map's cartouche, a compass beside it. */
+header.page { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+header.page .titles { flex: 1 1 16rem; min-width: 0; }
+header.page h1 {
+	font-family: var(--font-display); font-weight: 700; font-size: 2.1rem; line-height: 1.15;
+	margin: 0 0 0.25rem; overflow-wrap: break-word;
+}
+header.page .meta { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+.compass { width: 64px; height: 64px; flex: none; }
+.compass .ring { fill: none; stroke: var(--ink-muted); stroke-width: 1.5; }
+.compass .tick { stroke: var(--ink-muted); stroke-width: 1.5; }
+.compass .needle-n { fill: var(--accent); }
+.compass .needle-s { fill: var(--ink); }
+.compass .north { font-family: var(--font-marker); font-size: 15px; fill: var(--accent); }
+
+.theme-toggle { display: flex; gap: 0.15rem; margin-left: auto; flex: none; }
+.theme-toggle button {
+	font: 600 0.8rem var(--font-print); line-height: 1;
+	color: var(--muted); background: var(--panel); border: 1px solid var(--rule);
+	border-radius: var(--radius-sm); padding: 0.35rem 0.6rem; cursor: pointer;
+}
+.theme-toggle button:hover { color: var(--text); border-color: var(--accent); }
+.theme-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle button[aria-pressed="true"] { color: var(--color-milestone-text); background: var(--color-milestone-bg); border-color: var(--color-milestone); }
+@media print { .theme-toggle { display: none; } }
+
+section { margin-top: 2.5rem; }
+h2 {
+	font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; line-height: 1.2;
+	color: var(--text); display: flex; align-items: center; gap: 0.55rem; margin: 0 0 1rem;
+}
+/* A map pin before each section name: the stamp's beetroot. */
+h2 .dot {
+	width: 11px; height: 11px; flex-shrink: 0; background: var(--accent);
+	border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+}
+
+.card {
+	background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius-md);
+	box-shadow: var(--shadow); padding: 1.1rem 1.3rem; min-width: 0;
+}
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.9rem; margin-top: 0.9rem; }
+.grid > * { min-width: 0; }
+.mini { border-color: var(--m-colour, var(--rule)); border-width: 1.5px; }
+.mini h3 { margin: 0 0 0.3rem; font-family: var(--font-print); font-size: 0.95rem; font-weight: 600; overflow-wrap: break-word; }
+.mini .count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+.progress-bar { height: 6px; background: var(--rule); border-radius: var(--radius-sm); margin-top: 0.55rem; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: var(--radius-sm); }
+
+/* Overview is itself a <details>, shipped open: the progress-card grid
+   follows the summary in the body. Closed by the reader, it shows only the
+   section name and headline bar (both live in the summary). Reuses
+   details.milestone's shape rather than a second pattern. */
+details.overview { border: none; background: none; margin-bottom: 0; }
+details.overview > summary {
+	cursor: pointer; list-style: none; display: flex; align-items: center;
+	flex-wrap: wrap; gap: 0.5rem 1rem; padding: 0;
+}
+details.overview > summary::-webkit-details-marker { display: none; }
+details.overview > summary h2 { margin: 0; }
+details.overview .headline { font-family: var(--font-print); font-size: 0.85rem; color: var(--muted); }
+details.overview .body { margin-top: 1rem; }
+
+/* A tier group: its own <details>, expanded per overview.tiers[].expanded.
+   Unwrapped (no tier markup at all) when the phase has no tiered
+   milestones; see the JS below. */
+details.tier { margin-bottom: 1.1rem; }
+details.tier > summary {
+	cursor: pointer; list-style: none; display: flex; align-items: baseline;
+	flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.7rem;
+}
+details.tier > summary::-webkit-details-marker { display: none; }
+details.tier > summary h3 {
+	margin: 0; font-family: var(--font-print); font-size: 0.8rem;
+	font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+}
+details.tier > summary .readout { font-family: var(--font-print); font-size: 0.8rem; color: var(--muted); }
+details.tier > summary .arrow { font-size: 0.7rem; color: var(--muted); transition: transform 0.15s; }
+details.tier[open] > summary .arrow { transform: rotate(90deg); }
+
+details.milestone {
+	background: var(--panel); border: 1.5px solid var(--m-colour, var(--rule));
+	border-radius: var(--radius-md); margin-bottom: 0.8rem;
+}
+details.milestone > summary {
+	cursor: pointer; padding: 0.85rem 1.2rem; font-family: var(--font-print); font-weight: 600;
+	display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.7rem; list-style: none; min-width: 0;
+}
+details.milestone > summary::-webkit-details-marker { display: none; }
+details.milestone > summary .mid {
+	font-family: var(--font-mono); font-size: 0.72rem; font-weight: 400;
+	background: var(--color-milestone-bg); color: var(--color-milestone-text);
+	border: 1px solid var(--color-milestone); border-radius: var(--radius-sm); padding: 0.1rem 0.4rem;
+}
+details.milestone > summary .devs { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+/* The count sits at the far right of every milestone summary. With scout
+   chips present they take the auto margin and the count follows them;
+   without, the count takes it itself. */
+details.milestone > summary .count { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: nowrap; margin-left: auto; }
+details.milestone > summary .devs + .count { margin-left: 0; }
+details.milestone .body { padding: 0 1.2rem 1rem; }
+.group h4 { font-family: var(--font-print); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
+.group ul { list-style: none; margin: 0; padding: 0; }
+/* A status group that folds away (blocked, done, out of scope): closed by default, the
+   summary is its heading plus a waypoint count. Same arrow as details.tier. */
+details.statusgroup > summary {
+	cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 0.45rem;
+}
+details.statusgroup > summary::-webkit-details-marker { display: none; }
+details.statusgroup > summary .arrow { font-size: 0.7rem; color: var(--muted); transition: transform 0.15s; }
+details.statusgroup[open] > summary .arrow { transform: rotate(90deg); }
+.group li { padding: 0.28rem 0; overflow-wrap: break-word; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.tid {
+	font-family: var(--font-mono); font-size: 0.72rem;
+	background: var(--color-primary-bg); color: var(--color-primary-text);
+	border: 1px solid var(--color-primary); border-radius: var(--radius-sm); padding: 0.05rem 0.35rem;
+}
+/* Generic coloured chip: scout and dependency chips share this shape,
+   coloured per-instance via the --chip-fg/--chip-bg custom properties so one
+   rule serves every status/milestone/gate/scout colour without a class per
+   colour. A chip is a named pill: its shape and its words carry it, never
+   its colour alone. */
+.chip {
+	font-family: var(--font-mono); font-size: 0.7rem;
+	background: var(--chip-bg, var(--rule)); color: var(--chip-fg, var(--muted));
+	border: 1px solid var(--chip-fg, var(--rule)); border-radius: 999px; padding: 0.05rem 0.5rem;
+	white-space: nowrap;
+}
+.deps { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+.tasktext { flex: 1 1 auto; }
+.depnote { color: var(--muted); font-size: 0.85rem; }
+li.oos { text-decoration: line-through; color: var(--muted); }
+
+/* The route is drawn on survey paper: a fine grid every 16px, a heavier
+   rule every 80px, both in the theme's line colour. */
+.diagram-shell {
+	position: relative; overflow: hidden;
+	background:
+		linear-gradient(var(--grid-major) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+		linear-gradient(var(--grid-minor) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px),
+		var(--page);
+	background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px, auto;
+	border: 1.5px solid var(--ink-muted); border-radius: var(--radius-md);
+}
+.diagram-toolbar { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 2; display: flex; gap: 0.25rem; }
+.diagram-toolbar button {
+	font-family: var(--font-print); font-size: 0.85rem; line-height: 1;
+	background: var(--panel); color: var(--text); border: 1px solid var(--rule);
+	border-radius: var(--radius-sm); padding: 0.35rem 0.55rem; cursor: pointer;
+}
+.diagram-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.diagram-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mermaid-wrap { overflow: hidden; cursor: grab; min-height: 320px; }
+.mermaid-wrap:active { cursor: grabbing; }
+.mermaid-wrap svg { display: block; transform-origin: 0 0; max-width: none !important; }
+.diagram-shell.expanded { position: fixed; inset: 1.5rem; z-index: 10; box-shadow: var(--shadow); }
+.diagram-shell.expanded .mermaid-wrap { height: calc(100% - 0px); }
+
+/* The key: a cartographer's legend in a ruled, hand-drawn box, with a
+   scale bar whose filled stretch is the phase's done percentage. */
+.legend {
+	display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; align-items: center;
+	margin-top: 0.6rem; font-size: 0.8rem; color: var(--muted);
+	font-family: var(--font-print);
+}
+.mapkey {
+	position: relative; margin-top: 1.1rem; padding: 1.1rem 1.1rem 0.9rem;
+	background: var(--panel); border: 1.5px solid var(--ink-muted); border-radius: var(--wonk);
+}
+.mapkey .keytitle {
+	position: absolute; top: -0.85rem; left: 1rem; padding: 0 0.45rem;
+	font-family: var(--font-marker); font-size: 1rem; color: var(--accent); background: var(--page);
+	transform: rotate(-2deg);
+}
+.mapkey .legend { margin-top: 0; }
+.legend .key { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text); }
+.legend .sw { width: 0.95rem; height: 0.95rem; border-radius: var(--radius-sm); border: 1.5px solid; box-sizing: border-box; }
+.legend .key--mile { font-weight: 600; }
+.legend .key--gate { font-style: italic; }
+.legend .keynote { flex-basis: 100%; color: var(--muted); }
+/* The two tier swatches: shown only for a tiered phase (see the JS below),
+   laid out as two more keys in the same row. */
+#tier-keys:not([hidden]) { display: contents; }
+.scalebar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin-top: 0.8rem; font-family: var(--font-print); font-size: 0.8rem; color: var(--muted); }
+#scaleread { white-space: nowrap; }
+.scalebar .bar { display: flex; flex: 0 1 15rem; height: 0.55rem; border: 1px solid var(--ink-muted); }
+.scalebar .seg { flex: 1; background: var(--page); }
+.scalebar .seg + .seg { border-left: 1px solid var(--ink-muted); }
+.scalebar .seg.on { background: var(--color-done); }
+.scalebar .ends { font-family: var(--font-mono); font-size: 0.72rem; }
+
+/* Every waypoint is the same three rows: pills, description, leverage counts. */
+.nextup li:not(.nextup-devgroup) { display: flex; flex-direction: column; align-items: stretch; gap: 0.35rem; padding: 0.55rem 0; }
+.nextup .pills { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.nextup .leverage { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.3rem 1rem; }
+.nextup .pills .signal, .nextup .leverage .signal { margin-left: 0; }
+.nextup-legend { margin: 0 0 0.8rem; }
+/* li.nextup-devgroup, not .nextup-devgroup: .group li (display:flex) would
+   otherwise outrank it and lay a heading out beside its own list */
+.nextup li.nextup-devgroup { display: block; padding: 0; margin-top: 1rem; }
+.nextup li.nextup-devgroup:first-child { margin-top: 0; }
+.nextup li.nextup-devgroup + li.nextup-devgroup { border-top: 1px dashed var(--rule); padding-top: 1rem; }
+.nextup-devgroup h4 { margin: 0 0 0.4rem; font-family: var(--font-print); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.signal { color: var(--muted); font-size: 0.8rem; font-family: var(--font-mono); margin-left: auto; }
+
+.validation { border-left: 3px solid var(--color-blocked); background: var(--color-blocked-bg); color: var(--text); padding: 0.7rem 1rem; border-radius: 0 var(--radius-md) var(--radius-md) 0; margin-top: 1rem; font-family: var(--font-print); font-size: 0.88rem; }
+.validation ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+
+@media (max-width: 760px) {
+	.layout { flex-direction: column; gap: 0; }
+	nav { position: sticky; top: 0; width: auto; display: flex; overflow-x: auto; gap: 0.25rem; padding: 0.6rem 0; background: var(--page); z-index: 5; }
+	nav a { border-left: none; border-bottom: 2px solid var(--rule); white-space: nowrap; }
+	nav a:hover, nav a.active { border-bottom-color: var(--accent); }
+	header.page h1 { font-size: 1.6rem; }
+	.compass { width: 48px; height: 48px; }
+}
+</style>
+</head>
+<body>
+<script>
+(function () {
+	var KEY = 'theme';
+	var root = document.documentElement;
+	function read() {
+		try { return localStorage.getItem(KEY) || 'system'; }
+		catch (e) { return 'system'; }
+	}
+	function write(mode) {
+		try { localStorage.setItem(KEY, mode); }
+		catch (e) { /* private window, blocked storage, preview capture: ignore */ }
+	}
+	function apply(mode) {
+		if (mode === 'system') root.removeAttribute('data-theme');
+		else root.setAttribute('data-theme', mode);
+		document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+			b.setAttribute('aria-pressed', String(b.dataset.setTheme === mode));
+		});
+	}
+	apply(read());
+	document.addEventListener('DOMContentLoaded', function () {
+		apply(read());
+		document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+			b.addEventListener('click', function () {
+				write(b.dataset.setTheme);
+				apply(b.dataset.setTheme);
+			});
+		});
+	});
+})();
+</script>
+<div class="layout">
+	<nav>
+		<a href="#overview">Overview</a>
+		<a href="#milestones">Milestones</a>
+		<a href="#graph">The Route</a>
+		<a href="#nextup">Next Waypoints</a>
+	</nav>
+	<main>
+		<header class="page">
+			<svg class="compass" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+				<circle class="ring" cx="32" cy="34" r="22"/>
+				<line class="tick" x1="32" y1="8" x2="32" y2="14"/>
+				<line class="tick" x1="32" y1="54" x2="32" y2="60"/>
+				<line class="tick" x1="6" y1="34" x2="12" y2="34"/>
+				<line class="tick" x1="52" y1="34" x2="58" y2="34"/>
+				<polygon class="needle-n" points="32,15 37,34 27,34"/>
+				<polygon class="needle-s" points="32,53 37,34 27,34"/>
+				<text class="north" x="32" y="7" text-anchor="middle" dominant-baseline="middle">N</text>
+			</svg>
+			<div class="titles">
+				<h1 id="pageTitle">%%TITLE%%</h1>
+				<div class="meta" id="meta"></div>
+			</div>
+			<div class="theme-toggle" role="group" aria-label="Colour theme">
+				<button type="button" data-set-theme="light"  aria-pressed="false">☀</button>
+				<button type="button" data-set-theme="system" aria-pressed="true">◐</button>
+				<button type="button" data-set-theme="dark"   aria-pressed="false">☾</button>
+			</div>
+		</header>
+		<div id="validation"></div>
+
+		<section id="overview">
+			<details class="overview" open>
+				<summary>
+					<h2><span class="dot"></span>Overview</h2>
+					<span class="headline" id="headline"></span>
+				</summary>
+				<div class="body">
+					<div id="milestone-cards"></div>
+				</div>
+			</details>
+		</section>
+
+		<section id="milestones">
+			<h2><span class="dot"></span>Milestones</h2>
+			<div id="milestone-details"></div>
+		</section>
+
+		<section id="graph">
+			<h2><span class="dot"></span>The Route</h2>
+			<div class="diagram-shell" id="shell">
+				<div class="diagram-toolbar">
+					<button data-act="in" title="Zoom in">+</button>
+					<button data-act="out" title="Zoom out">−</button>
+					<button data-act="reset" title="Reset">⌂</button>
+					<button data-act="expand" title="Expand">⤢</button>
+				</div>
+				<div class="mermaid-wrap" id="wrap"><div id="diagram"></div></div>
+			</div>
+			<div class="mapkey">
+			<span class="keytitle">Key</span>
+			<div class="legend">
+				<span class="key"><i class="sw" style="background:var(--color-todo-bg);border-color:var(--color-todo)"></i>todo</span>
+				<span class="key"><i class="sw" style="background:var(--color-in-progress-bg);border-color:var(--color-in-progress)"></i>on a trail ▸</span>
+				<span class="key"><i class="sw" style="background:var(--color-blocked-bg);border-color:var(--color-blocked);border-width:2px"></i>blocked</span>
+				<span class="key"><i class="sw" style="background:var(--color-paused-bg);border-color:var(--color-paused);border-style:dashed"></i>paused</span>
+				<span class="key"><i class="sw" style="background:var(--color-deferred-bg);border-color:var(--color-deferred);border-style:dashed"></i>deferred</span>
+				<span class="key"><i class="sw" style="background:var(--color-out-of-scope-bg);border-color:var(--color-out-of-scope);border-style:dotted"></i>out of scope</span>
+				<span class="key key--mile"><i class="sw" style="background:var(--color-milestone-bg);border-color:var(--color-milestone)"></i>milestone</span>
+				<span class="key key--gate"><i class="sw" style="background:var(--color-gate-bg);border-color:var(--color-gate);border-style:dashed"></i>external gate</span>
+				<span id="tier-keys" hidden>
+					<span class="key"><i class="sw" style="background:var(--color-tier-underway-bg);border-color:var(--color-tier-underway)"></i>tier underway</span>
+					<span class="key"><i class="sw" style="background:var(--color-tier-deferred-bg);border-color:var(--color-tier-deferred);border-style:dashed"></i>tier deferred</span>
+				</span>
+				<span class="keynote">waypoints flow into the milestone they complete; done waypoints and finished milestones are left off the route</span>
+			</div>
+			<div class="scalebar" aria-label="Phase progress">
+				<span>Scale</span><span class="ends">0</span>
+				<span class="bar" id="scalebar"></span>
+				<span class="ends">100%</span><span id="scaleread"></span>
+			</div>
+			</div>
+		</section>
+
+		<section id="nextup">
+			<h2><span class="dot"></span>Next Waypoints</h2>
+			<div class="card">
+				<p class="legend nextup-legend"><span title="Waypoints that become ready the moment this one is done">▶ ready when done</span><span title="Waypoints that depend on this one but also wait on other prerequisites">◐ also waits on others</span><span title="Waypoints further downstream, not counted in the other two">↓ further downstream</span></p>
+				<ul class="nextup group" id="ready" style="list-style:none;margin:0;padding:0"></ul>
+			</div>
+		</section>
+	</main>
+</div>
+
+<script id="chart-data" type="application/json">%%DATA%%</script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+const DATA = JSON.parse(document.getElementById("chart-data").textContent);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+	c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+document.getElementById("pageTitle").textContent =
+	DATA.project ? `${DATA.project}: ${DATA.phase}` : DATA.phase;
+document.getElementById("meta").textContent =
+	`generated ${DATA.generated} · source .claude/roadbook.json`;
+
+/* Validation banner (empty when clean) */
+if (DATA.validation && DATA.validation.length) {
+	document.getElementById("validation").innerHTML =
+		`<div class="validation"><strong>${DATA.validation.length} validation ` +
+		`discrepancy(ies):</strong> the numbers below reflect the file as-is.` +
+		`<ul>${DATA.validation.map(v => `<li>${esc(v)}</li>`).join("")}</ul></div>`;
+}
+
+/* Milestone-level state (distinct from task status): computed server-side by
+   roadbook.py's milestone_state() and carried as m.state, so the artefact
+   never re-derives it and cannot disagree with the CLI's own stats/render
+   paths. Milestone states: empty, done, deferred, inProgress, blocked, todo
+   (see roadbook-conventions.md; `empty` is a flagged bug, not a legitimate
+   state, and borrows the blocked/red colour). The same map also colours
+   dependency chips by a *task's* display status, which still uses `paused`
+   and adds in_progress (a claimed task) and out_of_scope: task status and
+   milestone state are different vocabularies sharing one colour table. */
+const STATE_VAR = {
+	empty: "blocked", done: "done", deferred: "deferred",
+	inProgress: "in-progress", blocked: "blocked", todo: "todo",
+	paused: "paused", in_progress: "in-progress", out_of_scope: "out-of-scope",
+};
+/* Overview cards and Milestones details both render DATA.overview.milestones
+   in the order roadbook.py's overview_layout() already sorted (see
+   roadbook-conventions.md's milestone sort rules): partially-done first,
+   then tier, then donePct, then milestone id. The artefact never re-sorts. */
+const sortedMilestones = DATA.overview.milestones;
+
+/* A dev-chip helper: colour + label for an assignee, empty string when unset. */
+const devChip = assignee => {
+	const varName = DATA.devColours?.[assignee];
+	if (!assignee || !varName) return "";
+	return `<span class="chip" style="--chip-fg:var(--color-dev-${varName});--chip-bg:var(--color-dev-${varName}-bg)">${esc(assignee)}</span>`;
+};
+/* A dependency-id chip: colour by what the id resolves to (task status,
+   milestone sky, or gate yellow), using the server-computed depKinds map
+   so the artefact never re-derives the graph. */
+const depChip = id => {
+	const k = DATA.depKinds?.[id];
+	if (!k) return `<span class="chip">${esc(id)}</span>`;
+	const varName = k.kind === "task" ? STATE_VAR[k.display ?? k.status] ?? "todo"
+		: k.kind === "milestone" ? "milestone" : "gate";
+	return `<span class="chip" style="--chip-fg:var(--color-${varName});--chip-bg:var(--color-${varName}-bg)">${esc(id)}</span>`;
+};
+
+/* Section 1: Overview. Title Case throughout the headline bar; the
+   section itself is an open-by-default <details> (see the overview.body
+   CSS), and the headline is the only thing left visible once collapsed. */
+const st = DATA.stats;
+/* Every done/total readout counts in-scope tasks only (inScope, computed by
+   roadbook.py's build_stats()): an out_of_scope task is struck from play, so
+   it is neither done nor outstanding. One readout shape serves the project
+   headline and each tier's own. */
+const readout = s =>
+	`${s.done}/${s.inScope} Waypoints · ${s.donePct}% Complete · ` +
+	`${s.milestonesDone}/${s.milestonesTotal} Milestones`;
+document.getElementById("headline").textContent =
+	readout({ ...st, done: st.byStatus.done });
+/* The key's scale bar: ten segments, as many filled as the phase is done. */
+document.getElementById("scalebar").innerHTML = Array.from({ length: 10 },
+	(_, i) => `<span class="seg${i < Math.round(st.donePct / 10) ? " on" : ""}"></span>`).join("");
+document.getElementById("scaleread").textContent = `${st.donePct}% walked`;
+
+/* A milestone's own count: "No tasks" for an empty one (a flagged bug),
+   "Out of scope" when every task it holds was struck, else done/inScope. */
+const milestoneCount = (m, suffix = "") =>
+	m.state === "empty" ? "No waypoints"
+	: !m.inScope ? "Out of scope"
+	: `${m.done}/${m.inScope}${suffix}`;
+
+const milestoneCard = m => `
+	<div class="card mini" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
+		<h3>${esc(m.id)}: ${esc(m.name)}</h3>
+		<span class="count">${milestoneCount(m, ` done · ${m.donePct}%`)}</span>
+		<div class="progress-bar"><div class="progress-fill"
+			style="width:${m.donePct}%;background:var(--color-${STATE_VAR[m.state]})"></div></div>
+	</div>`;
+
+/* Section 2 groups lead with actionable work; milestones themselves follow
+   DATA.overview's own sort/tier-group order (roadbook.py's overview_layout,
+   see roadbook-conventions.md), so a reader scanning top-to-bottom sees the
+   same priority twice across Overview and Milestones, not two different
+   orderings of the same data; Overview's tier grouping mirrors it too. */
+/* The fourth field marks a group that renders as its own closed <details>:
+   blocked, done and out-of-scope tasks are nothing a reader can pick up, so
+   they fold away behind a heading that carries their count. */
+const GROUPS = [
+	["in_progress", "▸ On the Trail", "in-progress",  false],
+	["todo",        "○ To Do",        "todo",         false],
+	["blocked",     "✗ Blocked",      "blocked",      true],
+	["paused",      "⏸ Paused",       "paused",       false],
+	["deferred",    "⤓ Deferred",     "deferred",     false],
+	["done",        "✓ Done",         "done",         true],
+	["out_of_scope","⊘ Out of Scope", "out-of-scope", true],
+];
+const tasksByMilestone = {};
+for (const t of DATA.tasks) (tasksByMilestone[t.milestone] ??= []).push(t);
+
+const devChips = m => m.devs?.length
+	? `<span class="devs">${m.devs.map(devChip).join("")}</span>` : "";
+
+const milestoneDetails = m => {
+	const tasks = tasksByMilestone[m.id] || [];
+	const groups = GROUPS.map(([status, label, varName, collapsed]) => {
+		const members = tasks.filter(t => (t.display ?? t.status) === status);
+		if (!members.length) return "";
+		const items = members.map(t => {
+			const deps = (t.dependsOn && t.dependsOn.length)
+				? `<span class="deps">${t.dependsOn.map(depChip).join("")}</span>` : "";
+			return `<li class="${status === "out_of_scope" ? "oos" : ""}">
+				<span class="tid">${esc(t.id)}</span>${devChip(t.assignee)}
+				<span class="tasktext">${esc(t.description)}</span>${deps}</li>`;
+		}).join("");
+		if (collapsed) return `<details class="group statusgroup">
+			<summary><span class="arrow">▸</span><h4 style="color:var(--color-${varName})">${label} (${members.length})</h4></summary>
+			<ul>${items}</ul></details>`;
+		return `<div class="group">
+			<h4 style="color:var(--color-${varName})">${label}</h4><ul>${items}</ul></div>`;
+	}).join("");
+	// All milestones render collapsed; the reader chooses what to expand
+	return `<details class="milestone" style="--m-colour:var(--color-${STATE_VAR[m.state]})">
+		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
+			${devChips(m)}
+			<span class="count">${milestoneCount(m)}</span></summary>
+		<div class="body">${groups || "<p class='depnote'>No waypoints.</p>"}</div>
+	</details>`;
+};
+
+const milestonesById = Object.fromEntries(DATA.overview.milestones.map(m => [m.id, m]));
+
+if (DATA.overview.tiers) {
+	// Tiered phase: one <details class="tier"> per tier, expanded flag and
+	// milestone membership/order both computed server-side (overview_layout).
+	// Overview's tier header carries the tier's own readout (g.stats), the
+	// per-tier counterpart of the headline; Milestones' keeps the bare name.
+	document.getElementById("milestone-cards").innerHTML = DATA.overview.tiers.map(g => `
+		<details class="tier"${g.expanded ? " open" : ""}>
+			<summary><span class="arrow">▸</span><h3>${esc(g.tierLabel)}</h3>
+				<span class="readout">${esc(readout(g.stats))}</span></summary>
+			<div class="grid">${g.milestoneIds.map(id => milestoneCard(milestonesById[id])).join("")}</div>
+		</details>`).join("");
+	document.getElementById("milestone-details").innerHTML = DATA.overview.tiers.map(g => `
+		<details class="tier"${g.expanded ? " open" : ""}>
+			<summary><span class="arrow">▸</span><h3>${esc(g.tierLabel)}</h3></summary>
+			<div>${g.milestoneIds.map(id => milestoneDetails(milestonesById[id])).join("")}</div>
+		</details>`).join("");
+} else {
+	// No tiered milestones: flat, unwrapped list, no tier markup at all.
+	// milestone-cards still needs its own grid wrapper now that the static
+	// container is plain (the tiered branch above puts a grid inside each
+	// tier <details> instead of on the shared outer container).
+	document.getElementById("milestone-cards").innerHTML =
+		`<div class="grid">${sortedMilestones.map(milestoneCard).join("")}</div>`;
+	document.getElementById("milestone-details").innerHTML = sortedMilestones.map(milestoneDetails).join("");
+}
+
+/* Section 3: The Route, the dependency graph */
+/* A tiered phase draws each tier as its own subgraph (roadbook.py's
+   mermaid_source()), so its legend gains the two tier backgrounds; an
+   untiered phase has no subgraph and keeps the keys hidden. */
+document.getElementById("tier-keys").hidden = !DATA.overview.tiers;
+/* ELK lays out this dense a graph with far fewer crossings than the default
+   dagre engine; if its module fails to load, dagre still renders. */
+let layout = "dagre";
+try {
+	const elkLayouts = (await import("https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0/dist/mermaid-layout-elk.esm.min.mjs")).default;
+	mermaid.registerLayoutLoaders(elkLayouts);
+	layout = "elk";
+} catch { /* CDN unreachable — fall back */ }
+/* Mermaid 11's classDef parser rejects var(--x), so the semantic variables
+   are resolved to concrete colours before rendering, and the graph re-renders
+   when the colour scheme flips so it keeps tracking the page theme. A render
+   failure is contained to the diagram shell — the sections after it must
+   still populate.
+
+   Node fills/strokes come entirely from the classDefs above (resolved via
+   the var() replace below), but mermaid's "base" theme still supplies its
+   own defaults for everything a classDef doesn't touch — edge stroke,
+   arrowhead fill, edge-label background. Those defaults assume a white
+   canvas, so left alone they render near-black on the dark surface. Fixing
+   that means passing --diagram-line/--diagram-edge-label-bg/--diagram-text
+   through as themeVariables — and critically, mermaid.initialize() must be
+   called again on every render (not once at module load) reading the
+   *currently resolved* values, or a colour-scheme flip silently keeps the
+   load-time edge colours and the explicit data-theme toggle below never
+   takes effect at all (matchMedia doesn't fire for it). */
+const wrap = document.getElementById("wrap");
+const shell = document.getElementById("shell");
+const diagram = document.getElementById("diagram");
+let svgEl = null;
+let scale = 1, tx = 0, ty = 0;
+const apply = () => { if (svgEl) svgEl.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
+const renderGraph = async () => {
+	/* Mermaid sizes each node from text it measures at render: measured in a
+	   fallback face, boxes clip once the embedded one arrives. */
+	await document.fonts.ready;
+	const rootStyle = getComputedStyle(document.documentElement);
+	const cssVar = name => rootStyle.getPropertyValue(name).trim() || "#888888";
+	mermaid.initialize({
+		startOnLoad: false,
+		theme: "base",
+		layout,
+		themeVariables: {
+			fontSize: "16px",
+			fontFamily: cssVar("--font-print"),
+			background: cssVar("--page"),
+			lineColor: cssVar("--diagram-line"),
+			edgeLabelBackground: cssVar("--diagram-edge-label-bg"),
+			textColor: cssVar("--diagram-text"),
+		},
+	});
+	const src = DATA.mermaid.replace(/var\((--[\w-]+)\)/g, (_, name) => cssVar(name));
+	try {
+		const { svg } = await mermaid.render("chart-graph", src);
+		diagram.innerHTML = svg;
+	} catch (err) {
+		document.getElementById("dchart-graph")?.remove();
+		diagram.innerHTML = `<p class="depnote">Dependency graph failed to render: ${esc(String(err))}</p>`;
+		return;
+	}
+	svgEl = wrap.querySelector("svg");
+	svgEl.addEventListener("dblclick", () => shell.classList.toggle("expanded"));
+	apply();
+};
+await renderGraph();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderGraph);
+/* Covers the explicit data-theme toggle (no UI ships today, but the
+   three-state contract says a future one must just work — see the CSS
+   comment above :root[data-theme="dark"]). matchMedia only fires for the OS
+   preference, so the attribute needs its own watcher. */
+new MutationObserver(renderGraph).observe(document.documentElement,
+	{ attributes: true, attributeFilter: ["data-theme"] });
+
+/* Zoom/pan: buttons, ctrl+wheel, drag; expand toggles a fixed overlay */
+const zoom = f => { scale = Math.min(4, Math.max(0.25, scale * f)); apply(); };
+shell.querySelector(".diagram-toolbar").addEventListener("click", e => {
+	const act = e.target.dataset.act;
+	if (act === "in") zoom(1.25);
+	else if (act === "out") zoom(0.8);
+	else if (act === "reset") { scale = 1; tx = ty = 0; apply(); }
+	else if (act === "expand") shell.classList.toggle("expanded");
+});
+wrap.addEventListener("wheel", e => {
+	if (!e.ctrlKey && !e.metaKey) return;
+	e.preventDefault();
+	zoom(e.deltaY < 0 ? 1.1 : 0.9);
+}, { passive: false });
+let drag = null;
+wrap.addEventListener("pointerdown", e => { drag = { x: e.clientX - tx, y: e.clientY - ty }; wrap.setPointerCapture(e.pointerId); });
+wrap.addEventListener("pointermove", e => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); } });
+wrap.addEventListener("pointerup", () => { drag = null; });
+
+/* Section 4: Next Waypoints (pre-vetted by roadbook.py ready). Same chip structure
+   as the Milestones section (A5); grouped by dev only when the READY SET
+   (the candidates actually shown here, not the whole phase) has more than
+   one distinct assignee, so a solo project (or a phase where only one dev's
+   work happens to be unblocked right now) stays flat rather than gaining a
+   pointless single-group heading. */
+/* The dev chip shows only on an ungrouped list: under a dev's group header it
+   would repeat the header. */
+const candidateLi = (c, showDev = false) => `
+	<li>
+		<span class="pills">
+			<span class="chip" style="--chip-fg:var(--color-milestone);--chip-bg:var(--color-milestone-bg)">${esc(c.milestone)}: ${esc(c.milestoneName)}</span>
+			<span class="tid">${esc(c.id)}</span>${showDev ? devChip(c.assignee) : ""}
+			${c.isMilestoneSink ? `<span class="signal">completes milestone</span>` : ""}
+		</span>
+		<span class="tasktext">${esc(c.description)}</span>
+		<span class="leverage">
+			<span class="signal" title="Ready when this is done">▶ ${c.unblocksNow}</span>
+			<span class="signal" title="Also waits on other prerequisites">◐ ${c.unblocksPartly}</span>
+			<span class="signal" title="Further downstream">↓ ${c.unblocksLater}</span>
+		</span>
+	</li>`;
+const readyAssignees = new Set(DATA.ready.candidates.map(c => c.assignee).filter(Boolean));
+const readyHtml = !DATA.ready.candidates.length
+	? "<li>No ready waypoints: clear a blocker or a gate.</li>"
+	: readyAssignees.size > 1
+	? [...readyAssignees].sort().map(dev => `
+		<li class="nextup-devgroup"><h4>${devChip(dev)}</h4>
+			<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => c.assignee === dev).map(c => candidateLi(c)).join("")}</ul>
+		</li>`).join("") +
+		(DATA.ready.candidates.some(c => !c.assignee)
+			? `<li class="nextup-devgroup"><h4>Unassigned</h4>
+				<ul style="list-style:none;margin:0;padding:0">${DATA.ready.candidates.filter(c => !c.assignee).map(c => candidateLi(c)).join("")}</ul>
+			</li>` : "")
+	: DATA.ready.candidates.map(c => candidateLi(c, true)).join("");
+/* Claims in play lead, since someone is already on them; the ready set then
+   gets its own heading so the two lists never read as one. A parked claim
+   (paused/deferred wins over a claim) stays in its Milestones group. */
+const claimLi = c => `
+	<li>
+		<span class="pills"><span class="tid">${esc(c.id)}</span>${devChip(c.assignee)}</span>
+		<span class="tasktext">${esc(c.description)}</span>
+		<span class="signal">since ${esc(c.started)}${c.status === "todo" ? "" : ` · ${esc(c.status)}`}</span>
+	</li>`;
+const claimed = (DATA.ready.claimed ?? []).filter(c => c.display === "in_progress");
+document.getElementById("ready").innerHTML = claimed.length
+	? `<li class="nextup-devgroup"><h4 style="color:var(--color-in-progress)">▸ On the trail</h4>
+		<ul style="list-style:none;margin:0;padding:0">${claimed.map(claimLi).join("")}</ul></li>
+		<li class="nextup-devgroup"><h4>Ready</h4>
+		<ul style="list-style:none;margin:0;padding:0">${readyHtml}</ul></li>`
+	: readyHtml;
+
+/* Nav highlight */
+const links = [...document.querySelectorAll("nav a")];
+const highlight = new IntersectionObserver(entries => {
+	for (const en of entries) if (en.isIntersecting) {
+		links.forEach(a => a.classList.toggle("active", a.hash === "#" + en.target.id));
+	}
+}, { rootMargin: "-30% 0px -60% 0px" });
+links.forEach(a => highlight.observe(document.querySelector(a.hash)));
+</script>
+</body>
+</html>

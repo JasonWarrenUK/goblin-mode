@@ -3,7 +3,7 @@
 |         |                                                  |
 | ------- | ------------------------------------------------ |
 | Status  | [Draft, Agreed, Built or Signed off]             |
-| Source  | [Interview with Jason on <date>; roadmap task <id>; <scope document>] |
+| Source  | [Interview with Jason on <date>; roadbook waypoint <id>; <scope document>] |
 | Product | [Name and the path to its CSS tokens]           |
 
 ## 1. Who it is for
