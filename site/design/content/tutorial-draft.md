@@ -8,11 +8,11 @@ Draft status: copy only. Every behavioural claim is listed in **Sources** at the
 
 ## Level 1: One File, One Job
 
-`tidy-imports` does not exist yet. This level makes it: one folder, one `SKILL.md`, one argument and a first run on a real file.
+In this level, you'll create a skill called `tidy-imports`: a single-file skill that takes some basic arguments.
 
 ### 1.1 A Folder and a SKILL.md
 
-A skill is a folder holding a file called `SKILL.md`. Put it in the project at `.claude/skills/tidy-imports/` so everyone who clones the repository gets it. The file has two parts: YAML frontmatter between `---` lines, then the instructions Claude follows when the skill runs.
+Each skill lives in its own folder, as a file called `SKILL.md`. Make the folder inside your project, at `.claude/skills/tidy-imports/`; anyone who clones the repository then gets the skill too. The file starts with YAML frontmatter between two `---` lines; everything after that is the instructions Claude follows when the skill runs.
 
 ```bash
 mkdir -p .claude/skills/tidy-imports
@@ -33,13 +33,13 @@ the imports exactly as it was.
 
 New in 1.1: every line.
 
-- **1.1a** `name: tidy-imports` sets the command you type (`/tidy-imports`) and matches the folder name, which invokes the skill as well.
+- **1.1a** `name` is the command you'll type, `/tidy-imports`. Keep it the same as the folder name.
 - **1.1b** `description:` is the line Claude reads to decide whether this skill fits what you asked for, so it says what the skill does in plain words.
-- **1.1c** The three lines under the frontmatter are the whole job, written as instructions to Claude.
+- **1.1c** Everything under the frontmatter is what Claude follows: here, three lines on how to sort the imports.
 
 ### 1.2 An Argument
 
-The skill needs to know which file to tidy. `arguments: [path]` names the first word after the command `path`, and `$path` in the body is replaced with that word before Claude reads it. `argument-hint` shows what to type while you are typing the command.
+Next, tell the skill which file to tidy. `arguments: [path]` gives the first word after the command a name, `path`; wherever `$path` appears in the body, Claude Code swaps in that word before Claude reads it. `argument-hint` is the reminder you see while typing the command.
 
 `.claude/skills/tidy-imports/SKILL.md` after step 1.2:
 
@@ -66,7 +66,7 @@ New in 1.2: `arguments: [path]`, `argument-hint: "[file]"` and `Tidy the imports
 
 ### 1.3 Run It
 
-Start Claude Code in the project and type the command with a file. If `.claude/skills/` did not exist when the session started, run `/reload-skills` first; Claude Code only watches skill folders it knew about at startup. Claude can also load the skill without the slash command when you ask it to sort a file's imports, because its description is in Claude's context.
+Start Claude Code in your project and run the command with a file. If `.claude/skills/` didn't exist when the session started, run `/reload-skills` first, because Claude Code only watches skill folders it found at startup. You can also just ask Claude to sort a file's imports: the description sits in its context, so it can load the skill without the command.
 
 ```text
 /tidy-imports src/app.ts
@@ -95,7 +95,7 @@ const app = express();
 `.claude/skills/tidy-imports/SKILL.md` after step 1.3: unchanged from 1.2.
 
 - **1.3a** `/tidy-imports src/app.ts` puts `src/app.ts` in place of `$path`, so the body's first line reaches Claude as `Tidy the imports in src/app.ts.`
-- **1.3b** `const app = express();` is untouched, which is the line `Leave everything below the imports exactly as it was` exists to protect.
+- **1.3b** `const app = express();` stays where it was: that's what `Leave everything below the imports exactly as it was` is for.
 
 ### Try it: handle a missing file
 
@@ -107,17 +107,17 @@ Run `/tidy-imports` with no file. `$path` becomes empty and Claude reads `Tidy t
 If no path follows "in" above, ask which file to tidy and stop.
 ```
 
-A named argument with nothing typed for it expands to an empty string, so the instruction has to cover that case in words.
+With nothing typed, a named argument expands to an empty string, so the body has to say what to do in that case.
 
 ---
 
 ## Level 2: Give It a Script and a Ledger
 
-At level 1, `tidy-imports` was one file that asked Claude to sort a file's imports by hand. This level gives the sorting to a script, lets that one script run without a prompt and keeps a ledger of every file it touches.
+In this level, you'll move the sorting into a script that Claude Code runs without asking each time. The script also keeps a ledger of every file it tidies.
 
 ### Where Level 1 Left It
 
-This is `SKILL.md` as level 1 left it: four frontmatter fields and a body that asks Claude to do the sorting itself, in prose. The three sorting lines at the bottom are the ones step 2.1 replaces with a script.
+Here's `SKILL.md` at the end of level 1. Claude still does the sorting itself, from the three lines at the bottom; step 2.1 replaces those with a script.
 
 ```markdown
 ---
@@ -136,7 +136,7 @@ the imports exactly as it was.
 
 ### 2.1 Give It a Script
 
-At level 1, Claude sorted the imports itself. A model asked to reorder lines will now and then reflow one it was told to leave alone. A script does the same thing every time, and Claude no longer rewrites the file line by line to get there. The sorting moves into `scripts/sort-imports.sh` in the skill's folder. Make it executable once with `chmod +x`.
+Asked to reorder lines, Claude will now and then reflow one it was told to leave alone. A script sorts the same way every time, so move the sorting into `scripts/sort-imports.sh` inside the skill's folder and make it executable with `chmod +x`. In `SKILL.md`, call the script as `${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh`. Claude Code fills in the skill's own folder, so the call works whichever folder the session is in.
 
 `.claude/skills/tidy-imports/scripts/sort-imports.sh` after step 2.1:
 
@@ -177,7 +177,7 @@ Tidy the imports in $path.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -192,9 +192,9 @@ New in 2.1: from `Run the script on the file` to `report its message and stop.` 
 
 ### 2.2 Scope the Tool
 
-Running a script is a Bash call, and Claude Code asks before each one unless something approves it. `allowed-tools` approves the calls it names for the rest of the turn that started the skill. Naming the script's exact path, with `:*` for whatever arguments follow, approves that one script and no other command. It only adds approval: every other tool stays available under your usual permission settings.
+Claude Code asks before every Bash call unless something has approved it. `allowed-tools` approves the calls it names, for the rest of the turn that started the skill. Give it the same `${CLAUDE_SKILL_DIR}` path as the body (with `:*` for whatever arguments follow) and it approves that one script and nothing else. Claude Code fills the variable in, in both places, so the rule and the command always match. Every other tool works as it did, under your usual permission settings.
 
-The rule matches the start of the command, so the script call from 2.1a uses exactly that path, with no `bash` or `./` in front.
+The rule matches the start of the command, so the script call from 2.1a has to use exactly that path, with no `bash` or `./` in front.
 
 `.claude/skills/tidy-imports/SKILL.md` after step 2.2:
 
@@ -204,7 +204,7 @@ name: tidy-imports
 description: Sort the import statements at the top of a file
 arguments: [path]
 argument-hint: "[file]"
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 ---
 
 Tidy the imports in $path.
@@ -212,7 +212,7 @@ Tidy the imports in $path.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -226,7 +226,7 @@ New in 2.2: the `allowed-tools:` line.
 
 ### 2.3 Keep a Ledger
 
-A ledger lets a later run say what an earlier one touched. The script appends one line per file to `.claude/tidy-imports.log`: the path and how many imports it sorted. Because the script writes it, keeping the ledger needs no extra permission.
+Next, add a ledger so a later run can tell what an earlier one touched. The script appends one line per file to `.claude/tidy-imports.log`, with the path and the number of imports it sorted. The script is already approved, so writing the ledger needs no extra permission.
 
 The script's two new lines, in context:
 
@@ -257,7 +257,7 @@ name: tidy-imports
 description: Sort the import statements at the top of a file
 arguments: [path]
 argument-hint: "[file]"
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 ---
 
 Tidy the imports in $path.
@@ -268,7 +268,7 @@ already listed there, say so before going on.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -286,7 +286,7 @@ New in 2.3: the two lines from `Read .claude/tidy-imports.log` and the two lines
 
 ### The Real Thing: `skills/project-tag_version/SKILL.md`
 
-`project-tag_version` lives in this repository and tags a release after a merge to main. Its first marked line is a move `tidy-imports` does not have yet. The other two are this level's moves.
+`project-tag_version` is a real skill in this repository: it tags a release after a merge to main. Two of its marked lines do what you just did in steps 2.1 and 2.2; the first is something `tidy-imports` gets in level 3.
 
 ````markdown
 ---
@@ -308,9 +308,9 @@ TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" && git tag "$TAG" 
 ...
 ````
 
-- **R.a** `disable-model-invocation: true` stops Claude starting the skill on its own, so it runs only when a person asks for it by name after a merge has landed, which suits a step that pushes a tag.
-- **R.b** `allowed-tools` names `safe-version-next.sh` by its full path, the move from 2.2a, beside `svu` and `git` for reading history and pushing one tag.
-- **R.c** The `TAG=` line runs the script and tags whatever it prints, so Claude never works out the next version itself, the move from 2.1.
+- **R.a** `disable-model-invocation: true` means only a person can start this skill, by typing its name; Claude never starts it on its own. Level 3 covers when you'd want that.
+- **R.b** `allowed-tools` names `safe-version-next.sh` by its full path, as you did in step 2.2, alongside `svu` and `git`, which it uses to read the history and push the tag.
+- **R.c** The `TAG=` line runs the script and tags whatever it prints, so Claude never works out the version number itself: the same idea as step 2.1.
 
 ### Try it: put the date in the ledger
 
@@ -328,11 +328,11 @@ printf '%s\t%s\t%s\n' "$(date +%F)" "$file" "$count" >> "$ledger"
 
 ## Level 3: Say Who Runs It, and How
 
-`tidy-imports` now runs a script, approves only that script and keeps a ledger. This level writes down who may start it, which model and effort it runs on and which tools it must never touch, all in the frontmatter.
+In this level, you'll add frontmatter that controls who can start `tidy-imports`, which model it runs on and which tools it may never use.
 
 ### 3.1 Who May Start It
 
-By default both you and Claude can start a skill. `disable-model-invocation: true` would make it yours alone, and `user-invocable: false` would make it Claude's alone. `tidy-imports` stays open to both, so the line is written out with a comment that says why, and `when_to_use` tells Claude the moment to reach for it.
+By default, both you and Claude can start a skill. Setting `disable-model-invocation: true` makes it yours alone; `user-invocable: false` makes it Claude's alone. Leave `tidy-imports` open to both, write the line out anyway with a comment saying why, and add `when_to_use` to tell Claude when to reach for it.
 
 `.claude/skills/tidy-imports/SKILL.md` after step 3.1:
 
@@ -344,7 +344,7 @@ when_to_use: "After you add or remove imports in a file, or when the user asks t
 arguments: [path]
 argument-hint: "[file]"
 disable-model-invocation: false # Claude may start it after changing a file's imports; the script only reorders import lines
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 ---
 
 Tidy the imports in $path.
@@ -355,7 +355,7 @@ already listed there, say so before going on.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -368,14 +368,14 @@ The script also writes the ledger line. Never write to
 
 New in 3.1: the `when_to_use:` line and the `disable-model-invocation:` line.
 
-- **3.1a** `when_to_use` is added to the description in the list Claude reads, so it names the moment: just after Claude has changed a file's imports.
-- **3.1b** `disable-model-invocation: false` is already the default, and writing it out gives the comment a place to record why Claude may start this skill unasked.
-- **3.1c** The comment names the only safeguard so far, a script that touches nothing but import lines; git holds no copy of a file's uncommitted state, and step 4.3 adds a gate for that case.
-- **3.1d** Had this line been `true`, the skill's description and `when_to_use` would leave Claude's context altogether, so `when_to_use` only does any work on a skill Claude may start.
+- **3.1a** Claude sees `when_to_use` alongside the description, so use it to name the moment: just after Claude has changed a file's imports.
+- **3.1b** `disable-model-invocation: false` is already the default; writing it out gives the comment somewhere to say why Claude may start this skill unasked.
+- **3.1c** The comment names the only safeguard so far: the script touches nothing but import lines. That doesn't cover a file with uncommitted changes, which git can't restore; step 4.3 adds a gate for it.
+- **3.1d** If this line were `true`, the description and `when_to_use` would drop out of Claude's context entirely. `when_to_use` only matters on a skill Claude is allowed to start.
 
 ### 3.2 Pin the Model and Effort
 
-The skill reads a ledger and runs one script, so a mid-sized model at low effort is enough. `model` and `effort` in the frontmatter override the session for the rest of the turn the skill runs in. When you send your next message, the session's own model and effort come back.
+Reading a ledger and running one script doesn't need your most capable model, so pin a mid-sized one at low effort. `model` and `effort` override the session for the rest of the turn the skill runs in; your next message brings the session's own settings back.
 
 `.claude/skills/tidy-imports/SKILL.md` after step 3.2:
 
@@ -389,7 +389,7 @@ argument-hint: "[file]"
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file's imports; the script only reorders import lines
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 ---
 
 Tidy the imports in $path.
@@ -400,7 +400,7 @@ already listed there, say so before going on.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -413,13 +413,13 @@ The script also writes the ledger line. Never write to
 
 New in 3.2: `model: sonnet` and `effort: low`.
 
-- **3.2a** `model: sonnet` takes the same aliases as `/model` and is skipped when your organisation's allowed list or auto mode rules it out, in which case the session model carries on.
-- **3.2b** `effort: low` accepts `low`, `medium`, `high`, `xhigh` or `max`, though which of those a model offers depends on the model.
-- **3.2c** Per the docs, both pins hold until your next message, so when Claude starts the skill partway through other work, whatever it does after the tidy in that turn also runs on `sonnet` at low effort.
+- **3.2a** `model` takes the same aliases as `/model`. If your organisation's allowed list or auto mode rules the model out, the skill falls back to the session's model.
+- **3.2b** `effort` takes `low`, `medium`, `high`, `xhigh` or `max`; which of those are available depends on the model.
+- **3.2c** Both settings hold until your next message, so if Claude starts the skill partway through other work, the rest of that turn also runs on `sonnet` at low effort.
 
 ### 3.3 Promises the Frontmatter Enforces
 
-Since 2.1 the body has told Claude never to edit the file itself. `disallowed-tools` turns that sentence into a rule: the tools it lists are taken out of Claude's reach while the skill is active. `allowed-tools` adds approval; `disallowed-tools` removes tools. The removal lasts until your next message, so the sentence in the body stays.
+Since step 2.1, the body has told Claude never to edit the file itself. `disallowed-tools` enforces that: while the skill is active, the tools it lists are out of Claude's reach. Where `allowed-tools` approves tools, `disallowed-tools` takes them away. Keep the sentence in the body too, because the removal only lasts until your next message.
 
 `.claude/skills/tidy-imports/SKILL.md` after step 3.3:
 
@@ -433,7 +433,7 @@ argument-hint: "[file]"
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file's imports; the script only reorders import lines
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
 ---
 
@@ -445,7 +445,7 @@ already listed there, say so before going on.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -465,7 +465,7 @@ New in 3.3: the `disallowed-tools:` line.
 
 ### The Real Thing: `skills/pr-update/SKILL.md`
 
-`pr-update` rewrites a pull request's description after new commits land. It is open to Claude, pins its model and names its gate in a comment.
+`pr-update` rewrites a pull request's description after new commits land. Claude can start it, and a comment in its frontmatter names the gate that makes that safe.
 
 ```markdown
 ---
@@ -485,12 +485,12 @@ Display the updated body in full and a brief summary of what changed vs the prev
 ...
 ```
 
-- **R.a** `when_to_use` names a moment Claude sees first, new commits on a branch whose description has gone stale, the move from 3.1a.
+- **R.a** `when_to_use` names a moment Claude sees first, new commits on a branch whose description has gone stale, as in step 3.1.
 - **R.b** `model: sonnet` and `effort: medium` pin the run the same way 3.2 does, one notch higher on effort.
-- **R.c** The comment on `disable-model-invocation: false` names the gate that makes it safe to leave open, the move from 3.1b.
+- **R.c** The comment on `disable-model-invocation: false` names the gate that makes it safe to leave open, as in step 3.1.
 - **R.d** `**Wait for my approval.**` is that gate, and step 4.3 gives `tidy-imports` one of its own.
 
-`pr-update` has no `disallowed-tools` line. For that move, see line 13 of `skills/project-tag_version/SKILL.md`, which removes `git push --tags` because it would publish every stray local tag.
+`pr-update` has no `disallowed-tools` line. For a real one, see line 13 of `skills/project-tag_version/SKILL.md`, which removes `git push --tags` because it would publish every stray local tag.
 
 ### Try it: make it yours alone
 
@@ -508,11 +508,11 @@ A skill with `disable-model-invocation: true` has its description taken out of C
 
 ## Level 4: Skills That Call Skills
 
-`tidy-imports` now says who may start it, what it runs on and what it may never touch. This level splits a read-only check into a skill of its own, calls it from `tidy-imports` and adds a gate before the one change git cannot undo.
+In this level, you'll split a read-only check out of `tidy-imports` into a skill of its own, call it from `tidy-imports` and add a gate before the one change git can't undo.
 
 ### 4.1 Split Out a Read-Only Check
 
-Telling whether a file's imports are already sorted is useful on its own: before a commit, or to decide whether a tidy is needed at all. It also never writes, so it can be shared freely. It becomes `tidy-imports-check`, with its own script that reports and changes nothing.
+Checking whether a file's imports are already sorted is useful on its own, before a commit or to decide whether a tidy is needed at all. Because the check never writes, any skill can share it. Make it a skill called `tidy-imports-check`, with its own script that reports and changes nothing.
 
 `.claude/skills/tidy-imports-check/scripts/check-imports.sh` after step 4.1:
 
@@ -552,7 +552,7 @@ argument-hint: "[file]"
 model: sonnet
 effort: low
 disable-model-invocation: false # tidy-imports calls this skill, so Claude must be able to invoke it
-allowed-tools: Bash(.claude/skills/tidy-imports-check/scripts/check-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/check-imports.sh:*)
 disallowed-tools: [Edit, Write, NotebookEdit] # reads, never writes
 ---
 
@@ -561,7 +561,7 @@ Check the imports in $path.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports-check/scripts/check-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/check-imports.sh "$path"
 ```
 
 Report its output as it stands. Do not sort, fix or change
@@ -586,7 +586,7 @@ import { serve } from './server';
 
 ### 4.2 Call It From tidy-imports
 
-`tidy-imports` now runs the check first and stops when there is nothing to do. The body says to load the skill by name, and Claude does that through its Skill tool, the same way it loads any skill. That tool refuses a skill marked `disable-model-invocation: true` unless your own message names that skill's command, so a skill another skill calls must stay open to Claude.
+Have `tidy-imports` run the check first and stop when there's nothing to do. To call another skill, the body just tells Claude to load it by name, and Claude uses its Skill tool, as it would for any skill. That tool refuses a skill marked `disable-model-invocation: true` unless your own message names that skill's command, so a skill that another skill calls has to stay open to Claude.
 
 `.claude/skills/tidy-imports/SKILL.md` after step 4.2:
 
@@ -600,7 +600,7 @@ argument-hint: "[file]"
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file's imports; the script only reorders import lines
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
 ---
 
@@ -616,7 +616,7 @@ cannot run, say why and stop.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -631,11 +631,11 @@ New in 4.2: the three lines from `Load the tidy-imports-check skill`.
 
 - **4.2a** `Load the tidy-imports-check skill on $path` names the skill and its argument, which is all one skill needs to call another.
 - **4.2b** `If the check cannot run, say why and stop` covers the day someone marks the check `disable-model-invocation: true` and the call is refused.
-- **4.2c** Both files pin `model: sonnet` and `effort: low`: the docs say a skill's `model` and `effort` hold for the rest of the turn, so a different pin in the check would carry into the rest of the tidy.
+- **4.2c** Both files pin `model: sonnet` and `effort: low`. A skill's `model` and `effort` hold for the rest of the turn, so a different pin in the check would carry on into the rest of the tidy.
 
 ### 4.3 A Gate Before Anything Irreversible
 
-The script rewrites the file in place and keeps no copy. For a committed file, git holds the old order. For a file with uncommitted changes, or one git has never seen, nothing does. `tidy-imports` checks for that case and waits for a yes before the script runs.
+The script rewrites the file in place and keeps no copy. If the file is committed, git still has the old order; if it has uncommitted changes, or git has never seen it, nothing does. For that case, have `tidy-imports` stop and wait for a yes before the script runs.
 
 `.claude/skills/tidy-imports/SKILL.md` after step 4.3:
 
@@ -649,7 +649,7 @@ argument-hint: "[file]"
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file's imports; it stops for a yes before rewriting a file git has no copy of
-allowed-tools: ["Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)", "Bash(git status:*)"]
+allowed-tools: ["Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)", "Bash(git status:*)"]
 disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
 ---
 
@@ -671,7 +671,7 @@ user replies yes.
 Run the script on the file, by exactly this path:
 
 ```bash
-.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -685,7 +685,7 @@ The script also writes the ledger line. Never write to
 New in 4.3: the five lines from `Run` to `user replies yes.`, the `Bash(git status:*)` entry in `allowed-tools` and the new comment on `disable-model-invocation`.
 
 - **4.3a** `git status --porcelain -- "$path"` prints nothing for a file git already holds as it is, so a clean file goes straight to the script with no question asked.
-- **4.3b** `Show the check's report, say this and stop` puts the planned order in front of the person before they answer, so the yes is an informed one.
+- **4.3b** `Show the check's report, say this and stop` puts the planned order in front of you before you answer.
 - **4.3c** The yes arrives as a new message, which clears both the `allowed-tools` grant and the `disallowed-tools` removal, so Claude Code asks before the script runs unless your permission settings already allow it.
 - **4.3d** The comment on `disable-model-invocation` now names the gate, which is what makes it reasonable to leave a file-rewriting skill open to Claude.
 
@@ -736,12 +736,12 @@ Load the `pr-review-dry_run` skill and run its full methodology against this bra
 If the verdict is **Ready**, offer to run the `pr-create` skill immediately, ...
 ```
 
-- **R.a** `disable-model-invocation: false # required so pr-review can call it` is the move from 4.1c, with the reason written beside it.
+- **R.a** `disable-model-invocation: false # required so pr-review can call it` does what you did in step 4.1, with the reason written beside it.
 - **R.b** `pr-review` posts to GitHub with no approval step, so its gate lives in the comment on its `disable-model-invocation` line, which limits when Claude may start it.
 - **R.c** `Load the pr-review-dry_run skill` appears in both callers, the same plain instruction as 4.2a.
-- **R.d** `branch-qa_review` is itself `disable-model-invocation: true`, which shows the rule runs one way: the caller may be yours alone, and the skill it calls may not; it also ends by offering `pr-create` and leaves the yes to you.
+- **R.d** `branch-qa_review` is itself `disable-model-invocation: true`. The rule only runs one way: a caller can be yours alone, but the skill it calls can't. It also ends by offering `pr-create` and leaves the yes to you.
 
-Caller and callee pin the same `model: opus` and `effort: high`, the pairing from 4.2c.
+Caller and callee pin the same `model: opus` and `effort: high`, for the reason in step 4.2.
 
 ### Try it: predict the refusal
 
@@ -752,11 +752,11 @@ ravi sets `tidy-imports-check` to `disable-model-invocation: true`, then types `
 
 ## Level 5: Pack It as a Plugin
 
-`tidy-imports` and `tidy-imports-check` live in one project's `.claude/skills/`. This level moves them into a plugin so any project can install them with one command.
+In this level, you'll move `tidy-imports` and `tidy-imports-check` into a plugin, so any project can install them with one command.
 
 ### 5.1 A Plugin Folder and plugin.json
 
-A plugin is a folder with a manifest at `.claude-plugin/plugin.json` and its components beside it. Skills go in `skills/`, one folder each, exactly as they sat in `.claude/skills/`. Call the plugin `tidy`. Its two skills become `/tidy:tidy-imports` and `/tidy:tidy-imports-check`.
+A plugin is a folder with a manifest at `.claude-plugin/plugin.json` and its parts beside it. Skills go in `skills/`, one folder each, exactly as they were in `.claude/skills/`. Call the plugin `tidy`; its two skills then run as `/tidy:tidy-imports` and `/tidy:tidy-imports-check`.
 
 The plugin folder after step 5.1:
 
@@ -789,15 +789,15 @@ tidy/
 
 New in 5.1: every line, and the folder itself.
 
-- **5.1a** `"name": "tidy"` is the only required field; written in kebab-case, it becomes the prefix on every skill the plugin holds.
+- **5.1a** `"name": "tidy"` is the only required field. Write it in kebab-case: it becomes the prefix on every skill the plugin holds.
 - **5.1b** `"version": "0.1.0"` keeps people who install the plugin from a hosted marketplace on this version until you change the number.
 - **5.1c** `.claude-plugin/` holds the manifest and nothing else, while `skills/` sits at the plugin root beside it.
 
-Test it before anything else with `claude --plugin-dir ./tidy`, which loads the plugin for that one session without installing it.
+Before anything else, test it with `claude --plugin-dir ./tidy`, which loads the plugin for that one session without installing it.
 
-### 5.2 ${CLAUDE_PLUGIN_ROOT} Replaces .claude Paths
+### 5.2 Paths That Travel
 
-Every path that pointed into `.claude/skills/` (or into `~/.claude/` for a personal skill) now points at a folder that is not there on someone else's machine. A plugin installed from a hosted marketplace is copied into Claude Code's plugin cache, a new folder for each version; one from a marketplace on your own disk loads from where it sits. `${CLAUDE_PLUGIN_ROOT}` is replaced with that folder's path in both the body and `allowed-tools`, so the rule still matches the command Claude runs. The call to the check uses its plugin name too.
+On someone else's machine, a path into `.claude/skills/` points at a folder that isn't there. `${CLAUDE_SKILL_DIR}` already avoids that: inside a plugin it fills in the skill's own folder, wherever Claude Code installed the plugin (a new folder in its cache for each version), so both scripts work as they are. For a file several skills share, use `${CLAUDE_PLUGIN_ROOT}`, the plugin's own folder. The one change `tidy-imports` needs is the call to the check, which now uses its plugin name.
 
 `tidy/skills/tidy-imports/SKILL.md` after step 5.2:
 
@@ -811,7 +811,7 @@ argument-hint: "[file]"
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file's imports; it stops for a yes before rewriting a file git has no copy of
-allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/skills/tidy-imports/scripts/sort-imports.sh:*)", "Bash(git status:*)"]
+allowed-tools: ["Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)", "Bash(git status:*)"]
 disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
 ---
 
@@ -833,7 +833,7 @@ user replies yes.
 Run the script on the file, by exactly this path:
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/skills/tidy-imports/scripts/sort-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
 ```
 
 It sorts the import block in place. Do not reorder any
@@ -844,7 +844,7 @@ The script also writes the ledger line. Never write to
 .claude/tidy-imports.log yourself.
 ````
 
-Changed in 5.2: the script path in `allowed-tools`, the script path in the `bash` block and `tidy:tidy-imports-check` in the call.
+Changed in 5.2: `tidy:tidy-imports-check` in the call.
 
 `tidy/skills/tidy-imports-check/SKILL.md` after step 5.2:
 
@@ -858,7 +858,7 @@ argument-hint: "[file]"
 model: sonnet
 effort: low
 disable-model-invocation: false # tidy:tidy-imports calls this skill, so Claude must be able to invoke it
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/tidy-imports-check/scripts/check-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/check-imports.sh:*)
 disallowed-tools: [Edit, Write, NotebookEdit] # reads, never writes
 ---
 
@@ -867,22 +867,22 @@ Check the imports in $path.
 Run the script on the file, by exactly this path:
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/skills/tidy-imports-check/scripts/check-imports.sh "$path"
+${CLAUDE_SKILL_DIR}/scripts/check-imports.sh "$path"
 ```
 
 Report its output as it stands. Do not sort, fix or change
 anything, even when the imports are out of order.
 ````
 
-Changed in 5.2: the script path in `allowed-tools`, the script path in the `bash` block and `tidy:tidy-imports` in `when_to_use` and the comment. Both scripts are unchanged from 4.1 and 2.3.
+Changed in 5.2: `tidy:tidy-imports` in `when_to_use` and the comment. Both scripts are unchanged from 4.1 and 2.3.
 
-- **5.2a** `${CLAUDE_PLUGIN_ROOT}` appears in `allowed-tools` and in the `bash` block alike, so after substitution the rule and the command carry the same absolute path.
+- **5.2a** `${CLAUDE_SKILL_DIR}` needs no change in a plugin: it fills in the skill's own folder there too, so the rule and the command still match.
 - **5.2b** `Load the tidy:tidy-imports-check skill` uses the full plugin name, the form every plugin skill carries.
 - **5.2c** `.claude/tidy-imports.log` stays a project path, because the plugin's own folder changes with every version and is no place to keep state.
 
 ### 5.3 Install From a Marketplace
 
-A marketplace is a folder or repository with `.claude-plugin/marketplace.json` listing plugins and where each one lives. noor keeps one called `noor-tools` with `tidy` under `plugins/`. Anyone can then add the marketplace once and install from it.
+A marketplace is a folder or repository with `.claude-plugin/marketplace.json`, listing plugins and where each one lives. Say noor keeps one called `noor-tools`, with `tidy` under `plugins/`: anyone can add that marketplace once and install from it.
 
 `noor-tools/.claude-plugin/marketplace.json`:
 
@@ -924,7 +924,7 @@ Then, in any project:
 /tidy:tidy-imports src/app.ts
 ```
 
-- **5.3a** The entry `"name": "tidy"` matches the plugin's own `name`, because installs use the entry name and skill prefixes use the manifest name, and a mismatch breaks the install.
+- **5.3a** The entry's `"name": "tidy"` matches the plugin's own `name`. Installs use the entry name and skill prefixes use the manifest name, so if they differ, the install breaks.
 - **5.3b** `"source": "./plugins/tidy"` is written from the marketplace root, the folder that holds `.claude-plugin/`.
 - **5.3c** `tidy@noor-tools` is the plugin's entry name, an `@` and the marketplace name.
 - **5.3d** `/plugin marketplace add` also takes a GitHub `owner/repo`, so once `noor-tools` is pushed, `/plugin marketplace add noor/noor-tools` adds it on any machine.
@@ -933,7 +933,7 @@ Delete the old `.claude/skills/tidy-imports/` and `.claude/skills/tidy-imports-c
 
 ### The Real Thing: `marketplace/goblin-scout/`
 
-`goblin-scout` is a plugin in this repository that keeps a project plan, the roadbook, as a graph of what waits on what. Its skills run as `/goblin-scout:<skill>`. The excerpts come from the `feat/goblin-scout-rename` branch at commit `82719bd`, which renames the plugin from `roadmap`.
+`goblin-scout` is a plugin in this repository that keeps a project plan, the roadbook, as a map of what waits on what. Its skills run as `/goblin-scout:<skill>`.
 
 `marketplace/goblin-scout/.claude-plugin/plugin.json`:
 
@@ -979,18 +979,18 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 			...
 ```
 
-- **R.a** `"name": "goblin-scout"` is the prefix every skill in the plugin carries, so `start-roadbook` runs as `/goblin-scout:start-roadbook`, the move from 5.1a.
-- **R.b** `use goblin-scout:rebind-roadbook instead` names a sibling skill by its full plugin name, the move from 5.2b.
-- **R.c** `${CLAUDE_PLUGIN_ROOT}/references/` and `${CLAUDE_PLUGIN_ROOT}"/scripts/roadbook.py` reach files the plugin ships, wherever it was installed, the move from 5.2a.
-- **R.d** The marketplace entry's `"name": "goblin-scout"` matches the manifest's, so it installs as `goblin-scout@goblin-mode` after `/plugin marketplace add <owner>/goblin-mode`, where `<owner>` stands for the GitHub account that hosts the repository.
+- **R.a** `"name": "goblin-scout"` is the prefix every skill in the plugin carries, so `start-roadbook` runs as `/goblin-scout:start-roadbook`, as in step 5.1.
+- **R.b** `use goblin-scout:rebind-roadbook instead` names a sibling skill by its full plugin name, as in step 5.2.
+- **R.c** `${CLAUDE_PLUGIN_ROOT}/references/` and `${CLAUDE_PLUGIN_ROOT}"/scripts/roadbook.py` reach files the whole plugin shares, wherever it was installed: the job step 5.2 gives `${CLAUDE_PLUGIN_ROOT}`.
+- **R.d** The marketplace entry's `"name": "goblin-scout"` matches the manifest's, so it installs as `goblin-scout@goblin-mode` after `/plugin marketplace add JasonWarrenUK/goblin-mode`.
 
-The manifest's `"types"` line declares the state of the plugin's mod, the hooks module that ships beside its skills: code that runs inside Claude Code and can draw panes. Plugins and mods get a fuller article of their own later.
+The manifest's `"types"` line belongs to the plugin's mod: a hooks module that ships beside the skills and runs inside Claude Code, where it can draw panes. Mods, and plugins in general, get an article of their own later.
 
 ### Try it: which one runs?
 
 tam installs `tidy@noor-tools` in a project that still has `.claude/skills/tidy-imports/`, then types `/tidy-imports src/app.ts`. Which skill runs, and what should tam type to be sure of the plugin's?
 
-**Answer.** The project copy runs. Both skills load because the plugin's is namespaced. A plugin skill answers to its bare name only when no other command already uses that name. `/tidy:tidy-imports src/app.ts` always reaches the plugin's skill; deleting the project folder makes the bare name reach it too.
+**Answer.** The project copy runs. Both skills load, since the plugin's is namespaced, but a plugin skill only answers to its bare name when no other command already has it. `/tidy:tidy-imports src/app.ts` always reaches the plugin's skill; delete the project folder and the bare name reaches it too.
 
 ---
 
@@ -1002,7 +1002,7 @@ tam installs `tidy@noor-tools` in a project that still has `.claude/skills/tidy-
 4. **What a called skill's settings do to its caller.** The docs say `model` and `effort` hold for the rest of the turn and `disallowed-tools` until the next message. The draft infers that a called skill's pins and removals carry into the rest of the calling skill's turn (4.2c). The docs do not describe a nested case, so this is a reading of the wording.
 5. **Gates that wait for a reply.** The docs say an `allowed-tools` grant clears at the next message. Any skill whose gate waits for the person's yes (`pr-update` step 5, `tidy-imports` 4.3) runs its post-gate command without the skill's grant. Whether answering an `AskUserQuestion` prompt counts as a new message was not checked.
 6. **goblin-scout is unmerged.** The level 5 excerpts come from `origin/feat/goblin-scout-rename` at `82719bd`. Line numbers and wording may change before it merges. The outline's word list (roadbook, `start-roadbook`, `tend-roadbook`, `unroll-chart`, `.claude/roadbook.json`) matches that branch.
-7. **Relative script paths.** Levels 2 to 4 call `.claude/skills/tidy-imports/scripts/sort-imports.sh`, a path relative to the project root, and the `allowed-tools` rule matches that exact text. A session started in a subdirectory, or a Claude that has run `cd`, would miss the file. The docs offer `${CLAUDE_SKILL_DIR}` in both the body and `allowed-tools` for exactly this; the draft keeps the relative path so that 5.2's change has something to replace. Worth deciding whether 2.1 should teach `${CLAUDE_SKILL_DIR}` instead.
+7. **Relative script paths.** Settled 2026-11-19 by Jason: levels 2 to 5 call scripts through `${CLAUDE_SKILL_DIR}`, taught in 2.1, so they work from any working directory; 5.2 only changes the call to the sibling skill.
 8. **3.1 leaves `tidy-imports` open to Claude with no gate until 4.3.** This repository's convention (`skills/clod-config-skill_conventions/SKILL.md:17`) keeps a command skill `disable-model-invocation: true` until it has its own approval gate. The draft names the gap in 3.1c and closes it in 4.3, because `when_to_use` only reaches Claude on a skill Claude may start, so a user-only 3.1 would teach a field that does nothing.
 9. **The `renames` key.** The branch's `marketplace.json` carries `"renames": {"roadmap": "goblin-scout", ...}`. The manifest and marketplace pages read for this draft do not document it, so the draft does not mention it.
 10. **Changes made to the lifted level 2 copy.** `argument-hint` added to every level 2 snapshot so it carries forward from 1.2; "for as long as the skill runs" rewritten to the turn-scoped grant the docs describe; "costs no tokens" removed; `export LC_ALL=C` added to the script, because the default `sort` on macOS with `en_GB.UTF-8` puts `import {` lines before `import express` and C order puts them after; the ledger sample's counts changed from 6 and 3 to 3 and 2, the first to match the 1.3 file; the Real Thing callout R.a now says "which suits a step that pushes a tag" in place of a reason the source file does not give. Each needs a matching edit in `gen-hybrid.ts` if the mockup is kept.
@@ -1039,6 +1039,7 @@ tam installs `tidy@noor-tools` in a project that still has `.claude/skills/tidy-
 | `version` pins installers to that version until it changes, except for a plugin loaded in place from a local-path marketplace | https://code.claude.com/docs/en/plugins/manifest-reference#version | 2026-11-19 |
 | `types` declares a mod's state | https://code.claude.com/docs/en/plugins/manifest-reference#fields | 2026-11-19 |
 | `--plugin-dir` loads a plugin for one session without installing it | https://code.claude.com/docs/en/plugins/create#create-your-first-plugin | 2026-11-19 |
+| `${CLAUDE_SKILL_DIR}` is the folder holding the skill's `SKILL.md` (a plugin skill's own subfolder), substituted in the body and in `allowed-tools` Bash rules, so a bundled script runs from any working directory without a prompt | https://code.claude.com/docs/en/skills#available-string-substitutions | 2026-11-19 |
 | `${CLAUDE_PLUGIN_ROOT}` is substituted in a plugin skill's body and in `allowed-tools` Bash rules | https://code.claude.com/docs/en/skills#available-string-substitutions | 2026-11-19 |
 | Installed plugins are copied to a per-version cache folder; `${CLAUDE_PLUGIN_ROOT}` points there and changes on update, so no state goes there | https://code.claude.com/docs/en/plugins/loading (plugins root table) and https://code.claude.com/docs/en/plugins/manifest-reference#environment-variables | 2026-11-19 |
 | Marketplace file, `source` written from the marketplace root, entry name matching the manifest name | https://code.claude.com/docs/en/plugin-marketplaces#rules-for-plugin-entries | 2026-11-19 |

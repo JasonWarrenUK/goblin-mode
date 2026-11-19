@@ -29,3 +29,14 @@ Details the ported copy assumed while the renames were still in progress. Check 
 
 - Fixed-behaviour numbers kept by Jason's ruling (2026-11-19): "three to five bullets", "one a minute", "Three are shown", "five minutes", "four hours", "six months", "a minute". Confirm each still matches its skill or code.
 - List all seven workflow trigger paths in the PR description, and say that the interview chose SvelteKit 2 and Jason moved to 3.3.1 after a side agent flagged it.
+
+## Tutorial claims to prove on a live install
+
+Jason ruled on 2026-11-19 that the tutorial states only what a test shows for the claims the docs leave open. Run each in a throwaway project with `HOME` and `CLAUDE_CONFIG_DIR` pointed at a scratch directory (the run's rule for loading anything unmerged), then match the copy in `site/design/content/tutorial-draft.md` to the result:
+
+| Claim | Where it appears | Test |
+|---|---|---|
+| A skill marked `disable-model-invocation: true` is refused when another skill tells Claude to load it | 4.2, the 4.2b callout and the level 4 exercise | Two skills, the caller user-invocable and the callee `true`; run the caller and watch the call |
+| A called skill's `model`, `effort` and `disallowed-tools` carry into the rest of its caller's turn | 3.2c, 3.3d, 4.2c | The callee pins a different model and removes `Edit`; after the call, ask the caller to edit a file and note the model |
+| Answering an `AskUserQuestion` prompt counts as a new message and clears `allowed-tools` | 4.3c | A skill that approves one script, asks a question, then runs the script; note whether Claude Code prompts |
+| A command comes from the folder name; `name` is shown beside it | 1.1a | A skill whose folder and `name` differ; type both |

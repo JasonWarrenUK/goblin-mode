@@ -82,3 +82,13 @@ Every line below is a decision Jason made in the SITE interview on 2026-11-18, u
 | D2 | Deployed by a committed workflow under `.github/workflows/`, on any push to main touching what the generator reads: `marketplace/**`, `.claude-plugin/**`, `skills/**`, `site/**` or the workflow file (decision 18). |
 | D4 | Mod names and install commands are read from `.claude-plugin/marketplace.json` at build. The site merges last, after every rename PR (decision 18). |
 | D3 | Tests: a build check and a check that every in-page link resolves. |
+
+## Skills wing: the tutorial
+
+| Id | Requirement |
+|---|---|
+| T1 | "Some Assembly Required" is five levels, one page each (`/skills/tutorial/1/` to `/5/`), one invented skill (`tidy-imports`) growing through them, a real repository skill as The Real Thing from level 2. Plain voice throughout; full desk look. |
+| T2 | Each level is the approved hybrid (mockup v3): a pinned specimen sheet holding the step's write-up and the file, built up in lockstep; one gesture per step, snapped, scoped to the stage; the release costs one step; The Real Thing rises after; Steps/File toggle at phone width; static fallback under reduced motion or no JS. Callouts numbered by step. |
+| T3 | Every step is written to fit a 760px-tall window: a long step is split in two, and a long file shows its changed region with the rest folded as `...`. Below a minimum height the page uses the scrolling Steps/File layout. Nothing scrolls inside the sheet. |
+| T4 | A step that touches more than one file shows them as folder tabs across the specimen, opening on the file the step changes; callouts belong to the visible file. |
+| T5 | Every step's write-up stays in the accessibility tree; screen readers take priority over find-in-page. |

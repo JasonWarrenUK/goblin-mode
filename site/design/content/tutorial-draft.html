@@ -165,9 +165,9 @@ nav.toc{font-family:var(--font-print); font-size:.9rem; display:flex; flex-wrap:
 <p>Draft status: copy only. Every behavioural claim is listed in <strong>Sources</strong> at the end; anything the docs did not settle is in <strong>Open questions</strong>.</p>
 <hr>
 <h2 id="level-1-one-file-one-job">Level 1: One File, One Job</h2>
-<p><code>tidy-imports</code> does not exist yet. This level makes it: one folder, one <code>SKILL.md</code>, one argument and a first run on a real file.</p>
+<p>In this level, you'll create a skill called <code>tidy-imports</code>: a single-file skill that takes some basic arguments.</p>
 <h3 id="1-1-a-folder-and-a-skill-md">1.1 A Folder and a SKILL.md</h3>
-<p>A skill is a folder holding a file called <code>SKILL.md</code>. Put it in the project at <code>.claude/skills/tidy-imports/</code> so everyone who clones the repository gets it. The file has two parts: YAML frontmatter between <code>---</code> lines, then the instructions Claude follows when the skill runs.</p>
+<p>Each skill lives in its own folder, as a file called <code>SKILL.md</code>. Make the folder inside your project, at <code>.claude/skills/tidy-imports/</code>; anyone who clones the repository then gets the skill too. The file starts with YAML frontmatter between two <code>---</code> lines; everything after that is the instructions Claude follows when the skill runs.</p>
 <pre class="code" data-lang="bash"><code>mkdir -p .claude/skills/tidy-imports</code></pre>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 1.1:</p>
 <pre class="code" data-lang="markdown"><code>---
@@ -179,9 +179,9 @@ Sort the import statements at the top of the file
 alphabetically, one per line. Leave everything below
 the imports exactly as it was.</code></pre>
 <p>New in 1.1: every line.</p>
-<ul><li><strong>1.1a</strong> <code>name: tidy-imports</code> sets the command you type (<code>/tidy-imports</code>) and matches the folder name, which invokes the skill as well.</li><li><strong>1.1b</strong> <code>description:</code> is the line Claude reads to decide whether this skill fits what you asked for, so it says what the skill does in plain words.</li><li><strong>1.1c</strong> The three lines under the frontmatter are the whole job, written as instructions to Claude.</li></ul>
+<ul><li><strong>1.1a</strong> <code>name</code> is the command you'll type, <code>/tidy-imports</code>. Keep it the same as the folder name.</li><li><strong>1.1b</strong> <code>description:</code> is the line Claude reads to decide whether this skill fits what you asked for, so it says what the skill does in plain words.</li><li><strong>1.1c</strong> Everything under the frontmatter is what Claude follows: here, three lines on how to sort the imports.</li></ul>
 <h3 id="1-2-an-argument">1.2 An Argument</h3>
-<p>The skill needs to know which file to tidy. <code>arguments: [path]</code> names the first word after the command <code>path</code>, and <code>$path</code> in the body is replaced with that word before Claude reads it. <code>argument-hint</code> shows what to type while you are typing the command.</p>
+<p>Next, tell the skill which file to tidy. <code>arguments: [path]</code> gives the first word after the command a name, <code>path</code>; wherever <code>$path</code> appears in the body, Claude Code swaps in that word before Claude reads it. <code>argument-hint</code> is the reminder you see while typing the command.</p>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 1.2:</p>
 <pre class="code" data-lang="markdown"><code>---
 name: tidy-imports
@@ -198,7 +198,7 @@ the imports exactly as it was.</code></pre>
 <p>New in 1.2: <code>arguments: [path]</code>, <code>argument-hint: &quot;[file]&quot;</code> and <code>Tidy the imports in $path.</code></p>
 <ul><li><strong>1.2a</strong> <code>arguments: [path]</code> maps names to positions in order, so <code>path</code> is the first argument and a second name would be the second.</li><li><strong>1.2b</strong> <code>argument-hint: &quot;[file]&quot;</code> appears beside the command in autocomplete and changes nothing about how the skill runs.</li><li><strong>1.2c</strong> <code>$path</code> in <code>Tidy the imports in $path.</code> is swapped for the file you typed, and becomes an empty string when you type none.</li></ul>
 <h3 id="1-3-run-it">1.3 Run It</h3>
-<p>Start Claude Code in the project and type the command with a file. If <code>.claude/skills/</code> did not exist when the session started, run <code>/reload-skills</code> first; Claude Code only watches skill folders it knew about at startup. Claude can also load the skill without the slash command when you ask it to sort a file's imports, because its description is in Claude's context.</p>
+<p>Start Claude Code in your project and run the command with a file. If <code>.claude/skills/</code> didn't exist when the session started, run <code>/reload-skills</code> first, because Claude Code only watches skill folders it found at startup. You can also just ask Claude to sort a file's imports: the description sits in its context, so it can load the skill without the command.</p>
 <pre class="code" data-lang="text"><code>/tidy-imports src/app.ts</code></pre>
 <p><code>src/app.ts</code> before the run:</p>
 <pre class="code" data-lang="ts"><code>import { serve } from &#x27;./server&#x27;;
@@ -213,17 +213,17 @@ import { serve } from &#x27;./server&#x27;;
 
 const app = express();</code></pre>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 1.3: unchanged from 1.2.</p>
-<ul><li><strong>1.3a</strong> <code>/tidy-imports src/app.ts</code> puts <code>src/app.ts</code> in place of <code>$path</code>, so the body's first line reaches Claude as <code>Tidy the imports in src/app.ts.</code></li><li><strong>1.3b</strong> <code>const app = express();</code> is untouched, which is the line <code>Leave everything below the imports exactly as it was</code> exists to protect.</li></ul>
+<ul><li><strong>1.3a</strong> <code>/tidy-imports src/app.ts</code> puts <code>src/app.ts</code> in place of <code>$path</code>, so the body's first line reaches Claude as <code>Tidy the imports in src/app.ts.</code></li><li><strong>1.3b</strong> <code>const app = express();</code> stays where it was: that's what <code>Leave everything below the imports exactly as it was</code> is for.</li></ul>
 <h3 id="try-it-handle-a-missing-file">Try it: handle a missing file</h3>
 <p>Run <code>/tidy-imports</code> with no file. <code>$path</code> becomes empty and Claude reads <code>Tidy the imports in .</code> Add one line to the body so Claude asks for a file instead of guessing.</p>
 <p><strong>Answer.</strong> Under <code>Tidy the imports in $path.</code>, add:</p>
 <pre class="code" data-lang="markdown"><code>If no path follows &quot;in&quot; above, ask which file to tidy and stop.</code></pre>
-<p>A named argument with nothing typed for it expands to an empty string, so the instruction has to cover that case in words.</p>
+<p>With nothing typed, a named argument expands to an empty string, so the body has to say what to do in that case.</p>
 <hr>
 <h2 id="level-2-give-it-a-script-and-a-ledger">Level 2: Give It a Script and a Ledger</h2>
-<p>At level 1, <code>tidy-imports</code> was one file that asked Claude to sort a file's imports by hand. This level gives the sorting to a script, lets that one script run without a prompt and keeps a ledger of every file it touches.</p>
+<p>In this level, you'll move the sorting into a script that Claude Code runs without asking each time. The script also keeps a ledger of every file it tidies.</p>
 <h3 id="where-level-1-left-it">Where Level 1 Left It</h3>
-<p>This is <code>SKILL.md</code> as level 1 left it: four frontmatter fields and a body that asks Claude to do the sorting itself, in prose. The three sorting lines at the bottom are the ones step 2.1 replaces with a script.</p>
+<p>Here's <code>SKILL.md</code> at the end of level 1. Claude still does the sorting itself, from the three lines at the bottom; step 2.1 replaces those with a script.</p>
 <pre class="code" data-lang="markdown"><code>---
 name: tidy-imports
 description: Sort the import statements at the top of a file
@@ -237,7 +237,7 @@ Sort the import statements at the top of the file
 alphabetically, one per line. Leave everything below
 the imports exactly as it was.</code></pre>
 <h3 id="2-1-give-it-a-script">2.1 Give It a Script</h3>
-<p>At level 1, Claude sorted the imports itself. A model asked to reorder lines will now and then reflow one it was told to leave alone. A script does the same thing every time, and Claude no longer rewrites the file line by line to get there. The sorting moves into <code>scripts/sort-imports.sh</code> in the skill's folder. Make it executable once with <code>chmod +x</code>.</p>
+<p>Asked to reorder lines, Claude will now and then reflow one it was told to leave alone. A script sorts the same way every time, so move the sorting into <code>scripts/sort-imports.sh</code> inside the skill's folder and make it executable with <code>chmod +x</code>. In <code>SKILL.md</code>, call the script as <code>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh</code>. Claude Code fills in the skill's own folder, so the call works whichever folder the session is in.</p>
 <p><code>.claude/skills/tidy-imports/scripts/sort-imports.sh</code> after step 2.1:</p>
 <pre class="code" data-lang="bash"><code>#!/usr/bin/env bash
 # Sort the import lines at the top of a file, in place.
@@ -269,7 +269,7 @@ Tidy the imports in $path.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -277,22 +277,22 @@ script exits non-zero, report its message and stop.</code></pre>
 <p>New in 2.1: from <code>Run the script on the file</code> to <code>report its message and stop.</code> Removed in 2.1: the three sorting lines.</p>
 <ul><li><strong>2.1a</strong> The script call takes the place of the three lines that told Claude how to sort.</li><li><strong>2.1b</strong> <code>Do not reorder any lines yourself</code> keeps Claude's hands off the sorting: it leaves the file alone after the script runs, and a non-zero exit ends the run with the script's message.</li></ul>
 <h3 id="2-2-scope-the-tool">2.2 Scope the Tool</h3>
-<p>Running a script is a Bash call, and Claude Code asks before each one unless something approves it. <code>allowed-tools</code> approves the calls it names for the rest of the turn that started the skill. Naming the script's exact path, with <code>:*</code> for whatever arguments follow, approves that one script and no other command. It only adds approval: every other tool stays available under your usual permission settings.</p>
-<p>The rule matches the start of the command, so the script call from 2.1a uses exactly that path, with no <code>bash</code> or <code>./</code> in front.</p>
+<p>Claude Code asks before every Bash call unless something has approved it. <code>allowed-tools</code> approves the calls it names, for the rest of the turn that started the skill. Give it the same <code>${CLAUDE_SKILL_DIR}</code> path as the body (with <code>:*</code> for whatever arguments follow) and it approves that one script and nothing else. Claude Code fills the variable in, in both places, so the rule and the command always match. Every other tool works as it did, under your usual permission settings.</p>
+<p>The rule matches the start of the command, so the script call from 2.1a has to use exactly that path, with no <code>bash</code> or <code>./</code> in front.</p>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 2.2:</p>
 <pre class="code" data-lang=""><code>---
 name: tidy-imports
 description: Sort the import statements at the top of a file
 arguments: [path]
 argument-hint: &quot;[file]&quot;
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 ---
 
 Tidy the imports in $path.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -300,7 +300,7 @@ script exits non-zero, report its message and stop.</code></pre>
 <p>New in 2.2: the <code>allowed-tools:</code> line.</p>
 <ul><li><strong>2.2a</strong> <code>allowed-tools</code> approves Bash calls that start with this path until you send your next message, and the <code>:*</code> covers whatever arguments follow.</li></ul>
 <h3 id="2-3-keep-a-ledger">2.3 Keep a Ledger</h3>
-<p>A ledger lets a later run say what an earlier one touched. The script appends one line per file to <code>.claude/tidy-imports.log</code>: the path and how many imports it sorted. Because the script writes it, keeping the ledger needs no extra permission.</p>
+<p>Next, add a ledger so a later run can tell what an earlier one touched. The script appends one line per file to <code>.claude/tidy-imports.log</code>, with the path and the number of imports it sorted. The script is already approved, so writing the ledger needs no extra permission.</p>
 <p>The script's two new lines, in context:</p>
 <pre class="code" data-lang="bash"><code>...
 file=&quot;$1&quot;
@@ -319,7 +319,7 @@ name: tidy-imports
 description: Sort the import statements at the top of a file
 arguments: [path]
 argument-hint: &quot;[file]&quot;
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 ---
 
 Tidy the imports in $path.
@@ -329,7 +329,7 @@ already listed there, say so before going on.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -340,7 +340,7 @@ The script also writes the ledger line. Never write to
 <p>New in 2.3: the two lines from <code>Read .claude/tidy-imports.log</code> and the two lines from <code>The script also writes the ledger line</code>.</p>
 <ul><li><strong>2.3a</strong> <code>Read .claude/tidy-imports.log if it exists</code> makes a second run on the same file say so before it starts.</li><li><strong>2.3b</strong> <code>The script also writes the ledger line</code> keeps the ledger's format the same on every run and needs no permission beyond 2.2a.</li></ul>
 <h3 id="the-real-thing-skills-project-tag-version-skill-md">The Real Thing: <code>skills/project-tag_version/SKILL.md</code></h3>
-<p><code>project-tag_version</code> lives in this repository and tags a release after a merge to main. Its first marked line is a move <code>tidy-imports</code> does not have yet. The other two are this level's moves.</p>
+<p><code>project-tag_version</code> is a real skill in this repository: it tags a release after a merge to main. Two of its marked lines do what you just did in steps 2.1 and 2.2; the first is something <code>tidy-imports</code> gets in level 3.</p>
 <pre class="code" data-lang=""><code>---
 name: &quot;Project: Tag Version&quot;
 description: &quot;Tag the release after a merge to main, computing the next semver tag with svu&quot;
@@ -356,7 +356,7 @@ allowed-tools: [&quot;Bash(svu:*)&quot;, &quot;Bash(git:*)&quot;, &quot;Bash(~/.
 </code></pre>
 <p>TAG="$("$HOME"/.claude/library/scripts/safe-version-next.sh)" &amp;&amp; git tag "$TAG" &amp;&amp; git push origin "$TAG"</p>
 <pre class="code" data-lang=""><code>...</code></pre>
-<ul><li><strong>R.a</strong> <code>disable-model-invocation: true</code> stops Claude starting the skill on its own, so it runs only when a person asks for it by name after a merge has landed, which suits a step that pushes a tag.</li><li><strong>R.b</strong> <code>allowed-tools</code> names <code>safe-version-next.sh</code> by its full path, the move from 2.2a, beside <code>svu</code> and <code>git</code> for reading history and pushing one tag.</li><li><strong>R.c</strong> The <code>TAG=</code> line runs the script and tags whatever it prints, so Claude never works out the next version itself, the move from 2.1.</li></ul>
+<ul><li><strong>R.a</strong> <code>disable-model-invocation: true</code> means only a person can start this skill, by typing its name; Claude never starts it on its own. Level 3 covers when you'd want that.</li><li><strong>R.b</strong> <code>allowed-tools</code> names <code>safe-version-next.sh</code> by its full path, as you did in step 2.2, alongside <code>svu</code> and <code>git</code>, which it uses to read the history and push the tag.</li><li><strong>R.c</strong> The <code>TAG=</code> line runs the script and tags whatever it prints, so Claude never works out the version number itself: the same idea as step 2.1.</li></ul>
 <h3 id="try-it-put-the-date-in-the-ledger">Try it: put the date in the ledger</h3>
 <p>Change the script so each ledger line starts with the day it was written. Then change the ledger paragraph in <code>SKILL.md</code> so Claude says when a file was last tidied.</p>
 <p><strong>Answer.</strong> In <code>sort-imports.sh</code>, put the date in front of the path:</p>
@@ -364,9 +364,9 @@ allowed-tools: [&quot;Bash(svu:*)&quot;, &quot;Bash(git:*)&quot;, &quot;Bash(~/.
 <p><code>date +%F</code> prints the date as <code>2026-11-19</code>, which sorts in date order as plain text. In <code>SKILL.md</code>, the second ledger line becomes: <code>already listed there, say on which date it was last tidied.</code></p>
 <hr>
 <h2 id="level-3-say-who-runs-it-and-how">Level 3: Say Who Runs It, and How</h2>
-<p><code>tidy-imports</code> now runs a script, approves only that script and keeps a ledger. This level writes down who may start it, which model and effort it runs on and which tools it must never touch, all in the frontmatter.</p>
+<p>In this level, you'll add frontmatter that controls who can start <code>tidy-imports</code>, which model it runs on and which tools it may never use.</p>
 <h3 id="3-1-who-may-start-it">3.1 Who May Start It</h3>
-<p>By default both you and Claude can start a skill. <code>disable-model-invocation: true</code> would make it yours alone, and <code>user-invocable: false</code> would make it Claude's alone. <code>tidy-imports</code> stays open to both, so the line is written out with a comment that says why, and <code>when_to_use</code> tells Claude the moment to reach for it.</p>
+<p>By default, both you and Claude can start a skill. Setting <code>disable-model-invocation: true</code> makes it yours alone; <code>user-invocable: false</code> makes it Claude's alone. Leave <code>tidy-imports</code> open to both, write the line out anyway with a comment saying why, and add <code>when_to_use</code> to tell Claude when to reach for it.</p>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 3.1:</p>
 <pre class="code" data-lang=""><code>---
 name: tidy-imports
@@ -375,7 +375,7 @@ when_to_use: &quot;After you add or remove imports in a file, or when the user a
 arguments: [path]
 argument-hint: &quot;[file]&quot;
 disable-model-invocation: false # Claude may start it after changing a file&#x27;s imports; the script only reorders import lines
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 ---
 
 Tidy the imports in $path.
@@ -385,7 +385,7 @@ already listed there, say so before going on.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -394,9 +394,9 @@ script exits non-zero, report its message and stop.
 The script also writes the ledger line. Never write to
 .claude/tidy-imports.log yourself.</code></pre>
 <p>New in 3.1: the <code>when_to_use:</code> line and the <code>disable-model-invocation:</code> line.</p>
-<ul><li><strong>3.1a</strong> <code>when_to_use</code> is added to the description in the list Claude reads, so it names the moment: just after Claude has changed a file's imports.</li><li><strong>3.1b</strong> <code>disable-model-invocation: false</code> is already the default, and writing it out gives the comment a place to record why Claude may start this skill unasked.</li><li><strong>3.1c</strong> The comment names the only safeguard so far, a script that touches nothing but import lines; git holds no copy of a file's uncommitted state, and step 4.3 adds a gate for that case.</li><li><strong>3.1d</strong> Had this line been <code>true</code>, the skill's description and <code>when_to_use</code> would leave Claude's context altogether, so <code>when_to_use</code> only does any work on a skill Claude may start.</li></ul>
+<ul><li><strong>3.1a</strong> Claude sees <code>when_to_use</code> alongside the description, so use it to name the moment: just after Claude has changed a file's imports.</li><li><strong>3.1b</strong> <code>disable-model-invocation: false</code> is already the default; writing it out gives the comment somewhere to say why Claude may start this skill unasked.</li><li><strong>3.1c</strong> The comment names the only safeguard so far: the script touches nothing but import lines. That doesn't cover a file with uncommitted changes, which git can't restore; step 4.3 adds a gate for it.</li><li><strong>3.1d</strong> If this line were <code>true</code>, the description and <code>when_to_use</code> would drop out of Claude's context entirely. <code>when_to_use</code> only matters on a skill Claude is allowed to start.</li></ul>
 <h3 id="3-2-pin-the-model-and-effort">3.2 Pin the Model and Effort</h3>
-<p>The skill reads a ledger and runs one script, so a mid-sized model at low effort is enough. <code>model</code> and <code>effort</code> in the frontmatter override the session for the rest of the turn the skill runs in. When you send your next message, the session's own model and effort come back.</p>
+<p>Reading a ledger and running one script doesn't need your most capable model, so pin a mid-sized one at low effort. <code>model</code> and <code>effort</code> override the session for the rest of the turn the skill runs in; your next message brings the session's own settings back.</p>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 3.2:</p>
 <pre class="code" data-lang=""><code>---
 name: tidy-imports
@@ -407,7 +407,7 @@ argument-hint: &quot;[file]&quot;
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file&#x27;s imports; the script only reorders import lines
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 ---
 
 Tidy the imports in $path.
@@ -417,7 +417,7 @@ already listed there, say so before going on.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -426,9 +426,9 @@ script exits non-zero, report its message and stop.
 The script also writes the ledger line. Never write to
 .claude/tidy-imports.log yourself.</code></pre>
 <p>New in 3.2: <code>model: sonnet</code> and <code>effort: low</code>.</p>
-<ul><li><strong>3.2a</strong> <code>model: sonnet</code> takes the same aliases as <code>/model</code> and is skipped when your organisation's allowed list or auto mode rules it out, in which case the session model carries on.</li><li><strong>3.2b</strong> <code>effort: low</code> accepts <code>low</code>, <code>medium</code>, <code>high</code>, <code>xhigh</code> or <code>max</code>, though which of those a model offers depends on the model.</li><li><strong>3.2c</strong> Per the docs, both pins hold until your next message, so when Claude starts the skill partway through other work, whatever it does after the tidy in that turn also runs on <code>sonnet</code> at low effort.</li></ul>
+<ul><li><strong>3.2a</strong> <code>model</code> takes the same aliases as <code>/model</code>. If your organisation's allowed list or auto mode rules the model out, the skill falls back to the session's model.</li><li><strong>3.2b</strong> <code>effort</code> takes <code>low</code>, <code>medium</code>, <code>high</code>, <code>xhigh</code> or <code>max</code>; which of those are available depends on the model.</li><li><strong>3.2c</strong> Both settings hold until your next message, so if Claude starts the skill partway through other work, the rest of that turn also runs on <code>sonnet</code> at low effort.</li></ul>
 <h3 id="3-3-promises-the-frontmatter-enforces">3.3 Promises the Frontmatter Enforces</h3>
-<p>Since 2.1 the body has told Claude never to edit the file itself. <code>disallowed-tools</code> turns that sentence into a rule: the tools it lists are taken out of Claude's reach while the skill is active. <code>allowed-tools</code> adds approval; <code>disallowed-tools</code> removes tools. The removal lasts until your next message, so the sentence in the body stays.</p>
+<p>Since step 2.1, the body has told Claude never to edit the file itself. <code>disallowed-tools</code> enforces that: while the skill is active, the tools it lists are out of Claude's reach. Where <code>allowed-tools</code> approves tools, <code>disallowed-tools</code> takes them away. Keep the sentence in the body too, because the removal only lasts until your next message.</p>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 3.3:</p>
 <pre class="code" data-lang=""><code>---
 name: tidy-imports
@@ -439,7 +439,7 @@ argument-hint: &quot;[file]&quot;
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file&#x27;s imports; the script only reorders import lines
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
 ---
 
@@ -450,7 +450,7 @@ already listed there, say so before going on.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -461,7 +461,7 @@ The script also writes the ledger line. Never write to
 <p>New in 3.3: the <code>disallowed-tools:</code> line.</p>
 <ul><li><strong>3.3a</strong> <code>disallowed-tools: [Edit, Write, NotebookEdit]</code> removes the three file-writing tools, so Claude cannot fix up the file after the script runs even if it decides to.</li><li><strong>3.3b</strong> The comment <code>the script changes the file; Claude never does</code> restates the promise from 2.1b, so a reader of the frontmatter alone sees why the list exists.</li><li><strong>3.3c</strong> <code>Do not reorder any lines yourself</code> stays in the body, because the tool removal clears at your next message and the instruction does not.</li><li><strong>3.3d</strong> The removal also lasts for the rest of the turn the skill started in, so if Claude runs the tidy partway through a task, it cannot edit any file again until you send your next message.</li></ul>
 <h3 id="the-real-thing-skills-pr-update-skill-md">The Real Thing: <code>skills/pr-update/SKILL.md</code></h3>
-<p><code>pr-update</code> rewrites a pull request's description after new commits land. It is open to Claude, pins its model and names its gate in a comment.</p>
+<p><code>pr-update</code> rewrites a pull request's description after new commits land. Claude can start it, and a comment in its frontmatter names the gate that makes that safe.</p>
 <pre class="code" data-lang="markdown"><code>---
 name: &quot;PR: Update&quot;
 description: &quot;Update a PR description to account for commits made since it was last written&quot;
@@ -477,8 +477,8 @@ disable-model-invocation: false # invocable by Claude so it can offer a refresh 
 
 Display the updated body in full and a brief summary of what changed vs the previous description. **Wait for my approval.**
 ...</code></pre>
-<ul><li><strong>R.a</strong> <code>when_to_use</code> names a moment Claude sees first, new commits on a branch whose description has gone stale, the move from 3.1a.</li><li><strong>R.b</strong> <code>model: sonnet</code> and <code>effort: medium</code> pin the run the same way 3.2 does, one notch higher on effort.</li><li><strong>R.c</strong> The comment on <code>disable-model-invocation: false</code> names the gate that makes it safe to leave open, the move from 3.1b.</li><li><strong>R.d</strong> <code>**Wait for my approval.**</code> is that gate, and step 4.3 gives <code>tidy-imports</code> one of its own.</li></ul>
-<p><code>pr-update</code> has no <code>disallowed-tools</code> line. For that move, see line 13 of <code>skills/project-tag_version/SKILL.md</code>, which removes <code>git push --tags</code> because it would publish every stray local tag.</p>
+<ul><li><strong>R.a</strong> <code>when_to_use</code> names a moment Claude sees first, new commits on a branch whose description has gone stale, as in step 3.1.</li><li><strong>R.b</strong> <code>model: sonnet</code> and <code>effort: medium</code> pin the run the same way 3.2 does, one notch higher on effort.</li><li><strong>R.c</strong> The comment on <code>disable-model-invocation: false</code> names the gate that makes it safe to leave open, as in step 3.1.</li><li><strong>R.d</strong> <code>**Wait for my approval.**</code> is that gate, and step 4.3 gives <code>tidy-imports</code> one of its own.</li></ul>
+<p><code>pr-update</code> has no <code>disallowed-tools</code> line. For a real one, see line 13 of <code>skills/project-tag_version/SKILL.md</code>, which removes <code>git push --tags</code> because it would publish every stray local tag.</p>
 <h3 id="try-it-make-it-yours-alone">Try it: make it yours alone</h3>
 <p>tam wants <code>tidy-imports</code> to run only when someone types it. Change the frontmatter.</p>
 <p><strong>Answer.</strong> Set the line to <code>disable-model-invocation: true</code> with a new comment, and delete <code>when_to_use</code>:</p>
@@ -486,9 +486,9 @@ Display the updated body in full and a brief summary of what changed vs the prev
 <p>A skill with <code>disable-model-invocation: true</code> has its description taken out of Claude's context, so <code>when_to_use</code> would never be read. Typing <code>/tidy-imports src/app.ts</code> still works.</p>
 <hr>
 <h2 id="level-4-skills-that-call-skills">Level 4: Skills That Call Skills</h2>
-<p><code>tidy-imports</code> now says who may start it, what it runs on and what it may never touch. This level splits a read-only check into a skill of its own, calls it from <code>tidy-imports</code> and adds a gate before the one change git cannot undo.</p>
+<p>In this level, you'll split a read-only check out of <code>tidy-imports</code> into a skill of its own, call it from <code>tidy-imports</code> and add a gate before the one change git can't undo.</p>
 <h3 id="4-1-split-out-a-read-only-check">4.1 Split Out a Read-Only Check</h3>
-<p>Telling whether a file's imports are already sorted is useful on its own: before a commit, or to decide whether a tidy is needed at all. It also never writes, so it can be shared freely. It becomes <code>tidy-imports-check</code>, with its own script that reports and changes nothing.</p>
+<p>Checking whether a file's imports are already sorted is useful on its own, before a commit or to decide whether a tidy is needed at all. Because the check never writes, any skill can share it. Make it a skill called <code>tidy-imports-check</code>, with its own script that reports and changes nothing.</p>
 <p><code>.claude/skills/tidy-imports-check/scripts/check-imports.sh</code> after step 4.1:</p>
 <pre class="code" data-lang="bash"><code>#!/usr/bin/env bash
 # Report whether the import lines at the top of a file are sorted. Never writes.
@@ -520,7 +520,7 @@ argument-hint: &quot;[file]&quot;
 model: sonnet
 effort: low
 disable-model-invocation: false # tidy-imports calls this skill, so Claude must be able to invoke it
-allowed-tools: Bash(.claude/skills/tidy-imports-check/scripts/check-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/check-imports.sh:*)
 disallowed-tools: [Edit, Write, NotebookEdit] # reads, never writes
 ---
 
@@ -528,7 +528,7 @@ Check the imports in $path.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports-check/scripts/check-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/check-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 Report its output as it stands. Do not sort, fix or change
 anything, even when the imports are out of order.</code></pre>
@@ -540,7 +540,7 @@ import { readFileSync } from &#x27;node:fs&#x27;;
 import { serve } from &#x27;./server&#x27;;</code></pre>
 <ul><li><strong>4.1a</strong> <code>sort -c</code> only checks the order and exits non-zero on the first line out of place, so the script never opens the file for writing.</li><li><strong>4.1b</strong> <code>export LC_ALL=C</code> matches the line in <code>sort-imports.sh</code>, so the check and the tidy agree on what sorted means.</li><li><strong>4.1c</strong> <code>disable-model-invocation: false</code> is already the default, and its comment records that another skill calls this one, so nobody flips it to <code>true</code> without seeing what 4.2 depends on.</li><li><strong>4.1d</strong> <code>disallowed-tools</code> lists only the file-writing tools and leaves Bash alone, because the check runs its own script.</li></ul>
 <h3 id="4-2-call-it-from-tidy-imports">4.2 Call It From tidy-imports</h3>
-<p><code>tidy-imports</code> now runs the check first and stops when there is nothing to do. The body says to load the skill by name, and Claude does that through its Skill tool, the same way it loads any skill. That tool refuses a skill marked <code>disable-model-invocation: true</code> unless your own message names that skill's command, so a skill another skill calls must stay open to Claude.</p>
+<p>Have <code>tidy-imports</code> run the check first and stop when there's nothing to do. To call another skill, the body just tells Claude to load it by name, and Claude uses its Skill tool, as it would for any skill. That tool refuses a skill marked <code>disable-model-invocation: true</code> unless your own message names that skill's command, so a skill that another skill calls has to stay open to Claude.</p>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 4.2:</p>
 <pre class="code" data-lang=""><code>---
 name: tidy-imports
@@ -551,7 +551,7 @@ argument-hint: &quot;[file]&quot;
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file&#x27;s imports; the script only reorders import lines
-allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
 disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
 ---
 
@@ -566,7 +566,7 @@ cannot run, say why and stop.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -575,9 +575,9 @@ script exits non-zero, report its message and stop.
 The script also writes the ledger line. Never write to
 .claude/tidy-imports.log yourself.</code></pre>
 <p>New in 4.2: the three lines from <code>Load the tidy-imports-check skill</code>.</p>
-<ul><li><strong>4.2a</strong> <code>Load the tidy-imports-check skill on $path</code> names the skill and its argument, which is all one skill needs to call another.</li><li><strong>4.2b</strong> <code>If the check cannot run, say why and stop</code> covers the day someone marks the check <code>disable-model-invocation: true</code> and the call is refused.</li><li><strong>4.2c</strong> Both files pin <code>model: sonnet</code> and <code>effort: low</code>: the docs say a skill's <code>model</code> and <code>effort</code> hold for the rest of the turn, so a different pin in the check would carry into the rest of the tidy.</li></ul>
+<ul><li><strong>4.2a</strong> <code>Load the tidy-imports-check skill on $path</code> names the skill and its argument, which is all one skill needs to call another.</li><li><strong>4.2b</strong> <code>If the check cannot run, say why and stop</code> covers the day someone marks the check <code>disable-model-invocation: true</code> and the call is refused.</li><li><strong>4.2c</strong> Both files pin <code>model: sonnet</code> and <code>effort: low</code>. A skill's <code>model</code> and <code>effort</code> hold for the rest of the turn, so a different pin in the check would carry on into the rest of the tidy.</li></ul>
 <h3 id="4-3-a-gate-before-anything-irreversible">4.3 A Gate Before Anything Irreversible</h3>
-<p>The script rewrites the file in place and keeps no copy. For a committed file, git holds the old order. For a file with uncommitted changes, or one git has never seen, nothing does. <code>tidy-imports</code> checks for that case and waits for a yes before the script runs.</p>
+<p>The script rewrites the file in place and keeps no copy. If the file is committed, git still has the old order; if it has uncommitted changes, or git has never seen it, nothing does. For that case, have <code>tidy-imports</code> stop and wait for a yes before the script runs.</p>
 <p><code>.claude/skills/tidy-imports/SKILL.md</code> after step 4.3:</p>
 <pre class="code" data-lang=""><code>---
 name: tidy-imports
@@ -588,7 +588,7 @@ argument-hint: &quot;[file]&quot;
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file&#x27;s imports; it stops for a yes before rewriting a file git has no copy of
-allowed-tools: [&quot;Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)&quot;, &quot;Bash(git status:*)&quot;]
+allowed-tools: [&quot;Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)&quot;, &quot;Bash(git status:*)&quot;]
 disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
 ---
 
@@ -609,7 +609,7 @@ user replies yes.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>.claude/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -618,7 +618,7 @@ script exits non-zero, report its message and stop.
 The script also writes the ledger line. Never write to
 .claude/tidy-imports.log yourself.</code></pre>
 <p>New in 4.3: the five lines from <code>Run</code> to <code>user replies yes.</code>, the <code>Bash(git status:*)</code> entry in <code>allowed-tools</code> and the new comment on <code>disable-model-invocation</code>.</p>
-<ul><li><strong>4.3a</strong> <code>git status --porcelain -- &quot;$path&quot;</code> prints nothing for a file git already holds as it is, so a clean file goes straight to the script with no question asked.</li><li><strong>4.3b</strong> <code>Show the check&#x27;s report, say this and stop</code> puts the planned order in front of the person before they answer, so the yes is an informed one.</li><li><strong>4.3c</strong> The yes arrives as a new message, which clears both the <code>allowed-tools</code> grant and the <code>disallowed-tools</code> removal, so Claude Code asks before the script runs unless your permission settings already allow it.</li><li><strong>4.3d</strong> The comment on <code>disable-model-invocation</code> now names the gate, which is what makes it reasonable to leave a file-rewriting skill open to Claude.</li></ul>
+<ul><li><strong>4.3a</strong> <code>git status --porcelain -- &quot;$path&quot;</code> prints nothing for a file git already holds as it is, so a clean file goes straight to the script with no question asked.</li><li><strong>4.3b</strong> <code>Show the check&#x27;s report, say this and stop</code> puts the planned order in front of you before you answer.</li><li><strong>4.3c</strong> The yes arrives as a new message, which clears both the <code>allowed-tools</code> grant and the <code>disallowed-tools</code> removal, so Claude Code asks before the script runs unless your permission settings already allow it.</li><li><strong>4.3d</strong> The comment on <code>disable-model-invocation</code> now names the gate, which is what makes it reasonable to leave a file-rewriting skill open to Claude.</li></ul>
 <h3 id="the-real-thing-pr-review-dry-run-pr-review-and-branch-qa-review">The Real Thing: <code>pr-review-dry_run</code>, <code>pr-review</code> and <code>branch-qa_review</code></h3>
 <p>Three skills in this repository share one review method. <code>pr-review-dry_run</code> holds it and prints findings; <code>pr-review</code> and <code>branch-qa_review</code> both call it.</p>
 <p><code>skills/pr-review-dry_run/SKILL.md</code>:</p>
@@ -652,16 +652,16 @@ disable-model-invocation: true
 Load the `pr-review-dry_run` skill and run its full methodology against this branch: ...
 ...
 If the verdict is **Ready**, offer to run the `pr-create` skill immediately, ...</code></pre>
-<ul><li><strong>R.a</strong> <code>disable-model-invocation: false # required so pr-review can call it</code> is the move from 4.1c, with the reason written beside it.</li><li><strong>R.b</strong> <code>pr-review</code> posts to GitHub with no approval step, so its gate lives in the comment on its <code>disable-model-invocation</code> line, which limits when Claude may start it.</li><li><strong>R.c</strong> <code>Load the pr-review-dry_run skill</code> appears in both callers, the same plain instruction as 4.2a.</li><li><strong>R.d</strong> <code>branch-qa_review</code> is itself <code>disable-model-invocation: true</code>, which shows the rule runs one way: the caller may be yours alone, and the skill it calls may not; it also ends by offering <code>pr-create</code> and leaves the yes to you.</li></ul>
-<p>Caller and callee pin the same <code>model: opus</code> and <code>effort: high</code>, the pairing from 4.2c.</p>
+<ul><li><strong>R.a</strong> <code>disable-model-invocation: false # required so pr-review can call it</code> does what you did in step 4.1, with the reason written beside it.</li><li><strong>R.b</strong> <code>pr-review</code> posts to GitHub with no approval step, so its gate lives in the comment on its <code>disable-model-invocation</code> line, which limits when Claude may start it.</li><li><strong>R.c</strong> <code>Load the pr-review-dry_run skill</code> appears in both callers, the same plain instruction as 4.2a.</li><li><strong>R.d</strong> <code>branch-qa_review</code> is itself <code>disable-model-invocation: true</code>. The rule only runs one way: a caller can be yours alone, but the skill it calls can't. It also ends by offering <code>pr-create</code> and leaves the yes to you.</li></ul>
+<p>Caller and callee pin the same <code>model: opus</code> and <code>effort: high</code>, for the reason in step 4.2.</p>
 <h3 id="try-it-predict-the-refusal">Try it: predict the refusal</h3>
 <p>ravi sets <code>tidy-imports-check</code> to <code>disable-model-invocation: true</code>, then types <code>/tidy-imports src/app.ts</code>. What happens?</p>
 <p><strong>Answer.</strong> <code>tidy-imports</code> starts, because ravi typed its command. When it tries to load <code>tidy-imports-check</code>, Claude Code refuses, because ravi's message named only <code>/tidy-imports</code>. The line from 4.2b applies, so Claude says the check could not run and stops before the script.</p>
 <hr>
 <h2 id="level-5-pack-it-as-a-plugin">Level 5: Pack It as a Plugin</h2>
-<p><code>tidy-imports</code> and <code>tidy-imports-check</code> live in one project's <code>.claude/skills/</code>. This level moves them into a plugin so any project can install them with one command.</p>
+<p>In this level, you'll move <code>tidy-imports</code> and <code>tidy-imports-check</code> into a plugin, so any project can install them with one command.</p>
 <h3 id="5-1-a-plugin-folder-and-plugin-json">5.1 A Plugin Folder and plugin.json</h3>
-<p>A plugin is a folder with a manifest at <code>.claude-plugin/plugin.json</code> and its components beside it. Skills go in <code>skills/</code>, one folder each, exactly as they sat in <code>.claude/skills/</code>. Call the plugin <code>tidy</code>. Its two skills become <code>/tidy:tidy-imports</code> and <code>/tidy:tidy-imports-check</code>.</p>
+<p>A plugin is a folder with a manifest at <code>.claude-plugin/plugin.json</code> and its parts beside it. Skills go in <code>skills/</code>, one folder each, exactly as they were in <code>.claude/skills/</code>. Call the plugin <code>tidy</code>; its two skills then run as <code>/tidy:tidy-imports</code> and <code>/tidy:tidy-imports-check</code>.</p>
 <p>The plugin folder after step 5.1:</p>
 <pre class="code" data-lang="text"><code>tidy/
 	.claude-plugin/
@@ -684,10 +684,10 @@ If the verdict is **Ready**, offer to run the `pr-create` skill immediately, ...
 	&quot;license&quot;: &quot;MIT&quot;
 }</code></pre>
 <p>New in 5.1: every line, and the folder itself.</p>
-<ul><li><strong>5.1a</strong> <code>&quot;name&quot;: &quot;tidy&quot;</code> is the only required field; written in kebab-case, it becomes the prefix on every skill the plugin holds.</li><li><strong>5.1b</strong> <code>&quot;version&quot;: &quot;0.1.0&quot;</code> keeps people who install the plugin from a hosted marketplace on this version until you change the number.</li><li><strong>5.1c</strong> <code>.claude-plugin/</code> holds the manifest and nothing else, while <code>skills/</code> sits at the plugin root beside it.</li></ul>
-<p>Test it before anything else with <code>claude --plugin-dir ./tidy</code>, which loads the plugin for that one session without installing it.</p>
-<h3 id="5-2-claude-plugin-root-replaces-claude-paths">5.2 ${CLAUDE_PLUGIN_ROOT} Replaces .claude Paths</h3>
-<p>Every path that pointed into <code>.claude/skills/</code> (or into <code>~/.claude/</code> for a personal skill) now points at a folder that is not there on someone else's machine. A plugin installed from a hosted marketplace is copied into Claude Code's plugin cache, a new folder for each version; one from a marketplace on your own disk loads from where it sits. <code>${CLAUDE_PLUGIN_ROOT}</code> is replaced with that folder's path in both the body and <code>allowed-tools</code>, so the rule still matches the command Claude runs. The call to the check uses its plugin name too.</p>
+<ul><li><strong>5.1a</strong> <code>&quot;name&quot;: &quot;tidy&quot;</code> is the only required field. Write it in kebab-case: it becomes the prefix on every skill the plugin holds.</li><li><strong>5.1b</strong> <code>&quot;version&quot;: &quot;0.1.0&quot;</code> keeps people who install the plugin from a hosted marketplace on this version until you change the number.</li><li><strong>5.1c</strong> <code>.claude-plugin/</code> holds the manifest and nothing else, while <code>skills/</code> sits at the plugin root beside it.</li></ul>
+<p>Before anything else, test it with <code>claude --plugin-dir ./tidy</code>, which loads the plugin for that one session without installing it.</p>
+<h3 id="5-2-paths-that-travel">5.2 Paths That Travel</h3>
+<p>On someone else's machine, a path into <code>.claude/skills/</code> points at a folder that isn't there. <code>${CLAUDE_SKILL_DIR}</code> already avoids that: inside a plugin it fills in the skill's own folder, wherever Claude Code installed the plugin (a new folder in its cache for each version), so both scripts work as they are. For a file several skills share, use <code>${CLAUDE_PLUGIN_ROOT}</code>, the plugin's own folder. The one change <code>tidy-imports</code> needs is the call to the check, which now uses its plugin name.</p>
 <p><code>tidy/skills/tidy-imports/SKILL.md</code> after step 5.2:</p>
 <pre class="code" data-lang=""><code>---
 name: tidy-imports
@@ -698,7 +698,7 @@ argument-hint: &quot;[file]&quot;
 model: sonnet
 effort: low
 disable-model-invocation: false # Claude may start it after changing a file&#x27;s imports; it stops for a yes before rewriting a file git has no copy of
-allowed-tools: [&quot;Bash(${CLAUDE_PLUGIN_ROOT}/skills/tidy-imports/scripts/sort-imports.sh:*)&quot;, &quot;Bash(git status:*)&quot;]
+allowed-tools: [&quot;Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)&quot;, &quot;Bash(git status:*)&quot;]
 disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
 ---
 
@@ -719,7 +719,7 @@ user replies yes.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>${CLAUDE_PLUGIN_ROOT}/skills/tidy-imports/scripts/sort-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 It sorts the import block in place. Do not reorder any
 lines yourself or edit the file after it runs. If the
@@ -727,7 +727,7 @@ script exits non-zero, report its message and stop.
 
 The script also writes the ledger line. Never write to
 .claude/tidy-imports.log yourself.</code></pre>
-<p>Changed in 5.2: the script path in <code>allowed-tools</code>, the script path in the <code>bash</code> block and <code>tidy:tidy-imports-check</code> in the call.</p>
+<p>Changed in 5.2: <code>tidy:tidy-imports-check</code> in the call.</p>
 <p><code>tidy/skills/tidy-imports-check/SKILL.md</code> after step 5.2:</p>
 <pre class="code" data-lang=""><code>---
 name: tidy-imports-check
@@ -738,7 +738,7 @@ argument-hint: &quot;[file]&quot;
 model: sonnet
 effort: low
 disable-model-invocation: false # tidy:tidy-imports calls this skill, so Claude must be able to invoke it
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/tidy-imports-check/scripts/check-imports.sh:*)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/check-imports.sh:*)
 disallowed-tools: [Edit, Write, NotebookEdit] # reads, never writes
 ---
 
@@ -746,14 +746,14 @@ Check the imports in $path.
 
 Run the script on the file, by exactly this path:
 </code></pre>
-<p>${CLAUDE_PLUGIN_ROOT}/skills/tidy-imports-check/scripts/check-imports.sh "$path"</p>
+<p>${CLAUDE_SKILL_DIR}/scripts/check-imports.sh "$path"</p>
 <pre class="code" data-lang=""><code>
 Report its output as it stands. Do not sort, fix or change
 anything, even when the imports are out of order.</code></pre>
-<p>Changed in 5.2: the script path in <code>allowed-tools</code>, the script path in the <code>bash</code> block and <code>tidy:tidy-imports</code> in <code>when_to_use</code> and the comment. Both scripts are unchanged from 4.1 and 2.3.</p>
-<ul><li><strong>5.2a</strong> <code>${CLAUDE_PLUGIN_ROOT}</code> appears in <code>allowed-tools</code> and in the <code>bash</code> block alike, so after substitution the rule and the command carry the same absolute path.</li><li><strong>5.2b</strong> <code>Load the tidy:tidy-imports-check skill</code> uses the full plugin name, the form every plugin skill carries.</li><li><strong>5.2c</strong> <code>.claude/tidy-imports.log</code> stays a project path, because the plugin's own folder changes with every version and is no place to keep state.</li></ul>
+<p>Changed in 5.2: <code>tidy:tidy-imports</code> in <code>when_to_use</code> and the comment. Both scripts are unchanged from 4.1 and 2.3.</p>
+<ul><li><strong>5.2a</strong> <code>${CLAUDE_SKILL_DIR}</code> needs no change in a plugin: it fills in the skill's own folder there too, so the rule and the command still match.</li><li><strong>5.2b</strong> <code>Load the tidy:tidy-imports-check skill</code> uses the full plugin name, the form every plugin skill carries.</li><li><strong>5.2c</strong> <code>.claude/tidy-imports.log</code> stays a project path, because the plugin's own folder changes with every version and is no place to keep state.</li></ul>
 <h3 id="5-3-install-from-a-marketplace">5.3 Install From a Marketplace</h3>
-<p>A marketplace is a folder or repository with <code>.claude-plugin/marketplace.json</code> listing plugins and where each one lives. noor keeps one called <code>noor-tools</code> with <code>tidy</code> under <code>plugins/</code>. Anyone can then add the marketplace once and install from it.</p>
+<p>A marketplace is a folder or repository with <code>.claude-plugin/marketplace.json</code>, listing plugins and where each one lives. Say noor keeps one called <code>noor-tools</code>, with <code>tidy</code> under <code>plugins/</code>: anyone can add that marketplace once and install from it.</p>
 <p><code>noor-tools/.claude-plugin/marketplace.json</code>:</p>
 <pre class="code" data-lang="json"><code>{
 	&quot;name&quot;: &quot;noor-tools&quot;,
@@ -777,10 +777,10 @@ anything, even when the imports are out of order.</code></pre>
 claude plugin install tidy@noor-tools</code></pre>
 <p>Then, in any project:</p>
 <pre class="code" data-lang="text"><code>/tidy:tidy-imports src/app.ts</code></pre>
-<ul><li><strong>5.3a</strong> The entry <code>&quot;name&quot;: &quot;tidy&quot;</code> matches the plugin's own <code>name</code>, because installs use the entry name and skill prefixes use the manifest name, and a mismatch breaks the install.</li><li><strong>5.3b</strong> <code>&quot;source&quot;: &quot;./plugins/tidy&quot;</code> is written from the marketplace root, the folder that holds <code>.claude-plugin/</code>.</li><li><strong>5.3c</strong> <code>tidy@noor-tools</code> is the plugin's entry name, an <code>@</code> and the marketplace name.</li><li><strong>5.3d</strong> <code>/plugin marketplace add</code> also takes a GitHub <code>owner/repo</code>, so once <code>noor-tools</code> is pushed, <code>/plugin marketplace add noor/noor-tools</code> adds it on any machine.</li></ul>
+<ul><li><strong>5.3a</strong> The entry's <code>&quot;name&quot;: &quot;tidy&quot;</code> matches the plugin's own <code>name</code>. Installs use the entry name and skill prefixes use the manifest name, so if they differ, the install breaks.</li><li><strong>5.3b</strong> <code>&quot;source&quot;: &quot;./plugins/tidy&quot;</code> is written from the marketplace root, the folder that holds <code>.claude-plugin/</code>.</li><li><strong>5.3c</strong> <code>tidy@noor-tools</code> is the plugin's entry name, an <code>@</code> and the marketplace name.</li><li><strong>5.3d</strong> <code>/plugin marketplace add</code> also takes a GitHub <code>owner/repo</code>, so once <code>noor-tools</code> is pushed, <code>/plugin marketplace add noor/noor-tools</code> adds it on any machine.</li></ul>
 <p>Delete the old <code>.claude/skills/tidy-imports/</code> and <code>.claude/skills/tidy-imports-check/</code> folders from the project once the plugin works. While they stay, <code>/tidy-imports</code> still runs the project copy.</p>
 <h3 id="the-real-thing-marketplace-goblin-scout">The Real Thing: <code>marketplace/goblin-scout/</code></h3>
-<p><code>goblin-scout</code> is a plugin in this repository that keeps a project plan, the roadbook, as a graph of what waits on what. Its skills run as <code>/goblin-scout:&lt;skill&gt;</code>. The excerpts come from the <code>feat/goblin-scout-rename</code> branch at commit <code>82719bd</code>, which renames the plugin from <code>roadmap</code>.</p>
+<p><code>goblin-scout</code> is a plugin in this repository that keeps a project plan, the roadbook, as a map of what waits on what. Its skills run as <code>/goblin-scout:&lt;skill&gt;</code>.</p>
 <p><code>marketplace/goblin-scout/.claude-plugin/plugin.json</code>:</p>
 <pre class="code" data-lang="json"><code>{
     &quot;name&quot;: &quot;goblin-scout&quot;,
@@ -813,15 +813,15 @@ Shared conventions (status vocabulary, colour table, graph rules, formatting) li
 			&quot;name&quot;: &quot;goblin-scout&quot;,
 			&quot;source&quot;: &quot;./marketplace/goblin-scout&quot;,
 			...</code></pre>
-<ul><li><strong>R.a</strong> <code>&quot;name&quot;: &quot;goblin-scout&quot;</code> is the prefix every skill in the plugin carries, so <code>start-roadbook</code> runs as <code>/goblin-scout:start-roadbook</code>, the move from 5.1a.</li><li><strong>R.b</strong> <code>use goblin-scout:rebind-roadbook instead</code> names a sibling skill by its full plugin name, the move from 5.2b.</li><li><strong>R.c</strong> <code>${CLAUDE_PLUGIN_ROOT}/references/</code> and <code>${CLAUDE_PLUGIN_ROOT}&quot;/scripts/roadbook.py</code> reach files the plugin ships, wherever it was installed, the move from 5.2a.</li><li><strong>R.d</strong> The marketplace entry's <code>&quot;name&quot;: &quot;goblin-scout&quot;</code> matches the manifest's, so it installs as <code>goblin-scout@goblin-mode</code> after <code>/plugin marketplace add &lt;owner&gt;/goblin-mode</code>, where <code>&lt;owner&gt;</code> stands for the GitHub account that hosts the repository.</li></ul>
-<p>The manifest's <code>&quot;types&quot;</code> line declares the state of the plugin's mod, the hooks module that ships beside its skills: code that runs inside Claude Code and can draw panes. Plugins and mods get a fuller article of their own later.</p>
+<ul><li><strong>R.a</strong> <code>&quot;name&quot;: &quot;goblin-scout&quot;</code> is the prefix every skill in the plugin carries, so <code>start-roadbook</code> runs as <code>/goblin-scout:start-roadbook</code>, as in step 5.1.</li><li><strong>R.b</strong> <code>use goblin-scout:rebind-roadbook instead</code> names a sibling skill by its full plugin name, as in step 5.2.</li><li><strong>R.c</strong> <code>${CLAUDE_PLUGIN_ROOT}/references/</code> and <code>${CLAUDE_PLUGIN_ROOT}&quot;/scripts/roadbook.py</code> reach files the whole plugin shares, wherever it was installed: the job step 5.2 gives <code>${CLAUDE_PLUGIN_ROOT}</code>.</li><li><strong>R.d</strong> The marketplace entry's <code>&quot;name&quot;: &quot;goblin-scout&quot;</code> matches the manifest's, so it installs as <code>goblin-scout@goblin-mode</code> after <code>/plugin marketplace add JasonWarrenUK/goblin-mode</code>.</li></ul>
+<p>The manifest's <code>&quot;types&quot;</code> line belongs to the plugin's mod: a hooks module that ships beside the skills and runs inside Claude Code, where it can draw panes. Mods, and plugins in general, get an article of their own later.</p>
 <h3 id="try-it-which-one-runs">Try it: which one runs?</h3>
 <p>tam installs <code>tidy@noor-tools</code> in a project that still has <code>.claude/skills/tidy-imports/</code>, then types <code>/tidy-imports src/app.ts</code>. Which skill runs, and what should tam type to be sure of the plugin's?</p>
-<p><strong>Answer.</strong> The project copy runs. Both skills load because the plugin's is namespaced. A plugin skill answers to its bare name only when no other command already uses that name. <code>/tidy:tidy-imports src/app.ts</code> always reaches the plugin's skill; deleting the project folder makes the bare name reach it too.</p>
+<p><strong>Answer.</strong> The project copy runs. Both skills load, since the plugin's is namespaced, but a plugin skill only answers to its bare name when no other command already has it. <code>/tidy:tidy-imports src/app.ts</code> always reaches the plugin's skill; delete the project folder and the bare name reaches it too.</p>
 <hr>
 <h2 id="open-questions">Open Questions</h2>
-<ol><li>**The <code>name</code> field in this repository's skills.** The docs say a skill's frontmatter <code>name</code> sets the command name, and in a plugin skill it sets the last segment. This repository writes display titles there: <code>name: &quot;Project: Tag Version&quot;</code>, <code>name: &quot;Start Roadbook&quot;</code>. This session lists plugin skills as <code>roadmap:claim (roadmap:Claim)</code>, which suggests the folder name is the command and <code>name</code> is shown beside it. The draft writes <code>/goblin-scout:start-roadbook</code> as the outline asks, but the docs as written would predict a command built from <code>Start Roadbook</code>. Needs a test on a live install.</li><li><strong>Whether R.b at level 2 runs without a prompt.</strong> <code>project-tag_version</code> approves <code>Bash(~/.claude/library/scripts/safe-version-next.sh:*)</code>, but its body runs <code>TAG=&quot;$(&quot;$HOME&quot;/.claude/...)&quot; &amp;&amp; git tag ...</code>. The permissions page says an allow rule does not match past an assignment of a variable outside a known-safe list, and the command uses <code>$HOME</code> where the rule writes <code>~</code>. The draft claims only what the frontmatter says and makes no claim about whether the command prompts.</li><li><strong>Calling one skill from another.</strong> The docs do not describe skill-to-skill calls as a feature. They say Claude invokes skills through the Skill tool and that <code>disable-model-invocation: true</code> stops Claude invoking a skill unless the person's message names it. The draft infers from these that a call made partway through another skill is refused in the same way. The docs do not name that case directly.</li><li><strong>What a called skill's settings do to its caller.</strong> The docs say <code>model</code> and <code>effort</code> hold for the rest of the turn and <code>disallowed-tools</code> until the next message. The draft infers that a called skill's pins and removals carry into the rest of the calling skill's turn (4.2c). The docs do not describe a nested case, so this is a reading of the wording.</li><li><strong>Gates that wait for a reply.</strong> The docs say an <code>allowed-tools</code> grant clears at the next message. Any skill whose gate waits for the person's yes (<code>pr-update</code> step 5, <code>tidy-imports</code> 4.3) runs its post-gate command without the skill's grant. Whether answering an <code>AskUserQuestion</code> prompt counts as a new message was not checked.</li><li><strong>goblin-scout is unmerged.</strong> The level 5 excerpts come from <code>origin/feat/goblin-scout-rename</code> at <code>82719bd</code>. Line numbers and wording may change before it merges. The outline's word list (roadbook, <code>start-roadbook</code>, <code>tend-roadbook</code>, <code>unroll-chart</code>, <code>.claude/roadbook.json</code>) matches that branch.</li><li><strong>Relative script paths.</strong> Levels 2 to 4 call <code>.claude/skills/tidy-imports/scripts/sort-imports.sh</code>, a path relative to the project root, and the <code>allowed-tools</code> rule matches that exact text. A session started in a subdirectory, or a Claude that has run <code>cd</code>, would miss the file. The docs offer <code>${CLAUDE_SKILL_DIR}</code> in both the body and <code>allowed-tools</code> for exactly this; the draft keeps the relative path so that 5.2's change has something to replace. Worth deciding whether 2.1 should teach <code>${CLAUDE_SKILL_DIR}</code> instead.</li><li>**3.1 leaves <code>tidy-imports</code> open to Claude with no gate until 4.3.** This repository's convention (<code>skills/clod-config-skill_conventions/SKILL.md:17</code>) keeps a command skill <code>disable-model-invocation: true</code> until it has its own approval gate. The draft names the gap in 3.1c and closes it in 4.3, because <code>when_to_use</code> only reaches Claude on a skill Claude may start, so a user-only 3.1 would teach a field that does nothing.</li><li>**The <code>renames</code> key.** The branch's <code>marketplace.json</code> carries <code>&quot;renames&quot;: {&quot;roadmap&quot;: &quot;goblin-scout&quot;, ...}</code>. The manifest and marketplace pages read for this draft do not document it, so the draft does not mention it.</li><li><strong>Changes made to the lifted level 2 copy.</strong> <code>argument-hint</code> added to every level 2 snapshot so it carries forward from 1.2; "for as long as the skill runs" rewritten to the turn-scoped grant the docs describe; "costs no tokens" removed; <code>export LC_ALL=C</code> added to the script, because the default <code>sort</code> on macOS with <code>en_GB.UTF-8</code> puts <code>import {</code> lines before <code>import express</code> and C order puts them after; the ledger sample's counts changed from 6 and 3 to 3 and 2, the first to match the 1.3 file; the Real Thing callout R.a now says "which suits a step that pushes a tag" in place of a reason the source file does not give. Each needs a matching edit in <code>gen-hybrid.ts</code> if the mockup is kept.</li></ol>
+<ol><li>**The <code>name</code> field in this repository's skills.** The docs say a skill's frontmatter <code>name</code> sets the command name, and in a plugin skill it sets the last segment. This repository writes display titles there: <code>name: &quot;Project: Tag Version&quot;</code>, <code>name: &quot;Start Roadbook&quot;</code>. This session lists plugin skills as <code>roadmap:claim (roadmap:Claim)</code>, which suggests the folder name is the command and <code>name</code> is shown beside it. The draft writes <code>/goblin-scout:start-roadbook</code> as the outline asks, but the docs as written would predict a command built from <code>Start Roadbook</code>. Needs a test on a live install.</li><li><strong>Whether R.b at level 2 runs without a prompt.</strong> <code>project-tag_version</code> approves <code>Bash(~/.claude/library/scripts/safe-version-next.sh:*)</code>, but its body runs <code>TAG=&quot;$(&quot;$HOME&quot;/.claude/...)&quot; &amp;&amp; git tag ...</code>. The permissions page says an allow rule does not match past an assignment of a variable outside a known-safe list, and the command uses <code>$HOME</code> where the rule writes <code>~</code>. The draft claims only what the frontmatter says and makes no claim about whether the command prompts.</li><li><strong>Calling one skill from another.</strong> The docs do not describe skill-to-skill calls as a feature. They say Claude invokes skills through the Skill tool and that <code>disable-model-invocation: true</code> stops Claude invoking a skill unless the person's message names it. The draft infers from these that a call made partway through another skill is refused in the same way. The docs do not name that case directly.</li><li><strong>What a called skill's settings do to its caller.</strong> The docs say <code>model</code> and <code>effort</code> hold for the rest of the turn and <code>disallowed-tools</code> until the next message. The draft infers that a called skill's pins and removals carry into the rest of the calling skill's turn (4.2c). The docs do not describe a nested case, so this is a reading of the wording.</li><li><strong>Gates that wait for a reply.</strong> The docs say an <code>allowed-tools</code> grant clears at the next message. Any skill whose gate waits for the person's yes (<code>pr-update</code> step 5, <code>tidy-imports</code> 4.3) runs its post-gate command without the skill's grant. Whether answering an <code>AskUserQuestion</code> prompt counts as a new message was not checked.</li><li><strong>goblin-scout is unmerged.</strong> The level 5 excerpts come from <code>origin/feat/goblin-scout-rename</code> at <code>82719bd</code>. Line numbers and wording may change before it merges. The outline's word list (roadbook, <code>start-roadbook</code>, <code>tend-roadbook</code>, <code>unroll-chart</code>, <code>.claude/roadbook.json</code>) matches that branch.</li><li><strong>Relative script paths.</strong> Settled 2026-11-19 by Jason: levels 2 to 5 call scripts through <code>${CLAUDE_SKILL_DIR}</code>, taught in 2.1, so they work from any working directory; 5.2 only changes the call to the sibling skill.</li><li>**3.1 leaves <code>tidy-imports</code> open to Claude with no gate until 4.3.** This repository's convention (<code>skills/clod-config-skill_conventions/SKILL.md:17</code>) keeps a command skill <code>disable-model-invocation: true</code> until it has its own approval gate. The draft names the gap in 3.1c and closes it in 4.3, because <code>when_to_use</code> only reaches Claude on a skill Claude may start, so a user-only 3.1 would teach a field that does nothing.</li><li>**The <code>renames</code> key.** The branch's <code>marketplace.json</code> carries <code>&quot;renames&quot;: {&quot;roadmap&quot;: &quot;goblin-scout&quot;, ...}</code>. The manifest and marketplace pages read for this draft do not document it, so the draft does not mention it.</li><li><strong>Changes made to the lifted level 2 copy.</strong> <code>argument-hint</code> added to every level 2 snapshot so it carries forward from 1.2; "for as long as the skill runs" rewritten to the turn-scoped grant the docs describe; "costs no tokens" removed; <code>export LC_ALL=C</code> added to the script, because the default <code>sort</code> on macOS with <code>en_GB.UTF-8</code> puts <code>import {</code> lines before <code>import express</code> and C order puts them after; the ledger sample's counts changed from 6 and 3 to 3 and 2, the first to match the 1.3 file; the Real Thing callout R.a now says "which suits a step that pushes a tag" in place of a reason the source file does not give. Each needs a matching edit in <code>gen-hybrid.ts</code> if the mockup is kept.</li></ol>
 <hr>
 <h2 id="sources">Sources</h2>
-<div class="scroll"><table><thead><tr><th>Claim</th><th>Source</th><th>Read</th></tr></thead><tbody><tr><td>A skill is a folder with <code>SKILL.md</code>: frontmatter between <code>---</code> lines, then instructions</td><td><a href="https://code.claude.com/docs/en/skills#create-your-first-skill">https://code.claude.com/docs/en/skills#create-your-first-skill</a></td><td>2026-11-19</td></tr><tr><td>Project skills live at <code>.claude/skills/&lt;name&gt;/SKILL.md</code>; plugin skills run as <code>/plugin-name:skill-name</code></td><td><a href="https://code.claude.com/docs/en/skills#choose-where-skills-load">https://code.claude.com/docs/en/skills#choose-where-skills-load</a></td><td>2026-11-19</td></tr><tr><td><code>name</code> sets the command; the folder name also invokes it; in a plugin, <code>name</code> sets the last segment</td><td><a href="https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name">https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name</a></td><td>2026-11-19</td></tr><tr><td>A plugin skill's bare name works only when no other command uses it</td><td><a href="https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name">https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name</a></td><td>2026-11-19</td></tr><tr><td><code>description</code> is what Claude uses to decide when to apply a skill</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>when_to_use</code> is appended to <code>description</code> in the listing</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>arguments</code> maps names to positions; <code>$name</code> expands to that argument; an unfilled named argument becomes an empty string</td><td><a href="https://code.claude.com/docs/en/skills#available-string-substitutions">https://code.claude.com/docs/en/skills#available-string-substitutions</a></td><td>2026-11-19</td></tr><tr><td><code>argument-hint</code> is shown during autocomplete</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td>Live change detection; <code>/reload-skills</code> for a skills folder created after startup</td><td><a href="https://code.claude.com/docs/en/skills#edit-a-skill-during-a-session">https://code.claude.com/docs/en/skills#edit-a-skill-during-a-session</a></td><td>2026-11-19</td></tr><tr><td><code>allowed-tools</code> approves listed tools for the turn that invokes the skill, clears at the next message and restricts nothing</td><td><a href="https://code.claude.com/docs/en/skills#pre-approve-tools-for-a-skill">https://code.claude.com/docs/en/skills#pre-approve-tools-for-a-skill</a></td><td>2026-11-19</td></tr><tr><td><code>Bash(x:*)</code> equals <code>Bash(x *)</code>; <code>:*</code> is recognised only at the end</td><td><a href="https://code.claude.com/docs/en/permissions">https://code.claude.com/docs/en/permissions</a> (Wildcard patterns, around line 189 of the page source)</td><td>2026-11-19</td></tr><tr><td>Allow rules do not match past most variable assignments; compound commands need every part allowed</td><td><a href="https://code.claude.com/docs/en/permissions#compound-commands">https://code.claude.com/docs/en/permissions#compound-commands</a> and #wrappers</td><td>2026-11-19</td></tr><tr><td><code>disallowed-tools</code> removes tools while the skill is active and clears at the next message</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>disable-model-invocation: true</code>: Claude cannot invoke it on its own; description leaves context; blocked unless the person's message names the command</td><td><a href="https://code.claude.com/docs/en/skills#control-who-invokes-a-skill">https://code.claude.com/docs/en/skills#control-who-invokes-a-skill</a></td><td>2026-11-19</td></tr><tr><td>A command name after plain text in a message counts as permission to run it</td><td><a href="https://code.claude.com/docs/en/skills#where-you-write-the-skills-name">https://code.claude.com/docs/en/skills#where-you-write-the-skills-name</a></td><td>2026-11-19</td></tr><tr><td><code>user-invocable: false</code> hides the skill from you and leaves it open to Claude</td><td><a href="https://code.claude.com/docs/en/skills#control-who-invokes-a-skill">https://code.claude.com/docs/en/skills#control-who-invokes-a-skill</a></td><td>2026-11-19</td></tr><tr><td>Claude invokes skills through the Skill tool; any skill without <code>disable-model-invocation: true</code> is open to it</td><td><a href="https://code.claude.com/docs/en/skills#restrict-claudes-skill-access">https://code.claude.com/docs/en/skills#restrict-claudes-skill-access</a></td><td>2026-11-19</td></tr><tr><td><code>model</code> holds for the rest of the turn; same values as <code>/model</code>; skipped when excluded by the allowed list or auto mode</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>sonnet</code> is a model alias</td><td><a href="https://code.claude.com/docs/en/model-config#model-aliases">https://code.claude.com/docs/en/model-config#model-aliases</a></td><td>2026-11-19</td></tr><tr><td><code>effort</code> levels <code>low</code> to <code>max</code>; availability depends on the model</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>git</code> read-only forms run without a prompt (not relied on; 4.3 lists <code>git status</code> in <code>allowed-tools</code>)</td><td><a href="https://code.claude.com/docs/en/permissions#read-only-commands">https://code.claude.com/docs/en/permissions#read-only-commands</a></td><td>2026-11-19</td></tr><tr><td>Plugin layout: <code>.claude-plugin/plugin.json</code> with components at the plugin root</td><td><a href="https://code.claude.com/docs/en/plugins/manifest-reference#manifest-file">https://code.claude.com/docs/en/plugins/manifest-reference#manifest-file</a></td><td>2026-11-19</td></tr><tr><td><code>name</code> is the only required manifest field; the docs ask for kebab-case; it namespaces every component</td><td><a href="https://code.claude.com/docs/en/plugins/manifest-reference#name">https://code.claude.com/docs/en/plugins/manifest-reference#name</a></td><td>2026-11-19</td></tr><tr><td><code>version</code> pins installers to that version until it changes, except for a plugin loaded in place from a local-path marketplace</td><td><a href="https://code.claude.com/docs/en/plugins/manifest-reference#version">https://code.claude.com/docs/en/plugins/manifest-reference#version</a></td><td>2026-11-19</td></tr><tr><td><code>types</code> declares a mod's state</td><td><a href="https://code.claude.com/docs/en/plugins/manifest-reference#fields">https://code.claude.com/docs/en/plugins/manifest-reference#fields</a></td><td>2026-11-19</td></tr><tr><td><code>--plugin-dir</code> loads a plugin for one session without installing it</td><td><a href="https://code.claude.com/docs/en/plugins/create#create-your-first-plugin">https://code.claude.com/docs/en/plugins/create#create-your-first-plugin</a></td><td>2026-11-19</td></tr><tr><td><code>${CLAUDE_PLUGIN_ROOT}</code> is substituted in a plugin skill's body and in <code>allowed-tools</code> Bash rules</td><td><a href="https://code.claude.com/docs/en/skills#available-string-substitutions">https://code.claude.com/docs/en/skills#available-string-substitutions</a></td><td>2026-11-19</td></tr><tr><td>Installed plugins are copied to a per-version cache folder; <code>${CLAUDE_PLUGIN_ROOT}</code> points there and changes on update, so no state goes there</td><td><a href="https://code.claude.com/docs/en/plugins/loading">https://code.claude.com/docs/en/plugins/loading</a> (plugins root table) and <a href="https://code.claude.com/docs/en/plugins/manifest-reference#environment-variables">https://code.claude.com/docs/en/plugins/manifest-reference#environment-variables</a></td><td>2026-11-19</td></tr><tr><td>Marketplace file, <code>source</code> written from the marketplace root, entry name matching the manifest name</td><td><a href="https://code.claude.com/docs/en/plugin-marketplaces#rules-for-plugin-entries">https://code.claude.com/docs/en/plugin-marketplaces#rules-for-plugin-entries</a></td><td>2026-11-19</td></tr><tr><td>A plugin skill and a same-named project skill both load; the bare name reaches the plugin's only when no other command uses it</td><td><a href="https://code.claude.com/docs/en/skills#resolve-skills-that-share-a-name">https://code.claude.com/docs/en/skills#resolve-skills-that-share-a-name</a> and #how-a-skill-gets-its-command-name</td><td>2026-11-19</td></tr><tr><td><code>/plugin marketplace add</code> sources (local path, <code>owner/repo</code>); <code>/plugin install &lt;plugin&gt;@&lt;marketplace&gt;</code>; shell equivalents</td><td><a href="https://code.claude.com/docs/en/plugins/install#add-a-marketplace">https://code.claude.com/docs/en/plugins/install#add-a-marketplace</a> and #install-from-your-shell</td><td>2026-11-19</td></tr><tr><td>Mods are plugins with a hooks module that can draw panes</td><td><a href="https://code.claude.com/docs/en/plugins/overview">https://code.claude.com/docs/en/plugins/overview</a> and <code>docs/reference/mods.md:5</code></td><td>2026-11-19</td></tr><tr><td>Repository convention: an open command skill needs its own gate before anything irreversible</td><td><code>skills/clod-config-skill_conventions/SKILL.md:17</code></td><td>2026-11-19</td></tr><tr><td><code>project-tag_version</code> excerpt</td><td><code>skills/project-tag_version/SKILL.md:1-3,11-12,14,16,28-30</code></td><td>2026-11-19</td></tr><tr><td><code>project-tag_version</code> removes <code>git push --tags</code></td><td><code>skills/project-tag_version/SKILL.md:13</code></td><td>2026-11-19</td></tr><tr><td><code>pr-update</code> excerpt</td><td><code>skills/pr-update/SKILL.md:1-6,11,15,95-97</code></td><td>2026-11-19</td></tr><tr><td><code>pr-review-dry_run</code> excerpt</td><td><code>skills/pr-review-dry_run/SKILL.md:1-2,5-6,11,13,16,20</code></td><td>2026-11-19</td></tr><tr><td><code>pr-review</code> excerpt</td><td><code>skills/pr-review/SKILL.md:5-6,11,28</code></td><td>2026-11-19</td></tr><tr><td><code>branch-qa_review</code> excerpt</td><td><code>skills/branch-qa_review/SKILL.md:11,30,92</code></td><td>2026-11-19</td></tr><tr><td>goblin-scout manifest excerpt</td><td><code>marketplace/goblin-scout/.claude-plugin/plugin.json:1-3,9,17-18</code> at <code>origin/feat/goblin-scout-rename</code> <code>82719bd</code></td><td>2026-11-19</td></tr><tr><td><code>start-roadbook</code> excerpt</td><td><code>marketplace/goblin-scout/skills/start-roadbook/SKILL.md:1,4-6,10-14,24</code> at <code>82719bd</code></td><td>2026-11-19</td></tr><tr><td>Marketplace entry excerpt</td><td><code>.claude-plugin/marketplace.json:1-2,9-12</code> at <code>82719bd</code></td><td>2026-11-19</td></tr><tr><td>Level 2 copy lifted from</td><td><code>site/design/mockups/src/gen-hybrid.ts:17-264</code></td><td>2026-11-19</td></tr><tr><td><code>sort-imports.sh</code> and <code>check-imports.sh</code> behaviour, including the C-order output shown in 1.3 and 4.1</td><td>Run in a scratch folder on macOS, 2026-11-19</td><td>2026-11-19</td></tr></tbody></table></div>
+<div class="scroll"><table><thead><tr><th>Claim</th><th>Source</th><th>Read</th></tr></thead><tbody><tr><td>A skill is a folder with <code>SKILL.md</code>: frontmatter between <code>---</code> lines, then instructions</td><td><a href="https://code.claude.com/docs/en/skills#create-your-first-skill">https://code.claude.com/docs/en/skills#create-your-first-skill</a></td><td>2026-11-19</td></tr><tr><td>Project skills live at <code>.claude/skills/&lt;name&gt;/SKILL.md</code>; plugin skills run as <code>/plugin-name:skill-name</code></td><td><a href="https://code.claude.com/docs/en/skills#choose-where-skills-load">https://code.claude.com/docs/en/skills#choose-where-skills-load</a></td><td>2026-11-19</td></tr><tr><td><code>name</code> sets the command; the folder name also invokes it; in a plugin, <code>name</code> sets the last segment</td><td><a href="https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name">https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name</a></td><td>2026-11-19</td></tr><tr><td>A plugin skill's bare name works only when no other command uses it</td><td><a href="https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name">https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name</a></td><td>2026-11-19</td></tr><tr><td><code>description</code> is what Claude uses to decide when to apply a skill</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>when_to_use</code> is appended to <code>description</code> in the listing</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>arguments</code> maps names to positions; <code>$name</code> expands to that argument; an unfilled named argument becomes an empty string</td><td><a href="https://code.claude.com/docs/en/skills#available-string-substitutions">https://code.claude.com/docs/en/skills#available-string-substitutions</a></td><td>2026-11-19</td></tr><tr><td><code>argument-hint</code> is shown during autocomplete</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td>Live change detection; <code>/reload-skills</code> for a skills folder created after startup</td><td><a href="https://code.claude.com/docs/en/skills#edit-a-skill-during-a-session">https://code.claude.com/docs/en/skills#edit-a-skill-during-a-session</a></td><td>2026-11-19</td></tr><tr><td><code>allowed-tools</code> approves listed tools for the turn that invokes the skill, clears at the next message and restricts nothing</td><td><a href="https://code.claude.com/docs/en/skills#pre-approve-tools-for-a-skill">https://code.claude.com/docs/en/skills#pre-approve-tools-for-a-skill</a></td><td>2026-11-19</td></tr><tr><td><code>Bash(x:*)</code> equals <code>Bash(x *)</code>; <code>:*</code> is recognised only at the end</td><td><a href="https://code.claude.com/docs/en/permissions">https://code.claude.com/docs/en/permissions</a> (Wildcard patterns, around line 189 of the page source)</td><td>2026-11-19</td></tr><tr><td>Allow rules do not match past most variable assignments; compound commands need every part allowed</td><td><a href="https://code.claude.com/docs/en/permissions#compound-commands">https://code.claude.com/docs/en/permissions#compound-commands</a> and #wrappers</td><td>2026-11-19</td></tr><tr><td><code>disallowed-tools</code> removes tools while the skill is active and clears at the next message</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>disable-model-invocation: true</code>: Claude cannot invoke it on its own; description leaves context; blocked unless the person's message names the command</td><td><a href="https://code.claude.com/docs/en/skills#control-who-invokes-a-skill">https://code.claude.com/docs/en/skills#control-who-invokes-a-skill</a></td><td>2026-11-19</td></tr><tr><td>A command name after plain text in a message counts as permission to run it</td><td><a href="https://code.claude.com/docs/en/skills#where-you-write-the-skills-name">https://code.claude.com/docs/en/skills#where-you-write-the-skills-name</a></td><td>2026-11-19</td></tr><tr><td><code>user-invocable: false</code> hides the skill from you and leaves it open to Claude</td><td><a href="https://code.claude.com/docs/en/skills#control-who-invokes-a-skill">https://code.claude.com/docs/en/skills#control-who-invokes-a-skill</a></td><td>2026-11-19</td></tr><tr><td>Claude invokes skills through the Skill tool; any skill without <code>disable-model-invocation: true</code> is open to it</td><td><a href="https://code.claude.com/docs/en/skills#restrict-claudes-skill-access">https://code.claude.com/docs/en/skills#restrict-claudes-skill-access</a></td><td>2026-11-19</td></tr><tr><td><code>model</code> holds for the rest of the turn; same values as <code>/model</code>; skipped when excluded by the allowed list or auto mode</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>sonnet</code> is a model alias</td><td><a href="https://code.claude.com/docs/en/model-config#model-aliases">https://code.claude.com/docs/en/model-config#model-aliases</a></td><td>2026-11-19</td></tr><tr><td><code>effort</code> levels <code>low</code> to <code>max</code>; availability depends on the model</td><td><a href="https://code.claude.com/docs/en/skills#frontmatter-reference">https://code.claude.com/docs/en/skills#frontmatter-reference</a></td><td>2026-11-19</td></tr><tr><td><code>git</code> read-only forms run without a prompt (not relied on; 4.3 lists <code>git status</code> in <code>allowed-tools</code>)</td><td><a href="https://code.claude.com/docs/en/permissions#read-only-commands">https://code.claude.com/docs/en/permissions#read-only-commands</a></td><td>2026-11-19</td></tr><tr><td>Plugin layout: <code>.claude-plugin/plugin.json</code> with components at the plugin root</td><td><a href="https://code.claude.com/docs/en/plugins/manifest-reference#manifest-file">https://code.claude.com/docs/en/plugins/manifest-reference#manifest-file</a></td><td>2026-11-19</td></tr><tr><td><code>name</code> is the only required manifest field; the docs ask for kebab-case; it namespaces every component</td><td><a href="https://code.claude.com/docs/en/plugins/manifest-reference#name">https://code.claude.com/docs/en/plugins/manifest-reference#name</a></td><td>2026-11-19</td></tr><tr><td><code>version</code> pins installers to that version until it changes, except for a plugin loaded in place from a local-path marketplace</td><td><a href="https://code.claude.com/docs/en/plugins/manifest-reference#version">https://code.claude.com/docs/en/plugins/manifest-reference#version</a></td><td>2026-11-19</td></tr><tr><td><code>types</code> declares a mod's state</td><td><a href="https://code.claude.com/docs/en/plugins/manifest-reference#fields">https://code.claude.com/docs/en/plugins/manifest-reference#fields</a></td><td>2026-11-19</td></tr><tr><td><code>--plugin-dir</code> loads a plugin for one session without installing it</td><td><a href="https://code.claude.com/docs/en/plugins/create#create-your-first-plugin">https://code.claude.com/docs/en/plugins/create#create-your-first-plugin</a></td><td>2026-11-19</td></tr><tr><td><code>${CLAUDE_SKILL_DIR}</code> is the folder holding the skill's <code>SKILL.md</code> (a plugin skill's own subfolder), substituted in the body and in <code>allowed-tools</code> Bash rules, so a bundled script runs from any working directory without a prompt</td><td><a href="https://code.claude.com/docs/en/skills#available-string-substitutions">https://code.claude.com/docs/en/skills#available-string-substitutions</a></td><td>2026-11-19</td></tr><tr><td><code>${CLAUDE_PLUGIN_ROOT}</code> is substituted in a plugin skill's body and in <code>allowed-tools</code> Bash rules</td><td><a href="https://code.claude.com/docs/en/skills#available-string-substitutions">https://code.claude.com/docs/en/skills#available-string-substitutions</a></td><td>2026-11-19</td></tr><tr><td>Installed plugins are copied to a per-version cache folder; <code>${CLAUDE_PLUGIN_ROOT}</code> points there and changes on update, so no state goes there</td><td><a href="https://code.claude.com/docs/en/plugins/loading">https://code.claude.com/docs/en/plugins/loading</a> (plugins root table) and <a href="https://code.claude.com/docs/en/plugins/manifest-reference#environment-variables">https://code.claude.com/docs/en/plugins/manifest-reference#environment-variables</a></td><td>2026-11-19</td></tr><tr><td>Marketplace file, <code>source</code> written from the marketplace root, entry name matching the manifest name</td><td><a href="https://code.claude.com/docs/en/plugin-marketplaces#rules-for-plugin-entries">https://code.claude.com/docs/en/plugin-marketplaces#rules-for-plugin-entries</a></td><td>2026-11-19</td></tr><tr><td>A plugin skill and a same-named project skill both load; the bare name reaches the plugin's only when no other command uses it</td><td><a href="https://code.claude.com/docs/en/skills#resolve-skills-that-share-a-name">https://code.claude.com/docs/en/skills#resolve-skills-that-share-a-name</a> and #how-a-skill-gets-its-command-name</td><td>2026-11-19</td></tr><tr><td><code>/plugin marketplace add</code> sources (local path, <code>owner/repo</code>); <code>/plugin install &lt;plugin&gt;@&lt;marketplace&gt;</code>; shell equivalents</td><td><a href="https://code.claude.com/docs/en/plugins/install#add-a-marketplace">https://code.claude.com/docs/en/plugins/install#add-a-marketplace</a> and #install-from-your-shell</td><td>2026-11-19</td></tr><tr><td>Mods are plugins with a hooks module that can draw panes</td><td><a href="https://code.claude.com/docs/en/plugins/overview">https://code.claude.com/docs/en/plugins/overview</a> and <code>docs/reference/mods.md:5</code></td><td>2026-11-19</td></tr><tr><td>Repository convention: an open command skill needs its own gate before anything irreversible</td><td><code>skills/clod-config-skill_conventions/SKILL.md:17</code></td><td>2026-11-19</td></tr><tr><td><code>project-tag_version</code> excerpt</td><td><code>skills/project-tag_version/SKILL.md:1-3,11-12,14,16,28-30</code></td><td>2026-11-19</td></tr><tr><td><code>project-tag_version</code> removes <code>git push --tags</code></td><td><code>skills/project-tag_version/SKILL.md:13</code></td><td>2026-11-19</td></tr><tr><td><code>pr-update</code> excerpt</td><td><code>skills/pr-update/SKILL.md:1-6,11,15,95-97</code></td><td>2026-11-19</td></tr><tr><td><code>pr-review-dry_run</code> excerpt</td><td><code>skills/pr-review-dry_run/SKILL.md:1-2,5-6,11,13,16,20</code></td><td>2026-11-19</td></tr><tr><td><code>pr-review</code> excerpt</td><td><code>skills/pr-review/SKILL.md:5-6,11,28</code></td><td>2026-11-19</td></tr><tr><td><code>branch-qa_review</code> excerpt</td><td><code>skills/branch-qa_review/SKILL.md:11,30,92</code></td><td>2026-11-19</td></tr><tr><td>goblin-scout manifest excerpt</td><td><code>marketplace/goblin-scout/.claude-plugin/plugin.json:1-3,9,17-18</code> at <code>origin/feat/goblin-scout-rename</code> <code>82719bd</code></td><td>2026-11-19</td></tr><tr><td><code>start-roadbook</code> excerpt</td><td><code>marketplace/goblin-scout/skills/start-roadbook/SKILL.md:1,4-6,10-14,24</code> at <code>82719bd</code></td><td>2026-11-19</td></tr><tr><td>Marketplace entry excerpt</td><td><code>.claude-plugin/marketplace.json:1-2,9-12</code> at <code>82719bd</code></td><td>2026-11-19</td></tr><tr><td>Level 2 copy lifted from</td><td><code>site/design/mockups/src/gen-hybrid.ts:17-264</code></td><td>2026-11-19</td></tr><tr><td><code>sort-imports.sh</code> and <code>check-imports.sh</code> behaviour, including the C-order output shown in 1.3 and 4.1</td><td>Run in a scratch folder on macOS, 2026-11-19</td><td>2026-11-19</td></tr></tbody></table></div>
 </main>
