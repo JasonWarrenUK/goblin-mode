@@ -47,6 +47,10 @@ QUOTE_PREFIX = re.compile(r'^(?:[ \t]*>)*')
 FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,})(.*)$')
 # List markers, and a task box after one, that may stand in front of a fence
 # opening on the same line (CommonMark 0.31.2, 5.3, example 318).
+# The task box is a deliberate departure: under CommonMark with GFM task lists,
+# `- [ ] ```sh` is paragraph text, not an opener. Read that way, its closer
+# opens a fence that blanks the rest of the note, which no reader intends, so
+# the box is taken off too and the task on that line still counts.
 LIST_PREFIX = re.compile(r'^(?:[ \t]*(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?:\[.\][ \t]+)?)+')
 # A code span closes on a backtick run as long as the one that opened it
 # (CommonMark 0.31.2, 6.1), so ``#x`` and `` ` `` are spans too.
