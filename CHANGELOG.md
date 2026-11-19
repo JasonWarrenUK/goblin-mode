@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [8.0.2] - 2026-11-19
+
+### Fixed
+
+- Version tags for a renamed plugin carry on from its old name. `safe-version-next.sh` follows the `renames` map in `.claude-plugin/marketplace.json` back to the plugin's earlier name and continues from that name's last tag, counting breaking changes made before the move. A renamed plugin used to start a fresh series and come out as `0.1.0` whatever version it had reached. A renamed 0.x plugin whose `plugin.json` declares `1.0.0` gets `1.0.0`; any other 0.x rename is still held at 0.x by the guard.
+
+### Changed
+
+- `pr-land`: the rule that a landing never crosses 0.x to 1.x now names its one exception, a renamed plugin declaring `1.0.0`, which the version script emits itself.
+
 ## [8.0.1] - 2026-11-17
 
 ### Fixed
