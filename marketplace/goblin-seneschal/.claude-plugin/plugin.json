@@ -35,7 +35,7 @@
 		"grievances_file": {
 			"type": "string",
 			"title": "Grievances file",
-			"description": "Where grievances are kept. /log-grievance writes it; overhear-grievance and proclaim-releases read it. A leading ~/ is your home.",
+			"description": "Where grievances are kept. /log-grievance writes it; overhear-grievance and proclaim-releases read it. An absolute path or one under ~/ (your home); anything else falls back to the default.",
 			"default": "~/.claude/library/state/grievances.json"
 		},
 		"prose_scripts_dir": {

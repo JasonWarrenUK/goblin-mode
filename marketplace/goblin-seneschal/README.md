@@ -31,7 +31,9 @@ Each entry has `id`, `description`, `logged`, `sourceSession`, `resolvedIn` and 
 
 ### 2.1. The file it replaces
 
-Before 1.0.0 the plugin kept the same entries in `~/.claude/library/state/cc-pain-points.json`. At the first session start, and again before each grievance is logged, the mod checks: when the grievances file is missing and that old file exists, the old file's text is written to the grievances file unchanged (every entry and every field as it was) and a toast says how many came over. No key in an entry ever carried the old word, so nothing inside is rewritten. The old file is left where it is (a mod can write files but not delete them); delete it once you have looked. An existing grievances file is never overwritten. An old file that will not parse is left alone and named in a toast at session start, and `/log-grievance` refuses until it is fixed, so its entries are never stranded behind a new file; once it parses, the next session or grievance carries it over.
+Before 1.0.0 the plugin kept the same entries in `~/.claude/library/state/cc-pain-points.json`. At every session start, and again before each grievance is logged, the mod checks that old file. When the grievances file is missing, the old file's text is written to it unchanged (every entry and every field as it was). When both exist, each old entry whose `id` the grievances file lacks is appended after the entries already there, which keep their place and fields. Either way a toast says how many came over. That second case is for a session still running the old plugin: anything it logs to the old file arrives at the next start. No key in an entry ever carried the old word, so nothing inside is rewritten.
+
+The old file is left where it is (a mod can write files but not delete them); delete it once no session runs a version older than 1.0.0. The first carry-over records the path it wrote to, and only that path is merged into afterwards, so pointing `grievances_file` somewhere new starts an empty file rather than copying the old one again. An old file that will not parse is left alone and named in a toast at session start. While there is no grievances file, `/log-grievance` refuses until it is fixed, so its entries are never stranded behind a new file; once it parses, the next session or grievance carries it over. A grievances file that will not parse is never overwritten: fix it, or delete it and the old file is carried over afresh, losing whatever was logged since the first carry-over.
 
 ---
 
@@ -95,7 +97,7 @@ Set in `/config` or under `pluginConfigs` in `settings.json`. Every path takes a
 | `enabled` | true | The one switch for the mod. Off, the heartbeat stops, the old file is not carried over and `/log-grievance` and `/muster-underlings` are not registered. |
 | `heartbeat_seconds` | 15 | How often this underling writes its row. |
 | `stale_minutes` | 10 | An underling silent for this long is forgotten. |
-| `grievances_file` | `~/.claude/library/state/grievances.json` | Where grievances are kept, for the mod and both grievance skills. |
+| `grievances_file` | `~/.claude/library/state/grievances.json` | Where grievances are kept, for the mod and both grievance skills. Only an absolute path or one under `~/` is taken; anything else would land in every project a session opens, so it is named in a toast and the default is used. |
 | `prose_scripts_dir` | `~/.claude/library/scripts` | The prose suite `audit-prose` checks: `slop-scan.py`, `gen-skills-index.py` and the prose tests. |
 | `commit_msg_hook` | `~/.claude/hooks/commit-msg` | The commit-msg hook `audit-prose` checks. |
 | `commit_msg_log` | `~/.claude/library/state/commit-msg-log.jsonl` | The hook's log, for the rejection rate. |
