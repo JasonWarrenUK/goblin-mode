@@ -83,9 +83,9 @@ Pane views: **here**, **pile**, **hunches**, **holes** (the Midden spec's Here, 
 | Persona line | The README and the marketplace description open with: *Goblin keeps everything. Goblin knows where everything is. Goblin has not decided yet whether to tell you.* Jason's choice on 2026-11-19, from three candidates; the renamed mods' ruling did not cover the archivist, so he was asked |
 | This repository | Commits the plugin, its tests and an invented fixture vault. Nothing read from the real vault is ever committed |
 | Archivist properties | Every property the archivist writes carries the prefix `gob-arc-` (`gob-arc-repo`, `gob-arc-revisit`), so it is plain which mod wrote it. The Midden spec's `repo` property on a project note becomes `gob-arc-repo` |
-| What the schema covers | The `gob-arc-` properties and the notes the archivist creates. Jason's own properties and `type` values stay untouched. Separately, `nitpick-vault` offers opt-in fix classes for Jason's own notes (journal migration, properties whose names differ only in case, empty duplicates), each approved as a class |
-| Daily notes | The archivist follows Periodic Notes' daily folder and format, and ignores the core Daily Notes setting |
-| Older journals | Migrated: daily notes named in earlier formats become the current Periodic Notes format and folders, as an opt-in `nitpick-vault` fix class, renamed through Obsidian so links survive |
+| What the schema covers | The `gob-arc-` properties and the notes the archivist creates. The owner's own properties and `type` values stay untouched. Separately, `nitpick-vault` offers opt-in fix classes for the owner's own notes, each approved as a class; which classes a given vault needs is for its survey to say |
+| Daily notes | The archivist follows the vault's enabled daily-note settings: a periodic-notes plugin's daily folder and format when one is on, otherwise the core Daily Notes setting. Which a given vault uses is recorded in its survey notes, never here |
+| Older journals | Daily notes named in any format other than the current one can be migrated into it by an opt-in `nitpick-vault` fix class, renamed through Obsidian so links survive. Whether a vault has any is for its survey to say |
 | Tasks | The archivist writes no task lines, in any note. A revisit date is a `gob-arc-revisit` property on the archivist's own note (hunch, brood, bones), and the pane and the whisper surface what is due. This replaces the Midden spec's revisit tasks in §5.1, §5.5, §5.6 and R10, R11 |
 
 ## 4. Step 1: what ships
@@ -131,7 +131,7 @@ Approved by Jason on 2026-11-18. One branch and one PR per slice, in this order;
 | 2 | `feat/archivist-vault-access` | Read, append and create; `gob-arc-` properties; the git net; the publishing guard; the approved schema written to the vault on Jason's yes | Spec §3.1 to §3.4 |
 | 3 | `feat/archivist-bind-whisper` | `bind-repo`, the SessionStart whisper, `rummage-vault`, the seven states of Midden spec §6 | R1, R5, R6 |
 | 4 | `feat/archivist-pile-gnaw` | SessionEnd onto the pile, `gnaw-leavings`, the transcript reader | R2 to R4 |
-| 5 | `feat/archivist-nitpick` | `nitpick-vault` and its opt-in fix classes, journal migration and case clashes first | R8 |
+| 5 | `feat/archivist-nitpick` | `nitpick-vault` and its opt-in fix classes, in the order the owner approves them | R8 |
 | 6 | `feat/archivist-hunches` | Hunch notes, `brood-quandary`, `read-bones`, `topple-hunch`, `gob-arc-revisit` | R9 to R11 |
 | 7 | `feat/archivist-holes-canvas` | `count-holes`, `daub-canvas` | R12, R13 |
 | 8 | `feat/archivist-whiff` | Grudges and the whiff, tuned on slice 4's grudges | R14, R15 |
