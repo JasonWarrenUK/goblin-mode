@@ -22,7 +22,7 @@
 // Colours are the engine's theme keys, never raw values.
 
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, RenderChildren } from 'claude-code'
 
 import type { Asking, Need, Probe, PrSummary, Run, Self, SessionRow, Slot, SlotRequest, Snapshot } from '../types'
 
@@ -889,6 +889,81 @@ export const fit = (text: string, width: number): string => {
 	return width <= 0 ? '' : `${chars.slice(0, width - 1).join('')}…`
 }
 
+/** The question a note input asks, drawn on its own line above the field (as the field's label it squeezed the field). */
+export const askPrompt = (ask: Asking): string => {
+	switch (ask.kind) {
+		case 'grant':
+			return `grant ${ask.resource}: minutes`
+		case 'release':
+			return 'release which resource'
+		case 'done':
+			return `mark tribute ${ask.ref} paid: paste the result (or @<file>) for a measurement, else enter`
+		case 'started':
+			return `tribute ${ask.ref} is agreed: a note on where to watch it (a task id, the session), else enter`
+		default:
+			return ''
+	}
+}
+
+/** One raider row's first line, as text: what crewColumns measures and the row draws. */
+export interface CrewCells {
+	label: string
+	state: string
+	pr: string
+	ctx: string
+	/** context at 70% or more: the one cell that warns, so its column is never dropped while any row has it */
+	ctxHigh: boolean
+	age: string
+	you: boolean
+}
+
+/** Cells each column of the first line takes; 0 drops the column. `label` counts the hotkey's `1: ` before the task. */
+export interface CrewWidths {
+	label: number
+	state: number
+	pr: number
+	ctx: number
+	age: number
+	you: number
+}
+
+/** The dock width the slate asks for. A request: the engine opens a dock at most 45% of the terminal's columns, and a width the person dragged wins. */
+export const SLATE_COLUMNS = 100
+
+/** What a hotkeyed Button draws before its label (`1: `). */
+export const HOTKEY_CELLS = 3
+/** The longest task a row shows before cutting it with an ellipsis. */
+export const CREW_LABEL_MAX = 12
+const YOU_MARK = '◀ you'
+
+/** Cells the first line takes at these widths: the state marker and its gap, then each column kept and its gap. */
+export const crewLineWidth = (w: CrewWidths): number => 2 + w.label + [w.state, w.pr, w.ctx, w.age, w.you].reduce((n, cell) => n + (cell > 0 ? cell + 1 : 0), 0)
+
+/**
+ * The raider rows' columns, each as wide as its widest cell across every row on the slate, so state, PR, context and age
+ * line up row under row. Too wide for `inner`: age goes first, then context (never while a row is at 70% or more), then
+ * the task and the state are cut, then the PR and the `◀ you` mark go; the line never wraps or clips.
+ */
+export const crewColumns = (rows: readonly CrewCells[], inner: number): CrewWidths => {
+	const widest = (pick: (row: CrewCells) => string): number => Math.max(0, ...rows.map(row => cells(pick(row))))
+	const w: CrewWidths = {
+		label: HOTKEY_CELLS + Math.min(CREW_LABEL_MAX, widest(row => row.label)),
+		state: widest(row => row.state),
+		pr: widest(row => row.pr),
+		ctx: widest(row => row.ctx),
+		age: widest(row => row.age),
+		you: rows.some(row => row.you) ? cells(YOU_MARK) : 0,
+	}
+	const over = (): number => crewLineWidth(w) - inner
+	if (over() > 0) w.age = 0
+	if (over() > 0 && !rows.some(row => row.ctxHigh)) w.ctx = 0
+	if (over() > 0) w.label = Math.max(HOTKEY_CELLS + 4, w.label - over())
+	if (over() > 0) w.state = Math.max(4, w.state - over())
+	if (over() > 0) w.pr = 0
+	if (over() > 0) w.you = 0
+	return w
+}
+
 /**
  * The facts laid over `lines` lines of `width` cells, in order, two spaces apart. A fact that does not fit on the
  * line it would start goes to the next line; one that fits on none is left out, and the facts after it still get
@@ -1066,6 +1141,9 @@ const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: 
 	const { Box, Text } = ui
 	const grouped = crewGroups(snap.sessions).filter(({ group }) => QUIET_GROUPS.has(group) === (which === 'archive'))
 	const unlisted = new Set(snap.run?.crew.filter(c => c.unlisted).map(c => c.task) ?? [])
+	// one set of widths for every row drawn, live and archived, so the columns line up down the whole slate
+	const shown = crewGroups(snap.sessions).filter(({ group }) => !QUIET_GROUPS.has(group) || showQuiet).flatMap(({ sessions }) => sessions)
+	const widths = crewColumns(shown.map(s => crewCells(s, me, now)), inner)
 	return grouped.flatMap(({ group, sessions }, at) => {
 		const quiet = QUIET_GROUPS.has(group)
 		const collapsed = quiet && !showQuiet
@@ -1077,50 +1155,71 @@ const crewRows = ($: EngineInterface, ui: Ui, snap: Snapshot, me: Self, picked: 
 				</Text>
 				{collapsed ? <Text dimColor>c shows</Text> : null}
 			</Box>,
-			...(collapsed ? [] : crewRowsOf($, ui, sessions, me, picked, inner, now, nextIndex, unlisted)),
+			...(collapsed ? [] : crewRowsOf($, ui, sessions, me, picked, inner, now, nextIndex, widths, unlisted)),
 		]
 	})
 }
 
-const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], me: Self, picked: string | null, inner: number, now: number, nextIndex: () => number, unlisted: ReadonlySet<string> = new Set()) => {
+/** A session's first-line cells, as the slate words them. */
+export const crewCells = (s: Snapshot['sessions'][number], me: Self, now: number): CrewCells => {
+	const retired = !s.live && s.retired_at !== null
+	const settled = s.pr && s.pr_state && s.pr_state !== 'OPEN' ? ` ${s.pr_state.toLowerCase()}` : ''
+	return {
+		label: s.task || s.branch || s.name || s.session_id.slice(0, 8),
+		state: stateWord(retired ? 'retired' : s.live ? s.state : 'gone'),
+		pr: s.pr ? `#${s.pr}${settled}` : '',
+		ctx: s.live && s.context_percent !== null ? `ctx ${s.context_percent}%` : '',
+		ctxHigh: s.live && s.context_percent !== null && s.context_percent >= 70,
+		age: s.updated_at ? `${ago(now - s.updated_at * 1000)} ago` : '',
+		you: s.session_id === me.sessionId,
+	}
+}
+
+const crewRowsOf = ($: EngineInterface, ui: Ui, sessions: Snapshot['sessions'], me: Self, picked: string | null, inner: number, now: number, nextIndex: () => number, widths: CrewWidths, unlisted: ReadonlySet<string> = new Set()) => {
 	const { Box, Text, Button } = ui
 	return sessions.map(s => {
 		const i = nextIndex()
 		const key = `sess:${s.session_id}`
-		const isMe = s.session_id === me.sessionId
-		const label = s.task || s.branch || s.name || s.session_id.slice(0, 8)
+		const c = crewCells(s, me, now)
+		const hotkey = i < 9 ? String(i + 1) : undefined
 		const gone = !s.live
 		const retired = gone && s.retired_at !== null
 		const worktreeName = (s.worktree ?? '').split('/').filter(Boolean).pop() ?? ''
+		// line 2: the summary first, so the cut at the pane's edge takes the reference (branch, worktree) and never what the raider said
+		const summary = retired ? `worktree retired ${s.retired_at ? ago(now - s.retired_at * 1000) : ''} ago` : s.summary || (s.live ? 'no report yet' : 'session gone')
+		const reference = [s.branch && s.branch !== c.label ? s.branch : '', worktreeName && !retired ? worktreeName : '', unlisted.has(s.task) ? 'unlisted' : '', s.pr && s.watching && s.live ? 'watching' : ''].filter(Boolean)
+		const waiting = s.live && s.live_status === 'waiting'
+		const cell = (column: keyof CrewWidths, child: RenderChildren) => (widths[column] > 0 ? <Box key={`cell-${column}-${s.session_id}`} width={widths[column]}>{child}</Box> : null)
 		return (
 			<Box key={key} flexDirection="column">
 				<Box flexDirection="row" columnGap={1}>
 					<Text dimColor={gone} color={s.live ? (s.live_status === 'busy' ? 'claude' : s.live_status === 'waiting' ? 'error' : 'success') : retired ? 'subtle' : 'error'}>{s.live ? (s.live_status === 'busy' ? '◉' : '●') : '○'}</Text>
-					<Button key={`row-${key}`} plain hotkey={i < 9 ? String(i + 1) : undefined} dimColor={gone || (picked !== null && picked !== key)} label={label} onPress={() => update($, selected, () => key)} />
-					<Text dimColor>{s.branch && s.branch !== label ? s.branch : ''}</Text>
-					{worktreeName && !retired ? <Text dimColor>{worktreeName}</Text> : null}
-					<Text dimColor={gone} color={retired ? undefined : gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
-						{stateWord(retired ? 'retired' : gone ? 'gone' : s.state)}
-					</Text>
-					{s.live && s.live_status === 'waiting' ? <Text color="error">waiting on you (prompt)</Text> : null}
-					{s.pr ? <Text dimColor={gone} color="claude">#{s.pr}</Text> : null}
-					{s.pr && s.pr_state && s.pr_state !== 'OPEN' ? <Text dimColor={gone} color={s.pr_state === 'MERGED' ? 'success' : 'subtle'}>{s.pr_state.toLowerCase()}</Text> : null}
-					{s.pr && s.watching && s.live ? <Text dimColor>watching</Text> : null}
-					{unlisted.has(s.task) ? <Text dimColor>unlisted</Text> : null}
-					{s.live && s.context_percent !== null ? (
-						<Text dimColor={s.context_percent < 70} color={s.context_percent >= 85 ? 'error' : s.context_percent >= 70 ? 'warning' : undefined}>
-							ctx {s.context_percent}%
-						</Text>
-					) : null}
-					{isMe ? <Text dimColor>◀ you</Text> : null}
-				</Box>
-				<Box flexDirection="row" paddingLeft={4} columnGap={1}>
-					<Box width={Math.max(10, inner - 14)}>
-						<Text dimColor wrap={picked === key ? 'wrap' : 'truncate-end'}>
-							{retired ? `worktree retired ${s.retired_at ? ago(now - s.retired_at * 1000) : ''} ago` : s.summary || (s.live ? 'no report yet' : 'session gone')}
-						</Text>
+					<Box key={`cell-label-${s.session_id}`} width={widths.label} paddingLeft={hotkey ? 0 : HOTKEY_CELLS}>
+						<Button key={`row-${key}`} plain hotkey={hotkey} dimColor={gone || (picked !== null && picked !== key)} label={fit(c.label, widths.label - HOTKEY_CELLS)} onPress={() => update($, selected, () => key)} />
 					</Box>
-					<Text dimColor>{s.updated_at ? `${ago(now - s.updated_at * 1000)} ago` : ''}</Text>
+					{cell(
+						'state',
+						<Text wrap="truncate-end" dimColor={gone} color={retired ? undefined : gone ? 'error' : stateColour(s.state)} weight={!gone && s.state === 'in-slot' ? 'semibold' : undefined}>
+							{fit(c.state, widths.state)}
+						</Text>,
+					)}
+					{cell('pr', <Text wrap="truncate-end" dimColor={gone} color={s.pr_state === 'MERGED' ? 'success' : s.pr_state && s.pr_state !== 'OPEN' ? 'subtle' : 'claude'}>{c.pr}</Text>)}
+					{cell(
+						'ctx',
+						s.live && s.context_percent !== null ? (
+							<Text dimColor={s.context_percent < 70} color={s.context_percent >= 85 ? 'error' : s.context_percent >= 70 ? 'warning' : undefined}>
+								{c.ctx}
+							</Text>
+						) : null,
+					)}
+					{cell('age', <Text dimColor>{c.age}</Text>)}
+					{c.you && widths.you > 0 ? <Text dimColor>{YOU_MARK}</Text> : null}
+				</Box>
+				<Box key={`line2-${s.session_id}`} flexDirection="row" paddingLeft={2 + HOTKEY_CELLS} columnGap={1} width={inner}>
+					{waiting ? <Text color="error">waiting on you (prompt)</Text> : null}
+					<Text dimColor wrap={picked === key ? 'wrap' : 'truncate-end'}>
+						{[summary, ...reference].join(' · ')}
+					</Text>
 				</Box>
 			</Box>
 		)
@@ -1593,7 +1692,7 @@ export const register: Register = (on, options) => {
 		}
 		const me = await read($, self)
 		await refresh($, me.isCoordinator)
-		await $.ui.open({ id: PANE, title: 'goblin warband', focus: true, closeOnEscape: true, rows: 30, columns: 72 })
+		await $.ui.open({ id: PANE, title: 'goblin warband', focus: true, closeOnEscape: true, rows: 30, columns: SLATE_COLUMNS })
 		return {}
 	})
 
@@ -1770,10 +1869,15 @@ export const register: Register = (on, options) => {
 							<Button key="refresh" label="refresh" hotkey="r" onPress={() => refresh($, true)} />
 						</Box>
 					)}
+					{ask !== null && (
+						// the question on a line of its own and the field beneath it at the pane's full width: as a label it left the field a few cells
+						<Text key="ask-prompt" wrap="wrap">
+							{askPrompt(ask)}
+						</Text>
+					)}
 					{ask?.kind === 'grant' && (
 						<Input
 							key="grant-minutes"
-							label={`grant ${ask.resource}: minutes`}
 							value={ask.ref}
 							submitLabel="grant"
 							autoFocus
@@ -1794,7 +1898,6 @@ export const register: Register = (on, options) => {
 					{ask?.kind === 'release' && (
 						<Input
 							key="release-resource"
-							label="release which resource"
 							value={ask.resource}
 							submitLabel="release"
 							autoFocus
@@ -1809,7 +1912,6 @@ export const register: Register = (on, options) => {
 					{ask?.kind === 'done' && (
 						<Input
 							key="done-ref"
-							label={`mark tribute ${ask.ref} paid: paste the result (or @<file>) for a measurement, else enter`}
 							value=""
 							submitLabel="done"
 							autoFocus
@@ -1826,7 +1928,6 @@ export const register: Register = (on, options) => {
 					{ask?.kind === 'started' && (
 						<Input
 							key="started-ref"
-							label={`tribute ${ask.ref} is agreed: a note on where to watch it (a task id, the session), else enter`}
 							value=""
 							submitLabel="started"
 							autoFocus

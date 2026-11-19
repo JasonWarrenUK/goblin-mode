@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { carryPrState, clock, crewGroups, foldProbed, handoff, headerLayout, markFor, movedNotice, needGroups, others, packFacts, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, socketOf, startsRun, WORDMARK_GAP, wordmark } from './register'
+import { askPrompt, carryPrState, clock, crewColumns, crewGroups, crewLineWidth, foldProbed, handoff, HOTKEY_CELLS, headerLayout, markFor, movedNotice, needGroups, others, packFacts, parsePrs, parseSnapshot, prNumberOf, prsLines, reasonOf, resolveSession, sectionText, shellWord, SLATE_COLUMNS, socketOf, startsRun, WORDMARK_GAP, wordmark } from './register'
+import type { CrewCells } from './register'
 
 // the plugin tsconfig carries no ambient types; the test runner is Bun, which has it
 declare const setTimeout: (callback: (value?: unknown) => void, ms: number) => unknown
@@ -44,12 +45,13 @@ const world = (
 	extra: { cwd?: string; statusFor?: (nth: number, probed: boolean) => { status: unknown; delayMs: number } } = {},
 ) => {
 	let statusCalls = 0
-	const panes = { open: [] as string[] }
+	const panes = { open: [] as string[], columns: [] as unknown[] }
 	const calls: string[][] = []
 	const sent: { to: unknown; text: string }[] = []
 	on('ui.panes', async () => ({ value: panes.open.map(id => ({ id, title: id, isShown: true, isFocused: true, isPlaced: true })) }))
 	on('ui.open', async ($, e) => {
 		if (!panes.open.includes(e.id)) panes.open.push(e.id)
+		panes.columns.push(e.columns)
 		return { value: { isPlaced: true } }
 	})
 	on('ui.close', async ($, e) => {
@@ -148,7 +150,8 @@ test('the board draws the crew, the slot, the request and the need', async ($, o
 	const ui = await $.ui.mount(PANE)
 	expect((await ui.find({ type: 'Text', text: /^search$/ }))?.text).toBe('search')
 	expect(await ui.find({ type: 'Button', key: 'row-sess:crew-1' })).toBeTruthy()
-	expect((await ui.find({ type: 'Text', text: /scratch proof done/ }))?.text).toBe('scratch proof done')
+	// line 2: the summary first, then the branch and the worktree
+	expect((await ui.find({ type: 'Text', text: /scratch proof done/ }))?.text).toBe('scratch proof done · feat/a · a')
 	expect((await ui.find({ type: 'Text', text: /^local-db$/ }))?.text).toBe('local-db')
 	expect(await ui.find({ type: 'Button', key: 'row-req:api-port:crew-1' })).toBeTruthy()
 	expect((await ui.find({ type: 'Text', text: /cd \/code\/app\/\.claude\/worktrees\/a\/apps\/api && poetry run poe db-reset-local-anyway/ }))?.text).toContain('db-reset-local-anyway')
@@ -166,6 +169,95 @@ test('the slate header sets the raid name apart, names the chief and draws the w
 	expect((await ui.find({ type: 'Text', text: /^W A R B A N D$/ }))?.text).toBe('W A R B A N D')
 	expect((await ui.findAll({ type: 'Text', text: /^╺━+╸$/ })).length).toBe(2)
 	await ui.unmount()
+})
+
+// five raiders shaped like the slate the user could not read (a 95-column pane): long branches, every state width, a settled PR, a warning context
+const RAIDER = { ...STATUS.sessions[0], live_status: 'idle', retired_at: null, watching: false, pr_state: null, context_percent: null }
+const RAIDERS = {
+	...STATUS,
+	run: { ...STATUS.run, coordinator: { ...STATUS.run.coordinator, session_id: 'coord-1' } },
+	sessions: [
+		{ ...RAIDER, session_id: 's-rag', task: 'RAG', name: 'rag', branch: 'feat/ragpicker-vault-survey', worktree: '/code/app/.claude/worktrees/rag-vault-survey', state: 'in-slot', pr: 79, context_percent: 56, summary: 'survey of the vault shape done; schema draft next' },
+		{ ...RAIDER, session_id: 's-fix', task: 'FIX', name: 'fix', branch: 'fix/merged-rename-review-findings', worktree: '/code/app/.claude/worktrees/fix-review-finding', state: 'working', context_percent: 11, summary: 'three findings fixed' },
+		{ ...RAIDER, session_id: 's-scout', task: 'SCOUT', name: 'scout', branch: 'feat/goblin-scout-rename', worktree: '/code/app/.claude/worktrees/scout', state: 'pr-ready', pr: 78, watching: true, context_percent: 19, summary: 'PR open, watching' },
+		{ ...RAIDER, session_id: 's-war', task: 'WAR', name: 'war', branch: 'feat/goblin-warband-rename', worktree: '/code/app/.claude/worktrees/war', state: 'waiting-jason', pr: 123, pr_state: 'MERGED', context_percent: 85, live_status: 'waiting', summary: 'waiting on the gate tribute' },
+		{ ...RAIDER, session_id: 's-jest', task: 'JEST', name: 'jest', branch: 'feat/goblin-jester-rename', worktree: '/code/app/.claude/worktrees/jest', state: 'done', summary: 'landed' },
+	],
+}
+
+const cellsRow = (over: Partial<CrewCells>): CrewCells => ({ label: 'RAG', state: 'holding dibs', pr: '#79', ctx: 'ctx 56%', ctxHigh: false, age: '1m ago', you: false, ...over })
+
+test('crewColumns: the first line never passes the pane at any width, and context stays while a row warns', () => {
+	const calm = [cellsRow({}), cellsRow({ label: 'SCOUT', state: 'spoils ready', pr: '#78', ctx: 'ctx 19%' }), cellsRow({ label: 'WAR', state: 'awaiting tribute', pr: '#123 merged', ctx: 'ctx 11%', age: '12m ago', you: true })]
+	const warning = [...calm, cellsRow({ label: 'FIX', ctx: 'ctx 85%', ctxHigh: true })]
+	for (let inner = 40; inner <= 200; inner++) {
+		for (const rows of [calm, warning]) {
+			const w = crewColumns(rows, inner)
+			expect(crewLineWidth(w)).toBeLessThanOrEqual(inner)
+			expect(w.label).toBeGreaterThanOrEqual(HOTKEY_CELLS + 4)
+		}
+		expect(crewColumns(warning, inner).ctx).toBe(7)
+	}
+	// at the widths the user reads it (80 and 120 columns, inner 77 and 117), every column is there
+	for (const inner of [77, 117]) {
+		const w = crewColumns(calm, inner)
+		expect(w).toEqual({ label: HOTKEY_CELLS + 5, state: 16, pr: 11, ctx: 7, age: 7, you: 5 })
+	}
+	// too narrow: age goes before context, and a calm context before the task is cut
+	const tight = crewColumns(calm, 54)
+	expect(tight.age).toBe(0)
+	expect(tight.ctx).toBe(7)
+	expect(crewColumns(calm, 46).ctx).toBe(0)
+	expect(crewColumns([cellsRow({ label: 'a-very-long-task-name-indeed' })], 120).label).toBe(HOTKEY_CELLS + 12)
+})
+
+test('the raider rows line up: every row takes the same width in each column, at 80 and 120 columns', async ($, on) => {
+	world(on, 'coord-1', RAIDERS)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
+	for (const bodyColumns of [80, 120]) {
+		const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns } })
+		const inner = bodyColumns - 3
+		const widths: Record<string, number> = {}
+		for (const column of ['label', 'state', 'pr', 'ctx', 'age']) {
+			const seen = new Set<unknown>()
+			for (const s of RAIDERS.sessions) seen.add((await ui.find({ type: 'Box', key: `cell-${column}-${s.session_id}` }))?.props.width)
+			expect(seen.size).toBe(1)
+			widths[column] = Number([...seen][0])
+			expect(widths[column]).toBeGreaterThan(0)
+		}
+		expect(2 + Object.values(widths).reduce((n, w) => n + w + 1, 0)).toBeLessThanOrEqual(inner)
+		// line 2 opens with what the raider said; the branch follows, so the cut at the edge takes the branch
+		const fix = await ui.find({ type: 'Text', text: /three findings fixed/ })
+		expect(fix?.text.startsWith('three findings fixed · fix/merged-rename-review-findings')).toBe(true)
+		expect((await ui.find({ type: 'Box', key: 'line2-s-fix' }))?.props.width).toBe(inner)
+		expect((await ui.find({ type: 'Text', text: /^waiting on you \(prompt\)$/ }))?.text).toBe('waiting on you (prompt)')
+		expect((await ui.find({ type: 'Text', text: /^#123 merged$/ }))?.text).toBe('#123 merged')
+		await ui.unmount()
+	}
+})
+
+test('the slate asks the dock for 100 columns', async ($, on) => {
+	const { panes } = world(on, 'coord-1')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
+	expect(SLATE_COLUMNS).toBe(100)
+	expect(panes.columns).toContain(100)
+})
+
+test('a note input asks its question on a line of its own and leaves the field the full width', async ($, on) => {
+	world(on, 'coord-1')
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
+	const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns: 80 } })
+	await ui.press({ key: 'row-need:1' })
+	await ui.press({ key: 'started' })
+	const field = await ui.find({ type: 'Input', key: 'started-ref' })
+	expect(field).toBeDefined()
+	expect(field?.props.label).toBeUndefined()
+	expect((await ui.find({ type: 'Text', text: /^tribute 1 is agreed: / }))?.text).toBe('tribute 1 is agreed: a note on where to watch it (a task id, the session), else enter')
+	await ui.unmount()
+	for (const kind of ['grant', 'release', 'done', 'started'] as const) expect(askPrompt({ kind, resource: 'local-db', sessionId: 'crew-1', ref: '4' }).length).toBeGreaterThan(10)
 })
 
 test('helpers: movedNotice finds the move notice a status carries, and nothing in one without it', () => {
@@ -328,8 +420,8 @@ test('a gone session reads gone, dim, with its worktree name and the age of its 
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
 	await ui.press({ key: 'quiet' }) // the gone group is collapsed by default; c shows it
-	expect((await ui.find({ type: 'Text', text: /^wt-live$/ }))?.text).toBe('wt-live')
-	expect((await ui.find({ type: 'Text', text: /^wt-gone$/ }))?.text).toBe('wt-gone')
+	expect((await ui.find({ type: 'Text', text: / · wt-live$/ }))?.text).toBe('scratch proof done · feat/a · wt-live')
+	expect((await ui.find({ type: 'Text', text: / · wt-gone$/ }))?.text).toBe('scratch proof done · feat/b · wt-gone')
 	expect((await ui.find({ type: 'Text', text: /^gone$/ }))?.text).toBe('gone')
 	expect((await ui.find({ type: 'Text', text: /^1m ago$/ }))?.text).toBe('1m ago')
 	expect((await ui.find({ type: 'Text', text: /^1h 5m ago$/ }))?.text).toBe('1h 5m ago')
@@ -393,8 +485,8 @@ test('a merged PR reads merged beside its number and the coordinator is told to 
 	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
 	await $.command.run({ ...RUN, command: 'show-slate', args: '' })
 	const ui = await $.ui.mount(PANE)
-	expect((await ui.find({ type: 'Text', text: /^#209$/ }))?.text).toBe('#209')
-	expect((await ui.find({ type: 'Text', text: /^merged$/ }))?.text).toBe('merged')
+	// the PR column holds the number and its settled state together, so it lines up with the rows above
+	expect((await ui.find({ type: 'Text', text: /^#209 merged$/ }))?.text).toBe('#209 merged')
 	await ui.unmount()
 	const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
 	expect(composed.sections[1]?.text).toMatch(/PRs merged while the raider's row is not done: 10SE\.2 \(#209\)/)
@@ -767,12 +859,12 @@ test('the board groups the live crew under a subheading per state and the retire
 	// the sections in order: what the user types first, the live raiders, the machine, then the archive last
 	expect((await ui.findAll({ type: 'Text', text: /^(Raiders|Tribute owed|Tribute agreed|Dibs|Dibs called|Archive) · / })).map(t => t.text.split(' · ')[0])).toEqual(['Tribute owed', 'Raiders', 'Dibs', 'Dibs called', 'Archive'])
 	// the gone row itself (its worktree name is the one Text unique to it) is not drawn until c shows it
-	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
+	expect(await ui.find({ type: 'Text', text: / · wt-5$/ })).toBeUndefined()
 	expect((await ui.find({ type: 'Text', text: /^c shows$/ }))?.text).toBe('c shows')
 	await ui.press({ key: 'quiet' })
-	expect((await ui.find({ type: 'Text', text: /^wt-5$/ }))?.text).toBe('wt-5')
+	expect((await ui.find({ type: 'Text', text: / · wt-5$/ }))?.text).toMatch(/ · wt-5$/)
 	await ui.press({ key: 'quiet' })
-	expect(await ui.find({ type: 'Text', text: /^wt-5$/ })).toBeUndefined()
+	expect(await ui.find({ type: 'Text', text: / · wt-5$/ })).toBeUndefined()
 	await ui.unmount()
 })
 

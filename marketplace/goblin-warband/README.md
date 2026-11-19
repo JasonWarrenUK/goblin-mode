@@ -93,7 +93,7 @@ Each of these runs against the protocol, and most were learned on a live raid.
 
 ## 3. `/show-slate`: the slate
 
-Opens a pane with the raid, or closes it. In a fullscreen terminal of 110 columns or more it docks beside the transcript; narrower, it sits above the prompt. It runs with no turn, so it works while Claude is busy. While open it refreshes itself every `refresh_seconds`.
+Opens a pane with the raid, or closes it. In a fullscreen terminal of 110 columns or more it docks beside the transcript; narrower, it sits above the prompt. Docked, it asks for 100 columns, but the engine caps a dock at 45% of the terminal, so it gets 100 only from about 222 columns (a 120-column window gives it 54); a width you drag the dock to wins. Each raider's row lines its state, PR, context and age up in columns sized to the rows on screen; on a narrow pane age drops first, then context, except that context stays while any raider is at 70% or more. The summary sits on the line below, ahead of the branch, so the cut at the edge takes the branch. It runs with no turn, so it works while Claude is busy. While open it refreshes itself every `refresh_seconds`.
 
 | Section     | Shows |
 |-------------|-------|
