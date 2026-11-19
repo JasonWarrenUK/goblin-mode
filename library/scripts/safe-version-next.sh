@@ -19,8 +19,9 @@
 #                    continues that name's series, and declaring 1.0.0 in
 #                    its plugin.json takes it across the 0.x guard
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
-#             2 environment error; also a matching tag svu cannot read
-#               and two tagged earlier names at one distance (a person picks),
+#             2 environment error; also a matching tag that is not a version
+#               (another plugin's, or one svu cannot read) and tagged earlier
+#               names on separate paths of the renames map (a person picks),
 #             3 nothing to release (no version-bumping commits since the
 #               current tag: creating a tag would fail on a duplicate),
 #             4 omitted by policy (the target is in omit-gh-tag in the
@@ -77,7 +78,7 @@ series_current() {
 			[[ "${tag#$tag_prefix}" =~ '^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$' ]] || bad+=("$tag")
 		done
 		if (( ${#bad} )); then
-			print -u2 -- "tags matching ${pattern} that are not ${tag_prefix} versions (another plugin's, by the look of them): ${(j:, :)bad}; rename that plugin or its tags so its name has no digit after the -v, then run this again"
+			print -u2 -- "tags matching ${pattern} that do not read as ${tag_prefix} versions (another plugin's, or a malformed one of its own): ${(j:, :)bad}; rename a plugin whose name has a digit after the -v, or retag a malformed one, then run this again"
 			return 1
 		fi
 	fi
