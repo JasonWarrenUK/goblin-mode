@@ -1,0 +1,6 @@
+{
+	"server": "https://api.example.invalid",
+	"yamlField": "share",
+	"uid": "invented-uid",
+	"apiKey": "invented-secret-never-reported"
+}

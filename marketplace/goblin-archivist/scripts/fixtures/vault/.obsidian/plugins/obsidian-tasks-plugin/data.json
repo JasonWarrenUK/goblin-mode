@@ -1,0 +1,15 @@
+{
+	"globalFilter": "",
+	"taskFormat": "tasksPluginEmoji",
+	"statusSettings": {
+		"coreStatuses": [
+			{"symbol": " ", "name": "Todo", "nextStatusSymbol": "x", "type": "TODO"},
+			{"symbol": "x", "name": "Done", "nextStatusSymbol": " ", "type": "DONE"}
+		],
+		"customStatuses": [
+			{"symbol": "/", "name": "In Progress", "nextStatusSymbol": "x", "type": "IN_PROGRESS"},
+			{"symbol": "-", "name": "Cancelled", "nextStatusSymbol": " ", "type": "CANCELLED"},
+			{"symbol": "?", "name": "Question", "nextStatusSymbol": "x", "type": "TODO"}
+		]
+	}
+}

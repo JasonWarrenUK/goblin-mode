@@ -1,0 +1,30 @@
+{
+	"name": "goblin-archivist",
+	"version": "0.1.0",
+	"description": "Connects Claude Code sessions on this Mac to one Obsidian vault. This first slice ships /goblin-archivist:sniff-vault, a read-only survey of the vault that reports what is there and drafts a schema; nothing is written to the vault.",
+	"author": {
+		"name": "Jason Warren"
+	},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"license": "Zlib",
+	"keywords": ["mod", "obsidian", "vault", "archivist"],
+	"types": "./types/index.d.ts",
+	"userConfig": {
+		"enabled": {
+			"type": "boolean",
+			"title": "Archivist on",
+			"description": "The one switch for all of it. Off, the mod registers nothing and every archivist skill stops before it reads the vault.",
+			"default": true
+		},
+		"vault": {
+			"type": "directory",
+			"title": "Vault",
+			"description": "The Obsidian vault the archivist reads. Left empty, sniff-vault lists the vaults Obsidian knows and asks which."
+		},
+		"base_folder": {
+			"type": "directory",
+			"title": "Archivist folder",
+			"description": "Where the archivist writes its own files on this machine, outside the vault: one subfolder per project, named after the repository, and vault/ for vault-wide reports. Nothing runs until this is set."
+		}
+	}
+}

@@ -1,0 +1,4 @@
+# Invented fixture: the empty task line and empty properties end in a space on
+# purpose, since the survey must read them; the PNG is a binary stub.
+*.png binary
+Templates/*.md whitespace=-trailing-space
