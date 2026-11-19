@@ -2908,6 +2908,21 @@ class LegacyMigration(LegacyFixture):
                 self.assertIn("3.0.0", out)
         self.assertEqual({p: p.read_text() for p in before}, before)
 
+    def test_a_local_file_moved_alongside_arrives_byte_for_byte(self):
+        # space-indented, ASCII-escaped and with no trailing newline: nothing a
+        # roadbook writer would produce, and none of it may be rewritten
+        self._write(self.legacy, self._phases())
+        mirror = [phase([{"id": "M9", "name": "mirror – café", "tasks": [task("j1", local=True)]}],
+                        name="Jira", source={"kind": "jira", "project": "J"})]
+        original = json.dumps(mirror, indent=2).encode("utf-8")
+        self.legacy_local.write_bytes(original)
+        rc, out, err = self._run("claim", "d", str(self.legacy), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        self.assertFalse(self.legacy_local.exists())
+        self.assertEqual(self.new_local.read_bytes(), original)
+        self.assertEqual(len(err.splitlines()), 1, err)
+        self.assertIn(".claude/roadmaps.local.json to .claude/roadbook.local.json", err)
+
     def test_clearing_the_chart_path_on_an_unmoved_file_clears_it(self):
         data = self._phases()
         data[1]["artefact"] = "site/plan.html"

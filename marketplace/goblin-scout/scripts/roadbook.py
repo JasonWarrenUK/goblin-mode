@@ -708,7 +708,8 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
     beside it, to the roadbook names on the first write by 3.0.0. No value
     is rewritten: each phase is stamped (so a 2.x plugin refuses the file),
     a phase rendering to the old default chart path has that path pinned in
-    `artefact`, and the file being written carries its own change. One line
+    `artefact`, and the file being written carries its own change. A local
+    file moved alongside travels byte for byte instead, untouched. One line
     of notice on stderr, plus one when git would now track a local file it
     ignored under the old name. Returns the new path of `path`."""
     folder = path.parent
@@ -733,6 +734,13 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
                 content = None  # not a phase array: moved byte for byte
         if content is not None:
             _refuse_if_stamped_newer(content)
+            if source != path and source.name in LOCAL_NAMES:
+                # Ruled 2026-11-19: a local file moved alongside the one being
+                # written travels byte for byte. Nobody asked for it to be
+                # rewritten, so it keeps its own form; rebind --reformat is
+                # the one way to have it reformatted.
+                content = None
+        if content is not None:
             if pin or source != path:
                 _pin_legacy_chart(content, unpinned if source == path else ())
             _stamp_live_phases(content)
