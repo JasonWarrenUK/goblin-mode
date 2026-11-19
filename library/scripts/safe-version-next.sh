@@ -113,10 +113,12 @@ fi
 # A renamed plugin continues its old series. When nothing is tagged under the
 # new prefix, the marketplace's renames map is walked back from this name,
 # nearest earlier names first (several at once where names folded into one,
-# which is reported), to the nearest distance at which a name has tags; the
-# version is then computed under that prefix and printed under the new one.
-# Two tagged names at that distance exit 2 naming both: which series goes on
-# is a person's call, never the map's order. The commit scan
+# which is reported). Each name this one folded from starts a branch, and each
+# branch is followed back to its own nearest tagged name; the version is then
+# computed under that prefix and printed under the new one. More than one
+# tagged name (two branches, or two at one distance in a branch) exits 2
+# naming them all: which series goes on is a person's call, never the map's
+# order or how far back a name sits. The commit scan
 # covers the new directory and every walked-back name's directory, so a
 # change made before the move still counts: each directory is that name's
 # source in the marketplace as tagged, else a sibling of the new directory.
@@ -138,36 +140,38 @@ if renames is None:
 	sys.exit(0)
 if not isinstance(renames, dict):
 	sys.exit(f"renames: the map in {sys.argv[1]} is not an object; treating {sys.argv[2]} as unrenamed")
-queue, seen = [(sys.argv[2], 0)], {sys.argv[2]}
+queue, seen = [(sys.argv[2], 0, None)], {sys.argv[2]}
 while queue:
-	name, depth = queue.pop(0)
+	name, depth, branch = queue.pop(0)
 	before = [old for old, new in renames.items() if new == name and old not in seen]
 	if len(before) > 1:
 		names = ", ".join(before)
 		print(f"renames: {name} has several earlier names ({names}); trying each", file=sys.stderr)
 	for old in before:
 		seen.add(old)
-		queue.append((old, depth + 1))
-		print(f"{depth + 1}\t{old}")
+		queue.append((old, depth + 1, branch or old))
+		print(f"{branch or old}\t{depth + 1}\t{old}")
 ' "$marketplace" "$plugin")}")
-		nearest=""
+		typeset -A nearest
 		tagged=()
 		for line in "${earlier[@]}"; do
 			[[ -n "$line" ]] || continue
-			depth="${line%%$'\t'*}"
-			old="${line#*$'\t'}"
-			# names arrive nearest first; past the nearest tagged distance, stop
-			[[ -n "$nearest" && "$depth" != "$nearest" ]] && break
+			branch="${line%%$'\t'*}"
+			rest="${line#*$'\t'}"
+			depth="${rest%%$'\t'*}"
+			old="${rest#*$'\t'}"
+			# names arrive nearest first; past its branch's nearest tagged distance, a name is not walked
+			[[ -n "${nearest[$branch]:-}" && "$depth" != "${nearest[$branch]}" ]] && continue
 			walked+=("$old")
 			found=$(series_current "${old}-v" --tag.prefix "${old}-v" --tag.pattern "${old}-v[0-9]*") || exit 2
 			[[ "$found" == "${old}-v0.0.0" ]] && continue
-			nearest="$depth"
+			nearest[$branch]="$depth"
 			tagged+=("$found")
 			renamed_from="$old"
 			old_current="$found"
 		done
 		if (( ${#tagged} > 1 )); then
-			print -u2 -- "renames: $plugin has several tagged earlier names at the same distance (${(j:, :)tagged}); a person picks which series goes on: tag ${prefix}<version> by hand from the one chosen, or drop the other from the renames map"
+			print -u2 -- "renames: $plugin has several tagged earlier names (${(j:, :)tagged}); a person picks which series goes on: tag ${prefix}<version> by hand from the one chosen, or drop the other from the renames map"
 			exit 2
 		fi
 	fi
