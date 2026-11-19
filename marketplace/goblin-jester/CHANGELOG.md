@@ -5,6 +5,17 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-19
+
+### Fixed
+
+- A skill's model, prop and spinner words come from the copy the session loaded, a `--plugin-dir` one included.
+- A plugin skill's `family` and spinner words are checked before they reach the band.
+
+### Changed
+
+- The idle goblin redraws only when its picture changes: from 8.3 draws a second to 1.7 asleep, 1.1 watching, 2.4 pacing at the normal pace and none sitting or lying, though only to 7.1 at the feral pace. A stall caused by machine load or a sleep and wake is expected to land on it less often; the "ran longer than its 1000ms budget" toast can still appear under heavy load.
+
 ## [1.0.0] - 2026-11-19
 
 ### Changed

@@ -5,6 +5,18 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [10.1.1] - 2026-11-19
+
+### Fixed
+
+- `goblin-seneschal` 1.0.1: grievances logged to the old `cc-pain-points.json` after the first carry-over now reach `grievances.json`, and a relative `grievances_file` falls back to the default with a toast.
+- `goblin-jester` 1.0.1: a skill's model, prop and spinner words come from the copy the session loaded, and a plugin skill's `family` and spinner words are checked before they reach the band.
+- `safe-version-next.sh` stops with exit 2 when a renamed plugin's earlier tags are ambiguous or unreadable, or when `plugin.json` declares a version that is not three plain numbers. It no longer picks a series in silence.
+
+### Changed
+
+- `goblin-jester` 1.0.1: the idle goblin redraws only when its picture changes. The "ran longer than its 1000ms budget" toast should appear less often; it can still appear under heavy machine load.
+
 ## [10.1.0] - 2026-11-19
 
 ### Added

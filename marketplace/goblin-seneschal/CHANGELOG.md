@@ -5,6 +5,14 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-19
+
+### Fixed
+
+- Grievances a session on the old plugin logs to `cc-pain-points.json` now reach `grievances.json` at the next session start, under a suffixed id when theirs is taken; one deleted from `grievances.json` stays deleted. Updating from 1.0.0, the first start brings back once anything deleted since the first carry-over, and leaves behind a grievance whose id the file already uses; the README says how to check.
+- A `grievances_file` that is neither absolute nor under `~/` falls back to the default with a toast, rather than writing into every project.
+- `consult-dossiers` reads the store that is there when the other is missing; `audit-prose` warns when some of the named skills have gone.
+
 ## [1.0.0] - 2026-11-19
 
 ### Changed
