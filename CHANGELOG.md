@@ -5,6 +5,12 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [10.1.0] - 2026-11-19
+
+### Added
+
+- `goblin-archivist` plugin 0.1.0, its first slice: `/goblin-archivist:sniff-vault` surveys an Obsidian vault read-only and drafts a schema for it. Nothing is written to the vault.
+
 ## [10.0.0] - 2026-11-19
 
 ### Breaking
