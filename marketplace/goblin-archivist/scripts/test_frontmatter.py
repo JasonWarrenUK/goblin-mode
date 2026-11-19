@@ -76,6 +76,11 @@ class ScalarTest(unittest.TestCase):
 			self.assertTrue(result.errors, block)
 			self.assertEqual(result.properties, {})
 
+	def test_an_integer_too_long_to_convert_stays_text(self) -> None:
+		digits = '7' * 4400
+		self.assertEqual(parse_scalar(digits), digits)
+		self.assertEqual(read_frontmatter(note(f'id: {digits}')).properties, {'id': digits})
+
 	def test_url_value(self) -> None:
 		result = read_frontmatter(note('link: https://example.invalid/a#b'))
 		self.assertEqual(result.properties, {'link': 'https://example.invalid/a#b'})

@@ -483,7 +483,11 @@ def parse_scalar(text: str) -> object:
 	if text in ('false', 'False', 'FALSE'):
 		return False
 	if _INT.match(text):
-		return int(text)
+		# Python refuses more than 4300 decimal digits; such a value stays text.
+		try:
+			return int(text)
+		except ValueError:
+			return text
 	if _OCT.match(text):
 		return int(text[2:], 8)
 	if _HEX.match(text):
