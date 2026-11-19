@@ -51,6 +51,8 @@ from html import escape
 from pathlib import Path
 
 CONFIG_REL = ".claude/goblin-warband.json"
+OLD_CONFIG_REL = ".claude/mission-control.json"
+OLD_LOCAL_CONFIG_REL = ".claude/mission-control.local.json"
 LEDGER_ROOT = Path(os.environ.get("GOBLIN_WARBAND_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "goblin-warband"))
 SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "sessions"))
 STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting", "waiting-jason", "done")
@@ -287,16 +289,18 @@ def inside(path: str | None, root: str | None) -> bool:
 
 
 def find_config(cwd: str | Path) -> tuple[Path, dict] | None:
-    """The project config: the cwd's checkout first, then the main checkout."""
+    """The project config: the cwd's checkout first, then the main checkout; in each, the new name first and the old
+    mission-control name second (a repo whose raid is still carried on from the old ledger keeps its old config until the move)."""
     for root in (toplevel(cwd), main_checkout(cwd)):
         if root is None:
             continue
-        path = root / CONFIG_REL
-        if path.is_file():
-            data = read_json(path)
-            if not isinstance(data, dict):
-                raise Refusal(f"{path} does not parse as a JSON object")
-            return path, data
+        for rel in (CONFIG_REL, OLD_CONFIG_REL):
+            path = root / rel
+            if path.is_file():
+                data = read_json(path)
+                if not isinstance(data, dict):
+                    raise Refusal(f"{path} does not parse as a JSON object")
+                return path, data
     return None
 
 
@@ -1925,7 +1929,7 @@ def iso_ts(raw) -> float | None:
 
 def classify(main: Path, config: dict | None) -> dict:
     """Solo or collaborative, with the evidence: the stated answer wins when there is one and the history is read to confirm it."""
-    local = read_json(main / LOCAL_CONFIG_REL, {}) or {}
+    local = read_json(main / LOCAL_CONFIG_REL, None) or read_json(main / OLD_LOCAL_CONFIG_REL, {}) or {}
     stated, source = None, "inferred"
     if isinstance(local, dict) and isinstance(local.get("collaboration"), dict):
         stated, source = local["collaboration"], "local config"
@@ -2384,6 +2388,10 @@ def cmd_status(args) -> int:
     notice = take_moved_notice()
     if notice:
         status["notice"] = notice
+    if CARRYING:
+        status["carrying"] = CARRYING
+        if not args.json:
+            print(CARRYING)
     if args.json:
         print(json.dumps(status))
     else:
@@ -4724,7 +4732,7 @@ COMMANDS = {
 
 # ---------------------------------------------------------------- the move from mission-control
 
-OLD_CONFIG_RELS = ((".claude/mission-control.json", CONFIG_REL), (".claude/mission-control.local.json", LOCAL_CONFIG_REL))
+OLD_CONFIG_RELS = ((OLD_CONFIG_REL, CONFIG_REL), (OLD_LOCAL_CONFIG_REL, LOCAL_CONFIG_REL))
 
 
 def old_ledger_root() -> Path | None:
@@ -4750,16 +4758,36 @@ def live_raids_in(root: Path) -> list[str]:
     return names
 
 
+# Set for the life of this process when a raid is live in the old ledger: the one line that says so.
+CARRYING: str | None = None
+
+
+def carry_on_from(old_root: Path, live: list[str]) -> None:
+    """Ruling 23: while a raid is live in the old mission-control ledger, this process reads and writes that ledger (every
+    raid, a new one included, so state never splits across two roots) and the old config names, with every gate as before.
+    Nothing moves; the first command after the last raid there ends moves everything."""
+    global LEDGER_ROOT, CARRYING
+    new_root = LEDGER_ROOT
+    LEDGER_ROOT = old_root
+    CARRYING = (f"goblin-warband: carrying on {len(live)} live raid{'s' if len(live) != 1 else ''} ({', '.join(live)}) from the mission-control ledger at {old_root}; "
+                f"everything moves to {new_root} on the first command after the last raid there ends (/end-raid ends one).")
+
+
 def migrate_from_mission_control(cwd: str) -> str | None:
     """Move the old ledger root and this repository's old config files to their new names, once, before any command reads them.
 
-    Returns the one line of notice when something moved, None when nothing needed to. Raises Refusal, and moves nothing at all,
-    while the old ledger holds a live raid: a ledger is never moved mid-raid, and a config is never moved from under the plugin
-    still running that raid. The ledger moves whole (archived raids under runs/ included) and only when the new root does not
-    exist yet; a config moves only when its new name is free. Gate records under <git-common-dir>/mission-control/ are a per-commit
+    Returns the one line of notice when something moved, None when nothing needed to. While the old ledger holds a live raid
+    nothing moves: a ledger is never moved mid-raid, and this process carries the raid on from the old ledger instead
+    (carry_on_from). The ledger moves whole (archived raids under runs/ included) and only when the new root does not exist
+    yet; a config moves only when its new name is free. Gate records under <git-common-dir>/mission-control/ are a per-commit
     cache and stay where they are."""
     old_root = old_ledger_root()
     new_root = LEDGER_ROOT
+    if old_root is not None and old_root.is_dir() and old_root.resolve() != new_root.resolve():
+        live = live_raids_in(old_root)
+        if live:
+            carry_on_from(old_root, live)
+            return None
     roots = []
     for root in (toplevel(cwd), main_checkout(cwd)):
         if root is not None and root not in roots:
@@ -4790,10 +4818,9 @@ def move_from_mission_control(old_root: Path | None, new_root: Path, ledger_move
         return None
     if old_root is not None and old_root.is_dir():
         live = live_raids_in(old_root)
-        if live:
-            raise Refusal(f"goblin-warband has not moved anything from mission-control: {len(live)} raid{'s' if len(live) != 1 else ''} still live in {old_root} "
-                          f"({', '.join(live)}). A ledger is never moved mid-raid. End {'each' if len(live) != 1 else 'it'} with the mission-control plugin (/mc end), "
-                          f"then run any goblin-warband command and the ledger and config move by themselves.")
+        if live:  # a raid started under the old plugin between the first look and the lock: carry it on, move nothing
+            carry_on_from(old_root, live)
+            return None
     moved = []
     if ledger_moves:
         new_root.parent.mkdir(parents=True, exist_ok=True)
@@ -4826,13 +4853,7 @@ def take_moved_notice() -> str | None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        try:
-            notice = migrate_from_mission_control(args.cwd)
-        except Refusal:
-            if args.cmd == "hook":
-                notice = None  # a hook fails open: the refusal is the next command's to say
-            else:
-                raise
+        notice = migrate_from_mission_control(args.cwd)
         if notice:
             print(notice, file=sys.stderr)  # stderr, so a hook's or --json's stdout stays parseable
         code = COMMANDS[args.cmd](args)

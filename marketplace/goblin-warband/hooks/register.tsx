@@ -307,11 +307,14 @@ export const foldProbed = (prev: Snapshot | null, probed: Snapshot): Snapshot | 
 	}
 }
 
-/** The move's notice in a status reply, or null. */
-export const movedNotice = (stdout: string): string | null => {
+let carryingTold = false
+
+/** A line from the move in a status reply (`notice` once it moved, `carrying` while a raid is carried on from the old ledger), or null. */
+export const movedNotice = (stdout: string, key: 'notice' | 'carrying' = 'notice'): string | null => {
 	try {
 		const data: unknown = JSON.parse(stdout)
-		return isRecord(data) && typeof data.notice === 'string' && data.notice ? data.notice : null
+		const line = isRecord(data) ? data[key] : null
+		return typeof line === 'string' && line ? line : null
 	} catch {
 		return null
 	}
@@ -329,6 +332,12 @@ const refresh = async ($: EngineInterface, withProbes = false): Promise<Snapshot
 		if (ran.exitCode === 0) {
 			const notice = movedNotice(ran.stdout)
 			if (notice) $.ui.toast(notice)
+			// a raid carried on from the old mission-control ledger is said once a session; the slate's text says it on every read
+			const carrying = movedNotice(ran.stdout, 'carrying')
+			if (carrying && !carryingTold) {
+				carryingTold = true
+				$.ui.toast(carrying)
+			}
 		}
 	} catch (error) {
 		next = failed('broken', error instanceof Error && /ENOENT|not found/i.test(error.message) ? 'python3 is not on PATH' : 'the CLI could not run', at)

@@ -3756,24 +3756,88 @@ class MoveFromMissionControl(unittest.TestCase):
         again = self.box.mc("status")
         self.assertNotIn("goblin-warband: moved", again.stderr, "the move happens once")
 
-    def test_a_live_raid_in_the_old_ledger_refuses_the_move_and_says_why(self):
+    def tree(self, root):
+        return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.name != "run.lock")
+
+    def test_a_live_old_raid_is_carried_on_from_the_old_ledger_and_nothing_moves(self):
+        """Ruling 23: the raid carries on from the old ledger and the old config names, says so in one line, and nothing moves."""
         self.old_world(live=True)
-        before = sorted(str(p.relative_to(self.old)) for p in self.old.rglob("*"))
-        done = self.box.mc("status", expect=1)
-        self.assertIn("goblin-warband has not moved anything from mission-control: 1 raid still live", done.stdout)
-        self.assertIn("search (", done.stdout)
-        self.assertIn("A ledger is never moved mid-raid", done.stdout)
-        self.assertEqual(sorted(str(p.relative_to(self.old)) for p in self.old.rglob("*")), before, "nothing in the old ledger moved")
-        self.assertFalse(self.new.exists())
+        archived = sorted(p.name for p in (self.old / "runs").iterdir())
+        done = self.box.mc("--json", "status")
+        status = json.loads(done.stdout)
+        self.assertEqual(status["run"]["name"], "search", "the live raid is the one the new CLI reads")
+        self.assertTrue(status["config"], "the old config name is read")
+        self.assertIn(str(self.old), status.get("carrying", ""))
+        self.assertIn("moves to", status["carrying"])
+        self.assertFalse(self.new.exists(), "no second root is started")
+        self.assertEqual(sorted(p.name for p in (self.old / "runs").iterdir()), archived)
         self.assertTrue((self.box.repo / ".claude" / "mission-control.json").is_file(), "the config stays with the live raid")
         self.assertFalse((self.box.repo / ".claude" / "goblin-warband.json").exists())
+        self.assertIn("carrying on", self.box.mc("status").stdout.splitlines()[0], "read-slate says so in one line")
 
-    def test_a_hook_during_a_live_old_raid_fails_open_and_moves_nothing(self):
+    def test_a_live_old_raid_keeps_the_dibs_gate_shut_from_the_old_root(self):
         self.old_world(live=True)
-        done = self.box.mc("hook", "session-start", session="crew-1", stdin=json.dumps({"session_id": "crew-1", "cwd": str(self.box.worktree), "source": "startup"}))
-        self.assertEqual(done.returncode, 0)
-        self.assertNotIn("goblin-warband: moved", done.stderr)
-        self.assertTrue((self.old / "runs").is_dir())
+        self.as_old_plugin("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree))
+        self.box.mc("join", session="crew-1", cwd=self.box.worktree)
+        out = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "cd apps/api && poetry run poe db-reset-local-anyway"}})
+        verdict = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual(verdict["permissionDecision"], "deny")
+        self.assertIn("free, but not granted to you", verdict["permissionDecisionReason"])
+        requests = list((next(p for p in self.old.iterdir() if (p / "run.json").is_file()) / "requests").iterdir())
+        self.assertEqual(len(requests), 1, "the dibs called landed in the old ledger")
+        self.assertFalse(self.new.exists())
+
+    def test_a_live_old_raid_keeps_the_push_gate_shut_from_the_old_config(self):
+        self.old_world(live=True)
+        self.assertIn("push_gate", json.loads((self.box.repo / ".claude" / "mission-control.json").read_text()), "the example config opts in")
+        out = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}}, session="coord-1", cwd=self.box.repo)
+        verdict = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual(verdict["permissionDecision"], "deny")
+        self.assertIn("no green record", verdict["permissionDecisionReason"])
+
+    def test_a_raid_started_while_an_old_one_is_live_goes_to_the_old_ledger_too(self):
+        self.old_world(live=True)
+        other = self.box.tmp / "other"
+        other.mkdir()
+        git(other, "init", "-q", "-b", "main")
+        git(other, "config", "user.email", "t@example.com")
+        git(other, "config", "user.name", "t")
+        (other / ".claude").mkdir()
+        (other / ".claude" / "goblin-warband.json").write_text(json.dumps({k: v for k, v in json.loads(EXAMPLE.read_text()).items() if k != "collaboration"}))
+        (other / "README.md").write_text("x\n")
+        git(other, "add", "-A")
+        git(other, "commit", "-q", "-m", "init")
+        self.box.register("coord-2", "other chief", str(other))
+        before = self.tree(self.old)
+        self.box.mc("start", "--name", "second", session="coord-2", cwd=other)
+        self.assertFalse(self.new.exists(), "state is never split across two roots")
+        started = [p for p in self.tree(self.old) if p.endswith("run.json") and p not in before]
+        self.assertEqual(len(started), 1, started)
+        self.assertEqual(len([p for p in self.old.glob("*/run.json") if p.parent.name != "runs"]), 2, "two live raids in the old ledger")
+
+    def test_the_move_happens_once_on_the_first_command_after_the_last_old_raid_ends(self):
+        self.old_world(live=True)
+        self.box.mc("status")
+        self.assertTrue(self.old.is_dir())
+        ended = self.box.mc("end", "--force", session="coord-1")
+        self.assertNotIn("goblin-warband: moved", ended.stderr, "the command that ends the raid does not move it")
+        self.assertTrue(self.old.is_dir())
+        self.assertEqual(len(list((self.old / "runs").iterdir())), 3, "the ended raid was archived in the old ledger")
+        env = dict(self.box.env)
+        procs = [subprocess.Popen([sys.executable, "-I", str(CLI), "--cwd", str(self.box.repo), "--json", "status"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                 for _ in range(4)]
+        results = [p.communicate() + (p.returncode,) for p in procs]
+        self.assertEqual([code for _, _, code in results], [0] * 4, [err for _, err, _ in results])
+        self.assertEqual(sum("goblin-warband: moved" in err for _, err, _ in results), 1, "moved exactly once, under the lock")
+        self.assertFalse(self.old.exists())
+        self.assertEqual(len(list((self.new / "runs").iterdir())), 3)
+        self.assertTrue((self.box.repo / ".claude" / "goblin-warband.json").is_file())
+        self.assertNotIn("carrying", json.loads(self.box.mc("--json", "status").stdout))
+
+    def test_a_hook_during_a_live_old_raid_reads_the_raid_from_the_old_ledger(self):
+        self.old_world(live=True)
+        out = self.box.hook("session-start", {"source": "startup"}, session="coord-1", cwd=self.box.repo)
+        self.assertIn("search", out, "the chief's start context names the carried raid")
         self.assertFalse(self.new.exists())
 
     def test_an_existing_new_ledger_is_never_overwritten(self):

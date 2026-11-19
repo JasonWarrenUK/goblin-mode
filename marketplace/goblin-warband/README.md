@@ -16,6 +16,8 @@ claude plugin install goblin-warband@goblin-mode
 
 Requires `python3` (3.9+, stdlib only) on `PATH`, `lsof` and `pgrep` for the probes and `psql` where a resource probes a database. The slate draws in the terminal and needs Claude Code 2.1.287 or later; the hooks, the CLI and the skills work on any version. The goblin-scout plugin is optional: kick-off uses its ready set of waypoints and starts trails when it finds it.
 
+**Upgrading from mission-control.** The marketplace's renames map loads goblin-warband in place of mission-control; if `/plugin` reports it not cached, run `/plugin install goblin-warband@goblin-mode` once. The first warband command moves `~/.claude/mission-control/` (archived raids included) to `~/.claude/goblin-warband/`, and a repository's `.claude/mission-control.json` and its `.local` twin to their new names, and says so once on the slate. While a raid is still live in the old ledger nothing moves: the warband carries every raid on from the old ledger and the old config names with every gate in force, and says so on the slate. Everything moves on the first command after the last raid there ends (`/end-raid` ends one). The move rewrites no values, so a push gate whose commands name `marketplace/mission-control` paths needs them changing by hand.
+
 ---
 
 ## 2. A raid, start to finish: what you type, where and what not to
