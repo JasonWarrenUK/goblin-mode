@@ -17,9 +17,9 @@
 <!-- gen-skills-index: counts start (do not hand-edit; run gen-skills-index.py) -->
 | Component     | Count | What it does |
 |----------------|-------|--------------|
-| **Skills (command)** | 32 | Slash commands you invoke (e.g. `/commit-one`) |
+| **Skills (command)** | 31 | Slash commands you invoke (e.g. `/commit-one`) |
 | **Skills (role)**    | 17 | Ambient knowledge that loads automatically when relevant |
-| **Skills (model-invocable command)** | 17 | Command skills the model can also self-invoke |
+| **Skills (model-invocable command)** | 12 | Command skills the model can also self-invoke |
 | **Agents**     | 10 | Autonomous sub-processes for multi-step work |
 | **Hooks**      | 7 global + 0 project-level | Scripts triggered by git and session events |
 <!-- gen-skills-index: counts end -->

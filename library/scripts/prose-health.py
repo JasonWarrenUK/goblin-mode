@@ -3,7 +3,8 @@
 
 One PASS / WARN / FAIL line per check, then the output-quality trend from
 prose-metrics.py (recorded as a side effect). Exit 1 when anything FAILs.
-The deterministic half of the hud-prose_health skill.
+goblin-seneschal's audit-prose skill runs its own copy of this script, with
+every audited location taken from a flag.
 
 Checks:
   settings     outputStyle at user level, attribution trailers cleared

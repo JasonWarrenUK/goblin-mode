@@ -4,8 +4,9 @@ profile stores (library/profiles/dossier/*.md and
 library/profiles/personas/*.md).
 
 Neither store is privileged over the other here: both are read through the
-same _profiles_core.py parser, on the same shared schema. This is the CLI
-`hud-profiles` calls. red-doc/red-branch keep calling red-personas.py
+same _profiles_core.py parser, on the same shared schema. goblin-seneschal's
+`consult-dossiers` runs its own copy of this CLI, with the store locations
+taken from flags. red-doc/red-branch keep calling red-personas.py
 directly for the personas-only, narrower surface their allowed-tools
 permission strings already name.
 

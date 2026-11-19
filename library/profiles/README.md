@@ -57,4 +57,4 @@ profile file (idempotent — re-running never renumbers an existing file).
 - `red-doc` and `red-branch` read persona files via
   `library/scripts/red-personas.py`, and derive new personas from dossier
   entries when asked, per `library/references/red/methodology.md` Step 1c.
-- `hud-profiles` reads both, read-only, for a human to browse.
+- goblin-seneschal's `consult-dossiers` reads both, read-only, for a human to browse.

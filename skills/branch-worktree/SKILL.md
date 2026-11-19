@@ -1,7 +1,7 @@
 ---
 name: "Branch: Worktree"
 description: "Move this session into a new worktree on a given branch (existing, or new from a base), move into a worktree that already exists, or list and prune worktrees and their leftovers"
-when_to_use: "When the user wants this session working on a branch in its own worktree, wants to switch into a worktree that already exists, or wants stale worktrees cleared away. For a read-only map of what worktrees exist, use hud-worktrees."
+when_to_use: "When the user wants this session working on a branch in its own worktree, wants to switch into a worktree that already exists, or wants stale worktrees cleared away. For a read-only map of what worktrees exist, use goblin-seneschal:inspect-chambers."
 model: sonnet
 effort: medium
 metadata:
@@ -16,7 +16,7 @@ argument-hint: "new <existing-branch>|<new-branch>:<base> [worktree name] | use 
 
 # Branch: Worktree
 
-Three jobs: put this session into a new worktree on the right branch, move it into a worktree that already exists, and clear away worktrees nobody needs. The map of what exists lives in `hud-worktrees`; this skill is where the changes happen.
+Three jobs: put this session into a new worktree on the right branch, move it into a worktree that already exists, and clear away worktrees nobody needs. The map of what exists lives in goblin-seneschal's `inspect-chambers`; this skill is where the changes happen.
 
 **The session moves with `EnterWorktree`, never `cd`.** A `cd` changes only the shell. The session's working directory, CLAUDE.md, memory and plan files stay pointed at the old checkout, so every later edit and commit silently targets the wrong tree. Every move into a worktree in this skill is an `EnterWorktree` call with `path`; every move out is `ExitWorktree`.
 
@@ -100,7 +100,7 @@ Moves the session into a worktree that already exists. Creates no worktree and n
 ## Action: `prune`
 
 1. **Record the start directory first:** `pwd` and `git rev-parse --show-toplevel`, before any other command. That recorded value is the only fact about where this session is standing; a later `pwd` cannot be trusted, because a stray `cd` changes it.
-2. **Build the map** exactly as `hud-worktrees` does (its "Always start with the map" section): every worktree with path, branch, dirty or clean, ahead and behind (counted against the PR base for a stacked layer), and which one this session is standing in (from the recorded start directory). Add an **In use** column from `~/.claude/library/scripts/checkout-occupied.sh <path>`: exit 1 means another live Claude session is working there.
+2. **Build the map** exactly as goblin-seneschal's `inspect-chambers` does (its "Always start with the map" section): every worktree with path, branch, dirty or clean, ahead and behind (counted against the PR base for a stacked layer), and which one this session is standing in (from the recorded start directory). Add an **In use** column from `~/.claude/library/scripts/checkout-occupied.sh <path>`: exit 1 means another live Claude session is working there.
    - **Never `cd` while building the map.** Every check uses `git -C <path>` or an absolute path (`du -sh <path>/.venv`, `ls <path>/.env*`). A `cd` into a candidate makes the session look as if it were standing in it.
    - zsh does not word-split an unquoted variable, so `set -- $pair` leaves `$1` holding the whole string. Pass each worktree's path and branch as separate arguments to a function, or make one call per worktree.
 3. **Find the candidates**, in two tiers. Removing a worktree never touches its branch, its commits or its PR, so a worktree can be idle while the branch is still live. Both tiers need a clean tree and no other live session in the worktree.

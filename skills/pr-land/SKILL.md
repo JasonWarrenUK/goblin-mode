@@ -210,7 +210,7 @@ A target whose Step 3 script exited 4 produced no tag, so it has no section to w
 
 A queue (Step 0) reports once, as the table Step 0 item 8 describes, with the lines below filled per PR.
 
-PR merged (URL), every tag created (root, any bumped plugin and each tag CI returned in Step 3), branch/worktree state after cleanup, roadmap synced or skipped, the task IDs given an end date by Step 1.6, and the Step 6 read-backs: changelog section per tag, release created or deliberately skipped (and why) per series, each verification line. Offer `/hud-whats_new {previousTag}` so the user sees what they can now do that they couldn't before this landing.
+PR merged (URL), every tag created (root, any bumped plugin and each tag CI returned in Step 3), branch/worktree state after cleanup, roadmap synced or skipped, the task IDs given an end date by Step 1.6, and the Step 6 read-backs: changelog section per tag, release created or deliberately skipped (and why) per series, each verification line. Offer `/goblin-seneschal:proclaim-changes {previousTag}` so the user sees what they can now do that they couldn't before this landing.
 
 ## Red flags
 
