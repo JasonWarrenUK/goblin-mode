@@ -229,16 +229,25 @@ def body_lines(body: str) -> list[str]:
 		level = prefix.count('>')
 		content = line[len(prefix):]
 		if fence:
+			match = FENCE.match(content)
+			# The closer: same character, at least as many, nothing after. It is
+			# tested before the item's end on purpose: a closer left of the item's
+			# text still closes the block, as before the item rule. CommonMark
+			# would end the item there and open a second block that runs on; a
+			# survey that keeps the rest of the note is the better mistake.
+			if level == depth and match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence) and not match.group(2).strip():
+				fence = ''
+				out.append('')
+				continue
 			inside = strip_quotes(line, item_level)
-			if item_column and inside.strip() and width(inside) - width(inside.lstrip(' \t')) < item_column:
+			start = len(line) - len(inside)
+			text_start = len(line) - len(inside.lstrip(' \t'))
+			# Columns from the line's start, so tabs land on their real stops.
+			if item_column and inside.strip() and width(line[:text_start]) - width(line[:start]) < item_column:
 				fence = ''
 			elif level < depth:
 				fence = ''
 			else:
-				match = FENCE.match(content)
-				# The closer: same character, at least as many, nothing after.
-				if level == depth and match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence) and not match.group(2).strip():
-					fence = ''
 				out.append('')
 				continue
 		marker = LIST_PREFIX.match(content)
@@ -250,7 +259,14 @@ def body_lines(body: str) -> list[str]:
 			depth = level + TASK_BOX.sub('', lead).count('>')
 			markers = list(LIST_MARKER.finditer(TASK_BOX.sub('[ ]', lead)))
 			item_level = level
-			item_column = width(lead[: markers[-1].end()]) if markers else 0
+			item_column = 0
+			if markers:
+				base = width(line[: len(prefix)])
+				symbol_end = len(prefix) + markers[-1].start() + len(markers[-1].group().rstrip(' \t'))
+				item_column = width(line[: len(prefix) + markers[-1].end()]) - base
+				# Five or more columns after the marker: the text starts one column after it (5.2).
+				if item_column - (width(line[:symbol_end]) - base) > 4:
+					item_column = width(line[:symbol_end]) - base + 1
 			# A fence on a list line keeps its marker, so a task box before it still counts.
 			out.append((prefix + lead).rstrip() if lead else '')
 			continue

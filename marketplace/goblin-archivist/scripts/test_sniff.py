@@ -124,6 +124,32 @@ class HelperTest(unittest.TestCase):
 		body = '- ```sh\n  a #nottag\n\n  b #nottag\n  ```\n- after #real\n'
 		self.assertEqual(self.visible(body), ['- after #real'])
 
+	REST = '- then the rest\n\n- [ ] water the ferns #garden\n- [x] mend the kite #sky\n'
+	KEPT = ['- then the rest', '- [ ] water the ferns #garden', '- [x] mend the kite #sky']
+
+	def test_a_tab_inside_a_code_line_does_not_end_the_item(self) -> None:
+		body = '- ```\n  name\tcolour #notatag\n  fern\tgreen\n  ```\n' + self.REST
+		self.assertEqual(self.visible(body), self.KEPT)
+
+	def test_a_closer_left_of_a_nested_items_text_still_closes(self) -> None:
+		body = '- parent\n  - ```sh\n    echo hello #notatag\n  ```\n' + self.REST
+		self.assertEqual(self.visible(body), ['- parent'] + self.KEPT)
+
+	def test_a_closer_at_the_margin_closes_a_list_fence(self) -> None:
+		# A deliberate departure: CommonMark opens a second block at a margin closer and runs it to
+		# the end of the note; the survey closes the first block, as it did before the item rule.
+		body = '- ```sh\n  code #notatag\n```\n' + self.REST
+		self.assertEqual(self.visible(body), self.KEPT)
+
+	def test_five_or_more_spaces_after_a_marker(self) -> None:
+		# CommonMark 0.31.2 section 5.2: past four columns, the item's text starts one column after the marker
+		body = '-      ```sh\n  echo hello #notatag\n  ```\n' + self.REST
+		self.assertEqual(self.visible(body), self.KEPT)
+
+	def test_a_tab_after_a_marker_inside_a_quote(self) -> None:
+		body = '> -\t```sh\n>   echo hello #notatag\n>   ```\n' + self.REST
+		self.assertEqual(self.visible(body), self.KEPT)
+
 	def test_a_fence_behind_a_quote_on_the_marker_line(self) -> None:
 		body = '- > ```sh\n  > echo #notatag\n  > ```\n- [ ] after #garden\n'
 		self.assertEqual(self.visible(body), ['- [ ] after #garden'])
