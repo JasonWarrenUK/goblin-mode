@@ -28,7 +28,7 @@ const STATS = JSON.stringify({
 type On = Parameters<typeof mock.clock>[0]
 
 /** The world beneath the plugin: a clock, a store, and a python that answers the CLI by subcommand. */
-const world = (on: On, detectExit = 0, readyRefusal: string | null = null, ready = READY, stored: Record<string, unknown> = {}) => {
+const world = (on: On, detectExit = 0, readyRefusal: string | null = null, ready = READY, stored: Record<string, unknown> = {}, writeStderr = '') => {
 	const calls: string[][] = []
 	const toasts: string[] = []
 	// the plugin's store in memory, seeded with `stored`, so a test reads back what the pane kept
@@ -57,8 +57,9 @@ const world = (on: On, detectExit = 0, readyRefusal: string | null = null, ready
 		if (sub === 'ready' && readyRefusal !== null) return { value: { exitCode: 2, stdout: readyRefusal, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
 		if (sub === 'ready') return ok(ready)
 		if (sub === 'stats') return ok(STATS)
-		if (sub === 'claim') return ok(`claimed ${argv[3]}`)
-		if (sub === 'assign') return ok(`assigned ${argv[3]}`)
+		const wrote = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: writeStderr, isStdoutTruncated: false, isStderrTruncated: false } })
+		if (sub === 'claim') return wrote(`claimed ${argv[3]}`)
+		if (sub === 'assign') return wrote(`assigned ${argv[3]}`)
 		return { value: { exitCode: 1, stdout: '', stderr: 'unknown', isStdoutTruncated: false, isStderrTruncated: false } }
 	})
 	on('ui.open', async ($, e) => {
@@ -161,7 +162,7 @@ test('the ready set splits into subgroups that keep leverage order, led by the n
 	expect(ids(subgroup(set, 'none', []))).toEqual([['', ['A', 'B', 'C', 'D', 'E']]])
 })
 
-// The next three are goblin-warband's wordmark tests (WAR's warband.test.tsx at 33f7ee8), with the scout's word and facts.
+// The next three are goblin-warband's wordmark tests (from its hooks/warband.test.tsx), with the scout's word and facts.
 test('helpers: the wordmark is as wide as its spaced word, rules included', () => {
 	const mark = wordmark('warband')
 	expect(mark).toEqual({ rule: '╺━━━━━━━━━━━╸', word: 'W A R B A N D', width: 13 })
@@ -292,6 +293,18 @@ test('a blank assign clears the assignee', async ($, on) => {
 	await ui.input({ key: 'assignee', text: '  ' })
 	expect(calls.some(c => c.slice(2).join(' ') === 'assign 2SE.4 --unassign')).toBe(true)
 	expect(toasts).toEqual(["cleared 2SE.4's assignee. commit roadbook.json when you are ready."])
+})
+
+test('a write that moved a 2.x roadmaps.json says to commit both paths', async ($, on) => {
+	const moved = 'goblin-scout 3.0.0 moved .claude/roadmaps.json to .claude/roadbook.json; no value was rewritten'
+	const { toasts } = world(on, 0, null, READY, {}, moved)
+	await $.session.start({ cwd: '/code/app', surface: 'terminal', isInteractive: true })
+	await $.command.run({ ...RUN, command: 'scout-waypoints' })
+	const ui = await $.ui.mount(PANE)
+	await ui.press({ key: 'row-2SE.1' })
+	await ui.press({ key: 'claim' })
+	await ui.input({ key: 'assignee', text: 'Jaz' })
+	expect(toasts).toEqual(['Jaz is on the trail to 2SE.1. roadmaps.json moved to roadbook.json: commit both paths when you are ready.'])
 })
 
 test('a trail in play can be picked and reassigned, but not started again', async ($, on) => {

@@ -1,4 +1,4 @@
-/* The goblin theme (.claude/themes/goblin-html.json at SITE's 64d05a4, emitted by library/scripts/theme/emit.ts), copied here so the plugin stands alone.
+/* The goblin theme family (.claude/themes/goblin-html.json, as approved on 2026-11-18, emitted by library/scripts/theme/emit.ts), copied here so the plugin stands alone.
    Regenerate with: bun emit.ts <path>/goblin-html.json, minus the <style> wrapper and the body rule. google_fonts is empty: the faces are embedded from templates/fonts/. */
 :root {
 	--ink: #1D2718;

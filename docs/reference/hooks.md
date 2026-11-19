@@ -30,7 +30,7 @@ Wired in [`settings.json`](configuration.md):
 
 ## Roadbook trail hooks (from the plugin)
 
-The goblin-scout plugin ships these in its `hooks/hooks.json`, so every install gets them, this config included now that `goblin-scout@goblin-mode` is enabled in `settings.json`. The logic lives in `marketplace/goblin-scout/scripts/_roadbook_hooks.py` and the claim rules in `marketplace/goblin-scout/references/roadbook-conventions.md` (Claims). The commands below are written as the plugin runs them; `${CLAUDE_PLUGIN_ROOT}` is its install directory.
+The goblin-scout plugin ships these in its `hooks/hooks.json`, so every install gets them, this config included now that `goblin-scout@goblin-mode` is enabled in `settings.json`. The logic lives in `marketplace/goblin-scout/scripts/_roadbook_hooks.py` and the claim rules in `marketplace/goblin-scout/references/roadbook-conventions.md` (Trails). The commands below are written as the plugin runs them; `${CLAUDE_PLUGIN_ROOT}` is its install directory.
 
 | Command | Event | What it does |
 |---|---|---|

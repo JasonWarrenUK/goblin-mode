@@ -313,7 +313,7 @@ def nudge(branch, checkout, phase, cli_path, ready_fn):
         "goblin-scout:start-trail skill runs this whole flow.\n"
         f"If it is not roadbook work, run git -C {at} config "
         f"{q(f'branch.{branch}.{MARKER}')} none so nobody asks again. If the "
-        "user has already approved working on a specific task in this "
+        "user has already approved working on a specific waypoint in this "
         "session, claim that task without asking. If you cannot ask the user, "
         "do nothing."
     )

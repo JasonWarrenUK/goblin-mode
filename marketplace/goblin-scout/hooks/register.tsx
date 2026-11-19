@@ -261,6 +261,12 @@ const refresh = async ($: EngineInterface): Promise<void> => {
 	}
 }
 
+/** What to commit after a write: both paths when it was goblin-scout's first on a 2.x project and moved the file. */
+const commitHint = (ran: { stderr: string }): string =>
+	/moved \.claude\/roadmaps/.test(ran.stderr)
+		? 'roadmaps.json moved to roadbook.json: commit both paths when you are ready.'
+		: 'commit roadbook.json when you are ready.'
+
 const claim = async ($: EngineInterface, id: string, assignee: string): Promise<string> => {
 	const who = assignee.trim()
 	if (!who) return "a trail needs a scout's name."
@@ -268,7 +274,7 @@ const claim = async ($: EngineInterface, id: string, assignee: string): Promise<
 		// The person typed the name on purpose, so a different assignee gives way to it.
 		const ran = await run($, ['claim', id, `--assignee=${who}`, '--reassign'])
 		if (ran.exitCode !== 0) return reasonOf(ran, `trail on ${id} refused`)
-		return `${who} is on the trail to ${id}. commit roadbook.json when you are ready.`
+		return `${who} is on the trail to ${id}. ${commitHint(ran)}`
 	} catch {
 		return 'the CLI could not run'
 	}
@@ -280,7 +286,7 @@ const assign = async ($: EngineInterface, id: string, assignee: string): Promise
 	try {
 		const ran = await run($, who ? ['assign', id, `--assignee=${who}`] : ['assign', id, '--unassign'])
 		if (ran.exitCode !== 0) return reasonOf(ran, `assign ${id} refused`)
-		return `${who ? `assigned ${id} to ${who}` : `cleared ${id}'s assignee`}. commit roadbook.json when you are ready.`
+		return `${who ? `assigned ${id} to ${who}` : `cleared ${id}'s assignee`}. ${commitHint(ran)}`
 	} catch {
 		return 'the CLI could not run'
 	}
