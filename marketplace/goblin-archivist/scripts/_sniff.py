@@ -985,9 +985,9 @@ def is_within(path: Path, folder: Path) -> bool:
 def committable(path: Path) -> str | None:
 	"""The repository that would track a file at path, or None.
 
-	None when no existing folder above path is in a git work tree, when git
-	ignores every file the survey and the skill write there or when git
-	cannot be run.
+	None when no existing folder above path is in a git work tree, or when
+	git ignores every file the survey and the skill write there. Any other
+	answer from git, or no git at all, refuses: the guard fails closed.
 	"""
 	anchor = next((candidate for candidate in (path, *path.parents) if candidate.is_dir()), None)
 	if anchor is None:
@@ -995,13 +995,17 @@ def committable(path: Path) -> str | None:
 	try:
 		top = subprocess.run(['git', '-C', str(anchor), 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=False)
 		if top.returncode != 0:
-			return None
+			if 'not a git repository' in top.stderr:
+				return None
+			raise SniffError(f'git could not say whether {path} is in a repository ({top.stderr.strip()}); the survey writes nothing it cannot keep out of one')
 		for name in OUTPUT_NAMES:
-			ignored = subprocess.run(['git', '-C', str(anchor), 'check-ignore', '-q', str(path / name)], capture_output=True, check=False)
-			if ignored.returncode != 0:
+			ignored = subprocess.run(['git', '-C', str(anchor), 'check-ignore', '-q', str(path / name)], capture_output=True, text=True, check=False)
+			if ignored.returncode == 1:
 				return top.stdout.strip()
-	except OSError:
-		return None
+			if ignored.returncode != 0:
+				raise SniffError(f'git could not say whether {path / name} is ignored ({ignored.stderr.strip()}); the survey writes nothing it cannot keep out of a repository')
+	except OSError as problem:
+		raise SniffError(f'git could not be run to check {path} ({problem}); the survey writes nothing it cannot keep out of a repository') from problem
 	return None
 
 
@@ -1062,10 +1066,13 @@ def write_outputs(vault: Path, out: Path) -> dict[str, Path]:
 	data = survey(vault)
 	schema = draft_schema(data)
 	texts = {'survey': dump(data), 'schema': dump(schema), 'report': render_report(data, schema)}
-	out.mkdir(parents=True, exist_ok=True)
-	if is_within(out, vault):
-		raise SniffError(f'the output folder {out} is inside the vault; the survey writes nothing there')
-	for key in ('survey', 'schema', 'report'):
-		check_output_file(paths[key], vault)
-		write_replacing(paths[key], texts[key])
+	try:
+		out.mkdir(parents=True, exist_ok=True)
+		if is_within(out, vault):
+			raise SniffError(f'the output folder {out} is inside the vault; the survey writes nothing there')
+		for key in ('survey', 'schema', 'report'):
+			check_output_file(paths[key], vault)
+			write_replacing(paths[key], texts[key])
+	except OSError as problem:
+		raise SniffError(f'could not write to {out}: {problem}') from problem
 	return paths

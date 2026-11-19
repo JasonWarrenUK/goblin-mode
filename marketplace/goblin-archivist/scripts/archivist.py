@@ -8,8 +8,9 @@
 		Survey the vault read-only and write survey.json, report.md and
 		schema.draft.json to <base>/vault/sniff/. Prints those paths as JSON.
 
-Exit codes: 0 done; 2 a bad path, or an output folder inside the vault or
-inside a git repository that does not ignore it; 3 the vault is not set;
+Exit codes: 0 done; 2 a bad path, an output folder or file inside the vault
+or linked into it, an output folder in a git repository that does not
+ignore it, git unable to answer, or a failed write; 3 the vault is not set;
 4 the base folder is not set.
 
 The skill passes the plugin's options straight through, so an option nobody

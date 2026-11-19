@@ -41,7 +41,7 @@ The script reads every Markdown note and the named files in `.obsidian` (plugin 
 | Exit | Meaning | Do |
 |---|---|---|
 | 0 | Done | Step 3 |
-| 2 | Bad path, or the output folder is inside the vault or an unignored repository | Report the message; stop |
+| 2 | Bad path; an output folder or file inside the vault, linked into it or in an unignored repository; git could not be asked; or a write failed | Report the message; stop |
 | 3 | Vault unset | Step 1.2 |
 | 4 | Archivist folder unset | Step 1.1 |
 

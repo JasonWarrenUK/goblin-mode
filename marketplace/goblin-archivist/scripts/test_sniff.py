@@ -261,6 +261,21 @@ class OutputTest(unittest.TestCase):
 		data = json.loads(paths['survey'].read_text(encoding='utf-8'))
 		self.assertIn('Escaped.md', [item['path'] for item in data['problems']['invalid_frontmatter']])
 
+	def test_a_git_failure_refuses_rather_than_reading_as_no_repository(self) -> None:
+		import _sniff
+		real_run = _sniff.subprocess.run
+
+		def broken(arguments, **options):
+			return subprocess.CompletedProcess(arguments, 128, '', 'fatal: detected dubious ownership in repository\n')
+
+		_sniff.subprocess.run = broken
+		try:
+			with self.assertRaises(SniffError):
+				write_outputs(FIXTURE, self.tmp / 'out')
+		finally:
+			_sniff.subprocess.run = real_run
+		self.assertFalse((self.tmp / 'out').exists())
+
 	def test_unreadable_note_is_reported_not_fatal(self) -> None:
 		vault = self.tmp / 'vault'
 		shutil.copytree(FIXTURE, vault)
@@ -323,6 +338,16 @@ class CommandTest(unittest.TestCase):
 		self.assertEqual(self.run_cli('sniff', '--vault', '', '--base', '/tmp')[0], 3)
 		self.assertEqual(self.run_cli('sniff', '--vault', '${user_config.vault}', '--base', '/tmp')[0], 3)
 		self.assertEqual(self.run_cli('sniff', '--vault', str(FIXTURE), '--base', '${user_config.base}')[0], 4)
+
+	def test_a_disk_error_is_exit_2_with_a_message(self) -> None:
+		blocker = Path(tempfile.mkdtemp())
+		try:
+			(blocker / 'file').write_text('not a folder\n', encoding='utf-8')
+			code, _, err = self.run_cli('sniff', '--vault', str(FIXTURE), '--base', str(blocker / 'file'))
+			self.assertEqual(code, 2)
+			self.assertIn('could not write', err)
+		finally:
+			shutil.rmtree(blocker)
 
 	def test_missing_vault(self) -> None:
 		self.assertEqual(self.run_cli('sniff', '--vault', '/nonexistent/vault', '--base', '/tmp')[0], 2)
