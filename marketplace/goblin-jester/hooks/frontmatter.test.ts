@@ -68,6 +68,21 @@ describe('pluginSkillPaths', () => {
 	test('a skill directory that would climb out of the install is refused', async () => {
 		expect(pluginSkillPaths(INSTALLED, { plugin: 'hookify', dir: '../../etc' }, '/code/app')).toEqual([])
 	})
+
+	test('a project path recorded with a trailing slash still matches its own root, and only paths beneath it', async () => {
+		const slashed = JSON.stringify({ plugins: { 'goblin-scout@m': [{ scope: 'project', projectPath: '/a/proj/', installPath: '/c/s' }] } })
+		const here = '/c/s/skills/start-trail/SKILL.md'
+		expect(pluginSkillPaths(slashed, SCOUT, '/a/proj')).toEqual([here])
+		expect(pluginSkillPaths(slashed, SCOUT, '/a/proj/x')).toEqual([here])
+		expect(pluginSkillPaths(slashed, SCOUT, '/a/proj-two')).toEqual([])
+	})
+
+	test("an install of an unrecognised scope bound to another project's path is never read", async () => {
+		for (const scope of ['workspace', 'constructor', 'toString']) {
+			const bound = JSON.stringify({ plugins: { 'goblin-scout@m': [{ scope, projectPath: '/other', installPath: '/c/s' }] } })
+			expect(pluginSkillPaths(bound, SCOUT, '/a/proj')).toEqual([])
+		}
+	})
 })
 
 const SKILL = [
@@ -119,6 +134,14 @@ describe('readSkill', () => {
 		expect(splitBar(' a | b ||c|')).toEqual(['a', 'b', 'c'])
 		expect(splitBar(null)).toEqual([])
 		expect(splitBar('|')).toEqual([])
+	})
+
+	test('a spinner word from a stranger is capped in length and loses its control characters', async () => {
+		const [long] = splitBar('x'.repeat(300))
+		expect(Array.from(long ?? '').length).toBe(40)
+		expect(splitBar('\u001b[31mred\u001b[0m|tab\there|bell\u0007')).toEqual(['[31mred[0m', 'tabhere', 'bell'])
+		// a word that was nothing but control characters is dropped, never drawn blank
+		expect(splitBar('\u001b\u0007|ok')).toEqual(['ok'])
 	})
 })
 

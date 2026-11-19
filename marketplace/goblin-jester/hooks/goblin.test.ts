@@ -72,6 +72,10 @@ describe('props', () => {
 		expect(propFor(null)).toBe('')
 	})
 
+	test("a family named after an object's own machinery is no family, never a function in the goblin's hand", async () => {
+		for (const family of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) expect(propFor(family)).toBe('')
+	})
+
 	test('the default minion face is band-safe', async () => {
 		expect(cells(DEFAULT_MINION)).toBeLessThanOrEqual(5)
 	})

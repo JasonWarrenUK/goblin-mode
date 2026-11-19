@@ -334,6 +334,73 @@ test('a plugin skill that is not installed reads as nothing set, and never falls
 	expect(await goblinProps($)).toMatchObject({ prop: '' })
 })
 
+/** The band's top-left corner as drawn now. */
+const corner = async ($: Engine) => {
+	const ui = await $.ui.mount(BAND)
+	const text = (await ui.find({ type: 'Text', text: /^[┏╔╓╭+]/ }))?.text?.[0]
+	await ui.unmount()
+	return text
+}
+
+test("the engine's own frontmatter for the file it loaded wins over the install record: a --plugin-dir copy shadowing an installed one", async ($, on) => {
+	world(on)
+	rootAt(on, '/code/app')
+	// the installed copy says one thing; the working copy the session loaded says another
+	skillFiles(on, {
+		'/home/j/.claude/plugins/installed_plugins.json': INSTALLED,
+		[`${CACHE}/3.0.0/skills/start-trail/SKILL.md`]: START_TRAIL,
+	})
+	on('ui.render', { component: 'Spinner' }, async ($, e) => {
+		const { Text } = $.ui.resolve(e)
+		return Text({ children: [e.props.word] })
+	})
+	on('turn.start', async ($, e) => ({ turnId: e.turnId }))
+	await $.turn.start({ text: '/goblin-scout:start-trail', turnId: 't1' })
+	await $.skill.prompt({
+		skill: 'goblin-scout:start-trail',
+		text: '',
+		path: '/code/goblin-mode/marketplace/goblin-scout/skills/start-trail/SKILL.md',
+		pluginName: 'goblin-scout',
+		source: 'plugin',
+		frontmatter: { name: 'start-trail', model: 'haiku', metadata: { family: 'scout', 'goblin-spinner': 'reading the working copy' } },
+	})
+	expect(await goblinProps($)).toMatchObject({ prop: '(+)' })
+	expect(await spinnerWord($)).toBe('••• rEaDiNg tHe wOrKiNg cOpY •••')
+	expect(await corner($)).toBe('╓')
+})
+
+test("a plugin skill found through the install record pins its model: the frame's tier moves and the mismatch frame is drawn", async ($, on) => {
+	world(on)
+	rootAt(on, '/code/app')
+	skillFiles(on, {
+		'/home/j/.claude/plugins/installed_plugins.json': INSTALLED,
+		[`${CACHE}/3.0.0/skills/start-trail/SKILL.md`]: START_TRAIL.replace('name: start-trail\n', 'name: start-trail\nmodel: haiku\n'),
+	})
+	await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: '' })
+	expect(await corner($)).toBe('╓')
+})
+
+test('with no installed_plugins.json, a plugin skill reads as nothing set and the hook still answers', async ($, on) => {
+	world(on)
+	rootAt(on, '/code/app')
+	skillFiles(on, {})
+	const ran = await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: 'go' })
+	expect(ran).toEqual({ text: 'go' })
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+	expect(await corner($)).toBe('┏')
+})
+
+test('with HOME unset, a plugin skill reads as nothing set and the hook still answers', async ($, on) => {
+	mock.clock(on, { now: new Date(2026, 9, 7, 12, 0).getTime() })
+	mock.store(on)
+	mock.env(on, {})
+	rootAt(on, '/code/app')
+	skillFiles(on, { '/home/j/.claude/plugins/installed_plugins.json': INSTALLED, [`${CACHE}/3.0.0/skills/start-trail/SKILL.md`]: START_TRAIL })
+	const ran = await $.skill.prompt({ skill: 'goblin-scout:start-trail', text: 'go' })
+	expect(ran).toEqual({ text: 'go' })
+	expect(await goblinProps($)).toMatchObject({ prop: '' })
+})
+
 test("the goblin holds the family's prop while the skill runs and drops it when the turn completes", async ($, on) => {
 	world(on)
 	skillFiles(on, { '.claude/skills/pr-land/SKILL.md': PR_LAND })
