@@ -37,7 +37,11 @@ const fileFor = (urlPath: string): string | null => {
 
 describe('the build', () => {
 	it('prerendered the front page, every mod page and the skills wing', () => {
-		expect(pages.length).toBeGreaterThanOrEqual(12);
+		// 12 before the tutorial; its shared-route placeholder gave way to an index and five levels
+		expect(pages.length).toBe(17);
+		for (const path of ['skills/tutorial/index.html', ...[1, 2, 3, 4, 5].map((n) => `skills/tutorial/${n}/index.html`)]) {
+			expect(existsSync(join(BUILD, path)), path).toBe(true);
+		}
 		expect(existsSync(join(BUILD, 'index.html'))).toBe(true);
 		expect(existsSync(join(BUILD, '.nojekyll'))).toBe(true);
 	});

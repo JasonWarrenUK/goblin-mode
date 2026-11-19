@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Placeholder until the skills wing is designed with Jason (scope S1 to S4).
-	import { home, skillPage } from '#lib/paths.ts';
+	import { home, skillHref } from '#lib/paths.ts';
 	import { SKILL_PAGES } from '#lib/content/skills.ts';
 </script>
 
@@ -14,7 +14,7 @@
 		<h1 id="skills-title">Build Your Own</h1>
 		<ul>
 			{#each SKILL_PAGES as page (page.slug)}
-				<li><a href={skillPage(page.slug)}>{page.title}</a></li>
+				<li><a href={skillHref(page)}>{page.title}</a></li>
 			{/each}
 		</ul>
 	</section>

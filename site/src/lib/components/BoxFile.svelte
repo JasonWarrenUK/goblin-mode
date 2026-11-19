@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { skillPage, skillsIndex } from '#lib/paths.ts';
+	import type { SkillPage } from '#lib/content/skills.ts';
+	import { skillHref, skillsIndex } from '#lib/paths.ts';
 
 	interface Props {
-		pages: readonly { slug: string; title: string }[];
+		pages: readonly SkillPage[];
 	}
 
 	let { pages }: Props = $props();
@@ -15,7 +16,7 @@
 	</div>
 	<ul>
 		{#each pages as page (page.slug)}
-			<li><a href={skillPage(page.slug)}>{page.title}</a></li>
+			<li><a href={skillHref(page)}>{page.title}</a></li>
 		{/each}
 	</ul>
 </section>

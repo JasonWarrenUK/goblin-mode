@@ -30,6 +30,11 @@ def text_of(path: pathlib.Path) -> str:
     body = path.read_text(errors="ignore")
     if path.suffix in (".html", ".svelte"):
         body = re.sub(r"<(style|script)\b.*?</\1>", "", body, flags=re.S | re.I)
+    # Code is not prose: an effort level shown as <code>max</code> or `max`,
+    # and a method call such as Math.max(...), are not people.
+    body = re.sub(r"<code\b[^>]*>.*?</code>", " ", body, flags=re.S | re.I)
+    body = re.sub(r"`[^`\n]*`", " ", body)
+    body = re.sub(r"\.\w+\s*\(", " (", body)
     return body
 
 
