@@ -4007,6 +4007,24 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertEqual(verdict["permissionDecision"], "deny", "the dibs gate still rules from the new root")
         self.assertTrue((stray / "run.json").is_file())
 
+    def test_a_link_the_person_made_at_the_old_name_moves_once_with_no_wrong_note(self):
+        """Review 5979400434: a hand-made link at the old name (to a shared file, or a worktree's link to the main checkout's
+        config) moves like any file and leaves the move's own link; it is never skipped for good with a config_note blaming
+        the ignore rule."""
+        self.old_world(live=False)
+        claude = self.box.repo / ".claude"
+        shared = self.box.tmp / "shared-config.json"
+        (claude / "mission-control.json").rename(shared)
+        (claude / "mission-control.json").symlink_to(shared)
+        first = self.box.mc("--json", "status")
+        self.assertIn("goblin-warband: moved", first.stderr)
+        self.assertNotIn("config_note", json.loads(first.stdout))
+        self.assertEqual(os.readlink(claude / "mission-control.json"), "goblin-warband.json", "the move's own link")
+        self.assertEqual((claude / "goblin-warband.json").resolve(), shared.resolve(), "the person's link now sits at the new name")
+        again = self.box.mc("--json", "status")
+        self.assertNotIn("goblin-warband: moved", again.stderr)
+        self.assertNotIn("config_note", json.loads(again.stdout))
+
     def test_a_link_that_cannot_be_made_warns_and_the_move_still_lands(self):
         """Review 5978864222: the link is for sessions not yet restarted; one the filesystem refuses (permissions) says so in
         the notice and never fails the move."""

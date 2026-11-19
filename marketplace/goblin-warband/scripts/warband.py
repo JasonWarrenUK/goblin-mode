@@ -4848,7 +4848,9 @@ def migrate_from_mission_control(cwd: str) -> str | None:
         ledger = old_root is not None and old_root.is_dir() and not new_root.exists() and old_root.resolve() != new_root.resolve()
         # a config moves only where git cannot see the move: ignored under both names (config_note says what to do otherwise)
         configs = [(root / old_rel, root / new_rel) for root in roots for old_rel, new_rel in OLD_CONFIG_RELS
-                   if (root / old_rel).is_file() and not (root / old_rel).is_symlink() and not (root / new_rel).exists()
+                   # the move's own link points at the new name, so `not new.exists()` already rules it out; a link the
+                   # person made (to a shared file, or a worktree's to the main checkout) moves like any file
+                   if (root / old_rel).is_file() and not (root / new_rel).exists()
                    and git_ignores(root, old_rel) and git_ignores(root, new_rel)]
         return ledger, configs
 
