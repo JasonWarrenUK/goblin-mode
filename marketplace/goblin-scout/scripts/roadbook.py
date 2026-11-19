@@ -714,6 +714,7 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
     ignored under the old name. Returns the new path of `path`."""
     folder = path.parent
     plan = []
+    unpinned_charts = []  # (target, phase) moved byte for byte with no chart path
     for old, new in LEGACY_NAMES.items():
         source, target = folder / old, folder / new
         if source != path and (not siblings or not source.exists()):
@@ -750,7 +751,11 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
                 # Ruled 2026-11-19: a local file moved alongside the one being
                 # written travels byte for byte. Nobody asked for it to be
                 # rewritten, so it keeps its own form; rebind --reformat is
-                # the one way to have it reformatted.
+                # the one way to have it reformatted. It carries no chart
+                # pin either, so the notice names each chart that moves.
+                unpinned_charts.extend(
+                    (target, phase) for phase in _phases(content)
+                    if isinstance(phase, dict) and ARTEFACT_KEY not in phase)
                 content = None
         if content is not None:
             if pin or source != path:
@@ -766,12 +771,23 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
         if content is not None:
             source.unlink()
     moves = " and ".join(f"{_shown(s)} to {_shown(t)}" for s, t, _c in plan)
-    outputs = ("the chart and projections keep their paths" if pin
-               else "the outputs move as rebind lists them")
+    if not pin:
+        outputs = "the outputs move as rebind lists them"
+    elif unpinned_charts:
+        outputs = "the projections, and every chart but those noted below, keep their paths"
+    else:
+        outputs = "the chart and projections keep their paths"
     print(f"goblin-scout {PLUGIN_VERSION} moved {moves}; no value was "
           f"rewritten, {outputs} and a 2.x plugin (when it was called "
           "roadmap) now refuses the file. Commit the move.",
           file=sys.stderr)
+    for target, phase in unpinned_charts:
+        root = project_root(target)
+        now = _default_render_path(target, phase).relative_to(root).as_posix()
+        print(f"note: phase {phase.get('name')!r} in {_shown(target)} has no "
+              f"chart path, so its chart now renders to {now}; "
+              f"`roadbook.py rebind --outputs` moves a 2.x chart at "
+              f"{_legacy_render_rel(phase)} there", file=sys.stderr)
     for source, target, _content in plan:
         if target.name not in LOCAL_NAMES:
             continue
@@ -2621,9 +2637,10 @@ def _rebind_files(path):
 
 
 def _rebind_outputs(path, data, root):
-    """(source, target) for each 2.x default output of the phases in `data`,
-    each phase updated to the roadbook's names as it goes."""
-    moves = []
+    """(moves, stale) for the phases in `data`: a (source, target) for each
+    2.x default output, each phase updated to the roadbook's names as it
+    goes, and each 2.x chart left beside the chart that replaced it."""
+    moves, stale = [], []
     for phase in _phases(data):
         if not isinstance(phase, dict):
             continue
@@ -2632,12 +2649,21 @@ def _rebind_outputs(path, data, root):
         if phase.get(ARTEFACT_KEY, legacy_chart if path.name in LEGACY_NAMES else None) == legacy_chart:
             moves.append((root / legacy_chart, _default_render_path(path, phase)))
             phase.pop(ARTEFACT_KEY, None)
+        elif ARTEFACT_KEY not in phase and (root / legacy_chart).exists():
+            # a local file moved byte for byte carries no chart pin, so its
+            # 2.x chart is still at the old default; one already rendered
+            # to the new name makes the old file stale, and rebind never deletes
+            current = _default_render_path(path, phase)
+            if current.exists():
+                stale.append((root / legacy_chart, current))
+            else:
+                moves.append((root / legacy_chart, current))
         projection = phase.get("path")
         if isinstance(projection, str) and projection.startswith(LEGACY_PROJECTION_DIR):
             new = PROJECTION_DIR + projection[len(LEGACY_PROJECTION_DIR):]
             _set_phase_field(phase, "path", new)
             moves.append((root / projection, root / new))
-    return moves
+    return moves, stale
 
 
 def cmd_rebind(args) -> int:
@@ -2669,9 +2695,12 @@ def cmd_rebind(args) -> int:
         return 2
     root = project_root(path)
     moves = []  # (source, target) project files, deduplicated
+    stale = []  # (left, current): a 2.x chart beside the one that replaced it
     if args.outputs:
         for each, data in files:
-            moves.extend(_rebind_outputs(each, data, root))
+            found, left = _rebind_outputs(each, data, root)
+            moves.extend(found)
+            stale.extend(left)
         moves.append((root / LEGACY_OVERVIEW, root / OVERVIEW))
         seen = set()
         moves = [(s, t) for s, t in moves
@@ -2680,7 +2709,14 @@ def cmd_rebind(args) -> int:
     renamed = [each for each, _data in files if each.name in LEGACY_NAMES]
     plan = [f"{_shown(each)} -> .claude/{LEGACY_NAMES[each.name]}" for each in renamed] \
         + [f"{shown(s)} -> {shown(t)}" for s, t in moves]
+    left_lines = [f"{shown(left)} is stale: {shown(current)} is the chart now; "
+                  "delete it once nothing links to it" for left, current in stale]
     if not plan:
+        if left_lines:
+            print("nothing to move; left as it is:")
+            for line in left_lines:
+                print(f"  {line}")
+            return 0
         print("nothing to rebind: the roadbook and its outputs already use "
               "the roadbook names")
         return 0
@@ -2699,6 +2735,8 @@ def cmd_rebind(args) -> int:
         print("would move:")
         for line in plan:
             print(f"  {line}")
+        for line in left_lines:
+            print(f"  {line}")
         return 0
     for each, data in files:
         if each in renamed or args.outputs:
@@ -2707,6 +2745,8 @@ def cmd_rebind(args) -> int:
         _move_file(source, target)
     print("moved:")
     for line in plan:
+        print(f"  {line}")
+    for line in left_lines:
         print(f"  {line}")
     if moves:
         print("note: links elsewhere in the project still name the old "

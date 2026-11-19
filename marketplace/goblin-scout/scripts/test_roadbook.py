@@ -2920,8 +2920,29 @@ class LegacyMigration(LegacyFixture):
         self.assertEqual(rc, 0, out)
         self.assertFalse(self.legacy_local.exists())
         self.assertEqual(self.new_local.read_bytes(), original)
-        self.assertEqual(len(err.splitlines()), 1, err)
+        self.assertEqual(len(err.splitlines()), 2, err)  # the move, then the chart note
         self.assertIn(".claude/roadmaps.local.json to .claude/roadbook.local.json", err)
+
+    def test_the_notice_names_each_local_phase_whose_chart_now_renders_elsewhere(self):
+        # a local file moved byte for byte carries no chart pin (ruled
+        # 2026-11-19), so the notice must not claim every chart keeps its path
+        self._write(self.legacy, self._phases())
+        mirror = [phase([{"id": "M9", "name": "mirror", "tasks": [task("j1", local=True)]}],
+                        name="Jira", source={"kind": "jira", "project": "J"}),
+                  phase([{"id": "M8", "name": "own", "tasks": [task("j2", local=True)]}],
+                        name="Pinned", artefact="site/pinned.html",
+                        source={"kind": "jira", "project": "K"})]
+        self._write(self.legacy_local, mirror)
+        rc, out, err = self._run("claim", "d", str(self.legacy), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        lines = err.splitlines()
+        self.assertEqual(len(lines), 2, err)
+        self.assertNotIn("the chart and projections keep their paths", lines[0])
+        self.assertIn("every chart but those noted below", lines[0])
+        self.assertIn("'Jira'", lines[1])
+        self.assertIn("docs/artefacts/chart-jira.html", lines[1])
+        self.assertIn("rebind --outputs", lines[1])
+        self.assertNotIn("Pinned", err)
 
     def test_a_write_to_the_local_file_refuses_to_reformat_the_committed_one(self):
         # the review's repro: a two-space roadmaps.json beside a local file,
@@ -3100,6 +3121,47 @@ class RebindCommand(LegacyFixture):
                     "docs/roadbook/TEST.md", "docs/roadbook/JIRA.md"):
             self.assertTrue((self.root / rel).exists(), rel)
         self.assertFalse(self.legacy.exists() or self.legacy_local.exists())
+
+    def _moved_with_a_left_chart(self):
+        """Both 2.x files moved by a first write on the committed one, so the
+        local file arrived byte for byte with no chart pin, and the mirror's
+        2.x chart still on disk at its old default name."""
+        self._write(self.legacy, self._phases())
+        self._write(self.legacy_local, self._mirror())
+        old_chart = self.root / "docs/artefacts/roadmap-jira.html"
+        old_chart.parent.mkdir(parents=True, exist_ok=True)
+        old_chart.write_text("2.x chart")
+        rc, out, _err = self._run("claim", "d", str(self.legacy), "--date", "2026-11-18")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("artefact", json.loads(self.new_local.read_text())[0])
+        return old_chart
+
+    def test_outputs_find_a_local_phase_chart_left_at_the_2x_default(self):
+        old_chart = self._moved_with_a_left_chart()
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs", "--dry-run")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("nothing to rebind", out)
+        self.assertIn("docs/artefacts/roadmap-jira.html -> docs/artefacts/chart-jira.html", out)
+        rc, out, _err = self._run("rebind", str(self.root), "--outputs")
+        self.assertEqual(rc, 0, out)
+        self.assertFalse(old_chart.exists())
+        self.assertEqual((self.root / "docs/artefacts/chart-jira.html").read_text(), "2.x chart")
+        self.assertNotIn("artefact", json.loads(self.new_local.read_text())[0])
+
+    def test_a_left_chart_beside_a_new_one_is_named_stale_and_left(self):
+        old_chart = self._moved_with_a_left_chart()
+        new_chart = self.root / "docs/artefacts/chart-jira.html"
+        new_chart.write_text("3.0 chart")
+        for argv in (("rebind", str(self.root), "--outputs", "--dry-run"),
+                     ("rebind", str(self.root), "--outputs")):
+            with self.subTest(argv=argv):
+                rc, out, _err = self._run(*argv)
+                self.assertEqual(rc, 0, out)
+                self.assertNotIn("already exists", out)
+                self.assertIn("stale", out)
+                self.assertIn("docs/artefacts/roadmap-jira.html", out)
+                self.assertEqual((old_chart.read_text(), new_chart.read_text()),
+                                 ("2.x chart", "3.0 chart"))
 
     def test_a_newer_stamp_on_either_file_refuses_before_anything_is_written(self):
         data = self._phases()
