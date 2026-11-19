@@ -2720,6 +2720,14 @@ def cmd_rebind(args) -> int:
                  if s.exists() and s not in seen and not seen.add(s)]
     shown = lambda p: p.relative_to(root).as_posix()
     renamed = [each for each, _data in files if each.name in LEGACY_NAMES]
+    for each in renamed:
+        # an old file named outright beside a roadbook file: the write would
+        # refuse, so the dry run refuses too and lists only what runs
+        target = each.parent / LEGACY_NAMES[each.name]
+        if target.exists():
+            print(f"✗ {_shown(target)} already exists beside {_shown(each)}; "
+                  f"write to {target.name}, the one goblin-scout reads")
+            return 2
     plan = [f"{_shown(each)} -> .claude/{LEGACY_NAMES[each.name]}" for each in renamed] \
         + [f"{shown(s)} -> {shown(t)}" for s, t in moves]
     left_lines = [f"{shown(left)} is stale: {shown(current)} is the chart now; "

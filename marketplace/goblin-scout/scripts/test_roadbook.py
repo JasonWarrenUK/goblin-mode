@@ -3294,6 +3294,18 @@ class RebindCommand(LegacyFixture):
         self.assertEqual(rc, 0, out)
         self.assertNotIn(b"\r", self.new.read_bytes())
 
+    def test_a_named_old_file_beside_a_roadbook_refuses_in_the_dry_run_too(self):
+        # round 3: the dry run said "would move" where the real run refused
+        self._write(self.new, self._phases()[1:])
+        self._write(self.legacy, self._phases())
+        before = (self.new.read_text(), self.legacy.read_text())
+        for argv in (("rebind", str(self.legacy), "--dry-run"), ("rebind", str(self.legacy))):
+            with self.subTest(argv=argv):
+                rc, out, _err = self._run(*argv)
+                self.assertEqual(rc, 2, out)
+                self.assertIn(".claude/roadbook.json already exists beside .claude/roadmaps.json", out)
+                self.assertEqual((self.new.read_text(), self.legacy.read_text()), before)
+
     def test_a_pointer_registry_is_named_as_the_file_it_is(self):
         self.legacy.write_text(json.dumps({"roadmaps": [{"path": "docs/roadmaps/mvp.md"}]}) + "\n")
         rc, out, _err = self._run("rebind", str(self.root))
