@@ -28,7 +28,7 @@ Every command below is `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/profiles.py --doss
 - **No arguments**: go to "No arguments" below.
 - **First token is `list` or `count`**: that action. An optional second token `dossier` or `personas` scopes the store (default both). `list` takes an optional third token `full` or `short` (default `short`).
 - **First token is `show`**: `show <name>` (name is the next token).
-- **Anything else** (one bare token, no recognised verb, e.g. `/goblin-seneschal:consult-dossiers max`): treat it as `show <that token>`. A bare name defaults to showing that profile; this is the only implicit default this skill takes, and it exists because "look someone up" is the common case.
+- **Anything else** (one bare token, no recognised verb, e.g. `/goblin-seneschal:consult-dossiers tam`): treat it as `show <that token>`. A bare name defaults to showing that profile; this is the only implicit default this skill takes, and it exists because "look someone up" is the common case.
 
 ## No arguments
 
@@ -69,7 +69,7 @@ profiles.py get <name> --store both
 Otherwise:
 
 - **Found in dossier only**: print the profile. If `linkedProfileIds` names a persona (by `id`), follow it: run `get <id> --store personas` and print that too, dossier first, so the source and its derived reader model sit together. Flag if the linked persona's own `updated` is newer than the timestamp recorded in the dossier's `linkedProfileIds` entry (a drift the derivation hasn't caught up with yet).
-- **Found in personas only**: print the profile. If `linkedProfileIds` names a dossier entry (by `id`, e.g. `DOS005`), that id alone carries no name: do not attempt to resolve it to "complete the picture"; that is exactly the identity resolution the id and the dossier's separate store exist to prevent. Note the link exists (`derived from a real colleague's review pattern`) without resolving or printing the dossier side unless that same id was already the direct subject of this same `show` call.
+- **Found in personas only**: print the profile. If `linkedProfileIds` names a dossier entry (by `id`, e.g. `DOS000`), that id alone carries no name: do not attempt to resolve it to "complete the picture"; that is exactly the identity resolution the id and the dossier's separate store exist to prevent. Note the link exists (`derived from a real colleague's review pattern`) without resolving or printing the dossier side unless that same id was already the direct subject of this same `show` call.
 - **Found in neither**: say so plainly. If the CLI's own "not found" message came back, relay it; do not guess at a near match: that's the recording skill's job for the dossier side, not this one's.
 
 ## Red flags
