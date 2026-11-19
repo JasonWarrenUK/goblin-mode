@@ -1061,8 +1061,10 @@ def write_outputs(vault: Path, out: Path) -> dict[str, Path]:
 	if repository:
 		raise SniffError(f'the output folder {out} is inside the repository {repository}, which does not ignore it; the report quotes the vault, so it must never be committed')
 	paths = {'survey': out / 'survey.json', 'report': out / 'report.md', 'schema': out / 'schema.draft.json'}
-	for target in paths.values():
-		check_output_file(target, vault)
+	# Every name the survey or the skill writes, schema.notes.md included,
+	# since the skill appends to it after the script returns.
+	for name in OUTPUT_NAMES:
+		check_output_file(out / name, vault)
 	data = survey(vault)
 	schema = draft_schema(data)
 	texts = {'survey': dump(data), 'schema': dump(schema), 'report': render_report(data, schema)}
@@ -1070,8 +1072,9 @@ def write_outputs(vault: Path, out: Path) -> dict[str, Path]:
 		out.mkdir(parents=True, exist_ok=True)
 		if is_within(out, vault):
 			raise SniffError(f'the output folder {out} is inside the vault; the survey writes nothing there')
+		for name in OUTPUT_NAMES:
+			check_output_file(out / name, vault)
 		for key in ('survey', 'schema', 'report'):
-			check_output_file(paths[key], vault)
 			write_replacing(paths[key], texts[key])
 	except OSError as problem:
 		raise SniffError(f'could not write to {out}: {problem}') from problem

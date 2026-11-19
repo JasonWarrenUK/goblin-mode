@@ -230,6 +230,16 @@ class OutputTest(unittest.TestCase):
 			(out / name).symlink_to(note)
 			with self.assertRaises(SniffError, msg=name):
 				write_outputs(vault, out)
+		notes_link = self.tmp / 'sym-notes'
+		notes_link.mkdir()
+		(notes_link / 'schema.notes.md').symlink_to(note)
+		with self.assertRaises(SniffError, msg='schema.notes.md symlink'):
+			write_outputs(vault, notes_link)
+		notes_hard = self.tmp / 'hard-notes'
+		notes_hard.mkdir()
+		os.link(note, notes_hard / 'schema.notes.md')
+		with self.assertRaises(SniffError, msg='schema.notes.md hard link'):
+			write_outputs(vault, notes_hard)
 		hard = self.tmp / 'hard'
 		hard.mkdir()
 		os.link(note, hard / 'survey.json')
