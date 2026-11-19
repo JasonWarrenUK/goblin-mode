@@ -40,7 +40,7 @@ DEPRECATED_KEYS = {'tag': 'tags', 'alias': 'aliases', 'cssclass': 'cssclasses'}
 # The Tasks plugin's own pattern (obsidian-tasks src/Task/TaskRegularExpressions.ts):
 # indentation that may hold `>`, a list marker, spaces, [status], then ' *'.
 TASK_LINE = re.compile(r'^(?P<indent>[\s>]*)(?:[-*+]|[0-9]+[.)]) +\[(?P<status>.)\] *(?P<text>.*)$')
-FENCE = re.compile(r'^[ \t]*(```|~~~)')
+FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,})(.*)$')
 INLINE_CODE = re.compile(r'`[^`]*`')
 INLINE_TAG = re.compile(r'(?:^|(?<=[\s(]))#([^\s#!@$%^&*(),.?":{}|<>\[\]\'`;+=~\\]+)')
 WIKILINK = re.compile(r'!?\[\[[^\]]+\]\]')
@@ -183,13 +183,15 @@ def body_lines(body: str) -> list[str]:
 	out: list[str] = []
 	fence = ''
 	for line in lines:
-		match = FENCE.match(line)
+		match = FENCE.match(line.rstrip('\r'))
 		if fence:
-			if match and match.group(1) == fence:
+			# A fence closes only on the same character, at least as many of
+			# them and nothing after (CommonMark), so ```` can wrap ```.
+			if match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence) and not match.group(2).strip():
 				fence = ''
 			out.append('')
 			continue
-		if match:
+		if match and not (match.group(1)[0] == '`' and '`' in match.group(2)):
 			fence = match.group(1)
 			out.append('')
 			continue

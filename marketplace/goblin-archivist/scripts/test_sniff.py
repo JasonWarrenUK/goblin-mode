@@ -20,7 +20,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import archivist
-from _sniff import TASK_LINE, SniffError, inline_tags, moment_regex, shape, survey, task_signature, write_outputs
+from _sniff import TASK_LINE, SniffError, body_lines, inline_tags, moment_regex, shape, survey, task_signature, write_outputs
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'vault'
 
@@ -57,6 +57,10 @@ class HelperTest(unittest.TestCase):
 			self.assertEqual(match.group('status'), status, line)
 		for line in ('-[ ] no space after the marker', 'text - [ ] mid-line', '- [] empty box'):
 			self.assertIsNone(TASK_LINE.match(line), line)
+
+	def test_fence_closes_only_on_a_matching_fence(self) -> None:
+		body = '````md\n```\n- [ ] inside\n```\n- [ ] still inside\n````\n- [ ] outside\n~~~\n```\n- [ ] in tildes\n~~~\n'
+		self.assertEqual([line for line in body_lines(body) if line], ['- [ ] outside'])
 
 	def test_task_signature_orders_metadata(self) -> None:
 		self.assertEqual(task_signature('Mend 🔼 ⏳ 2026-01-06 🔁 every week'), 'text · priority medium · scheduled · recurrence')
