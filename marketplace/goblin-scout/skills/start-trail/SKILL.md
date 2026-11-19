@@ -81,8 +81,8 @@ The CLI writes `roadbook.json` only. A trail has no PHASE file annotation and no
 
 Skip this step on the default branch and when the CLI refused.
 
-1. Before Step 3 runs the CLI, note whether `roadbook.json` (the path `detect` reported) already has uncommitted changes: `git status --short -- {path}`. If it did, ask before committing: those changes would ride along.
-2. Commit that file only: `git commit -m "chore(roadbook): claim {id}" -- {path}` (or `release {id}`).
+1. Before Step 3 runs the CLI, note which file `detect` read (its `rich:` line names it) and whether it already has uncommitted changes: `git status --short -- .claude/{file}`. If it did, ask before committing: those changes would ride along.
+2. Commit the roadbook file only: `git commit -m "chore(roadbook): claim {id}" -- .claude/roadbook.json` (or `release {id}`). When the file was `roadmaps.json`, the CLI's write moved it (its one line of notice says so), so stage the new file and commit both paths, the deletion and the addition: `git add .claude/roadbook.json && git commit -m "chore(roadbook): claim {id}" -- .claude/roadmaps.json .claude/roadbook.json`. Committing the old path alone would commit only its deletion and push a branch with no roadbook.
 3. Ask once whether to push the branch so the team sees the trail. Push (`git push -u origin {branch}`) only on yes.
 
 ---
