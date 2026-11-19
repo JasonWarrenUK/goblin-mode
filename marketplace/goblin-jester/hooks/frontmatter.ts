@@ -61,15 +61,16 @@ export const SPINNER_WORD_MAX = 40
 
 /**
  * A `|`-separated list, trimmed, empties dropped. Plugin authors write these
- * too, so each word loses its control characters (an escape would reach the
- * terminal) and is cut to `SPINNER_WORD_MAX`.
+ * too, so each word loses its control and format characters (an escape would
+ * reach the terminal; a bidi override would reorder the band) and its line
+ * separators, and is cut to `SPINNER_WORD_MAX`.
  */
 export const splitBar = (value: string | null): readonly string[] =>
 	value === null
 		? []
 		: value
 				.split('|')
-				.map(s => Array.from(s.replace(/\p{Cc}/gu, '').trim()).slice(0, SPINNER_WORD_MAX).join('').trim())
+				.map(s => Array.from(s.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, '').trim()).slice(0, SPINNER_WORD_MAX).join('').trim())
 				.filter(s => s.length > 0)
 
 /** Everything the mod reads from a SKILL.md. A file without frontmatter reads as nothing set. */
@@ -149,7 +150,7 @@ export const pluginSkillPaths = (installedJson: string, skill: PluginSkill, root
 			if (typeof installPath !== 'string' || installPath === '') continue
 			const rank = typeof scope === 'string' && Object.hasOwn(SCOPE_RANK, scope) ? (SCOPE_RANK[scope] as number) : 2
 			// any install bound to a project path (whatever its scope's name) applies only within that project
-			if ((rank < 2 || projectPath !== undefined) && (typeof projectPath !== 'string' || projectPath === '' || !within(root, projectPath))) continue
+			if ((rank < 2 || (projectPath !== undefined && projectPath !== null)) &&(typeof projectPath !== 'string' || projectPath === '' || !within(root, projectPath))) continue
 			found.push({
 				path: `${installPath}/skills/${skill.dir}/SKILL.md`,
 				rank,
