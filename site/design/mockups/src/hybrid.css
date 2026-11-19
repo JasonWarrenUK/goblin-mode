@@ -1,0 +1,228 @@
+/*
+	Tutorial hybrid: Specimen's look (one big paper sheet, the file on a dark
+	exhibit panel, callout slips pinned in the margins with leader lines) driven
+	by Scroll story's gradual disclosure. Static is the default; the live layout
+	applies only under .js and prefers-reduced-motion: no-preference.
+	Every colour, face and shape is a token from .claude/themes/goblin-html.json;
+	tints are color-mix() of those tokens.
+*/
+[hidden]{display:none !important}
+*,*::before,*::after{box-sizing:border-box}
+body{
+	margin:0;
+	background-color:var(--desk);
+	background-image:radial-gradient(ellipse 22rem 14rem at 8% 12rem, var(--blot), transparent 70%);
+	color:var(--ink); font-family:var(--font-body); font-size:1.03rem; line-height:1.6;
+	padding-left:max(16px, env(safe-area-inset-left, 0px));
+	padding-right:max(16px, env(safe-area-inset-right, 0px));
+	padding-bottom:4rem;
+}
+h1,h2,h3{font-family:var(--font-display); font-weight:700; text-wrap:balance; margin:0; line-height:1.08}
+p{margin:0}
+:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
+code{font-family:var(--font-mono); font-size:.86em; overflow-wrap:anywhere}
+.vh{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+
+/* step tones: one per step, plus the real file's own move */
+.m1{--tone:var(--slime); --on:var(--on-slime); --bar:var(--slime)}
+.m2{--tone:var(--card); --on:var(--card-ink); --bar:color-mix(in oklab, var(--card) 70%, var(--exhibit-ink))}
+.m3{--tone:var(--info); --on:var(--surface); --bar:color-mix(in oklab, var(--info) 55%, var(--exhibit-ink))}
+.mr{--tone:var(--accent); --on:var(--accent-ink); --bar:color-mix(in oklab, var(--accent) 60%, var(--exhibit-ink))}
+mark{background:var(--tone); color:var(--on); padding:0 .25em; border-radius:var(--radius-sm); box-decoration-break:clone; -webkit-box-decoration-break:clone}
+mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:.9em}
+.ref{font-family:var(--font-print); font-weight:600; font-size:.74em; white-space:nowrap; border:1.5px solid currentColor; border-radius:var(--radius-sm); padding:0 .3em; vertical-align:.08em}
+
+.desk{max-width:84rem; margin:0 auto; display:grid; gap:2rem; padding-top:1.5rem}
+.desk > *{min-width:0}
+
+/* materials */
+.sheet{position:relative; min-width:0; background:var(--surface); color:var(--ink); border:2px solid var(--ink);
+	border-radius:var(--wonk); box-shadow:var(--shadow); padding:1.5rem clamp(1rem,3vw,2.25rem)}
+.sheet.alt{border-radius:var(--wonk-2)}
+.sheet > * + *{margin-top:.9rem}
+.sheet code{background:var(--surface-raised); padding:0 .25em; border-radius:var(--radius-sm)}
+.kicker{font-family:var(--font-print); font-weight:600; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted)}
+.snum{font-family:var(--font-print); font-weight:600; font-size:.6em; vertical-align:.25em; color:var(--card-ink);
+	background:var(--card); padding:.05em .4em; border-radius:var(--radius-sm); margin-right:.2em}
+.slip{position:relative; background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); box-shadow:var(--shadow)}
+.slip code{background:none; color:var(--slip-accent); padding:0}
+.slip :focus-visible{outline-color:var(--slip-accent)}
+.slip.torn{background:none; box-shadow:none; isolation:isolate; filter:drop-shadow(var(--shadow)); --rag:var(--rag-a)}
+.slip.torn::after{content:""; position:absolute; inset:0; z-index:-1; background:var(--slip); clip-path:var(--rag)}
+.slip.torn::before{content:""; position:absolute; z-index:1; top:-.6rem; left:50%; width:4.2rem; height:1.15rem; margin-left:-2.1rem;
+	background:var(--tape); transform:rotate(-2.5deg);
+	clip-path:polygon(0 12%,6% 0,12% 14%,100% 0,97% 40%,100% 70%,95% 100%,10% 92%,4% 100%,0 60%)}
+
+/* header */
+.lvl-head h1{font-size:clamp(2rem,5.2vw,3.5rem); margin-top:.35rem}
+.lede{font-size:1.1rem; max-width:46rem}
+.key{font-family:var(--font-print); font-size:.88rem; line-height:2}
+.key mark{margin-right:.35rem; white-space:nowrap}
+.how{display:none; font-family:var(--font-print); font-size:.88rem; color:var(--ink-muted); max-width:46rem}
+
+/* code on an exhibit panel: one block span per line, so wrapped lines hang under a gutter */
+.file{min-width:0}
+.fname{display:inline-block; max-width:100%; overflow-wrap:anywhere; background:var(--card); color:var(--card-ink);
+	font-family:var(--font-mono); font-size:.74rem; padding:.2rem .6rem; border-radius:var(--radius-md) var(--radius-md) 0 0}
+.code{margin:0; background:var(--exhibit); color:var(--exhibit-ink); font-family:var(--font-mono); font-size:.76rem; line-height:1.6;
+	padding:.7rem 0; border-radius:0 var(--radius-md) var(--radius-md) var(--radius-md); tab-size:2; min-width:0}
+.code code{display:block; background:none; padding:0; font-size:inherit; color:inherit}
+.code .ln{display:block; position:relative; min-height:1.6em; white-space:pre-wrap; overflow-wrap:anywhere; padding:0 .8rem 0 3.1rem}
+.code .ln::before{position:absolute; left:.55rem; top:0; font-weight:600}
+.code .ln.cut{color:color-mix(in oklab, var(--exhibit-ink) 55%, var(--exhibit))}
+.code .ln:is(.m1,.m2,.m3,.mr){background:color-mix(in oklab, var(--tone) 12%, var(--exhibit)); box-shadow:inset 4px 0 0 color-mix(in oklab, var(--bar) 55%, var(--exhibit))}
+.code .ln.cur{background:color-mix(in oklab, var(--tone) 30%, var(--exhibit)); box-shadow:inset 5px 0 0 var(--bar)}
+.code .ln.new::before{content:"+"; left:1.1rem; color:var(--bar)}
+.code .ln.del{color:color-mix(in oklab, var(--exhibit-ink) 55%, var(--exhibit)); text-decoration:line-through;
+	background:color-mix(in oklab, var(--danger) 16%, var(--exhibit)); box-shadow:inset 5px 0 0 color-mix(in oklab, var(--danger) 70%, var(--exhibit-ink))}
+.code .ln.del::before{content:"\2212"; left:1.1rem; color:color-mix(in oklab, var(--danger) 60%, var(--exhibit-ink)); text-decoration:none}
+/* a gutter label says which note points here */
+.code .ln[data-label]::before{content:attr(data-label); left:.35rem; top:.28em; font-family:var(--font-print); font-size:.6rem; line-height:1.35;
+	padding:0 .22rem; border-radius:var(--radius-sm); background:var(--tone); color:var(--on)}
+.code .ln.pastpin::before{opacity:.55}
+.file.small .code{font-size:.72rem}
+.code .ln.fresh{animation:lnin 480ms ease-out}
+@keyframes lnin{from{opacity:0; transform:translateY(-.35rem); background:color-mix(in oklab, var(--tone, var(--slime)) 55%, var(--exhibit))}}
+
+/* callout slips */
+.callouts,.co-list{list-style:none; margin:0; padding:0; display:grid; gap:.75rem}
+.co{display:block; background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); font-size:.84rem; line-height:1.5;
+	padding:.6rem .75rem; box-shadow:var(--shadow); border-left:6px solid var(--tone)}
+.co code{background:none; color:var(--slip-accent); padding:0}
+.co mark code{color:inherit}
+.lab{display:inline-block; font-weight:600; font-size:.78rem; line-height:1.3; padding:0 .3rem; margin-right:.3rem; border-radius:var(--radius-sm);
+	background:var(--tone); color:var(--on); vertical-align:.05em}
+.leaders{display:none}
+
+/* the tutorial: static by default (no JS, or reduced motion) */
+.tut{display:grid; gap:1rem; min-width:0}
+.viewbar{display:none}
+.spread{display:grid; gap:1.5rem; min-width:0}
+.steps{display:grid; gap:1.5rem; min-width:0; max-width:64rem}
+.step{scroll-margin-top:1rem}
+.step:nth-child(odd){border-radius:var(--wonk-2)}
+.step-h{font-size:clamp(1.5rem,3vw,2rem)}
+.step-btn{appearance:none; display:block; width:100%; margin:0; padding:0; border:0; background:none; color:inherit; font:inherit; line-height:inherit;
+	text-align:left; cursor:pointer; border-radius:var(--radius-sm)}
+.step .also{font-family:var(--font-print); font-size:.9rem; font-weight:600}
+.step .file + .logslip{margin-top:.75rem}
+.logslip{max-width:24rem}
+.after-step{border-top:2px dashed var(--line); padding-top:1rem}
+.after-step .snap-title{font-family:var(--font-print); font-weight:600; font-size:.82rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-muted)}
+.after-step .file{margin-top:.6rem}
+.after-step .co-list{margin-top:.9rem}
+.specimen{display:none}
+
+/* the real thing */
+.real{max-width:55rem}
+.real h2,.exercise h2{font-size:clamp(1.6rem,3.4vw,2.3rem)}
+.real > p{max-width:50rem}
+.stage{position:relative; min-width:0}
+.stage > .callouts{margin-top:1rem}
+
+/* exercise */
+.exercise{padding:1.6rem clamp(1rem,3vw,1.75rem) 1.2rem; max-width:52rem; transform:rotate(-.3deg); --rag:var(--rag-b)}
+.exercise h2{font-size:1.5rem; color:var(--slip-ink)}
+.exercise > * + *{margin-top:.75rem}
+.exercise details > * + *{margin-top:.75rem}
+.exercise summary{cursor:pointer; font-weight:600; color:var(--slip-accent)}
+.exercise .file{margin-top:.75rem}
+q{quotes:"\201C" "\201D"}
+
+@media (min-width:900px){
+	.after-step{display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:.6rem 1.25rem; align-items:start}
+	.after-step .snap-title{grid-column:1 / -1}
+	.after-step .file,.after-step .co-list{margin-top:0}
+	/* the real file's callouts pinned in the margins, laid out by the script */
+	.js .real .stage{--co-w:11.5rem; --co-gap:1.1rem; padding:0 calc(var(--co-w) + var(--co-gap)) 0 0}
+	.js .real .stage > .callouts{display:block; margin:0; position:absolute; inset:0; pointer-events:none}
+	.js .real .stage .co{pointer-events:auto}
+	.js .real .stage .co{position:absolute; width:var(--co-w)}
+	.js .real .leaders{display:block}
+}
+.js .stage .co[data-side="left"]{left:0}
+.js .stage .co[data-side="right"]{right:0}
+@media (min-width:900px){
+	.js .real .co[data-side="left"]{border-left:0; border-right:6px solid var(--tone); transform:rotate(-.5deg)}
+	.js .real .co[data-side="right"]{transform:rotate(.4deg)}
+}
+
+/* leader lines: ink on paper, ending in a dot on the exhibit panel's edge */
+.leaders{position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:1}
+.leaders .ld{fill:none; stroke:var(--ink); stroke-width:1.6; stroke-linecap:round}
+.leaders .br{fill:none; stroke:var(--ink); stroke-width:2.5; stroke-linecap:round}
+.leaders .dot{fill:var(--tone); stroke:var(--ink); stroke-width:1.6}
+.leaders .past{opacity:.4}
+.leaders .ld.past{stroke-dasharray:3 4}
+
+/* ========== live: JS on and motion allowed ========== */
+@media (prefers-reduced-motion:no-preference){
+	.js .how{display:block}
+	.js .after-step{display:none}
+	.js .specimen{display:block}
+	.js .step{transition:box-shadow 180ms ease, color 180ms ease, border-color 180ms ease}
+	.js .step[data-state="active"]{box-shadow:0 0 0 3px var(--accent), var(--shadow)}
+	/* pending steps stay in the DOM and readable, only muted */
+	.js .step[data-state="pending"]{color:var(--ink-muted); border-style:dashed; border-color:var(--ink-muted)}
+	.js .step[data-state="pending"] :is(.file,mark,.ref,.logslip,.snum){opacity:.55}
+	.js .step[data-state="pending"] code{color:var(--ink-muted)}
+	.js .step[data-state="active"] .step-btn::after{content:"Now"; display:inline-block; margin-left:.5rem; vertical-align:.3em;
+		font-family:var(--font-print); font-size:.42em; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+		background:var(--accent); color:var(--accent-ink); padding:.1em .45em; border-radius:var(--radius-sm)}
+
+	.specimen{padding:1.1rem clamp(.9rem,1.6vw,1.25rem) 1.25rem}
+	.specimen > * + *{margin-top:.6rem}
+	.spec-top{display:grid; gap:.15rem}
+	.spec-title{font-family:var(--font-print); font-weight:600; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted)}
+	.spec-state{font-family:var(--font-display); font-size:1.35rem; line-height:1.15}
+	.specimen .co{transition:opacity 200ms ease}
+	.specimen .co.fresh{animation:coin 420ms ease-out}
+	@keyframes coin{from{opacity:0; transform:translateY(.4rem)}}
+	.specimen .co[data-state="future"]{display:none}
+}
+
+/* live, wide: steps beside the sticky specimen sheet, callouts in the margins */
+@media (prefers-reduced-motion:no-preference) and (min-width:1100px){
+	.js .spread{grid-template-columns:minmax(17rem,21rem) minmax(0,1fr); align-items:start}
+	.js .steps{gap:30vh; padding-bottom:28vh}
+	.js .step{scroll-margin-top:12vh; padding-inline:1.25rem}
+	.js .specimen{position:sticky; top:1rem; align-self:start}
+	.js .specimen .stage{--co-w:10.75rem; --co-gap:.9rem; padding:0 calc(var(--co-w) + var(--co-gap))}
+	.js .specimen .stage > .callouts{display:block; margin:0; position:absolute; inset:0; pointer-events:none}
+	.js .specimen .co{pointer-events:auto}
+	.js .specimen .co{position:absolute; width:var(--co-w); font-size:.8rem; padding:.5rem .6rem}
+	.js .specimen .co[data-side="left"]{border-left:0; border-right:6px solid var(--tone); transform:rotate(-.5deg)}
+	.js .specimen .co[data-side="right"]{transform:rotate(.4deg)}
+	.js .specimen .co[data-state="past"]{opacity:.5}
+	.js .specimen .leaders{display:block}
+}
+
+/* live, narrow: a Steps / File switch */
+@media (prefers-reduced-motion:no-preference) and (max-width:1099px){
+	.js .viewbar{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; position:sticky; top:0; z-index:5;
+		background:var(--card); color:var(--card-ink); padding:.5rem .7rem; border-radius:0 0 var(--radius-md) var(--radius-md); box-shadow:var(--shadow)}
+	.viewbar .switch{display:flex; gap:.35rem}
+	.viewbar button{appearance:none; cursor:pointer; background:transparent; color:var(--card-ink); border:2px solid var(--card-ink); border-radius:var(--radius-sm);
+		font-family:var(--font-print); font-weight:600; font-size:.88rem; line-height:1.2; padding:.4rem .8rem}
+	.viewbar button[aria-pressed="true"]{background:var(--card-ink); color:var(--card)}
+	.viewbar button:focus-visible{outline:3px solid var(--card-ink); outline-offset:2px}
+	.viewbar .viewstate{font-family:var(--font-print); font-size:.85rem; font-weight:600}
+	.js .step{scroll-margin-top:4.5rem; min-height:52vh}
+	.js .tut[data-view="steps"] .specimen{display:none}
+	.js .tut[data-view="file"] .steps{display:none}
+	.js .specimen .co[data-state="past"]{display:none}
+	.js .specimen .stage > .callouts{margin-top:.9rem}
+}
+
+/* ========== narrow ========== */
+@media (max-width:760px){
+	.sheet,.sheet.alt,.step:nth-child(odd){border-radius:var(--radius-md)}
+	.exercise,.co{transform:none}
+	.code .ln{padding-left:2.8rem; padding-right:.6rem}
+	.code .ln.new::before,.code .ln.del::before{left:.9rem}
+	.code .ln[data-label]::before{left:.25rem}
+}
+
+@media (prefers-reduced-motion:reduce){
+	*,*::before,*::after{transition:none !important; animation:none !important; scroll-behavior:auto !important}
+}
