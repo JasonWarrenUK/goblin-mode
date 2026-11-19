@@ -187,6 +187,19 @@ test('an entry an older session logs to the old file after the first copy is car
 	expect((JSON.parse(files.text() ?? '') as unknown[]).length).toBe(5)
 })
 
+test('a grievance deleted from the grievances file after it was carried stays deleted, while a later old entry still arrives', async ($, on) => {
+	world(on)
+	const files = disk(on, { [OLD_FILE]: OLD_TEXT })
+	await $.session.start(START)
+	// the person deletes the first carried entry by hand
+	files.files.set(GRIEVANCES, listed(OLD_ENTRIES.slice(1)))
+	await $.session.start(START)
+	expect(JSON.parse(files.text() ?? '')).toEqual(OLD_ENTRIES.slice(1))
+	files.files.set(OLD_FILE, listed([...OLD_ENTRIES, LATE]))
+	await $.session.start(START)
+	expect(JSON.parse(files.text() ?? '')).toEqual([...OLD_ENTRIES.slice(1), LATE])
+})
+
 test('an id the grievances file already holds is never carried twice, even when the old copy differs', async ($, on) => {
 	world(on)
 	const resolved = { ...OLD_ENTRIES[0], resolvedIn: '2.1.320', resolvedNoted: '2026-11-19' }
