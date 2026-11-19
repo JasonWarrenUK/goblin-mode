@@ -8,9 +8,8 @@
 	tints are color-mix() of those tokens.
 */
 [hidden]{display:none !important}
-[hidden="until-found"]{display:block !important; content-visibility:hidden}
 *,*::before,*::after{box-sizing:border-box}
-:root{--col-text:24rem; --co-w:9.75rem; --co-gap:.75rem; --sheet-pad:1rem 1.25rem 1.1rem}
+:root{--seg:25dvh; --col-text:24rem; --co-w:9.75rem; --co-gap:.75rem; --sheet-pad:1rem 1.25rem 1.1rem}
 body{
 	margin:0;
 	background-color:var(--desk);
@@ -24,7 +23,7 @@ h1,h2,h3{font-family:var(--font-display); font-weight:700; text-wrap:balance; ma
 p{margin:0}
 :focus-visible{outline:3px solid var(--accent); outline-offset:3px}
 code{font-family:var(--font-mono); font-size:.86em; overflow-wrap:anywhere}
-.vh,.step-body.off,.tut[data-mode="pinned"] .step.inactive .step-h{position:absolute !important; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+.vh,.tut[data-mode="pinned"] .step.inactive{position:absolute !important; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
 
 /* step tones: one per step, plus the real file's own move */
 .m1{--tone:var(--slime); --on:var(--on-slime); --bar:var(--slime)}
@@ -119,7 +118,7 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 
 /* ========== the tutorial: static by default (no JS, or reduced motion) ========== */
 .tut{display:grid; gap:1rem; min-width:0}
-.viewbar,.pin-bar,.segs,.specimen{display:none}
+.viewbar,.pin-bar,.snaps,.specimen{display:none}
 .track{min-width:0}
 .pin{display:grid; gap:1.5rem; min-width:0}
 .writeups{display:grid; gap:1.5rem; min-width:0; max-width:64rem}
@@ -169,11 +168,17 @@ q{quotes:"\201C" "\201D"}
 .tut:is([data-mode="pinned"],[data-mode="list"]) .specimen .co[data-state="future"]{display:none}
 
 /* pinned: one stage, one viewport tall, that holds still while the track scrolls past */
-.tut[data-mode="pinned"] .track{display:grid}
-.tut[data-mode="pinned"] .segs{display:block; grid-area:1 / 1}
-.seg[data-n="0"]{height:35dvh}
-.seg[data-n="1"],.seg[data-n="2"]{height:70dvh}
-.seg[data-n="3"]{height:calc(170dvh - .5rem)}
+/* the track is the stage's height plus three equal segments; snap points sit one segment apart,
+   the last one a segment after release. Snapping is switched on by the script only inside the track. */
+.tut[data-mode="pinned"] .track{position:relative; display:grid; height:calc(100dvh - 1rem + 3 * var(--seg))}
+.tut[data-mode="pinned"] .snaps{display:block}
+.snap{position:absolute; left:0; width:1px; height:1px; scroll-snap-align:start; scroll-margin-top:.5rem}
+.snap[data-n="0"]{top:0}
+.snap[data-n="1"]{top:var(--seg)}
+.snap[data-n="2"]{top:calc(2 * var(--seg))}
+.snap[data-n="3"]{top:calc(3 * var(--seg))}
+.snap[data-n="4"]{top:calc(4 * var(--seg))}
+html.snapping{scroll-snap-type:y mandatory}
 .tut[data-mode="pinned"] .pin{grid-area:1 / 1; position:sticky; top:.5rem; z-index:1; align-self:start; height:calc(100dvh - 1rem);
 	display:grid; grid-template-columns:var(--col-text) minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); gap:.8rem 1.5rem;
 	background:var(--surface); color:var(--ink); border:2px solid var(--ink); border-radius:var(--wonk); box-shadow:var(--shadow); padding:var(--sheet-pad)}
@@ -240,4 +245,5 @@ q{quotes:"\201C" "\201D"}
 
 @media (prefers-reduced-motion:reduce){
 	*,*::before,*::after{transition:none !important; animation:none !important; scroll-behavior:auto !important}
+	html.snapping{scroll-snap-type:none}
 }

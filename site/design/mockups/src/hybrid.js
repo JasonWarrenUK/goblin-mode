@@ -1,19 +1,20 @@
-// Tutorial hybrid, version 2. Without this script, or with reduced motion, every step shows its own
+// Tutorial hybrid, version 3. Without this script, or with reduced motion, every step shows its own
 // snapshot of the file and nothing is hidden. Wide and live: one pinned stage holds still while a
-// scroll track moves through the steps. Narrow and live: a Steps / File switch over a normal scroll.
+// scroll track moves through the steps, one snap point per step, with snapping on only inside the
+// track. Narrow and live: a Steps / File switch over a normal scroll.
 (() => {
 	const root = document.documentElement;
 	root.classList.add('js');
 	const SVG = 'http://www.w3.org/2000/svg';
 	const GAP = 10;
+	const STEPS = 3; // the last step; snap point 4 is the release
 
 	const tut = document.getElementById('tut');
-	const track = tut.querySelector('.track');
 	const pin = tut.querySelector('.pin');
 	const articles = [...tut.querySelectorAll('.step')];
 	const headingButtons = articles.map((article) => article.querySelector('.step-btn'));
 	const navButtons = [...pin.querySelectorAll('.stepnav button')];
-	const segs = [...tut.querySelectorAll('.seg')];
+	const snaps = [...tut.querySelectorAll('.snap')];
 	const mainStage = pin.querySelector('.specimen .stage');
 	const lines = [...mainStage.querySelectorAll('.ln')];
 	const notes = [...mainStage.querySelectorAll('.co')];
@@ -21,11 +22,9 @@
 	const viewButtons = [...tut.querySelectorAll('.viewbar button')];
 	const viewState = tut.querySelector('.viewstate');
 	const realStage = document.querySelector('.real .stage');
-	const last = articles.length - 1;
 
 	const motionOK = matchMedia('(prefers-reduced-motion: no-preference)');
 	const wide = matchMedia('(min-width: 1100px)');
-	const canFind = 'onbeforematch' in document.body;
 	const modeNow = () => (!motionOK.matches ? 'static' : wide.matches ? 'pinned' : 'list');
 
 	let mode = 'static';
@@ -34,39 +33,27 @@
 	let lockTimer = 0;
 	const fileView = () => mode === 'list' && tut.dataset.view === 'file';
 
-	// ---------- write-ups in the pinned stage: one shows; the others keep their headings for screen
-	// readers (clipped) and their bodies hidden until find-in-page lands on them ----------
-	const bodies = articles.map((article) => article.querySelector('.step-body'));
-	const isOff = (k) => articles[k].classList.contains('inactive');
-	const hideArticle = (k) => {
-		articles[k].classList.remove('leaving', 'entering');
-		articles[k].classList.add('inactive');
-		if (canFind) bodies[k].setAttribute('hidden', 'until-found');
-		else bodies[k].classList.add('off');
-	};
+	// ---------- write-ups in the pinned stage: one shows, the others stay in the accessibility tree,
+	// visually hidden ----------
 	const showOnly = (n, instant) => {
 		articles.forEach((article, k) => {
 			clearTimeout(article.leaveTimer);
 			if (k === n) {
-				const wasOff = isOff(k) || article.classList.contains('leaving');
+				const wasOff = article.classList.contains('inactive') || article.classList.contains('leaving');
 				article.classList.remove('inactive', 'leaving', 'entering');
-				bodies[k].removeAttribute('hidden');
-				bodies[k].classList.remove('off');
 				if (wasOff && !instant) { void article.offsetWidth; article.classList.add('entering'); }
-			} else if (!isOff(k)) {
-				if (instant) hideArticle(k);
+			} else if (!article.classList.contains('inactive')) {
+				if (instant) article.classList.add('inactive');
 				else {
 					article.classList.add('leaving');
-					article.leaveTimer = setTimeout(() => hideArticle(k), 170);
+					article.leaveTimer = setTimeout(() => { article.classList.remove('leaving', 'entering'); article.classList.add('inactive'); }, 170);
 				}
 			}
 		});
 	};
-	const showAll = () => articles.forEach((article, k) => {
+	const showAll = () => articles.forEach((article) => {
 		clearTimeout(article.leaveTimer);
 		article.classList.remove('inactive', 'leaving', 'entering');
-		bodies[k].removeAttribute('hidden');
-		bodies[k].classList.remove('off');
 	});
 
 	// ---------- state ----------
@@ -242,21 +229,59 @@
 		if (!layoutFrame) layoutFrame = requestAnimationFrame(layout);
 	}
 
+	// ---------- snap positions: where each snap marker puts the page ----------
+	const snapMargin = () => parseFloat(getComputedStyle(snaps[0]).scrollMarginTop) || 0;
+	const snapTops = () => snaps.map((snap) => Math.round(snap.getBoundingClientRect().top + scrollY - snapMargin()));
+	// the nearest snap index (0..4) to the current scroll position
+	const position = () => {
+		const p = snapTops();
+		return Math.max(0, Math.min(p.length - 1, Math.round((scrollY - p[0]) / (p[1] - p[0]))));
+	};
+
+	// snapping is on only inside the track; at either end a gesture outward switches it off first
+	let snapping = false;
+	const setSnapping = (on) => {
+		if (on === snapping) return;
+		snapping = on;
+		root.classList.toggle('snapping', on);
+	};
+	const updateSnapping = () => {
+		if (mode !== 'pinned') { setSnapping(false); return; }
+		const p = snapTops();
+		const y = scrollY;
+		if (y > p[0] + 2 && y < p[p.length - 1] - 2) setSnapping(true);
+		else if (y < p[0] - 2 || y > p[p.length - 1] + 2) setSnapping(false);
+	};
+	const leavingEdge = (down) => {
+		if (!snapping) return false;
+		const p = snapTops();
+		return down ? scrollY >= p[p.length - 1] - 2 : scrollY <= p[0] + 2;
+	};
+	const DOWN_KEYS = ['ArrowDown', 'PageDown', 'End', ' ', 'j'];
+	const UP_KEYS = ['ArrowUp', 'PageUp', 'Home', 'k'];
+	addEventListener('keydown', (event) => {
+		const down = DOWN_KEYS.includes(event.key) && !event.shiftKey;
+		const up = UP_KEYS.includes(event.key) || (event.key === ' ' && event.shiftKey);
+		if ((down || up) && leavingEdge(down)) setSnapping(false);
+	}, { capture: true });
+
 	// ---------- which step is active ----------
 	const fromScroll = () => {
+		updateSnapping();
 		if (lock || mode === 'static' || fileView()) return;
 		let n = 0;
 		if (mode === 'pinned') {
-			segs.forEach((seg, k) => { if (k && seg.getBoundingClientRect().top <= 2) n = k; });
+			n = Math.min(STEPS, position());
 		} else {
 			const band = innerHeight * 0.38;
 			articles.forEach((article, k) => { if (k && article.getBoundingClientRect().top < band) n = k; });
 		}
 		if (n !== current) render(n);
 	};
-	// a one-per-cent line at the top of the viewport for the track; a band for the list
-	const segObserver = new IntersectionObserver(fromScroll, { rootMargin: '0px 0px -99% 0px', threshold: [0, 1] });
-	segs.forEach((seg) => segObserver.observe(seg));
+	let scrollFrame = 0;
+	addEventListener('scroll', () => {
+		if (!scrollFrame) scrollFrame = requestAnimationFrame(() => { scrollFrame = 0; fromScroll(); });
+	}, { passive: true });
 	const listObserver = new IntersectionObserver(fromScroll, { rootMargin: '0px 0px -62% 0px', threshold: [0, 1] });
 	articles.forEach((article) => listObserver.observe(article));
 
@@ -268,9 +293,12 @@
 		if ('onscrollend' in window) addEventListener('scrollend', release, { once: true });
 	};
 
-	// ---------- buttons, keys and find-in-page all move the scroll position ----------
-	const go = (n, { focus = false, instant = false } = {}) => {
-		n = Math.min(last, Math.max(0, n));
+	// ---------- buttons and keys land on the snap positions ----------
+	// target: 0..3 a step, 4 the release point after 2.3 (pinned only)
+	const go = (target, { focus = false, instant = false } = {}) => {
+		const limit = mode === 'pinned' ? snaps.length - 1 : STEPS;
+		target = Math.min(limit, Math.max(0, target));
+		const n = Math.min(STEPS, target);
 		if (mode === 'static') {
 			articles[n].scrollIntoView({ block: 'start' });
 			if (focus) headingButtons[n].focus();
@@ -281,27 +309,63 @@
 		holdThenRelease(instant ? 150 : 1200);
 		const behavior = instant ? 'auto' : 'smooth';
 		if (mode === 'pinned') {
-			scrollTo({ top: scrollY + segs[n].getBoundingClientRect().top + 2, behavior });
+			setSnapping(true);
+			scrollTo({ top: snapTops()[target], behavior });
 			if (focus) headingButtons[n].focus({ preventScroll: true });
 		} else {
 			if (focus) headingButtons[n].focus({ preventScroll: true });
 			articles[n].scrollIntoView({ behavior, block: 'start' });
 		}
 	};
+	// Wheel inside the track: one gesture, however it arrives (a flick with its momentum tail, or a
+	// couple of notches), moves exactly one snap position. Chrome's own wheel snapping picks the
+	// nearest point to where the scroll would end, so a 100px notch against a 225px segment would
+	// fall back. At either end the gesture leaves the track and scrolls freely.
+	let wheelBusy = false;
+	let wheelTotal = 0;
+	let quietTimer = 0;
+	addEventListener('wheel', (event) => {
+		if (mode !== 'pinned' || !event.deltaY || event.ctrlKey) return;
+		const p = snapTops();
+		const last = p.length - 1;
+		const y = scrollY;
+		if (y < p[0] - 2 || y > p[last] + 2) return;
+		const down = event.deltaY > 0;
+		event.preventDefault();
+		if (!wheelBusy && ((down && y >= p[last] - 2) || (!down && y <= p[0] + 2))) {
+			setSnapping(false);
+			scrollBy({ top: event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY, behavior: 'instant' });
+			return;
+		}
+		clearTimeout(quietTimer);
+		quietTimer = setTimeout(() => { wheelBusy = false; wheelTotal = 0; }, 220);
+		if (wheelBusy) return;
+		wheelTotal += event.deltaY;
+		if (Math.abs(wheelTotal) < 24) return;
+		wheelBusy = true;
+		wheelTotal = 0;
+		go(position() + (down ? 1 : -1));
+	}, { passive: false });
+
 	headingButtons.forEach((button) => button.addEventListener('click', () => go(Number(button.dataset.go))));
 	navButtons.forEach((button) => button.addEventListener('click', () => go(Number(button.dataset.go))));
-	bodies.forEach((body, k) => body.addEventListener('beforematch', () => { if (mode === 'pinned') go(k, { instant: true }); }));
-	// tabbing onto a clipped heading brings its step forward, so focus is never invisible
-	headingButtons.forEach((button, k) => button.addEventListener('focus', () => { if (mode === 'pinned' && isOff(k)) go(k); }));
+	// focus arriving inside a hidden write-up (Tab onto its heading) brings that step forward
+	articles.forEach((article, k) => article.addEventListener('focusin', () => {
+		if (mode === 'pinned' && article.classList.contains('inactive')) go(k);
+	}));
 
 	tut.addEventListener('keydown', (event) => {
 		if (event.altKey || event.ctrlKey || event.metaKey || mode === 'static') return;
 		const key = event.key;
 		const delta = key === 'ArrowDown' || key === 'j' ? 1 : key === 'ArrowUp' || key === 'k' ? -1 : 0;
 		if (!delta) return;
+		const from = mode === 'pinned' ? position() : current;
+		const outside = mode === 'pinned' && (scrollY < snapTops()[0] - 2 || scrollY > snapTops()[snaps.length - 1] + 2);
+		// past either end of the track the keys scroll the page as usual
+		if (outside || (mode === 'pinned' && ((delta > 0 && from === snaps.length - 1) || (delta < 0 && from === 0 && key === 'ArrowUp')))) return;
 		event.preventDefault();
 		const inNav = navButtons.includes(document.activeElement) || viewButtons.includes(document.activeElement);
-		go(current + delta, { focus: !inNav && !fileView() });
+		go(from + delta, { focus: !inNav && !fileView() });
 	});
 
 	// ---------- Steps / File at narrow widths ----------
@@ -338,7 +402,7 @@
 		resized.observe(mainStage);
 		resized.observe(realStage.querySelector('.code'));
 	}
-	addEventListener('resize', scheduleLayout);
+	addEventListener('resize', () => { scheduleLayout(); updateSnapping(); });
 	if (document.fonts) document.fonts.ready.then(scheduleLayout);
 
 	applyMode();

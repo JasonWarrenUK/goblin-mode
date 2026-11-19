@@ -276,7 +276,7 @@ ${css.trim()}
 	<h1>${TITLE}</h1>
 	<p class="lede">${lede}</p>
 	<p class="key">Colour key: <mark class="m1">2.1 Give It a Script</mark> <mark class="m2">2.2 Scope the Tool</mark> <mark class="m3">2.3 Keep a Ledger</mark></p>
-	<p class="how">Scroll and the sheet below builds SKILL.md one step at a time, pinning each step's notes. The step buttons, the arrow keys or j and k jump between steps.</p>
+	<p class="how">Scroll and the sheet below builds SKILL.md one step at a time, pinning each step's notes. One scroll gesture moves one step; the step buttons, the arrow keys or j and k do the same.</p>
 </header>
 
 <section class="tut" id="tut" data-view="steps" data-step="0" aria-label="Level 2, step by step">
@@ -306,7 +306,7 @@ ${stepHtml}
 				</div>
 			</aside>
 		</div>
-		<div class="segs" aria-hidden="true">${steps.map((s) => `<div class="seg" data-n="${s.n}"></div>`).join('')}</div>
+		<div class="snaps" aria-hidden="true">${[0, 1, 2, 3, 4].map((n) => `<div class="snap" data-n="${n}"></div>`).join('')}</div>
 	</div>
 </section>
 
