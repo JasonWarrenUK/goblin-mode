@@ -65,6 +65,17 @@ describe.each(keys)('%s', (key) => {
 		}
 	});
 
+	// Runs once this mod's rename is on main (the site merges last): every command
+	// or skill the copy names must be one the plugin actually registers.
+	it.skipIf(facts.mods[key].name !== MOD_NAMES[key][0])('names only commands and skills the plugin registers', () => {
+		const known = new Set(facts.mods[key].commands.map((command) => command.invocation));
+		const named = new Set(
+			strings(key).flatMap((text) => [...text.matchAll(/<code>(\/[a-z][a-z-]*(?::[a-z][a-z-]*)?)/g)].map((match) => match[1] ?? '')),
+		);
+		const unknown = [...named].filter((invocation) => !known.has(invocation));
+		expect(unknown, `named in the copy but not registered by ${MOD_NAMES[key][0]}`).toEqual([]);
+	});
+
 	it('uses no em dash and no hand-typed digit counts of the repository', () => {
 		for (const text of strings(key)) {
 			expect(text).not.toContain('—');
