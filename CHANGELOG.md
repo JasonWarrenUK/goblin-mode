@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [11.0.0] - 2026-11-19
+
+### Breaking
+
+- The `roadmap` plugin is now `goblin-scout` 3.0.0. What it keeps is a roadbook, `.claude/roadbook.json`; a project's `roadmaps.json` moves itself on the next write. `roadmap.py` is `roadbook.py`, `/ready` is `/scout-waypoints` and every skill takes a journey name (`roadmap:maintain` is `goblin-scout:tend-roadbook`, `roadmap:claim` is `goblin-scout:start-trail`). The marketplace's `renames` map moves existing installs.
+
+### Changed
+
+- `pr-land`, `next-task-ship`, `pr-handle_review` and the `web-*` skills point at `goblin-scout` and the roadbook.
+
 ## [10.1.1] - 2026-11-19
 
 ### Fixed

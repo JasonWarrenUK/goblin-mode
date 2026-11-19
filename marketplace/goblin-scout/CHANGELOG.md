@@ -5,6 +5,26 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-19
+
+### Breaking
+
+- Renamed from `roadmap`. What it keeps is a roadbook (`.claude/roadbook.json`) and `roadmap.py` is `roadbook.py`. The skills take journey names: `create` is `start-roadbook`, `create-interview` is `plan-expedition`, `update-tasks` is `add-waypoints`, `update-devs` is `assign-scouts`, `claim` is `start-trail`, `next-suggest` is `suggest-waypoint`, `next-group` is `survey-waypoints`, `maintain` is `tend-roadbook`, `review` is `review-roadbook`, `dashboard` is `unroll-chart`, `configure` is `configure-roadbook` and `migrate` is `rebind-roadbook`. `/ready` is `/scout-waypoints`.
+- A 2.x project's `roadmaps.json` moves to `roadbook.json` on the first write, with one line of notice and no value rewritten. The moved file is stamped for 3.0.0, so a 2.x plugin refuses it. Existing charts keep their paths; a new roadbook's chart is `chart-<phase>.html`.
+
+### Added
+
+- `roadbook.py rebind [--outputs] [--reformat] [--dry-run]` makes the move on request and, with `--outputs`, moves each phase's chart, projections and overview to the roadbook's names in one commit. It checks every file before writing any, so a refusal never leaves a project half moved, and what `--dry-run` lists is what runs.
+
+### Changed
+
+- The chart takes the goblin theme: a compass, survey-grid paper, a hand-drawn key and the journey headings, with every colour from the theme and its fonts embedded, so a chart asks no font server for anything.
+- The pane draws the scout's wordmark in its header.
+
+### Fixed
+
+- A phase name is escaped where it fills the chart's title and heading, so markup in a name shows as text instead of running when someone opens the chart.
+
 ## [2.10.0] - 2026-11-17
 
 ### Added
