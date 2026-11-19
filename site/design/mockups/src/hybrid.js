@@ -1,43 +1,93 @@
-// Tutorial hybrid. Without this script, or with reduced motion, every step shows its own
-// snapshot of the file and nothing is hidden. With it, the specimen sheet builds in step with the prose.
+// Tutorial hybrid, version 2. Without this script, or with reduced motion, every step shows its own
+// snapshot of the file and nothing is hidden. Wide and live: one pinned stage holds still while a
+// scroll track moves through the steps. Narrow and live: a Steps / File switch over a normal scroll.
 (() => {
 	const root = document.documentElement;
 	root.classList.add('js');
 	const SVG = 'http://www.w3.org/2000/svg';
+	const GAP = 10;
 
 	const tut = document.getElementById('tut');
-	const steps = [...tut.querySelectorAll('.step')];
-	const stepButtons = steps.map((step) => step.querySelector('.step-btn'));
-	const sheet = tut.querySelector('.specimen');
-	const mainStage = sheet.querySelector('.stage');
+	const track = tut.querySelector('.track');
+	const pin = tut.querySelector('.pin');
+	const articles = [...tut.querySelectorAll('.step')];
+	const headingButtons = articles.map((article) => article.querySelector('.step-btn'));
+	const navButtons = [...pin.querySelectorAll('.stepnav button')];
+	const segs = [...tut.querySelectorAll('.seg')];
+	const mainStage = pin.querySelector('.specimen .stage');
 	const lines = [...mainStage.querySelectorAll('.ln')];
 	const notes = [...mainStage.querySelectorAll('.co')];
-	const specState = sheet.querySelector('.spec-state');
+	const specState = pin.querySelector('.spec-state');
 	const viewButtons = [...tut.querySelectorAll('.viewbar button')];
 	const viewState = tut.querySelector('.viewstate');
 	const realStage = document.querySelector('.real .stage');
+	const last = articles.length - 1;
 
 	const motionOK = matchMedia('(prefers-reduced-motion: no-preference)');
 	const wide = matchMedia('(min-width: 1100px)');
-	const realWide = matchMedia('(min-width: 900px)');
-	const isLive = () => motionOK.matches;
-	const fileView = () => !wide.matches && tut.dataset.view === 'file';
+	const canFind = 'onbeforematch' in document.body;
+	const modeNow = () => (!motionOK.matches ? 'static' : wide.matches ? 'pinned' : 'list');
 
+	let mode = 'static';
 	let current = 0;
 	let lock = false;
 	let lockTimer = 0;
+	const fileView = () => mode === 'list' && tut.dataset.view === 'file';
+
+	// ---------- write-ups in the pinned stage: one shows; the others keep their headings for screen
+	// readers (clipped) and their bodies hidden until find-in-page lands on them ----------
+	const bodies = articles.map((article) => article.querySelector('.step-body'));
+	const isOff = (k) => articles[k].classList.contains('inactive');
+	const hideArticle = (k) => {
+		articles[k].classList.remove('leaving', 'entering');
+		articles[k].classList.add('inactive');
+		if (canFind) bodies[k].setAttribute('hidden', 'until-found');
+		else bodies[k].classList.add('off');
+	};
+	const showOnly = (n, instant) => {
+		articles.forEach((article, k) => {
+			clearTimeout(article.leaveTimer);
+			if (k === n) {
+				const wasOff = isOff(k) || article.classList.contains('leaving');
+				article.classList.remove('inactive', 'leaving', 'entering');
+				bodies[k].removeAttribute('hidden');
+				bodies[k].classList.remove('off');
+				if (wasOff && !instant) { void article.offsetWidth; article.classList.add('entering'); }
+			} else if (!isOff(k)) {
+				if (instant) hideArticle(k);
+				else {
+					article.classList.add('leaving');
+					article.leaveTimer = setTimeout(() => hideArticle(k), 170);
+				}
+			}
+		});
+	};
+	const showAll = () => articles.forEach((article, k) => {
+		clearTimeout(article.leaveTimer);
+		article.classList.remove('inactive', 'leaving', 'entering');
+		bodies[k].removeAttribute('hidden');
+		bodies[k].classList.remove('off');
+	});
 
 	// ---------- state ----------
-	const render = (n) => {
+	const render = (n, { instant = false } = {}) => {
 		const previous = current;
 		current = n;
 		tut.dataset.step = String(n);
-		steps.forEach((step, i) => {
-			const k = i + 1;
-			step.dataset.state = k < n ? 'past' : k === n ? 'active' : 'pending';
-			if (k === n) stepButtons[i].setAttribute('aria-current', 'step');
-			else stepButtons[i].removeAttribute('aria-current');
+		articles.forEach((article, k) => {
+			article.dataset.state = k < n ? 'past' : k === n ? 'active' : 'pending';
+			if (k === n) headingButtons[k].setAttribute('aria-current', 'step');
+			else headingButtons[k].removeAttribute('aria-current');
 		});
+		navButtons.forEach((button) => {
+			if (Number(button.dataset.go) === n) button.setAttribute('aria-current', 'step');
+			else button.removeAttribute('aria-current');
+		});
+		if (mode === 'pinned') {
+			const focusInside = articles.findIndex((article) => article.contains(document.activeElement));
+			showOnly(n, instant);
+			if (focusInside >= 0 && focusInside !== n) headingButtons[n].focus({ preventScroll: true });
+		}
 		lines.forEach((line) => {
 			const s = Number(line.dataset.s);
 			const show = s === 0 || (s > 0 && s <= n) || (s === -1 && n <= 1);
@@ -46,87 +96,128 @@
 			line.classList.toggle('del', s === -1 && n === 1);
 			line.classList.toggle('cur', s > 0 && s === n);
 			line.classList.toggle('new', s > 0 && s === n);
-			line.classList.toggle('fresh', show && wasHidden && n > previous);
+			line.classList.toggle('fresh', show && wasHidden && n > previous && !instant);
 			line.removeAttribute('data-label');
 			line.classList.remove('pastpin');
 		});
 		notes.forEach((note) => {
 			const s = Number(note.dataset.s);
 			const state = s < n ? 'past' : s === n ? 'cur' : 'future';
-			note.classList.toggle('fresh', state === 'cur' && note.dataset.state === 'future' && n > previous);
+			note.classList.toggle('fresh', state === 'cur' && note.dataset.state === 'future' && n > previous && !instant);
 			note.dataset.state = state;
-			// the gutter carries the label of every note on show
-			const onShow = state === 'cur' || (state === 'past' && wide.matches);
+			const onShow = state === 'cur' || (state === 'past' && mode === 'pinned');
 			if (onShow) {
 				const target = lines[Number(note.dataset.from)];
 				target.dataset.label = note.dataset.label;
 				target.classList.toggle('pastpin', state === 'past');
 			}
 		});
-		const title = n ? steps[n - 1].dataset.title : '';
-		specState.textContent = n ? `After step 2.${n}: ${title}` : 'Where level 1 left it';
+		const title = n ? articles[n].dataset.title : '';
+		specState.textContent = n ? `after step 2.${n}` : 'where level 1 left it';
 		viewState.textContent = n ? `Step 2.${n}: ${title}` : 'Level 1 file';
 		scheduleLayout();
 	};
 
-	// ---------- callouts and leader lines, measured from the rendered lines ----------
+	// ---------- callouts: each leader ends on its target's measured centre ----------
 	const clearStage = (stage) => {
+		stage.classList.remove('marginal');
 		stage.style.minHeight = '';
 		stage.querySelector('.leaders').replaceChildren();
-		stage.querySelectorAll('.co').forEach((note) => { note.style.top = ''; });
+		stage.querySelectorAll('.co').forEach((note) => { note.style.top = ''; delete note.dataset.at; });
 	};
 
-	const layoutStage = (stage, active) => {
-		if (!active || !stage.offsetParent) { clearStage(stage); return; }
+	const resolveSide = (items, maxBottom) => {
+		// clusters of overlapping notes sit where their total displacement is smallest
+		const clusters = [];
+		items.forEach((item) => {
+			clusters.push({ items: [item], top: item.want, h: item.h });
+			while (clusters.length > 1) {
+				const a = clusters[clusters.length - 2];
+				const b = clusters[clusters.length - 1];
+				if (a.top + a.h + GAP <= b.top) break;
+				a.items.push(...b.items);
+				a.h += GAP + b.h;
+				let offset = 0;
+				let sum = 0;
+				a.items.forEach((x) => { sum += x.want - offset; offset += x.h + GAP; });
+				a.top = sum / a.items.length;
+				clusters.pop();
+			}
+		});
+		let floor = 0;
+		clusters.forEach((cluster) => {
+			cluster.top = Math.max(cluster.top, floor);
+			floor = cluster.top + cluster.h + GAP;
+		});
+		let ceiling = maxBottom;
+		[...clusters].reverse().forEach((cluster) => {
+			if (cluster.top + cluster.h > ceiling) cluster.top = Math.max(0, ceiling - cluster.h);
+			ceiling = cluster.top - GAP;
+		});
+		clusters.forEach((cluster) => {
+			let y = cluster.top;
+			cluster.items.forEach((x) => { x.y = y; y += x.h + GAP; });
+		});
+	};
+
+	const layoutStage = (stage, on, fixedHeight) => {
+		if (!on || !stage.offsetParent) { clearStage(stage); return; }
+		stage.classList.add('marginal');
+		stage.style.minHeight = '';
 		const svg = stage.querySelector('.leaders');
 		const panel = stage.querySelector('.code');
-		const stageRect = stage.getBoundingClientRect();
-		const panelRect = panel.getBoundingClientRect();
 		const stageLines = [...stage.querySelectorAll('.ln')];
-		const shown = [...stage.querySelectorAll('.co')].filter((note) => getComputedStyle(note).display !== 'none');
-		const placed = shown.map((note) => {
-			const first = stageLines[Number(note.dataset.from)].getBoundingClientRect();
-			const last = stageLines[Number(note.dataset.to)].getBoundingClientRect();
-			return {
-				note,
-				side: note.dataset.side,
-				top: first.top - stageRect.top,
-				bottom: last.bottom - stageRect.top,
-				mid: (first.top + last.bottom) / 2 - stageRect.top,
-				height: note.offsetHeight,
-			};
+		const sr = stage.getBoundingClientRect();
+		const pr = panel.getBoundingClientRect();
+		const items = [...stage.querySelectorAll('.co')]
+			.filter((note) => getComputedStyle(note).display !== 'none')
+			.map((note) => {
+				const first = stageLines[Number(note.dataset.from)].getBoundingClientRect();
+				const lastLine = stageLines[Number(note.dataset.to)].getBoundingClientRect();
+				const nr = note.getBoundingClientRect();
+				const lab = note.querySelector('.lab').getBoundingClientRect();
+				const mid = (first.top + lastLine.bottom) / 2 - sr.top;
+				const anchor = (lab.top + lab.bottom) / 2 - nr.top;
+				return { note, pref: note.dataset.side, mid, top: first.top - sr.top, bottom: lastLine.bottom - sr.top, h: nr.height, anchor, want: mid - anchor };
+			})
+			.sort((a, b) => a.mid - b.mid);
+		// a note whose slot is taken on its own side moves to the other side when that side is free
+		const bySide = { left: [], right: [] };
+		const clash = (list, item) => list.some((o) => item.want < o.want + o.h + GAP && o.want < item.want + item.h + GAP);
+		items.forEach((item) => {
+			const other = item.pref === 'left' ? 'right' : 'left';
+			item.side = clash(bySide[item.pref], item) && !clash(bySide[other], item) ? other : item.pref;
+			bySide[item.side].push(item);
 		});
-		let lowest = panelRect.bottom - stageRect.top;
-		['left', 'right'].forEach((side) => {
-			let floor = 0;
-			placed.filter((p) => p.side === side).sort((a, b) => a.mid - b.mid).forEach((p) => {
-				p.y = Math.max(p.mid - 16, floor);
-				floor = p.y + p.height + 12;
-				lowest = Math.max(lowest, p.y + p.height);
-				p.note.style.top = `${p.y}px`;
-			});
+		const maxBottom = fixedHeight ? stage.clientHeight : Infinity;
+		resolveSide(bySide.left, maxBottom);
+		resolveSide(bySide.right, maxBottom);
+		let lowest = pr.bottom - sr.top;
+		items.forEach((item) => {
+			item.note.dataset.at = item.side;
+			item.note.style.top = `${item.y}px`;
+			lowest = Math.max(lowest, item.y + item.h);
 		});
-		stage.style.minHeight = `${Math.ceil(lowest)}px`;
-		const edgeLeft = panelRect.left - stageRect.left;
-		const edgeRight = panelRect.right - stageRect.left;
+		if (!fixedHeight) stage.style.minHeight = `${Math.ceil(lowest)}px`;
 		const parts = [];
-		placed.forEach((p) => {
-			const left = p.side === 'left';
-			const x1 = left ? p.note.offsetLeft + p.note.offsetWidth : p.note.offsetLeft;
-			const y1 = p.y + 16;
-			const x2 = left ? edgeLeft - 5 : edgeRight + 5;
-			const y2 = p.mid;
+		items.forEach((item) => {
+			const nr = item.note.getBoundingClientRect();
+			const left = item.side === 'left';
+			const x1 = (left ? nr.right : nr.left) - sr.left;
+			const y1 = item.y + item.anchor;
+			const x2 = (left ? pr.left - 5 : pr.right + 5) - sr.left;
+			const y2 = item.mid;
 			const bend = (x1 + x2) / 2;
-			const tone = [...p.note.classList].find((c) => /^m[0-9r]$/.test(c)) || '';
-			const past = p.note.dataset.state === 'past' ? ' past' : '';
+			const tone = [...item.note.classList].find((c) => /^m[0-9r]$/.test(c)) || '';
+			const past = item.note.dataset.state === 'past' ? ' past' : '';
 			const path = document.createElementNS(SVG, 'path');
 			path.setAttribute('class', `ld${past}`);
 			path.setAttribute('d', `M${x1} ${y1} C${bend} ${y1} ${bend} ${y2} ${x2} ${y2}`);
 			parts.push(path);
-			if (p.bottom - p.top > 30) {
+			if (item.bottom - item.top > 30) {
 				const bracket = document.createElementNS(SVG, 'path');
 				bracket.setAttribute('class', `br${past}`);
-				bracket.setAttribute('d', `M${x2} ${p.top + 3} V${p.bottom - 3}`);
+				bracket.setAttribute('d', `M${x2} ${item.top + 3} V${item.bottom - 3}`);
 				parts.push(bracket);
 			}
 			const dot = document.createElementNS(SVG, 'circle');
@@ -134,6 +225,8 @@
 			dot.setAttribute('cx', String(x2));
 			dot.setAttribute('cy', String(y2));
 			dot.setAttribute('r', '4.5');
+			dot.dataset.label = item.note.dataset.label;
+			dot.dataset.lead = String(y1);
 			parts.push(dot);
 		});
 		svg.replaceChildren(...parts);
@@ -142,23 +235,30 @@
 	let layoutFrame = 0;
 	const layout = () => {
 		layoutFrame = 0;
-		layoutStage(mainStage, isLive() && wide.matches);
-		layoutStage(realStage, realWide.matches);
+		layoutStage(mainStage, mode === 'pinned', true);
+		layoutStage(realStage, wide.matches, false);
 	};
 	function scheduleLayout() {
 		if (!layoutFrame) layoutFrame = requestAnimationFrame(layout);
 	}
 
-	// ---------- which step is active: IntersectionObserver on the steps ----------
-	const band = () => innerHeight * 0.38;
+	// ---------- which step is active ----------
 	const fromScroll = () => {
-		if (!isLive() || lock || fileView()) return;
+		if (lock || mode === 'static' || fileView()) return;
 		let n = 0;
-		steps.forEach((step, i) => { if (step.getBoundingClientRect().top < band()) n = i + 1; });
+		if (mode === 'pinned') {
+			segs.forEach((seg, k) => { if (k && seg.getBoundingClientRect().top <= 2) n = k; });
+		} else {
+			const band = innerHeight * 0.38;
+			articles.forEach((article, k) => { if (k && article.getBoundingClientRect().top < band) n = k; });
+		}
 		if (n !== current) render(n);
 	};
-	const observer = new IntersectionObserver(fromScroll, { rootMargin: '0px 0px -62% 0px', threshold: [0, 1] });
-	steps.forEach((step) => observer.observe(step));
+	// a one-per-cent line at the top of the viewport for the track; a band for the list
+	const segObserver = new IntersectionObserver(fromScroll, { rootMargin: '0px 0px -99% 0px', threshold: [0, 1] });
+	segs.forEach((seg) => segObserver.observe(seg));
+	const listObserver = new IntersectionObserver(fromScroll, { rootMargin: '0px 0px -62% 0px', threshold: [0, 1] });
+	articles.forEach((article) => listObserver.observe(article));
 
 	const holdThenRelease = (ms) => {
 		lock = true;
@@ -168,25 +268,40 @@
 		if ('onscrollend' in window) addEventListener('scrollend', release, { once: true });
 	};
 
-	// ---------- buttons and keys ----------
-	const go = (n, { focus = false } = {}) => {
-		n = Math.min(steps.length, Math.max(1, n));
-		render(n);
-		if (!isLive()) { steps[n - 1].scrollIntoView({ block: 'start' }); if (focus) stepButtons[n - 1].focus(); return; }
+	// ---------- buttons, keys and find-in-page all move the scroll position ----------
+	const go = (n, { focus = false, instant = false } = {}) => {
+		n = Math.min(last, Math.max(0, n));
+		if (mode === 'static') {
+			articles[n].scrollIntoView({ block: 'start' });
+			if (focus) headingButtons[n].focus();
+			return;
+		}
+		render(n, { instant });
 		if (fileView()) return;
-		holdThenRelease(1200);
-		if (focus) stepButtons[n - 1].focus({ preventScroll: true });
-		steps[n - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+		holdThenRelease(instant ? 150 : 1200);
+		const behavior = instant ? 'auto' : 'smooth';
+		if (mode === 'pinned') {
+			scrollTo({ top: scrollY + segs[n].getBoundingClientRect().top + 2, behavior });
+			if (focus) headingButtons[n].focus({ preventScroll: true });
+		} else {
+			if (focus) headingButtons[n].focus({ preventScroll: true });
+			articles[n].scrollIntoView({ behavior, block: 'start' });
+		}
 	};
-	stepButtons.forEach((button, i) => button.addEventListener('click', () => go(i + 1)));
+	headingButtons.forEach((button) => button.addEventListener('click', () => go(Number(button.dataset.go))));
+	navButtons.forEach((button) => button.addEventListener('click', () => go(Number(button.dataset.go))));
+	bodies.forEach((body, k) => body.addEventListener('beforematch', () => { if (mode === 'pinned') go(k, { instant: true }); }));
+	// tabbing onto a clipped heading brings its step forward, so focus is never invisible
+	headingButtons.forEach((button, k) => button.addEventListener('focus', () => { if (mode === 'pinned' && isOff(k)) go(k); }));
 
 	tut.addEventListener('keydown', (event) => {
-		if (event.altKey || event.ctrlKey || event.metaKey || !isLive()) return;
+		if (event.altKey || event.ctrlKey || event.metaKey || mode === 'static') return;
 		const key = event.key;
 		const delta = key === 'ArrowDown' || key === 'j' ? 1 : key === 'ArrowUp' || key === 'k' ? -1 : 0;
 		if (!delta) return;
 		event.preventDefault();
-		go(current + delta, { focus: !fileView() });
+		const inNav = navButtons.includes(document.activeElement) || viewButtons.includes(document.activeElement);
+		go(current + delta, { focus: !inNav && !fileView() });
 	});
 
 	// ---------- Steps / File at narrow widths ----------
@@ -196,34 +311,35 @@
 		lock = true;
 		clearTimeout(lockTimer);
 		if (view === 'file') {
-			const top = tut.getBoundingClientRect().top;
-			if (top < 0) tut.scrollIntoView({ block: 'start' });
-		} else if (current) {
-			steps[current - 1].scrollIntoView({ block: 'start' });
+			if (tut.getBoundingClientRect().top < 0) tut.scrollIntoView({ block: 'start' });
 		} else {
-			scrollTo(0, 0);
+			articles[current].scrollIntoView({ block: 'start' });
 		}
-		render(current);
-		// let the observer settle on the restored position before it may change the step again
+		render(current, { instant: true });
 		requestAnimationFrame(() => requestAnimationFrame(() => {
 			lockTimer = setTimeout(() => { lock = false; fromScroll(); }, 120);
 		}));
 	};
 	viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 
-	// ---------- keep it measured ----------
-	const reflow = () => { render(current); };
-	motionOK.addEventListener('change', reflow);
-	wide.addEventListener('change', reflow);
-	realWide.addEventListener('change', scheduleLayout);
+	// ---------- modes and measuring ----------
+	const applyMode = () => {
+		mode = modeNow();
+		tut.dataset.mode = mode;
+		if (mode === 'pinned') showOnly(current, true);
+		else showAll();
+		render(current, { instant: true });
+		fromScroll();
+	};
+	motionOK.addEventListener('change', applyMode);
+	wide.addEventListener('change', applyMode);
 	if ('ResizeObserver' in window) {
 		const resized = new ResizeObserver(scheduleLayout);
-		resized.observe(mainStage.querySelector('.code'));
+		resized.observe(mainStage);
 		resized.observe(realStage.querySelector('.code'));
 	}
 	addEventListener('resize', scheduleLayout);
 	if (document.fonts) document.fonts.ready.then(scheduleLayout);
 
-	render(0);
-	fromScroll();
+	applyMode();
 })();

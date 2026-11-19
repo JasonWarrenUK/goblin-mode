@@ -1,14 +1,17 @@
 <style>
 /*
-	Tutorial hybrid: Specimen's look (one big paper sheet, the file on a dark
-	exhibit panel, callout slips pinned in the margins with leader lines) driven
-	by Scroll story's gradual disclosure. Static is the default; the live layout
-	applies only under .js and prefers-reduced-motion: no-preference.
+	Tutorial hybrid, version 2: Specimen's look (one big paper sheet, the file on
+	a dark exhibit panel, callout slips pinned in the margins with leader lines)
+	driven by Scroll story's gradual disclosure, inside one pinned stage.
+	Static is the default. The script sets data-mode on .tut: "pinned" (wide,
+	motion allowed), "list" (narrow, motion allowed) or "static".
 	Every colour, face and shape is a token from .claude/themes/goblin-html.json;
 	tints are color-mix() of those tokens.
 */
 [hidden]{display:none !important}
+[hidden="until-found"]{display:block !important; content-visibility:hidden}
 *,*::before,*::after{box-sizing:border-box}
+:root{--col-text:24rem; --co-w:9.75rem; --co-gap:.75rem; --sheet-pad:1rem 1.25rem 1.1rem}
 body{
 	margin:0;
 	background-color:var(--desk);
@@ -22,7 +25,7 @@ h1,h2,h3{font-family:var(--font-display); font-weight:700; text-wrap:balance; ma
 p{margin:0}
 :focus-visible{outline:3px solid var(--accent); outline-offset:3px}
 code{font-family:var(--font-mono); font-size:.86em; overflow-wrap:anywhere}
-.vh{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+.vh,.step-body.off,.tut[data-mode="pinned"] .step.inactive .step-h{position:absolute !important; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
 
 /* step tones: one per step, plus the real file's own move */
 .m1{--tone:var(--slime); --on:var(--on-slime); --bar:var(--slime)}
@@ -60,6 +63,7 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 .key{font-family:var(--font-print); font-size:.88rem; line-height:2}
 .key mark{margin-right:.35rem; white-space:nowrap}
 .how{display:none; font-family:var(--font-print); font-size:.88rem; color:var(--ink-muted); max-width:46rem}
+@media (prefers-reduced-motion:no-preference){.js .how{display:block}}
 
 /* code on an exhibit panel: one block span per line, so wrapped lines hang under a gutter */
 .file{min-width:0}
@@ -83,7 +87,7 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 .code .ln.pastpin::before{opacity:.55}
 .file.small .code{font-size:.72rem}
 .code .ln.fresh{animation:lnin 480ms ease-out}
-@keyframes lnin{from{opacity:0; transform:translateY(-.35rem); background:color-mix(in oklab, var(--tone, var(--slime)) 55%, var(--exhibit))}}
+@keyframes lnin{from{opacity:0; background:color-mix(in oklab, var(--tone, var(--slime)) 55%, var(--exhibit))}}
 
 /* callout slips */
 .callouts,.co-list{list-style:none; margin:0; padding:0; display:grid; gap:.75rem}
@@ -91,17 +95,37 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 	padding:.6rem .75rem; box-shadow:var(--shadow); border-left:6px solid var(--tone)}
 .co code{background:none; color:var(--slip-accent); padding:0}
 .co mark code{color:inherit}
+.co p{overflow-wrap:anywhere}
+.co mark{padding:0 .1em}
 .lab{display:inline-block; font-weight:600; font-size:.78rem; line-height:1.3; padding:0 .3rem; margin-right:.3rem; border-radius:var(--radius-sm);
 	background:var(--tone); color:var(--on); vertical-align:.05em}
+.stage{position:relative; min-width:0}
+.stage > .callouts{margin-top:1rem}
 .leaders{display:none}
 
-/* the tutorial: static by default (no JS, or reduced motion) */
+/* margin callouts, laid out by the script from measured line positions */
+.marginal{padding:0 calc(var(--co-w) + var(--co-gap))}
+.marginal > .callouts{display:block; margin:0; position:absolute; inset:0; pointer-events:none}
+.marginal .co{position:absolute; width:var(--co-w); pointer-events:auto; font-size:.76rem; padding:.45rem .55rem}
+.marginal .co[data-at="left"]{left:0; border-left:0; border-right:6px solid var(--tone)}
+.marginal .co[data-at="right"]{right:0}
+.marginal .co[data-state="past"]{opacity:.5}
+.marginal .leaders{display:block}
+.leaders{position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:1}
+.leaders .ld{fill:none; stroke:var(--ink); stroke-width:1.6; stroke-linecap:round}
+.leaders .br{fill:none; stroke:var(--ink); stroke-width:2.5; stroke-linecap:round}
+.leaders .dot{fill:var(--tone); stroke:var(--ink); stroke-width:1.6}
+.leaders .past{opacity:.4}
+.leaders .ld.past{stroke-dasharray:3 4}
+
+/* ========== the tutorial: static by default (no JS, or reduced motion) ========== */
 .tut{display:grid; gap:1rem; min-width:0}
-.viewbar{display:none}
-.spread{display:grid; gap:1.5rem; min-width:0}
-.steps{display:grid; gap:1.5rem; min-width:0; max-width:64rem}
+.viewbar,.pin-bar,.segs,.specimen{display:none}
+.track{min-width:0}
+.pin{display:grid; gap:1.5rem; min-width:0}
+.writeups{display:grid; gap:1.5rem; min-width:0; max-width:64rem}
 .step{scroll-margin-top:1rem}
-.step:nth-child(odd){border-radius:var(--wonk-2)}
+.step:nth-child(even){border-radius:var(--wonk-2)}
 .step-h{font-size:clamp(1.5rem,3vw,2rem)}
 .step-btn{appearance:none; display:block; width:100%; margin:0; padding:0; border:0; background:none; color:inherit; font:inherit; line-height:inherit;
 	text-align:left; cursor:pointer; border-radius:var(--radius-sm)}
@@ -112,17 +136,14 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 .after-step .snap-title{font-family:var(--font-print); font-weight:600; font-size:.82rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-muted)}
 .after-step .file{margin-top:.6rem}
 .after-step .co-list{margin-top:.9rem}
-.specimen{display:none}
 
 /* the real thing */
-.real{max-width:55rem}
 .real h2,.exercise h2{font-size:clamp(1.6rem,3.4vw,2.3rem)}
-.real > p{max-width:50rem}
-.stage{position:relative; min-width:0}
-.stage > .callouts{margin-top:1rem}
+.real-text > * + *{margin-top:.9rem}
+.real-text > p{max-width:50rem}
 
 /* exercise */
-.exercise{padding:1.6rem clamp(1rem,3vw,1.75rem) 1.2rem; max-width:52rem; transform:rotate(-.3deg); --rag:var(--rag-b)}
+.exercise{padding:1.6rem clamp(1rem,3vw,1.75rem) 1.2rem; max-width:52rem; --rag:var(--rag-b)}
 .exercise h2{font-size:1.5rem; color:var(--slip-ink)}
 .exercise > * + *{margin-top:.75rem}
 .exercise details > * + *{margin-top:.75rem}
@@ -134,91 +155,85 @@ q{quotes:"\201C" "\201D"}
 	.after-step{display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:.6rem 1.25rem; align-items:start}
 	.after-step .snap-title{grid-column:1 / -1}
 	.after-step .file,.after-step .co-list{margin-top:0}
-	/* the real file's callouts pinned in the margins, laid out by the script */
-	.js .real .stage{--co-w:11.5rem; --co-gap:1.1rem; padding:0 calc(var(--co-w) + var(--co-gap)) 0 0}
-	.js .real .stage > .callouts{display:block; margin:0; position:absolute; inset:0; pointer-events:none}
-	.js .real .stage .co{pointer-events:auto}
-	.js .real .stage .co{position:absolute; width:var(--co-w)}
-	.js .real .leaders{display:block}
 }
-.js .stage .co[data-side="left"]{left:0}
-.js .stage .co[data-side="right"]{right:0}
-@media (min-width:900px){
-	.js .real .co[data-side="left"]{border-left:0; border-right:6px solid var(--tone); transform:rotate(-.5deg)}
-	.js .real .co[data-side="right"]{transform:rotate(.4deg)}
+/* the wide grid the stage and the Real Thing share: same edges, same columns */
+@media (min-width:1100px){
+	.real{display:grid; grid-template-columns:var(--col-text) minmax(0,1fr); gap:.8rem 1.5rem; padding:var(--sheet-pad); align-items:start}
+	.real > * + *{margin-top:0}
+	.real .real-text > p{font-size:.92rem; line-height:1.55}
 }
 
-/* leader lines: ink on paper, ending in a dot on the exhibit panel's edge */
-.leaders{position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:1}
-.leaders .ld{fill:none; stroke:var(--ink); stroke-width:1.6; stroke-linecap:round}
-.leaders .br{fill:none; stroke:var(--ink); stroke-width:2.5; stroke-linecap:round}
-.leaders .dot{fill:var(--tone); stroke:var(--ink); stroke-width:1.6}
-.leaders .past{opacity:.4}
-.leaders .ld.past{stroke-dasharray:3 4}
+/* ========== live modes ========== */
+.tut:is([data-mode="pinned"],[data-mode="list"]) .after-step{display:none}
+.tut:is([data-mode="pinned"],[data-mode="list"]) .specimen .co.fresh{animation:coin 420ms ease-out}
+@keyframes coin{from{opacity:0}}
+.tut:is([data-mode="pinned"],[data-mode="list"]) .specimen .co[data-state="future"]{display:none}
 
-/* ========== live: JS on and motion allowed ========== */
-@media (prefers-reduced-motion:no-preference){
-	.js .how{display:block}
-	.js .after-step{display:none}
-	.js .specimen{display:block}
-	.js .step{transition:box-shadow 180ms ease, color 180ms ease, border-color 180ms ease}
-	.js .step[data-state="active"]{box-shadow:0 0 0 3px var(--accent), var(--shadow)}
-	/* pending steps stay in the DOM and readable, only muted */
-	.js .step[data-state="pending"]{color:var(--ink-muted); border-style:dashed; border-color:var(--ink-muted)}
-	.js .step[data-state="pending"] :is(.file,mark,.ref,.logslip,.snum){opacity:.55}
-	.js .step[data-state="pending"] code{color:var(--ink-muted)}
-	.js .step[data-state="active"] .step-btn::after{content:"Now"; display:inline-block; margin-left:.5rem; vertical-align:.3em;
-		font-family:var(--font-print); font-size:.42em; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
-		background:var(--accent); color:var(--accent-ink); padding:.1em .45em; border-radius:var(--radius-sm)}
+/* pinned: one stage, one viewport tall, that holds still while the track scrolls past */
+.tut[data-mode="pinned"] .track{display:grid}
+.tut[data-mode="pinned"] .segs{display:block; grid-area:1 / 1}
+.seg[data-n="0"]{height:35dvh}
+.seg[data-n="1"],.seg[data-n="2"]{height:70dvh}
+.seg[data-n="3"]{height:calc(170dvh - .5rem)}
+.tut[data-mode="pinned"] .pin{grid-area:1 / 1; position:sticky; top:.5rem; z-index:1; align-self:start; height:calc(100dvh - 1rem);
+	display:grid; grid-template-columns:var(--col-text) minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); gap:.8rem 1.5rem;
+	background:var(--surface); color:var(--ink); border:2px solid var(--ink); border-radius:var(--wonk); box-shadow:var(--shadow); padding:var(--sheet-pad)}
+.tut[data-mode="pinned"] .pin-bar{grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.4rem 1rem;
+	border-bottom:2px dashed var(--line); padding-bottom:.6rem}
+.pin-title{font-family:var(--font-print); font-weight:600; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted)}
+.pin-file{font-family:var(--font-mono); letter-spacing:0; text-transform:none; color:var(--ink); margin:0 .5rem 0 .25rem}
+.spec-state{letter-spacing:.06em; color:var(--ink)}
+.stepnav{display:flex; gap:.4rem}
+.stepnav button{appearance:none; cursor:pointer; background:transparent; color:var(--ink); border:2px solid var(--ink); border-radius:var(--radius-sm);
+	font-family:var(--font-print); font-weight:600; font-size:.85rem; line-height:1.2; padding:.3rem .7rem}
+.stepnav button[aria-current="step"]{background:var(--ink); color:var(--surface)}
+.tut[data-mode="pinned"] .writeups{grid-column:1; grid-row:2; display:grid; align-content:start; min-height:0; max-width:none}
+.tut[data-mode="pinned"] .step{grid-area:1 / 1; align-self:start; min-width:0; border:0; border-radius:0; background:none; box-shadow:none; padding:0}
+.tut[data-mode="pinned"] .step > * + *,.step-body > * + *{margin-top:.6rem}
+.sheet .step-body > * + *{margin-top:.9rem}
+.tut[data-mode="pinned"] .step-body > * + *{margin-top:.6rem}
+.tut[data-mode="pinned"] .step-h{font-size:1.5rem}
+.tut[data-mode="pinned"] .step p{font-size:.9rem; line-height:1.5}
+.tut[data-mode="pinned"] .step .also{font-size:.8rem}
+.tut[data-mode="pinned"] .step .file.small .fname{font-size:.66rem}
+.tut[data-mode="pinned"] .step .file.small .code{font-size:.64rem; line-height:1.45; padding:.45rem 0}
+.tut[data-mode="pinned"] .step .file.small .ln{padding-left:2.4rem}
+.tut[data-mode="pinned"] .step .file.small .ln.new::before{left:.8rem}
+.tut[data-mode="pinned"] .step .logslip .code{padding:.35rem 0}
+.tut[data-mode="pinned"] .step.entering{animation:fadein 200ms ease-out}
+.tut[data-mode="pinned"] .step.leaving{opacity:0; transition:opacity 160ms ease}
+@keyframes fadein{from{opacity:0}}
+.tut[data-mode="pinned"] .specimen{display:block; grid-column:2; grid-row:2; min-height:0; position:relative}
+.tut[data-mode="pinned"] .specimen .stage{height:100%}
+.tut[data-mode="pinned"] .specimen .fname{font-size:.7rem}
+.tut[data-mode="pinned"] .specimen .code{font-size:.72rem; line-height:1.5; padding:.5rem 0}
 
-	.specimen{padding:1.1rem clamp(.9rem,1.6vw,1.25rem) 1.25rem}
-	.specimen > * + *{margin-top:.6rem}
-	.spec-top{display:grid; gap:.15rem}
-	.spec-title{font-family:var(--font-print); font-weight:600; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted)}
-	.spec-state{font-family:var(--font-display); font-size:1.35rem; line-height:1.15}
-	.specimen .co{transition:opacity 200ms ease}
-	.specimen .co.fresh{animation:coin 420ms ease-out}
-	@keyframes coin{from{opacity:0; transform:translateY(.4rem)}}
-	.specimen .co[data-state="future"]{display:none}
-}
-
-/* live, wide: steps beside the sticky specimen sheet, callouts in the margins */
-@media (prefers-reduced-motion:no-preference) and (min-width:1100px){
-	.js .spread{grid-template-columns:minmax(17rem,21rem) minmax(0,1fr); align-items:start}
-	.js .steps{gap:30vh; padding-bottom:28vh}
-	.js .step{scroll-margin-top:12vh; padding-inline:1.25rem}
-	.js .specimen{position:sticky; top:1rem; align-self:start}
-	.js .specimen .stage{--co-w:10.75rem; --co-gap:.9rem; padding:0 calc(var(--co-w) + var(--co-gap))}
-	.js .specimen .stage > .callouts{display:block; margin:0; position:absolute; inset:0; pointer-events:none}
-	.js .specimen .co{pointer-events:auto}
-	.js .specimen .co{position:absolute; width:var(--co-w); font-size:.8rem; padding:.5rem .6rem}
-	.js .specimen .co[data-side="left"]{border-left:0; border-right:6px solid var(--tone); transform:rotate(-.5deg)}
-	.js .specimen .co[data-side="right"]{transform:rotate(.4deg)}
-	.js .specimen .co[data-state="past"]{opacity:.5}
-	.js .specimen .leaders{display:block}
-}
-
-/* live, narrow: a Steps / File switch */
-@media (prefers-reduced-motion:no-preference) and (max-width:1099px){
-	.js .viewbar{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; position:sticky; top:0; z-index:5;
-		background:var(--card); color:var(--card-ink); padding:.5rem .7rem; border-radius:0 0 var(--radius-md) var(--radius-md); box-shadow:var(--shadow)}
-	.viewbar .switch{display:flex; gap:.35rem}
-	.viewbar button{appearance:none; cursor:pointer; background:transparent; color:var(--card-ink); border:2px solid var(--card-ink); border-radius:var(--radius-sm);
-		font-family:var(--font-print); font-weight:600; font-size:.88rem; line-height:1.2; padding:.4rem .8rem}
-	.viewbar button[aria-pressed="true"]{background:var(--card-ink); color:var(--card)}
-	.viewbar button:focus-visible{outline:3px solid var(--card-ink); outline-offset:2px}
-	.viewbar .viewstate{font-family:var(--font-print); font-size:.85rem; font-weight:600}
-	.js .step{scroll-margin-top:4.5rem; min-height:52vh}
-	.js .tut[data-view="steps"] .specimen{display:none}
-	.js .tut[data-view="file"] .steps{display:none}
-	.js .specimen .co[data-state="past"]{display:none}
-	.js .specimen .stage > .callouts{margin-top:.9rem}
-}
+/* list: narrow and live, a Steps / File switch over a normal scroll */
+.tut[data-mode="list"] .viewbar{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; position:sticky; top:0; z-index:5;
+	background:var(--card); color:var(--card-ink); padding:.5rem .7rem; border-radius:0 0 var(--radius-md) var(--radius-md); box-shadow:var(--shadow)}
+.viewbar .switch{display:flex; gap:.35rem}
+.viewbar button{appearance:none; cursor:pointer; background:transparent; color:var(--card-ink); border:2px solid var(--card-ink); border-radius:var(--radius-sm);
+	font-family:var(--font-print); font-weight:600; font-size:.88rem; line-height:1.2; padding:.4rem .8rem}
+.viewbar button[aria-pressed="true"]{background:var(--card-ink); color:var(--card)}
+.viewbar button:focus-visible{outline:3px solid var(--card-ink); outline-offset:2px}
+.viewbar .viewstate{font-family:var(--font-print); font-size:.85rem; font-weight:600}
+.tut[data-mode="list"] .step{scroll-margin-top:4.5rem; min-height:52vh; transition:box-shadow 180ms ease, color 180ms ease}
+.tut[data-mode="list"] .step[data-state="active"]{box-shadow:0 0 0 3px var(--accent), var(--shadow)}
+.tut[data-mode="list"] .step[data-state="pending"]{color:var(--ink-muted); border-style:dashed; border-color:var(--ink-muted)}
+.tut[data-mode="list"] .step[data-state="pending"] :is(.file,mark,.ref,.logslip,.snum){opacity:.55}
+.tut[data-mode="list"] .step[data-state="pending"] code{color:var(--ink-muted)}
+.tut[data-mode="list"] .step[data-state="active"] .step-btn::after{content:"Now"; display:inline-block; margin-left:.5rem; vertical-align:.3em;
+	font-family:var(--font-print); font-size:.42em; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+	background:var(--accent); color:var(--accent-ink); padding:.1em .45em; border-radius:var(--radius-sm)}
+.tut[data-mode="list"][data-view="file"] .writeups{display:none}
+.tut[data-mode="list"][data-view="file"] .specimen{display:block; background:var(--surface); border:2px solid var(--ink); border-radius:var(--radius-md);
+	box-shadow:var(--shadow); padding:1rem}
+.tut[data-mode="list"] .specimen .co[data-state="past"]{display:none}
+.tut[data-mode="list"] .specimen .stage > .callouts{margin-top:.9rem}
 
 /* ========== narrow ========== */
 @media (max-width:760px){
-	.sheet,.sheet.alt,.step:nth-child(odd){border-radius:var(--radius-md)}
-	.exercise,.co{transform:none}
+	.sheet,.sheet.alt,.step:nth-child(even){border-radius:var(--radius-md)}
 	.code .ln{padding-left:2.8rem; padding-right:.6rem}
 	.code .ln.new::before,.code .ln.del::before{left:.9rem}
 	.code .ln[data-label]::before{left:.25rem}
@@ -235,10 +250,10 @@ q{quotes:"\201C" "\201D"}
 	<h1>Give It a Script and a Ledger</h1>
 	<p class="lede">At level 1, <code>tidy-imports</code> was one file that asked Claude to sort a file's imports by hand. This level gives the sorting to a script, lets that one script run without a prompt and keeps a ledger of every file it touches.</p>
 	<p class="key">Colour key: <mark class="m1">2.1 Give It a Script</mark> <mark class="m2">2.2 Scope the Tool</mark> <mark class="m3">2.3 Keep a Ledger</mark></p>
-	<p class="how">Scroll and the sheet builds SKILL.md one step at a time, pinning each step's notes. A step's heading, the arrow keys or j and k jump between steps.</p>
+	<p class="how">Scroll and the sheet below builds SKILL.md one step at a time, pinning each step's notes. The step buttons, the arrow keys or j and k jump between steps.</p>
 </header>
 
-<section class="tut" id="tut" data-view="steps" data-step="0" aria-label="Steps 2.1 to 2.3">
+<section class="tut" id="tut" data-view="steps" data-step="0" aria-label="Level 2, step by step">
 	<div class="viewbar">
 		<div class="switch" role="group" aria-label="Show">
 			<button type="button" data-view="steps" aria-pressed="true">Steps</button>
@@ -246,10 +261,30 @@ q{quotes:"\201C" "\201D"}
 		</div>
 		<p class="viewstate" aria-live="polite">Level 1 file</p>
 	</div>
-	<div class="spread">
-		<div class="steps">
+	<div class="track">
+		<div class="pin" id="pin">
+			<div class="pin-bar">
+				<p class="pin-title">Specimen <span class="pin-file">SKILL.md</span> <span class="spec-state">where level 1 left it</span></p>
+				<div class="stepnav" role="group" aria-label="Go to step">
+					<button type="button" data-go="1"><span aria-hidden="true">2.1</span><span class="vh">Step 2.1: Give It a Script</span></button><button type="button" data-go="2"><span aria-hidden="true">2.2</span><span class="vh">Step 2.2: Scope the Tool</span></button><button type="button" data-go="3"><span aria-hidden="true">2.3</span><span class="vh">Step 2.3: Keep a Ledger</span></button>
+				</div>
+			</div>
+			<div class="writeups">
+<article class="sheet step" id="step-0" data-n="0" data-title="Where Level 1 Left It" aria-labelledby="step-0-h">
+	<h2 class="step-h" id="step-0-h"><button type="button" class="step-btn" data-go="0" aria-controls="spec">Where Level 1 Left It</button></h2>
+	<div class="step-body">
+	<p>This is SKILL.md as level 1 left it: three lines of frontmatter and a body that asks Claude to do the sorting itself, in prose.</p>
+		<p>The three sorting lines at the bottom are the ones step 2.1 replaces with a script.</p>
+	<div class="after-step">
+		<p class="snap-title">SKILL.md at the end of level 1</p>
+		<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln">Sort the import statements at the top of the file</span><span class="ln">alphabetically, one per line. Leave everything below</span><span class="ln">the imports exactly as it was.</span></code></pre></div>
+		
+	</div>
+	</div>
+</article>
 <article class="sheet step" id="step-2-1" data-n="1" data-title="Give It a Script" aria-labelledby="step-2-1-h">
-	<h2 class="step-h" id="step-2-1-h"><button type="button" class="step-btn" aria-controls="spec"><span class="snum">2.1</span> Give It a Script</button></h2>
+	<h2 class="step-h" id="step-2-1-h"><button type="button" class="step-btn" data-go="1" aria-controls="spec"><span class="snum">2.1</span> Give It a Script</button></h2>
+	<div class="step-body">
 	<p>At level 1, Claude sorted the imports itself, and a model asked to reorder lines will now and then reflow one it was told to leave alone. A script does the same thing every time and costs no tokens, so the sorting moves into <code>scripts/sort-imports.sh</code> in the skill's folder.</p>
 		<p class="also">The new script, whole:</p>
 		<div class="file small"><p class="fname">tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln m1 new">#!/usr/bin/env bash</span><span class="ln m1 new"># Sort the import lines at the top of a file, in place.</span><span class="ln m1 new">set -euo pipefail</span><span class="ln m1 new"></span><span class="ln m1 new">file=&quot;$1&quot;</span><span class="ln m1 new"></span><span class="ln m1 new"># How many lines from the top start with &quot;import &quot;?</span><span class="ln m1 new">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln m1 new">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln m1 new">	echo &quot;no imports at the top of $file&quot;</span><span class="ln m1 new">	exit 0</span><span class="ln m1 new">fi</span><span class="ln m1 new"></span><span class="ln m1 new">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln m1 new">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln m1 new">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div>
@@ -259,9 +294,11 @@ q{quotes:"\201C" "\201D"}
 		<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln m1 cur new">Run the script on the file, by exactly this path:</span><span class="ln m1 cur new"></span><span class="ln m1 cur new">```bash</span><span class="ln m1 cur new" data-label="2.1a">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln m1 cur new">```</span><span class="ln m1 cur new"></span><span class="ln m1 cur new" data-label="2.1b">It sorts the import block in place. Do not reorder any</span><span class="ln m1 cur new">lines yourself or edit the file after it runs. If the</span><span class="ln m1 cur new">script exits non-zero, report its message and stop.</span></code></pre></div>
 		<ol class="co-list" aria-label="Notes for step 2.1"><li class="co m1"><p><span class="lab">2.1a</span> <mark>The script call</mark> takes the place of the three lines that told Claude how to sort.</p></li><li class="co m1"><p><span class="lab">2.1b</span> <mark>Hands off the sorting.</mark> Claude reorders nothing itself and leaves the file alone after the script runs; a non-zero exit ends the run with the script's message.</p></li></ol>
 	</div>
+	</div>
 </article>
 <article class="sheet step" id="step-2-2" data-n="2" data-title="Scope the Tool" aria-labelledby="step-2-2-h">
-	<h2 class="step-h" id="step-2-2-h"><button type="button" class="step-btn" aria-controls="spec"><span class="snum">2.2</span> Scope the Tool</button></h2>
+	<h2 class="step-h" id="step-2-2-h"><button type="button" class="step-btn" data-go="2" aria-controls="spec"><span class="snum">2.2</span> Scope the Tool</button></h2>
+	<div class="step-body">
 	<p>Running a script is a Bash call, and Claude asks before each one unless the skill approves it. <mark class="m2"><code>allowed-tools</code></mark> <span class="ref">2.2a</span> approves calls for as long as the skill runs; naming the script's full path, with <code>:*</code> for whatever arguments follow, approves that one script and no other command.</p>
 		<p>The rule matches the start of the command, so <mark class="m1">the script call</mark> from 2.1a uses exactly that path, with no <code>bash</code> or <code>./</code> in front.</p>
 	<div class="after-step">
@@ -269,9 +306,11 @@ q{quotes:"\201C" "\201D"}
 		<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln m2 cur new" data-label="2.2a">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln m1">Run the script on the file, by exactly this path:</span><span class="ln m1"></span><span class="ln m1">```bash</span><span class="ln m1">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln m1">```</span><span class="ln m1"></span><span class="ln m1">It sorts the import block in place. Do not reorder any</span><span class="ln m1">lines yourself or edit the file after it runs. If the</span><span class="ln m1">script exits non-zero, report its message and stop.</span></code></pre></div>
 		<ol class="co-list" aria-label="Notes for step 2.2"><li class="co m2"><p><span class="lab">2.2a</span> <mark><code>allowed-tools</code></mark> approves Bash calls that start with this path for as long as the skill runs. The <code>:*</code> covers whatever arguments follow.</p></li></ol>
 	</div>
+	</div>
 </article>
 <article class="sheet step" id="step-2-3" data-n="3" data-title="Keep a Ledger" aria-labelledby="step-2-3-h">
-	<h2 class="step-h" id="step-2-3-h"><button type="button" class="step-btn" aria-controls="spec"><span class="snum">2.3</span> Keep a Ledger</button></h2>
+	<h2 class="step-h" id="step-2-3-h"><button type="button" class="step-btn" data-go="3" aria-controls="spec"><span class="snum">2.3</span> Keep a Ledger</button></h2>
+	<div class="step-body">
 	<p>A ledger lets a later run say what an earlier one touched. The script appends one line per file to <code>.claude/tidy-imports.log</code>, the path and how many imports it sorted, so writing the ledger needs no extra permission.</p>
 		<p class="also">The script's two new lines:</p>
 		<div class="file small"><p class="fname">tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln cut">...</span><span class="ln">file=&quot;$1&quot;</span><span class="ln m3 cur new">ledger=&quot;.claude/tidy-imports.log&quot;</span><span class="ln cut">...</span><span class="ln">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln m3 cur new">printf '%s\t%s\n' &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span><span class="ln">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div>
@@ -282,25 +321,26 @@ q{quotes:"\201C" "\201D"}
 		<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln m2">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln m3 cur new" data-label="2.3a">Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln m3 cur new">already listed there, say so before going on.</span><span class="ln m3 cur new"></span><span class="ln m1">Run the script on the file, by exactly this path:</span><span class="ln m1"></span><span class="ln m1">```bash</span><span class="ln m1">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln m1">```</span><span class="ln m1"></span><span class="ln m1">It sorts the import block in place. Do not reorder any</span><span class="ln m1">lines yourself or edit the file after it runs. If the</span><span class="ln m1">script exits non-zero, report its message and stop.</span><span class="ln m3 cur new"></span><span class="ln m3 cur new" data-label="2.3b">The script also writes the ledger line. Never write to</span><span class="ln m3 cur new">.claude/tidy-imports.log yourself.</span></code></pre></div>
 		<ol class="co-list" aria-label="Notes for step 2.3"><li class="co m3"><p><span class="lab">2.3a</span> <mark>Read the ledger first</mark>, so a second run on the same file says so before it starts.</p></li><li class="co m3"><p><span class="lab">2.3b</span> <mark>The script writes the ledger line</mark>, so it comes out the same every time and needs no permission beyond 2.2a.</p></li></ol>
 	</div>
+	</div>
 </article>
+			</div>
+			<aside class="specimen" id="spec" aria-label="SKILL.md as it stands at the active step">
+				<div class="stage">
+					<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln" data-i="0" data-s="0">---</span><span class="ln" data-i="1" data-s="0">name: tidy-imports</span><span class="ln" data-i="2" data-s="0">description: Sort the import statements at the top of a file</span><span class="ln" data-i="3" data-s="0">arguments: [path]</span><span class="ln m2" data-i="4" data-s="2" hidden>allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln" data-i="5" data-s="0">---</span><span class="ln" data-i="6" data-s="0"></span><span class="ln" data-i="7" data-s="0">Tidy the imports in $path.</span><span class="ln" data-i="8" data-s="0"></span><span class="ln" data-i="9" data-s="-1">Sort the import statements at the top of the file</span><span class="ln" data-i="10" data-s="-1">alphabetically, one per line. Leave everything below</span><span class="ln" data-i="11" data-s="-1">the imports exactly as it was.</span><span class="ln m3" data-i="12" data-s="3" hidden>Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln m3" data-i="13" data-s="3" hidden>already listed there, say so before going on.</span><span class="ln m3" data-i="14" data-s="3" hidden></span><span class="ln m1" data-i="15" data-s="1" hidden>Run the script on the file, by exactly this path:</span><span class="ln m1" data-i="16" data-s="1" hidden></span><span class="ln m1" data-i="17" data-s="1" hidden>```bash</span><span class="ln m1" data-i="18" data-s="1" hidden>.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln m1" data-i="19" data-s="1" hidden>```</span><span class="ln m1" data-i="20" data-s="1" hidden></span><span class="ln m1" data-i="21" data-s="1" hidden>It sorts the import block in place. Do not reorder any</span><span class="ln m1" data-i="22" data-s="1" hidden>lines yourself or edit the file after it runs. If the</span><span class="ln m1" data-i="23" data-s="1" hidden>script exits non-zero, report its message and stop.</span><span class="ln m3" data-i="24" data-s="3" hidden></span><span class="ln m3" data-i="25" data-s="3" hidden>The script also writes the ledger line. Never write to</span><span class="ln m3" data-i="26" data-s="3" hidden>.claude/tidy-imports.log yourself.</span></code></pre></div>
+					<ol class="callouts" aria-label="Notes on the file"><li class="co m1" data-s="1" data-from="18" data-to="18" data-side="left" data-label="2.1a"><p><span class="lab">2.1a</span> <mark>The script call</mark> takes the place of the three lines that told Claude how to sort.</p></li><li class="co m1" data-s="1" data-from="21" data-to="23" data-side="right" data-label="2.1b"><p><span class="lab">2.1b</span> <mark>Hands off the sorting.</mark> Claude reorders nothing itself and leaves the file alone after the script runs; a non-zero exit ends the run with the script's message.</p></li><li class="co m2" data-s="2" data-from="4" data-to="4" data-side="left" data-label="2.2a"><p><span class="lab">2.2a</span> <mark><code>allowed-tools</code></mark> approves Bash calls that start with this path for as long as the skill runs. The <code>:*</code> covers whatever arguments follow.</p></li><li class="co m3" data-s="3" data-from="12" data-to="13" data-side="right" data-label="2.3a"><p><span class="lab">2.3a</span> <mark>Read the ledger first</mark>, so a second run on the same file says so before it starts.</p></li><li class="co m3" data-s="3" data-from="25" data-to="26" data-side="left" data-label="2.3b"><p><span class="lab">2.3b</span> <mark>The script writes the ledger line</mark>, so it comes out the same every time and needs no permission beyond 2.2a.</p></li></ol>
+					<svg class="leaders" aria-hidden="true" focusable="false"></svg>
+				</div>
+			</aside>
 		</div>
-		<aside class="sheet specimen" id="spec" aria-labelledby="spec-title">
-			<div class="spec-top">
-				<h2 class="spec-title" id="spec-title">Specimen: SKILL.md</h2>
-				<p class="spec-state">Where level 1 left it</p>
-			</div>
-			<div class="stage">
-				<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln" data-i="0" data-s="0">---</span><span class="ln" data-i="1" data-s="0">name: tidy-imports</span><span class="ln" data-i="2" data-s="0">description: Sort the import statements at the top of a file</span><span class="ln" data-i="3" data-s="0">arguments: [path]</span><span class="ln m2" data-i="4" data-s="2" hidden>allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln" data-i="5" data-s="0">---</span><span class="ln" data-i="6" data-s="0"></span><span class="ln" data-i="7" data-s="0">Tidy the imports in $path.</span><span class="ln" data-i="8" data-s="0"></span><span class="ln" data-i="9" data-s="-1">Sort the import statements at the top of the file</span><span class="ln" data-i="10" data-s="-1">alphabetically, one per line. Leave everything below</span><span class="ln" data-i="11" data-s="-1">the imports exactly as it was.</span><span class="ln m3" data-i="12" data-s="3" hidden>Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln m3" data-i="13" data-s="3" hidden>already listed there, say so before going on.</span><span class="ln m3" data-i="14" data-s="3" hidden></span><span class="ln m1" data-i="15" data-s="1" hidden>Run the script on the file, by exactly this path:</span><span class="ln m1" data-i="16" data-s="1" hidden></span><span class="ln m1" data-i="17" data-s="1" hidden>```bash</span><span class="ln m1" data-i="18" data-s="1" hidden>.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln m1" data-i="19" data-s="1" hidden>```</span><span class="ln m1" data-i="20" data-s="1" hidden></span><span class="ln m1" data-i="21" data-s="1" hidden>It sorts the import block in place. Do not reorder any</span><span class="ln m1" data-i="22" data-s="1" hidden>lines yourself or edit the file after it runs. If the</span><span class="ln m1" data-i="23" data-s="1" hidden>script exits non-zero, report its message and stop.</span><span class="ln m3" data-i="24" data-s="3" hidden></span><span class="ln m3" data-i="25" data-s="3" hidden>The script also writes the ledger line. Never write to</span><span class="ln m3" data-i="26" data-s="3" hidden>.claude/tidy-imports.log yourself.</span></code></pre></div>
-				<ol class="callouts" aria-label="Notes on the file"><li class="co m1" data-s="1" data-from="18" data-to="18" data-side="left" data-label="2.1a"><p><span class="lab">2.1a</span> <mark>The script call</mark> takes the place of the three lines that told Claude how to sort.</p></li><li class="co m1" data-s="1" data-from="21" data-to="23" data-side="right" data-label="2.1b"><p><span class="lab">2.1b</span> <mark>Hands off the sorting.</mark> Claude reorders nothing itself and leaves the file alone after the script runs; a non-zero exit ends the run with the script's message.</p></li><li class="co m2" data-s="2" data-from="4" data-to="4" data-side="left" data-label="2.2a"><p><span class="lab">2.2a</span> <mark><code>allowed-tools</code></mark> approves Bash calls that start with this path for as long as the skill runs. The <code>:*</code> covers whatever arguments follow.</p></li><li class="co m3" data-s="3" data-from="12" data-to="13" data-side="right" data-label="2.3a"><p><span class="lab">2.3a</span> <mark>Read the ledger first</mark>, so a second run on the same file says so before it starts.</p></li><li class="co m3" data-s="3" data-from="25" data-to="26" data-side="left" data-label="2.3b"><p><span class="lab">2.3b</span> <mark>The script writes the ledger line</mark>, so it comes out the same every time and needs no permission beyond 2.2a.</p></li></ol>
-				<svg class="leaders" aria-hidden="true" focusable="false"></svg>
-			</div>
-		</aside>
+		<div class="segs" aria-hidden="true"><div class="seg" data-n="0"></div><div class="seg" data-n="1"></div><div class="seg" data-n="2"></div><div class="seg" data-n="3"></div></div>
 	</div>
 </section>
 
 <article class="sheet alt real" aria-labelledby="real-h">
-	<h2 id="real-h">The Real Thing</h2>
-	<p><code>project-tag_version</code> lives in this repository and tags a release after a merge to main. Its first marked line, <mark class="mr"><code>disable-model-invocation</code></mark> <span class="ref">R.a</span>, is a move <code>tidy-imports</code> does not have yet. The other two are this level's moves: <mark class="m2"><code>allowed-tools</code> names a script by its path</mark> <span class="ref">R.b</span> and <mark class="m1">the body runs that script</mark> <span class="ref">R.c</span> for the part that must come out the same every time.</p>
+	<div class="real-text">
+		<h2 id="real-h">The Real Thing</h2>
+		<p><code>project-tag_version</code> lives in this repository and tags a release after a merge to main. Its first marked line, <mark class="mr"><code>disable-model-invocation</code></mark> <span class="ref">R.a</span>, is a move <code>tidy-imports</code> does not have yet. The other two are this level's moves: <mark class="m2"><code>allowed-tools</code> names a script by its path</mark> <span class="ref">R.b</span> and <mark class="m1">the body runs that script</mark> <span class="ref">R.c</span> for the part that must come out the same every time.</p>
+	</div>
 	<div class="stage">
 		<div class="file"><p class="fname">skills/project-tag_version/SKILL.md</p><pre class="code"><code><span class="ln" data-i="0">---</span><span class="ln" data-i="1">name: &quot;Project: Tag Version&quot;</span><span class="ln" data-i="2">description: &quot;Tag the release after a merge to main, computing the next semver tag with svu&quot;</span><span class="ln cut" data-i="3">...</span><span class="ln mr cur" data-i="4" data-label="R.a">disable-model-invocation: true</span><span class="ln m2 cur" data-i="5" data-label="R.b">allowed-tools: [&quot;Bash(svu:*)&quot;, &quot;Bash(git:*)&quot;, &quot;Bash(~/.claude/library/scripts/safe-version-next.sh:*)&quot;]</span><span class="ln cut" data-i="6">...</span><span class="ln" data-i="7">---</span><span class="ln" data-i="8"></span><span class="ln" data-i="9"># Tag the release with `svu`</span><span class="ln" data-i="10"></span><span class="ln cut" data-i="11">...</span><span class="ln" data-i="12"></span><span class="ln" data-i="13">```bash</span><span class="ln m1 cur" data-i="14" data-label="R.c">TAG=&quot;$(&quot;$HOME&quot;/.claude/library/scripts/safe-version-next.sh)&quot; &amp;&amp; git tag &quot;$TAG&quot; &amp;&amp; git push origin &quot;$TAG&quot;</span><span class="ln" data-i="15">```</span><span class="ln cut" data-i="16">...</span></code></pre></div>
 		<ol class="callouts" aria-label="Notes on project-tag_version"><li class="co mr" data-s="0" data-from="4" data-to="4" data-side="right" data-label="R.a"><p><span class="lab">R.a</span> <mark><code>disable-model-invocation</code></mark> stops Claude starting the skill on its own, so it runs only when a person types its slash command after a merge has landed, because a pushed tag is hard to take back.</p></li><li class="co m2" data-s="0" data-from="5" data-to="5" data-side="right" data-label="R.b"><p><span class="lab">R.b</span> <mark><code>allowed-tools</code></mark> names <code>safe-version-next.sh</code> by its full path, the move from 2.2a, beside <code>svu</code> and <code>git</code> for reading history and pushing one tag.</p></li><li class="co m1" data-s="0" data-from="14" data-to="14" data-side="right" data-label="R.c"><p><span class="lab">R.c</span> <mark>The body runs the script</mark> and tags whatever it prints, so Claude never works out the next version itself.</p></li></ol>
@@ -321,46 +361,96 @@ q{quotes:"\201C" "\201D"}
 </main>
 
 <script>
-// Tutorial hybrid. Without this script, or with reduced motion, every step shows its own
-// snapshot of the file and nothing is hidden. With it, the specimen sheet builds in step with the prose.
+// Tutorial hybrid, version 2. Without this script, or with reduced motion, every step shows its own
+// snapshot of the file and nothing is hidden. Wide and live: one pinned stage holds still while a
+// scroll track moves through the steps. Narrow and live: a Steps / File switch over a normal scroll.
 (() => {
 	const root = document.documentElement;
 	root.classList.add('js');
 	const SVG = 'http://www.w3.org/2000/svg';
+	const GAP = 10;
 
 	const tut = document.getElementById('tut');
-	const steps = [...tut.querySelectorAll('.step')];
-	const stepButtons = steps.map((step) => step.querySelector('.step-btn'));
-	const sheet = tut.querySelector('.specimen');
-	const mainStage = sheet.querySelector('.stage');
+	const track = tut.querySelector('.track');
+	const pin = tut.querySelector('.pin');
+	const articles = [...tut.querySelectorAll('.step')];
+	const headingButtons = articles.map((article) => article.querySelector('.step-btn'));
+	const navButtons = [...pin.querySelectorAll('.stepnav button')];
+	const segs = [...tut.querySelectorAll('.seg')];
+	const mainStage = pin.querySelector('.specimen .stage');
 	const lines = [...mainStage.querySelectorAll('.ln')];
 	const notes = [...mainStage.querySelectorAll('.co')];
-	const specState = sheet.querySelector('.spec-state');
+	const specState = pin.querySelector('.spec-state');
 	const viewButtons = [...tut.querySelectorAll('.viewbar button')];
 	const viewState = tut.querySelector('.viewstate');
 	const realStage = document.querySelector('.real .stage');
+	const last = articles.length - 1;
 
 	const motionOK = matchMedia('(prefers-reduced-motion: no-preference)');
 	const wide = matchMedia('(min-width: 1100px)');
-	const realWide = matchMedia('(min-width: 900px)');
-	const isLive = () => motionOK.matches;
-	const fileView = () => !wide.matches && tut.dataset.view === 'file';
+	const canFind = 'onbeforematch' in document.body;
+	const modeNow = () => (!motionOK.matches ? 'static' : wide.matches ? 'pinned' : 'list');
 
+	let mode = 'static';
 	let current = 0;
 	let lock = false;
 	let lockTimer = 0;
+	const fileView = () => mode === 'list' && tut.dataset.view === 'file';
+
+	// ---------- write-ups in the pinned stage: one shows; the others keep their headings for screen
+	// readers (clipped) and their bodies hidden until find-in-page lands on them ----------
+	const bodies = articles.map((article) => article.querySelector('.step-body'));
+	const isOff = (k) => articles[k].classList.contains('inactive');
+	const hideArticle = (k) => {
+		articles[k].classList.remove('leaving', 'entering');
+		articles[k].classList.add('inactive');
+		if (canFind) bodies[k].setAttribute('hidden', 'until-found');
+		else bodies[k].classList.add('off');
+	};
+	const showOnly = (n, instant) => {
+		articles.forEach((article, k) => {
+			clearTimeout(article.leaveTimer);
+			if (k === n) {
+				const wasOff = isOff(k) || article.classList.contains('leaving');
+				article.classList.remove('inactive', 'leaving', 'entering');
+				bodies[k].removeAttribute('hidden');
+				bodies[k].classList.remove('off');
+				if (wasOff && !instant) { void article.offsetWidth; article.classList.add('entering'); }
+			} else if (!isOff(k)) {
+				if (instant) hideArticle(k);
+				else {
+					article.classList.add('leaving');
+					article.leaveTimer = setTimeout(() => hideArticle(k), 170);
+				}
+			}
+		});
+	};
+	const showAll = () => articles.forEach((article, k) => {
+		clearTimeout(article.leaveTimer);
+		article.classList.remove('inactive', 'leaving', 'entering');
+		bodies[k].removeAttribute('hidden');
+		bodies[k].classList.remove('off');
+	});
 
 	// ---------- state ----------
-	const render = (n) => {
+	const render = (n, { instant = false } = {}) => {
 		const previous = current;
 		current = n;
 		tut.dataset.step = String(n);
-		steps.forEach((step, i) => {
-			const k = i + 1;
-			step.dataset.state = k < n ? 'past' : k === n ? 'active' : 'pending';
-			if (k === n) stepButtons[i].setAttribute('aria-current', 'step');
-			else stepButtons[i].removeAttribute('aria-current');
+		articles.forEach((article, k) => {
+			article.dataset.state = k < n ? 'past' : k === n ? 'active' : 'pending';
+			if (k === n) headingButtons[k].setAttribute('aria-current', 'step');
+			else headingButtons[k].removeAttribute('aria-current');
 		});
+		navButtons.forEach((button) => {
+			if (Number(button.dataset.go) === n) button.setAttribute('aria-current', 'step');
+			else button.removeAttribute('aria-current');
+		});
+		if (mode === 'pinned') {
+			const focusInside = articles.findIndex((article) => article.contains(document.activeElement));
+			showOnly(n, instant);
+			if (focusInside >= 0 && focusInside !== n) headingButtons[n].focus({ preventScroll: true });
+		}
 		lines.forEach((line) => {
 			const s = Number(line.dataset.s);
 			const show = s === 0 || (s > 0 && s <= n) || (s === -1 && n <= 1);
@@ -369,87 +459,128 @@ q{quotes:"\201C" "\201D"}
 			line.classList.toggle('del', s === -1 && n === 1);
 			line.classList.toggle('cur', s > 0 && s === n);
 			line.classList.toggle('new', s > 0 && s === n);
-			line.classList.toggle('fresh', show && wasHidden && n > previous);
+			line.classList.toggle('fresh', show && wasHidden && n > previous && !instant);
 			line.removeAttribute('data-label');
 			line.classList.remove('pastpin');
 		});
 		notes.forEach((note) => {
 			const s = Number(note.dataset.s);
 			const state = s < n ? 'past' : s === n ? 'cur' : 'future';
-			note.classList.toggle('fresh', state === 'cur' && note.dataset.state === 'future' && n > previous);
+			note.classList.toggle('fresh', state === 'cur' && note.dataset.state === 'future' && n > previous && !instant);
 			note.dataset.state = state;
-			// the gutter carries the label of every note on show
-			const onShow = state === 'cur' || (state === 'past' && wide.matches);
+			const onShow = state === 'cur' || (state === 'past' && mode === 'pinned');
 			if (onShow) {
 				const target = lines[Number(note.dataset.from)];
 				target.dataset.label = note.dataset.label;
 				target.classList.toggle('pastpin', state === 'past');
 			}
 		});
-		const title = n ? steps[n - 1].dataset.title : '';
-		specState.textContent = n ? `After step 2.${n}: ${title}` : 'Where level 1 left it';
+		const title = n ? articles[n].dataset.title : '';
+		specState.textContent = n ? `after step 2.${n}` : 'where level 1 left it';
 		viewState.textContent = n ? `Step 2.${n}: ${title}` : 'Level 1 file';
 		scheduleLayout();
 	};
 
-	// ---------- callouts and leader lines, measured from the rendered lines ----------
+	// ---------- callouts: each leader ends on its target's measured centre ----------
 	const clearStage = (stage) => {
+		stage.classList.remove('marginal');
 		stage.style.minHeight = '';
 		stage.querySelector('.leaders').replaceChildren();
-		stage.querySelectorAll('.co').forEach((note) => { note.style.top = ''; });
+		stage.querySelectorAll('.co').forEach((note) => { note.style.top = ''; delete note.dataset.at; });
 	};
 
-	const layoutStage = (stage, active) => {
-		if (!active || !stage.offsetParent) { clearStage(stage); return; }
+	const resolveSide = (items, maxBottom) => {
+		// clusters of overlapping notes sit where their total displacement is smallest
+		const clusters = [];
+		items.forEach((item) => {
+			clusters.push({ items: [item], top: item.want, h: item.h });
+			while (clusters.length > 1) {
+				const a = clusters[clusters.length - 2];
+				const b = clusters[clusters.length - 1];
+				if (a.top + a.h + GAP <= b.top) break;
+				a.items.push(...b.items);
+				a.h += GAP + b.h;
+				let offset = 0;
+				let sum = 0;
+				a.items.forEach((x) => { sum += x.want - offset; offset += x.h + GAP; });
+				a.top = sum / a.items.length;
+				clusters.pop();
+			}
+		});
+		let floor = 0;
+		clusters.forEach((cluster) => {
+			cluster.top = Math.max(cluster.top, floor);
+			floor = cluster.top + cluster.h + GAP;
+		});
+		let ceiling = maxBottom;
+		[...clusters].reverse().forEach((cluster) => {
+			if (cluster.top + cluster.h > ceiling) cluster.top = Math.max(0, ceiling - cluster.h);
+			ceiling = cluster.top - GAP;
+		});
+		clusters.forEach((cluster) => {
+			let y = cluster.top;
+			cluster.items.forEach((x) => { x.y = y; y += x.h + GAP; });
+		});
+	};
+
+	const layoutStage = (stage, on, fixedHeight) => {
+		if (!on || !stage.offsetParent) { clearStage(stage); return; }
+		stage.classList.add('marginal');
+		stage.style.minHeight = '';
 		const svg = stage.querySelector('.leaders');
 		const panel = stage.querySelector('.code');
-		const stageRect = stage.getBoundingClientRect();
-		const panelRect = panel.getBoundingClientRect();
 		const stageLines = [...stage.querySelectorAll('.ln')];
-		const shown = [...stage.querySelectorAll('.co')].filter((note) => getComputedStyle(note).display !== 'none');
-		const placed = shown.map((note) => {
-			const first = stageLines[Number(note.dataset.from)].getBoundingClientRect();
-			const last = stageLines[Number(note.dataset.to)].getBoundingClientRect();
-			return {
-				note,
-				side: note.dataset.side,
-				top: first.top - stageRect.top,
-				bottom: last.bottom - stageRect.top,
-				mid: (first.top + last.bottom) / 2 - stageRect.top,
-				height: note.offsetHeight,
-			};
+		const sr = stage.getBoundingClientRect();
+		const pr = panel.getBoundingClientRect();
+		const items = [...stage.querySelectorAll('.co')]
+			.filter((note) => getComputedStyle(note).display !== 'none')
+			.map((note) => {
+				const first = stageLines[Number(note.dataset.from)].getBoundingClientRect();
+				const lastLine = stageLines[Number(note.dataset.to)].getBoundingClientRect();
+				const nr = note.getBoundingClientRect();
+				const lab = note.querySelector('.lab').getBoundingClientRect();
+				const mid = (first.top + lastLine.bottom) / 2 - sr.top;
+				const anchor = (lab.top + lab.bottom) / 2 - nr.top;
+				return { note, pref: note.dataset.side, mid, top: first.top - sr.top, bottom: lastLine.bottom - sr.top, h: nr.height, anchor, want: mid - anchor };
+			})
+			.sort((a, b) => a.mid - b.mid);
+		// a note whose slot is taken on its own side moves to the other side when that side is free
+		const bySide = { left: [], right: [] };
+		const clash = (list, item) => list.some((o) => item.want < o.want + o.h + GAP && o.want < item.want + item.h + GAP);
+		items.forEach((item) => {
+			const other = item.pref === 'left' ? 'right' : 'left';
+			item.side = clash(bySide[item.pref], item) && !clash(bySide[other], item) ? other : item.pref;
+			bySide[item.side].push(item);
 		});
-		let lowest = panelRect.bottom - stageRect.top;
-		['left', 'right'].forEach((side) => {
-			let floor = 0;
-			placed.filter((p) => p.side === side).sort((a, b) => a.mid - b.mid).forEach((p) => {
-				p.y = Math.max(p.mid - 16, floor);
-				floor = p.y + p.height + 12;
-				lowest = Math.max(lowest, p.y + p.height);
-				p.note.style.top = `${p.y}px`;
-			});
+		const maxBottom = fixedHeight ? stage.clientHeight : Infinity;
+		resolveSide(bySide.left, maxBottom);
+		resolveSide(bySide.right, maxBottom);
+		let lowest = pr.bottom - sr.top;
+		items.forEach((item) => {
+			item.note.dataset.at = item.side;
+			item.note.style.top = `${item.y}px`;
+			lowest = Math.max(lowest, item.y + item.h);
 		});
-		stage.style.minHeight = `${Math.ceil(lowest)}px`;
-		const edgeLeft = panelRect.left - stageRect.left;
-		const edgeRight = panelRect.right - stageRect.left;
+		if (!fixedHeight) stage.style.minHeight = `${Math.ceil(lowest)}px`;
 		const parts = [];
-		placed.forEach((p) => {
-			const left = p.side === 'left';
-			const x1 = left ? p.note.offsetLeft + p.note.offsetWidth : p.note.offsetLeft;
-			const y1 = p.y + 16;
-			const x2 = left ? edgeLeft - 5 : edgeRight + 5;
-			const y2 = p.mid;
+		items.forEach((item) => {
+			const nr = item.note.getBoundingClientRect();
+			const left = item.side === 'left';
+			const x1 = (left ? nr.right : nr.left) - sr.left;
+			const y1 = item.y + item.anchor;
+			const x2 = (left ? pr.left - 5 : pr.right + 5) - sr.left;
+			const y2 = item.mid;
 			const bend = (x1 + x2) / 2;
-			const tone = [...p.note.classList].find((c) => /^m[0-9r]$/.test(c)) || '';
-			const past = p.note.dataset.state === 'past' ? ' past' : '';
+			const tone = [...item.note.classList].find((c) => /^m[0-9r]$/.test(c)) || '';
+			const past = item.note.dataset.state === 'past' ? ' past' : '';
 			const path = document.createElementNS(SVG, 'path');
 			path.setAttribute('class', `ld${past}`);
 			path.setAttribute('d', `M${x1} ${y1} C${bend} ${y1} ${bend} ${y2} ${x2} ${y2}`);
 			parts.push(path);
-			if (p.bottom - p.top > 30) {
+			if (item.bottom - item.top > 30) {
 				const bracket = document.createElementNS(SVG, 'path');
 				bracket.setAttribute('class', `br${past}`);
-				bracket.setAttribute('d', `M${x2} ${p.top + 3} V${p.bottom - 3}`);
+				bracket.setAttribute('d', `M${x2} ${item.top + 3} V${item.bottom - 3}`);
 				parts.push(bracket);
 			}
 			const dot = document.createElementNS(SVG, 'circle');
@@ -457,6 +588,8 @@ q{quotes:"\201C" "\201D"}
 			dot.setAttribute('cx', String(x2));
 			dot.setAttribute('cy', String(y2));
 			dot.setAttribute('r', '4.5');
+			dot.dataset.label = item.note.dataset.label;
+			dot.dataset.lead = String(y1);
 			parts.push(dot);
 		});
 		svg.replaceChildren(...parts);
@@ -465,23 +598,30 @@ q{quotes:"\201C" "\201D"}
 	let layoutFrame = 0;
 	const layout = () => {
 		layoutFrame = 0;
-		layoutStage(mainStage, isLive() && wide.matches);
-		layoutStage(realStage, realWide.matches);
+		layoutStage(mainStage, mode === 'pinned', true);
+		layoutStage(realStage, wide.matches, false);
 	};
 	function scheduleLayout() {
 		if (!layoutFrame) layoutFrame = requestAnimationFrame(layout);
 	}
 
-	// ---------- which step is active: IntersectionObserver on the steps ----------
-	const band = () => innerHeight * 0.38;
+	// ---------- which step is active ----------
 	const fromScroll = () => {
-		if (!isLive() || lock || fileView()) return;
+		if (lock || mode === 'static' || fileView()) return;
 		let n = 0;
-		steps.forEach((step, i) => { if (step.getBoundingClientRect().top < band()) n = i + 1; });
+		if (mode === 'pinned') {
+			segs.forEach((seg, k) => { if (k && seg.getBoundingClientRect().top <= 2) n = k; });
+		} else {
+			const band = innerHeight * 0.38;
+			articles.forEach((article, k) => { if (k && article.getBoundingClientRect().top < band) n = k; });
+		}
 		if (n !== current) render(n);
 	};
-	const observer = new IntersectionObserver(fromScroll, { rootMargin: '0px 0px -62% 0px', threshold: [0, 1] });
-	steps.forEach((step) => observer.observe(step));
+	// a one-per-cent line at the top of the viewport for the track; a band for the list
+	const segObserver = new IntersectionObserver(fromScroll, { rootMargin: '0px 0px -99% 0px', threshold: [0, 1] });
+	segs.forEach((seg) => segObserver.observe(seg));
+	const listObserver = new IntersectionObserver(fromScroll, { rootMargin: '0px 0px -62% 0px', threshold: [0, 1] });
+	articles.forEach((article) => listObserver.observe(article));
 
 	const holdThenRelease = (ms) => {
 		lock = true;
@@ -491,25 +631,40 @@ q{quotes:"\201C" "\201D"}
 		if ('onscrollend' in window) addEventListener('scrollend', release, { once: true });
 	};
 
-	// ---------- buttons and keys ----------
-	const go = (n, { focus = false } = {}) => {
-		n = Math.min(steps.length, Math.max(1, n));
-		render(n);
-		if (!isLive()) { steps[n - 1].scrollIntoView({ block: 'start' }); if (focus) stepButtons[n - 1].focus(); return; }
+	// ---------- buttons, keys and find-in-page all move the scroll position ----------
+	const go = (n, { focus = false, instant = false } = {}) => {
+		n = Math.min(last, Math.max(0, n));
+		if (mode === 'static') {
+			articles[n].scrollIntoView({ block: 'start' });
+			if (focus) headingButtons[n].focus();
+			return;
+		}
+		render(n, { instant });
 		if (fileView()) return;
-		holdThenRelease(1200);
-		if (focus) stepButtons[n - 1].focus({ preventScroll: true });
-		steps[n - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+		holdThenRelease(instant ? 150 : 1200);
+		const behavior = instant ? 'auto' : 'smooth';
+		if (mode === 'pinned') {
+			scrollTo({ top: scrollY + segs[n].getBoundingClientRect().top + 2, behavior });
+			if (focus) headingButtons[n].focus({ preventScroll: true });
+		} else {
+			if (focus) headingButtons[n].focus({ preventScroll: true });
+			articles[n].scrollIntoView({ behavior, block: 'start' });
+		}
 	};
-	stepButtons.forEach((button, i) => button.addEventListener('click', () => go(i + 1)));
+	headingButtons.forEach((button) => button.addEventListener('click', () => go(Number(button.dataset.go))));
+	navButtons.forEach((button) => button.addEventListener('click', () => go(Number(button.dataset.go))));
+	bodies.forEach((body, k) => body.addEventListener('beforematch', () => { if (mode === 'pinned') go(k, { instant: true }); }));
+	// tabbing onto a clipped heading brings its step forward, so focus is never invisible
+	headingButtons.forEach((button, k) => button.addEventListener('focus', () => { if (mode === 'pinned' && isOff(k)) go(k); }));
 
 	tut.addEventListener('keydown', (event) => {
-		if (event.altKey || event.ctrlKey || event.metaKey || !isLive()) return;
+		if (event.altKey || event.ctrlKey || event.metaKey || mode === 'static') return;
 		const key = event.key;
 		const delta = key === 'ArrowDown' || key === 'j' ? 1 : key === 'ArrowUp' || key === 'k' ? -1 : 0;
 		if (!delta) return;
 		event.preventDefault();
-		go(current + delta, { focus: !fileView() });
+		const inNav = navButtons.includes(document.activeElement) || viewButtons.includes(document.activeElement);
+		go(current + delta, { focus: !inNav && !fileView() });
 	});
 
 	// ---------- Steps / File at narrow widths ----------
@@ -519,35 +674,36 @@ q{quotes:"\201C" "\201D"}
 		lock = true;
 		clearTimeout(lockTimer);
 		if (view === 'file') {
-			const top = tut.getBoundingClientRect().top;
-			if (top < 0) tut.scrollIntoView({ block: 'start' });
-		} else if (current) {
-			steps[current - 1].scrollIntoView({ block: 'start' });
+			if (tut.getBoundingClientRect().top < 0) tut.scrollIntoView({ block: 'start' });
 		} else {
-			scrollTo(0, 0);
+			articles[current].scrollIntoView({ block: 'start' });
 		}
-		render(current);
-		// let the observer settle on the restored position before it may change the step again
+		render(current, { instant: true });
 		requestAnimationFrame(() => requestAnimationFrame(() => {
 			lockTimer = setTimeout(() => { lock = false; fromScroll(); }, 120);
 		}));
 	};
 	viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 
-	// ---------- keep it measured ----------
-	const reflow = () => { render(current); };
-	motionOK.addEventListener('change', reflow);
-	wide.addEventListener('change', reflow);
-	realWide.addEventListener('change', scheduleLayout);
+	// ---------- modes and measuring ----------
+	const applyMode = () => {
+		mode = modeNow();
+		tut.dataset.mode = mode;
+		if (mode === 'pinned') showOnly(current, true);
+		else showAll();
+		render(current, { instant: true });
+		fromScroll();
+	};
+	motionOK.addEventListener('change', applyMode);
+	wide.addEventListener('change', applyMode);
 	if ('ResizeObserver' in window) {
 		const resized = new ResizeObserver(scheduleLayout);
-		resized.observe(mainStage.querySelector('.code'));
+		resized.observe(mainStage);
 		resized.observe(realStage.querySelector('.code'));
 	}
 	addEventListener('resize', scheduleLayout);
 	if (document.fonts) document.fonts.ready.then(scheduleLayout);
 
-	render(0);
-	fromScroll();
+	applyMode();
 })();
 </script>

@@ -1,13 +1,16 @@
 /*
-	Tutorial hybrid: Specimen's look (one big paper sheet, the file on a dark
-	exhibit panel, callout slips pinned in the margins with leader lines) driven
-	by Scroll story's gradual disclosure. Static is the default; the live layout
-	applies only under .js and prefers-reduced-motion: no-preference.
+	Tutorial hybrid, version 2: Specimen's look (one big paper sheet, the file on
+	a dark exhibit panel, callout slips pinned in the margins with leader lines)
+	driven by Scroll story's gradual disclosure, inside one pinned stage.
+	Static is the default. The script sets data-mode on .tut: "pinned" (wide,
+	motion allowed), "list" (narrow, motion allowed) or "static".
 	Every colour, face and shape is a token from .claude/themes/goblin-html.json;
 	tints are color-mix() of those tokens.
 */
 [hidden]{display:none !important}
+[hidden="until-found"]{display:block !important; content-visibility:hidden}
 *,*::before,*::after{box-sizing:border-box}
+:root{--col-text:24rem; --co-w:9.75rem; --co-gap:.75rem; --sheet-pad:1rem 1.25rem 1.1rem}
 body{
 	margin:0;
 	background-color:var(--desk);
@@ -21,7 +24,7 @@ h1,h2,h3{font-family:var(--font-display); font-weight:700; text-wrap:balance; ma
 p{margin:0}
 :focus-visible{outline:3px solid var(--accent); outline-offset:3px}
 code{font-family:var(--font-mono); font-size:.86em; overflow-wrap:anywhere}
-.vh{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+.vh,.step-body.off,.tut[data-mode="pinned"] .step.inactive .step-h{position:absolute !important; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
 
 /* step tones: one per step, plus the real file's own move */
 .m1{--tone:var(--slime); --on:var(--on-slime); --bar:var(--slime)}
@@ -59,6 +62,7 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 .key{font-family:var(--font-print); font-size:.88rem; line-height:2}
 .key mark{margin-right:.35rem; white-space:nowrap}
 .how{display:none; font-family:var(--font-print); font-size:.88rem; color:var(--ink-muted); max-width:46rem}
+@media (prefers-reduced-motion:no-preference){.js .how{display:block}}
 
 /* code on an exhibit panel: one block span per line, so wrapped lines hang under a gutter */
 .file{min-width:0}
@@ -82,7 +86,7 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 .code .ln.pastpin::before{opacity:.55}
 .file.small .code{font-size:.72rem}
 .code .ln.fresh{animation:lnin 480ms ease-out}
-@keyframes lnin{from{opacity:0; transform:translateY(-.35rem); background:color-mix(in oklab, var(--tone, var(--slime)) 55%, var(--exhibit))}}
+@keyframes lnin{from{opacity:0; background:color-mix(in oklab, var(--tone, var(--slime)) 55%, var(--exhibit))}}
 
 /* callout slips */
 .callouts,.co-list{list-style:none; margin:0; padding:0; display:grid; gap:.75rem}
@@ -90,17 +94,37 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 	padding:.6rem .75rem; box-shadow:var(--shadow); border-left:6px solid var(--tone)}
 .co code{background:none; color:var(--slip-accent); padding:0}
 .co mark code{color:inherit}
+.co p{overflow-wrap:anywhere}
+.co mark{padding:0 .1em}
 .lab{display:inline-block; font-weight:600; font-size:.78rem; line-height:1.3; padding:0 .3rem; margin-right:.3rem; border-radius:var(--radius-sm);
 	background:var(--tone); color:var(--on); vertical-align:.05em}
+.stage{position:relative; min-width:0}
+.stage > .callouts{margin-top:1rem}
 .leaders{display:none}
 
-/* the tutorial: static by default (no JS, or reduced motion) */
+/* margin callouts, laid out by the script from measured line positions */
+.marginal{padding:0 calc(var(--co-w) + var(--co-gap))}
+.marginal > .callouts{display:block; margin:0; position:absolute; inset:0; pointer-events:none}
+.marginal .co{position:absolute; width:var(--co-w); pointer-events:auto; font-size:.76rem; padding:.45rem .55rem}
+.marginal .co[data-at="left"]{left:0; border-left:0; border-right:6px solid var(--tone)}
+.marginal .co[data-at="right"]{right:0}
+.marginal .co[data-state="past"]{opacity:.5}
+.marginal .leaders{display:block}
+.leaders{position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:1}
+.leaders .ld{fill:none; stroke:var(--ink); stroke-width:1.6; stroke-linecap:round}
+.leaders .br{fill:none; stroke:var(--ink); stroke-width:2.5; stroke-linecap:round}
+.leaders .dot{fill:var(--tone); stroke:var(--ink); stroke-width:1.6}
+.leaders .past{opacity:.4}
+.leaders .ld.past{stroke-dasharray:3 4}
+
+/* ========== the tutorial: static by default (no JS, or reduced motion) ========== */
 .tut{display:grid; gap:1rem; min-width:0}
-.viewbar{display:none}
-.spread{display:grid; gap:1.5rem; min-width:0}
-.steps{display:grid; gap:1.5rem; min-width:0; max-width:64rem}
+.viewbar,.pin-bar,.segs,.specimen{display:none}
+.track{min-width:0}
+.pin{display:grid; gap:1.5rem; min-width:0}
+.writeups{display:grid; gap:1.5rem; min-width:0; max-width:64rem}
 .step{scroll-margin-top:1rem}
-.step:nth-child(odd){border-radius:var(--wonk-2)}
+.step:nth-child(even){border-radius:var(--wonk-2)}
 .step-h{font-size:clamp(1.5rem,3vw,2rem)}
 .step-btn{appearance:none; display:block; width:100%; margin:0; padding:0; border:0; background:none; color:inherit; font:inherit; line-height:inherit;
 	text-align:left; cursor:pointer; border-radius:var(--radius-sm)}
@@ -111,17 +135,14 @@ mark code,.sheet mark code{background:none; color:inherit; padding:0; font-size:
 .after-step .snap-title{font-family:var(--font-print); font-weight:600; font-size:.82rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-muted)}
 .after-step .file{margin-top:.6rem}
 .after-step .co-list{margin-top:.9rem}
-.specimen{display:none}
 
 /* the real thing */
-.real{max-width:55rem}
 .real h2,.exercise h2{font-size:clamp(1.6rem,3.4vw,2.3rem)}
-.real > p{max-width:50rem}
-.stage{position:relative; min-width:0}
-.stage > .callouts{margin-top:1rem}
+.real-text > * + *{margin-top:.9rem}
+.real-text > p{max-width:50rem}
 
 /* exercise */
-.exercise{padding:1.6rem clamp(1rem,3vw,1.75rem) 1.2rem; max-width:52rem; transform:rotate(-.3deg); --rag:var(--rag-b)}
+.exercise{padding:1.6rem clamp(1rem,3vw,1.75rem) 1.2rem; max-width:52rem; --rag:var(--rag-b)}
 .exercise h2{font-size:1.5rem; color:var(--slip-ink)}
 .exercise > * + *{margin-top:.75rem}
 .exercise details > * + *{margin-top:.75rem}
@@ -133,91 +154,85 @@ q{quotes:"\201C" "\201D"}
 	.after-step{display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:.6rem 1.25rem; align-items:start}
 	.after-step .snap-title{grid-column:1 / -1}
 	.after-step .file,.after-step .co-list{margin-top:0}
-	/* the real file's callouts pinned in the margins, laid out by the script */
-	.js .real .stage{--co-w:11.5rem; --co-gap:1.1rem; padding:0 calc(var(--co-w) + var(--co-gap)) 0 0}
-	.js .real .stage > .callouts{display:block; margin:0; position:absolute; inset:0; pointer-events:none}
-	.js .real .stage .co{pointer-events:auto}
-	.js .real .stage .co{position:absolute; width:var(--co-w)}
-	.js .real .leaders{display:block}
 }
-.js .stage .co[data-side="left"]{left:0}
-.js .stage .co[data-side="right"]{right:0}
-@media (min-width:900px){
-	.js .real .co[data-side="left"]{border-left:0; border-right:6px solid var(--tone); transform:rotate(-.5deg)}
-	.js .real .co[data-side="right"]{transform:rotate(.4deg)}
+/* the wide grid the stage and the Real Thing share: same edges, same columns */
+@media (min-width:1100px){
+	.real{display:grid; grid-template-columns:var(--col-text) minmax(0,1fr); gap:.8rem 1.5rem; padding:var(--sheet-pad); align-items:start}
+	.real > * + *{margin-top:0}
+	.real .real-text > p{font-size:.92rem; line-height:1.55}
 }
 
-/* leader lines: ink on paper, ending in a dot on the exhibit panel's edge */
-.leaders{position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:1}
-.leaders .ld{fill:none; stroke:var(--ink); stroke-width:1.6; stroke-linecap:round}
-.leaders .br{fill:none; stroke:var(--ink); stroke-width:2.5; stroke-linecap:round}
-.leaders .dot{fill:var(--tone); stroke:var(--ink); stroke-width:1.6}
-.leaders .past{opacity:.4}
-.leaders .ld.past{stroke-dasharray:3 4}
+/* ========== live modes ========== */
+.tut:is([data-mode="pinned"],[data-mode="list"]) .after-step{display:none}
+.tut:is([data-mode="pinned"],[data-mode="list"]) .specimen .co.fresh{animation:coin 420ms ease-out}
+@keyframes coin{from{opacity:0}}
+.tut:is([data-mode="pinned"],[data-mode="list"]) .specimen .co[data-state="future"]{display:none}
 
-/* ========== live: JS on and motion allowed ========== */
-@media (prefers-reduced-motion:no-preference){
-	.js .how{display:block}
-	.js .after-step{display:none}
-	.js .specimen{display:block}
-	.js .step{transition:box-shadow 180ms ease, color 180ms ease, border-color 180ms ease}
-	.js .step[data-state="active"]{box-shadow:0 0 0 3px var(--accent), var(--shadow)}
-	/* pending steps stay in the DOM and readable, only muted */
-	.js .step[data-state="pending"]{color:var(--ink-muted); border-style:dashed; border-color:var(--ink-muted)}
-	.js .step[data-state="pending"] :is(.file,mark,.ref,.logslip,.snum){opacity:.55}
-	.js .step[data-state="pending"] code{color:var(--ink-muted)}
-	.js .step[data-state="active"] .step-btn::after{content:"Now"; display:inline-block; margin-left:.5rem; vertical-align:.3em;
-		font-family:var(--font-print); font-size:.42em; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
-		background:var(--accent); color:var(--accent-ink); padding:.1em .45em; border-radius:var(--radius-sm)}
+/* pinned: one stage, one viewport tall, that holds still while the track scrolls past */
+.tut[data-mode="pinned"] .track{display:grid}
+.tut[data-mode="pinned"] .segs{display:block; grid-area:1 / 1}
+.seg[data-n="0"]{height:35dvh}
+.seg[data-n="1"],.seg[data-n="2"]{height:70dvh}
+.seg[data-n="3"]{height:calc(170dvh - .5rem)}
+.tut[data-mode="pinned"] .pin{grid-area:1 / 1; position:sticky; top:.5rem; z-index:1; align-self:start; height:calc(100dvh - 1rem);
+	display:grid; grid-template-columns:var(--col-text) minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); gap:.8rem 1.5rem;
+	background:var(--surface); color:var(--ink); border:2px solid var(--ink); border-radius:var(--wonk); box-shadow:var(--shadow); padding:var(--sheet-pad)}
+.tut[data-mode="pinned"] .pin-bar{grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.4rem 1rem;
+	border-bottom:2px dashed var(--line); padding-bottom:.6rem}
+.pin-title{font-family:var(--font-print); font-weight:600; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted)}
+.pin-file{font-family:var(--font-mono); letter-spacing:0; text-transform:none; color:var(--ink); margin:0 .5rem 0 .25rem}
+.spec-state{letter-spacing:.06em; color:var(--ink)}
+.stepnav{display:flex; gap:.4rem}
+.stepnav button{appearance:none; cursor:pointer; background:transparent; color:var(--ink); border:2px solid var(--ink); border-radius:var(--radius-sm);
+	font-family:var(--font-print); font-weight:600; font-size:.85rem; line-height:1.2; padding:.3rem .7rem}
+.stepnav button[aria-current="step"]{background:var(--ink); color:var(--surface)}
+.tut[data-mode="pinned"] .writeups{grid-column:1; grid-row:2; display:grid; align-content:start; min-height:0; max-width:none}
+.tut[data-mode="pinned"] .step{grid-area:1 / 1; align-self:start; min-width:0; border:0; border-radius:0; background:none; box-shadow:none; padding:0}
+.tut[data-mode="pinned"] .step > * + *,.step-body > * + *{margin-top:.6rem}
+.sheet .step-body > * + *{margin-top:.9rem}
+.tut[data-mode="pinned"] .step-body > * + *{margin-top:.6rem}
+.tut[data-mode="pinned"] .step-h{font-size:1.5rem}
+.tut[data-mode="pinned"] .step p{font-size:.9rem; line-height:1.5}
+.tut[data-mode="pinned"] .step .also{font-size:.8rem}
+.tut[data-mode="pinned"] .step .file.small .fname{font-size:.66rem}
+.tut[data-mode="pinned"] .step .file.small .code{font-size:.64rem; line-height:1.45; padding:.45rem 0}
+.tut[data-mode="pinned"] .step .file.small .ln{padding-left:2.4rem}
+.tut[data-mode="pinned"] .step .file.small .ln.new::before{left:.8rem}
+.tut[data-mode="pinned"] .step .logslip .code{padding:.35rem 0}
+.tut[data-mode="pinned"] .step.entering{animation:fadein 200ms ease-out}
+.tut[data-mode="pinned"] .step.leaving{opacity:0; transition:opacity 160ms ease}
+@keyframes fadein{from{opacity:0}}
+.tut[data-mode="pinned"] .specimen{display:block; grid-column:2; grid-row:2; min-height:0; position:relative}
+.tut[data-mode="pinned"] .specimen .stage{height:100%}
+.tut[data-mode="pinned"] .specimen .fname{font-size:.7rem}
+.tut[data-mode="pinned"] .specimen .code{font-size:.72rem; line-height:1.5; padding:.5rem 0}
 
-	.specimen{padding:1.1rem clamp(.9rem,1.6vw,1.25rem) 1.25rem}
-	.specimen > * + *{margin-top:.6rem}
-	.spec-top{display:grid; gap:.15rem}
-	.spec-title{font-family:var(--font-print); font-weight:600; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted)}
-	.spec-state{font-family:var(--font-display); font-size:1.35rem; line-height:1.15}
-	.specimen .co{transition:opacity 200ms ease}
-	.specimen .co.fresh{animation:coin 420ms ease-out}
-	@keyframes coin{from{opacity:0; transform:translateY(.4rem)}}
-	.specimen .co[data-state="future"]{display:none}
-}
-
-/* live, wide: steps beside the sticky specimen sheet, callouts in the margins */
-@media (prefers-reduced-motion:no-preference) and (min-width:1100px){
-	.js .spread{grid-template-columns:minmax(17rem,21rem) minmax(0,1fr); align-items:start}
-	.js .steps{gap:30vh; padding-bottom:28vh}
-	.js .step{scroll-margin-top:12vh; padding-inline:1.25rem}
-	.js .specimen{position:sticky; top:1rem; align-self:start}
-	.js .specimen .stage{--co-w:10.75rem; --co-gap:.9rem; padding:0 calc(var(--co-w) + var(--co-gap))}
-	.js .specimen .stage > .callouts{display:block; margin:0; position:absolute; inset:0; pointer-events:none}
-	.js .specimen .co{pointer-events:auto}
-	.js .specimen .co{position:absolute; width:var(--co-w); font-size:.8rem; padding:.5rem .6rem}
-	.js .specimen .co[data-side="left"]{border-left:0; border-right:6px solid var(--tone); transform:rotate(-.5deg)}
-	.js .specimen .co[data-side="right"]{transform:rotate(.4deg)}
-	.js .specimen .co[data-state="past"]{opacity:.5}
-	.js .specimen .leaders{display:block}
-}
-
-/* live, narrow: a Steps / File switch */
-@media (prefers-reduced-motion:no-preference) and (max-width:1099px){
-	.js .viewbar{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; position:sticky; top:0; z-index:5;
-		background:var(--card); color:var(--card-ink); padding:.5rem .7rem; border-radius:0 0 var(--radius-md) var(--radius-md); box-shadow:var(--shadow)}
-	.viewbar .switch{display:flex; gap:.35rem}
-	.viewbar button{appearance:none; cursor:pointer; background:transparent; color:var(--card-ink); border:2px solid var(--card-ink); border-radius:var(--radius-sm);
-		font-family:var(--font-print); font-weight:600; font-size:.88rem; line-height:1.2; padding:.4rem .8rem}
-	.viewbar button[aria-pressed="true"]{background:var(--card-ink); color:var(--card)}
-	.viewbar button:focus-visible{outline:3px solid var(--card-ink); outline-offset:2px}
-	.viewbar .viewstate{font-family:var(--font-print); font-size:.85rem; font-weight:600}
-	.js .step{scroll-margin-top:4.5rem; min-height:52vh}
-	.js .tut[data-view="steps"] .specimen{display:none}
-	.js .tut[data-view="file"] .steps{display:none}
-	.js .specimen .co[data-state="past"]{display:none}
-	.js .specimen .stage > .callouts{margin-top:.9rem}
-}
+/* list: narrow and live, a Steps / File switch over a normal scroll */
+.tut[data-mode="list"] .viewbar{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; position:sticky; top:0; z-index:5;
+	background:var(--card); color:var(--card-ink); padding:.5rem .7rem; border-radius:0 0 var(--radius-md) var(--radius-md); box-shadow:var(--shadow)}
+.viewbar .switch{display:flex; gap:.35rem}
+.viewbar button{appearance:none; cursor:pointer; background:transparent; color:var(--card-ink); border:2px solid var(--card-ink); border-radius:var(--radius-sm);
+	font-family:var(--font-print); font-weight:600; font-size:.88rem; line-height:1.2; padding:.4rem .8rem}
+.viewbar button[aria-pressed="true"]{background:var(--card-ink); color:var(--card)}
+.viewbar button:focus-visible{outline:3px solid var(--card-ink); outline-offset:2px}
+.viewbar .viewstate{font-family:var(--font-print); font-size:.85rem; font-weight:600}
+.tut[data-mode="list"] .step{scroll-margin-top:4.5rem; min-height:52vh; transition:box-shadow 180ms ease, color 180ms ease}
+.tut[data-mode="list"] .step[data-state="active"]{box-shadow:0 0 0 3px var(--accent), var(--shadow)}
+.tut[data-mode="list"] .step[data-state="pending"]{color:var(--ink-muted); border-style:dashed; border-color:var(--ink-muted)}
+.tut[data-mode="list"] .step[data-state="pending"] :is(.file,mark,.ref,.logslip,.snum){opacity:.55}
+.tut[data-mode="list"] .step[data-state="pending"] code{color:var(--ink-muted)}
+.tut[data-mode="list"] .step[data-state="active"] .step-btn::after{content:"Now"; display:inline-block; margin-left:.5rem; vertical-align:.3em;
+	font-family:var(--font-print); font-size:.42em; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+	background:var(--accent); color:var(--accent-ink); padding:.1em .45em; border-radius:var(--radius-sm)}
+.tut[data-mode="list"][data-view="file"] .writeups{display:none}
+.tut[data-mode="list"][data-view="file"] .specimen{display:block; background:var(--surface); border:2px solid var(--ink); border-radius:var(--radius-md);
+	box-shadow:var(--shadow); padding:1rem}
+.tut[data-mode="list"] .specimen .co[data-state="past"]{display:none}
+.tut[data-mode="list"] .specimen .stage > .callouts{margin-top:.9rem}
 
 /* ========== narrow ========== */
 @media (max-width:760px){
-	.sheet,.sheet.alt,.step:nth-child(odd){border-radius:var(--radius-md)}
-	.exercise,.co{transform:none}
+	.sheet,.sheet.alt,.step:nth-child(even){border-radius:var(--radius-md)}
 	.code .ln{padding-left:2.8rem; padding-right:.6rem}
 	.code .ln.new::before,.code .ln.del::before{left:.9rem}
 	.code .ln[data-label]::before{left:.25rem}

@@ -180,7 +180,13 @@ const lede = `At level 1, <code>tidy-imports</code> was one file that asked Clau
 
 const ref = (label: string): string => `<span class="ref">${label}</span>`;
 
-const steps: { n: 1 | 2 | 3; title: string; body: string }[] = [
+const steps: { n: 0 | 1 | 2 | 3; title: string; body: string }[] = [
+	{
+		n: 0,
+		title: 'Where Level 1 Left It',
+		body: `<p>This is SKILL.md as level 1 left it: three lines of frontmatter and a body that asks Claude to do the sorting itself, in prose.</p>
+		<p>The three sorting lines at the bottom are the ones step 2.1 replaces with a script.</p>`,
+	},
 	{
 		n: 1,
 		title: 'Give It a Script',
@@ -208,13 +214,19 @@ const steps: { n: 1 | 2 | 3; title: string; body: string }[] = [
 
 const stepHtml = steps.map((s) => {
 	const notes = callouts.filter((c) => c.step === s.n);
-	return `<article class="sheet step" id="step-2-${s.n}" data-n="${s.n}" data-title="${s.title}" aria-labelledby="step-2-${s.n}-h">
-	<h2 class="step-h" id="step-2-${s.n}-h"><button type="button" class="step-btn" aria-controls="spec"><span class="snum">2.${s.n}</span> ${s.title}</button></h2>
+	const id = s.n ? `step-2-${s.n}` : 'step-0';
+	const num = s.n ? `<span class="snum">2.${s.n}</span> ` : '';
+	const snapTitle = s.n ? `SKILL.md after step 2.${s.n}` : 'SKILL.md at the end of level 1';
+	const list = notes.length ? `<ol class="co-list" aria-label="Notes for step 2.${s.n}">${notes.map((c) => coItem(c, false)).join('')}</ol>` : '';
+	return `<article class="sheet step" id="${id}" data-n="${s.n}" data-title="${s.title}" aria-labelledby="${id}-h">
+	<h2 class="step-h" id="${id}-h"><button type="button" class="step-btn" data-go="${s.n}" aria-controls="spec">${num}${s.title}</button></h2>
+	<div class="step-body">
 	${s.body}
 	<div class="after-step">
-		<p class="snap-title">SKILL.md after step 2.${s.n}</p>
+		<p class="snap-title">${snapTitle}</p>
 		${snapshot(skill, PATHS.skill, s.n, notes)}
-		<ol class="co-list" aria-label="Notes for step 2.${s.n}">${notes.map((c) => coItem(c, false)).join('')}</ol>
+		${list}
+	</div>
 	</div>
 </article>`;
 }).join('\n');
@@ -264,10 +276,10 @@ ${css.trim()}
 	<h1>${TITLE}</h1>
 	<p class="lede">${lede}</p>
 	<p class="key">Colour key: <mark class="m1">2.1 Give It a Script</mark> <mark class="m2">2.2 Scope the Tool</mark> <mark class="m3">2.3 Keep a Ledger</mark></p>
-	<p class="how">Scroll and the sheet builds SKILL.md one step at a time, pinning each step's notes. A step's heading, the arrow keys or j and k jump between steps.</p>
+	<p class="how">Scroll and the sheet below builds SKILL.md one step at a time, pinning each step's notes. The step buttons, the arrow keys or j and k jump between steps.</p>
 </header>
 
-<section class="tut" id="tut" data-view="steps" data-step="0" aria-label="Steps 2.1 to 2.3">
+<section class="tut" id="tut" data-view="steps" data-step="0" aria-label="Level 2, step by step">
 	<div class="viewbar">
 		<div class="switch" role="group" aria-label="Show">
 			<button type="button" data-view="steps" aria-pressed="true">Steps</button>
@@ -275,27 +287,34 @@ ${css.trim()}
 		</div>
 		<p class="viewstate" aria-live="polite">Level 1 file</p>
 	</div>
-	<div class="spread">
-		<div class="steps">
+	<div class="track">
+		<div class="pin" id="pin">
+			<div class="pin-bar">
+				<p class="pin-title">Specimen <span class="pin-file">SKILL.md</span> <span class="spec-state">where level 1 left it</span></p>
+				<div class="stepnav" role="group" aria-label="Go to step">
+					${steps.filter((s) => s.n).map((s) => `<button type="button" data-go="${s.n}"><span aria-hidden="true">2.${s.n}</span><span class="vh">Step 2.${s.n}: ${s.title}</span></button>`).join('')}
+				</div>
+			</div>
+			<div class="writeups">
 ${stepHtml}
+			</div>
+			<aside class="specimen" id="spec" aria-label="SKILL.md as it stands at the active step">
+				<div class="stage">
+					${liveCode}
+					<ol class="callouts" aria-label="Notes on the file">${callouts.map((c) => coItem(c, true)).join('')}</ol>
+					<svg class="leaders" aria-hidden="true" focusable="false"></svg>
+				</div>
+			</aside>
 		</div>
-		<aside class="sheet specimen" id="spec" aria-labelledby="spec-title">
-			<div class="spec-top">
-				<h2 class="spec-title" id="spec-title">Specimen: SKILL.md</h2>
-				<p class="spec-state">Where level 1 left it</p>
-			</div>
-			<div class="stage">
-				${liveCode}
-				<ol class="callouts" aria-label="Notes on the file">${callouts.map((c) => coItem(c, true)).join('')}</ol>
-				<svg class="leaders" aria-hidden="true" focusable="false"></svg>
-			</div>
-		</aside>
+		<div class="segs" aria-hidden="true">${steps.map((s) => `<div class="seg" data-n="${s.n}"></div>`).join('')}</div>
 	</div>
 </section>
 
 <article class="sheet alt real" aria-labelledby="real-h">
-	<h2 id="real-h">The Real Thing</h2>
-	${realIntro}
+	<div class="real-text">
+		<h2 id="real-h">The Real Thing</h2>
+		${realIntro}
+	</div>
 	<div class="stage">
 		${realCode}
 		<ol class="callouts" aria-label="Notes on project-tag_version">${realCallouts.map((c) => coItem(c, true)).join('')}</ol>
