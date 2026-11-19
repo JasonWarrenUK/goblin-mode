@@ -165,9 +165,41 @@ export const spriteFor = (pose: Pose, props: Pick<IdleProps, 'pace' | 'prop'>, d
 	}
 }
 
-// The props as last drawn, for the tick to read; a module variable is fine
-// here, since a reload of the plugin drops this environment with its timer.
+/** What one state draws: the pose, the sprite, its offset and the parade. */
+const drawingOf = (state: State, props: IdleProps, columns: number) => {
+	const now = state.tick * TICK_MS
+	const pose = poseFor(props, state, now)
+	const sprite = spriteFor(pose, props, state.dir, Math.floor(now / 600))
+	const room = roomFor(props, columns)
+	const left = pose === 'pace' ? Math.min(state.x, room) : pose === 'watch' ? room : 0
+	return { pose, sprite, left, parade: paradeText(props.minions) }
+}
+
+/** The picture a state draws, as one comparable string: two states with the same view draw the same. */
+export const viewOf = (state: State, props: IdleProps, columns: number): string => {
+	const d = drawingOf(state, props, columns)
+	return JSON.stringify([d.pose, d.sprite, d.left, d.parade, columns])
+}
+
+/**
+ * One tick: the next state, and whether its picture differs from the one last
+ * drawn. Only then is it drawn: a sleeping goblin changes once a beat (600 ms),
+ * a pacing one once a step, and every draw in between would show the same
+ * picture again. Each draw is a call the engine times, so fewer of them is
+ * fewer for a stall of the drawing thread to land on.
+ */
+export const step = (live: State, drawn: string, props: IdleProps, columns: number): { next: State; draw: boolean } => {
+	const next = advance(live, props, columns)
+	return { next, draw: viewOf(next, props, columns) !== drawn }
+}
+
+// The props as last drawn, the clock's state as it runs (ahead of the state
+// last drawn) and the picture last drawn, for the tick to read. Module
+// variables are fine here: a reload of the plugin drops this environment with
+// its timer. A draw writes `drawn` and never state, so it schedules nothing.
 let latest: IdleProps | null = null
+let live: State | null = null
+let drawn = ''
 
 const Goblin: ClientModule<IdleProps, State> = (props, surface) => {
 	latest = props
@@ -175,26 +207,27 @@ const Goblin: ClientModule<IdleProps, State> = (props, surface) => {
 	let state = surface.state
 	if (state === undefined) {
 		const initial: State = { tick: 0, x: 0, dir: 1, seenStartle: props.startleAt, pokedUntil: 0, startledUntil: 0 }
+		live = initial
 		surface.every(TICK_MS, () => {
-			surface.setState(advance(surface.state ?? initial, latest ?? props, surface.columns))
+			const ticked = step(live ?? initial, drawn, latest ?? props, surface.columns)
+			live = ticked.next
+			if (ticked.draw) surface.setState(ticked.next)
 		})
 		surface.onPointer(e => {
 			if (e.type !== 'down') return
-			const s = surface.state ?? initial
-			surface.setState({ ...s, pokedUntil: s.tick * TICK_MS + 1_500 })
+			const s = live ?? initial
+			live = { ...s, pokedUntil: s.tick * TICK_MS + 1_500 }
+			surface.setState(live)
 			surface.post({ poke: true })
 		})
 		// Persist at once, so a second draw before the first tick starts nothing twice.
 		surface.setState(initial)
 		state = initial
 	}
-	const now = state.tick * TICK_MS
-	const pose = poseFor(props, state, now)
-	const beat = Math.floor(now / 600)
-	const sprite = spriteFor(pose, props, state.dir, beat)
-	const parade = paradeText(props.minions)
-	const room = roomFor(props, surface.columns)
-	const left = pose === 'pace' ? Math.min(state.x, room) : pose === 'watch' ? room : 0
+	// The clock runs ahead of the state last drawn; a draw for new props shows where it is now.
+	const shown = live ?? state
+	drawn = viewOf(shown, props, surface.columns)
+	const { pose, sprite, left, parade } = drawingOf(shown, props, surface.columns)
 	return (
 		<Box flexDirection="row" width={surface.columns || footprint(props).sprite}>
 			{parade !== '' && <Text color={props.minionColour}>{`${parade} `}</Text>}
