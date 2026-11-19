@@ -1542,6 +1542,32 @@ class FileBased(unittest.TestCase):
         self.assertIn("<title>%%FONTS%%", html)
         self.assertEqual(html.count("@font-face {"), 6)
 
+    def test_markup_in_a_phase_name_renders_as_text(self):
+        # round 6: the name reached <title> and <h1> raw, so a script in it
+        # ran when a teammate opened the committed chart
+        name = '<script>alert(1)</script> & <img src=x onerror=alert(2)>'
+        data = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}], name=name)]
+        root, jp = self._project(data)
+        out = root / "chart.html"
+        self.assertEqual(roadbook.main(["render", str(jp), "--out", str(out)]), 0)
+        html = out.read_text()
+        shown = "&lt;script&gt;alert(1)&lt;/script&gt; &amp; &lt;img src=x onerror=alert(2)&gt;"
+        self.assertIn(f"<title>{shown} · chart</title>", html)
+        self.assertIn(f'<h1 id="pageTitle">{shown}</h1>', html)
+        self.assertNotIn("<script>alert", html)
+        self.assertNotIn("<img src=x", html)
+        self.assertEqual(self._blob(out)["phase"], name)  # the data keeps it as written
+
+    def test_a_phase_named_like_the_data_placeholder_pulls_nothing_in(self):
+        data = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}], name="%%DATA%%")]
+        root, jp = self._project(data)
+        out = root / "chart.html"
+        self.assertEqual(roadbook.main(["render", str(jp), "--out", str(out)]), 0)
+        html = out.read_text()
+        self.assertIn("<title>%%DATA%% · chart</title>", html)
+        self.assertIn('<h1 id="pageTitle">%%DATA%%</h1>', html)
+        self.assertEqual(html.count('<script id="chart-data"'), 1)
+
     def test_render_refuses_a_template_without_each_placeholder_once(self):
         template = Path(roadbook.__file__).resolve().parent.parent / "templates" / "chart.html"
         text = template.read_text()

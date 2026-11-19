@@ -62,6 +62,7 @@ import sys
 import tempfile
 import zlib
 from datetime import date, datetime
+from html import escape as _escape_html
 from pathlib import Path
 
 from _roadbook_core import (
@@ -2038,13 +2039,18 @@ def _render_to(json_path, data, phase, out):
                 f"template must contain exactly one {token} placeholder; found "
                 f"{template_html.count(token)} in {template}")
     _assert_header_comment_clean(template_html, template)
-    # The fixed pieces go in first, so a phase name that happens to read
-    # %%FONTS%% or %%THEME%% stays text and never pulls a blob in after it.
-    html = (template_html
-            .replace("%%THEME%%", _chart_theme_css())
-            .replace("%%FONTS%%", _chart_font_faces())
-            .replace("%%TITLE%%", str(phase.get("name") or "Roadbook"))
-            .replace("%%DATA%%", payload))
+    # One pass over the template: a value put in is never scanned again, so a
+    # phase name that reads like a placeholder stays text and pulls nothing
+    # in. The name is escaped for the <title> and <h1> it fills; markup in it
+    # arrived with a teammate's commit and must not run when the chart opens.
+    pieces = {
+        "%%THEME%%": _chart_theme_css(),
+        "%%FONTS%%": _chart_font_faces(),
+        "%%TITLE%%": _escape_html(str(phase.get("name") or "Roadbook"), quote=False),
+        "%%DATA%%": payload,
+    }
+    html = re.sub("|".join(map(re.escape, pieces)),
+                  lambda found: pieces[found.group(0)], template_html)
     _refuse_if_artefact_newer(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write(out, html)
