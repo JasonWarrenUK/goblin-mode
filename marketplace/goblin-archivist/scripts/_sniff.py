@@ -42,8 +42,9 @@ DEPRECATED_KEYS = {'tag': 'tags', 'alias': 'aliases', 'cssclass': 'cssclasses'}
 # One departure: a box with no space after it and then `(` or `:` is a link or a
 # reference (`- [A](#a)`, `1. [1](#fn1)`), not a task.
 TASK_LINE = re.compile(r'^(?P<indent>[\s>]*)(?:[-*+]|[0-9]+[.)]) +\[(?P<status>.)\](?: +|(?![(:]))(?P<text>.*)$')
-# A fence may sit inside a block quote or callout, behind any depth of `>`.
-FENCE = re.compile(r'^(?:[ \t]*>)*[ \t]*(`{3,}|~{3,})(.*)$')
+# A fence line, matched on what is left once the quote markers are taken off.
+QUOTE_PREFIX = re.compile(r'^(?:[ \t]*>)*')
+FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,})(.*)$')
 INLINE_CODE = re.compile(r'`[^`]*`')
 # `(#x` is a tag except straight after `]`, where it is a link to a heading.
 INLINE_TAG = re.compile(r'(?:^|(?<=\s)|(?<=[^\]]\()|(?<=^\())#([^\s#!@$%^&*(),.?":{}|<>\[\]\'`;+=~\\]+)')
@@ -182,24 +183,38 @@ def walk_vault(vault: Path) -> Walk:
 
 
 def body_lines(body: str) -> list[str]:
-	"""The body's lines with fenced code blanked, so nothing inside a fence counts."""
-	lines = body.split('\n')
+	"""The body's lines with fenced code blanked, so nothing inside a fence counts.
+
+	A fence remembers how many `>` stood before it (CommonMark 0.31.2, 4.5).
+	It closes only on a matching fence at that same depth, so a quoted line
+	inside an unquoted block is content, and it ends on the first line with
+	fewer `>`, since a fence opened in a quote ends where the quote does.
+	"""
 	out: list[str] = []
 	fence = ''
-	for line in lines:
-		match = FENCE.match(line.rstrip('\r'))
+	depth = 0
+	for raw in body.split('\n'):
+		line = raw.rstrip('\r')
+		prefix = QUOTE_PREFIX.match(line).group(0)
+		level = prefix.count('>')
+		content = line[len(prefix):]
 		if fence:
-			# A fence closes only on the same character, at least as many of
-			# them and nothing after (CommonMark), so ```` can wrap ```.
-			if match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence) and not match.group(2).strip():
+			if level < depth:
 				fence = ''
-			out.append('')
-			continue
+			else:
+				match = FENCE.match(content)
+				# The closer: same character, at least as many, nothing after.
+				if level == depth and match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence) and not match.group(2).strip():
+					fence = ''
+				out.append('')
+				continue
+		match = FENCE.match(content)
 		if match and not (match.group(1)[0] == '`' and '`' in match.group(2)):
 			fence = match.group(1)
+			depth = level
 			out.append('')
 			continue
-		out.append(line.rstrip('\r'))
+		out.append(line)
 	return out
 
 

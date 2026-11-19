@@ -67,6 +67,19 @@ class HelperTest(unittest.TestCase):
 		body = '> [!example]\n> ```md\n> - [ ] quoted fence #nottag\n> ```\n> - [ ] after the fence\n>> ~~~\n>> - [ ] deeper\n>> ~~~\n'
 		self.assertEqual([line for line in body_lines(body) if line], ['> [!example]', '> - [ ] after the fence'])
 
+	def test_a_quoted_fence_line_does_not_close_an_unquoted_fence(self) -> None:
+		# CommonMark 0.31.2 section 4.5: only spaces may precede a closing fence
+		body = '```md\n> [!example]\n> ```sh\n> echo hello\n> ```\n- [ ] not a task #notatag\n```\n\n- [ ] water the ferns #garden\n- [x] mend the kite #sky\n'
+		self.assertEqual([line for line in body_lines(body) if line], ['- [ ] water the ferns #garden', '- [x] mend the kite #sky'])
+
+	def test_a_quoted_fence_ends_where_its_quote_ends(self) -> None:
+		body = '> ```\n> echo hello #incode\n\n- [ ] water the ferns #garden\n'
+		self.assertEqual([line for line in body_lines(body) if line], ['- [ ] water the ferns #garden'])
+
+	def test_a_fence_two_quotes_deep(self) -> None:
+		body = '>> ```\n>> - [ ] code\n> - [ ] quote one deep\n- [ ] outside\n'
+		self.assertEqual([line for line in body_lines(body) if line], ['> - [ ] quote one deep', '- [ ] outside'])
+
 	def test_task_signature_orders_metadata(self) -> None:
 		self.assertEqual(task_signature('Mend 🔼 ⏳ 2026-01-06 🔁 every week'), 'text · priority medium · scheduled · recurrence')
 		self.assertEqual(task_signature('Read [[A]] [due:: 2026-01-09] ^abc'), 'text · [[link]] · [due::] · ^block-id')
