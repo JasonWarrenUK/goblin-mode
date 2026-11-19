@@ -3746,7 +3746,12 @@ class Dashboard(unittest.TestCase):
         theme = (HERE.parent / "templates" / "dashboard-theme.css").read_text()
         css = (HERE.parent / "templates" / "dashboard.css").read_text()
         light = dict(re.findall(r"\t(--[\w-]+): (#[0-9A-Fa-f]{6});", theme.split("@media")[0]))
+        # review 5983944140: the page takes dark from prefers-color-scheme as well as from data-theme; both blocks are read
+        # and must agree, so a test of one is a test of both
+        scheme = dict(re.findall(r"\t+(--[\w-]+): (#[0-9A-Fa-f]{6});", theme.split("@media (prefers-color-scheme: dark)")[1].split(':root[data-theme="dark"]')[0]))
         dark = dict(re.findall(r"\t+(--[\w-]+): (#[0-9A-Fa-f]{6});", theme.split(':root[data-theme="dark"]')[1]))
+        self.assertTrue(scheme and dark)
+        self.assertEqual(scheme, dark, "the prefers-color-scheme block and the data-theme block set the same dark tokens")
         dark = {**light, **dark}
 
         def lum(hex_colour):
@@ -3764,9 +3769,13 @@ class Dashboard(unittest.TestCase):
             return found.group(1) if found else None
 
         card_ink, layer_ink = colour_of(".card"), colour_of(".card.layer") or colour_of(".card")
+        tribute_ink = colour_of(".tributes li")
+        tribute_ground = re.search(r"\.tributes li \{[^}]*background: var\((--[\w-]+)\)", css).group(1)
         for tokens in (light, dark):
             self.assertGreaterEqual(ratio(tokens[card_ink], tokens["--card"]), 4.5)
             self.assertGreaterEqual(ratio(tokens[layer_ink], tokens["--card-dark"]), 4.5)
+            # an agreed tribute is a tribute slip drawn at full ink: its ratio is the slip's
+            self.assertGreaterEqual(ratio(tokens[colour_of(".tributes .agreed") or tribute_ink], tokens[tribute_ground]), 4.5)
         for selector in (".meta", ".num .waits", ".note small", ".tributes .agreed"):
             rule = re.search(re.escape(selector) + r" \{([^}]*)\}", css).group(1)
             self.assertNotIn("opacity", rule, f"{selector} thins its ink below the ratio")
@@ -3858,6 +3867,9 @@ class MoveFromMissionControl(unittest.TestCase):
         refusal = next(line for line in said.splitlines() if "mission-control.json is this repository's config" in line)
         self.assertNotIn("rename", refusal.lower())
         self.assertIn("leave it where it is while any session still runs mission-control", refusal)
+        # review 5983944140: in this world (committed) the move never takes the file, so the refusal does not say it will
+        self.assertIn("where git ignores both names", refusal)
+        self.assertIn("/read-slate says what to do", refusal)
         self.assertFalse((self.box.repo / ".claude" / "goblin-warband.json").exists(), "no starter shadows the real config")
 
     def test_a_config_ignored_only_by_its_old_name_stays_put(self):
@@ -4071,6 +4083,71 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertEqual(verdict["permissionDecision"], "deny", "the dibs gate still rules from the new root")
         self.assertTrue((stray / "run.json").is_file(), "nothing in the old root is moved or touched")
         self.assertIn(status["old_ledger_note"], self.box.mc("status").stdout, "read-slate says it in one line")
+        # review 5983944140: a restarted session never reads the old folder, so the note names a command this CLI can run, and
+        # never offers delete for a folder that holds a live raid
+        self.assertIn("end --old-ledger", status["old_ledger_note"])
+        self.assertNotIn("delete", status["old_ledger_note"])
+
+    def test_end_old_ledger_archives_a_stray_raid_this_cli_never_reads(self):
+        """Review 5983944140: the head can finish the job itself, so ending a stray raid never depends on a session still on
+        mission-control. Its files are archived under the old folder's runs/, and the note then offers the folder's removal."""
+        self.box.start()
+        own = self.old / self.new.joinpath(next(p.name for p in self.new.iterdir() if (p / "run.json").is_file())).name
+        own.mkdir(parents=True)
+        (own / "run.json").write_text(json.dumps({"name": "stray", "repo_root": str(self.box.repo), "started_at": 1, "coordinator": {"session_id": "old-chief"}}))
+        (own / "log.jsonl").write_text("{}\n")
+        done = self.box.mc("end", "--old-ledger", "--by-user")
+        self.assertIn("stray", done.stdout)
+        self.assertFalse((own / "run.json").exists(), "the stray raid is no longer live")
+        archived = list((self.old / "runs").iterdir())
+        self.assertEqual(len(archived), 1)
+        self.assertTrue((archived[0] / "run.json").is_file() and (archived[0] / "log.jsonl").is_file(), "its files kept, archived")
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertEqual((status.get("run") or {}).get("name"), "search", "the new root's raid is untouched")
+        self.assertIn("move or delete that folder by hand", status.get("old_ledger_note", ""))
+        self.box.mc("end", "--old-ledger", "--by-user", expect=1)  # nothing live left there
+
+    def _stray_beside_a_live_new_raid(self):
+        """A live raid under the new root and a stray live one for the same repository under the old root."""
+        self.box.start()
+        slug = next(p.name for p in self.new.iterdir() if (p / "run.json").is_file())
+        own = self.old / slug
+        own.mkdir(parents=True)
+        (own / "run.json").write_text(json.dumps({"name": "stray", "repo_root": str(self.box.repo), "started_at": 1, "coordinator": {"session_id": "old-chief"}}))
+        return own
+
+    def tree_of(self, root):
+        return {str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file() and p.name not in ("run.lock",)}
+
+    def test_end_old_ledger_never_touches_the_new_ledger(self):
+        own = self._stray_beside_a_live_new_raid()
+        slug = own.name
+        before = self.tree_of(self.new)
+        self.box.mc("end", "--old-ledger", "--by-user")
+        self.assertEqual(self.tree_of(self.new), before, "no file under the new root changed, its log included")
+        self.assertFalse(list(self.new.glob("runs/*")), "nothing was archived under the new root")
+        self.assertTrue((self.new / slug / "run.json").is_file(), "both roots were live; the new one still is")
+
+    def test_end_old_ledger_answers_only_the_chief_or_the_person(self):
+        own = self._stray_beside_a_live_new_raid()
+        self.box.register("someone", "a bystander", str(self.box.repo))
+        done = self.box.mc("end", "--old-ledger", session="someone", expect=1)
+        self.assertIn("only the chief's session", done.stdout + done.stderr)
+        self.assertTrue((own / "run.json").is_file(), "refused, so the stray raid is still live and unarchived")
+        self.box.mc("end", "--old-ledger", session="old-chief")  # the stray raid's own chief may, as for any end
+        self.assertFalse((own / "run.json").exists())
+
+    def test_end_old_ledger_refuses_with_no_old_root_or_no_live_raid_there(self):
+        self.box.start()
+        done = self.box.mc("end", "--old-ledger", "--by-user", expect=1)
+        self.assertIn("no old mission-control ledger", done.stdout + done.stderr)
+        slug = next(p.name for p in self.new.iterdir() if (p / "run.json").is_file())
+        (self.old / slug).mkdir(parents=True)
+        (self.old / slug / "run.json").write_text(json.dumps({"name": "over", "repo_root": str(self.box.repo), "started_at": 1, "ended_at": 2}))
+        done = self.box.mc("end", "--old-ledger", "--by-user", expect=1)
+        self.assertTrue((self.old / slug / "run.json").is_file(), "an ended raid there is left alone")
+        self.assertFalse((self.old / "runs").exists())
+        self.assertTrue(json.loads(self.box.mc("--json", "status").stdout).get("run"), "the new root's raid is untouched")
 
     def test_a_pending_config_move_never_carries_on_from_an_old_ledger_beside_the_new_one(self):
         """Review 5978367037: the re-check under the move lock carried on from any live old raid whenever a config move was

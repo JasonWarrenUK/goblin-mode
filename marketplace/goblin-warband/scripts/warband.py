@@ -2112,8 +2112,8 @@ def cmd_init(args) -> int:
     if (root / OLD_CONFIG_REL).exists() and not args.force:
         # never "rename it": a rename by hand takes the gates from a session still on 0.13.1 (review 5983523136)
         raise Refusal(f"{root / OLD_CONFIG_REL} is this repository's config under its old name, and the warband reads it there; "
-                      f"leave it where it is while any session still runs mission-control (the move takes care of it, leaving a link, once no "
-                      f"raid is live in the old ledger). Pass --force only to write a starter that takes its place.")
+                      f"leave it where it is while any session still runs mission-control (where git ignores both names the move takes care of it, "
+                      f"leaving a link, once no raid is live in the old ledger; otherwise /read-slate says what to do). Pass --force only to write a starter that takes its place.")
     example = Path(__file__).resolve().parent.parent / "references" / "goblin-warband.example.json"
     data = read_json(example, {})
     data["project"] = root.name
@@ -2185,6 +2185,14 @@ def cmd_start(args) -> int:
 
 
 def cmd_end(args) -> int:
+    global LEDGER_ROOT
+    if getattr(args, "old_ledger", False):
+        # a raid live in the old mission-control ledger beside the new one is never read by this CLI, and a session restarted
+        # onto it cannot reach it either; --old-ledger ends and archives it there, under that folder's runs/ (review 5983944140)
+        old_root = old_ledger_root()
+        if old_root is None or not old_root.is_dir() or old_root.resolve() == LEDGER_ROOT.resolve():
+            raise Refusal("there is no old mission-control ledger beside this one to end a raid in")
+        LEDGER_ROOT = old_root
     ledger = ledger_for(args.cwd)
     run = ledger.require_run()
     authorise(run, caller_session(args.session), args.by_user, "end the raid")
@@ -4619,6 +4627,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--small-model-ok", dest="small_model_ok", action="store_true", help="the mod refuses a start from a haiku or sonnet session; this flag says the user means it")
     sp = sub.add_parser("end", help="end the raid and archive the ledger")
     sp.add_argument("--force", action="store_true")
+    sp.add_argument("--old-ledger", dest="old_ledger", action="store_true", help="end this repository's raid in the old mission-control ledger beside the new one, archiving it there")
     sp.add_argument(BY_USER, dest="by_user", action="store_true")
     sp = sub.add_parser("status", help="the slate as text, or --json")
     sp.add_argument("--probe", action="store_true", help="also probe each resource on the machine")
@@ -4821,9 +4830,14 @@ def old_ledger_note(old_root: Path, new_root: Path) -> str:
     """The one line for an old ledger found beside the new one. The new root is the ledger once it exists, so nothing in the
     old one is read or moved; a raid there was started by a session still on mission-control 0.13.1, or raced the move."""
     live = live_raids_in(old_root)
-    held = f" and holds {len(live)} live raid{'s' if len(live) != 1 else ''} ({', '.join(live)}) this CLI never reads" if live else ""
-    return (f"goblin-warband: the old mission-control ledger at {old_root} is still there beside {new_root}{held}; "
-            f"restart any session still on mission-control, end its raid there, then move or delete that folder by hand.")
+    if live:
+        # never offer delete while a raid is live there: that loses its files, unarchived (review 5983944140). This CLI can end
+        # it itself, so nothing depends on a session still on mission-control that a restart would take away.
+        return (f"goblin-warband: the old mission-control ledger at {old_root} beside {new_root} holds {len(live)} live "
+                f"raid{'s' if len(live) != 1 else ''} ({', '.join(live)}) this CLI never reads; end each from its repository with "
+                f"`python3 {Path(__file__).resolve()} end --old-ledger --by-user`, which archives it under that folder's runs/.")
+    return (f"goblin-warband: the old mission-control ledger at {old_root} is still there beside {new_root} with no live raid; "
+            f"once every session still on mission-control has restarted, move or delete that folder by hand.")
 
 
 def carry_on_from(old_root: Path, live: list[str]) -> None:
