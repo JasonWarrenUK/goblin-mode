@@ -23,7 +23,7 @@ Every message to another session goes through the `SendMessage` tool. The `warba
 
 1. Read the orders the hook named (`<ledger dir>/briefs/<task>.md`) and the shared guidance beside them. The orders' criteria are the task's acceptance criteria; their decrees are held until the chief broadcasts a change (`Change to decree N: ...`).
 2. `warband_report` with state `briefing` (the slate shows reading orders) and a one-line summary.
-3. Answer the five questions at the end of the orders with `SendMessage` to the chief (`warband_send` to `chief` gives you its current name), opening `<task> brief (<topic>): <one-line status>`. Answer from the code you have read, not from the orders' own words; the overlaps the chief needs are in questions 2 and 4.
+3. Answer the five questions at the end of the orders with `SendMessage` to the chief (`warband_send` to `chief` gives you its current name), opening `<task> oath (<topic>): <one-line status>`. Answer from the code you have read, not from the orders' own words; the overlaps the chief needs are in questions 2 and 4.
 4. Then work. `warband_report` to `working` (raiding) once the chief has confirmed your criteria.
 
 ## Shared resources

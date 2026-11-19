@@ -40,7 +40,7 @@ Read `{{ ledger dir }}/guidance.md` before writing code: the shared facts at the
 
 ## Before anything else
 
-Invoke `/goblin-warband:join-raid`, then answer these five questions to the chief (`warband_send` to `chief`), opening with `{{ task id }} brief ({{ topic }}): <one-line status>`:
+Invoke `/goblin-warband:join-raid`, then answer these five questions to the chief (`warband_send` to `chief`), opening with `{{ task id }} oath ({{ topic }}): <one-line status>`:
 
 1. What you understand this task to deliver, and the approach you are leaning towards.
 2. Which files you expect to touch or create, and anything you plan to change that is shared.

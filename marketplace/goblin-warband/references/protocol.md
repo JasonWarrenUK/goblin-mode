@@ -12,12 +12,12 @@ Roles: **the user** starts sessions, types what only a person may type and decid
 4. Each raider gets its orders (`templates/brief.md`): what the task ships, the files it owns, the shared surfaces it must not touch alone, the resources it will need, the criteria it must meet and the five questions to answer back. The raider reads them at its first turn; the `SessionStart` hook names the file.
 5. The user starts each session from its launch line, read off the slate: `crew add` put it on the tribute list (kind `launch`) with `cd <worktree>` first, the model and effort kick-off chose for the task (`--model` beats `ANTHROPIC_MODEL`; `--effort` beats the settings but not `CLAUDE_CODE_EFFORT_LEVEL`), `CLAUDE_CODE_SUBAGENT_EFFORT=high` in front when that effort is `low` or `medium`, so the raider's subagents (its fresh-eyes review among them) run at `high`, and the opening prompt. One new terminal window per session; the tribute closes when the raider joins. Nothing else is typed into it.
 
-## 2. The five-question brief
+## 2. The five-question oath
 
 Sent to every raider the same way, answered within minutes, before any code:
 
 ```text
-The chief here (session "<name>"): I am leading <tasks> so nobody's assumptions trip the others. Reply with a short brief; no need to wait until you have finished anything:
+The chief here (session "<name>"): I am leading <tasks> so nobody's assumptions trip the others. Reply with a short oath; no need to wait until you have finished anything:
 
 1. What you understand <task> to deliver, and the approach you are leaning toward.
 2. Which files you expect to touch or create, and anything you plan to change that is shared: <the shared surfaces from the guidance>.
@@ -26,7 +26,7 @@ The chief here (session "<name>"): I am leading <tasks> so nobody's assumptions 
 5. Current state: branch, commits so far, tests passing or not.
 ```
 
-The reply opens `<TASK> brief (<topic>): <one-line status>` and answers 1 to 5. The overlaps show up in the answers to 2 and 4.
+The reply, the raider's oath, opens `<TASK> oath (<topic>): <one-line status>` and answers 1 to 5. The overlaps show up in the answers to 2 and 4.
 
 ## 3. Shared facts, numbered decrees, per-task criteria
 
