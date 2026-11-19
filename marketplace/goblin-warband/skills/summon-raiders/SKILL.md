@@ -9,7 +9,7 @@ metadata:
   family: warband
   goblin-spinner: summoning raiders|waiting for replies|tallying tribute
 disable-model-invocation: false # the trigger is the user asking what they need to do, which the chief sees first; the skill only sends messages and edits the tribute list
-allowed-tools: ["Read", "Bash(python3:*)", "mcp__goblin-warband__warband_slate", "mcp__goblin-warband__warband_send", "mcp__goblin-warband__warband_tribute"]
+allowed-tools: ["Read", "Bash(python3:*)", "mcp__goblin-warband__warband_slate", "mcp__goblin-warband__warband_send", "mcp__goblin-warband__warband_tribute", "mcp__goblin-warband__warband_report"]
 argument-hint: "(no arguments)"
 ---
 

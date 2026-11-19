@@ -136,6 +136,7 @@ Registered in every session where the plugin is on; the CLI refuses the chief-on
 | `warband_grant`        | chief   | probes the machine, refuses while busy, grants, then hands over the grant line for the grantee and the notice line for every other raider |
 | `warband_revoke`       | chief   | releases another session's dibs and hands over the line that tells the holder |
 | `warband_decree`       | chief   | sets or changes a numbered decree; every raider's prompt carries the list, and the broadcast line follows for each live raider |
+| `warband_ruling`       | chief   | records what the user decided (a finding's routing, one option over another, a scope withdrawn) with the sessions told, and hands over the line for each; a raider acknowledges with `warband.py decide ack <n>` |
 | `warband_slate`        | chief   | the slate as text, probes included |
 | `warband_label_spoils` | chief   | one sentence on a PR's line on the spoils page, for what cannot be derived; it disappears once the PR's head, review decision or state moves |
 
