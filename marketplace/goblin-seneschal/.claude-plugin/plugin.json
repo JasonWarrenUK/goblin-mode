@@ -1,0 +1,84 @@
+{
+	"name": "goblin-seneschal",
+	"version": "1.0.0",
+	"description": "The steward of the machine you run Claude Code on: /log-grievance logs a grievance with the tool itself without a turn, /muster-underlings shows every underling (Claude Code session) on the machine and lets you message one, and six skills hear grievances, proclaim releases and changes, inspect chambers, audit prose and consult dossiers.",
+	"author": {
+		"name": "Jason Warren"
+	},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"license": "Zlib",
+	"keywords": ["mod", "underlings", "sessions", "grievances"],
+	"types": "./types/index.d.ts",
+	"userConfig": {
+		"enabled": {
+			"type": "boolean",
+			"title": "Seneschal on",
+			"description": "The one switch for the mod. Off, the heartbeat stops, /log-grievance and /muster-underlings are not registered and nothing is written to the shared store.",
+			"default": true
+		},
+		"heartbeat_seconds": {
+			"type": "number",
+			"title": "Underling heartbeat",
+			"description": "How often this underling (this session) writes its row to the shared store, in seconds.",
+			"default": 15,
+			"min": 5,
+			"max": 120
+		},
+		"stale_minutes": {
+			"type": "number",
+			"title": "Underlings forgotten after",
+			"description": "An underling that has not written for this many minutes is dropped from the muster.",
+			"default": 10,
+			"min": 1,
+			"max": 1440
+		},
+		"grievances_file": {
+			"type": "string",
+			"title": "Grievances file",
+			"description": "Where grievances are kept. /log-grievance writes it; overhear-grievance and proclaim-releases read it. A leading ~/ is your home.",
+			"default": "~/.claude/library/state/grievances.json"
+		},
+		"prose_scripts_dir": {
+			"type": "string",
+			"title": "Prose suite scripts",
+			"description": "The directory audit-prose checks: slop-scan.py, gen-skills-index.py and the prose tests live here.",
+			"default": "~/.claude/library/scripts"
+		},
+		"commit_msg_hook": {
+			"type": "string",
+			"title": "Commit-msg hook",
+			"description": "The git commit-msg hook audit-prose checks is installed and executable.",
+			"default": "~/.claude/hooks/commit-msg"
+		},
+		"commit_msg_log": {
+			"type": "string",
+			"title": "Commit-msg log",
+			"description": "The log the commit-msg hook appends to, which audit-prose reads for its rejection rate.",
+			"default": "~/.claude/library/state/commit-msg-log.jsonl"
+		},
+		"output_style": {
+			"type": "string",
+			"title": "Output style",
+			"description": "The output style file audit-prose scans and checks is in use.",
+			"default": "~/.claude/output-styles/british-dev-goblin.md"
+		},
+		"prose_metrics_store": {
+			"type": "string",
+			"title": "Prose metrics store",
+			"description": "Where audit-prose records the daily output metrics so the trend outlives transcript pruning.",
+			"default": "~/.claude/library/state/prose-metrics.json"
+		},
+		"dossier_dir": {
+			"type": "string",
+			"title": "Dossier directory",
+			"description": "The store of real colleagues' profiles consult-dossiers reads. Never shipped with the plugin.",
+			"default": "~/.claude/library/profiles/dossier"
+		},
+		"personas_dir": {
+			"type": "string",
+			"title": "Personas directory",
+			"description": "The store of invented or derived personas consult-dossiers reads.",
+			"default": "~/.claude/library/profiles/personas"
+		}
+	}
+}

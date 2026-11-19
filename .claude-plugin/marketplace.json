@@ -33,15 +33,15 @@
 			]
 		},
 		{
-			"name": "goblin-util",
-			"source": "./marketplace/goblin-util",
-			"description": "Two mods: /pain logs friction with Claude Code itself without a turn, context pre-filled; /fleet shows every session on the machine and sends one a line.",
+			"name": "goblin-seneschal",
+			"source": "./marketplace/goblin-seneschal",
+			"description": "Your grievance has been noted, my liege, and filed with the others. The underlings are mustered and the chambers stand inspected. Two mods: /log-grievance logs a grievance with Claude Code itself without a turn, context pre-filled; /muster-underlings shows every underling (Claude Code session) on the machine and sends one a line. Six skills: overhear-grievance, proclaim-releases, proclaim-changes, inspect-chambers, audit-prose and consult-dossiers.",
 			"category": "productivity",
 			"tags": [
 				"mod",
-				"fleet",
+				"underlings",
 				"sessions",
-				"pain-points"
+				"grievances"
 			]
 		},
 		{
@@ -60,6 +60,7 @@
 		}
 	],
 	"renames": {
-		"goblin-chrome": "goblin-jester"
+		"goblin-chrome": "goblin-jester",
+		"goblin-util": "goblin-seneschal"
 	}
 }
