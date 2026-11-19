@@ -710,8 +710,10 @@ def _migrate_legacy(path, data, pin=True, unpinned=(), siblings=True):
     a phase rendering to the old default chart path has that path pinned in
     `artefact`, and the file being written carries its own change. A local
     file moved alongside travels byte for byte instead, untouched. One line
-    of notice on stderr, plus one when git would now track a local file it
-    ignored under the old name. Returns the new path of `path`."""
+    of notice on stderr, then a note for each phase of such a local file
+    whose chart now renders to the new default, and one when git would now
+    track a local file it ignored under the old name. Returns the new path
+    of `path`."""
     folder = path.parent
     plan = []
     unpinned_charts = []  # (target, phase) moved byte for byte with no chart path

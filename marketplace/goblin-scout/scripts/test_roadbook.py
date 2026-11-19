@@ -2801,9 +2801,9 @@ class LegacyFixture(unittest.TestCase):
 class LegacyMigration(LegacyFixture):
     """A roadmap plugin's .claude/roadmaps.json (and the local file beside
     it) under goblin-scout 3.0.0: read as it is, moved to the roadbook names
-    on the first write with one line of notice, no value rewritten, the
-    chart's old default path pinned and the 3.0.0 stamp that makes a 2.x
-    plugin refuse the result."""
+    on the first write with one line of notice (and a note per local phase
+    whose chart moves), no value rewritten, the chart's old default path
+    pinned and the 3.0.0 stamp that makes a 2.x plugin refuse the result."""
 
     def test_an_old_file_is_read_where_it_is(self):
         self._write(self.legacy, self._phases())
