@@ -330,6 +330,38 @@ printf '%s\t%s\t%s\n' "$(date +%F)" "$file" "$count" >> "$ledger"
 
 In this level, you'll add frontmatter that controls who can start `tidy-imports`, which model it runs on and which tools it may never use.
 
+### Where Level 2 Left It
+
+Here's `SKILL.md` at the end of level 2. Its frontmatter says nothing yet about who may start it or which model it runs on.
+
+````markdown
+---
+name: tidy-imports
+description: Sort the import statements at the top of a file
+arguments: [path]
+argument-hint: "[file]"
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
+---
+
+Tidy the imports in $path.
+
+Read .claude/tidy-imports.log if it exists. If $path is
+already listed there, say so before going on.
+
+Run the script on the file, by exactly this path:
+
+```bash
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
+```
+
+It sorts the import block in place. Do not reorder any
+lines yourself or edit the file after it runs. If the
+script exits non-zero, report its message and stop.
+
+The script also writes the ledger line. Never write to
+.claude/tidy-imports.log yourself.
+````
+
 ### 3.1 Who May Start It
 
 By default, both you and Claude can start a skill. Setting `disable-model-invocation: true` makes it yours alone; `user-invocable: false` makes it Claude's alone. Leave `tidy-imports` open to both, write the line out anyway with a comment saying why, and add `when_to_use` to tell Claude when to reach for it.
@@ -509,6 +541,43 @@ A skill with `disable-model-invocation: true` has its description taken out of C
 ## Level 4: Skills That Call Skills
 
 In this level, you'll split a read-only check out of `tidy-imports` into a skill of its own, call it from `tidy-imports` and add a gate before the one change git can't undo.
+
+### Where Level 3 Left It
+
+Here's `SKILL.md` at the end of level 3. It does all its work on its own; step 4.1 starts a second skill beside it.
+
+````markdown
+---
+name: tidy-imports
+description: Sort the import statements at the top of a file
+when_to_use: "After you add or remove imports in a file, or when the user asks to sort or tidy a file's imports."
+arguments: [path]
+argument-hint: "[file]"
+model: sonnet
+effort: low
+disable-model-invocation: false # Claude may start it after changing a file's imports; the script only reorders import lines
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)
+disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
+---
+
+Tidy the imports in $path.
+
+Read .claude/tidy-imports.log if it exists. If $path is
+already listed there, say so before going on.
+
+Run the script on the file, by exactly this path:
+
+```bash
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
+```
+
+It sorts the import block in place. Do not reorder any
+lines yourself or edit the file after it runs. If the
+script exits non-zero, report its message and stop.
+
+The script also writes the ledger line. Never write to
+.claude/tidy-imports.log yourself.
+````
 
 ### 4.1 Split Out a Read-Only Check
 
@@ -753,6 +822,83 @@ ravi sets `tidy-imports-check` to `disable-model-invocation: true`, then types `
 ## Level 5: Pack It as a Plugin
 
 In this level, you'll move `tidy-imports` and `tidy-imports-check` into a plugin, so any project can install them with one command.
+
+### Where Level 4 Left It
+
+Here are both skills at the end of level 4, still in the project's `.claude/skills/` folder; step 5.1 moves them into a plugin.
+
+`.claude/skills/tidy-imports/SKILL.md`:
+
+````markdown
+---
+name: tidy-imports
+description: Sort the import statements at the top of a file
+when_to_use: "After you add or remove imports in a file, or when the user asks to sort or tidy a file's imports."
+arguments: [path]
+argument-hint: "[file]"
+model: sonnet
+effort: low
+disable-model-invocation: false # Claude may start it after changing a file's imports; it stops for a yes before rewriting a file git has no copy of
+allowed-tools: ["Bash(${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh:*)", "Bash(git status:*)"]
+disallowed-tools: [Edit, Write, NotebookEdit] # the script changes the file; Claude never does
+---
+
+Tidy the imports in $path.
+
+Read .claude/tidy-imports.log if it exists. If $path is
+already listed there, say so before going on.
+
+Load the tidy-imports-check skill on $path. If it reports
+the imports already sorted, say so and stop. If the check
+cannot run, say why and stop.
+
+Run `git status --porcelain -- "$path"`. If it prints
+anything, the file has changes git holds no copy of, and
+the rewrite cannot be undone from git. Show the check's
+report, say this and stop. Run the script only after the
+user replies yes.
+
+Run the script on the file, by exactly this path:
+
+```bash
+${CLAUDE_SKILL_DIR}/scripts/sort-imports.sh "$path"
+```
+
+It sorts the import block in place. Do not reorder any
+lines yourself or edit the file after it runs. If the
+script exits non-zero, report its message and stop.
+
+The script also writes the ledger line. Never write to
+.claude/tidy-imports.log yourself.
+````
+
+`.claude/skills/tidy-imports-check/SKILL.md`:
+
+````markdown
+---
+name: tidy-imports-check
+description: Report whether the import statements at the top of a file are sorted, without changing the file
+when_to_use: "Before tidy-imports rewrites a file, or when the user asks whether a file's imports are in order."
+arguments: [path]
+argument-hint: "[file]"
+model: sonnet
+effort: low
+disable-model-invocation: false # tidy-imports calls this skill, so Claude must be able to invoke it
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/check-imports.sh:*)
+disallowed-tools: [Edit, Write, NotebookEdit] # reads, never writes
+---
+
+Check the imports in $path.
+
+Run the script on the file, by exactly this path:
+
+```bash
+${CLAUDE_SKILL_DIR}/scripts/check-imports.sh "$path"
+```
+
+Report its output as it stands. Do not sort, fix or change
+anything, even when the imports are out of order.
+````
 
 ### 5.1 A Plugin Folder and plugin.json
 
