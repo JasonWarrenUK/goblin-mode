@@ -54,6 +54,9 @@ export const slug = (text: string): string =>
 		.slice(0, 48)
 		.replace(/-+$/, '') || 'grievance'
 
+/** Whether a configured path names one file wherever the session starts: absolute, or under `~/`. */
+export const isUsablePath = (path: string): boolean => path.startsWith('/') || (path.startsWith('~/') && path.length > 2)
+
 /** A configured path with a leading `~/` set under the home, as a shell would. */
 export const expandHome = (path: string, home: string): string => (path === '~' ? home : path.startsWith('~/') ? `${home}/${path.slice(2)}` : path)
 
@@ -91,14 +94,37 @@ const readGrievances = async ($: EngineInterface, path: string): Promise<{ entri
 	return { entries: parsed.filter(isRecord), text }
 }
 
+/** The store key naming the grievances file the old file was first carried into. */
+const CARRIED_INTO = 'carriedInto'
+
+/** The old file's entries, or null when it is missing; throws on a file that will not parse. */
+const readOldGrievances = async ($: EngineInterface, path: string): Promise<{ entries: unknown[]; text: string } | null> => {
+	if (!(await $.fs.exists(path))) return null
+	const text = await $.fs.read(path)
+	const parsed: unknown = JSON.parse(text)
+	if (!Array.isArray(parsed)) throw new Error('not a list')
+	return { entries: parsed, text }
+}
+
+/** What identifies an entry for the merge: its `id`, or its whole text when it has none. */
+const entryKey = (entry: unknown): string => (isRecord(entry) && typeof entry.id === 'string' ? `id:${entry.id}` : `json:${JSON.stringify(entry)}`)
+
 /**
- * The one-off move from the file this plugin kept before 1.0.0: when the
- * grievances file is missing and `cc-pain-points.json` exists, its text is
- * written to the grievances file byte for byte. No entry key ever carried the
- * old word, so nothing inside is rewritten. The old file is left where it is
- * (a mod can write but not delete), and an existing grievances file is never
- * touched. An old file that will not parse is reported, never moved, so the
- * caller can hold back until a person fixes it. A failed write throws.
+ * The move from the file this plugin kept before 1.0.0, safe to repeat at
+ * every session start and before every grievance.
+ *
+ * When the grievances file is missing, the old file's text is written to it
+ * byte for byte, and the store records that path. When both files parse, the
+ * old entries whose `id` the grievances file lacks are appended after its own,
+ * which keep their place and fields: a session still on the old plugin can go
+ * on logging to the old file, and its entries arrive at the next start. Once
+ * the store names a path, only that path is merged into, so a changed
+ * `grievances_file` starts empty rather than taking the old snapshot again.
+ *
+ * The old file is left where it is (a mod can write but not delete). An old
+ * file that will not parse is reported, never moved, so the caller can hold
+ * back until a person fixes it; a grievances file that will not parse is left
+ * alone. A failed write throws.
  */
 export type CarryOver = { kind: 'moved'; count: number } | { kind: 'unreadable' } | { kind: 'nothing' }
 
@@ -110,23 +136,44 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 		return { kind: 'nothing' }
 	}
 	if (paths.grievances === paths.oldFile) return { kind: 'nothing' }
-	if (await $.fs.exists(paths.grievances)) return { kind: 'nothing' }
-	if (!(await $.fs.exists(paths.oldFile))) return { kind: 'nothing' }
-	const text = await $.fs.read(paths.oldFile)
-	let count: number
+	const carriedInto = await $.store.get(CARRIED_INTO)
+	if (typeof carriedInto === 'string' && carriedInto !== paths.grievances) return { kind: 'nothing' }
+	let old: Awaited<ReturnType<typeof readOldGrievances>>
 	try {
-		const parsed: unknown = JSON.parse(text)
-		if (!Array.isArray(parsed)) return { kind: 'unreadable' }
-		count = parsed.length
+		old = await readOldGrievances($, paths.oldFile)
 	} catch {
 		// a file that will not parse stays where it is, for a person to fix
 		return { kind: 'unreadable' }
 	}
-	// $.fs has no exclusive create, so look again straight before writing: a
-	// session that carried over and logged in the meantime keeps its entry.
-	if (await $.fs.exists(paths.grievances)) return { kind: 'nothing' }
-	await $.fs.write(paths.grievances, text)
-	return { kind: 'moved', count }
+	if (old === null) return { kind: 'nothing' }
+	let current: Awaited<ReturnType<typeof readGrievances>>
+	try {
+		current = await readGrievances($, paths.grievances)
+	} catch {
+		// the grievances file is the person's to fix; /log-grievance says how
+		return { kind: 'nothing' }
+	}
+	if (current.text === null) {
+		// $.fs has no exclusive create, so look again straight before writing: a
+		// session that carried over and logged in the meantime keeps its entry.
+		if (await $.fs.exists(paths.grievances)) return { kind: 'nothing' }
+		await $.fs.write(paths.grievances, old.text)
+		await $.store.set(CARRIED_INTO, paths.grievances)
+		return { kind: 'moved', count: old.entries.length }
+	}
+	if (typeof carriedInto !== 'string') await $.store.set(CARRIED_INTO, paths.grievances)
+	const held = new Set(current.entries.map(entryKey))
+	const missing = old.entries.filter(entry => {
+		const key = entryKey(entry)
+		if (held.has(key)) return false
+		held.add(key)
+		return true
+	})
+	if (missing.length === 0) return { kind: 'nothing' }
+	// Another session may have written since the read: give up and merge at the next start.
+	if ((await $.fs.read(paths.grievances)) !== current.text) return { kind: 'nothing' }
+	await $.fs.write(paths.grievances, JSON.stringify([...current.entries, ...missing], null, '\t') + '\n')
+	return { kind: 'moved', count: missing.length }
 }
 
 /** `n` and the noun, plural unless one. */
@@ -147,10 +194,13 @@ const logGrievance = async ($: EngineInterface, description: string): Promise<st
 		return 'HOME is not set; nothing written.'
 	}
 	// A grievance written now would create the grievances file and leave the
-	// old one's entries behind for good, so an unreadable old file holds it back.
+	// old one's entries behind for good, so an unreadable old file holds it
+	// back while there is no grievances file; once there is one, the old
+	// entries merge into it whenever the old file is fixed.
 	try {
 		const carried = await carryOverOldGrievances($)
-		if (carried.kind === 'unreadable') return 'cc-pain-points.json will not parse; fix it first so its grievances carry over. nothing written.'
+		if (carried.kind === 'unreadable' && !(await $.fs.exists(path)))
+			return 'cc-pain-points.json will not parse; fix it first so its grievances carry over. nothing written.'
 	} catch (error) {
 		return `could not carry over cc-pain-points.json: ${error instanceof Error ? error.message : String(error)}; nothing written.`
 	}
@@ -158,6 +208,15 @@ const logGrievance = async ($: EngineInterface, description: string): Promise<st
 	try {
 		first = await readGrievances($, path)
 	} catch {
+		// A write that stopped partway leaves a file nobody wrote by hand; the
+		// way back is to delete it, when the old file is there to carry again.
+		const { oldFile } = await grievancePaths($)
+		const oldReads = await readOldGrievances($, oldFile).then(
+			old => old !== null,
+			() => false,
+		)
+		if (oldReads)
+			return `${fileName(path)} will not parse; nothing written. fix it, or delete it and log again to carry ${fileName(oldFile)} over afresh (anything logged since the first carry-over goes with it).`
 		return `${fileName(path)} will not parse; nothing written. fix the file first.`
 	}
 	const open = first.entries.find(
@@ -263,10 +322,16 @@ export const register: Register = (on, options) => {
 
 	heartbeatMs = (typeof options.heartbeat_seconds === 'number' ? options.heartbeat_seconds : 15) * 1000
 	staleMs = (typeof options.stale_minutes === 'number' ? options.stale_minutes : 10) * 60_000
-	grievancesSetting = typeof options.grievances_file === 'string' && options.grievances_file.trim() !== '' ? options.grievances_file.trim() : DEFAULT_GRIEVANCES
+	const typed = typeof options.grievances_file === 'string' ? options.grievances_file.trim() : ''
+	// A relative path would land in every project the session opens, so only an
+	// absolute path or one under ~/ is taken; anything else is named and set aside.
+	const refusedSetting = typed !== '' && !isUsablePath(typed) ? typed : null
+	grievancesSetting = typed !== '' && refusedSetting === null ? typed : DEFAULT_GRIEVANCES
 
 	on('session.start', async ($, e, next) => {
 		cwd = e.cwd
+		if (refusedSetting !== null)
+			$.ui.toast(`grievances_file ${refusedSetting} is not an absolute path or one under ~/; using ${DEFAULT_GRIEVANCES}.`)
 		// The old file's entries become grievances before anything reads them.
 		try {
 			const carried = await carryOverOldGrievances($)
