@@ -20,8 +20,10 @@
 #                    its plugin.json takes it across the 0.x guard
 # exit codes: 0 ok (tag on stdout; guard note on stderr when it fired),
 #             2 environment error; also a matching tag that is not a version
-#               (another plugin's, or one svu cannot read) and tagged earlier
-#               names on separate paths of the renames map (a person picks),
+#               (another plugin's, or one svu cannot read), a plugin.json
+#               version of digits and dots that is not major.minor.patch, and
+#               tagged earlier names on separate paths of the renames map (a
+#               person picks),
 #             3 nothing to release (no version-bumping commits since the
 #               current tag: creating a tag would fail on a duplicate),
 #             4 omitted by policy (the target is in omit-gh-tag in the
@@ -120,10 +122,25 @@ current=$(series_current "$prefix" "${current_args[@]}") || exit 2
 
 # What the plugin's built plugin.json declares at its top level, if anything:
 # the start of a fresh series, and for a renamed plugin the human's word on
-# crossing to 1.x. A nested "version" (a dependency's, say) never counts.
+# crossing to 1.x. A nested "version" (a dependency's, say) never counts. Only
+# major.minor.patch counts as declared: a run of digits and dots of another
+# shape (0.3, 1.0, 0.3.0.) exits 2 naming it, since printed as a tag it is
+# one the tag-shape check refuses at the next release. Anything else (none, a
+# pre-release) reads as nothing declared.
 declared=""
 if [[ -n "$plugin" && -f "$dir/.claude-plugin/plugin.json" ]]; then
-	declared=$(python3 -I -c 'import json, re, sys; version = json.load(open(sys.argv[1])).get("version"); print(version if isinstance(version, str) and re.fullmatch(r"[0-9][0-9.]*", version) else "")' "$dir/.claude-plugin/plugin.json" 2>/dev/null)
+	declared=$(python3 -I -c '
+import json, re, sys
+version = json.load(open(sys.argv[1])).get("version")
+if isinstance(version, str) and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+	print(version)
+elif isinstance(version, str) and re.fullmatch(r"[0-9.]+", version):
+	print("malformed:" + version)
+' "$dir/.claude-plugin/plugin.json" 2>/dev/null)
+	if [[ "$declared" == malformed:* ]]; then
+		print -u2 -- "$dir/.claude-plugin/plugin.json declares version \"${declared#malformed:}\", which is not major.minor.patch; set it to three numbers and run this again"
+		exit 2
+	fi
 fi
 
 # A renamed plugin continues its old series. When nothing is tagged under the
