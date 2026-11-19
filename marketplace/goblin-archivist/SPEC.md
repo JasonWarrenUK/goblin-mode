@@ -120,6 +120,7 @@ Each item has an answer from Jason or waits here. **After the survey** means it 
 | O12 | Heavy rule and half-block characters at the round border's cell width in Jason's font | Spec §5.8 Verify | Pane slice; check with `ghostty +show-face --string=` |
 | O13 | Whether `session_id`, `transcript_path`, `cwd` and `hook_event_name` reach every hook event | Spec §7 | Hooks slice |
 | O14 | What `${user_config.enabled}` and an unset `directory` option substitute to in skill content. `sniff-vault` treats empty and the literal `${user_config...}` as unset, and carries on only when the switch reads exactly `true`, so an unsubstituted switch fails closed. The boolean's substituted text is unchecked | New | First live run of the skill |
+| O15 | Code fences inside list items. The survey ends a fence that opens on its list marker line where the item ends, as CommonMark does. A fence that opens on its own indented line inside an item still runs to its closer, or to the end of its quote, rather than to the end of the item; bounding that needs list items tracked on every line, a small block parser with its own differential test against a reference Markdown parser | Review of #79 | Known limit of slice 1; for a later slice if the counts ever need it |
 
 ## 6. Slicing
 
