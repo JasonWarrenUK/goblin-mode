@@ -85,13 +85,17 @@ const grievancePaths = async ($: EngineInterface): Promise<{ grievances: string;
 /** The file's last path segment, for the lines a person reads. */
 const fileName = (path: string): string => basename(path)
 
-/** The file's entries and its text as read, or null text when it is missing; throws on a file that will not parse. */
-const readGrievances = async ($: EngineInterface, path: string): Promise<{ entries: Record<string, unknown>[]; text: string | null }> => {
-	if (!(await $.fs.exists(path))) return { entries: [], text: null }
+/**
+ * The file's entries, the whole list as read (`all`, elements that are not
+ * entries included) and its text, or null text when it is missing; throws on
+ * a file that will not parse.
+ */
+const readGrievances = async ($: EngineInterface, path: string): Promise<{ entries: Record<string, unknown>[]; all: unknown[]; text: string | null }> => {
+	if (!(await $.fs.exists(path))) return { entries: [], all: [], text: null }
 	const text = await $.fs.read(path)
 	const parsed: unknown = JSON.parse(text)
 	if (!Array.isArray(parsed)) throw new Error('not a list')
-	return { entries: parsed.filter(isRecord), text }
+	return { entries: parsed.filter(isRecord), all: parsed, text }
 }
 
 /** The store key naming the grievances file the old file was first carried into. */
@@ -127,7 +131,10 @@ export const entryKey = (entry: unknown): string =>
  * next free suffix: a session still on the old plugin can go
  * on logging to the old file, and its entries arrive at the next start. The
  * store keeps every entry already carried, so one a person deletes from the
- * grievances file is never carried back. A changed `grievances_file` takes
+ * grievances file is never carried back. The file is written before the
+ * record, and an entry already in the file under its id or a suffix of it,
+ * with the same description, is never carried again, so a session ending
+ * between the two writes repeats nothing. A changed `grievances_file` takes
  * only the entries never carried, so it starts without the old snapshot and
  * still gets anything logged to the old file since.
  *
@@ -181,7 +188,20 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 	// never carried again.
 	const stored = await $.store.get(CARRIED_KEYS)
 	const carried = new Set(Array.isArray(stored) ? stored.filter((k): k is string => typeof k === 'string') : [])
-	const held = new Set([...current.entries.map(entryKey), ...carried])
+	// No record yet means the first start after 1.0.0, which copied the old
+	// file whole: an id both files hold is that copy, its description perhaps
+	// edited since, far more often than a 48-character clash.
+	const firstRun = !Array.isArray(stored)
+	const held = new Set(carried)
+	const currentKeys = new Set(current.all.map(entryKey))
+	// An entry is already there when the grievances file holds its id, or that
+	// id with a suffix, under the same description: a carry whose record was
+	// never written (the session ended between the two writes) is not repeated.
+	const sameDescription = (a: Record<string, unknown>, b: Record<string, unknown>): boolean =>
+		JSON.stringify(a.description ?? null) === JSON.stringify(b.description ?? null)
+	const suffixOf = (id: string, base: string): boolean => id === base || (id.startsWith(`${base}-`) && /^\d+$/.test(id.slice(base.length + 1)))
+	const alreadyThere = (entry: Record<string, unknown>, id: string): boolean =>
+		current.entries.some(e => typeof e.id === 'string' && ((firstRun && e.id === id) || (suffixOf(e.id, id) && sameDescription(e, entry))))
 	// An old entry whose id another grievance already uses arrives under the
 	// next free suffix, as /log-grievance would have named it.
 	const ids = new Set(current.entries.map(e => e.id).filter((id): id is string => typeof id === 'string'))
@@ -191,9 +211,10 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 		if (held.has(key)) continue
 		held.add(key)
 		if (!isRecord(entry) || typeof entry.id !== 'string') {
-			missing.push(entry)
+			if (!currentKeys.has(key)) missing.push(entry)
 			continue
 		}
+		if (alreadyThere(entry, entry.id)) continue
 		let id = entry.id
 		for (let n = 2; ids.has(id); n++) id = `${entry.id}-${n}`
 		ids.add(id)
@@ -208,7 +229,8 @@ export const carryOverOldGrievances = async ($: EngineInterface): Promise<CarryO
 	}
 	// Another session may have written since the read: give up and merge at the next start.
 	if (current.text === null ? await $.fs.exists(paths.grievances) : (await $.fs.read(paths.grievances)) !== current.text) return { kind: 'nothing' }
-	await $.fs.write(paths.grievances, JSON.stringify([...current.entries, ...missing], null, '\t') + '\n')
+	// the list as read, so an element the merge does not understand keeps its place
+	await $.fs.write(paths.grievances, JSON.stringify([...current.all, ...missing], null, '\t') + '\n')
 	await record()
 	return { kind: 'moved', count: missing.length }
 }

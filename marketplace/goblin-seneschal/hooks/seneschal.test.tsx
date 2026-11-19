@@ -213,7 +213,8 @@ test('a grievance deleted from the grievances file after it was carried stays de
 })
 
 test('an old entry whose id clashes with a different grievance arrives under a suffixed id, and only once', async ($, on) => {
-	world(on)
+	// past the first start after 1.0.0 (a record exists), where a shared id counts as the copy
+	world(on, { carriedInto: GRIEVANCES, carriedKeys: [] })
 	// both plugins slug the first 48 characters, so two different grievances can share an id
 	const mine = { ...MINE, id: 'the-status-line-ate-my-prompt', description: 'the status line ate my prompt when I resized the window' }
 	const theirs = { ...LATE, id: 'the-status-line-ate-my-prompt', description: 'the status line ate my prompt when I resized the pane' }
