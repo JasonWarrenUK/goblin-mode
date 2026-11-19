@@ -233,8 +233,10 @@ def body_lines(body: str) -> list[str]:
 			# The closer: same character, at least as many, nothing after. It is
 			# tested before the item's end on purpose: a closer left of the item's
 			# text still closes the block, as before the item rule. CommonMark
-			# would end the item there and open a second block that runs on; a
-			# survey that keeps the rest of the note is the better mistake.
+			# would end the item there and open a second block that runs on. When
+			# that fence is the item's own closer, keeping the rest of the note is
+			# the better mistake; when the item's fence was never closed and a bare
+			# fenced block follows, it loses the rest instead (SPEC.md O15).
 			if level == depth and match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence) and not match.group(2).strip():
 				fence = ''
 				out.append('')
