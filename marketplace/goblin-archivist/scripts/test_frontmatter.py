@@ -65,6 +65,17 @@ class ScalarTest(unittest.TestCase):
 		self.assertIs(type(parse_scalar('007')), int)
 		self.assertEqual(parse_scalar('007'), 7)
 
+	def test_surrogate_pair_escape_joins_into_one_character(self) -> None:
+		result = read_frontmatter(note('k: "\\ud83d\\ude00 grin"'))
+		self.assertEqual(result.errors, [])
+		self.assertEqual(result.properties, {'k': '\U0001F600 grin'})
+
+	def test_lone_surrogate_escape_is_invalid(self) -> None:
+		for block in ('k: "\\ud83d"', 'k: "\\ude00"', 'k: "\\ud83d x"'):
+			result = read_frontmatter(note(block))
+			self.assertTrue(result.errors, block)
+			self.assertEqual(result.properties, {})
+
 	def test_url_value(self) -> None:
 		result = read_frontmatter(note('link: https://example.invalid/a#b'))
 		self.assertEqual(result.properties, {'link': 'https://example.invalid/a#b'})

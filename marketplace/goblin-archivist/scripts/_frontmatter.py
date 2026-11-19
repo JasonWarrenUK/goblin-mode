@@ -451,10 +451,24 @@ def _double_quoted(body: str, line: int) -> str:
 			width = {'x': 2, 'u': 4, 'U': 8}[code]
 			digits = inner[position + 2: position + 2 + width]
 			try:
-				out.append(chr(int(digits, 16)))
+				point = int(digits, 16)
 			except ValueError as problem:
 				raise _Invalid(f'line {line}: a bad \\{code} escape') from problem
 			position += 2 + width
+			if 0xD800 <= point <= 0xDBFF:
+				# The JSON spelling of a character beyond the first plane: a high
+				# surrogate escape must be followed by a low one, and the two are one.
+				low = inner[position: position + 6]
+				if not re.fullmatch(r'\\u[dD][c-fC-F][0-9a-fA-F]{2}', low):
+					raise _Invalid(f'line {line}: a \\u surrogate escape with no partner')
+				point = 0x10000 + ((point - 0xD800) << 10) + (int(low[2:], 16) - 0xDC00)
+				position += 6
+			elif 0xDC00 <= point <= 0xDFFF:
+				raise _Invalid(f'line {line}: a \\u surrogate escape with no partner')
+			try:
+				out.append(chr(point))
+			except ValueError as problem:
+				raise _Invalid(f'line {line}: a bad \\{code} escape') from problem
 		else:
 			raise _Invalid(f'line {line}: an unknown escape \\{code}')
 	return ''.join(out)

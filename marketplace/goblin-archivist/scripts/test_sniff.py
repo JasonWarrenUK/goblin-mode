@@ -239,6 +239,14 @@ class OutputTest(unittest.TestCase):
 		self.assertNotEqual((out / 'report.md').stat().st_ino, inode)
 		self.assertEqual(sorted(path.name for path in out.iterdir()), ['report.md', 'schema.draft.json', 'survey.json'])
 
+	def test_a_lone_surrogate_does_not_stop_the_survey(self) -> None:
+		vault = self.tmp / 'vault'
+		shutil.copytree(FIXTURE, vault)
+		(vault / 'Escaped.md').write_text('---\nk: "\\ud83d"\n---\n', encoding='utf-8')
+		paths = write_outputs(vault, self.tmp / 'out')
+		data = json.loads(paths['survey'].read_text(encoding='utf-8'))
+		self.assertIn('Escaped.md', [item['path'] for item in data['problems']['invalid_frontmatter']])
+
 	def test_unreadable_note_is_reported_not_fatal(self) -> None:
 		vault = self.tmp / 'vault'
 		shutil.copytree(FIXTURE, vault)
