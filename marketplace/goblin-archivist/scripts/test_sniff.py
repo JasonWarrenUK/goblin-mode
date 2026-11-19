@@ -55,7 +55,7 @@ class HelperTest(unittest.TestCase):
 			match = TASK_LINE.match(line)
 			self.assertIsNotNone(match, line)
 			self.assertEqual(match.group('status'), status, line)
-		for line in ('-[ ] no space after the marker', 'text - [ ] mid-line', '- [] empty box'):
+		for line in ('-[ ] no space after the marker', 'text - [ ] mid-line', '- [] empty box', '- [A](#a)', '1. [1](#fn1)', '- [x]: reference'):
 			self.assertIsNone(TASK_LINE.match(line), line)
 
 	def test_fence_closes_only_on_a_matching_fence(self) -> None:

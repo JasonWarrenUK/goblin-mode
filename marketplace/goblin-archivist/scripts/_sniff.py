@@ -39,7 +39,9 @@ DEPRECATED_KEYS = {'tag': 'tags', 'alias': 'aliases', 'cssclass': 'cssclasses'}
 
 # The Tasks plugin's own pattern (obsidian-tasks src/Task/TaskRegularExpressions.ts):
 # indentation that may hold `>`, a list marker, spaces, [status], then ' *'.
-TASK_LINE = re.compile(r'^(?P<indent>[\s>]*)(?:[-*+]|[0-9]+[.)]) +\[(?P<status>.)\] *(?P<text>.*)$')
+# One departure: a box with no space after it and then `(` or `:` is a link or a
+# reference (`- [A](#a)`, `1. [1](#fn1)`), not a task.
+TASK_LINE = re.compile(r'^(?P<indent>[\s>]*)(?:[-*+]|[0-9]+[.)]) +\[(?P<status>.)\](?: +|(?![(:]))(?P<text>.*)$')
 # A fence may sit inside a block quote or callout, behind any depth of `>`.
 FENCE = re.compile(r'^(?:[ \t]*>)*[ \t]*(`{3,}|~{3,})(.*)$')
 INLINE_CODE = re.compile(r'`[^`]*`')
