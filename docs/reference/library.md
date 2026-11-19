@@ -48,7 +48,6 @@ Each script is the fact-gathering half of a skill: it does the part that has one
 | `git-doc-history.sh` | `doc-update_misc`, `doc-readme` | "What changed since this doc was last touched": one structured dump instead of several exploratory git calls |
 | `git-integrate.sh` | `git-integrate` | Mechanical merge/rebase/squash execution; the model only steps in on exit code 3 (conflicts) or to write the squash message |
 | `pr-facts.sh` | `pr-update` | PR metadata, current body, watermark and every commit since it in one dump |
-| `pr-wall.sh` | `hud-pr_wall` | Buckets open PRs by relationship to the user (GraphQL search) and cross-references local clones |
 | `safe-version-next.sh` | `project-tag_version`, `pr-land` | `svu next` with a programmatic guard: never crosses 0.x → 1.x automatically, except for a renamed plugin whose `plugin.json` declares `1.0.0`; a renamed plugin continues its old name's series |
 | `config_permit.py` | `config-permit` | Deterministic half of permission-granting: the skill's `allowed-tools` is scoped to only this one script |
 | `validate_audit_findings.py` | `artefact-audit` | Schema gate for findings data: fails fast on a malformed finding instead of rendering it wrong |
