@@ -111,8 +111,7 @@ def _parse_block(raw: str) -> tuple[dict[str, object], list[str], list[str]]:
 	index = 0
 	try:
 		for number, line in enumerate(lines, start=1):
-			leading = line[: len(line) - len(line.lstrip(' \t'))]
-			if '\t' in leading and line.strip():
+			if line.startswith('\t') and line.strip():
 				raise _Invalid(f'line {number}: a tab used for indentation')
 		while index < len(lines):
 			line = lines[index]
@@ -131,7 +130,7 @@ def _parse_block(raw: str) -> tuple[dict[str, object], list[str], list[str]]:
 			index += 1
 			while index < len(lines):
 				candidate = lines[index]
-				if candidate.strip() == '':
+				if candidate.strip() == '' or candidate.lstrip().startswith('#'):
 					children.append(candidate)
 					index += 1
 					continue
@@ -140,7 +139,7 @@ def _parse_block(raw: str) -> tuple[dict[str, object], list[str], list[str]]:
 					index += 1
 					continue
 				break
-			while children and children[-1].strip() == '':
+			while children and (children[-1].strip() == '' or children[-1].startswith('#')):
 				children.pop()
 			value = _parse_value(rest, children, key_line + 1)
 			if key in properties:
@@ -176,7 +175,10 @@ def _strip_comment(text: str) -> str:
 def _parse_value(rest: str, children: list[str], first_child_line: int) -> object:
 	text = rest.strip()
 	if text == '' or text.startswith('#'):
-		if not children:
+		children = [child for child in children if not child.lstrip().startswith('#')]
+		while children and children[-1].strip() == '':
+			children.pop()
+		if not any(child.strip() for child in children):
 			return None
 		first = next(child for child in children if child.strip())
 		if _starts_sequence_item(first):
@@ -263,6 +265,7 @@ def _block_sequence(children: list[str], first_line: int) -> object:
 	items: list[object] = []
 	item_indent = _indent(next(child for child in children if child.strip()))
 	current: list[str] | None = None
+	current_line = first_line
 	for offset, child in enumerate(children):
 		if child.strip() == '':
 			if current is not None:
@@ -271,14 +274,15 @@ def _block_sequence(children: list[str], first_line: int) -> object:
 		width = _indent(child)
 		if width == item_indent and _starts_sequence_item(child):
 			if current is not None:
-				items.append(_sequence_item(current, first_line + offset))
+				items.append(_sequence_item(current, current_line))
 			current = [child.strip()[1:].strip()]
+			current_line = first_line + offset
 		elif width > item_indent and current is not None:
 			current.append(child.strip())
 		else:
 			raise _Invalid(f'line {first_line + offset}: list item out of line')
 	if current is not None:
-		items.append(_sequence_item(current, first_line))
+		items.append(_sequence_item(current, current_line))
 	for item in items:
 		if isinstance(item, Unparsed):
 			return Unparsed(_dedent(children), item.reason)

@@ -100,6 +100,22 @@ class ListTest(unittest.TestCase):
 		self.assertIsInstance(item, Unparsed)
 		self.assertIn('unquoted', item.reason)
 
+	def test_comments_inside_a_block_list(self) -> None:
+		result = read_frontmatter(note('tags:\n  - garden\n  # - draft\ndg-publish: true'))
+		self.assertEqual(result.errors, [])
+		self.assertEqual(result.properties, {'tags': ['garden'], 'dg-publish': True})
+		self.assertEqual(read_frontmatter(note('tags:\n- a\n# c\n- b')).properties, {'tags': ['a', 'b']})
+		self.assertEqual(read_frontmatter(note('tags:\n  # c\n  - a')).properties, {'tags': ['a']})
+		self.assertEqual(read_frontmatter(note('tags:\n  - a\n      # deeper\n  - b')).properties, {'tags': ['a', 'b']})
+
+	def test_hash_lines_inside_a_block_scalar_are_text(self) -> None:
+		self.assertEqual(read_frontmatter(note('s: |\n  # heading\n  body')).properties, {'s': '# heading\nbody\n'})
+
+	def test_tab_inside_block_scalar_content(self) -> None:
+		result = read_frontmatter(note('s: |\n  \tx'))
+		self.assertEqual(result.errors, [])
+		self.assertEqual(result.properties, {'s': '\tx\n'})
+
 	def test_list_of_maps_is_unparsed(self) -> None:
 		value = read_frontmatter(note('people:\n  - name: ravi\n    role: builder')).properties['people']
 		self.assertIsInstance(value, Unparsed)
