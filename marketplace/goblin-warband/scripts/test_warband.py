@@ -3681,6 +3681,14 @@ class Dashboard(unittest.TestCase):
         self.assertNotIn("http", head.replace("http-equiv", ""), "the faces are inlined, nothing loads from the network")
         self.assertIn('<b>2</b> open', page)
 
+    def test_a_pr_from_outside_the_raid_is_shown_in_the_warbands_words_and_stored_in_the_old(self):
+        self.seed_facts(n286={**self.READY, "head": "x86", "head_branch": "feat/x"})
+        self.box.mc("prs", "pin", "286", session="coord-1")
+        page = (self.dir / "dashboard.html").read_text()
+        self.assertIn('<span class="name">Outside the raid</span>', page)
+        rows = {r["number"]: r for r in json.loads(self.box.mc("--json", "prs", "list").stdout)}
+        self.assertEqual(rows[286]["group"], "Outside the run", "the stored group keeps its word")
+
     def test_tally_marks_group_in_fives_and_stop_at_the_cap(self):
         sys.path.insert(0, str(HERE))
         import warband as mc_module
@@ -3721,8 +3729,10 @@ class MoveFromMissionControl(unittest.TestCase):
         done = subprocess.run([sys.executable, "-I", str(CLI), "--cwd", str(self.box.repo), *args], capture_output=True, text=True, env=env)
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
 
-    def old_world(self, live):
-        """Two archived raids, a second project's ledger with no raid, the old config and local config; a live raid when asked."""
+    def old_world(self, live, tracked=False):
+        """Two archived raids, a second project's ledger with no raid, the old config and local config; a live raid when asked.
+        The config is git-ignored by a rule that covers both names (as this repository's `/.claude/*` does) unless `tracked`,
+        where it is committed under its old name."""
         for name in ("first", "second"):
             self.as_old_plugin("start", "--name", name)
             self.as_old_plugin("end", "--force")
@@ -3732,9 +3742,64 @@ class MoveFromMissionControl(unittest.TestCase):
         if live:
             self.as_old_plugin("start", "--name", "search")
         claude = self.box.repo / ".claude"
-        (claude / "goblin-warband.json").rename(claude / "mission-control.json")
+        git(self.box.repo, "mv", ".claude/goblin-warband.json", ".claude/mission-control.json")
+        if not tracked:
+            git(self.box.repo, "rm", "-q", "--cached", ".claude/mission-control.json")
+            with open(self.box.repo / ".git" / "info" / "exclude", "a") as handle:
+                handle.write("/.claude/*.json\n")
+        git(self.box.repo, "commit", "-qm", "the config under its old name")
         (claude / "mission-control.local.json").write_text(json.dumps({"collaboration": {"mode": "solo"}}))
         self.assertEqual(len(list((self.old / "runs").iterdir())), 2)
+
+    def test_a_config_git_tracks_stays_under_its_old_name_and_the_tree_stays_clean(self):
+        """A committed config is never renamed underneath git: that would dirty every checkout and hold every push behind a
+        commit nobody was told to make. It is read from its old name and the slate says how to rename it."""
+        self.old_world(live=False, tracked=True)
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertTrue((self.box.repo / ".claude" / "mission-control.json").is_file())
+        self.assertFalse((self.box.repo / ".claude" / "goblin-warband.json").exists())
+        porcelain = subprocess.run(["git", "-C", str(self.box.repo), "status", "--porcelain", "--", ".claude/mission-control.json", ".claude/goblin-warband.json"], capture_output=True, text=True).stdout
+        self.assertEqual(porcelain, "", "git sees no change to the config")
+        self.assertTrue(status["config"])
+        self.assertIn("git mv .claude/mission-control.json .claude/goblin-warband.json", status.get("config_note", ""))
+        self.assertFalse(self.old.exists(), "the ledger still moved")
+
+    def test_a_config_ignored_only_by_its_old_name_stays_put(self):
+        """An ignore rule that names the old file alone would leave the new name untracked in the tree: the config stays."""
+        self.old_world(live=False)
+        exclude = self.box.repo / ".git" / "info" / "exclude"
+        exclude.write_text(exclude.read_text().replace("/.claude/*.json\n", "/.claude/mission-control.json\n/.claude/mission-control.local.json\n"))
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertTrue((self.box.repo / ".claude" / "mission-control.json").is_file())
+        self.assertIn("ignore rule", status.get("config_note", ""))
+
+    def test_a_raid_whose_repository_has_gone_does_not_hold_the_move_back(self):
+        """A live raid in the old ledger whose repo_root no longer exists can never be ended there; it is not carried on and the move goes ahead."""
+        self.old_world(live=False)
+        gone = self.old / "-scratch-gone"
+        gone.mkdir()
+        (gone / "run.json").write_text(json.dumps({"name": "scratch", "repo_root": str(self.box.tmp / "deleted-repo"), "started_at": 1}))
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertNotIn("carrying", status)
+        self.assertFalse(self.old.exists())
+        self.assertTrue((self.new / "-scratch-gone" / "run.json").is_file(), "it moved with the rest, untouched")
+
+    def test_a_text_status_that_makes_the_move_says_so_once(self):
+        self.old_world(live=False)
+        done = self.box.mc("status")
+        self.assertEqual((done.stdout + done.stderr).count("goblin-warband: moved"), 1)
+
+    def test_a_move_that_fails_leaves_the_gates_working(self):
+        """An OSError mid-move (a read-only home, a lock that cannot be made) never becomes a traceback that fails a hook open."""
+        self.old_world(live=False)
+        self.new.parent.mkdir(parents=True, exist_ok=True)
+        (self.new.parent / ".goblin-warband-move.lock").mkdir()  # the lock file cannot be opened: the move raises OSError
+        out = self.box.hook("pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}}, session="coord-1", cwd=self.box.repo)
+        verdict = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual(verdict["permissionDecision"], "deny", "the push gate still rules from the old config")
+        done = self.box.mc("status")
+        self.assertNotIn("Traceback", done.stderr)
+        self.assertIn("could not move", done.stderr)
 
     def test_the_first_command_moves_the_config_and_the_ledger_with_one_line_of_notice(self):
         self.old_world(live=False)
@@ -3844,7 +3909,7 @@ class MoveFromMissionControl(unittest.TestCase):
         self.old_world(live=False)
         self.new.mkdir(parents=True)
         (self.new / "marker").write_text("x")
-        done = self.box.mc("status")
+        done = self.box.mc("--json", "status")
         self.assertTrue((self.old / "runs").is_dir(), "the old root stays when the new one exists")
         self.assertTrue((self.new / "marker").is_file())
         self.assertNotIn("the ledger", done.stderr, "only the config moved")

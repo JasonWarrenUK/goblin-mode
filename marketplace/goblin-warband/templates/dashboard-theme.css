@@ -1,4 +1,4 @@
-/* The shared goblin theme (.claude/themes/goblin-html.json, the one the Pages site uses), emitted by library/scripts/theme/emit.ts and copied here so the plugin stands alone.
+/* The shared goblin theme (.claude/themes/goblin-html.json, which the new Pages site is built on and which lands with it), emitted by library/scripts/theme/emit.ts and copied here so the plugin stands alone.
    Regenerate with: bun emit.ts .claude/themes/goblin-html.json, minus the <style> tags; the faces are inlined from templates/fonts/ when the page is drawn. */
 :root {
 	--ink: #1D2718;

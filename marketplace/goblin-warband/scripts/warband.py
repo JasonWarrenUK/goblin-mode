@@ -2392,6 +2392,11 @@ def cmd_status(args) -> int:
         status["carrying"] = CARRYING
         if not args.json:
             print(CARRYING)
+    note = config_note(found[0]) if found else None
+    if note:
+        status["config_note"] = note
+        if not args.json:
+            print(note)
     if args.json:
         print(json.dumps(status))
     else:
@@ -3484,6 +3489,8 @@ DASHBOARD_STALE_SECONDS = 15 * 60
 # the commands that never redraw the page: reads, hooks (one runs on every Bash call) and the page's own command
 REDRAW_EXEMPT = {"detect", "status", "probe", "check", "hook", "classify", "gate", "dashboard", "watch"}
 OUTSIDE_GROUP = "Outside the run"
+# The stored group name stays (it is written into prs/<n>.json); the spoils page shows it in the warband's words.
+GROUP_WORDS = {OUTSIDE_GROUP: "Outside the raid"}
 SHARED_GROUP = "Shared code"
 
 
@@ -3722,7 +3729,7 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
         parts.append('<div class="table">')
     for at, group in enumerate(model["groups"]):
         rows = len(group["rows"])
-        parts.append(f'<section class="column" aria-labelledby="group-{at}"><h2 id="group-{at}"><span class="name">{escape(group["name"])}</span>{tally_html(rows)}<span class="count">{rows}</span></h2><ul class="cards">')
+        parts.append(f'<section class="column" aria-labelledby="group-{at}"><h2 id="group-{at}"><span class="name">{escape(GROUP_WORDS.get(group["name"], group["name"]))}</span>{tally_html(rows)}<span class="count">{rows}</span></h2><ul class="cards">')
         for item in group["rows"]:
             fact, who = item["fact"], item["who"]
             number = item["number"]
@@ -4754,8 +4761,31 @@ def live_raids_in(root: Path) -> list[str]:
             continue
         run = read_json(path)
         if isinstance(run, dict) and not run.get("ended_at"):
+            # a raid whose repository has gone can never be ended there, so it never holds the move back
+            if run.get("repo_root") and not Path(str(run["repo_root"])).is_dir():
+                continue
             names.append(f"{run.get('name') or '?'} ({path.parent.name})")
     return names
+
+
+def git_ignores(root: Path, rel: str) -> bool:
+    """Whether git ignores a path in this checkout; False when git cannot say, so nothing moves on a guess."""
+    return run_git(root, "check-ignore", "-q", rel) is not None
+
+
+def config_note(path: Path) -> str | None:
+    """What to tell the person about a config still read from its old mission-control name: one git sees stays put, since
+    renaming it underneath git would dirty every checkout and hold every push behind a commit nobody was told to make."""
+    if not path.name.startswith("mission-control"):
+        return None
+    root = path.parent.parent
+    rel = f".claude/{path.name}"
+    new_rel = rel.replace("mission-control", "goblin-warband")
+    if run_git(root, "ls-files", "--error-unmatch", rel) is not None:
+        return (f"goblin-warband: {path} is committed under its old name and is read from there; rename it in a commit when it suits "
+                f"(git mv {rel} {new_rel}).")
+    return (f"goblin-warband: {path} is read from its old name because the ignore rule that hides it does not cover {new_rel}; "
+            f"widen the rule, then rename the file (mv {rel} {new_rel}).")
 
 
 # Set for the life of this process when a raid is live in the old ledger: the one line that says so.
@@ -4795,8 +4825,9 @@ def migrate_from_mission_control(cwd: str) -> str | None:
 
     def pending() -> tuple[bool, list[tuple[Path, Path]]]:
         ledger = old_root is not None and old_root.is_dir() and not new_root.exists() and old_root.resolve() != new_root.resolve()
+        # a config moves only where git cannot see the move: ignored under both names (config_note says what to do otherwise)
         configs = [(root / old_rel, root / new_rel) for root in roots for old_rel, new_rel in OLD_CONFIG_RELS
-                   if (root / old_rel).is_file() and not (root / new_rel).exists()]
+                   if (root / old_rel).is_file() and not (root / new_rel).exists() and git_ignores(root, old_rel) and git_ignores(root, new_rel)]
         return ledger, configs
 
     if pending() == (False, []):
@@ -4807,6 +4838,14 @@ def migrate_from_mission_control(cwd: str) -> str | None:
     with open(new_root.parent / ".goblin-warband-move.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         return move_from_mission_control(old_root, new_root, *pending())
+
+
+def stay_with_old_ledger() -> None:
+    """After a failed move: while the old root is still there and the new one is not, keep reading the old one."""
+    global LEDGER_ROOT
+    old_root = old_ledger_root()
+    if old_root is not None and old_root.is_dir() and not LEDGER_ROOT.exists():
+        LEDGER_ROOT = old_root
 
 
 MOVED_NOTICE = "moved-from-mission-control.txt"
@@ -4853,9 +4892,16 @@ def take_moved_notice() -> str | None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        notice = migrate_from_mission_control(args.cwd)
-        if notice:
-            print(notice, file=sys.stderr)  # stderr, so a hook's or --json's stdout stays parseable
+        try:
+            notice = migrate_from_mission_control(args.cwd)
+        except OSError as error:
+            # never a traceback that fails a hook open: say so, and work from wherever the ledger still is
+            notice = None
+            print(f"goblin-warband: could not move the mission-control ledger or config ({error}); working from where they are", file=sys.stderr)
+            stay_with_old_ledger()
+        # stderr, so a hook's or --json's stdout stays parseable; a text status prints the notice itself
+        if notice and not (args.cmd == "status" and not getattr(args, "json", False)):
+            print(notice, file=sys.stderr)
         code = COMMANDS[args.cmd](args)
     except Refusal as refusal:
         if getattr(args, "json", False):

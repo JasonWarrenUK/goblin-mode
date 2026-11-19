@@ -32,7 +32,7 @@ Project mode: {{ solo or collaborative, from `warband.py classify` and its sourc
 
 ## Conventions
 
-{{ One line per convention file the config lists, with the one or two rules from it that this run leans on. Then every entry from the config's facts list. A convention not found written down was asked of the user and is recorded here with "(from the user, {{ date }})". }}
+{{ One line per convention file the config lists, with the one or two rules from it that this raid leans on. Then every entry from the config's facts list. A convention not found written down was asked of the user and is recorded here with "(from the user, {{ date }})". }}
 
 ## Message the chief when
 
