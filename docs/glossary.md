@@ -8,7 +8,7 @@ Vocabulary specific to this config. General Claude Code terms (session, context 
 
 **Role skill**: A skill Claude loads automatically on keyword or file-path match, never invoked directly. Frontmatter carries `user-invocable: false`. Formerly called a "knowledge skill" in older material.
 
-**Model-invocable command skill**: A command skill Claude *can* also self-invoke (`disable-model-invocation: false`), used when one skill needs to call another (`pr-review-comment` calling `pr-review`) or as an automatic wrap-up (`help-whats_new`).
+**Model-invocable command skill**: A command skill Claude *can* also self-invoke (`disable-model-invocation: false`), used when one skill needs to call another (`next-task-ship`'s self-review calling `pr-review`) or when its moment is one Claude sees first; most say why in a comment on that frontmatter line. The automatic wrap-up after a unit of work lands is `goblin-seneschal:proclaim-changes`, a plugin skill. See [Skills](reference/skills.md).
 
 **Runic glyph**: The `𝚫𝚫𝚫`/`ƔƔƔ`/`𝛀𝛀𝛀` prefix on a command skill's description, signalling Haiku/Sonnet/Opus. Superseded the old Greek-letter convention (`ᚻᛕ`/`ᛇᚤ`/`ᛜᚹ`/`ᚨᛔ`). See [Skills](reference/skills.md#the-runic-glyph-convention).
 
