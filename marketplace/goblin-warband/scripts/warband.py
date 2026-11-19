@@ -4876,7 +4876,9 @@ def move_from_mission_control(old_root: Path | None, new_root: Path, ledger_move
     """The move itself, under the lock, with what is left to move looked up after the lock was taken."""
     if not ledger_moves and not config_moves:
         return None
-    if old_root is not None and old_root.is_dir():
+    # only a ledger about to move is looked at again: once the new root exists it is the ledger, and a config move alone
+    # never sends a process back to the old root (review 5978367037)
+    if ledger_moves and old_root is not None and old_root.is_dir():
         live = live_raids_in(old_root)
         if live:  # a raid started under the old plugin between the first look and the lock: carry it on, move nothing
             carry_on_from(old_root, live)

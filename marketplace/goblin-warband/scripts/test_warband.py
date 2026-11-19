@@ -3974,6 +3974,30 @@ class MoveFromMissionControl(unittest.TestCase):
         self.assertTrue((stray / "run.json").is_file(), "nothing in the old root is moved or touched")
         self.assertIn(status["old_ledger_note"], self.box.mc("status").stdout, "read-slate says it in one line")
 
+    def test_a_pending_config_move_never_carries_on_from_an_old_ledger_beside_the_new_one(self):
+        """Review 5978367037: the re-check under the move lock carried on from any live old raid whenever a config move was
+        pending, so a checkout still holding an ignored old-named config (the ordinary state of a second repository after the
+        first one moved the ledger) flipped back. Only a ledger that is about to move is re-checked."""
+        self.box.start()
+        self.box.mc("crew", "add", "--task", "10SE.2", "--branch", "feat/a", "--worktree", str(self.box.worktree), session="coord-1")
+        self.box.mc("join", session="crew-1", cwd=self.box.worktree)
+        reset = {"tool_name": "Bash", "tool_input": {"command": "cd apps/api && poetry run poe db-reset-local-anyway"}}
+        stray = self.old / "-elsewhere-app"
+        stray.mkdir(parents=True)
+        (stray / "run.json").write_text(json.dumps({"name": "stray", "repo_root": str(self.box.tmp), "started_at": 1}))
+        with open(self.box.repo / ".git" / "info" / "exclude", "a") as handle:
+            handle.write("/.claude/*.json\n")
+        (self.box.repo / ".claude" / "mission-control.local.json").write_text(json.dumps({"collaboration": {"mode": "solo"}}))
+        status = json.loads(self.box.mc("--json", "status").stdout)
+        self.assertEqual((status.get("run") or {}).get("name"), "search", "the new root's raid is still the one read")
+        self.assertNotIn("carrying", status)
+        self.assertIn("stray", status.get("old_ledger_note", ""))
+        self.assertTrue((self.box.repo / ".claude" / "goblin-warband.local.json").is_file(), "the pending config moved")
+        self.assertFalse((self.box.repo / ".claude" / "mission-control.local.json").exists())
+        verdict = json.loads(self.box.hook("pre-tool-use", reset))["hookSpecificOutput"]
+        self.assertEqual(verdict["permissionDecision"], "deny", "the dibs gate still rules from the new root")
+        self.assertTrue((stray / "run.json").is_file())
+
     def test_an_old_ledger_beside_the_new_one_is_named_even_with_no_live_raid(self):
         self.old_world(live=False)
         self.new.mkdir(parents=True)
