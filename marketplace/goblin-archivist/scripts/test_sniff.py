@@ -328,6 +328,20 @@ class OutputTest(unittest.TestCase):
 		self.assertTrue(seen)
 		self.assertEqual(set(seen), {'C'})
 
+	def test_a_git_warning_before_the_answer_still_reads_as_no_repository(self) -> None:
+		import _sniff
+		real_run = _sniff.subprocess.run
+
+		def warned(arguments, **options):
+			return subprocess.CompletedProcess(arguments, 128, '', "warning: unable to access '/h/.gitconfig': Is a directory\nfatal: not a git repository (or any of the parent directories): .git\n")
+
+		_sniff.subprocess.run = warned
+		try:
+			write_outputs(FIXTURE, self.tmp / 'out')
+		finally:
+			_sniff.subprocess.run = real_run
+		self.assertTrue((self.tmp / 'out' / 'report.md').exists())
+
 	def test_a_path_holding_the_phrase_does_not_read_as_no_repository(self) -> None:
 		import _sniff
 		real_run = _sniff.subprocess.run

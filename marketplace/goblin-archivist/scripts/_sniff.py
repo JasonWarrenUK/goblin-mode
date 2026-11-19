@@ -1031,7 +1031,8 @@ def committable(path: Path) -> str | None:
 		environment = git_environment()
 		top = subprocess.run(['git', '-C', str(anchor), 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=False, env=environment)
 		if top.returncode != 0:
-			if top.stderr.startswith('fatal: not a git repository'):
+			# Each line, since git may print a warning before its answer.
+			if any(line.startswith('fatal: not a git repository') for line in top.stderr.splitlines()):
 				return None
 			raise SniffError(f'git could not say whether {path} is in a repository ({top.stderr.strip()}); the survey writes nothing it cannot keep out of one')
 		for name in OUTPUT_NAMES:
