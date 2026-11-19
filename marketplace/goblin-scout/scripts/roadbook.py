@@ -2695,7 +2695,8 @@ def cmd_rebind(args) -> int:
             # every file is checked before any is written, the dry run
             # included, so a refusal never leaves the project half moved
             _refuse_if_stamped_newer(data)
-            if _canonical_text(data) != each.read_text():
+            # the bytes decoded, so CRLF counts: read_text() folds it into LF
+            if _canonical_text(data) != each.read_bytes().decode("utf-8"):
                 noncanonical.add(each)
             files.append((each, data))
     except (ValueError, RoadbookError) as exc:

@@ -3282,6 +3282,18 @@ class RebindCommand(LegacyFixture):
         self.assertEqual(rc, 0, out)
         self.assertTrue(self.new.exists())
 
+    def test_a_crlf_file_needs_reformat_before_rebind_rewrites_it(self):
+        canonical = json.dumps(self._phases(), indent="\t", ensure_ascii=False) + "\n"
+        self.legacy.write_bytes(canonical.replace("\n", "\r\n").encode("utf-8"))
+        before = self.legacy.read_bytes()
+        rc, out, _err = self._run("rebind", str(self.root))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("roadmaps.json is not in canonical form", out)
+        self.assertEqual(self.legacy.read_bytes(), before)
+        rc, out, _err = self._run("rebind", str(self.root), "--reformat")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn(b"\r", self.new.read_bytes())
+
     def test_a_pointer_registry_is_named_as_the_file_it_is(self):
         self.legacy.write_text(json.dumps({"roadmaps": [{"path": "docs/roadmaps/mvp.md"}]}) + "\n")
         rc, out, _err = self._run("rebind", str(self.root))
