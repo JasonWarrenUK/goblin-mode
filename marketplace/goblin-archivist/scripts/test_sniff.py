@@ -286,6 +286,57 @@ class OutputTest(unittest.TestCase):
 			_sniff.subprocess.run = real_run
 		self.assertFalse((self.tmp / 'out').exists())
 
+	def test_git_is_asked_in_one_language(self) -> None:
+		import _sniff
+		real_run = _sniff.subprocess.run
+		seen = []
+
+		def translated(arguments, **options):
+			environment = options.get('env') or os.environ
+			seen.append(environment.get('LC_ALL'))
+			if environment.get('LC_ALL') == 'C':
+				return subprocess.CompletedProcess(arguments, 128, '', 'fatal: not a git repository (or any of the parent directories): .git\n')
+			return subprocess.CompletedProcess(arguments, 128, '', 'fatal: Kein Git-Repository (oder irgendeines der Elternverzeichnisse): .git\n')
+
+		_sniff.subprocess.run = translated
+		try:
+			write_outputs(FIXTURE, self.tmp / 'out')
+		finally:
+			_sniff.subprocess.run = real_run
+		self.assertTrue(seen)
+		self.assertEqual(set(seen), {'C'})
+
+	def test_a_path_holding_the_phrase_does_not_read_as_no_repository(self) -> None:
+		import _sniff
+		real_run = _sniff.subprocess.run
+
+		def lookalike(arguments, **options):
+			return subprocess.CompletedProcess(arguments, 128, '', "fatal: cannot change to '/x/not a git repository/y': No such file or directory\n")
+
+		_sniff.subprocess.run = lookalike
+		try:
+			with self.assertRaises(SniffError):
+				write_outputs(FIXTURE, self.tmp / 'out')
+		finally:
+			_sniff.subprocess.run = real_run
+
+	def test_git_variables_in_the_environment_cannot_hide_a_repository(self) -> None:
+		repo = self.tmp / 'repo'
+		(repo / 'sub').mkdir(parents=True)
+		subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+		for variable, value in (('GIT_DIR', str(self.tmp / 'nowhere')), ('GIT_CEILING_DIRECTORIES', str(repo)), ('GIT_WORK_TREE', str(self.tmp))):
+			saved = os.environ.get(variable)
+			os.environ[variable] = value
+			try:
+				with self.assertRaises(SniffError, msg=variable):
+					write_outputs(FIXTURE, repo / 'sub' / 'reports')
+			finally:
+				if saved is None:
+					os.environ.pop(variable, None)
+				else:
+					os.environ[variable] = saved
+		self.assertFalse((repo / 'sub' / 'reports').exists())
+
 	def test_unreadable_note_is_reported_not_fatal(self) -> None:
 		vault = self.tmp / 'vault'
 		shutil.copytree(FIXTURE, vault)

@@ -982,6 +982,20 @@ def is_within(path: Path, folder: Path) -> bool:
 	return False
 
 
+def git_environment() -> dict[str, str]:
+	"""The environment the repository guard runs git in.
+
+	English messages, so `not a git repository` reads the same under any
+	locale, and no GIT_ variable, since GIT_DIR, GIT_WORK_TREE or
+	GIT_CEILING_DIRECTORIES could each make git look somewhere else and
+	answer for a repository that is not the one around the folder.
+	"""
+	environment = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
+	environment['LC_ALL'] = 'C'
+	environment['LANG'] = 'C'
+	return environment
+
+
 def committable(path: Path) -> str | None:
 	"""The repository that would track a file at path, or None.
 
@@ -993,13 +1007,14 @@ def committable(path: Path) -> str | None:
 	if anchor is None:
 		return None
 	try:
-		top = subprocess.run(['git', '-C', str(anchor), 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=False)
+		environment = git_environment()
+		top = subprocess.run(['git', '-C', str(anchor), 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=False, env=environment)
 		if top.returncode != 0:
-			if 'not a git repository' in top.stderr:
+			if top.stderr.startswith('fatal: not a git repository'):
 				return None
 			raise SniffError(f'git could not say whether {path} is in a repository ({top.stderr.strip()}); the survey writes nothing it cannot keep out of one')
 		for name in OUTPUT_NAMES:
-			ignored = subprocess.run(['git', '-C', str(anchor), 'check-ignore', '-q', str(path / name)], capture_output=True, text=True, check=False)
+			ignored = subprocess.run(['git', '-C', str(anchor), 'check-ignore', '-q', str(path / name)], capture_output=True, text=True, check=False, env=environment)
 			if ignored.returncode == 1:
 				return top.stdout.strip()
 			if ignored.returncode != 0:
