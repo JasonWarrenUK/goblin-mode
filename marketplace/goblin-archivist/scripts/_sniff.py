@@ -45,6 +45,9 @@ TASK_LINE = re.compile(r'^(?P<indent>[\s>]*)(?:[-*+]|[0-9]+[.)]) +\[(?P<status>.
 # A fence line, matched on what is left once the quote markers are taken off.
 QUOTE_PREFIX = re.compile(r'^(?:[ \t]*>)*')
 FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,})(.*)$')
+# List markers, and a task box after one, that may stand in front of a fence
+# opening on the same line (CommonMark 0.31.2, 5.3, example 318).
+LIST_PREFIX = re.compile(r'^(?:[ \t]*(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?:\[.\][ \t]+)?)+')
 # A code span closes on a backtick run as long as the one that opened it
 # (CommonMark 0.31.2, 6.1), so ``#x`` and `` ` `` are spans too.
 INLINE_CODE = re.compile(r'(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)')
@@ -210,11 +213,14 @@ def body_lines(body: str) -> list[str]:
 					fence = ''
 				out.append('')
 				continue
-		match = FENCE.match(content)
+		marker = LIST_PREFIX.match(content)
+		lead = marker.group(0) if marker else ''
+		match = FENCE.match(content[len(lead):])
 		if match and not (match.group(1)[0] == '`' and '`' in match.group(2)):
 			fence = match.group(1)
 			depth = level
-			out.append('')
+			# A fence on a list line keeps its marker, so a task box before it still counts.
+			out.append((prefix + lead).rstrip() if lead else '')
 			continue
 		out.append(line)
 	return out

@@ -84,6 +84,27 @@ class HelperTest(unittest.TestCase):
 		body = '>> ```\n>> - [ ] code\n> - [ ] quote one deep\n- [ ] outside\n'
 		self.assertEqual([line for line in body_lines(body) if line], ['> - [ ] quote one deep', '- [ ] outside'])
 
+	def test_a_fence_opening_on_its_list_marker_line(self) -> None:
+		# CommonMark 0.31.2 section 5.3, example 318: a fence may open on the line of its list marker
+		rest = '- then the rest\n\n- [ ] water the ferns #garden\n- [x] mend the kite #sky\n'
+		for opener in ('- ```sh', '1. ```sh', '* ~~~', '> - ```sh'):
+			quote = '> ' if opener.startswith('>') else ''
+			closer = '~~~' if '~' in opener else '```'
+			body = f'{opener}\n{quote}  echo hello #notatag\n{quote}  {closer}\n' + rest
+			# The opener line keeps only its marker ('-', '1.', '*', '> -'), which holds no task or tag.
+			visible = [line for line in body_lines(body) if line and line not in ('-', '1.', '*', '> -')]
+			self.assertEqual(visible, ['- then the rest', '- [ ] water the ferns #garden', '- [x] mend the kite #sky'], opener)
+
+	def test_a_fence_opening_after_a_task_box_keeps_the_task(self) -> None:
+		body = '- [ ] ```sh\n  echo hello #notatag\n  ```\n- [ ] water the ferns #garden\n'
+		lines = [line for line in body_lines(body) if line]
+		self.assertEqual(lines, ['- [ ]', '- [ ] water the ferns #garden'])
+		self.assertEqual([TASK_LINE.match(line).group('status') for line in lines], [' ', ' '])
+
+	def test_inline_code_on_a_list_line_is_not_a_fence(self) -> None:
+		body = '- ```inline``` text #real\n- [ ] next\n'
+		self.assertEqual([line for line in body_lines(body) if line], ['- ```inline``` text #real', '- [ ] next'])
+
 	def test_task_signature_orders_metadata(self) -> None:
 		self.assertEqual(task_signature('Mend 🔼 ⏳ 2026-01-06 🔁 every week'), 'text · priority medium · scheduled · recurrence')
 		self.assertEqual(task_signature('Read [[A]] [due:: 2026-01-09] ^abc'), 'text · [[link]] · [due::] · ^block-id')
