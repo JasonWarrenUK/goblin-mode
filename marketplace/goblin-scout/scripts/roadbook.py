@@ -1416,7 +1416,7 @@ def mermaid_source(phase, direction="LR", omit_done=False, palette="light"):
 
 
 # Estimated on-screen footprint of one Mermaid node in the chart's
-# diagram shell (IBM Plex Mono 16px, up to _LABEL_MAX-ish characters wrapped
+# diagram shell (IBM Plex Sans 16px, up to _LABEL_MAX-ish characters wrapped
 # by mermaid, plus its padding) and the gap the layout engine leaves between
 # ranks/nodes. Rough by nature: real layout depends on label length, mermaid
 # version and the chosen layout engine (elk vs dagre), so this only needs to
@@ -1781,6 +1781,40 @@ def _template_path():
     return Path(__file__).resolve().parent.parent / "templates" / "chart.html"
 
 
+# The faces the chart sets its type in, embedded so a chart opened offline
+# looks as it should and asks no font server for anything: (family, weight,
+# file under templates/fonts/). Latin subsets of the @fontsource 5.3.0
+# packages; Cabin Sketch and IBM Plex are OFL-1.1, Special Elite and
+# Permanent Marker Apache-2.0, each licence beside its file.
+CHART_FACES = [
+    ("Cabin Sketch", 700, "cabin-sketch-latin-700-normal.woff2"),
+    ("Special Elite", 400, "special-elite-latin-400-normal.woff2"),
+    ("IBM Plex Mono", 400, "ibm-plex-mono-latin-400-normal.woff2"),
+    ("IBM Plex Sans", 400, "ibm-plex-sans-latin-400-normal.woff2"),
+    ("IBM Plex Sans", 600, "ibm-plex-sans-latin-600-normal.woff2"),
+    ("Permanent Marker", 400, "permanent-marker-latin-400-normal.woff2"),
+]
+
+
+def _chart_theme_css():
+    """The goblin theme's custom properties (templates/chart-theme.css)."""
+    return (Path(__file__).resolve().parent.parent / "templates"
+            / "chart-theme.css").read_text()
+
+
+def _chart_font_faces():
+    """One @font-face rule per embedded face, each file inlined as base64."""
+    import base64
+    fonts = Path(__file__).resolve().parent.parent / "templates" / "fonts"
+    rules = []
+    for family, weight, name in CHART_FACES:
+        data = base64.b64encode((fonts / name).read_bytes()).decode("ascii")
+        rules.append(f"@font-face {{ font-family: '{family}'; font-style: normal; "
+                     f"font-weight: {weight}; font-display: swap; "
+                     f"src: url(data:font/woff2;base64,{data}) format('woff2'); }}")
+    return "\n".join(rules)
+
+
 def _slug(name, fallback="roadbook"):
     return re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or fallback
 
@@ -1949,12 +1983,17 @@ def _render_to(json_path, data, phase, out):
                .replace("<", "\\u003c")
                .replace(">", "\\u003e"))
     template_html = template.read_text()
-    if template_html.count("%%DATA%%") != 1:
-        raise RoadbookError(
-            "template must contain exactly one %%DATA%% placeholder; found "
-            f"{template_html.count('%%DATA%%')} in {template}")
+    for token in ("%%THEME%%", "%%FONTS%%", "%%DATA%%"):
+        if template_html.count(token) != 1:
+            raise RoadbookError(
+                f"template must contain exactly one {token} placeholder; found "
+                f"{template_html.count(token)} in {template}")
     _assert_header_comment_clean(template_html, template)
+    # The fixed pieces go in first, so a phase name that happens to read
+    # %%FONTS%% or %%THEME%% stays text and never pulls a blob in after it.
     html = (template_html
+            .replace("%%THEME%%", _chart_theme_css())
+            .replace("%%FONTS%%", _chart_font_faces())
             .replace("%%TITLE%%", str(phase.get("name") or "Roadbook"))
             .replace("%%DATA%%", payload))
     _refuse_if_artefact_newer(out)

@@ -166,3 +166,6 @@ Releases (fix versions) become milestones, epics become topics, issues become wa
 | Roadbook conventions | `references/roadbook-conventions.md` |
 | The CLI every skill and the pane run | `scripts/roadbook.py`; `python3 -m unittest test_roadbook test_roadbook_jira` in that directory runs its tests |
 | The pane's code | `hooks/register.tsx`; `claude plugin test <plugin-root>` runs its tests |
+| The chart's template and look | `templates/chart.html`, the goblin theme copied as `templates/chart-theme.css` and the embedded faces in `templates/fonts/` |
+
+The plugin is Zlib-licensed. The faces embedded in every chart keep their own licences, each file beside its face in `templates/fonts/`: Cabin Sketch, IBM Plex Mono and IBM Plex Sans are under the SIL Open Font License 1.1; Special Elite and Permanent Marker are under the Apache License 2.0. All five are the latin subsets of the @fontsource 5.3.0 packages.

@@ -1212,7 +1212,9 @@ def _template_palettes():
     artefact template: the light root and its two dark counterparts."""
     html = (Path(roadbook.__file__).resolve().parent.parent
             / "templates" / "chart.html").read_text()
-    css = html[html.index("<style>"):html.index("</style>")]
+    # the page's own <style>, after the one the theme and faces fill at render
+    css = next(block for block in html.split("<style>")[1:] if "--color-todo" in block)
+    css = css[:css.index("</style>")]
     return [(selector.strip(),
              dict(re.findall(r"(--[\w-]+):\s*(#[0-9a-fA-F]{6});", body)))
             for selector, body in re.findall(r"(:root[^{]*)\{(.*?)\n\t?\}",
@@ -1496,6 +1498,36 @@ class FileBased(unittest.TestCase):
         self.assertNotIn("%%DATA%%", html)
         self.assertNotIn("%%TITLE%%", html)
         self.assertIn("chart-data", html)
+
+    def test_the_chart_carries_its_theme_and_faces_and_asks_no_font_server(self):
+        data = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}], name="My Phase")]
+        root, jp = self._project(data)
+        self.assertEqual(roadbook.main(["render", str(jp)]), 0)
+        html = (root / "docs" / "artefacts" / "chart-my-phase.html").read_text()
+        for token in ("%%THEME%%", "%%FONTS%%"):
+            self.assertNotIn(token, html)
+        self.assertNotIn("fonts.googleapis.com", html)
+        self.assertIn("--ink: #1D2718;", html)  # the copied goblin theme
+        for family in ("Cabin Sketch", "Special Elite", "IBM Plex Mono",
+                       "IBM Plex Sans", "Permanent Marker"):
+            with self.subTest(family=family):
+                self.assertRegex(html, r"@font-face \{ font-family: '" + family
+                                 + r"'; [^}]*src: url\(data:font/woff2;base64,[A-Za-z0-9+/=]{1000,}\)")
+
+    def test_a_phase_named_like_a_placeholder_pulls_nothing_in(self):
+        data = [phase([{"id": "M1", "name": "m", "tasks": [task("a")]}], name="%%FONTS%%")]
+        root, jp = self._project(data)
+        out = root / "chart.html"
+        self.assertEqual(roadbook.main(["render", str(jp), "--out", str(out)]), 0)
+        html = out.read_text()
+        self.assertIn("<title>%%FONTS%%", html)
+        self.assertEqual(html.count("@font-face {"), 6)
+
+    def test_render_refuses_a_template_without_each_placeholder_once(self):
+        template = Path(roadbook.__file__).resolve().parent.parent / "templates" / "chart.html"
+        text = template.read_text()
+        for token in ("%%THEME%%", "%%FONTS%%", "%%DATA%%"):
+            self.assertEqual(text.count(token), 1, token)
 
     def test_soft_edges_survive_recompute_and_reconsecutive_graph_runs(self):
         # The regression this prevents: hand-authored dotted edges wiped by

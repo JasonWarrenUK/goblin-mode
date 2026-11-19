@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <!--
 	chart.html: template consumed by `roadbook.py render`.
-	Two placeholders, each substituted exactly once below: the phase-name
-	title (in the head; the h1 is overwritten by JS from project/phase, since
-	the two placeholders cannot diverge) and the JSON data blob
+	Four placeholders. Three are substituted exactly once, in this order: the
+	goblin theme's custom properties (templates/chart-theme.css) and the
+	embedded faces (templates/fonts/, as @font-face rules) in the head, then
+	the JSON data blob below. The phase-name title fills the <title> and the
+	h1 (which JS overwrites from project/phase, so the two cannot diverge).
+	The data blob carries
 	(project, phase, generated, stats, overview, tasks, ready, mermaid,
 	graphDirection, validation, devColours, depKinds), which lands in the
 	chart-data script element near the foot of the document. `overview` is
@@ -17,16 +20,19 @@
 	the page. For the same reason this comment must not contain a raw
 	comment-close sequence.
 	Everything else is static so regenerated artefacts diff cleanly.
-	Palette: the canonical status/milestone-state/dev-chip colour table from
-	references/roadbook-conventions.md (STATUS_STYLE in roadbook.py).
+	Palette: the goblin theme for the page, and the status, milestone-state
+	and scout-chip table derived from it (STATUS_STYLE in roadbook.py,
+	documented in references/roadbook-conventions.md).
 -->
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Roadmap — %%TITLE%%</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<title>%%TITLE%% · chart</title>
+<style>
+%%THEME%%
+%%FONTS%%
+</style>
 <style>
 :root {
 	/* Status, milestone, gate and tier colours: STATUS_STYLE and TIER_STYLE in
@@ -85,14 +91,19 @@
 	--color-dev-rust:          #a3361f;
 	--color-dev-rust-bg:       #f5ece7;
 
-	--bg: #f6f6f6;
-	--surface: #ffffff;
-	--text: #222222;
-	--muted: #6f6f6f;
-	--line: #e2e2e2;
-	--grid-line: rgba(0, 117, 144, 0.06);
+	/* The page's own names for the theme's roles (the theme's custom
+	   properties arrive in the style block above): the sheet, the raised panels
+	   ruled onto it, ink and faded ink, the rules and the survey grid. They
+	   follow the theme into dark by themselves. */
+	--page: var(--surface);
+	--panel: var(--surface-raised);
+	--text: var(--ink);
+	--muted: var(--ink-muted);
+	--rule: var(--line);
+	--grid-minor: color-mix(in srgb, var(--line) 45%, transparent);
+	--grid-major: var(--line);
 	/* Mermaid chrome (edge stroke, arrowhead, edge-label backing) that the
-	   diagram's own classDefs don't cover — see the render script below for
+	   diagram's own classDefs don't cover: see the render script below for
 	   why this can't just be mermaid's base-theme default. */
 	--diagram-line: #4b5a3c;
 	--diagram-edge-label-bg: #fcfcf8;
@@ -147,14 +158,8 @@
 		--color-dev-rust:          #ff8a6b;
 		--color-dev-rust-bg:       #342e20;
 
-		--bg: #121216;
-		--surface: #1b1b21;
-		--text: #f6f6f6;
-		--muted: #8b8b8b;
-		--line: #3e3e3e;
-		--grid-line: rgba(174, 233, 255, 0.05);
 		--diagram-line: #a3ad8c;
-		--diagram-edge-label-bg: var(--surface);
+		--diagram-edge-label-bg: #22261a;
 		--diagram-text: var(--text);
 	}
 }
@@ -210,71 +215,80 @@
 	--color-dev-rust:          #ff8a6b;
 	--color-dev-rust-bg:       #342e20;
 
-	--bg: #121216;
-	--surface: #1b1b21;
-	--text: #f6f6f6;
-	--muted: #8b8b8b;
-	--line: #3e3e3e;
-	--grid-line: rgba(174, 233, 255, 0.05);
 	--diagram-line: #a3ad8c;
-	--diagram-edge-label-bg: var(--surface);
+	--diagram-edge-label-bg: #22261a;
 	--diagram-text: var(--text);
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
-	font-family: "IBM Plex Sans", system-ui, sans-serif;
-	background:
-		linear-gradient(var(--grid-line) 1px, transparent 1px),
-		linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
-		var(--bg);
-	background-size: 32px 32px, 32px 32px, auto;
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	line-height: var(--leading);
+	background: var(--page);
 	color: var(--text);
-	line-height: 1.55;
 }
 .layout { display: flex; max-width: 1200px; margin: 0 auto; gap: 2rem; padding: 0 1.25rem; }
 nav {
 	position: sticky; top: 0; align-self: flex-start;
 	width: 180px; flex-shrink: 0; padding: 2rem 0;
-	font-family: "IBM Plex Mono", monospace; font-size: 0.8rem;
+	font-family: var(--font-print); font-size: 0.85rem;
 }
-nav a { display: block; padding: 0.35rem 0.6rem; color: var(--muted); text-decoration: none; border-left: 2px solid var(--line); }
-nav a:hover, nav a.active { color: var(--color-milestone); border-left-color: var(--color-milestone); }
+nav a { display: block; padding: 0.35rem 0.6rem; color: var(--muted); text-decoration: none; border-left: 2px solid var(--rule); }
+nav a:hover, nav a.active { color: var(--accent); border-left-color: var(--accent); }
+nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 main { flex: 1; min-width: 0; padding: 2rem 0 4rem; }
 
-header.page { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-header.page h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 0.2rem; }
-header.page .meta { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
+/* The title block: the phase as a map's cartouche, a compass beside it. */
+header.page { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+header.page .titles { flex: 1 1 16rem; min-width: 0; }
+header.page h1 {
+	font-family: var(--font-display); font-weight: 700; font-size: 2.1rem; line-height: 1.15;
+	margin: 0 0 0.25rem; overflow-wrap: break-word;
+}
+header.page .meta { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+.compass { width: 64px; height: 64px; flex: none; }
+.compass .ring { fill: none; stroke: var(--ink-muted); stroke-width: 1.5; }
+.compass .tick { stroke: var(--ink-muted); stroke-width: 1.5; }
+.compass .needle-n { fill: var(--accent); }
+.compass .needle-s { fill: var(--ink); }
+.compass .north { font-family: var(--font-marker); font-size: 15px; fill: var(--accent); }
 
 .theme-toggle { display: flex; gap: 0.15rem; margin-left: auto; flex: none; }
 .theme-toggle button {
-	font: 600 0.8rem "IBM Plex Mono", monospace; line-height: 1;
-	color: var(--muted); background: var(--surface); border: 1px solid var(--line);
-	border-radius: 3px; padding: 0.3rem 0.55rem; cursor: pointer;
+	font: 600 0.8rem var(--font-print); line-height: 1;
+	color: var(--muted); background: var(--panel); border: 1px solid var(--rule);
+	border-radius: var(--radius-sm); padding: 0.35rem 0.6rem; cursor: pointer;
 }
-.theme-toggle button:hover { color: var(--text); border-color: var(--color-milestone); }
-.theme-toggle button:focus-visible { outline: 2px solid var(--color-milestone); outline-offset: 2px; }
+.theme-toggle button:hover { color: var(--text); border-color: var(--accent); }
+.theme-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .theme-toggle button[aria-pressed="true"] { color: var(--color-milestone-text); background: var(--color-milestone-bg); border-color: var(--color-milestone); }
 @media print { .theme-toggle { display: none; } }
 
 section { margin-top: 2.5rem; }
 h2 {
-	font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; font-weight: 500;
-	text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
-	display: flex; align-items: center; gap: 0.5rem; margin: 0 0 1rem;
+	font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; line-height: 1.2;
+	color: var(--text); display: flex; align-items: center; gap: 0.55rem; margin: 0 0 1rem;
 }
-h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--color-milestone); flex-shrink: 0; }
+/* A map pin before each section name: the stamp's beetroot. */
+h2 .dot {
+	width: 11px; height: 11px; flex-shrink: 0; background: var(--accent);
+	border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+}
 
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1.1rem 1.3rem; min-width: 0; }
+.card {
+	background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius-md);
+	box-shadow: var(--shadow); padding: 1.1rem 1.3rem; min-width: 0;
+}
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.9rem; margin-top: 0.9rem; }
 .grid > * { min-width: 0; }
-.mini { border-color: var(--m-colour, var(--line)); }
-.mini h3 { margin: 0 0 0.3rem; font-size: 0.9rem; font-weight: 600; overflow-wrap: break-word; }
-.mini .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); }
-.progress-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 0.55rem; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 3px; }
+.mini { border-color: var(--m-colour, var(--rule)); border-width: 1.5px; }
+.mini h3 { margin: 0 0 0.3rem; font-family: var(--font-print); font-size: 0.95rem; font-weight: 600; overflow-wrap: break-word; }
+.mini .count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+.progress-bar { height: 6px; background: var(--rule); border-radius: var(--radius-sm); margin-top: 0.55rem; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: var(--radius-sm); }
 
 /* Overview is itself a <details>, shipped open: the progress-card grid
    follows the summary in the body. Closed by the reader, it shows only the
@@ -287,9 +301,7 @@ details.overview > summary {
 }
 details.overview > summary::-webkit-details-marker { display: none; }
 details.overview > summary h2 { margin: 0; }
-details.overview .headline {
-	font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; color: var(--muted);
-}
+details.overview .headline { font-family: var(--font-print); font-size: 0.85rem; color: var(--muted); }
 details.overview .body { margin-top: 1rem; }
 
 /* A tier group: its own <details>, expanded per overview.tiers[].expanded.
@@ -298,44 +310,42 @@ details.overview .body { margin-top: 1rem; }
 details.tier { margin-bottom: 1.1rem; }
 details.tier > summary {
 	cursor: pointer; list-style: none; display: flex; align-items: baseline;
-	gap: 0.6rem; margin-bottom: 0.7rem;
+	flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.7rem;
 }
 details.tier > summary::-webkit-details-marker { display: none; }
 details.tier > summary h3 {
-	margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem;
-	font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+	margin: 0; font-family: var(--font-print); font-size: 0.8rem;
+	font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
 }
-details.tier > summary .readout {
-	font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted);
-}
+details.tier > summary .readout { font-family: var(--font-print); font-size: 0.8rem; color: var(--muted); }
 details.tier > summary .arrow { font-size: 0.7rem; color: var(--muted); transition: transform 0.15s; }
 details.tier[open] > summary .arrow { transform: rotate(90deg); }
 
 details.milestone {
-	background: var(--surface); border: 1px solid var(--m-colour, var(--line));
-	border-radius: 8px; margin-bottom: 0.8rem;
+	background: var(--panel); border: 1.5px solid var(--m-colour, var(--rule));
+	border-radius: var(--radius-md); margin-bottom: 0.8rem;
 }
 details.milestone > summary {
-	cursor: pointer; padding: 0.85rem 1.2rem; font-weight: 600;
-	display: flex; align-items: center; gap: 0.7rem; list-style: none; min-width: 0;
+	cursor: pointer; padding: 0.85rem 1.2rem; font-family: var(--font-print); font-weight: 600;
+	display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.7rem; list-style: none; min-width: 0;
 }
 details.milestone > summary::-webkit-details-marker { display: none; }
 details.milestone > summary .mid {
-	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+	font-family: var(--font-mono); font-size: 0.72rem; font-weight: 400;
 	background: var(--color-milestone-bg); color: var(--color-milestone-text);
-	border: 1px solid var(--color-milestone); border-radius: 4px; padding: 0.1rem 0.4rem;
+	border: 1px solid var(--color-milestone); border-radius: var(--radius-sm); padding: 0.1rem 0.4rem;
 }
 details.milestone > summary .devs { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
-/* The count sits at the far right of every milestone summary. With dev
+/* The count sits at the far right of every milestone summary. With scout
    chips present they take the auto margin and the count follows them;
    without, the count takes it itself. */
-details.milestone > summary .count { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; margin-left: auto; }
+details.milestone > summary .count { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: nowrap; margin-left: auto; }
 details.milestone > summary .devs + .count { margin-left: 0; }
 details.milestone .body { padding: 0 1.2rem 1rem; }
-.group h4 { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
+.group h4 { font-family: var(--font-print); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin: 0.9rem 0 0.35rem; }
 .group ul { list-style: none; margin: 0; padding: 0; }
 /* A status group that folds away (blocked, done, out of scope): closed by default, the
-   summary is its heading plus a task count. Same arrow as details.tier. */
+   summary is its heading plus a waypoint count. Same arrow as details.tier. */
 details.statusgroup > summary {
 	cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 0.45rem;
 }
@@ -344,75 +354,110 @@ details.statusgroup > summary .arrow { font-size: 0.7rem; color: var(--muted); t
 details.statusgroup[open] > summary .arrow { transform: rotate(90deg); }
 .group li { padding: 0.28rem 0; overflow-wrap: break-word; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
 .tid {
-	font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+	font-family: var(--font-mono); font-size: 0.72rem;
 	background: var(--color-primary-bg); color: var(--color-primary-text);
-	border: 1px solid var(--color-primary); border-radius: 4px; padding: 0.05rem 0.35rem;
+	border: 1px solid var(--color-primary); border-radius: var(--radius-sm); padding: 0.05rem 0.35rem;
 }
-/* Generic coloured chip: dev-assignee and dependency chips share this shape,
+/* Generic coloured chip: scout and dependency chips share this shape,
    coloured per-instance via the --chip-fg/--chip-bg custom properties so one
-   rule serves every status/milestone/gate/dev colour without a class per
-   colour. */
+   rule serves every status/milestone/gate/scout colour without a class per
+   colour. A chip is a named pill: its shape and its words carry it, never
+   its colour alone. */
 .chip {
-	font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
-	background: var(--chip-bg, var(--line)); color: var(--chip-fg, var(--muted));
-	border: 1px solid var(--chip-fg, var(--line)); border-radius: 4px; padding: 0.05rem 0.4rem;
+	font-family: var(--font-mono); font-size: 0.7rem;
+	background: var(--chip-bg, var(--rule)); color: var(--chip-fg, var(--muted));
+	border: 1px solid var(--chip-fg, var(--rule)); border-radius: 999px; padding: 0.05rem 0.5rem;
 	white-space: nowrap;
 }
 .deps { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
 .tasktext { flex: 1 1 auto; }
-.depnote { color: var(--muted); font-size: 0.82rem; }
+.depnote { color: var(--muted); font-size: 0.85rem; }
 li.oos { text-decoration: line-through; color: var(--muted); }
 
-.diagram-shell { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; position: relative; overflow: hidden; }
+/* The route is drawn on survey paper: a fine grid every 16px, a heavier
+   rule every 80px, both in the theme's line colour. */
+.diagram-shell {
+	position: relative; overflow: hidden;
+	background:
+		linear-gradient(var(--grid-major) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+		linear-gradient(var(--grid-minor) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px),
+		var(--page);
+	background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px, auto;
+	border: 1.5px solid var(--ink-muted); border-radius: var(--radius-md);
+}
 .diagram-toolbar { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 2; display: flex; gap: 0.25rem; }
 .diagram-toolbar button {
-	font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; line-height: 1;
-	background: var(--bg); color: var(--text); border: 1px solid var(--line);
-	border-radius: 4px; padding: 0.3rem 0.5rem; cursor: pointer;
+	font-family: var(--font-print); font-size: 0.85rem; line-height: 1;
+	background: var(--panel); color: var(--text); border: 1px solid var(--rule);
+	border-radius: var(--radius-sm); padding: 0.35rem 0.55rem; cursor: pointer;
 }
-.diagram-toolbar button:hover { border-color: var(--color-milestone); color: var(--color-milestone); }
+.diagram-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.diagram-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mermaid-wrap { overflow: hidden; cursor: grab; min-height: 320px; }
 .mermaid-wrap:active { cursor: grabbing; }
 .mermaid-wrap svg { display: block; transform-origin: 0 0; max-width: none !important; }
 .diagram-shell.expanded { position: fixed; inset: 1.5rem; z-index: 10; box-shadow: 0 4px 40px rgba(0,0,0,0.35); }
 .diagram-shell.expanded .mermaid-wrap { height: calc(100% - 0px); }
 
+/* The key: a cartographer's legend in a ruled, hand-drawn box, with a
+   scale bar whose filled stretch is the phase's done percentage. */
 .legend {
 	display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; align-items: center;
-	margin-top: 0.6rem; font-size: 0.78rem; color: var(--muted);
-	font-family: "IBM Plex Mono", monospace;
+	margin-top: 0.6rem; font-size: 0.8rem; color: var(--muted);
+	font-family: var(--font-print);
 }
-.legend .key { display: inline-flex; align-items: center; gap: 0.4rem; }
-.legend .sw { width: 0.9rem; height: 0.9rem; border-radius: 3px; border: 1.5px solid; box-sizing: border-box; }
+.mapkey {
+	position: relative; margin-top: 1.1rem; padding: 1.1rem 1.1rem 0.9rem;
+	background: var(--panel); border: 1.5px solid var(--ink-muted); border-radius: var(--wonk);
+}
+.mapkey .keytitle {
+	position: absolute; top: -0.85rem; left: 1rem; padding: 0 0.45rem;
+	font-family: var(--font-marker); font-size: 1rem; color: var(--accent); background: var(--page);
+	transform: rotate(-2deg);
+}
+.mapkey .legend { margin-top: 0; }
+.legend .key { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text); }
+.legend .sw { width: 0.95rem; height: 0.95rem; border-radius: var(--radius-sm); border: 1.5px solid; box-sizing: border-box; }
 .legend .key--mile { font-weight: 600; }
 .legend .key--gate { font-style: italic; }
-.legend .keynote { flex-basis: 100%; }
+.legend .keynote { flex-basis: 100%; color: var(--muted); }
 /* The two tier swatches: shown only for a tiered phase (see the JS below),
    laid out as two more keys in the same row. */
 #tier-keys:not([hidden]) { display: contents; }
+.scalebar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin-top: 0.8rem; font-family: var(--font-print); font-size: 0.8rem; color: var(--muted); }
+#scaleread { white-space: nowrap; }
+.scalebar .bar { display: flex; flex: 0 1 15rem; height: 0.55rem; border: 1px solid var(--ink-muted); }
+.scalebar .seg { flex: 1; background: var(--page); }
+.scalebar .seg + .seg { border-left: 1px solid var(--ink-muted); }
+.scalebar .seg.on { background: var(--color-done); }
+.scalebar .ends { font-family: var(--font-mono); font-size: 0.72rem; }
 
-/* Every task is the same three rows: pills, description, leverage counts. */
+/* Every waypoint is the same three rows: pills, description, leverage counts. */
 .nextup li:not(.nextup-devgroup) { display: flex; flex-direction: column; align-items: stretch; gap: 0.35rem; padding: 0.55rem 0; }
 .nextup .pills { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
-.nextup .leverage { display: flex; justify-content: space-between; gap: 1rem; }
+.nextup .leverage { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.3rem 1rem; }
 .nextup .pills .signal, .nextup .leverage .signal { margin-left: 0; }
 .nextup-legend { margin: 0 0 0.8rem; }
 /* li.nextup-devgroup, not .nextup-devgroup: .group li (display:flex) would
    otherwise outrank it and lay a heading out beside its own list */
 .nextup li.nextup-devgroup { display: block; padding: 0; margin-top: 1rem; }
 .nextup li.nextup-devgroup:first-child { margin-top: 0; }
-.nextup li.nextup-devgroup + li.nextup-devgroup { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); padding-top: 1rem; }
-.nextup-devgroup h4 { margin: 0 0 0.4rem; font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-.signal { color: var(--muted); font-size: 0.78rem; font-family: "IBM Plex Mono", monospace; margin-left: auto; }
+.nextup li.nextup-devgroup + li.nextup-devgroup { border-top: 1px dashed var(--rule); padding-top: 1rem; }
+.nextup-devgroup h4 { margin: 0 0 0.4rem; font-family: var(--font-print); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.signal { color: var(--muted); font-size: 0.8rem; font-family: var(--font-mono); margin-left: auto; }
 
-.validation { border-left: 3px solid var(--color-blocked); background: var(--color-blocked-bg); color: var(--text); padding: 0.7rem 1rem; border-radius: 0 6px 6px 0; margin-top: 1rem; font-size: 0.85rem; }
+.validation { border-left: 3px solid var(--color-blocked); background: var(--color-blocked-bg); color: var(--text); padding: 0.7rem 1rem; border-radius: 0 var(--radius-md) var(--radius-md) 0; margin-top: 1rem; font-family: var(--font-print); font-size: 0.88rem; }
 .validation ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
 
 @media (max-width: 760px) {
 	.layout { flex-direction: column; gap: 0; }
-	nav { position: sticky; top: 0; width: auto; display: flex; overflow-x: auto; gap: 0.25rem; padding: 0.6rem 0; background: var(--bg); z-index: 5; }
-	nav a { border-left: none; border-bottom: 2px solid var(--line); white-space: nowrap; }
-	nav a:hover, nav a.active { border-bottom-color: var(--color-milestone); }
+	nav { position: sticky; top: 0; width: auto; display: flex; overflow-x: auto; gap: 0.25rem; padding: 0.6rem 0; background: var(--page); z-index: 5; }
+	nav a { border-left: none; border-bottom: 2px solid var(--rule); white-space: nowrap; }
+	nav a:hover, nav a.active { border-bottom-color: var(--accent); }
+	header.page h1 { font-size: 1.6rem; }
+	.compass { width: 48px; height: 48px; }
 }
 </style>
 </head>
@@ -452,12 +497,22 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 	<nav>
 		<a href="#overview">Overview</a>
 		<a href="#milestones">Milestones</a>
-		<a href="#graph">Dependency Graph</a>
-		<a href="#nextup">Next Up</a>
+		<a href="#graph">The Route</a>
+		<a href="#nextup">Next Waypoints</a>
 	</nav>
 	<main>
 		<header class="page">
-			<div>
+			<svg class="compass" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+				<circle class="ring" cx="32" cy="34" r="22"/>
+				<line class="tick" x1="32" y1="8" x2="32" y2="14"/>
+				<line class="tick" x1="32" y1="54" x2="32" y2="60"/>
+				<line class="tick" x1="6" y1="34" x2="12" y2="34"/>
+				<line class="tick" x1="52" y1="34" x2="58" y2="34"/>
+				<polygon class="needle-n" points="32,15 37,34 27,34"/>
+				<polygon class="needle-s" points="32,53 37,34 27,34"/>
+				<text class="north" x="32" y="7" text-anchor="middle" dominant-baseline="middle">N</text>
+			</svg>
+			<div class="titles">
 				<h1 id="pageTitle">%%TITLE%%</h1>
 				<div class="meta" id="meta"></div>
 			</div>
@@ -487,7 +542,7 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 		</section>
 
 		<section id="graph">
-			<h2><span class="dot"></span>Dependency Graph</h2>
+			<h2><span class="dot"></span>The Route</h2>
 			<div class="diagram-shell" id="shell">
 				<div class="diagram-toolbar">
 					<button data-act="in" title="Zoom in">+</button>
@@ -497,9 +552,11 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 				</div>
 				<div class="mermaid-wrap" id="wrap"><div id="diagram"></div></div>
 			</div>
+			<div class="mapkey">
+			<span class="keytitle">Key</span>
 			<div class="legend">
 				<span class="key"><i class="sw" style="background:var(--color-todo-bg);border-color:var(--color-todo)"></i>todo</span>
-				<span class="key"><i class="sw" style="background:var(--color-in-progress-bg);border-color:var(--color-in-progress)"></i>in progress ▸</span>
+				<span class="key"><i class="sw" style="background:var(--color-in-progress-bg);border-color:var(--color-in-progress)"></i>on a trail ▸</span>
 				<span class="key"><i class="sw" style="background:var(--color-blocked-bg);border-color:var(--color-blocked);border-width:2px"></i>blocked</span>
 				<span class="key"><i class="sw" style="background:var(--color-paused-bg);border-color:var(--color-paused);border-style:dashed"></i>paused</span>
 				<span class="key"><i class="sw" style="background:var(--color-deferred-bg);border-color:var(--color-deferred);border-style:dashed"></i>deferred</span>
@@ -510,14 +567,20 @@ li.oos { text-decoration: line-through; color: var(--muted); }
 					<span class="key"><i class="sw" style="background:var(--color-tier-underway-bg);border-color:var(--color-tier-underway)"></i>tier underway</span>
 					<span class="key"><i class="sw" style="background:var(--color-tier-deferred-bg);border-color:var(--color-tier-deferred);border-style:dashed"></i>tier deferred</span>
 				</span>
-				<span class="keynote">tasks flow into the milestone node that they complete; done tasks and fully-done milestones are hidden</span>
+				<span class="keynote">waypoints flow into the milestone they complete; done waypoints and finished milestones are left off the route</span>
+			</div>
+			<div class="scalebar" aria-label="Phase progress">
+				<span>Scale</span><span class="ends">0</span>
+				<span class="bar" id="scalebar"></span>
+				<span class="ends">100%</span><span id="scaleread"></span>
+			</div>
 			</div>
 		</section>
 
 		<section id="nextup">
-			<h2><span class="dot"></span>Next Up</h2>
+			<h2><span class="dot"></span>Next Waypoints</h2>
 			<div class="card">
-				<p class="legend nextup-legend"><span title="Tasks that become ready the moment this one is done">▶ ready when done</span><span title="Tasks that depend on this one but also wait on other prerequisites">◐ also waits on others</span><span title="Tasks further downstream, not counted in the other two">↓ further downstream</span></p>
+				<p class="legend nextup-legend"><span title="Waypoints that become ready the moment this one is done">▶ ready when done</span><span title="Waypoints that depend on this one but also wait on other prerequisites">◐ also waits on others</span><span title="Waypoints further downstream, not counted in the other two">↓ further downstream</span></p>
 				<ul class="nextup group" id="ready" style="list-style:none;margin:0;padding:0"></ul>
 			</div>
 		</section>
@@ -591,15 +654,19 @@ const st = DATA.stats;
    it is neither done nor outstanding. One readout shape serves the project
    headline and each tier's own. */
 const readout = s =>
-	`${s.done}/${s.inScope} Tasks · ${s.donePct}% Complete · ` +
+	`${s.done}/${s.inScope} Waypoints · ${s.donePct}% Complete · ` +
 	`${s.milestonesDone}/${s.milestonesTotal} Milestones`;
 document.getElementById("headline").textContent =
 	readout({ ...st, done: st.byStatus.done });
+/* The key's scale bar: ten segments, as many filled as the phase is done. */
+document.getElementById("scalebar").innerHTML = Array.from({ length: 10 },
+	(_, i) => `<span class="seg${i < Math.round(st.donePct / 10) ? " on" : ""}"></span>`).join("");
+document.getElementById("scaleread").textContent = `${st.donePct}% walked`;
 
 /* A milestone's own count: "No tasks" for an empty one (a flagged bug),
    "Out of scope" when every task it holds was struck, else done/inScope. */
 const milestoneCount = (m, suffix = "") =>
-	m.state === "empty" ? "No tasks"
+	m.state === "empty" ? "No waypoints"
 	: !m.inScope ? "Out of scope"
 	: `${m.done}/${m.inScope}${suffix}`;
 
@@ -620,7 +687,7 @@ const milestoneCard = m => `
    blocked, done and out-of-scope tasks are nothing a reader can pick up, so
    they fold away behind a heading that carries their count. */
 const GROUPS = [
-	["in_progress", "▸ In Progress",  "in-progress",  false],
+	["in_progress", "▸ On the Trail", "in-progress",  false],
 	["todo",        "○ To Do",        "todo",         false],
 	["blocked",     "✗ Blocked",      "blocked",      true],
 	["paused",      "⏸ Paused",       "paused",       false],
@@ -657,7 +724,7 @@ const milestoneDetails = m => {
 		<summary><span class="mid">${esc(m.id)}</span>${esc(m.name)}
 			${devChips(m)}
 			<span class="count">${milestoneCount(m)}</span></summary>
-		<div class="body">${groups || "<p class='depnote'>No tasks.</p>"}</div>
+		<div class="body">${groups || "<p class='depnote'>No waypoints.</p>"}</div>
 	</details>`;
 };
 
@@ -689,7 +756,7 @@ if (DATA.overview.tiers) {
 	document.getElementById("milestone-details").innerHTML = sortedMilestones.map(milestoneDetails).join("");
 }
 
-/* Section 3 — Dependency graph */
+/* Section 3: The Route, the dependency graph */
 /* A tiered phase draws each tier as its own subgraph (roadbook.py's
    mermaid_source()), so its legend gains the two tier backgrounds; an
    untiered phase has no subgraph and keeps the keys hidden. */
@@ -726,6 +793,9 @@ let svgEl = null;
 let scale = 1, tx = 0, ty = 0;
 const apply = () => { if (svgEl) svgEl.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
 const renderGraph = async () => {
+	/* Mermaid sizes each node from text it measures at render: measured in a
+	   fallback face, boxes clip once the embedded one arrives. */
+	await document.fonts.ready;
 	const rootStyle = getComputedStyle(document.documentElement);
 	const cssVar = name => rootStyle.getPropertyValue(name).trim() || "#888888";
 	mermaid.initialize({
@@ -734,8 +804,8 @@ const renderGraph = async () => {
 		layout,
 		themeVariables: {
 			fontSize: "16px",
-			fontFamily: '"IBM Plex Mono", monospace',
-			background: cssVar("--surface"),
+			fontFamily: cssVar("--font-print"),
+			background: cssVar("--page"),
 			lineColor: cssVar("--diagram-line"),
 			edgeLabelBackground: cssVar("--diagram-edge-label-bg"),
 			textColor: cssVar("--diagram-text"),
@@ -782,7 +852,7 @@ wrap.addEventListener("pointerdown", e => { drag = { x: e.clientX - tx, y: e.cli
 wrap.addEventListener("pointermove", e => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); } });
 wrap.addEventListener("pointerup", () => { drag = null; });
 
-/* Section 4 — Next Up (pre-vetted by roadbook.py ready). Same chip structure
+/* Section 4: Next Waypoints (pre-vetted by roadbook.py ready). Same chip structure
    as the Milestones section (A5); grouped by dev only when the READY SET
    (the candidates actually shown here, not the whole phase) has more than
    one distinct assignee, so a solo project (or a phase where only one dev's
@@ -806,7 +876,7 @@ const candidateLi = (c, showDev = false) => `
 	</li>`;
 const readyAssignees = new Set(DATA.ready.candidates.map(c => c.assignee).filter(Boolean));
 const readyHtml = !DATA.ready.candidates.length
-	? "<li>No unblocked tasks: clear a blocker or a gate.</li>"
+	? "<li>No ready waypoints: clear a blocker or a gate.</li>"
 	: readyAssignees.size > 1
 	? [...readyAssignees].sort().map(dev => `
 		<li class="nextup-devgroup"><h4>${devChip(dev)}</h4>
@@ -828,7 +898,7 @@ const claimLi = c => `
 	</li>`;
 const claimed = (DATA.ready.claimed ?? []).filter(c => c.display === "in_progress");
 document.getElementById("ready").innerHTML = claimed.length
-	? `<li class="nextup-devgroup"><h4 style="color:var(--color-in-progress)">▸ In progress</h4>
+	? `<li class="nextup-devgroup"><h4 style="color:var(--color-in-progress)">▸ On the trail</h4>
 		<ul style="list-style:none;margin:0;padding:0">${claimed.map(claimLi).join("")}</ul></li>
 		<li class="nextup-devgroup"><h4>Ready</h4>
 		<ul style="list-style:none;margin:0;padding:0">${readyHtml}</ul></li>`
