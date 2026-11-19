@@ -62,6 +62,10 @@ class HelperTest(unittest.TestCase):
 		body = '````md\n```\n- [ ] inside\n```\n- [ ] still inside\n````\n- [ ] outside\n~~~\n```\n- [ ] in tildes\n~~~\n'
 		self.assertEqual([line for line in body_lines(body) if line], ['- [ ] outside'])
 
+	def test_fence_inside_a_quote_or_callout(self) -> None:
+		body = '> [!example]\n> ```md\n> - [ ] quoted fence #nottag\n> ```\n> - [ ] after the fence\n>> ~~~\n>> - [ ] deeper\n>> ~~~\n'
+		self.assertEqual([line for line in body_lines(body) if line], ['> [!example]', '> - [ ] after the fence'])
+
 	def test_task_signature_orders_metadata(self) -> None:
 		self.assertEqual(task_signature('Mend 🔼 ⏳ 2026-01-06 🔁 every week'), 'text · priority medium · scheduled · recurrence')
 		self.assertEqual(task_signature('Read [[A]] [due:: 2026-01-09] ^abc'), 'text · [[link]] · [due::] · ^block-id')
