@@ -32,6 +32,9 @@ describe('fill', () => {
 	});
 });
 
+/** Claude Code's own commands, which the copy names when it says where a setting lives. */
+const BUILT_IN = new Set(['/config', '/model', '/plugin', '/clear', '/compact', '/diff']);
+
 describe.each(keys)('%s', (key) => {
 	const file = MOD_FILES[key];
 
@@ -73,7 +76,7 @@ describe.each(keys)('%s', (key) => {
 			strings(key).flatMap((text) => [...text.matchAll(/<code>(\/[a-z][a-z-]*(?::[a-z][a-z-]*)?)/g)].map((match) => match[1] ?? '')),
 		);
 		const planned = new Set(MOD_FILES[key].plannedCommands ?? []);
-		const unknown = [...named].filter((invocation) => !known.has(invocation) && !planned.has(invocation));
+		const unknown = [...named].filter((invocation) => !known.has(invocation) && !planned.has(invocation) && !BUILT_IN.has(invocation));
 		expect(unknown, `named in the copy but not registered by ${MOD_NAMES[key][0]}`).toEqual([]);
 		// a planned command that has shipped must lose its "Not built yet" stamp
 		const shipped = [...planned].filter((invocation) => known.has(invocation));

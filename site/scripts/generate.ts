@@ -102,10 +102,20 @@ export const metadataCounts = (files: readonly string[]): { skills: number; with
 };
 
 /** Slash commands a mod registers in hooks/register.tsx: `$.command.register({ name, description })`. */
-export const registeredCommands = (source: string): CommandFact[] =>
-	[...source.matchAll(/\$\.command\.register\(\{\s*name:\s*'([^']+)',\s*description:\s*'((?:[^'\\]|\\.)*)'/g)].map(
-		(match) => ({ invocation: `/${match[1]}`, description: (match[2] ?? '').replace(/\\'/g, "'") }),
-	);
+export const registeredCommands = (source: string): CommandFact[] => {
+	const found = new Map<string, string>();
+	const add = (name: string | undefined, description: string | undefined): void => {
+		if (name && !found.has(name)) found.set(name, (description ?? '').replace(/\\'/g, "'"));
+	};
+	// `$.command.register({ name: 'x', description: '…' })`, and a table of `{ name: 'x', verb: '…', description: '…' }`
+	// entries that a loop registers (the warband's COMMANDS)
+	for (const match of source.matchAll(/\{\s*name:\s*'([a-z][a-z-]*)',\s*(?:verb:\s*'[^']*',\s*)?description:\s*'((?:[^'\\]|\\.)*)'/g)) add(match[1], match[2]);
+	// a name held in a constant: `const COMMAND = 'x'` then `$.command.register({ name: COMMAND, description: '…' })`
+	for (const match of source.matchAll(/\$\.command\.register\(\{\s*name:\s*([A-Z_]+),\s*description:\s*'((?:[^'\\]|\\.)*)'/g)) {
+		add(new RegExp(`const ${match[1]} = '([a-z][a-z-]*)'`).exec(source)?.[1], match[2]);
+	}
+	return [...found].map(([name, description]) => ({ invocation: `/${name}`, description }));
+};
 
 /** The mod's commands, then its skills as /<plugin>:<skill>, each described by its own file. */
 const commandsOf = (pluginDir: string, pluginName: string): CommandFact[] => {
