@@ -111,6 +111,10 @@
 .tut .step-h { font-size: clamp(1.5rem, 3vw, 2rem); }
 .tut .step-btn { appearance: none; display: block; width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; line-height: inherit; text-align: left; cursor: pointer; border-radius: var(--radius-sm); }
 .tut .output { display: grid; max-width: 24rem; }
+/* output keeps each line whole, so a printed table's columns stay lined up; long lines scroll inside the panel */
+.tut .output { min-width: 0; }
+.tut .output .code { overflow-x: auto; }
+.tut .output .code .ln { white-space: pre; overflow-wrap: normal; width: max-content; min-width: 100%; }
 .tut .after-step { border-top: 2px dashed var(--line); padding-top: 1rem; display: grid; gap: 0.9rem; }
 .tut .snap-title { font-family: var(--font-print); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); }
 .tut .snapshot { display: grid; gap: 1rem; }

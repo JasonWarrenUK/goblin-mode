@@ -44,11 +44,13 @@ export const toneOfLabel = (level: StagePage, label: string): Tone | null => {
 
 export const linesOf = (file: FileView): string[] => file.text.split('\n');
 
-/** Each path's tab label: its last segment, or as many trailing segments as tell it apart from the others. */
+/** Each path's tab label: its last segment (two for a SKILL.md), or as many trailing segments as tell it apart from the others. */
 export const tabLabels = (paths: readonly string[]): string[] => {
 	const parts = paths.map((path) => path.replace(/\/+$/, '').split('/'));
 	return parts.map((segments, index) => {
-		for (let k = 1; k <= segments.length; k++) {
+		// a SKILL.md always names its skill's folder: every skill's file has the same name
+		const least = segments.at(-1) === 'SKILL.md' ? Math.min(2, segments.length) : 1;
+		for (let k = least; k <= segments.length; k++) {
 			const label = segments.slice(-k).join('/');
 			if (parts.every((other, j) => j === index || other.slice(-k).join('/') !== label)) return label;
 		}

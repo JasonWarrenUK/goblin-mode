@@ -78,5 +78,7 @@ describe('the stage helpers', () => {
 	it('tells same-named files apart on their tabs', () => {
 		expect(tabLabels(['a/SKILL.md', 'b/SKILL.md', 'Terminal', 'tidy/'])).toEqual(['a/SKILL.md', 'b/SKILL.md', 'Terminal', 'tidy']);
 		expect(tabLabels(['x/y/plugin.json', 'tidy'])).toEqual(['plugin.json', 'tidy']);
+		expect(tabLabels(['.claude/skills/roast-branch/SKILL.md', 'scripts/roast-menu.py'])).toEqual(['roast-branch/SKILL.md', 'roast-menu.py']);
+		expect(tabLabels(['SKILL.md'])).toEqual(['SKILL.md']);
 	});
 });
