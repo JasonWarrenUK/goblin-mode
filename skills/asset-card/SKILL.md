@@ -9,7 +9,7 @@ metadata:
   family: asset
   goblin-spinner: framing the card|squaring the pixels|posing for the og
 disable-model-invocation: true
-allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion", "ToolSearch", "mcp__claude-in-chrome__tabs_context_mcp", "mcp__claude-in-chrome__tabs_create_mcp", "mcp__claude-in-chrome__navigate", "mcp__claude-in-chrome__find", "mcp__claude-in-chrome__computer", "mcp__claude-in-chrome__file_upload", "mcp__claude-in-chrome__read_page"]
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(bun ~/.claude/library/scripts/asset/*)", "AskUserQuestion", "ToolSearch", "mcp__claude-in-chrome__tabs_context_mcp", "mcp__claude-in-chrome__tabs_create_mcp", "mcp__claude-in-chrome__navigate", "mcp__claude-in-chrome__find", "mcp__claude-in-chrome__computer", "mcp__claude-in-chrome__file_upload", "mcp__claude-in-chrome__read_page"]
 argument-hint: "[og|github|both] [upload] [theme family] [title or tagline overrides in plain words]"
 ---
 

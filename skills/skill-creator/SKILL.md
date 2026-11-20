@@ -12,7 +12,7 @@ metadata:
   glyph: ᛟ
   family: skill-creator
   goblin-spinner: forging a skill|writing frontmatter|running evals
-allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Agent", "AskUserQuestion", "TodoWrite"]
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python -m scripts.*)", "Bash(python3 -m scripts.*)", "Bash(nohup python */eval-viewer/generate_review.py *)", "Bash(cp -r * */skill-snapshot/)", "Bash(open /tmp/eval_review_*)", "Agent", "AskUserQuestion", "TodoWrite"]
 argument-hint: "[what the skill should do, optional]"
 ---
 

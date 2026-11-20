@@ -12,7 +12,7 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-  - Bash
+  - Bash(gum *)
 ---
 
 # Gum Operative

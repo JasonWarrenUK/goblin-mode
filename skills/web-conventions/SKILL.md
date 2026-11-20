@@ -6,7 +6,7 @@ user-invocable: false
 metadata:
   family: web
   goblin-spinner: taking inventory|naming the gaps|minding the principles
-allowed-tools: ["Read", "Glob", "Grep", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "Glob", "Grep", "AskUserQuestion"]
 ---
 
 # Web design conventions

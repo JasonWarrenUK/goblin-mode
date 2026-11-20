@@ -9,7 +9,7 @@ metadata:
   family: web
   goblin-spinner: checking the principles|counting callouts|weighing waivers
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash", "Agent", "AskUserQuestion", "ArtifactData"]
+allowed-tools: ["Read", "Glob", "Grep", "Edit", "Bash(python3 ~/.claude/library/scripts/web/check.py *)", "Bash(python3 ~/.claude/library/scripts/web/observations.py *)", "Bash(git diff *)", "Agent", "AskUserQuestion", "ArtifactData"]
 argument-hint: "<wireframe | pass | signoff> [paths: scope document, wireframe, export file, shots directory]"
 ---
 

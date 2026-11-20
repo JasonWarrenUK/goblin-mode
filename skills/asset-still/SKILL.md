@@ -9,7 +9,7 @@ metadata:
   family: asset
   goblin-spinner: freezing the code|picking a frame|polishing the still
 disable-model-invocation: true
-allowed-tools: ["Read", "Write", "Glob", "Grep", "Bash"]
+allowed-tools: ["Read", "Write", "Glob", "Grep", "Bash(bun ~/.claude/library/scripts/theme/emit.ts *)", "Bash(freeze *)"]
 argument-hint: "<file [lines a-b] | run: <command>> [svg] [theme family]"
 ---
 

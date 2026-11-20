@@ -9,7 +9,7 @@ metadata:
   family: web
   goblin-spinner: taking inventory|drawing boxes|numbering callouts
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(python3 ~/.claude/marketplace/goblin-scout/scripts/roadbook.py open *)", "Bash(python3 ~/.claude/library/scripts/web/observations.py *)", "Bash(open docs/*)", "AskUserQuestion"]
 argument-hint: "[path to a scope document | waypoint id | interview]"
 ---
 

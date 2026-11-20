@@ -9,7 +9,7 @@ metadata:
   family: theme
   goblin-spinner: defining a target|templating|wiring the theme
 disable-model-invocation: true
-allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "AskUserQuestion"]
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(bun ~/.claude/library/scripts/theme/*)", "WebFetch", "AskUserQuestion"]
 argument-hint: "<target-name> [consumer: tool, library or file format]"
 ---
 

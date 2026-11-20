@@ -9,7 +9,7 @@ metadata:
   family: theme
   goblin-spinner: mixing colours|checking contrast|emitting tokens
 disable-model-invocation: true
-allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion", "Artifact"]
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(bun ~/.claude/library/scripts/theme/*)", "AskUserQuestion", "Artifact"]
 argument-hint: "print|display [all|<target>|<family>] | <target>|<family> [new] [from <family>]"
 ---
 

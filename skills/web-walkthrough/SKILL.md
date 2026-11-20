@@ -9,7 +9,7 @@ metadata:
   family: web
   goblin-spinner: opening every drawer|walking the routes|counting captures
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash", "AskUserQuestion", "Skill", "ArtifactData"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Bash(cd ~/.claude/library/scripts/web)", "Bash(node --experimental-strip-types open-states.ts *)", "Bash(python3 ~/.claude/library/scripts/web/walkthrough-plan.py *)", "Bash(python3 ~/.claude/library/scripts/web/check.py *)", "Bash(python3 ~/.claude/library/scripts/web/observations.py *)", "AskUserQuestion", "Skill", "ArtifactData"]
 argument-hint: "[base URL or site directory] [devices: phone, desktop or widths] [scope document]"
 ---
 

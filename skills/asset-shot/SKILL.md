@@ -9,7 +9,7 @@ metadata:
   family: asset
   goblin-spinner: snapping screenshots|framing shots|waiting for the page
 disable-model-invocation: true
-allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(bun ~/.claude/library/scripts/asset/*)", "Bash(mkdir -p *)", "AskUserQuestion"]
 argument-hint: "[urls, paths or a site directory] [plain wording: 'no frame', 'regenerate config', 'mobile too', a theme family]"
 ---
 

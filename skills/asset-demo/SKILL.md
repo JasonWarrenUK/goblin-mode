@@ -9,7 +9,7 @@ metadata:
   family: asset
   goblin-spinner: recording the tape|rehearsing|cutting the gif
 disable-model-invocation: true
-allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash(bun ~/.claude/library/scripts/theme/emit.ts *)", "Bash(cd ~/.claude/library/scripts/asset)", "Bash(node --experimental-strip-types record.ts *)", "Bash(ffmpeg *)", "Bash(vhs *)", "AskUserQuestion"]
 argument-hint: "[cli|web] [what the demo should show, in plain words] [name]"
 ---
 

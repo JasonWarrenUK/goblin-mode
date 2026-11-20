@@ -6,7 +6,7 @@ user-invocable: false
 metadata:
   family: asset
   goblin-spinner: checking the gate|minding the assets|tidying the shelf
-allowed-tools: ["Read", "Glob", "Grep", "Bash"]
+allowed-tools: ["Read", "Glob", "Grep", "Bash(bun ~/.claude/library/scripts/asset/*)", "Bash(ffmpeg *)"]
 ---
 
 # Asset conventions

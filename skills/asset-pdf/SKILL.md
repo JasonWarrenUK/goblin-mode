@@ -9,7 +9,7 @@ metadata:
   family: asset
   goblin-spinner: rasterising|flattening pages|choosing a page
 disable-model-invocation: true
-allowed-tools: ["Read", "Write", "Glob", "Grep", "Bash"]
+allowed-tools: ["Read", "Write", "Glob", "Grep", "Bash(bun ~/.claude/library/scripts/asset/*)", "Bash(pdftoppm *)"]
 argument-hint: "<file.pdf> [pages e.g. 1, 3-5, cover] [dpi] [no frame] [theme family]"
 ---
 

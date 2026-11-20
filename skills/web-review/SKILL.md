@@ -9,7 +9,7 @@ metadata:
   family: web
   goblin-spinner: walking the pages|reading the log|closing the loop
 disable-model-invocation: true
-allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash", "AskUserQuestion", "Artifact", "ArtifactData"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash(python3 ~/.claude/library/scripts/web/observations.py *)", "Bash(grep -c *)", "AskUserQuestion", "Artifact", "ArtifactData"]
 argument-hint: "[app path or URL] [task id] [resume]"
 ---
 
