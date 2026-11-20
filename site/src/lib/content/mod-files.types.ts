@@ -36,6 +36,8 @@ export interface Situation {
 	ruling: string;
 	/** True when nothing in the scene is built yet: its spec exists, its code does not. The summary carries a stamp. */
 	planned?: boolean;
+	/** In a scene that mixes built and unbuilt work, the 0-based indices of the `with` lines not built yet: each is stamped. */
+	plannedLines?: number[];
 }
 
 export interface RosterRow {

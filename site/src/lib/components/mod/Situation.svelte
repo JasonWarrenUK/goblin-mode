@@ -11,11 +11,17 @@
 
 	let { situation, fill, planned = [] }: Props = $props();
 
-	/** The copy, filled, with a stamp after each unbuilt command; a planned scene is stamped once, at its title. */
-	const line = (text: string): string => {
+	const STAMP = '<span class="stamp proposed inline">Not built yet</span>';
+
+	/**
+	 * The copy, filled, with a stamp after each unbuilt command and at the end of each unbuilt line that names
+	 * none; a planned scene is stamped once, at its title.
+	 */
+	const line = (text: string, index: number): string => {
 		const filled = fill(text);
 		if (situation.planned) return filled;
-		return planned.reduce((html, command) => html.replaceAll(`<code>${command}</code>`, `<code>${command}</code> <span class="stamp proposed inline">Not built yet</span>`), filled);
+		const stamped = planned.reduce((html, command) => html.replaceAll(`<code>${command}</code>`, `<code>${command}</code> ${STAMP}`), filled);
+		return situation.plannedLines?.includes(index) && !stamped.includes(STAMP) ? `${stamped} ${STAMP}` : stamped;
 	};
 </script>
 
@@ -37,7 +43,7 @@
 		<div class="side slip with">
 			<h3>{situation.withHeading}</h3>
 			<ol>
-				{#each situation.with as text, index (index)}<li>{@html line(text)}</li>{/each}
+				{#each situation.with as text, index (index)}<li>{@html line(text, index)}</li>{/each}
 			</ol>
 		</div>
 	</div>

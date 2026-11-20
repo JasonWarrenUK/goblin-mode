@@ -54,6 +54,17 @@ describe('the build', () => {
 		expect(leaked).toEqual([]);
 	});
 
+	it('stamps every unbuilt line of the archivist scene that mixes built and unbuilt work', () => {
+		const page = readFileSync(join(BUILD, 'mods/goblin-archivist/index.html'), 'utf8');
+		const scene = page.slice(page.indexOf('id="v-5"'), page.indexOf('</details>', page.indexOf('id="v-5"')));
+		const items = [...scene.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((match) => match[1] ?? '');
+		const withSide = items.slice(-3);
+		expect(withSide[0]).toContain('writes nothing in it');
+		expect(withSide[0]).not.toContain('Not built yet');
+		expect(withSide[1]).toContain('Not built yet');
+		expect(withSide[2]).toContain('Not built yet');
+	});
+
 	it('loads no font or stylesheet from another host', () => {
 		for (const page of pages) expect(readFileSync(page, 'utf8')).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
 	});

@@ -687,11 +687,12 @@ export const MOD_FILES: Record<ModKey, ModFile> = {
 				],
 				withHeading: 'With goblin-archivist, as Designed',
 				with: [
-					'<code>/goblin-archivist:sniff-vault</code> reads the vault and writes nothing. From it comes one schema file saying what each type of note must carry.',
+					'<code>/goblin-archivist:sniff-vault</code> reads the vault and writes nothing in it. From it comes one schema file saying what each type of note must carry.',
 					'<code>/goblin-archivist:nitpick-vault</code> runs a script, with no model, that lists every violation on a report page.',
 					'Fixes are approved a class at a time and each class lands as one git commit. Renames go through Obsidian so links stay intact.',
 				],
 				ruling: 'Goblin design this without seeing vault. Schema not exist yet. Is fine. Goblin sniff first. Goblin very thorough.',
+				plannedLines: [1, 2],
 			},
 		],
 		roster: [
