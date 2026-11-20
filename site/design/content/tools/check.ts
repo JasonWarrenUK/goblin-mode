@@ -1,10 +1,11 @@
 // Independent checks on site/src/lib/content/tutorial.ts against the draft.
 // Parses the draft line by line on its own; shares nothing with gen.ts.
 import { readFileSync } from 'node:fs';
-import { TUTORIAL } from '/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/src/lib/content/tutorial.ts';
-import type { Callout, FileView } from '/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/src/lib/content/tutorial.types.ts';
+import { fileURLToPath } from 'node:url';
+import { TUTORIAL } from '../../../src/lib/content/tutorial.ts';
+import type { Callout, FileView } from '../../../src/lib/content/tutorial.types.ts';
 
-const DRAFT = '/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/design/content/tutorial-draft.md';
+const DRAFT = fileURLToPath(new URL('../tutorial-draft.md', import.meta.url));
 const errors: string[] = [];
 const notes: string[] = [];
 const fail = (s: string): void => void errors.push(s);

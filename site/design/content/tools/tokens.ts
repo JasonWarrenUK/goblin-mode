@@ -1,7 +1,8 @@
 // Tokenise the tutorial draft: h2, h3, paragraphs, fences, callout bullets.
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-export const DRAFT = '/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/design/content/tutorial-draft.md';
+export const DRAFT = fileURLToPath(new URL('../tutorial-draft.md', import.meta.url));
 
 export type Token =
 	| { k: 'h2'; text: string; line: number }

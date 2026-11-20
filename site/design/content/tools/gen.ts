@@ -1,8 +1,9 @@
 // Builds site/src/lib/content/tutorial.ts from the approved draft.
 import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { tokenise, type Token } from './tokens.ts';
 
-const OUT = '/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/src/lib/content/tutorial.ts';
+const OUT = fileURLToPath(new URL('../../../src/lib/content/tutorial.ts', import.meta.url));
 const T = tokenise();
 
 // ---------- draft access ----------

@@ -1,8 +1,9 @@
 // Generates site/design/mockups/tutorial-directions.body.html
 import { writeFileSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const OUT = '/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/design/mockups/tutorial-directions.body.html';
-const DIR = '/private/tmp/claude-501/-Users-jasonwarren--claude--claude-worktrees-site-pages-site/a26c18da-b687-4248-9e1d-c49e512256b9/scratchpad/';
+const OUT = fileURLToPath(new URL('../tutorial-directions.body.html', import.meta.url));
+const DIR = fileURLToPath(new URL('./', import.meta.url));
 
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

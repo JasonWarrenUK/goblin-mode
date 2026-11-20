@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { TUTORIAL } from '/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/src/lib/content/tutorial.ts';
-const lines = readFileSync('/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/design/content/tutorial-draft.md', 'utf8').split('\n');
+import { fileURLToPath } from 'node:url';
+import { TUTORIAL } from '../../../src/lib/content/tutorial.ts';
+const lines = readFileSync(fileURLToPath(new URL('../tutorial-draft.md', import.meta.url)), 'utf8').split('\n');
 const units = new Set<string>();
 let inFence: string | null = null;
 for (const l of lines) {

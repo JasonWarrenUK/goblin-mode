@@ -1,4 +1,4 @@
-import { TUTORIAL } from '/Users/jasonwarren/.claude/.claude/worktrees/site-pages-site/site/src/lib/content/tutorial.ts';
+import { TUTORIAL } from '../../../src/lib/content/tutorial.ts';
 function newLines(a: string[], b: string[]): number[] {
 	const m = a.length, n = b.length;
 	const L = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
