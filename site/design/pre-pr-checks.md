@@ -6,6 +6,7 @@ Run after the one rebase onto main, once goblin-jester, goblin-seneschal, goblin
 
 - `bun run test` under `BASE_PATH=/goblin-mode`: the test "names only commands and skills the plugin registers" skips until a mod's rename is on main, then fails on any command or skill the copy names that the plugin does not register. Confirm it ran (not skipped) for all four shipped mods.
 - `python3 -I site/scripts/names-scan.py` prints nothing but its summary.
+- Old mod names (the coordinator's list, 2026-11-20): `grep -rnE 'goblin-util|goblin-chrome|mission-control|roadmaps\.json|mc\.py|/mc\b|\broadmap:' site/src site/scripts` and read every hit. Anything the site presents as current must use goblin-seneschal, goblin-jester, goblin-scout, goblin-warband or goblin-archivist; only quoted history keeps an old name.
 
 ## By hand
 
@@ -23,7 +24,7 @@ Details the ported copy assumed while the renames were still in progress. Check 
 | goblin-scout | `branch.<name>.roadbookClaim` (decided; confirm it shipped) | how-to |
 | goblin-seneschal | `/log-grievance` reply format (`logged <id>`) unchanged | I.1 |
 | goblin-seneschal | state file at `~/.claude/library/state/grievances.json` | how-to |
-| goblin-archivist | every skill and pane name follows decision 19; unbuilt, so check against its spec, not code | V.1 to V.5 |
+| goblin-archivist | every skill and pane name follows decision 19; check against the merged plugin (#79) | V.1 to V.5 |
 
 ## Also
 
