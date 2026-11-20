@@ -4,6 +4,12 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-20
+
+### Changed
+
+- The spoils page draws every count as tally marks alone: the header totals, the column headings, "Tribute owed" and a card's "owed" margin no longer show a numeral beside the marks. Numerals stay for identifiers such as PR numbers, tribute numbers and a stack's landing order. A screen reader still hears each count. A zero count shows its label with no marks; past 25 the marks stop with a `+`.
+
 ## [1.0.0] - 2026-11-19
 
 ### Breaking

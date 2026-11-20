@@ -5,6 +5,12 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [12.1.0] - 2026-11-20
+
+### Changed
+
+- `goblin-warband` 1.1.0: the spoils page draws every count as tally marks alone; numerals stay for identifiers such as PR numbers.
+
 ## [12.0.0] - 2026-11-19
 
 ### Breaking
