@@ -20,7 +20,7 @@
 				{@const id = row.where ? idOf(row.where) : undefined}
 				<tr class:missing={!row.shown}>
 					<td class="box" aria-label={row.shown ? 'shown' : 'not shown'}>{row.shown ? '☑' : '☐'}</td>
-					<td>{@html fill(row.text)}</td>
+					<td>{@html fill(row.text)}{#if row.planned} <span class="stamp proposed inline">Not built yet</span>{/if}</td>
 					<td class="where">{#if id}<a href={`#${id}`}>{row.where}</a>{:else}no scene{/if}</td>
 				</tr>
 			{/each}

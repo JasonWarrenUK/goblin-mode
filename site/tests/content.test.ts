@@ -72,8 +72,12 @@ describe.each(keys)('%s', (key) => {
 		const named = new Set(
 			strings(key).flatMap((text) => [...text.matchAll(/<code>(\/[a-z][a-z-]*(?::[a-z][a-z-]*)?)/g)].map((match) => match[1] ?? '')),
 		);
-		const unknown = [...named].filter((invocation) => !known.has(invocation));
+		const planned = new Set(MOD_FILES[key].plannedCommands ?? []);
+		const unknown = [...named].filter((invocation) => !known.has(invocation) && !planned.has(invocation));
 		expect(unknown, `named in the copy but not registered by ${MOD_NAMES[key][0]}`).toEqual([]);
+		// a planned command that has shipped must lose its "Not built yet" stamp
+		const shipped = [...planned].filter((invocation) => known.has(invocation));
+		expect(shipped, `registered by ${MOD_NAMES[key][0]} but still stamped as not built`).toEqual([]);
 	});
 
 	it('uses no em dash and no hand-typed digit counts of the repository', () => {

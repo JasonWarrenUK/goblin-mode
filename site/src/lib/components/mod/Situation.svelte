@@ -5,9 +5,18 @@
 		situation: Situation;
 		/** Fills the count placeholders in the copy. */
 		fill: (text: string) => string;
+		/** Commands the mod's spec holds and its code does not register yet: each is stamped where it appears. */
+		planned?: readonly string[];
 	}
 
-	let { situation, fill }: Props = $props();
+	let { situation, fill, planned = [] }: Props = $props();
+
+	/** The copy, filled, with a stamp after each unbuilt command; a planned scene is stamped once, at its title. */
+	const line = (text: string): string => {
+		const filled = fill(text);
+		if (situation.planned) return filled;
+		return planned.reduce((html, command) => html.replaceAll(`<code>${command}</code>`, `<code>${command}</code> <span class="stamp proposed inline">Not built yet</span>`), filled);
+	};
 </script>
 
 <details class="sheet situation" id={situation.id}>
@@ -15,6 +24,7 @@
 		<span class="cnum">{situation.num}</span>
 		<h2>{situation.title}</h2>
 		<p class="hint">{@html fill(situation.hint)}</p>
+		{#if situation.planned}<span class="stamp proposed planned">Not built yet</span>{/if}
 	</summary>
 	<p class="slip scene">{@html fill(situation.scene)}</p>
 	<div class="versus">
@@ -27,7 +37,7 @@
 		<div class="side slip with">
 			<h3>{situation.withHeading}</h3>
 			<ol>
-				{#each situation.with as line, index (index)}<li>{@html fill(line)}</li>{/each}
+				{#each situation.with as text, index (index)}<li>{@html line(text)}</li>{/each}
 			</ol>
 		</div>
 	</div>
@@ -63,6 +73,8 @@
 	.cnum { grid-row: 1 / span 2; font-family: var(--font-marker); color: var(--accent); font-size: 1.15rem; }
 	h2 { grid-column: 2; font-size: clamp(1.5rem, 3vw, 2rem); }
 	.hint { grid-column: 2; margin: 0; color: var(--ink-muted); font-size: 0.95rem; }
+	.planned { grid-column: 2; margin-top: 0.4rem; }
+	:global(.stamp.inline) { display: inline-block; font-size: 0.62rem; vertical-align: 0.1em; margin-left: 0.2rem; }
 	.scene { margin: 0; padding: 0.8rem 1rem; transform: rotate(-0.4deg); }
 	.versus { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem 1.25rem; align-items: start; }
 	h3 {

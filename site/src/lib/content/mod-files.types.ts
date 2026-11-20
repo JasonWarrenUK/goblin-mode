@@ -34,6 +34,8 @@ export interface Situation {
 	with: string[];
 	/** The goblin's ruling. */
 	ruling: string;
+	/** True when nothing in the scene is built yet: its spec exists, its code does not. The summary carries a stamp. */
+	planned?: boolean;
 }
 
 export interface RosterRow {
@@ -42,6 +44,8 @@ export interface RosterRow {
 	text: string;
 	/** The situation's num ("III.2"), or null when no situation shows it. */
 	where: string | null;
+	/** True when the capability is specified but not built yet. */
+	planned?: boolean;
 }
 
 export interface HowTo {
@@ -61,4 +65,9 @@ export interface ModFile {
 	roster: RosterRow[];
 	/** Null for a mod that cannot be installed yet. */
 	howTo: HowTo | null;
+	/**
+	 * Commands the copy names that the mod's spec holds but its code does not register yet. Each is
+	 * stamped where it appears outside a planned scene, and the content test fails once one ships.
+	 */
+	plannedCommands?: string[];
 }

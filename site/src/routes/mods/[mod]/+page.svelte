@@ -79,7 +79,7 @@
 	<div class="file">
 		<div class="situations">
 			{#each file.situations as situation (situation.id)}
-				<SituationSlip {situation} {fill} />
+				<SituationSlip {situation} {fill} planned={file.plannedCommands} />
 			{/each}
 		</div>
 		<Roster name={mod.name} rows={file.roster} situations={file.situations} {fill} />
