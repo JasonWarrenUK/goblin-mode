@@ -70,7 +70,7 @@ Every line below is a decision Jason made in the SITE interview on 2026-11-18, u
 | Id | Requirement |
 |---|---|
 | S1 | Explainers re-dressed in the goblin theme; their family hue survives only as an accent. |
-| S2 | "Metadata Is Whatever I Say It Is" and "Everyone Gets a File": reworked section by section with Jason. "A Skill Is One Goblin" was withdrawn on 2026-11-20: the tutorial now teaches its mechanics, and its house rules no longer all hold on main. |
+| S2 | "Metadata Is Whatever I Say It Is": reworked with Jason (M6 to M12). Withdrawn on 2026-11-20: "A Skill Is One Goblin" (the tutorial now teaches its mechanics, and its house rules no longer all hold on main) and "Everyone Gets a File". The skills wing is the tutorial and the Metadata page. |
 | S3 | "Some Assembly Required": kept in spirit; its baseline assumptions rethought (for instance, loose skills against a plugin). |
 | S4 | Withdrawn 2026-11-20: Jason removed the Red Family explainer from the site. Its legacy page goes with the rest of `site/legacy/`. |
 

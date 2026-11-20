@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Placeholder until the skills wing is designed with Jason (scope S1 to S4).
+	// The skills wing's index: one line per page.
 	import { home, skillHref } from '#lib/paths.ts';
 	import { SKILL_PAGES } from '#lib/content/skills.ts';
 </script>

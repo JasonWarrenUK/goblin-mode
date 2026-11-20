@@ -38,8 +38,10 @@ const fileFor = (urlPath: string): string | null => {
 describe('the build', () => {
 	it('prerendered the front page, every mod page and the skills wing', () => {
 		// 12 before the tutorial; its shared-route placeholder gave way to an index and five levels (17);
-		// the Red Family page (16) and A Skill Is One Goblin (15) were withdrawn on 2026-11-20
-		expect(pages.length).toBe(15);
+		// the Red Family page (16), A Skill Is One Goblin (15) and Everyone Gets a File (14) were withdrawn on 2026-11-20;
+		// the Metadata page has its own route
+		expect(pages.length).toBe(14);
+		expect(existsSync(join(BUILD, 'skills/metadata/index.html'))).toBe(true);
 		for (const path of ['skills/tutorial/index.html', ...[1, 2, 3, 4, 5].map((n) => `skills/tutorial/${n}/index.html`)]) {
 			expect(existsSync(join(BUILD, path)), path).toBe(true);
 		}
