@@ -1,0 +1,34 @@
+{
+	"name": "goblin-warband",
+	"version": "1.0.0",
+	"description": "A warband raids in good order or not at all. One chief, many sessions, one repo: orders read, dibs called, tribute paid, spoils counted. Coordinate several Claude Code sessions on one repository: a ledger of dibs on shared resources enforced by hooks, a /show-slate pane, tools that report, call dibs, grant and broadcast, a declaration that writes each raider's orders, and the protocol that came out of running it.",
+	"author": {
+		"name": "Jason Warren"
+	},
+	"homepage": "https://github.com/JasonWarrenUK/goblin-mode",
+	"license": "Zlib",
+	"keywords": ["mod", "pane", "sessions", "coordination", "worktrees", "dibs"],
+	"types": "./types/index.d.ts",
+	"userConfig": {
+		"enabled": {
+			"type": "boolean",
+			"title": "Warband on",
+			"description": "The one switch for all of it. Off, nothing is registered and the command hooks still run but the slate, the tools and the dibs approval do not.",
+			"default": true
+		},
+		"approve_in_slot": {
+			"type": "boolean",
+			"title": "Approve gated commands under held dibs",
+			"description": "While this session holds the dibs on a resource and runs the command from its own worktree, a project hook's ask on that command is answered allow, so the person does not type it. Only resources marked approve_in_slot in the project config; never a taboo.",
+			"default": true
+		},
+		"refresh_seconds": {
+			"type": "number",
+			"title": "Slate refresh",
+			"description": "How often the slate rereads the ledger while open, in seconds.",
+			"default": 15,
+			"min": 5,
+			"max": 120
+		}
+	}
+}

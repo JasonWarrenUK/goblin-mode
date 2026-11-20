@@ -1,0 +1,202 @@
+// The state contract for the goblin-warband mod: the board draws from a
+// snapshot the CLI produced (`warband.py status --json`), the row the person picked
+// and the input the pane is waiting on.
+
+export type Coordinator = {
+	session_id: string
+	name: string
+	socket: string | null
+}
+
+export type CrewPlan = {
+	task: string
+	branch: string
+	worktree: string | null
+	brief: string
+	migration: string | null
+	/** Planned with no roadmap item: no claim is expected and the board says so. */
+	unlisted: boolean
+	/** The model and effort kick-off chose for the session, on its launch line as --model and --effort; null when the terminal's default is left to decide. */
+	model: string | null
+	effort: string | null
+	/** The session name on the launch line. */
+	name: string
+}
+
+/** A decision the user made, from decisions.jsonl: how many sessions were told and how many acknowledged. */
+export type Decision = {
+	n: number
+	text: string
+	told: number
+	acks: number
+}
+
+/** One of the coordinator's open threads, kept in the ledger across a compaction. */
+export type Pending = {
+	n: number
+	kind: string
+	text: string
+}
+
+export type Assumption = {
+	n: number
+	text: string
+	changed_at: number | null
+}
+
+export type Need = {
+	id: string
+	n: number
+	session_id: string
+	task: string
+	why: string
+	command: string
+	cwd: string
+	/** open (the user has yet to type it), started (they typed it and it runs on) or done. */
+	status: string
+	/** action (the default), measurement (its result goes back to a session), question (a question put to the user, no command; the answer goes back), approval or launch (a crew session's launch line, closed when it joins). */
+	kind: string
+	/** The PR this need blocks, when it names one; the PR's line on the page carries it. */
+	pr: number | null
+	/** The session the result is for, when the need is a measurement. */
+	for: string | null
+	for_task: string
+	/** When the user started it, in seconds; null until they do. */
+	started_at: number | null
+	/** What is running and where to watch it, recorded with the start. */
+	note: string
+	/** The earlier need this one re-issues, when its first attempt failed; the one it replaced is done and off the board. */
+	supersedes: number | null
+}
+
+export type Run = {
+	name: string
+	started_at: number
+	coordinator: Coordinator
+	base: { branch: string; commit: string }
+	crew: CrewPlan[]
+	assumptions: Assumption[]
+	/** The coordinator's own process under a new session id (after a /clear), waiting for the user to rebind the run to it. */
+	rebind: { session_id: string; name: string } | null
+	pending: Pending[]
+	decisions: Decision[]
+}
+
+export type SessionRow = {
+	session_id: string
+	name: string
+	task: string
+	branch: string
+	worktree: string
+	state: string
+	summary: string
+	pr: number | null
+	/** GitHub's word on the PR (OPEN, MERGED, CLOSED); only on the coordinator's probed board, and only when gh answered. */
+	pr_state: string | null
+	live: boolean
+	live_status: string
+	socket: string | null
+	updated_at: number
+	/** When `warband.py retire` reclaimed the worktree; the row then reads under `retired` rather than `gone`. */
+	retired_at: number | null
+	/** A `warband.py watch` is running (or holding a change until the team's hours) on this row's PR. */
+	watching: boolean
+	/** The session's context window fill, 0 to 100, written by its own mod on a timer; null until it has. */
+	context_percent: number | null
+}
+
+export type Slot = {
+	resource: string
+	holder: string
+	holder_task: string
+	holder_name: string
+	granted_at: number
+	until: number
+	what: string
+	overdue: boolean
+}
+
+export type SlotRequest = {
+	resource: string
+	session_id: string
+	task: string
+	name: string
+	minutes: number | null
+	what: string
+	at: number
+}
+
+export type Probe = {
+	resource: string
+	busy: boolean
+	checks: { kind: string; detail: string; busy?: boolean }[]
+}
+
+/** Why the pane has no run to draw: no project config, no active run, or a CLI that refused or could not run. */
+export type Problem = 'none' | 'no-config' | 'no-run' | 'broken'
+
+export type Snapshot = {
+	ok: boolean
+	problem: Problem
+	reason: string
+	configPath: string
+	ledgerDir: string
+	mainCheckout: string
+	/** One line naming why git is not working and the fix, from the CLI; null while git works. The ledger, the board, needs, slots and messages carry on without it. */
+	gitProblem: string | null
+	run: Run | null
+	sessions: SessionRow[]
+	slots: Slot[]
+	requests: SlotRequest[]
+	needs: Need[]
+	probes: Probe[]
+	/** The PR page's summary from the ledger and the cached facts: null outside a run or before any PR is recorded. */
+	prs: PrSummary | null
+	at: number
+}
+
+/** One PR where the user moves next, as the board lists it. */
+export type PrMine = {
+	number: number
+	actor: string
+	why: string
+	/** "landing this first makes #n restamp": a cost to weigh, never a block. */
+	cost: string | null
+}
+
+/** What the board draws of the PR page: the page's path, its totals and only the rows where the user moves next. */
+export type PrSummary = {
+	path: string
+	totals: { open: number; jason: number; held: number; ready: number; questions: number }
+	/** When the oldest PR fact on the page was fetched, in seconds; null when none has been. */
+	facts_at: number | null
+	mine: PrMine[]
+}
+
+/** This session as the run sees it, held in state so a hot reload keeps it. */
+export type Self = {
+	sessionId: string
+	isCoordinator: boolean
+	isCrew: boolean
+}
+
+/** What the pane is waiting on: a grant's minutes for a request, or a note for a release. */
+export type Asking = {
+	kind: 'grant' | 'release' | 'done' | 'started'
+	resource: string
+	sessionId: string
+	ref: string
+}
+
+declare module 'claude-code' {
+	interface PluginState {
+		'goblin-warband': {
+			snapshot: Snapshot | null
+			self: Self
+			selected: string | null
+			asking: Asking | null
+			/** Whether the board shows the rows of its retired and gone groups; collapsed to the headings by default. */
+			quietShown: boolean
+		}
+	}
+}

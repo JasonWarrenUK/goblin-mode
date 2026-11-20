@@ -1,0 +1,110 @@
+/* The shared goblin theme (.claude/themes/goblin-html.json, which the new Pages site is built on and which lands with it), emitted by library/scripts/theme/emit.ts and copied here so the plugin stands alone.
+   Regenerate with: bun emit.ts .claude/themes/goblin-html.json, minus the <style> tags; the faces are inlined from templates/fonts/ when the page is drawn. */
+:root {
+	--ink: #1D2718;
+	--ink-muted: #4B5A3C;
+	--surface: #E7E9CF;
+	--surface-raised: #D3D7B4;
+	--line: #B2B696;
+	--accent: #8C1D4C;
+	--accent-ink: #FCFCF8;
+	--accent-2: #3C6A1C;
+	--ok: #3C6A1C;
+	--warn: #8A5A00;
+	--danger: #A3361F;
+	--info: #2D5A8C;
+	--gradient: linear-gradient(135deg, #8C1D4C, #A86B16, #74A249);
+	--desk: #A9A88C;
+	--blot: rgba(58,62,34,.16);
+	--slip: #FCFCF8;
+	--slip-ink: #1B1F1A;
+	--slip-line: #C9CCBD;
+	--slip-accent: #8C1D4C;
+	--slip-accent-2: #3C6A1C;
+	--card: #B38D58;
+	--card-dark: #8A6839;
+	--card-ink: #1D2718;
+	--slime: #B9D531;
+	--on-slime: #1D2718;
+	--tape: rgba(214,203,150,.9);
+	--exhibit: #1D2718;
+	--exhibit-ink: #E7E9CF;
+	--font-display: 'Cabin Sketch', 'Arial Black', Impact, sans-serif;
+	--font-body: 'Special Elite', 'Courier New', Courier, monospace;
+	--font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+	--font-print: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+	--font-marker: 'Permanent Marker', 'Marker Felt', cursive;
+	--text-base: 16.5px;
+	--text-ratio: 1.25;
+	--leading: 1.6;
+	--radius-sm: 2px;
+	--radius-md: 4px;
+	--radius-lg: 8px;
+	--shadow: 2px 3px 0 rgba(0, 0, 0, 0.3);
+	--space: 8px;
+	--wonk: 255px 18px 225px 16px / 16px 225px 18px 255px;
+	--wonk-2: 18px 225px 16px 255px / 255px 16px 225px 18px;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--ink: #E3E8CC;
+		--ink-muted: #A3AD8C;
+		--surface: #22261A;
+		--surface-raised: #2E3422;
+		--line: #4A5238;
+		--accent: #FF86B4;
+		--accent-ink: #1D2718;
+		--accent-2: #A6D46A;
+		--ok: #A6D46A;
+		--warn: #E0A84A;
+		--danger: #FF8A6B;
+		--info: #8DB4E8;
+		--gradient: linear-gradient(135deg, #FF86B4, #EEAC53, #A9D974);
+		--desk: #11130C;
+		--blot: rgba(0,0,0,.35);
+		--slip: #D9DCCB;
+		--slip-ink: #14180F;
+		--slip-line: #A9AD98;
+		--slip-accent: #8C1D4C;
+		--slip-accent-2: #3C6A1C;
+		--card: #644A2A;
+		--card-dark: #3D2C17;
+		--card-ink: #F2E8D0;
+		--slime: #C5E13E;
+		--on-slime: #1D2718;
+		--tape: rgba(120,112,70,.9);
+		--exhibit: #0A0C07;
+		--exhibit-ink: #E3E8CC;
+	}
+}
+:root[data-theme="dark"] {
+	--ink: #E3E8CC;
+	--ink-muted: #A3AD8C;
+	--surface: #22261A;
+	--surface-raised: #2E3422;
+	--line: #4A5238;
+	--accent: #FF86B4;
+	--accent-ink: #1D2718;
+	--accent-2: #A6D46A;
+	--ok: #A6D46A;
+	--warn: #E0A84A;
+	--danger: #FF8A6B;
+	--info: #8DB4E8;
+	--gradient: linear-gradient(135deg, #FF86B4, #EEAC53, #A9D974);
+	--desk: #11130C;
+	--blot: rgba(0,0,0,.35);
+	--slip: #D9DCCB;
+	--slip-ink: #14180F;
+	--slip-line: #A9AD98;
+	--slip-accent: #8C1D4C;
+	--slip-accent-2: #3C6A1C;
+	--card: #644A2A;
+	--card-dark: #3D2C17;
+	--card-ink: #F2E8D0;
+	--slime: #C5E13E;
+	--on-slime: #1D2718;
+	--tape: rgba(120,112,70,.9);
+	--exhibit: #0A0C07;
+	--exhibit-ink: #E3E8CC;
+}
+body { background: var(--surface); color: var(--ink); font-family: var(--font-body); }

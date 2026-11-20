@@ -1,0 +1,4986 @@
+#!/usr/bin/env python3
+"""goblin-warband: the ledger CLI behind the pane, the tools, the hooks and the skills.
+
+One raid per repository at a time. The ledger is a directory of small JSON
+files under ~/.claude/goblin-warband/<repo slug>/, one file per fact, so two
+sessions writing different facts never clobber each other:
+
+  run.json                    the raid: name, chief, base commit, raiders' plan,
+                              numbered decrees, the tribute list
+  sessions/<session id>.json  one row per session in the raid: task, branch,
+                              worktree, state, summary, PR
+  slots/<resource>.json       who holds the dibs on a shared resource, since when, for what
+  requests/<resource>__<session id>.json   dibs called and not yet granted
+  briefs/<task>.md            the orders each raider reads at its first turn
+  log.jsonl                   every event, append-only
+
+The project config is <repo>/.claude/goblin-warband.json (the example beside
+this script documents every key). A caller is identified by CLAUDE_CODE_SESSION_ID,
+which Claude Code sets for every Bash child, or by --session when the mod
+calls on its own behalf. Writes that steer the raid (start, end, grant, revoke,
+decrees, marking a tribute agreed or paid, the raiders' plan) are the chief's session's
+alone; `--by-user` stands for the person typing one of the plugin's slash commands in any session.
+The PreToolUse hook refuses `--by-user`, `--session` and a `CLAUDE_CODE_SESSION_ID=`
+assignment on a Bash line that runs this script, abbreviations and quoting
+included, so the model does not borrow another identity by accident. It is a
+guard against accidents: a variable expanded later, a copied script or a
+hand-written ledger file get past it, and the ledger files are not protected.
+
+Exit codes: 0 done, 1 refused (the reason on stdout as one `✗` line, or JSON
+with `--json`), 2 environment or usage error. Stdlib only, Python 3.9+.
+"""
+from __future__ import annotations
+
+import argparse
+import contextlib
+import fcntl
+import fnmatch
+import glob
+import json
+import os
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import uuid
+from datetime import datetime
+from html import escape
+from pathlib import Path
+
+CONFIG_REL = ".claude/goblin-warband.json"
+OLD_CONFIG_REL = ".claude/mission-control.json"
+OLD_LOCAL_CONFIG_REL = ".claude/mission-control.local.json"
+LEDGER_ROOT = Path(os.environ.get("GOBLIN_WARBAND_HOME") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "goblin-warband"))
+SESSIONS_DIR = Path(os.environ.get("CLAUDE_SESSIONS_DIR") or (Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "sessions"))
+STATES = ("briefing", "working", "in-slot", "pr-ready", "blocked", "waiting", "waiting-jason", "done")
+# How each stored state reads wherever a person reads it (ruling 17: the stored words are interface and stay).
+# The mod holds the same table as STATE_WORDS in hooks/register.tsx; a test holds the two to each other.
+STATE_WORDS = {
+    "briefing": "reading orders",
+    "working": "raiding",
+    "in-slot": "holding dibs",
+    "pr-ready": "spoils ready",
+    "blocked": "blocked",
+    "waiting": "waiting",
+    "waiting-jason": "awaiting tribute",
+    "done": "done",
+    "retired": "dismissed",
+    "gone": "gone",
+}
+# How a tribute's stored status reads: open is owed, started is agreed, done is paid.
+TRIBUTE_WORDS = {"open": "owed", "started": "agreed", "done": "paid"}
+
+
+def state_word(state: str | None) -> str:
+    return STATE_WORDS.get(state or "", state or "")
+# what a `waiting` session names as the thing it waits on; `waiting-jason` is kept for an open need of the user's
+WAITING_ON = re.compile(r"^(reviewer:\S+|session:\S+|pr:#?\d+|ci|hold)$")
+# a need's why is what the user reads before typing a hosted command, so it is not cut mid-sentence; a pasted result can be a query's whole output
+NEED_WHY_LIMIT = 1200
+HOOK_CONTEXT_LIMIT = 9500  # the harness caps a hook's output at 10,000 characters; past that the model gets a file path and a 2,000-character preview
+RESULT_LIMIT = 20_000
+# how long a decision may go unacknowledged by a session it was told to before reconcile says so
+DECISION_ACK_SECONDS = 30 * 60
+# the states a release puts back; anything else the slot interrupted was plain work
+RESTORED_STATES = ("pr-ready", "blocked", "waiting", "waiting-jason", "done")
+BY_USER = "--by-user"
+SUBAGENT_EFFORT_ENV = "CLAUDE_CODE_SUBAGENT_EFFORT"
+SUBAGENT_EFFORT_FLOOR = "high"
+SUBAGENT_EFFORT_RAISED = ("low", "medium")  # the crew efforts whose launch line raises its subagents to the floor
+SEPARATORS = re.compile(r"^[();<>|&\n]+$")
+REDIRECT = re.compile(r"^&?[<>]+&?$")
+ASSIGNMENT = re.compile(r"^[A-Za-z_]\w*=")
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1([^\n]*)\n(.*?)\n[ \t]*\2[ \t]*(?=\n|$)", re.DOTALL)
+
+
+class Refusal(Exception):
+    """A refusal the caller can act on; printed as one line, exit 1."""
+
+
+# ---------------------------------------------------------------- helpers
+
+
+def now() -> float:
+    return time.time()
+
+
+def clock(ts: float | None) -> str:
+    return time.strftime("%H:%M", time.localtime(ts)) if ts else "?"
+
+
+def run_git(cwd: str | Path, *args: str) -> str | None:
+    try:
+        done = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def git_dir_of(cwd: str | Path) -> tuple[Path, Path] | None:
+    """(checkout root, common git dir), found by walking up for a `.git` entry without running git.
+
+    A checkout has a `.git` directory. A linked worktree has a `.git` file whose `gitdir:` line
+    names `<common>/worktrees/<name>`, so the common dir and the main checkout follow from it.
+    The ledger must not depend on a working git: a macOS update removed the Command Line Tools
+    on 30 October 2026 and every warband.py command answered "not inside a git repository" while the
+    run sat intact on disk.
+    """
+    try:
+        here = Path(cwd).resolve()
+    except OSError:
+        return None
+    for root in (here, *here.parents):
+        entry = root / ".git"
+        if entry.is_dir():
+            return root, entry
+        if entry.is_file():
+            try:
+                text = entry.read_text(errors="ignore").strip()
+            except OSError:
+                return None
+            if not text.startswith("gitdir:"):
+                return None
+            gitdir = Path(text[len("gitdir:"):].strip())
+            if not gitdir.is_absolute():
+                gitdir = (root / gitdir).resolve()
+            common = gitdir.parent.parent if gitdir.parent.name == "worktrees" else gitdir
+            return root, common
+    return None
+
+
+def toplevel(cwd: str | Path) -> Path | None:
+    """The checkout root: git's own answer while git works (its spelling of the path is the canonical one), the `.git` walk when it does not."""
+    top = run_git(cwd, "rev-parse", "--show-toplevel")
+    if top:
+        return Path(top)
+    found = git_dir_of(cwd)
+    return found[0] if found else None
+
+
+def main_checkout(cwd: str | Path) -> Path | None:
+    """The main working tree, the same answer from inside any worktree: git's own answer while git works, the `.git` walk when it does not.
+
+    Git goes first because its spelling of the path is what the ledger slug is built from, and a
+    path typed in another case (`/users/JASONWARREN`) would otherwise name a second ledger."""
+    common = run_git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if common:
+        return Path(common).parent
+    found = git_dir_of(cwd)
+    return found[1].parent if found else None
+
+
+# the order gh itself uses when no default is set, after the remote `gh repo set-default` marked
+REMOTE_PREFERENCE = ("upstream", "github", "origin")
+
+
+def remote_repo(main: str | Path) -> str | None:
+    """`owner/repo` on GitHub, read from the git config file rather than from git, so gh can be told the repository when git is not working.
+
+    The remote is chosen the way gh chooses it: the one `gh repo set-default` marked (`gh-resolved = base`),
+    else `upstream`, else `github`, else `origin`, so a fork-shaped checkout keeps pointing at the base repository."""
+    found = git_dir_of(main)
+    if not found:
+        return None
+    try:
+        text = (found[1] / "config").read_text(errors="ignore")
+    except OSError:
+        return None
+    remotes: dict[str, dict[str, str]] = {}
+    # a section's key lines start with whitespace as git writes them, or at column one in a hand-edited file;
+    # two sections for one remote merge, as git's own parser merges them
+    for section in re.finditer(r'^\[remote "([^"]+)"\]\s*\n((?:[ \t]*[A-Za-z#;][^\n]*\n?)*)', text, re.M):
+        keys = dict(re.findall(r"^\s*([A-Za-z-]+)\s*=\s*(\S+)", section.group(2), re.M))
+        remotes.setdefault(section.group(1), {}).update(keys)
+
+    def slug_of_remote(name: str) -> str | None:
+        hit = re.search(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", remotes.get(name, {}).get("url", ""))
+        return f"{hit.group(1)}/{hit.group(2)}" if hit else None
+
+    def rank(name: str) -> int:
+        return REMOTE_PREFERENCE.index(name) if name in REMOTE_PREFERENCE else len(REMOTE_PREFERENCE)
+
+    # gh walks its remotes in preference order and takes the first one `gh repo set-default` marked: `base` means that
+    # remote's own repository; any other value is the base's `owner/repo` spelt out, written when the base (a fork's
+    # parent, say) is not a remote at all
+    for name in sorted(remotes, key=rank):
+        marked = remotes[name].get("gh-resolved", "")
+        if marked and marked != "base":
+            return marked
+        if marked and slug_of_remote(name):
+            return slug_of_remote(name)
+    # unmarked: the first GitHub remote in gh's order, whatever its name, as gh takes it when it cannot prompt
+    for name in sorted(remotes, key=rank):
+        slug = slug_of_remote(name)
+        if slug:
+            return slug
+    return None
+
+
+_GIT_PROBLEM: list[str | None] = []
+
+
+def git_problem() -> str | None:
+    """One line naming why git does not work and the fix, or None when it does; checked once per process."""
+    if not _GIT_PROBLEM:
+        if run_git(".", "--version") is not None:
+            _GIT_PROBLEM.append(None)
+        elif sys.platform == "darwin" and subprocess.run(["xcode-select", "-p"], capture_output=True).returncode != 0:
+            _GIT_PROBLEM.append("git is not working: the Command Line Tools are missing (a macOS update removes them); run `xcode-select --install`, then carry on. The ledger, the slate, tribute, dibs and messages work meanwhile.")
+        else:
+            _GIT_PROBLEM.append("git is not working: `git --version` fails; the ledger, the slate, tribute, dibs and messages work meanwhile, and anything that needs history waits for git.")
+    return _GIT_PROBLEM[0]
+
+
+def gh_repo_args(main: str | Path) -> list[str]:
+    """`--repo owner/repo` for a gh call only while git is not working, since gh then cannot find the repository itself; while git works gh's own choice stands. Empty when no GitHub remote is on file."""
+    if git_problem() is None:
+        return []
+    slug = remote_repo(main)
+    return ["--repo", slug] if slug else []
+
+
+def gh_api_repo(main: str | Path) -> str:
+    """The `owner/repo` segment of a `gh api` path: gh's placeholders while git works, the config file's answer while it does not."""
+    if git_problem() is None:
+        return "{owner}/{repo}"
+    return remote_repo(main) or "{owner}/{repo}"
+
+
+def slug_of(path: Path) -> str:
+    return str(path).replace("/", "-")
+
+
+def read_json(path: Path, default=None):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return default
+
+
+def write_json(path: Path, data) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(f"{path.suffix}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n")
+    os.replace(tmp, path)
+
+
+def same_path(a: str | Path, b: str | Path) -> bool:
+    """Whether two paths name one file: the filesystem decides, so `Code` and `code` on a case-insensitive volume agree."""
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        return str(a) == str(b)
+
+
+def inside(path: str | None, root: str | None) -> bool:
+    if not path or not root:
+        return False
+    try:
+        p, r = Path(path).resolve(), Path(root).resolve()
+    except OSError:
+        return False
+    return p == r or r in p.parents or any(same_path(parent, r) for parent in (p, *p.parents) if parent.exists() and r.exists())
+
+
+# ---------------------------------------------------------------- config
+
+
+def find_config(cwd: str | Path) -> tuple[Path, dict] | None:
+    """The project config: the cwd's checkout first, then the main checkout; in each, the new name first and the old
+    mission-control name second (a repo whose raid is still carried on from the old ledger keeps its old config until the move)."""
+    for root in (toplevel(cwd), main_checkout(cwd)):
+        if root is None:
+            continue
+        for rel in (CONFIG_REL, OLD_CONFIG_REL):
+            path = root / rel
+            if path.is_file():
+                data = read_json(path)
+                if not isinstance(data, dict):
+                    raise Refusal(f"{path} does not parse as a JSON object")
+                return path, data
+    return None
+
+
+def resources(config: dict) -> dict:
+    found = config.get("resources")
+    return found if isinstance(found, dict) else {}
+
+
+# ---------------------------------------------------------------- the live session registry
+
+
+def registry() -> dict[str, dict]:
+    """{session id: row} for every live Claude Code session on this machine."""
+    rows = {}
+    for path in glob.glob(str(SESSIONS_DIR / "*.json")):
+        row = read_json(Path(path))
+        if not isinstance(row, dict) or not row.get("sessionId") or not row.get("pid"):
+            continue
+        try:
+            os.kill(int(row["pid"]), 0)
+        except (OSError, ValueError):
+            continue
+        rows[str(row["sessionId"])] = row
+    return rows
+
+
+def caller_session(explicit: str | None) -> str | None:
+    return explicit or os.environ.get("CLAUDE_CODE_SESSION_ID") or None
+
+
+def same_identity(pid_a, socket_a, pid_b, socket_b) -> bool:
+    """One process: the pids match and, where both sides know their socket, the sockets match too (a /clear keeps both)."""
+    if not pid_a or pid_a != pid_b:
+        return False
+    return not (socket_a and socket_b) or socket_a == socket_b
+
+
+def same_process(recorded: dict, live: dict[str, dict]) -> dict | None:
+    """The live registry row that is the recorded session's own process under another id: a /clear keeps the pid and the socket and issues a new id. None when nothing matches."""
+    for sid, row in live.items():
+        if sid == recorded.get("session_id"):
+            continue
+        if same_identity(recorded.get("pid"), recorded.get("socket"), row.get("pid"), row.get("messagingSocketPath")):
+            return {"session_id": sid, "pid": row.get("pid"), "socket": row.get("messagingSocketPath"), "name": row.get("name") or ""}
+    return None
+
+
+def live_coordinator(recorded: dict) -> dict:
+    """The coordinator as the registry has it now.
+
+    A session id outlives a resume and a compaction; a /clear issues a new one
+    while the pid and the socket stay. The id is the identity, so pid, socket
+    and name are read live and the recorded values are the fallback for a
+    coordinator that is not running. When the recorded id has no live row but
+    its process is live under another id, that row is offered as
+    `rebind_candidate`: never adopted silently, since every coordinator-only
+    write would otherwise follow a guess.
+    """
+    live = registry()
+    row = live.get(str(recorded.get("session_id") or ""))
+    if not row:
+        candidate = same_process(recorded, live)
+        return {**recorded, "rebind_candidate": candidate} if candidate else recorded
+    return {
+        **recorded,
+        "pid": row.get("pid"),
+        "socket": row.get("messagingSocketPath") or recorded.get("socket"),
+        "name": row.get("name") or recorded.get("name") or "",
+        "status": row.get("status"),
+    }
+
+
+def identity(session_id: str | None) -> dict:
+    """What the registry knows about a session: pid, socket, name; empty when not live."""
+    row = registry().get(session_id or "", {})
+    return {
+        "session_id": session_id,
+        "pid": row.get("pid"),
+        "socket": row.get("messagingSocketPath"),
+        "name": row.get("name") or "",
+        "cwd": row.get("cwd"),
+        "status": row.get("status"),
+    }
+
+
+# ---------------------------------------------------------------- the ledger
+
+
+class Ledger:
+    def __init__(self, main: Path):
+        self.main = main
+        self.slug = slug_of(main)
+        self.dir = LEDGER_ROOT / self.slug
+
+    @property
+    def run_path(self) -> Path:
+        return self.dir / "run.json"
+
+    def run(self) -> dict | None:
+        run = read_json(self.run_path)
+        if not isinstance(run, dict) or run.get("ended_at"):
+            return None
+        run["coordinator"] = live_coordinator(run.get("coordinator") or {})
+        return run
+
+    def require_run(self) -> dict:
+        run = self.run()
+        if run is None:
+            raise Refusal(f"no active goblin-warband raid for {self.main}; start one with /goblin-warband:declare-raid or `warband.py start --name <name>`")
+        return run
+
+    def save_run(self, run: dict) -> None:
+        write_json(self.run_path, run)
+
+    @contextlib.contextmanager
+    def locked(self):
+        """Hold the run's lock across a read-modify-write of run.json, so two sessions never overwrite each other's change."""
+        if not self.dir.is_dir():
+            yield  # no run: require_run refuses, and the directory is not made here
+            return
+        with (self.dir / "run.lock").open("a") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
+
+    def log(self, event: str, **fields) -> None:
+        self.dir.mkdir(parents=True, exist_ok=True)
+        with (self.dir / "log.jsonl").open("a") as fh:
+            fh.write(json.dumps({"at": now(), "event": event, **fields}) + "\n")
+
+    # sessions
+    def session_path(self, session_id: str) -> Path:
+        return self.dir / "sessions" / f"{session_id}.json"
+
+    def sessions(self) -> dict[str, dict]:
+        rows = {}
+        for path in sorted(glob.glob(str(self.dir / "sessions" / "*.json"))):
+            row = read_json(Path(path))
+            if isinstance(row, dict) and row.get("session_id"):
+                rows[row["session_id"]] = row
+        return rows
+
+    def save_session(self, row: dict) -> None:
+        write_json(self.session_path(row["session_id"]), row)
+
+    # slots
+    def slot_path(self, resource: str) -> Path:
+        return self.dir / "slots" / f"{resource}.json"
+
+    def slots(self) -> dict[str, dict]:
+        rows = {}
+        for path in sorted(glob.glob(str(self.dir / "slots" / "*.json"))):
+            row = read_json(Path(path))
+            if isinstance(row, dict) and row.get("holder"):
+                rows[row["resource"]] = row
+        return rows
+
+    # requests
+    def request_path(self, resource: str, session_id: str) -> Path:
+        return self.dir / "requests" / f"{resource}__{session_id}.json"
+
+    # decisions: what the user decided and when, appended, never rewritten
+    @property
+    def decisions_path(self) -> Path:
+        return self.dir / "decisions.jsonl"
+
+    def decisions(self) -> list[dict]:
+        rows: dict[int, dict] = {}
+        if not self.decisions_path.is_file():
+            return []
+        for line in self.decisions_path.read_text().splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(row, dict) or "n" not in row:
+                continue
+            if row.get("ack"):
+                # an acknowledgement line adds the session to the decision it names
+                target = rows.get(int(row["n"]))
+                if target is not None and row["ack"] not in target.setdefault("acks", []):
+                    target["acks"].append(row["ack"])
+                continue
+            rows[int(row["n"])] = {**row, "acks": list(row.get("acks") or [])}
+        return [rows[n] for n in sorted(rows)]
+
+    def append_decision(self, row: dict) -> None:
+        self.dir.mkdir(parents=True, exist_ok=True)
+        with self.decisions_path.open("a") as fh:
+            fh.write(json.dumps(row) + "\n")
+
+    # PRs: one file per PR, so a PR's task, group, hold and note outlive the session that opened it
+    def pr_path(self, number: int) -> Path:
+        return self.dir / "prs" / f"{int(number)}.json"
+
+    def prs(self) -> dict[int, dict]:
+        rows = {}
+        for path in sorted(glob.glob(str(self.dir / "prs" / "*.json"))):
+            row = read_json(Path(path))
+            if isinstance(row, dict) and isinstance(row.get("number"), int):
+                rows[row["number"]] = row
+        return rows
+
+    def save_pr(self, row: dict) -> None:
+        write_json(self.pr_path(row["number"]), row)
+
+    def requests(self) -> list[dict]:
+        rows = []
+        for path in sorted(glob.glob(str(self.dir / "requests" / "*.json"))):
+            row = read_json(Path(path))
+            if isinstance(row, dict) and row.get("resource"):
+                rows.append(row)
+        return sorted(rows, key=lambda r: r.get("at", 0))
+
+
+def ledger_for(cwd: str | Path) -> Ledger:
+    main = main_checkout(cwd)
+    if main is None:
+        raise Refusal(f"{cwd} is not inside a git repository")
+    return Ledger(main)
+
+
+def is_coordinator(run: dict, session_id: str | None) -> bool:
+    return bool(session_id) and run.get("coordinator", {}).get("session_id") == session_id
+
+
+def authorise(run: dict, session_id: str | None, by_user: bool, what: str) -> str:
+    """Who may steer the raid: the chief's session, or the person through the plugin's slash commands."""
+    if by_user:
+        return "user"
+    if is_coordinator(run, session_id):
+        return "coordinator"
+    name = run.get("coordinator", {}).get("name") or run.get("coordinator", {}).get("session_id", "?")
+    raise Refusal(f"only the chief's session ({name}) can {what}; message the chief, or the person types the slash command in any session")
+
+
+def crew_for(run: dict, cwd: str | None, session_id: str | None, sessions: dict[str, dict]) -> dict | None:
+    """The crew-plan entry a session belongs to: by its registered row first, then by the worktree its cwd is in."""
+    row = sessions.get(session_id or "")
+    for entry in run.get("crew", []):
+        if row and (entry.get("task") == row.get("task") or (entry.get("worktree") and row.get("worktree") and same_path(entry["worktree"], row["worktree"]))):
+            return entry
+    for entry in run.get("crew", []):
+        if inside(cwd, entry.get("worktree")):
+            return entry
+    return None
+
+
+# ---------------------------------------------------------------- command parsing and gates
+
+
+SHELLS = {"sh", "bash", "zsh"}
+SHELL_C_FLAG = re.compile(r"-[A-Za-z]*c[A-Za-z]*")
+SHELL_DEPTH = 3
+SHELL_OPTION_WITH_ARGUMENT = {"-o", "+o", "-O", "+O"}
+RUNNERS = {"env", "timeout", "nohup", "time", "command"}
+SUBSTITUTION = re.compile(r"\$\(|`|<\(|>\(")
+
+
+def shell_script(words: list[str]) -> str | None:
+    """The string after `-c` (or `-lc` and the like) of an `sh`, `bash` or `zsh` call, else None."""
+    if not words or os.path.basename(words[0]) not in SHELLS:
+        return None
+    index = 1
+    while index < len(words):
+        word = words[index]
+        if word in SHELL_OPTION_WITH_ARGUMENT:
+            index += 2
+            continue
+        if not word.startswith(("-", "+")):
+            return None
+        if SHELL_C_FLAG.fullmatch(word):
+            return words[index + 1] if index + 1 < len(words) else None
+        index += 1
+    return None
+
+
+def strip_runners(words: list[str]) -> tuple[list[str], list[str], bool]:
+    """Peel `env`, `timeout`, `nohup`, `time` and `command` off the front of a simple command.
+
+    Returns (words, chdir targets, subprocess). The gate patterns are anchored
+    at the first word, so a runner in front of a gated command would hide it.
+    The targets are the directories `env` runs the command in, read the way
+    getopt reads them: `-C` alone or inside a short cluster (`-C dir`,
+    `-iCdir`) and any unique prefix of `--chdir` (`--chd dir`, `--c=dir`).
+    They are in order and belong to this command alone. `subprocess` is true
+    when an `env`, `timeout` or `nohup` was peeled:
+    a `cd` behind one of those runs as a program and moves nothing, whereas
+    `command cd` and `time cd` move the shell. `command -v` is a lookup, not a
+    run, and stays as it is, as does a runner that leaves nothing behind or
+    carries `env -S`. Only the leading run of options is read, so a flag meant
+    for the inner command never stops the strip.
+    """
+    chdirs: list[str] = []
+    subprocess = False
+    for _ in range(SHELL_DEPTH * 2):
+        if not words:
+            break
+        runner = os.path.basename(words[0])
+        if runner not in RUNNERS:
+            break
+        rest = words[1:]
+        index = 0
+        found: list[str] = []
+        if runner == "env":
+            give_up = False
+            while index < len(rest):
+                word = rest[index]
+                if word.startswith("--"):
+                    name, equals, value = word[2:].partition("=")
+                    matches = [option for option in ("ignore-environment", "null", "unset", "chdir", "split-string", "block-signal", "default-signal", "ignore-signal", "list-signal-handling", "debug", "help", "version") if name and option.startswith(name)]
+                    option = matches[0] if len(matches) == 1 else name
+                    if option == "split-string":
+                        give_up = True
+                        break
+                    if option in {"chdir", "unset"} and not equals:
+                        value = rest[index + 1] if index + 1 < len(rest) else ""
+                        index += 1
+                    if option == "chdir":
+                        found.append(value)
+                    index += 1
+                elif word.startswith("-") and word != "-":
+                    for position, letter in enumerate(word[1:], start=1):
+                        if letter == "S":
+                            give_up = True
+                            break
+                        if letter in "CuP":
+                            value = word[position + 1:]
+                            if not value:
+                                value = rest[index + 1] if index + 1 < len(rest) else ""
+                                index += 1
+                            if letter == "C":
+                                found.append(value)
+                            break
+                    if give_up:
+                        break
+                    index += 1
+                elif word == "-" or ASSIGNMENT.match(word):
+                    index += 1
+                else:
+                    break
+            if give_up:
+                break
+        elif runner == "timeout":
+            while index < len(rest) and rest[index].startswith("-"):
+                word = rest[index]
+                index += 1
+                if word.startswith("--"):
+                    if len(word) > 2 and "=" not in word and ("--signal".startswith(word) or "--kill-after".startswith(word)):
+                        index += 1
+                else:
+                    # a short cluster: the first `s` or `k` takes the rest of the word, or the next word
+                    for position, letter in enumerate(word[1:], start=1):
+                        if letter in "sk":
+                            if position == len(word) - 1:
+                                index += 1
+                            break
+            index += 1  # the duration
+        elif runner == "command":
+            lookup = False
+            while index < len(rest) and rest[index] in {"-p", "-v", "-V", "--"}:
+                if rest[index] in {"-v", "-V"}:
+                    lookup = True
+                    break
+                index += 1
+            if lookup:
+                break
+        elif runner in {"time", "nohup"}:
+            while index < len(rest) and rest[index] in {"-p", "--"}:
+                index += 1
+        if index >= len(rest):
+            break
+        words = rest[index:]
+        chdirs.extend(found)
+        subprocess = subprocess or runner in {"env", "timeout", "nohup"}
+    return words, chdirs, subprocess
+
+
+def join_cd(previous: str | None, target: str) -> str:
+    """The directory a `cd target` lands in, given the cd already in force on the line."""
+    if previous is None or os.path.isabs(target) or target.startswith("~") or target == "-" or re.search(r"[$`]", target):
+        return target
+    if re.search(r"[$`]", previous) or previous == "-":
+        return target
+    return os.path.normpath(os.path.join(previous, target))
+
+
+def opaque(command: str) -> bool:
+    """True when the line hides commands from the matcher: a substitution, or quoting shlex cannot parse."""
+    if SUBSTITUTION.search(command):
+        return True
+    try:
+        list(shlex.shlex(HEREDOC.sub(" ", command), posix=True, punctuation_chars="();<>|&\n"))
+    except ValueError:
+        return True
+    return False
+
+
+def simple_commands(command: str, cd_target: str | None = None, depth: int = 0) -> list[tuple[list[str], str | None]]:
+    """Each simple command of a shell line as (words, cd target seen before it or None).
+
+    Heredoc bodies are lifted out first; redirects and leading VAR=value words
+    are dropped. The cd target is the directory the earlier `cd`s on the line
+    lead to, so a guard can tell where a command runs. The script of an
+    `sh -c` / `bash -c` / `zsh -c` call is read as a line of its own, from the
+    cd in force at the call, to a depth of three.
+    """
+    heredocs: list[str] = []
+
+    def lift(match):
+        heredocs.append(match.group(4))
+        return " __HEREDOC_%d__ %s" % (len(heredocs) - 1, match.group(3))
+
+    text = HEREDOC.sub(lift, command)
+    lexer = shlex.shlex(text, posix=True, punctuation_chars="();<>|&\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    segments: list[list[str]] = []
+    words: list[str] = []
+    skip_target = False
+    try:
+        for token in lexer:
+            if REDIRECT.match(token) or re.fullmatch(r"\d*[<>]+&?\d*", token):
+                skip_target = True
+            elif SEPARATORS.match(token):
+                skip_target = False
+                if words:
+                    segments.append(words)
+                words = []
+            elif skip_target:
+                skip_target = False
+            else:
+                words.append(token)
+    except ValueError:
+        # unbalanced quoting: fall back to whitespace words, one segment
+        segments = [command.split()]
+        words = []
+    if words:
+        segments.append(words)
+    out = []
+    for seg in segments:
+        while seg and ASSIGNMENT.match(seg[0]):
+            seg = seg[1:]
+        seg, chdirs, subprocess = strip_runners(seg)
+        while seg and ASSIGNMENT.match(seg[0]):
+            seg = seg[1:]
+        if not seg:
+            continue
+        if seg[0] == "cd":
+            if not subprocess:
+                cd_target = join_cd(cd_target, seg[1] if len(seg) > 1 else "~")
+            continue
+        # `env -C dir` moves this command (and any script it runs) and nothing after it
+        run_target = cd_target
+        for target in chdirs:
+            run_target = join_cd(run_target, target)
+        script = shell_script(seg) if depth < SHELL_DEPTH else None
+        if script is not None:
+            out.extend(simple_commands(script, run_target, depth + 1))
+            continue
+        out.append((seg, run_target))
+    return out
+
+
+def normalise(words: list[str]) -> list[str]:
+    """`poetry run poe x` reads as `poe x`; `python -m poethepoet x` likewise."""
+    if words[:2] == ["poetry", "run"]:
+        words = words[2:]
+    if words[:3] == ["python", "-m", "poethepoet"] or words[:3] == ["python3", "-m", "poethepoet"]:
+        words = ["poe"] + words[3:]
+    return words
+
+
+def gate_matches(pattern: str, words: list[str]) -> bool:
+    """A gate pattern is a glob over the command's words joined by spaces, anchored at the start."""
+    joined = " ".join(words)
+    return fnmatch.fnmatchcase(joined, pattern) or fnmatch.fnmatchcase(joined, pattern + " *")
+
+
+def gated(config: dict, command: str) -> list[dict]:
+    """Every (resource, simple command, cd target) a shell line touches, in order."""
+    hits = []
+    for words, cd_target in simple_commands(command):
+        words = normalise(words)
+        for name, spec in resources(config).items():
+            gates = spec.get("gate") if isinstance(spec, dict) else None
+            if not isinstance(gates, list):
+                continue
+            if any(isinstance(g, str) and gate_matches(g, words) for g in gates):
+                hits.append({"resource": name, "command": " ".join(words), "cd": cd_target})
+    return hits
+
+
+def runs_in(cwd: str | None, cd_target: str | None) -> str | None:
+    if cd_target is None:
+        return cwd
+    if cwd is None or re.search(r"[$`]", cd_target) or cd_target == "-":
+        return None
+    return os.path.normpath(os.path.join(cwd, os.path.expanduser(cd_target)))
+
+
+# ---------------------------------------------------------------- probes
+
+
+def sh(argv: list[str], timeout: int = 8, cwd: str | Path | None = None) -> tuple[int, str]:
+    try:
+        done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, cwd=cwd)
+    except FileNotFoundError:
+        return 127, f"{argv[0]} not installed"
+    except subprocess.SubprocessError as error:
+        return 124, str(error)
+    return done.returncode, (done.stdout + done.stderr).strip()
+
+
+# ---------------------------------------------------------------- browsers a session left open
+
+# The Playwright MCP plugin runs as `npm exec @playwright/mcp` under the session's claude process, starts a
+# `playwright-mcp` node server, and that server launches the browser; the browser lives until the session
+# calls browser_close or exits. So a browser is traced to its session by walking the parent chain from the
+# process whose parent is the server up to a pid the registry knows.
+PLAYWRIGHT_SERVER = "playwright-mcp"
+BROWSER_WORDS = ("Google Chrome", "Chromium", "chrome", "Microsoft Edge", "firefox", "Firefox", "webkit", "WebKit")
+
+
+def parse_process_table(text: str) -> list[dict]:
+    """`ps -axo pid=,ppid=,etime=,command=` as rows of {pid, ppid, etime, command}; etime stays as ps prints it (mm:ss, hh:mm:ss or d-hh:mm:ss)."""
+    rows = []
+    for line in text.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) < 4 or not parts[0].isdigit() or not parts[1].isdigit():
+            continue
+        rows.append({"pid": int(parts[0]), "ppid": int(parts[1]), "etime": parts[2], "command": parts[3]})
+    return rows
+
+
+def process_table() -> list[dict]:
+    """Every process on the machine; empty when ps is unavailable or refused."""
+    code, out = sh(["ps", "-axo", "pid=,ppid=,etime=,command="])
+    return parse_process_table(out) if code == 0 else []
+
+
+def open_browsers(procs: list[dict], live: dict[str, dict]) -> list[dict]:
+    """Browsers a Playwright server launched for a live session: {session_id, pid, etime, browser} per browser.
+
+    Only the browser's main process counts (its parent is the server); its helpers have the browser as
+    parent and are skipped, as is any browser whose chain reaches no registered session.
+    """
+    by_pid = {p["pid"]: p for p in procs}
+    owners = {int(row["pid"]): sid for sid, row in live.items() if row.get("pid")}
+    hits = []
+    for proc in procs:
+        parent = by_pid.get(proc["ppid"])
+        if not parent or PLAYWRIGHT_SERVER not in parent["command"] or not any(word in proc["command"] for word in BROWSER_WORDS):
+            continue
+        pid = parent["ppid"]
+        seen: set[int] = set()
+        while pid in by_pid and pid not in owners and pid not in seen:
+            seen.add(pid)
+            pid = by_pid[pid]["ppid"]
+        if pid in owners:
+            # the arguments go first and carry the profile path (Chromium's `--user-data-dir=<dir>`, Firefox's single-dash
+            # `-profile <dir>`), so cut at the first flag of either shape before taking the executable's last path segment
+            browser = re.split(r" --?[A-Za-z]", proc["command"], maxsplit=1)[0].split("/")[-1].strip()
+            hits.append({"session_id": owners[pid], "pid": proc["pid"], "etime": proc["etime"], "browser": browser})
+    return hits
+
+
+# two psql probes plus the gh lookups share the mod's 20-second limit on `status --probe`
+PSQL_PROBE_SECONDS = 3
+
+
+def probe_resource(name: str, spec: dict) -> dict:
+    """What the machine says about a resource right now; never trusts a message."""
+    probe = spec.get("probe") if isinstance(spec, dict) else None
+    result = {"resource": name, "busy": False, "checks": []}
+    if not isinstance(probe, dict):
+        result["checks"].append({"kind": "none", "detail": "no probe configured"})
+        return result
+    for port in probe.get("ports", []) or []:
+        code, out = sh(["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"])
+        lines = [line for line in out.splitlines()[1:] if line.strip()] if code == 0 else []
+        busy = bool(lines)
+        result["checks"].append({"kind": "port", "port": port, "busy": busy, "detail": lines[0][:120] if lines else "free"})
+        result["busy"] |= busy
+    pattern = probe.get("pgrep")
+    if isinstance(pattern, str) and pattern:
+        code, out = sh(["pgrep", "-fl", pattern])
+        procs = [line for line in out.splitlines() if line.strip() and "pgrep" not in line] if code == 0 else []
+        result["checks"].append({"kind": "process", "pattern": pattern, "busy": bool(procs), "detail": procs[0][:120] if procs else "none"})
+        result["busy"] |= bool(procs)
+    activity = probe.get("pg_activity")
+    if isinstance(activity, dict) and activity.get("dsn"):
+        ignore = ",".join("'%s'" % u for u in activity.get("ignore_users", []) or []) or "''"
+        idle = ",".join("'%s'" % u for u in activity.get("ignore_idle_users", []) or []) or "''"
+        query = (
+            "select count(*) from pg_stat_activity where datname=%s and backend_type='client backend' "
+            "and usename not in (%s) and not (usename in (%s) and state='idle') and pid<>pg_backend_pid()"
+            % ("'%s'" % activity.get("database", "postgres"), ignore, idle)
+        )
+        code, out = sh(["psql", activity["dsn"], "-Atc", query], timeout=PSQL_PROBE_SECONDS)
+        if code == 0 and out.strip().isdigit():
+            clients = int(out.strip())
+            result["checks"].append({"kind": "pg_activity", "busy": clients > 0, "detail": f"{clients} client connection(s)"})
+            result["busy"] |= clients > 0
+        else:
+            result["checks"].append({"kind": "pg_activity", "busy": False, "detail": f"unreachable: {out[:100] or 'no output'}"})
+    migrations = probe.get("migrations")
+    if isinstance(migrations, dict) and migrations.get("dsn"):
+        table = migrations.get("table", "supabase_migrations.schema_migrations")
+        code, out = sh(["psql", migrations["dsn"], "-Atc", f"select coalesce(max(version),'none') from {table}"], timeout=PSQL_PROBE_SECONDS)
+        result["checks"].append({"kind": "migrations", "busy": False, "detail": f"latest applied: {out.strip()[:40]}" if code == 0 else f"unreachable: {out[:100]}"})
+    return result
+
+
+# ---------------------------------------------------------------- status
+
+
+PR_CACHE_SECONDS = 60
+PR_LOOKUP_SECONDS = 3
+
+
+def pr_states(ledger: Ledger, numbers: set[int]) -> dict[int, str]:
+    """GitHub's word on each PR (OPEN, MERGED, CLOSED), cached so a 15-second board does not ask every tick; a PR gh cannot read is left out, and once a lookup hangs the rest skip gh and answer from the cache alone."""
+    cache_path = ledger.dir / "pr-cache.json"
+    cache = read_json(cache_path, {}) or {}
+    found: dict[int, str] = {}
+    changed = False
+    hanging = False
+    for number in sorted(numbers):
+        hit = cache.get(str(number)) or {}
+        if hit.get("state") and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
+            found[number] = hit["state"]
+            continue
+        if hanging:
+            continue  # gh is hanging, so the rest would too; the next tick retries
+        code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(ledger.main), "--json", "state", "-q", ".state"], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
+        if code == 124:
+            hanging = True
+            continue
+        state = out.strip().upper()
+        if code == 0 and state in ("OPEN", "MERGED", "CLOSED"):
+            found[number] = state
+            cache[str(number)] = {"state": state, "at": now()}
+            changed = True
+    if changed and ledger.dir.is_dir():
+        write_json(cache_path, cache)
+    return found
+
+
+PR_FACT_FIELDS = "state,reviewDecision,reviewRequests,latestReviews,reviews,mergedAt,baseRefName,headRefOid,headRefName,mergeable,isDraft,statusCheckRollup,title,author"
+_CHECK_PASSING = {"SUCCESS", "SKIPPED", "NEUTRAL"}
+_CHECK_RUNNING = {"QUEUED", "IN_PROGRESS", "PENDING", "WAITING", "REQUESTED", "EXPECTED"}
+
+
+def rollup_word(rollup) -> str:
+    """GitHub's check rollup as one word: bad when any check failed, wait when any still runs, else good."""
+    failed = running = 0
+    for check in rollup or []:
+        state = str(check.get("conclusion") or check.get("state") or check.get("status") or "").upper()
+        if state in _CHECK_PASSING:
+            continue
+        if state in _CHECK_RUNNING or not state:
+            running += 1
+        else:
+            failed += 1
+    return "bad" if failed else "wait" if running else "good"
+
+
+def approved_heads(reviews) -> list[str]:
+    """The commits each reviewer's standing approval was given on: per reviewer, the latest verdict (approved, changes requested or dismissed;
+    a comment withdraws nothing), kept when it is an approval, newest first. Read from `reviews`, because gh leaves `latestReviews` without a commit oid."""
+    latest: dict[str, dict] = {}
+    for review in reviews or []:
+        if not isinstance(review, dict) or not isinstance(review.get("author"), dict):
+            continue
+        login = review["author"].get("login")
+        state = str(review.get("state") or "").upper()
+        if login and state in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED") and str(review.get("submittedAt") or "") >= str((latest.get(login) or {}).get("submittedAt") or ""):
+            latest[login] = review
+    heads = []
+    for review in sorted(latest.values(), key=lambda r: str(r.get("submittedAt") or ""), reverse=True):
+        oid = str((review.get("commit") or {}).get("oid") or "") if isinstance(review.get("commit"), dict) else ""
+        if str(review.get("state")).upper() == "APPROVED" and oid and oid not in heads:
+            heads.append(oid)
+    return heads
+
+
+def approval_is_current(approved_head: str, fact: dict | None) -> bool:
+    """An approval still covers the PR when it was given on the head, or when a reviewer has since approved the head itself:
+    GitHub keeps APPROVED across a push, so the decision alone cannot tell a re-approval from an approval that predates the push."""
+    head = (fact or {}).get("head") or ""
+    return not approved_head or not head or approved_head == head or head in ((fact or {}).get("approved_heads") or [])
+
+
+def last_approved_head(approved_head: str, fact: dict | None) -> str:
+    """The newest commit a reviewer approved: a re-approval after a push leaves the recorded head behind, and the diff owed a fresh look starts here."""
+    return next(iter((fact or {}).get("approved_heads") or []), "") or approved_head
+
+
+def normalise_pr_facts(raw: dict) -> dict:
+    """The few facts reconcile needs from `gh pr view --json`, in one flat shape: a requested reviewer is a login or a team slug, and the latest reviews are split by their verdict."""
+    requested = []
+    for item in raw.get("reviewRequests") or []:
+        if isinstance(item, dict):
+            who = item.get("login") or item.get("slug") or item.get("name")
+            if who:
+                requested.append(str(who))
+    by_state: dict[str, list[str]] = {"CHANGES_REQUESTED": [], "APPROVED": []}
+    for review in raw.get("latestReviews") or []:
+        if not isinstance(review, dict):
+            continue
+        state = str(review.get("state") or "").upper()
+        login = (review.get("author") or {}).get("login") if isinstance(review.get("author"), dict) else None
+        if state in by_state and login:
+            by_state[state].append(str(login))
+    return {
+        "approved_heads": approved_heads(raw.get("reviews")),
+        "state": str(raw.get("state") or "").upper(),
+        "review_decision": str(raw.get("reviewDecision") or "").upper(),
+        "requested": requested,
+        "changes_requested_by": by_state["CHANGES_REQUESTED"],
+        "approved_by": by_state["APPROVED"],
+        "merged_at": raw.get("mergedAt"),
+        "base": str(raw.get("baseRefName") or ""),
+        "head": str(raw.get("headRefOid") or ""),
+        "head_branch": str(raw.get("headRefName") or ""),
+        "mergeable": str(raw.get("mergeable") or "").upper(),
+        "draft": bool(raw.get("isDraft")),
+        "checks": rollup_word(raw.get("statusCheckRollup")),
+        "title": str(raw.get("title") or ""),
+        "author": str((raw.get("author") or {}).get("login") or "") if isinstance(raw.get("author"), dict) else "",
+    }
+
+
+def pr_facts(ledger: Ledger, numbers: set[int], fresh: set[int] | None = None) -> dict[int, dict]:
+    """What GitHub says about each PR beyond its state: who it waits on. Cached and hang-guarded like pr_states, in its own file; a PR gh cannot read is left out. A number in `fresh` is asked of gh whatever the cache holds: a decision that removes something (retire) is not taken on a minute-old answer."""
+    cache_path = ledger.dir / "pr-facts.json"
+    cache = read_json(cache_path, {}) or {}
+    found: dict[int, dict] = {}
+    changed = False
+    hanging = False
+    for number in sorted(numbers):
+        hit = cache.get(str(number)) or {}
+        if number not in (fresh or set()) and isinstance(hit.get("facts"), dict) and now() - hit.get("at", 0) < PR_CACHE_SECONDS:
+            found[number] = hit["facts"]
+            continue
+        if hanging:
+            continue
+        code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(ledger.main), "--json", PR_FACT_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=ledger.main)
+        if code == 124:
+            hanging = True
+            continue
+        if code != 0:
+            continue
+        try:
+            raw = json.loads(out)
+        except ValueError:
+            continue
+        if not isinstance(raw, dict):
+            continue
+        facts = normalise_pr_facts(raw)
+        if facts["state"] not in ("OPEN", "MERGED", "CLOSED"):
+            continue
+        found[number] = facts
+        cache[str(number)] = {"facts": facts, "at": now()}
+        changed = True
+    if changed and ledger.dir.is_dir():
+        write_json(cache_path, cache)
+    return found
+
+
+# how long a merged task's worktree may sit before reconcile nudges the coordinator to retire it
+RETIRE_NUDGE_SECONDS = 60 * 60
+# the context fill from which reconcile asks for a compaction: the pane's amber threshold
+CONTEXT_NUDGE_PERCENT = 70
+
+
+def merged_at(facts: dict | None) -> float | None:
+    """When GitHub says the PR merged, as a timestamp; None when it has not or the date is unreadable."""
+    raw = (facts or {}).get("merged_at")
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def waiting_on(facts: dict | None, mode: str | None = None) -> str:
+    """Who a PR waits on, in the words the board may repeat; never a guess at the user. On a solo project nobody is waited for: the merge is the user's."""
+    if not facts:
+        return "unknown (gh did not answer)"
+    if facts["state"] == "MERGED":
+        return "merged"
+    if facts["state"] == "CLOSED":
+        return "closed"
+    if facts["requested"]:
+        return "waiting on " + ", ".join(facts["requested"])
+    if facts["changes_requested_by"]:
+        return "changes requested by " + ", ".join(facts["changes_requested_by"])
+    if facts["review_decision"] == "APPROVED" or facts["approved_by"]:
+        return "approved; the merge is the user's"
+    if mode == "solo":
+        return "solo project; the merge is the user's"
+    return "no reviewer requested"
+
+
+def migration_stamp(name: str) -> str | None:
+    """The leading timestamp of a migration filename (`20261115100000_add_x.sql`), or None for a file that is not one."""
+    match = re.match(r"(\d{8,})_", Path(name).name)
+    return match.group(1) if match else None
+
+
+def lowest_migration(names: list[str]) -> str | None:
+    stamps = [stamp for stamp in map(migration_stamp, names) if stamp]
+    return min(stamps) if stamps else None
+
+
+def hold_lifted(hold: dict | None, states: dict[int, str], open_needs: set[int]) -> bool:
+    """A hold is lifted when every condition it names has happened: a PR merged or a need closed. A hold that names none never lifts by itself."""
+    conditions = (hold or {}).get("lifts_on") or []
+    if not conditions:
+        return False
+    for cond in conditions:
+        if cond.get("pr") is not None and states.get(int(cond["pr"])) != "MERGED":
+            return False
+        if cond.get("need") is not None and int(cond["need"]) in open_needs:
+            return False
+    return True
+
+
+def hold_lift_prs(pr_rows: dict[int, dict]) -> set[int]:
+    """Every PR a recorded hold waits on. They are read for their state alone, so a hold on a PR outside the run lifts when it merges, and never drawn as rows."""
+    return {int(cond["pr"]) for row in pr_rows.values() if not row.get("ignored")
+            for cond in (row.get("hold") or {}).get("lifts_on") or [] if cond.get("pr") is not None}
+
+
+def stack_below(number: int, facts: dict[int, dict], heads: dict[str, int]) -> list[int]:
+    """The open PRs under this one, nearest first: each layer's base branch is the head branch of the PR below it. `heads` maps a head branch to its PR number."""
+    below: list[int] = []
+    seen = {number}
+    current = facts.get(number) or {}
+    while True:
+        parent = heads.get(current.get("base") or "")
+        if parent is None or parent in seen:
+            return below
+        below.append(parent)
+        seen.add(parent)
+        current = facts.get(parent) or {}
+
+
+def open_pr_listing(ledger: Ledger) -> list[dict] | None:
+    """Every open PR in the repository with its head and base branch, in one gh call; None when gh does not answer."""
+    code, out = sh(["gh", "pr", "list", "--state", "open", "--limit", "200", *gh_repo_args(ledger.main), "--json", "number,headRefName,baseRefName"], timeout=PR_LOOKUP_SECONDS * 4, cwd=ledger.main)
+    if code != 0:
+        return None
+    try:
+        rows = json.loads(out)
+    except ValueError:
+        return None
+    return [r for r in rows if isinstance(r, dict) and isinstance(r.get("number"), int)] if isinstance(rows, list) else None
+
+
+def branch_key(branch: str) -> str | None:
+    """The task key a branch name carries after its prefix: `feat/bsu-corpus-survey` gives `bsu`."""
+    match = re.match(r"[^/]+/([A-Za-z0-9]+)-", branch or "")
+    return match.group(1).lower() if match else None
+
+
+def attribute_prs(run: dict, sessions: dict[str, dict], prs: dict[int, dict], listing: list[dict]) -> dict[int, str]:
+    """Open PRs nobody recorded, given to a task when the evidence is unambiguous: a session's own PR or watched PR, a head branch that is a planned branch,
+    the planned branch's key after its prefix (one task per key) or a base branch that is the head of a PR already given to a task. Pure; returns {number: task}."""
+    known = {n for n in prs}
+    found: dict[int, str] = {}
+    for row in sessions.values():
+        for number in (row.get("pr"), (row.get("watch") or {}).get("pr")):
+            if number and int(number) not in known and row.get("task"):
+                found.setdefault(int(number), row["task"])
+    by_branch = {e.get("branch"): e.get("task") for e in run.get("crew", []) if e.get("branch") and e.get("task")}
+    keys: dict[str, set[str]] = {}
+    for branch, task in by_branch.items():
+        if branch_key(branch):
+            keys.setdefault(branch_key(branch), set()).add(task)
+    open_numbers = {int(p["number"]) for p in listing}
+    found = {n: t for n, t in found.items() if n in open_numbers}
+    for pr in listing:
+        number = int(pr["number"])
+        if number in known or number in found:
+            continue
+        head = pr.get("headRefName") or ""
+        tasks = keys.get(branch_key(head) or "", set())
+        if head in by_branch:
+            found[number] = by_branch[head]
+        elif len(tasks) == 1:
+            found[number] = next(iter(tasks))
+    head_task = {pr.get("headRefName"): (prs.get(int(pr["number"])) or {}).get("task") or found.get(int(pr["number"])) for pr in listing}
+    changed = True
+    while changed:
+        changed = False
+        for pr in listing:
+            number = int(pr["number"])
+            if number in known or number in found:
+                continue
+            task = head_task.get(pr.get("baseRefName"))
+            if task:
+                found[number] = task
+                head_task[pr.get("headRefName")] = task
+                changed = True
+    return found
+
+
+def who_moves_next(number: int, prs: dict[int, dict], facts: dict[int, dict], sessions_by_task: dict[str, dict], needs: list[dict], migrations: dict[int, str | None] | None = None, _depth: int = 0, states: dict[int, str] | None = None) -> dict:
+    """Who acts next on an open PR, derived and never guessed: {actor, kind, why}, kind one of jason, reviewer, session, hold, ci, author.
+    Order: a hold, an open need tied to this PR, then the PR's own work (checks, changes, review); only a PR whose own work is done takes the layer below's who ("lands after #n"), then the merge.
+    A merge whose migrations sort after another stack's carries a `cost` naming the PRs that would restamp; holds come only from a recorded hold.
+    `facts` is normalise_pr_facts per PR plus head_branch, mergeable, draft and checks ("good", "wait", "bad"). `migrations` maps each PR to the lowest
+    unlanded migration its stack carries (None when the scan failed); an earlier one in another stack, or a missing scan, adds a `cost` to the merge and never holds it.
+    `states` is every PR's state the hold check may read, the PRs a hold waits on included; it defaults to the states in `facts`, which alone shape stacks."""
+    migrations = migrations or {}
+    if states is None:
+        states = {n: (f or {}).get("state", "") for n, f in facts.items()}
+    row = prs.get(number) or {}
+    fact = facts.get(number)
+    if not fact:
+        return {"actor": "unknown", "kind": "author", "why": "gh did not answer"}
+    live_needs = [n for n in needs if n.get("status") not in ("done", "superseded")]
+    hold = row.get("hold")
+    if hold and not hold_lifted(hold, states, {n["n"] for n in live_needs}):
+        return {"actor": "hold", "kind": "hold", "why": hold_text(hold)}
+    mine = [n for n in live_needs if n.get("pr") == number]
+    if mine:
+        return {"actor": "the human", "kind": "jason", "why": f"tribute #{mine[0].get('n')}: {str(mine[0].get('why') or '')[:80]}"}
+    heads = {f["head_branch"]: n for n, f in facts.items() if f and f.get("head_branch")}
+    ready = fact.get("review_decision") == "APPROVED" and not fact.get("changes_requested_by") and fact.get("checks") == "good" and fact.get("mergeable") != "CONFLICTING" and not fact.get("draft")
+    approval = row.get("approval") or {}
+    if ready and not approval_is_current(approval.get("head") or "", fact):
+        # GitHub keeps APPROVED across a push unless stale reviews are dismissed; code the reviewer has not seen is not the user's to merge
+        return {"actor": ", ".join(fact.get("approved_by") or []) or "reviewer", "kind": "reviewer", "why": f"approved at {last_approved_head(approval['head'], fact)[:7]}, head now {fact['head'][:7]}; a fresh look is owed"}
+    if ready:
+        below = [n for n in stack_below(number, facts, heads) if (facts.get(n) or {}).get("state") == "OPEN"]
+        if below and _depth < 8:
+            blocker = below[-1]
+            inherited = who_moves_next(blocker, prs, facts, sessions_by_task, needs, migrations, _depth + 1, states=states)
+            return {**inherited, "why": f"lands after #{blocker}: {inherited['why']}"}
+        merge = {"actor": "the human", "kind": "jason", "why": "approved, checks green, mergeable; the merge is yours"}
+        # migration order is a cost, never a block: CI wants each branch's migrations after the newest on main, so a stack that lands
+        # second with lower timestamps restamps them. A hold for order is a decision, recorded with prs hold like any other
+        if number in migrations and migrations[number] is None:
+            return {**merge, "cost": "restamp cost unknown: the migration scan is missing for this head"}
+        stamp = migrations.get(number)
+        later = sorted(o for o, st in migrations.items() if o != number and st and stamp and st < stamp and (facts.get(o) or {}).get("state") == "OPEN" and not stack_shares(o, number, facts, heads))
+        if later:
+            return {**merge, "cost": "landing this first makes " + ", ".join(f"#{o}" for o in later) + " restamp"}
+        return merge
+    if fact.get("checks") == "bad":
+        return {"actor": "CI", "kind": "ci", "why": "checks failing"}
+    if fact.get("checks") == "wait":
+        return {"actor": "CI", "kind": "ci", "why": "checks running"}
+    outside = row.get("task") is None
+    owner_name = (fact.get("author") or "author") if outside else ((sessions_by_task.get(row.get("task") or "") or {}).get("name") or row.get("task") or "author")
+    if fact.get("mergeable") == "CONFLICTING":
+        return {"actor": owner_name, "kind": "author" if outside else "session", "why": "conflicts with its base; a rebase comes first"}
+    if fact.get("changes_requested_by"):
+        return {"actor": owner_name, "kind": "author" if outside else "session", "why": "changes requested by " + ", ".join(fact["changes_requested_by"])}
+    if fact.get("requested"):
+        return {"actor": ", ".join(fact["requested"]), "kind": "reviewer", "why": "waiting for a review"}
+    if outside:
+        return {"actor": owner_name, "kind": "author", "why": "not in the raid; no review requested, so the author moves"}
+    return {"actor": "reviewer", "kind": "reviewer", "why": "no reviewer requested"}
+
+
+def stack_shares(a: int, b: int, facts: dict[int, dict], heads: dict[str, int]) -> bool:
+    """True when two PRs sit in one stack (one is under the other): a migration in the same stack is its own layer's business."""
+    return a in stack_below(b, facts, heads) or b in stack_below(a, facts, heads)
+
+
+# goblin-scout keeps its roadbook in .claude/roadbook.json; a repo that has not migrated still has
+# .claude/roadmaps.json, with the same field names. Both are read, the new name first.
+ROADBOOK_RELS = (".claude/roadbook.json", ".claude/roadmaps.json")
+
+
+def has_roadbook(main: Path) -> bool:
+    """Whether the main checkout keeps a goblin-scout roadbook under either name."""
+    return any((main / rel).is_file() for rel in ROADBOOK_RELS)
+
+
+def roadmap_task(main: Path, task: str, ref: str = "origin/main") -> dict | str | None:
+    """The waypoint's row in the roadbook at a ref; "unlisted" when the task is not in that roadbook, None when the repo has no rich roadbook, the ref does not resolve or the file there is not a roadbook.
+    At the ref the new file name is read first and the old one second, since a branch cut before the move still carries roadmaps.json."""
+    if not has_roadbook(main):
+        return None
+    if run_git(main, "rev-parse", "--verify", "--quiet", ref) is None:
+        return None
+    # the first name at the ref that parses as a roadbook: a roadbook.json that does not parse falls back to roadmaps.json
+    phases = None
+    for rel in ROADBOOK_RELS:
+        raw = run_git(main, "show", f"{ref}:{rel}")
+        if raw is None:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(parsed, list):
+            phases = parsed
+            break
+    if phases is None:
+        return None
+    for phase in phases:
+        for milestone in (phase.get("milestones") or []) if isinstance(phase, dict) else []:
+            for row in (milestone.get("tasks") or []) if isinstance(milestone, dict) else []:
+                if isinstance(row, dict) and row.get("id") == task:
+                    return row
+    return "unlisted"
+
+
+def roadmap_claim(main: Path, task: str, ref: str = "origin/main") -> bool | str | None:
+    """What the roadbook at a ref says about a waypoint's claim: True when the task carries `started` there, False when it is listed without one,
+    "unlisted" when the task is not in that roadbook at all, None when the repo has no rich roadbook, the ref does not resolve or the file there is not a roadbook.
+    The state is what counts, never which commit carried it: a claim reaches the trunk through goblin-scout:start-trail, a sync batch or a `done` batch alike, and a branch rebased past its own claim commit is in order once the trunk has the claim."""
+    row = roadmap_task(main, task, ref)
+    if row is None or row == "unlisted":
+        return row
+    return bool(row.get("started"))
+
+
+def sync_auto_needs(ledger: Ledger, run: dict, kind: str, wanted: dict[str, tuple[str, str]], sessions: dict[str, dict]) -> dict:
+    """One open need per session for a condition only the user can clear (`compact`: context past the threshold; `prompt`: sitting on a permission prompt),
+    raised by reconcile while the condition holds and closed by it once it does not. `wanted` maps a session id to (why, command)."""
+    open_auto = {n.get("auto"): n for n in run.get("needs", []) if str(n.get("auto") or "").startswith(f"{kind}:") and n.get("status") != "done"}
+    raise_for = {sid: spec for sid, spec in wanted.items() if f"{kind}:{sid}" not in open_auto}
+    close_ids = {n.get("id") for key, n in open_auto.items() if key.split(":", 1)[1] not in wanted}
+    if not raise_for and not close_ids:
+        return run
+    with ledger.locked():
+        fresh = ledger.run() or run
+        needs = fresh.setdefault("needs", [])
+        for sid, (why, command) in raise_for.items():
+            if any(n.get("auto") == f"{kind}:{sid}" and n.get("status") != "done" for n in needs):
+                continue
+            row = sessions.get(sid) or {}
+            n = 1 + max([x.get("n", 0) for x in needs] or [0])
+            need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": sid, "task": row.get("task", ""), "why": why, "command": command, "cwd": row.get("worktree") or "",
+                    "status": "open", "at": now(), "kind": "action", "for": sid, "for_task": row.get("task", ""), "supersedes": None, "auto": f"{kind}:{sid}"}
+            needs.append(need)
+            ledger.log("need", **need)
+        for need in needs:
+            if need.get("id") in close_ids and need.get("status") != "done":
+                need["status"] = "done"
+                need["done_at"] = now()
+                need["result"] = "cleared: reconcile saw the condition end"
+                ledger.log("need-done", id=need["id"], n=need["n"], result_chars=0, superseded_by=None)
+        ledger.save_run(fresh)
+    return fresh
+
+
+def adopt_pr_records(ledger: Ledger, run: dict, sessions: dict[str, dict]) -> tuple[dict, dict[int, dict], list[dict] | None]:
+    """Reconcile's writes to the PR records: an open PR nobody recorded goes to the task the evidence names, and an approval head or hold
+    still on a pending item moves onto its PR's file. Returns the run as saved, the PR records and gh's listing of open PRs (None when gh does not answer)."""
+    # every PR the run knows of: a session's focus, its watcher's PR and each prs/<n>.json; one listing of open PRs finds the ones nobody recorded
+    pr_rows = ledger.prs()
+    listing = open_pr_listing(ledger)
+    found = attribute_prs(run, sessions, pr_rows, listing) if listing is not None else {}
+    # moving holds and approvals onto PR records needs only the ledger, so it runs whether or not gh answers
+    unrecorded_approval = any(p.get("kind") == "approval" and p.get("status") == "open" and str(p.get("pr") or "").isdigit() and p.get("head")
+                              and not (pr_rows.get(int(p["pr"])) or {}).get("approval") for p in run.get("pending", []))
+    if not (found or unrecorded_approval or any(item.get("hold") for item in run.get("pending", []))):
+        return run, pr_rows, listing
+    with ledger.locked():
+        pr_rows = ledger.prs()
+        for number, task in (attribute_prs(run, sessions, pr_rows, listing).items() if listing is not None else ()):
+            pr_rows[number] = {"number": number, "task": task, "at": now(), "attributed_by": "reconcile"}
+            ledger.save_pr(pr_rows[number])
+            ledger.log("prs-attributed", pr=number, task=task)
+        fresh = ledger.run() or run
+        for item in fresh.get("pending", []):
+            if not str(item.get("pr") or "").isdigit():
+                continue
+            number = int(item["pr"])
+            row = pr_rows.get(number) or {"number": number, "task": None, "at": now()}
+            changed = False
+            # an approval the watcher noted before PR records existed: its head goes on the record, so a later push reads as a fresh look owed
+            if item.get("kind") == "approval" and item.get("status") == "open" and item.get("head") and not row.get("approval"):
+                row["approval"] = {"at": item.get("at"), "head": item["head"], "by": "migrated"}
+                changed = True
+            if item.get("hold"):
+                row.setdefault("hold", {"reason": item.pop("hold"), "lifts_on": [], "at": now(), "by": "migrated"})
+                item.pop("hold", None)
+                changed = True
+            if changed:
+                pr_rows[number] = row
+                ledger.save_pr(row)
+        ledger.save_run(fresh)
+    return fresh, pr_rows, listing
+
+
+def reconcile(ledger: Ledger) -> dict:
+    """The ledger against ground truth: the live registry, GitHub's word on each PR and the branches on origin (a merged PR's base, an open PR's branch). Reports drift.
+    It writes only what the evidence settles: an approval closed once its PR lands, an open PR given to the task its branch names, a hold moved from a pending item to its PR's file."""
+    run = ledger.require_run()
+    live = registry()
+    sessions = ledger.sessions()
+    drift: list[dict] = []
+
+    def note(kind: str, detail: str, task: str = "", session_id: str = "", pr: int | None = None) -> None:
+        drift.append({"kind": kind, "task": task, "session_id": session_id, "pr": pr, "detail": detail})
+
+    for sid, row in sessions.items():
+        if sid not in live and row.get("state") != "done":
+            note("gone", f"session {row.get('name') or sid[:8]} is no longer running but its row reads {row.get('state')}", row.get("task", ""), sid, row.get("pr"))
+    compaction_wanted: dict[str, tuple[str, str]] = {}
+    for sid, row in sessions.items():
+        # a coordinator cannot compact a crew session; only the user can. A gone session's figure is stale, and `gone` already covers it
+        fill = row.get("context_percent")
+        if sid in live and row.get("state") != "done" and isinstance(fill, int) and fill >= CONTEXT_NUDGE_PERCENT:
+            window = live[sid].get("name") or row.get("name") or sid[:8]
+            compaction_wanted[sid] = (f"{window} is at context {fill}%; type /compact in that session before its next long task", "/compact")
+            note("context-high", f"session {window} at context {fill}%; only the user can compact it, so it is on the tribute list", row.get("task", ""), sid, row.get("pr"))
+    run = sync_auto_needs(ledger, run, "compact", compaction_wanted, sessions)
+    # a session on a permission prompt waits on the user as surely as a need does, and the registry says so; the window is the place to answer it
+    prompts = {sid: (f"{live[sid].get('name') or row.get('name') or sid[:8]} is waiting on a permission prompt; answer it in that session's window", "")
+               for sid, row in sessions.items() if sid in live and live[sid].get("status") == "waiting" and row.get("state") != "done"}
+    run = sync_auto_needs(ledger, run, "prompt", prompts, sessions)
+    for sid, row in sessions.items():
+        if row.get("state") == "waiting-jason" and not any(n.get("status") in ("open", "started") and sid in (n.get("session_id"), n.get("for")) for n in run.get("needs", [])):
+            note("waiting-jason-without-need", f"session {row.get('name') or sid[:8]} reads waiting-jason but nothing of its is on the tribute list; it raises the tribute (warband_tribute) or reports `waiting --on <what>`", row.get("task", ""), sid, row.get("pr"))
+    joined_tasks = {row.get("task") for row in sessions.values()}
+    for entry in run.get("crew", []):
+        task = entry.get("task", "")
+        if task and task not in joined_tasks:
+            launch = next((n for n in run.get("needs", []) if n.get("kind") == "launch" and n.get("task") == task and n.get("status") != "done"), None)
+            note("unjoined", f"task {task} is in the raiders' plan but no session has joined the ledger for it" + (f"; its launch line is tribute #{launch['n']} on the slate" if launch else ""), task)
+
+    run, pr_rows, listing = adopt_pr_records(ledger, run, sessions)
+    if listing is not None:
+        claimed = set(pr_rows) | {int(r["pr"]) for r in sessions.values() if r.get("pr")}
+        loose = sorted(int(p["number"]) for p in listing if int(p["number"]) not in claimed)
+        if loose:
+            note("pr-unattributed", "open PRs no task claims and nobody pinned: " + ", ".join(f"#{n}" for n in loose) + "; `warband.py prs add <n> --task <T>`, `prs pin <n>` to show it or `prs ignore <n>`")
+    numbers = {int(row["pr"]) for row in sessions.values() if row.get("pr")} | {n for n, r in pr_rows.items() if not r.get("ignored")}
+    facts = pr_facts(ledger, numbers)
+    # the PRs a hold waits on lend their state to the hold check alone; kept out of `facts` so the migration scan does not read them
+    lift_facts = pr_facts(ledger, hold_lift_prs(pr_rows) - numbers)
+    states = {n: f.get("state", "") for n, f in {**lift_facts, **facts}.items()}
+    open_needs = {n["n"] for n in run.get("needs", []) if n.get("status") not in ("done", "superseded") and "n" in n}
+    refresh_migrations(ledger, facts, run.get("base", {}).get("branch") or "main")
+    prs = []
+    for sid, row in sorted(sessions.items(), key=lambda item: int(item[1].get("pr") or 0)):
+        if not row.get("pr"):
+            continue
+        number = int(row["pr"])
+        fact = facts.get(number)
+        prs.append({"pr": number, "task": row.get("task", ""), "state": (fact or {}).get("state") or "UNKNOWN", "waiting_on": waiting_on(fact, (run.get("collaboration") or {}).get("mode"))})
+        if fact and fact["state"] in ("MERGED", "CLOSED") and row.get("state") != "done":
+            note(f"{fact['state'].lower()}-not-done", f"PR #{number} is {fact['state'].lower()} on GitHub but the row reads {row.get('state')}", row.get("task", ""), sid, number)
+        # a finished worktree holds its dependencies for nothing; after a while the coordinator is nudged to retire it
+        landed = merged_at(fact) if fact and fact["state"] == "MERGED" else None
+        if landed is not None and row.get("state") == "done" and not row.get("retired") and sid not in live and now() - landed > RETIRE_NUDGE_SECONDS:
+            worktree = row.get("worktree") or ""
+            if worktree and Path(worktree).is_dir() and not same_path(worktree, ledger.main):
+                note("unretired", f"done since {clock(landed)}, worktree still present; `warband.py retire {row.get('task') or sid[:8]}`", row.get("task", ""), sid, number)
+
+    # an approval the watcher noted: open until the PR lands, named until then, closed by itself once it has
+    pending_changed = False
+    for item in run.get("pending", []):
+        if item.get("kind") != "approval" or item.get("status") != "open" or not item.get("pr"):
+            continue
+        fact = facts.get(int(item["pr"]))
+        if fact and fact["state"] in ("MERGED", "CLOSED"):
+            item["status"] = "done"
+            item["done_at"] = now()
+            item["outcome"] = fact["state"].lower()
+            pending_changed = True
+            continue
+        if not fact or fact["state"] == "OPEN":
+            approved_head = item.get("head") or ""
+            current_head = (fact or {}).get("head") or ""
+            if not approval_is_current(approved_head, fact):
+                # the approval was given on a commit the branch no longer points at: a rebase or a rewrite since
+                seen = last_approved_head(approved_head, fact)
+                when = f" at {clock(item.get('at'))}" if seen == approved_head else ""
+                note("approved-stale", f"PR #{item['pr']} was last approved{when} on {seen[:7]} and the head is now {current_head[:7]}; the approval may predate a rewrite, so read the diff since before landing and ask the reviewer if it changed what they approved", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+            elif (pr_rows.get(int(item["pr"])) or {}).get("hold") and not hold_lifted(pr_rows[int(item["pr"])]["hold"], states, open_needs):
+                note("approved-held", f"PR #{item['pr']} approved at {clock(item.get('at'))} and held: {hold_text(pr_rows[int(item['pr'])]['hold'])}; `warband.py prs release {item['pr']}` when it can land", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+            else:
+                note("approved-unlanded", f"PR #{item['pr']} approved at {clock(item.get('at'))} and not landed; landing is authorised, so `/pr-land {item['pr']}`", item.get("task", ""), item.get("session_id") or "", int(item["pr"]))
+    if pending_changed:
+        with ledger.locked():
+            ledger.save_run(run)
+    for need in run.get("needs", []):
+        # a started need runs on after its session ends or its PR merges; it closes with the result, so it is never drift
+        if need.get("status") in ("done", "started"):
+            continue
+        row = sessions.get(need.get("session_id") or "", {})
+        merged = row.get("pr") and (facts.get(int(row["pr"])) or {}).get("state") == "MERGED"
+        if row.get("state") == "done" or merged:
+            why = "its session is done" if row.get("state") == "done" else f"its PR #{row.get('pr')} is merged"
+            note("need-open-after-done", f"tribute #{need.get('n')} ({need.get('why', '')[:60]}) is still open but {why}", need.get("task", ""), need.get("session_id", ""), row.get("pr"))
+
+    # The claim is read from the roadmap itself, at the ref where it ought to be: a merged PR's own
+    # base (the run's trunk, or the parent layer of a stack) and, for an open PR, the trunk first and
+    # then the PR's branch, since a branch that dropped its claim commit once the trunk carried the
+    # claim is in order. A task the roadmap does not list cannot carry a claim, so it is named once
+    # and not counted as drift. The remote-tracking refs are only as fresh as the last fetch, and a
+    # merge the user made on GitHub minutes ago is the common case, so fetch once first; a fetch that
+    # fails leaves the stale refs to answer, as before.
+    by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
+    trunk = run.get("base", {}).get("branch") or "main"
+    broken = git_problem()
+    if broken:
+        # everything above read the ledger and gh alone; the claim and roadmap checks below need history, so they wait for git
+        note("git-unavailable", broken)
+    if not broken and has_roadbook(ledger.main) and any(by_task.get(e.get("task"), {}).get("pr") for e in run.get("crew", [])):
+        run_git(ledger.main, "fetch", "--quiet", "origin")
+    found_config = find_config(ledger.main)
+    claims_on_trunk = bool(found_config) and (found_config[1] or {}).get("claims") == "trunk-sync"
+    for entry in run.get("crew", []) if not broken else []:
+        task = entry.get("task", "")
+        row = by_task.get(task, {})
+        if not task or not row.get("pr"):
+            continue
+        if entry.get("unlisted"):
+            continue  # planned as unlisted: no waypoint on the roadbook, no claim, nothing to check
+        fact = facts.get(int(row["pr"]))
+        if not fact:
+            continue
+        if fact["state"] == "MERGED":
+            base = fact.get("base") or trunk
+            listed = roadmap_task(ledger.main, task, f"origin/{base}")
+            claim = listed if listed is None or listed == "unlisted" else bool(listed.get("started"))
+            if claim == "unlisted":
+                note("unlisted", f"not in the roadbook on origin/{base}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
+            elif claim is False:
+                note("claim-missing", f"the roadbook on origin/{base} has no claim (`started`) for {task}, though PR #{row['pr']} is merged there", task, row.get("session_id", ""), int(row["pr"]))
+            # the merge landed the work; until the roadmap on the trunk says done, the dashboard and the ready set are wrong
+            if isinstance(listed, dict) and str(listed.get("status") or "").lower() not in ("done", "out_of_scope"):
+                note("roadmap-stale", f"PR #{row['pr']} is merged into {base} but {task} reads {listed.get('status') or 'unset'} on the roadbook at origin/{base}; run /goblin-scout:tend-roadbook from the main checkout and commit it the way the project says", task, row.get("session_id", ""), int(row["pr"]))
+        elif fact["state"] == "OPEN":
+            if claims_on_trunk:
+                continue  # the project's sync writes claims to the trunk, so a branch carries none and the open PR is not drift
+            branch = row.get("branch") or entry.get("branch") or ""
+            on_trunk = roadmap_claim(ledger.main, task, f"origin/{trunk}")
+            if on_trunk is True or not branch:
+                continue
+            on_branch = roadmap_claim(ledger.main, task, f"origin/{branch}")
+            if on_branch is True:
+                continue
+            if on_trunk is None and on_branch is None:
+                continue
+            if on_trunk in ("unlisted", None) and on_branch in ("unlisted", None):
+                note("unlisted", f"not in the roadbook on origin/{trunk} or origin/{branch}, no claim expected", task, row.get("session_id", ""), int(row["pr"]))
+            else:
+                note("claim-missing", f"neither the roadbook on origin/{trunk} nor the one on origin/{branch} has a claim (`started`) for {task}", task, row.get("session_id", ""), int(row["pr"]))
+
+    # a scheduled job (a watch, a cron, a Monitor) dies with its process; one whose session is gone is named so it is re-armed or dropped
+    for sid, row in sessions.items():
+        if sid in live or row.get("retired"):  # a retired row's session is gone for good; rows retired before `retire` closed jobs still carry open ones
+            continue
+        for job in row.get("jobs") or []:
+            if job.get("status", "open") == "open":
+                note("job-orphaned", f"{job.get('kind')} job {job.get('id')} ({job.get('reason') or job.get('spec') or ''}) belongs to a session that is gone; re-arm it from the session that adopts the row, or `warband.py jobs done {job.get('id')}`", row.get("task", ""), sid, row.get("pr"))
+    # a watcher that reads `watching` but whose process is gone was killed without a word (SIGKILL cannot be caught); the session has to re-arm it
+    for sid, row in sessions.items():
+        watch = row.get("watch") or {}
+        if sid not in live or watch.get("status") != "watching" or not watch.get("pid"):
+            continue
+        try:
+            os.kill(int(watch["pid"]), 0)
+        except ProcessLookupError:
+            note("watch-dead", f"the watcher for PR #{watch.get('pr')} (pid {watch['pid']}) reads `watching` but is not running; tell the session to re-arm it", row.get("task", ""), sid, row.get("pr"))
+        except PermissionError:
+            pass
+    # a browser the Playwright plugin launched lives until browser_close or the session's exit; one still open
+    # under a session that holds no slot is a check that was never closed (three sat open for hours in November 2026)
+    holders = {slot.get("holder") for slot in ledger.slots().values()}
+    for hit in open_browsers(process_table(), live):
+        row = sessions.get(hit["session_id"])
+        if not row or hit["session_id"] in holders:
+            continue
+        note("browser-open", f"{hit['browser']} (pid {hit['pid']}, open {hit['etime']}) launched by {row.get('name') or hit['session_id'][:8]}'s Playwright server is still running and the session holds no dibs; tell it to close the browser (browser_close)", row.get("task", ""), hit["session_id"], row.get("pr"))
+    # a decision told to sessions that have not acknowledged it after a while
+    for decision in ledger.decisions():
+        told = [t for t in decision.get("told", []) if t not in decision.get("acks", [])]
+        if told and now() - decision.get("at", 0) > DECISION_ACK_SECONDS:
+            names = ", ".join(by_task.get(t, {}).get("task") or t for t in told)
+            note("decision-unacknowledged", f"ruling #{decision.get('n')} ({str(decision.get('text', ''))[:80]}) not acknowledged by {names}", "", "", None)
+    # the coordinator's own backlog: a rebind waiting on the user is drift until it is answered
+    candidate = run.get("coordinator", {}).get("rebind_candidate")
+    if candidate:
+        note("coordinator-rebind", f"the chief's session id changed (a /clear): its process is live as {candidate['session_id'][:8]}; `/reclaim-post chief` in that session", "", candidate["session_id"], None)
+    return {"run": run.get("name"), "drift": drift, "prs": prs, "at": now()}
+
+
+def print_reconcile(result: dict) -> None:
+    print("## Drift")
+    print()
+    if not result["drift"]:
+        print("nothing to reconcile")
+    for item in result["drift"]:
+        print(f"- {item.get('task') or item.get('session_id', '')[:8] or 'raid'}: {item['detail']}")
+    print()
+    print("## PRs")
+    print()
+    if not result["prs"]:
+        print("no PRs on the slate")
+    for pr in result["prs"]:
+        state = pr["state"].lower()
+        tail = "" if pr["waiting_on"] == state else f", {pr['waiting_on']}"
+        print(f"- #{pr['pr']} ({pr['task']}): {state}{tail}")
+
+
+def status_of(ledger: Ledger, config: dict | None, with_probes: bool) -> dict:
+    run = ledger.run()
+    live = registry()
+    sessions = []
+    for sid, row in ledger.sessions().items():
+        reg = live.get(sid, {})
+        sessions.append({
+            **row,
+            "live": bool(reg),
+            "name": reg.get("name") or row.get("name") or "",
+            "socket": reg.get("messagingSocketPath") or row.get("socket"),
+            "live_status": reg.get("status"),
+            # when the registry last changed its mind about the session (ms there, seconds here): a `waiting` session has sat on its prompt since then
+            "live_since": (reg.get("statusUpdatedAt") or 0) / 1000 or None,
+            "live_cwd": reg.get("cwd"),
+        })
+    slots = ledger.slots()
+    for slot in slots.values():
+        holder = ledger.sessions().get(slot.get("holder", ""), {})
+        slot["holder_task"] = holder.get("task", "")
+        slot["holder_name"] = live.get(slot.get("holder", ""), {}).get("name") or holder.get("name", "")
+        slot["overdue"] = bool(slot.get("until")) and now() > slot["until"]
+    requests = ledger.requests()
+    for req in requests:
+        who = ledger.sessions().get(req.get("session_id", ""), {})
+        req["task"] = who.get("task", "")
+        req["name"] = live.get(req.get("session_id", ""), {}).get("name") or who.get("name", "")
+    out = {
+        "slug": ledger.slug,
+        "ledger_dir": str(ledger.dir),
+        "main_checkout": str(ledger.main),
+        "config": bool(config),
+        "git_problem": git_problem(),
+        "run": run,
+        "sessions": sessions,
+        "slots": list(slots.values()),
+        "requests": requests,
+        "needs": [n for n in (run or {}).get("needs", []) if n.get("status") != "done"] if run else [],
+        "assumptions": (run or {}).get("assumptions", []) if run else [],
+        "pending": [p for p in (run or {}).get("pending", []) if p.get("status") == "open"] if run else [],
+        "decisions": ledger.decisions()[-20:] if run else [],
+        "at": now(),
+    }
+    if with_probes and run:
+        states = pr_states(ledger, {int(s["pr"]) for s in sessions if s.get("pr")})
+        for s in sessions:
+            if s.get("pr") and int(s["pr"]) in states:
+                s["pr_state"] = states[int(s["pr"])]
+    if run:
+        # the board's glance at the PR page, from the ledger and the caches alone; the tick that reads it also redraws the page
+        try:
+            _path, summary = redraw_with_summary(ledger, run)
+            if summary["totals"]["open"]:
+                out["prs"] = summary
+        except Exception:  # noqa: BLE001 - the board draws without its PR group rather than not at all
+            pass
+    if with_probes and config:
+        out["probes"] = [probe_resource(name, spec) for name, spec in resources(config).items() if not (isinstance(spec, dict) and spec.get("human_gate"))]
+    return out
+
+
+def print_status(status: dict) -> None:
+    run = status["run"]
+    if not run:
+        print(f"No raid on {status['main_checkout']}.")
+        return
+    coord = run.get("coordinator", {})
+    if status.get("git_problem"):
+        print(f"WARNING: {status['git_problem']}")
+        print()
+    approval = {"coordinator": "the chief", "user": "the human"}.get(run.get("pr_approval", "user"), run.get("pr_approval", "user"))
+    print(f"# Raid {run['name']} · since {clock(run.get('started_at'))} · base {run.get('base', {}).get('branch', '?')}@{str(run.get('base', {}).get('commit', '?'))[:8]} · chief {coord.get('name') or coord.get('session_id', '?')} · spoils approved by {approval}")
+    print()
+    # the window the user must visit first, then the board's order: what the user has to type (only while something is open), the live crew, what runs on, the machine, then the sessions that are over
+    def pr_cell(s: dict) -> str:
+        return f"{s.get('pr') or ''}{' ' + s['pr_state'].lower() if s.get('pr_state') and s['pr_state'] != 'OPEN' else ''}"
+
+    live_rows = [s for s in status["sessions"] if s.get("live")]
+    gone_rows = [s for s in status["sessions"] if not s.get("live")]
+    open_needs = [n for n in status["needs"] if n.get("status") != "started"]
+    running = [n for n in status["needs"] if n.get("status") == "started"]
+    waiting = [s for s in live_rows if s.get("live_status") == "waiting"]
+    if waiting:
+        # the registry marks a session `waiting` while it sits on a permission prompt or a question in its own
+        # window; nothing it reported shows that, and only the user can move it, so it comes before the needs
+        print("## Waiting on you")
+        print()
+        for s in waiting:
+            since = f" since {clock(s['live_since'])}" if s.get("live_since") else ""
+            print(f"- {s.get('task') or s.get('name') or s['session_id'][:8]} ({s.get('name') or s['session_id'][:8]}) sits on a permission prompt or a question in its own window{since}; answer it there")
+        print()
+    if open_needs:
+        # the line to type first, the why beneath it; a need with no line shows its why on the row
+        print("## Tribute owed")
+        print()
+        for n in open_needs:
+            tag = f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}]"
+            if n.get("command"):
+                # the directory is quoted for the shell: a checkout under a path with a space would otherwise split the cd
+                print(f"{tag} `{'cd ' + shlex.quote(n['cwd']) + ' && ' if n.get('cwd') else ''}{n['command']}`")
+                print(f"   {n['why']}")
+            else:
+                where = f" (in {n['cwd']})" if n.get("cwd") else ""
+                print(f"{tag} {n['why']}{where}")
+        print()
+    print("| Session | Task | Branch | State | Summary | PR |")
+    print("|---|---|---|---|---|---|")
+    for s in live_rows:
+        # the fill is shown for live rows only: a gone session's last figure would read as current
+        fill = f" · ctx {s['context_percent']}%" if isinstance(s.get("context_percent"), int) else ""
+        state = f"{state_word(s.get('state'))}{' · waiting on you' if s.get('live_status') == 'waiting' else ''}{fill}"
+        print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {state} | {s.get('summary', '')} | {pr_cell(s)} |")
+    if running:
+        # started by the user and still going: nothing to type, the result is what closes it
+        print()
+        print("## Tribute agreed")
+        print()
+        for n in running:
+            note = f" · {n['note']}" if n.get("note") else ""
+            print(f"{n['n']}. [{n.get('task') or n.get('session_id', '')[:8]}] {n['why']} (since {clock(n.get('started_at'))}{note})")
+    print()
+    print("| Dibs | Holder | Since | Until | What |")
+    print("|---|---|---|---|---|")
+    for slot in status["slots"]:
+        flag = " overdue" if slot.get("overdue") else ""
+        print(f"| {slot['resource']} | {slot.get('holder_task') or slot.get('holder_name') or slot['holder'][:8]} | {clock(slot.get('granted_at'))} | {clock(slot.get('until'))}{flag} | {slot.get('what', '')} |")
+    if status["requests"]:
+        print()
+        print("| Dibs called | From | Minutes | What |")
+        print("|---|---|---|---|")
+        for req in status["requests"]:
+            print(f"| {req['resource']} | {req.get('task') or req.get('name') or req['session_id'][:8]} | {req.get('minutes', '?')} | {req.get('what', '')} |")
+    if gone_rows:
+        # sessions that are over: retired once the worktree is reclaimed, else gone with the last state they reported
+        print()
+        print("## Archive")
+        print()
+        print("| Session | Task | Branch | Last state | PR |")
+        print("|---|---|---|---|---|")
+        for s in gone_rows:
+            last = state_word("retired") if s.get("retired") else f"gone ({state_word(s.get('state'))})"
+            print(f"| {s.get('name') or s['session_id'][:8]} | {s.get('task', '')} | {s.get('branch', '')} | {last} | {pr_cell(s)} |")
+    for probe in status.get("probes", []) or []:
+        checks = "; ".join(f"{c['kind']}: {c.get('detail', '')}" for c in probe["checks"])
+        print(f"probe {probe['resource']}: {'BUSY' if probe['busy'] else 'free'} ({checks})")
+
+
+# ---------------------------------------------------------------- collaboration
+
+# A project is solo or collaborative; the answer is stated in the config (or the gitignored local
+# config beside it) or inferred from the last 90 days of history and the reviews on merged PRs.
+# The run record carries one answer so every brief, skill and watcher reads the same one.
+LOCAL_CONFIG_REL = ".claude/goblin-warband.local.json"
+AUTHOR_WINDOW_DAYS = 90
+REVIEW_SAMPLE = 30
+BOT_MARKERS = ("[bot]", "dependabot", "renovate", "github-actions", "actions@github.com", "noreply@github.com", "noreply@anthropic.com", "copilot")
+DAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+DEFAULT_TEAM_HOURS = {"start": "09:00", "end": "18:00", "days": [0, 1, 2, 3, 4]}
+
+
+def is_bot(name: str, email: str = "") -> bool:
+    text = f"{name} {email}".lower()
+    return any(marker in text for marker in BOT_MARKERS)
+
+
+def git_authors(main: Path, days: int = AUTHOR_WINDOW_DAYS) -> list[dict]:
+    """Distinct human authors on the checked-out history in the window, most commits first.
+
+    One person commits under a work and a personal address, and under two spellings of
+    their name (the git config on one machine, the GitHub display name on web commits),
+    so identities are merged when they share either a name or an email: a union over the
+    two keys, with the name spelt the way it appears most often. The limit runs the other
+    way: two people committing under one shared address (a pairing or team `user.email`)
+    read as one, which leans the inference towards solo. A review by someone else on any
+    merged PR still reads the project as collaborative, and `collaboration.mode` in the
+    config overrides the inference either way.
+    """
+    out = run_git(main, "log", f"--since={days}.days", "--format=%an\t%ae")
+    parent: dict[str, str] = {}
+
+    def find(key: str) -> str:
+        while parent.setdefault(key, key) != key:
+            key = parent[key]
+        return key
+
+    def union(a: str, b: str) -> None:
+        parent[find(a)] = find(b)
+
+    seen: list[tuple[str, str]] = []
+    for line in (out or "").splitlines():
+        name, _, email = line.partition("\t")
+        name, email = name.strip(), email.strip().lower()
+        if not name or is_bot(name, email):
+            continue
+        name_key, email_key = f"n:{name.lower()}", f"e:{email}" if email else f"n:{name.lower()}"
+        union(name_key, email_key)
+        seen.append((name, email))
+    groups: dict[str, dict] = {}
+    for name, email in seen:
+        group = groups.setdefault(find(f"n:{name.lower()}"), {"names": {}, "email": email, "commits": 0})
+        group["names"][name] = group["names"].get(name, 0) + 1
+        group["commits"] += 1
+    rows = [{"name": max(g["names"], key=g["names"].get), "email": g["email"], "commits": g["commits"]} for g in groups.values()]
+    return sorted(rows, key=lambda r: -r["commits"])
+
+
+def gh_bot_reviewers(main: Path, numbers: list) -> dict[int, set[str]]:
+    """Per PR number, the logins that reviewed it as a GitHub App (`__typename` Bot); empty when gh cannot say.
+
+    `gh pr list --json reviews` strips the `[bot]` suffix, so `graphify-labs[bot]` reaches `is_bot`
+    as `graphify-labs` and passes as a person. Only GraphQL carries the account type. One aliased query
+    answers for every PR, so a repository where each merged PR is reviewed costs one gh call, not one per PR.
+    The first 100 reviews is the same page `gh pr list` reads, so no reviewer it reports is out of this one's sight.
+    A PR gh cannot answer for, or a lookup that fails outright, leaves its reviewers counted as human, which is the old behaviour."""
+    wanted = sorted({n for n in numbers if isinstance(n, int) and not isinstance(n, bool)})
+    if not wanted:
+        return {}
+    slug = gh_api_repo(main)
+    owner, _, name = slug.partition("/")
+    placeholders = slug == "{owner}/{repo}"
+    # `-F` fills gh's `{owner}` and `{repo}` placeholders but also turns `2048` or `true` into JSON types, which a `String!` refuses; a literal slug goes through `-f`
+    repo_args = ["-F", "owner={owner}", "-F", "name={repo}"] if placeholders else ["-f", f"owner={owner}", "-f", f"name={name}"]
+    pulls = "".join(f"p{n}:pullRequest(number:{n}){{reviews(first:100){{nodes{{author{{__typename login}}}}}}}}" for n in wanted)
+    argv = ["gh", "api", "graphql", *repo_args, "-f", f"query=query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{{pulls}}}}}"]
+    _, out = sh(argv, timeout=PR_LOOKUP_SECONDS, cwd=main)
+    # gh exits 1 when one alias resolves to null, but the other aliases' data is still on stdout with gh's own error line after it,
+    # so the leading JSON object is read whatever the exit code and each PR answers for itself
+    try:
+        repository = json.JSONDecoder().raw_decode(out.lstrip())[0]["data"]["repository"]
+    except (ValueError, KeyError, TypeError):
+        return {}
+    if not isinstance(repository, dict):
+        return {}
+    found: dict[int, set[str]] = {}
+    for n in wanted:
+        pull = repository.get(f"p{n}")
+        nodes = (pull.get("reviews") or {}).get("nodes") if isinstance(pull, dict) else None
+        if isinstance(nodes, list):
+            authors = [node["author"] for node in nodes if isinstance(node, dict) and isinstance(node.get("author"), dict)]
+            found[n] = {str(author["login"]) for author in authors if author.get("__typename") == "Bot" and author.get("login")}
+    return found
+
+
+def gh_merged_reviews(main: Path) -> tuple[list[dict], bool]:
+    """The last merged PRs with who reviewed each, other than its author, bot accounts left out; (rows, whether gh answered)."""
+    code, out = sh(["gh", "pr", "list", *gh_repo_args(main), "--state", "merged", "--limit", str(REVIEW_SAMPLE), "--json", "number,author,reviews"], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    if code != 0:
+        return [], False
+    try:
+        raw = json.loads(out)
+    except ValueError:
+        return [], False
+    rows = []
+    for pr in raw if isinstance(raw, list) else []:
+        if not isinstance(pr, dict):
+            continue
+        author = str((pr.get("author") or {}).get("login") or "")
+        others = []
+        for review in pr.get("reviews") or []:
+            if not isinstance(review, dict):
+                continue
+            login = str((review.get("author") or {}).get("login") or "")
+            if not login or login == author or is_bot(login):
+                continue
+            others.append({"login": login, "state": str(review.get("state") or ""), "at": review.get("submittedAt")})
+        rows.append({"number": pr.get("number"), "author": author, "others": others})
+    bots = gh_bot_reviewers(main, [row["number"] for row in rows if row["others"]])
+    for row in rows:
+        row["others"] = [o for o in row["others"] if o["login"] not in bots.get(row["number"], set())]
+    return rows, True
+
+
+def parse_days(value) -> list[int]:
+    """Weekdays as Monday=0 ints, from ints, names (`mon`) or a range (`mon-fri`)."""
+    if isinstance(value, str):
+        value = [v.strip() for v in value.split(",")]
+    days: set[int] = set()
+    for item in value or []:
+        if isinstance(item, int) and 0 <= item <= 6:
+            days.add(item)
+        elif isinstance(item, str):
+            text = item.strip().lower()[:3]
+            if "-" in item:
+                first, _, last = item.lower().partition("-")
+                a, b = DAY_NAMES.index(first.strip()[:3]), DAY_NAMES.index(last.strip()[:3])
+                days.update(range(a, b + 1) if a <= b else list(range(a, 7)) + list(range(0, b + 1)))
+            elif text in DAY_NAMES:
+                days.add(DAY_NAMES.index(text))
+    return sorted(days)
+
+
+def normalise_hours(stated) -> dict | None:
+    """A stated team-hours block as {start, end, days}; None when it is not one."""
+    if not isinstance(stated, dict):
+        return None
+    start, end = str(stated.get("start") or "09:00"), str(stated.get("end") or "18:00")
+    if not re.fullmatch(r"\d{2}:\d{2}", start) or not re.fullmatch(r"\d{2}:\d{2}", end):
+        return None
+    days = parse_days(stated.get("days")) if stated.get("days") is not None else DEFAULT_TEAM_HOURS["days"]
+    return {"start": start, "end": end, "days": days or DEFAULT_TEAM_HOURS["days"]}
+
+
+def hours_from_reviews(times: list[float]) -> dict | None:
+    """Team hours inferred from when other people reviewed, in this machine's local time, padded an hour each side; None under three samples."""
+    stamps = [time.localtime(t) for t in times if t]
+    if len(stamps) < 3:
+        return None
+    first = min(lt.tm_hour for lt in stamps)
+    last = max(lt.tm_hour for lt in stamps)
+    days = sorted({lt.tm_wday for lt in stamps}) or DEFAULT_TEAM_HOURS["days"]
+    return {"start": f"{max(0, first - 1):02d}:00", "end": f"{min(23, last + 2):02d}:00", "days": days, "from_reviews": len(stamps)}
+
+
+def iso_ts(raw) -> float | None:
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def classify(main: Path, config: dict | None) -> dict:
+    """Solo or collaborative, with the evidence: the stated answer wins when there is one and the history is read to confirm it."""
+    local = read_json(main / LOCAL_CONFIG_REL, None) or read_json(main / OLD_LOCAL_CONFIG_REL, {}) or {}
+    stated, source = None, "inferred"
+    if isinstance(local, dict) and isinstance(local.get("collaboration"), dict):
+        stated, source = local["collaboration"], "local config"
+    elif isinstance((config or {}).get("collaboration"), dict):
+        stated, source = (config or {})["collaboration"], "config"
+    authors = git_authors(main)
+    prs, answered = gh_merged_reviews(main)
+    reviewed = [p for p in prs if p["others"]]
+    review_times = [iso_ts(o["at"]) for p in reviewed for o in p["others"]]
+    inferred = "collaborative" if len(authors) >= 2 or reviewed else "solo"
+    evidence = [
+        (f"authors unknown: {git_problem()}" if git_problem() else
+         f"{len(authors)} human author{'s' if len(authors) != 1 else ''} in the last {AUTHOR_WINDOW_DAYS} days" + (": " + ", ".join(a["name"] for a in authors[:6]) if authors else "")),
+        (f"{len(reviewed)} of the last {len(prs)} merged PRs reviewed by someone other than their author" if answered else "gh could not list merged PRs, so reviews are unknown"),
+    ]
+    mode = inferred
+    stated_mode = str((stated or {}).get("mode") or "").lower()
+    if stated_mode in ("solo", "collaborative"):
+        mode = stated_mode
+        evidence.append(f"{source} says {mode}" + ("" if mode == inferred else f"; the history alone reads {inferred}"))
+    else:
+        source = "inferred"
+    hours = normalise_hours((stated or {}).get("hours")) if stated else None
+    if hours is None and mode == "collaborative":
+        hours = hours_from_reviews([t for t in review_times if t]) or dict(DEFAULT_TEAM_HOURS)
+        hours_word = "from the timestamps of the reviews by others" if hours.get("from_reviews") else "defaulted to 09:00 to 18:00, Monday to Friday"
+        evidence.append(f"team hours {hours_word}; set collaboration.hours in the config to state them")
+    if mode == "solo":
+        hours = None
+    return {
+        "mode": mode, "source": source, "inferred": inferred, "authors": [a["name"] for a in authors], "reviewed_by_others": len(reviewed),
+        "prs_sampled": len(prs), "gh_answered": answered, "hours": hours, "timezone": time.strftime("%Z"), "evidence": evidence, "at": now(),
+    }
+
+
+def minutes_of(hhmm: str) -> int:
+    hours, _, minutes = hhmm.partition(":")
+    return int(hours) * 60 + int(minutes)
+
+
+def in_window(hours: dict | None, at: float) -> bool:
+    """Whether a reviewer could plausibly answer at this moment: no hours means always."""
+    if not hours:
+        return True
+    lt = time.localtime(at)
+    if lt.tm_wday not in hours.get("days", DEFAULT_TEAM_HOURS["days"]):
+        return False
+    return minutes_of(hours["start"]) <= lt.tm_hour * 60 + lt.tm_min < minutes_of(hours["end"])
+
+
+def window_opens(hours: dict | None, at: float) -> float:
+    """The next moment the window is open, this one included."""
+    if in_window(hours, at):
+        return at
+    probe = at - (at % 60)
+    for _ in range(8 * 24 * 60):
+        probe += 60
+        if in_window(hours, probe):
+            return probe
+    return at
+
+
+def print_classification(result: dict) -> None:
+    hours = result.get("hours")
+    window = f"{hours['start']} to {hours['end']} on {', '.join(DAY_NAMES[d] for d in hours['days'])} ({result.get('timezone')})" if hours else "none: nobody to wait for"
+    print(f"{result['mode']} ({result['source']}); team hours: {window}")
+    for line in result.get("evidence", []):
+        print(f"- {line}")
+
+
+# ---------------------------------------------------------------- PR watching
+
+WATCH_FIELDS = "state,reviewDecision,reviews,comments,statusCheckRollup,mergedAt,url,title,headRefOid"
+WATCH_FAILURES_TOLERATED = 3
+
+
+def check_word(entry: dict) -> str:
+    """One word for a check run or status context, as pr-land reads them."""
+    if entry.get("status") and str(entry.get("status")).upper() != "COMPLETED":
+        return str(entry["status"]).lower()
+    return str(entry.get("conclusion") or entry.get("state") or "unknown").lower()
+
+
+def pr_snapshot(main: Path, number: int) -> dict | None:
+    """What the watcher compares between polls: state, decision, the reviews by login, comment counts and each check's word. None when gh did not answer."""
+    # the repository is named outright: a `gh pr view` that has to ask git for it dies with git, and the watcher is the thing that must keep running
+    code, out = sh(["gh", "pr", "view", str(number), *gh_repo_args(main), "--json", WATCH_FIELDS], timeout=PR_LOOKUP_SECONDS, cwd=main)
+    if code != 0:
+        return None
+    try:
+        raw = json.loads(out)
+    except ValueError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    reviews = []
+    for review in raw.get("reviews") or []:
+        if isinstance(review, dict):
+            reviews.append({"login": str((review.get("author") or {}).get("login") or "?"), "state": str(review.get("state") or ""), "at": review.get("submittedAt")})
+    checks = {}
+    for entry in raw.get("statusCheckRollup") or []:
+        if isinstance(entry, dict):
+            checks[str(entry.get("name") or entry.get("context") or entry.get("workflowName") or "check")] = check_word(entry)
+    # every page, one id per line: a single page stops at 30 and a busy PR would read a constant from then on
+    code, out = sh(["gh", "api", "--paginate", f"repos/{gh_api_repo(main)}/pulls/{number}/comments", "--jq", ".[].id"], timeout=PR_LOOKUP_SECONDS * 2, cwd=main)
+    review_comments = len(out.split()) if code == 0 else None
+    return {
+        "state": str(raw.get("state") or "").upper(),
+        "decision": str(raw.get("reviewDecision") or ""),
+        "reviews": reviews,
+        "comments": len(raw.get("comments") or []),
+        "review_comments": review_comments,
+        "checks": checks,
+        "merged_at": raw.get("mergedAt"),
+        "head": str(raw.get("headRefOid") or ""),
+        "url": str(raw.get("url") or ""),
+        "title": str(raw.get("title") or ""),
+        "at": now(),
+    }
+
+
+def snapshot_changes(before: dict, after: dict) -> list[str]:
+    """What changed between two snapshots, one line each, in the words the crew session will repeat."""
+    lines = []
+    if before.get("state") != after.get("state"):
+        lines.append(f"state {before.get('state') or '?'} -> {after.get('state')}")
+    if before.get("decision") != after.get("decision"):
+        lines.append(f"review decision {before.get('decision') or 'none'} -> {after.get('decision') or 'none'}")
+    seen = {(r["login"], r["state"], r.get("at")) for r in before.get("reviews", [])}
+    for review in after.get("reviews", []):
+        if (review["login"], review["state"], review.get("at")) not in seen:
+            lines.append(f"review by {review['login']}: {review['state'].lower().replace('_', ' ')}")
+    for key, label in (("review_comments", "review comment"), ("comments", "comment")):
+        was, is_ = before.get(key), after.get(key)
+        if isinstance(was, int) and isinstance(is_, int) and is_ > was:
+            lines.append(f"{is_ - was} new {label}{'s' if is_ - was != 1 else ''}")
+    for name, word in after.get("checks", {}).items():
+        old = before.get("checks", {}).get(name)
+        if old != word:
+            lines.append(f"check {name}: {old or 'new'} -> {word}")
+    return lines
+
+
+def terminal(snapshot: dict | None) -> bool:
+    return bool(snapshot) and snapshot.get("state") in ("MERGED", "CLOSED")
+
+
+def summarise_snapshot(snapshot: dict) -> str:
+    checks = snapshot.get("checks") or {}
+    words = sorted(set(checks.values()))
+    check_text = f"{len(checks)} check{'s' if len(checks) != 1 else ''}: {', '.join(words)}" if checks else "no checks"
+    reviews = ", ".join(f"{r['login']} {r['state'].lower().replace('_', ' ')}" for r in snapshot.get("reviews", [])) or "no reviews"
+    return f"{snapshot.get('state', '?').lower()}, decision {snapshot.get('decision') or 'none'}, {reviews}, {snapshot.get('comments', 0)} comments, {snapshot.get('review_comments') if snapshot.get('review_comments') is not None else '?'} review comments, {check_text}"
+
+
+# ---------------------------------------------------------------- commands
+
+
+def cmd_detect(args) -> int:
+    found = find_config(args.cwd)
+    if not found:
+        print(f"✗ no {CONFIG_REL} above {args.cwd}")
+        return 2
+    print(found[0])
+    return 0
+
+
+def cmd_init(args) -> int:
+    root = toplevel(args.cwd) or Path(args.cwd)
+    target = root / CONFIG_REL
+    if target.exists() and not args.force:
+        raise Refusal(f"{target} exists; pass --force to overwrite it")
+    # a starter under the new name is read first and would shadow the real config, and the gates with it (review 5981937523)
+    if (root / OLD_CONFIG_REL).exists() and not args.force:
+        # never "rename it": a rename by hand takes the gates from a session still on 0.13.1 (review 5983523136)
+        raise Refusal(f"{root / OLD_CONFIG_REL} is this repository's config under its old name, and the warband reads it there; "
+                      f"leave it where it is while any session still runs mission-control (where git ignores both names the move takes care of it, "
+                      f"leaving a link, once no raid is live in the old ledger; otherwise /read-slate says what to do). Pass --force only to write a starter that takes its place.")
+    example = Path(__file__).resolve().parent.parent / "references" / "goblin-warband.example.json"
+    data = read_json(example, {})
+    data["project"] = root.name
+    data["resources"] = {}
+    data["commands"] = {}
+    data["conventions"] = ["CLAUDE.md"]
+    data["facts"] = []
+    data["human_gates"] = ["hosted reads", "hosted credentials", "hosted writes", "merges", "anything irreversible"]
+    data.pop("migrations", None)
+    write_json(target, data)
+    print(target)
+    return 0
+
+
+def cmd_start(args) -> int:
+    ledger = ledger_for(args.cwd)
+    if ledger.run():
+        raise Refusal(f"a raid is already active for {ledger.main} ({ledger.run()['name']}); end it first")
+    session_id = caller_session(args.session)
+    if not session_id:
+        raise Refusal("the chief's session is unknown: run this from a Claude Code session, or pass --session")
+    who = identity(session_id)
+    base_branch = args.base or (run_git(ledger.main, "symbolic-ref", "--short", "refs/remotes/origin/HEAD") or "origin/main").split("/", 1)[-1]
+    run_git(ledger.main, "fetch", "origin", base_branch)
+    commit = run_git(ledger.main, "rev-parse", f"origin/{base_branch}") or run_git(ledger.main, "rev-parse", base_branch) or ""
+    # A PR cannot target a branch origin has never seen; the first run found out at the push.
+    has_origin = run_git(ledger.main, "remote", "get-url", "origin") is not None
+    on_origin = None if not has_origin else bool(run_git(ledger.main, "ls-remote", "--exit-code", "--heads", "origin", base_branch))
+    if ledger.dir.exists():
+        archive = ledger.dir.parent / "runs" / f"{time.strftime('%Y%m%d-%H%M')}-{ledger.slug}"
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(ledger.dir), str(archive))
+    found = find_config(args.cwd)
+    collaboration = classify(ledger.main, found[1] if found else None)
+    if args.collaboration:
+        collaboration["mode"] = args.collaboration
+        collaboration["source"] = "flag"
+        collaboration["evidence"].append(f"--collaboration {args.collaboration} on start" + ("" if args.collaboration == collaboration["inferred"] else f"; the history alone reads {collaboration['inferred']}"))
+        if args.collaboration == "solo":
+            collaboration["hours"] = None
+        elif not collaboration.get("hours"):
+            collaboration["hours"] = dict(DEFAULT_TEAM_HOURS)
+    run = {
+        "name": args.name,
+        "repo_root": str(ledger.main),
+        "slug": ledger.slug,
+        "started_at": now(),
+        "coordinator": who,
+        "base": {"branch": base_branch, "commit": commit, "on_origin": on_origin},
+        "pr_approval": args.pr_approval,
+        "collaboration": collaboration,
+        "crew": [],
+        "assumptions": [],
+        "needs": [],
+        "ended_at": None,
+    }
+    warning = ""
+    if on_origin is False:
+        push = f"git -C {ledger.main} push -u origin {base_branch}"
+        run["needs"].append({"id": uuid.uuid4().hex[:8], "n": 1, "session_id": session_id, "task": "kick-off",
+                             "why": f"{base_branch} is not on origin, so no PR can target it until it is pushed (publishes its commits)",
+                             "command": push, "cwd": str(ledger.main), "status": "open", "at": now()})
+        warning = f"\nWARNING: {base_branch} is not on origin. PRs cannot target it until the user pushes it; it is tribute #1 on the slate: `{push}`."
+    ledger.save_run(run)
+    (ledger.dir / "briefs").mkdir(parents=True, exist_ok=True)
+    ledger.log("start", name=args.name, coordinator=who, base=run["base"])
+    print(json.dumps(run, indent=2) if args.json else f"Raid {args.name} started; chief {who.get('name') or session_id}; base {base_branch}@{commit[:8]}; {collaboration['mode']} project ({collaboration['source']}); ledger {ledger.dir}{warning}")
+    return 0
+
+
+def cmd_end(args) -> int:
+    global LEDGER_ROOT
+    if getattr(args, "old_ledger", False):
+        # a raid live in the old mission-control ledger beside the new one is never read by this CLI, and a session restarted
+        # onto it cannot reach it either; --old-ledger ends and archives it there, under that folder's runs/ (review 5983944140)
+        old_root = old_ledger_root()
+        if old_root is None or not old_root.is_dir() or old_root.resolve() == LEDGER_ROOT.resolve():
+            raise Refusal("there is no old mission-control ledger beside this one to end a raid in")
+        LEDGER_ROOT = old_root
+    ledger = ledger_for(args.cwd)
+    run = ledger.require_run()
+    authorise(run, caller_session(args.session), args.by_user, "end the raid")
+    if ledger.slots() and not args.force:
+        raise Refusal("dibs are still held: " + ", ".join(f"{r} by {s.get('holder', '')[:8]}" for r, s in ledger.slots().items()) + "; revoke them or pass --force")
+    run["ended_at"] = now()
+    ledger.save_run(run)
+    ledger.log("end", name=run["name"])
+    archive = ledger.dir.parent / "runs" / f"{time.strftime('%Y%m%d-%H%M')}-{re.sub(r'[^A-Za-z0-9._-]+', '-', run['name'])}"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(ledger.dir), str(archive))
+    print(f"Raid {run['name']} ended; ledger archived to {archive}")
+    return 0
+
+
+def worktree_bytes(path: Path) -> int | None:
+    """What a worktree holds on disk, dependencies included; None when du cannot say."""
+    code, out = sh(["du", "-sk", str(path)], timeout=60)
+    if code != 0:
+        return None
+    try:
+        return int(out.split()[0]) * 1024
+    except (IndexError, ValueError):
+        return None
+
+
+def human_bytes(count: int | None) -> str:
+    if count is None:
+        return "size unknown"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    size = float(count)
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            return f"{size:.0f} {unit}" if unit in ("B", "KB") else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{count} B"
+
+
+def worktree_processes(path: Path) -> list[dict] | None:
+    """Every process whose working directory is in the worktree (a dev server left running, a watcher, a shell), by lsof; None when lsof cannot answer. Own process and parent excluded."""
+    code, out = sh(["lsof", "-d", "cwd", "-Fpcn"], timeout=20)
+    if code not in (0, 1):  # lsof exits 1 when some process could not be read, with the rest still listed
+        return None
+    mine = {os.getpid(), os.getppid()}
+    found: list[dict] = []
+    pid, cmd = 0, ""
+    for line in out.splitlines():
+        if line.startswith("p"):
+            pid, cmd = int(line[1:] or 0), ""
+        elif line.startswith("c"):
+            cmd = line[1:]
+        elif line.startswith("n") and pid not in mine and inside(line[1:], str(path)):
+            found.append({"pid": pid, "command": cmd})
+    return found
+
+
+REARM_SPEC_LIMIT = 120  # characters of a job's spec the re-arm line prints
+REARM_PROMPT_LIMIT = 200  # characters of a job's prompt the re-arm line prints
+
+
+def rearm_line(holder: dict | None, whose: str = "this session had", restored: bool = True) -> str:
+    """The sentence that names a holder's open jobs to a session whose process does not run them; empty when it holds none. `whose` says whose work it was: the default is a resumed session's own.
+
+    `restored` is true for a resume: Claude Code brings unexpired cron jobs back by itself (its changelog, 2.1.110),
+    so a cron is checked against CronList and never created blind, while a Monitor and a watch died with the process.
+    Pass false for a different session taking the work over, whose crons nothing restored.
+    """
+    jobs = [j for j in ((holder or {}).get("jobs") or []) if j.get("status", "open") == "open"]
+    if not jobs:
+        return ""
+    if restored:
+        parts = []
+        if any(j.get("kind") == "cron" for j in jobs):
+            parts.append("Claude Code restores cron jobs on a resume by itself: read CronList first and create only a cron it does not show (a second copy fires twice).")
+        if any(j.get("kind") != "cron" for j in jobs):
+            parts.append("Re-arm each Monitor or watch, which died with the process.")
+        parts.append("`warband.py jobs done <id>` for one that is no longer wanted.")
+        tail = ". " + " ".join(parts)
+    else:
+        tail = ". Re-arm each, or `warband.py jobs done <id>` for one that is no longer wanted."
+    # `jobs add` stores a spec and a prompt uncut and the hook that prints this has a 10,000 character cap, so each is clipped here
+    clipped = False
+
+    def cut(text: str, limit: int) -> str:
+        nonlocal clipped
+        text = str(text)
+        if len(text) <= limit:
+            return text
+        clipped = True
+        return text[:limit - 1].rstrip() + "…"
+
+    named = "; ".join(f"{j.get('kind')} {j.get('id')} ({cut(j.get('spec') or '', REARM_SPEC_LIMIT)}{': ' + cut(j['prompt'], REARM_PROMPT_LIMIT) if j.get('prompt') else ''})" for j in jobs)
+    note = " Text ending in … is clipped: `warband.py jobs list` has the whole of it." if clipped else ""
+    return f" Scheduled work {whose}: " + named + note + tail
+
+
+def adopted_rearm(old: dict, who: dict, live: dict[str, dict]) -> str:
+    """The re-arm sentence for a crew session about to adopt `old`'s row: empty when it is the row's own process under a new id (a /clear keeps the process and what it scheduled), otherwise the row's open jobs, which died with the old process. A crew row stores its socket but no pid, so a gone session is matched by socket."""
+    old_id = old.get("session_id", "")
+    if old_id in live:
+        same = same_identity(who.get("pid"), who.get("socket"), live[old_id].get("pid"), live[old_id].get("messagingSocketPath"))
+    else:
+        same = bool(old.get("socket")) and old.get("socket") == who.get("socket")
+    if same:
+        return ""
+    return rearm_line(old, f"{old.get('task') or old_id[:8]}'s previous session ({old_id[:8]}) had, which died with its process", restored=False)
+
+
+def close_jobs(holder: dict, note: str) -> list[dict]:
+    """Mark every open job on a session row (or on the run, for the coordinator's) done, and return the ones it closed. The caller saves and logs."""
+    closed = [j for j in (holder.get("jobs") or []) if j.get("status", "open") == "open"]
+    for job in closed:
+        job["status"] = "done"
+        job["done_at"] = now()
+        job["note"] = note
+    return closed
+
+
+def cmd_retire(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return retire_locked(args, ledger)
+
+
+def retire_locked(args, ledger: Ledger) -> int:
+    """Reclaim a finished crew session's worktree while the run goes on: only once the session has closed, its row is done, its PR has landed, the tree is clean, nothing runs in it, no slot is held and no open PR is based on its branch. Removes the worktree, prunes, deletes the branch with `-d` only, and records the retirement on the row."""
+    run = ledger.require_run()
+    caller = caller_session(args.session)
+    by = authorise(run, caller, args.by_user, "retire a raider's worktree")
+    sessions = ledger.sessions()
+    session_id = resolve_session(args.ref, sessions)
+    row = sessions[session_id]
+    label = row.get("task") or row.get("branch") or session_id[:8]
+    if git_problem():
+        raise Refusal(f"retire needs git to remove a worktree and a branch; {git_problem()}")
+    if row.get("retired"):
+        raise Refusal(f"{label} was retired at {clock(row['retired'].get('at'))}")
+    if session_id in registry():
+        raise Refusal(f"{label}'s session is still live; it closes first, then retire")
+    if row.get("state") != "done":
+        raise Refusal(f"{label}'s row reads {row.get('state')}, not done")
+    if not row.get("pr"):
+        raise Refusal(f"{label} has no PR on its row; retire reclaims a worktree whose PR has landed")
+    numbers = {int(r["pr"]) for r in sessions.values() if r.get("pr")}
+    # this PR's state is asked of gh now, never read from the cache: a merge made a moment ago is the common case
+    facts = pr_facts(ledger, numbers, fresh={int(row["pr"])})
+    fact = facts.get(int(row["pr"]))
+    if not fact:
+        raise Refusal(f"gh could not say what state PR #{row['pr']} is in; retire needs it merged or closed")
+    if fact["state"] not in ("MERGED", "CLOSED"):
+        raise Refusal(f"PR #{row['pr']} is {fact['state'].lower()} on GitHub; retire needs it merged or closed")
+    branch = row.get("branch") or ""
+    stacked = [f"#{n} ({(next((r.get('task') for r in sessions.values() if str(r.get('pr')) == str(n)), '') or '?')})" for n, f in facts.items() if f["state"] == "OPEN" and branch and f.get("base") == branch]
+    if stacked:
+        raise Refusal(f"open PR {', '.join(stacked)} is based on {branch}; the branch stays until it lands")
+    held = [r for r, s in ledger.slots().items() if s.get("holder") == session_id]
+    if held:
+        raise Refusal(f"{label} still holds {', '.join(held)}; release first")
+    worktree = Path(row.get("worktree") or "")
+    if not row.get("worktree") or not worktree.is_dir():
+        raise Refusal(f"{label}'s worktree {worktree or '(none recorded)'} is not on disk; nothing to retire" + ("" if not branch else f" (the branch {branch} may still want `git branch -d`)"))
+    if same_path(worktree, ledger.main):
+        raise Refusal(f"{label}'s worktree is the main checkout; never retired")
+    dirty = run_git(worktree, "status", "--porcelain")
+    if dirty is None:
+        raise Refusal(f"{worktree} is not a git worktree git can read")
+    if dirty:
+        raise Refusal(f"{worktree} is dirty ({len(dirty.splitlines())} paths); commit, stash or discard first, then retire")
+    running = worktree_processes(worktree)
+    size = worktree_bytes(worktree)
+    if running:
+        kills = " ".join(str(p["pid"]) for p in running)
+        listed = ", ".join(f"{p['pid']} ({p['command'] or '?'})" for p in running)
+        if not args.dry_run:
+            needs = run.setdefault("needs", [])
+            n = 1 + max([x.get("n", 0) for x in needs] or [0])
+            need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", ""),
+                    "why": f"processes still run in {label}'s worktree ({listed}); retire removes it once they are gone",
+                    "command": f"kill {kills}", "cwd": str(ledger.main), "status": "open", "at": now()}
+            needs.append(need)
+            ledger.save_run(run)
+            ledger.log("need", **need)
+        raise Refusal(f"processes still run in {worktree}: {listed}; `kill {kills}` first" + ("" if args.dry_run else f" (tribute #{need['n']})"))
+    if running is None:
+        print(f"note: lsof could not list processes, so nothing is known about what runs in {worktree}")
+    merged = f"{fact['state'].lower()} via #{row['pr']}" + (f" into {fact['base']}" if fact.get("base") else "")
+    if args.dry_run:
+        print(f"retire {label} (dry run): would remove worktree {worktree} ({human_bytes(size)}), `git worktree prune`, then `git branch -d {branch}` ({merged})")
+        return 0
+    removed = run_git(ledger.main, "worktree", "remove", str(worktree))
+    if removed is None:
+        raise Refusal(f"git refused to remove {worktree}; it is left as it was")
+    run_git(ledger.main, "worktree", "prune")
+    branch_deleted = bool(branch) and run_git(ledger.main, "branch", "-d", branch) is not None
+    row["retired"] = {"at": now(), "by": by, "worktree": str(worktree), "bytes_freed": size, "branch_deleted": branch_deleted}
+    row["updated_at"] = now()
+    # the session is gone and its PR has landed, so nothing it scheduled is left to re-arm: a job left open would read as drift until `end`
+    closed = close_jobs(row, f"retired by {by}")
+    ledger.save_session(row)
+    for job in closed:
+        ledger.log("job-done", session_id=session_id, id=job["id"], by=by, note="row retired")
+    ledger.log("retire", session_id=session_id, task=row.get("task", ""), branch=branch, worktree=str(worktree), bytes_freed=size, branch_deleted=branch_deleted, by=by)
+    branch_word = f"branch {branch} deleted" if branch_deleted else (f"branch {branch} kept: `git branch -d` refused it (not fully merged here; `git branch -D` is the user's call)" if branch else "no branch recorded")
+    print(json.dumps(row) if args.json else f"retired {label}: worktree {worktree} removed ({human_bytes(size)} freed), {branch_word}; {merged}")
+    return 0
+
+
+def cmd_status(args) -> int:
+    ledger = ledger_for(args.cwd)
+    found = find_config(args.cwd)
+    status = status_of(ledger, found[1] if found else None, args.probe)
+    status["config_path"] = str(found[0]) if found else None
+    notice = take_moved_notice()
+    if notice:
+        status["notice"] = notice
+    if CARRYING:
+        status["carrying"] = CARRYING
+        if not args.json:
+            print(CARRYING)
+    # while a raid is carried on, the config is at its old name because nothing moves mid-raid; the move renames it (and
+    # leaves the link) after the raid ends, so no note blames the ignore rule or prints a rename in the meantime
+    note = config_note(found[0]) if found and not CARRYING else None
+    if note:
+        status["config_note"] = note
+        if not args.json:
+            print(note)
+    if OLD_LEDGER_NOTE:
+        status["old_ledger_note"] = OLD_LEDGER_NOTE
+        if not args.json:
+            print(OLD_LEDGER_NOTE)
+    if args.json:
+        print(json.dumps(status))
+    else:
+        if notice:
+            print(notice)
+            print()
+        print_status(status)
+    return 0
+
+
+def cmd_probe(args) -> int:
+    found = find_config(args.cwd)
+    if not found:
+        raise Refusal(f"no {CONFIG_REL} above {args.cwd}")
+    names = [args.resource] if args.resource else list(resources(found[1]))
+    out = []
+    for name in names:
+        spec = resources(found[1]).get(name)
+        if spec is None:
+            raise Refusal(f"no resource named {name}; configured: {', '.join(resources(found[1]))}")
+        out.append(probe_resource(name, spec))
+    if args.json:
+        print(json.dumps(out))
+    else:
+        for probe in out:
+            print(f"{probe['resource']}: {'BUSY' if probe['busy'] else 'free'}")
+            for check in probe["checks"]:
+                print(f"  {check['kind']}: {check.get('detail', '')}")
+    return 0
+
+
+def cmd_reconcile(args) -> int:
+    ledger = ledger_for(args.cwd)
+    result = reconcile(ledger)
+    if args.json:
+        print(json.dumps(result))
+    else:
+        print_reconcile(result)
+    return 0
+
+
+def cmd_classify(args) -> int:
+    """Solo or collaborative, from the config or the history; the run record's copy when a run is active and --fresh is not passed."""
+    ledger = ledger_for(args.cwd)
+    found = find_config(args.cwd)
+    run = ledger.run()
+    result = (run or {}).get("collaboration") if run and not args.fresh else None
+    if not isinstance(result, dict):
+        result = classify(ledger.main, found[1] if found else None)
+    if args.json:
+        print(json.dumps(result))
+    else:
+        print_classification(result)
+    return 0
+
+
+def note_approval(ledger: Ledger, run: dict, number: int, current: dict, row: dict) -> None:
+    """One open pending item per approved PR: who approved and when, so reconcile says `approved, unlanded since` until the merge."""
+    who = ", ".join(r["login"] for r in current.get("reviews", []) if r.get("state") == "APPROVED") or "a reviewer"
+    with ledger.locked():
+        fresh = ledger.run() or run
+        pending = fresh.setdefault("pending", [])
+        if any(p.get("kind") == "approval" and p.get("pr") == number and p.get("status") == "open" for p in pending):
+            return
+        n = 1 + max([p.get("n", 0) for p in pending] or [0])
+        item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": "approval", "pr": number, "text": f"PR #{number} approved by {who}; landing is authorised and waits on the chief",
+                "session_id": row.get("session_id") if row else None, "head": current.get("head") or "", "status": "open", "at": now()}
+        pending.append(item)
+        ledger.save_run(fresh)
+        pr_row = ledger.prs().get(number) or {"number": number, "task": (row or {}).get("task"), "at": now()}
+        pr_row["approval"] = {"at": item["at"], "head": item["head"], "by": who}
+        ledger.save_pr(pr_row)
+    ledger.log("pending", **item)
+
+
+def stop_watch(ledger: Ledger, row: dict, number: int) -> int:
+    """Stop this session's own watcher by the pid on its row. Never matches by name, so one session cannot reach another's watcher the way a `pkill -f` does."""
+    watch = (row or {}).get("watch") or {}
+    pid = watch.get("pid")
+    if not row or watch.get("pr") != number or not (pid or watch.get("status")):
+        raise Refusal(f"this session has no watcher recorded for PR #{number}")
+    # pids are recycled: signal only a row that reads as a live loop and a process whose command line is this watcher
+    if watch.get("status") not in ("watching", "holding") or not pid:
+        print(f"#{number}: no watcher is running for this PR (status {watch.get('status')}); nothing to stop")
+        return 0
+    code, command = sh(["ps", "-o", "command=", "-p", str(int(pid))])
+    # mc.py too: a watcher started by the old CLI before the rename is still this row's watcher (review 5981937523)
+    if code != 0 or not any(name in command for name in ("warband.py", "mc.py")) or "watch" not in command:
+        print(f"#{number}: the recorded pid {pid} is not a warband.py watcher; nothing to stop")
+        return 0
+    with ledger.locked():
+        fresh = ledger.sessions().get(row["session_id"])
+        if fresh and isinstance(fresh.get("watch"), dict):
+            # tells the watcher's unwinding that this signal was meant, so it says `do not re-arm`
+            fresh["watch"]["stopping"] = True
+            ledger.save_session(fresh)
+    try:
+        os.kill(int(pid), signal.SIGTERM)
+    except ProcessLookupError:  # it exited between the check and the signal
+        with ledger.locked():
+            # nothing will read the marker now, and a stale one would make a later outside kill read as meant
+            fresh = ledger.sessions().get(row["session_id"])
+            if fresh and isinstance(fresh.get("watch"), dict):
+                fresh["watch"].pop("stopping", None)
+                ledger.save_session(fresh)
+        print(f"#{number}: the watcher (pid {pid}) had already exited; nothing to stop")
+        return 0
+    print(f"#{number}: stopped the watcher (pid {pid})")
+    return 0
+
+
+def cmd_watch(args) -> int:
+    """Watch one PR until something changes, then say what and exit: the crew session runs this in the background and is woken by the exit.
+    Outside the team's hours on a collaborative project a change that is not a merge or close is held until the window opens; on a solo project there is no window."""
+    ledger = ledger_for(args.cwd)
+    run = ledger.run()
+    found = find_config(args.cwd)
+    collab = (run or {}).get("collaboration") if run else None
+    if not isinstance(collab, dict):
+        collab = classify(ledger.main, found[1] if found else None)
+    hours = collab.get("hours") if collab.get("mode") == "collaborative" else None
+    session_id = caller_session(None)
+    row = ledger.sessions().get(session_id or "", {}) if run else {}
+    number = args.pr or (int(row["pr"]) if row.get("pr") else None)
+    if not number:
+        raise Refusal("which PR? pass the number, or report it first with warband_report")
+
+    if args.stop:
+        return stop_watch(ledger, row, number)
+
+    def record(status: str, seen: dict | None, changes: list[str], signal_number: int | None = None, running: bool = False) -> None:
+        """`running` is true only while this process is polling: a row that keeps a pid after the process has exited would read as a dead watcher and invite a stray signal at a recycled pid."""
+        if not run or not row:
+            return
+        with ledger.locked():
+            fresh = ledger.sessions().get(row["session_id"])
+            if not fresh:
+                return
+            fresh_before = fresh.get("watch") if isinstance(fresh.get("watch"), dict) else None
+            fresh["watch"] = {"pr": number, "since": (fresh.get("watch") or {}).get("since") or now(), "status": status, "checked_at": now(), "seen": seen, "last_change": changes or (fresh.get("watch") or {}).get("last_change") or [],
+                              "pid": os.getpid() if running else None, "signal": signal_number}
+            if running and (fresh_before or {}).get("stopping") and (fresh_before or {}).get("pid") == os.getpid():
+                # a stop requested while this record waited on the lock: keep the marker so the signal that follows reads as meant.
+                # Only this process's own marker counts; one left by an earlier watcher must not make a later outside kill read as meant
+                fresh["watch"]["stopping"] = True
+            # the watch is a scheduled job like any other: open while it should be running or re-armed, done once the PR landed
+            jobs = [j for j in (fresh.get("jobs") or []) if j.get("id") != f"watch-{number}"]
+            jobs.append({"id": f"watch-{number}", "kind": "watch", "spec": f"PR #{number}, every {int(args.interval)}s" + (f", held outside {hours['start']}-{hours['end']}" if hours else ""),
+                         "prompt": f"python3 warband.py watch --pr {number}", "reason": f"watch PR #{number} and report each change", "status": "done" if status == "ended" else "open", "at": (fresh.get("watch") or {}).get("since") or now()})
+            fresh["jobs"] = jobs
+            ledger.save_session(fresh)
+        ledger.log("watch", session_id=row["session_id"], pr=number, status=status, changes=changes)
+
+    previous = (row.get("watch") or {}) if row else {}
+    seen = previous.get("seen") if previous.get("pr") == number and isinstance(previous.get("seen"), dict) else None
+    if seen is None:
+        seen = pr_snapshot(ledger.main, number)
+        if seen is None:
+            raise Refusal(f"gh could not read PR #{number}; nothing to watch")
+        record("watching", seen, [])
+        if args.once:
+            print(f"#{number}: {summarise_snapshot(seen)}")
+            return 0
+        if terminal(seen):
+            print(f"#{number} is already {seen['state'].lower()}; nothing to watch")
+            record("ended", seen, [])
+            return 0
+        if collab.get("mode") == "solo" and not seen.get("checks"):
+            print(f"#{number}: solo project and no checks, so nothing will change by itself; the merge is the user's. Not watching.")
+            record("ended", seen, [])
+            return 0
+    elif args.once:
+        print(f"#{number}: {summarise_snapshot(seen)} (as last seen)")
+        return 0
+    interval = max(1.0, float(args.interval))
+    deadline = now() + float(args.max_minutes) * 60
+    failures = 0
+    held: list[str] = []
+
+    caught: list[int] = []
+
+    def killed(signal_number, _frame) -> None:
+        # no I/O here: the handler can fire while this process holds the ledger lock, and a second flock on a fresh file description
+        # would wait on the first for ever. The unwinding releases the lock; the `finally` below writes the record.
+        caught.append(signal_number)
+        raise SystemExit(128 + signal_number)
+
+    caught_signals = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
+    previous_handlers = {sig: signal.signal(sig, killed) for sig in caught_signals}
+    record("watching", seen, [], running=True)
+    try:
+        while True:
+            time.sleep(interval)
+            current = pr_snapshot(ledger.main, number)
+            if current is None:
+                failures += 1
+                # git may have broken since this watch started (the 30 October shape: a long watch, then the update); the next poll re-probes it and names the repository outright if so
+                _GIT_PROBLEM.clear()
+                if failures >= WATCH_FAILURES_TOLERATED:
+                    print(f"#{number}: gh did not answer {failures} polls running; the watch stops here, re-arm when gh is back")
+                    record("stalled", seen, [])
+                    return 2
+                continue
+            failures = 0
+            try:
+                refresh_task_facts(ledger, row.get("task"))
+                write_dashboard(ledger)
+            except Exception:  # noqa: BLE001 - the page is a view; the watch is the job
+                pass
+            changes = snapshot_changes(seen, current)
+            if changes:
+                if current.get("decision") == "APPROVED" and seen.get("decision") != "APPROVED" and run:
+                    # an approval is the coordinator's to act on, and a message can sit unread in an idle session until the next prompt;
+                    # the pending list is read by reconcile and the start context, so the approval is seen even when the message is not
+                    note_approval(ledger, run, number, current, row)
+                if terminal(current) or in_window(hours, now()):
+                    record("changed", current, changes)
+                    print(f"#{number} changed ({'; '.join(changes)}). Now: {summarise_snapshot(current)}")
+                    if terminal(current):
+                        print(f"watch ended: PR #{number} is {current['state'].lower()}; do not re-arm")
+                        record("ended", current, changes)
+                    return 0
+                if changes != held:
+                    held = changes
+                    record("holding", seen, changes, running=True)
+            if now() >= deadline:
+                # the process is about to exit, so the row keeps no pid and reads `idle` (re-arm), whether or not changes are held:
+                # `holding` means a live loop, which the board counts as a watcher. Held changes stay in last_change, and the next
+                # watch starts from the same baseline, so it reports them again
+                if held:
+                    record("idle", seen, held)
+                    print(f"#{number}: holding until the team's hours open at {clock(window_opens(hours, now()))} ({'; '.join(held)}); re-arm the watch")
+                else:
+                    record("idle", current, [])
+                    print(f"#{number}: no change in {args.max_minutes} minutes; re-arm the watch")
+                return 0
+    finally:
+        for sig, handler in previous_handlers.items():
+            signal.signal(sig, handler)
+        if caught:
+            # a deliberate `watch --stop` leaves a marker on the row; any other signal came from outside
+            stopping = bool((((ledger.sessions().get(row["session_id"]) or {}).get("watch")) or {}).get("stopping")) if row else False
+            if stopping:
+                record("stopped", seen, [], caught[0])
+                print(f"#{number}: watch stopped on request; do not re-arm")
+            else:
+                record("killed", seen, [], caught[0])
+                print(f"#{number}: the watch was stopped by signal {caught[0]} ({signal.Signals(caught[0]).name}); something outside it ended the process. Re-arm the watch; stop one on purpose with `warband.py watch --stop`")
+            sys.stdout.flush()
+
+
+def cmd_crew(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return crew_locked(args, ledger)
+
+
+def in_main_spelling(worktree: str, main_path: str) -> str:
+    """The spelling git reports for the checkout wins, so a `Code`/`code` typo does not split one path in two; on a case-sensitive volume, where the two spellings are different directories, the path is left alone."""
+    if worktree.lower().startswith(main_path.lower() + "/") and same_path(worktree[:len(main_path)], main_path):
+        return main_path + worktree[len(main_path):]
+    return worktree
+
+
+def crew_locked(args, ledger: Ledger) -> int:
+    run = ledger.require_run()
+    if args.action == "list":
+        print(json.dumps(run.get("crew", []), indent=2))
+        return 0
+    authorise(run, caller_session(args.session), args.by_user, "edit the raiders' plan")
+    if not args.task or not args.branch:
+        raise Refusal("crew add needs --task and --branch")
+    worktree = os.path.abspath(args.worktree) if args.worktree else None
+    if worktree:
+        worktree = in_main_spelling(worktree, str(ledger.main))
+    entry = {"task": args.task, "branch": args.branch, "worktree": worktree, "brief": str(ledger.dir / "briefs" / f"{args.task}.md"), "migration": args.migration, "unlisted": bool(args.unlisted),
+             "model": args.model, "effort": args.effort, "name": args.name or f"{args.task.lower()} raider"}
+    if args.group:
+        entry["group"] = args.group.strip()
+    run["crew"] = [c for c in run.get("crew", []) if c.get("task") != args.task] + [entry]
+    # the launch line is the first thing the user types for this task, so it goes on the needs list from here, closed by the join.
+    # a plan edit for a task whose session is already live (a migration timestamp assigned later, say) raises none: the session
+    # exists, and a line left open would tell the user to start a second one in a worktree the first holds
+    live = registry()
+    running = next((row for row in ledger.sessions().values() if row.get("task") == args.task and row.get("session_id") in live), None)
+    launch = None
+    if worktree and running is None:
+        launch = raise_launch_need(ledger, run, entry, args.reason, args.plugin_dir)
+    elif running is not None:
+        close_launch_needs_in(ledger, run, args.task, f"session {running['session_id'][:8]} is live; plan edited", "crew-add", running["session_id"])
+    else:
+        # the plan dropped the worktree: the line on the board named a directory the plan no longer does
+        close_launch_needs_in(ledger, run, args.task, "plan edited with no worktree; no line to type", "crew-add", "")
+    ledger.save_run(run)
+    ledger.log("crew", **entry)
+    if args.json:
+        print(json.dumps({**entry, "launch_need": launch["n"] if launch else None}))
+    else:
+        tail = f"; launch line is tribute #{launch['n']} on the slate" if launch else ("; its session is live, so no launch line" if running else "; no worktree, so no launch line")
+        print(f"raider {args.task}: {args.branch} in {worktree or '(no worktree yet)'}; orders at {entry['brief']}{tail}")
+    return 0
+
+
+def launch_line(run: dict, entry: dict, plugin_dir: str | None) -> str:
+    """The line the user runs in a fresh terminal for one crew session. `--model` beats ANTHROPIC_MODEL; `--effort` beats the settings but not CLAUDE_CODE_EFFORT_LEVEL (the resolution order at https://code.claude.com/docs/en/model-config), so the model is what kick-off chose whatever the terminal would default to, and the effort is unless that variable is exported. The trailing prompt starts the first turn, since a session with nothing to do sits idle at an empty prompt. Every value is quoted: a plugin root under `Application Support` splits in two when pasted bare."""
+    task = entry["task"]
+    flags: list[str] = []
+    if entry.get("model"):
+        flags += ["--model", shlex.quote(entry["model"])]
+    if entry.get("effort"):
+        flags += ["--effort", shlex.quote(entry["effort"])]
+    if plugin_dir:
+        flags += ["--plugin-dir", shlex.quote(plugin_dir)]
+    prompt = f"Start: you are raider {task} in raid {run['name']}. Read your orders at {entry['brief']}, invoke /goblin-warband:join-raid and answer its five questions to the chief."
+    # A subagent on the session's model runs at the session's effort, so a crew launched at low or medium would hand its
+    # fresh-eyes review (crew skill step 1b) to a reviewer at that level. CLAUDE_CODE_SUBAGENT_EFFORT (Claude Code 2.1.316)
+    # names the level for subagents nothing else sets one for; a crew at high or above is left alone, since the variable would lower its reviewer.
+    env = [f"{SUBAGENT_EFFORT_ENV}={SUBAGENT_EFFORT_FLOOR}"] if entry.get("effort") in SUBAGENT_EFFORT_RAISED else []
+    return " ".join([*env, "claude", *flags, "--name", shlex.quote(entry.get("name") or f"{task.lower()} raider"), shlex.quote(prompt)])
+
+
+def raise_launch_need(ledger: Ledger, run: dict, entry: dict, reason: str | None, plugin_dir: str | None) -> dict:
+    """Put a crew task's launch line on the needs list as the coordinator's, kind `launch`, in the worktree it must run from; a second `crew add` for the task supersedes the open one rather than adding a second. The caller saves the run."""
+    needs = run.setdefault("needs", [])
+    old = next((n for n in needs if n.get("kind") == "launch" and n.get("task") == entry["task"] and n.get("status") != "done"), None)
+    chosen = ", ".join(x for x in (entry.get("model"), entry.get("effort")) if x) or "the terminal's model"
+    why = f"start raider {entry['task']} in a new terminal window ({chosen}" + (f": {reason.strip()}" if reason else "") + ")"
+    need = {"id": uuid.uuid4().hex[:8], "n": 1 + max([x.get("n", 0) for x in needs] or [0]), "session_id": run.get("coordinator", {}).get("session_id"), "task": entry["task"],
+            "why": why[:NEED_WHY_LIMIT], "command": launch_line(run, entry, plugin_dir), "cwd": entry.get("worktree") or "", "status": "open", "at": now(),
+            "kind": "launch", "for": None, "for_task": "", "supersedes": old["n"] if old else None}
+    needs.append(need)
+    ledger.log("need", **need)
+    if old is not None:
+        supersede(ledger, old, need["n"])
+    return need
+
+
+def close_launch_needs_in(ledger: Ledger, run: dict, task: str, note: str, by: str, session_id: str) -> bool:
+    """Close every open launch need for a task on the run given, with the note saying why and `by` naming what closed it (join, crew-add); the caller saves the run."""
+    closed = False
+    for need in run.get("needs", []):
+        if need.get("kind") == "launch" and need.get("task") == task and need.get("status") != "done":
+            need["status"] = "done"
+            need["done_at"] = now()
+            need["note"] = note
+            ledger.log("need-done", id=need["id"], n=need["n"], by=by, session_id=session_id)
+            closed = True
+    return closed
+
+
+def close_launch_need(ledger: Ledger, task: str, session_id: str) -> bool:
+    """A session joining as a task closes that task's open launch need: the line was typed. Reads the run afresh, since the caller may have saved rows in between; runs under the caller's lock."""
+    run = ledger.run()
+    if not run or not task:
+        return False
+    closed = close_launch_needs_in(ledger, run, task, f"joined as session {session_id[:8]}", "join", session_id)
+    if closed:
+        ledger.save_run(run)
+    return closed
+
+
+def stale_row_for(ledger: Ledger, plan: dict, who: dict) -> dict | None:
+    """The row a fresh session in a planned worktree should carry on: one for that worktree (or task) whose session is not live, or whose process is this session's own under an old id."""
+    live = registry()
+    for row in ledger.sessions().values():
+        same_place = (plan.get("worktree") and row.get("worktree") and same_path(plan["worktree"], row["worktree"])) or (plan.get("task") and row.get("task") == plan.get("task"))
+        if not same_place or row.get("retired"):
+            continue
+        old_id = row.get("session_id", "")
+        own_process = same_identity(who.get("pid"), who.get("socket"), live.get(old_id, {}).get("pid"), live.get(old_id, {}).get("messagingSocketPath"))
+        if old_id not in live or own_process:
+            return row
+    return None
+
+
+def adopt_row(ledger: Ledger, old: dict, session_id: str, who: dict) -> dict:
+    """Carry a crew row over to a new session id: task, branch, worktree, state, summary, PR, jobs and age stay; id, socket and name change; slots and pending requests move; the old file is kept as `<id>.json.adopted`."""
+    old_id = old["session_id"]
+    row = {**old, "session_id": session_id, "socket": who.get("socket"), "name": who.get("name", ""), "updated_at": now(), "adopted_from": old_id, "adopted_at": now()}
+    ledger.save_session(row)
+    old_path = ledger.session_path(old_id)
+    if old_path.exists():
+        old_path.rename(old_path.with_suffix(".json.adopted"))
+    for resource, slot in ledger.slots().items():
+        if slot.get("holder") == old_id:
+            slot["holder"] = session_id
+            write_json(ledger.slot_path(resource), slot)
+    for request in ledger.requests():
+        if request.get("session_id") == old_id:
+            old_request = ledger.request_path(request["resource"], old_id)
+            request["session_id"] = session_id
+            write_json(ledger.request_path(request["resource"], session_id), request)
+            if old_request.exists():
+                old_request.unlink()
+    run = ledger.run()
+    if run:
+        changed = False
+        for need in run.get("needs", []):
+            if need.get("session_id") == old_id:
+                need["session_id"] = session_id
+                changed = True
+        if changed:
+            ledger.save_run(run)
+    ledger.log("adopt", kind="crew", old=old_id, new=session_id, task=row.get("task", ""), by="join")
+    return row
+
+
+def cmd_adopt(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return adopt_locked(args, ledger)
+
+
+def adopt_locked(args, ledger: Ledger) -> int:
+    """Bind this session to a role whose recorded id is dead: `coordinator` rewrites the run's coordinator to the caller (its own process under a new id after /clear, or --by-user for a fresh process); `crew` carries over the planned worktree's old row."""
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    if not session_id:
+        raise Refusal("no session id: run from a Claude Code session or pass --session")
+    who = identity(session_id)
+    if args.role == "coordinator":
+        recorded = run.get("coordinator", {})
+        if recorded.get("session_id") == session_id:
+            print(f"this session is already the chief of raid {run['name']}")
+            return 0
+        if recorded.get("session_id") in registry() and not args.by_user:
+            raise Refusal(f"the chief's session {recorded.get('session_id', '')[:8]} is live; adopting the raid from it is the user's (/reclaim-post chief from the new session)")
+        own_process = same_identity(who.get("pid"), who.get("socket"), recorded.get("pid"), recorded.get("socket"))
+        if not own_process and not args.by_user:
+            raise Refusal("this session is not the chief's process under a new id; a fresh chief is adopted by the user with /reclaim-post chief")
+        by = "user" if args.by_user else "same process"
+        before = str(recorded.get("session_id") or "?")[:8]
+        # live under its recorded id, or under a new one after a /clear, which keeps the process and what it scheduled
+        still_live = recorded.get("session_id") in registry() or same_process(recorded, registry()) is not None
+        run["coordinator"] = {"session_id": session_id, "pid": who.get("pid"), "socket": who.get("socket"), "name": who.get("name", ""), "adopted_from": recorded.get("session_id"), "adopted_at": now(), "adopted_by": by}
+        ledger.save_run(run)
+        ledger.log("adopt", kind="coordinator", old=recorded.get("session_id"), new=session_id, by=by)
+        # a fresh process inherits the run's jobs without the crons behind them, and its start hook ran before it was the coordinator
+        # the user can take the run from a coordinator that is still live, whose process keeps firing what it scheduled
+        whose = (f"the raid's previous chief ({before}) had; that session's process is still live and its crons still fire there, so stop them there or each fires twice" if still_live
+                 else f"the raid's previous chief ({before}) had, which died with its process")
+        rearm = "" if own_process else rearm_line(run, whose, restored=False)
+        # the re-arm line rides on the printed record only; run.json never stores it
+        print(json.dumps({**run["coordinator"], **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"this session is now the chief of raid {run['name']} (was {before}, {by})" + (f".{rearm}" if rearm else ""))
+        return 0
+    plan = crew_for(run, os.path.abspath(args.cwd), session_id, ledger.sessions())
+    if plan is None:
+        raise Refusal("not in a planned worktree; nothing to adopt")
+    if session_id in ledger.sessions():
+        print(f"this session already holds {plan['task']}'s row")
+        return 0
+    old = stale_row_for(ledger, plan, who)
+    if old is None:
+        raise Refusal(f"no row for {plan['task']} to adopt; `warband.py join --planned` makes a fresh one")
+    rearm = adopted_rearm(old, who, registry())
+    row = adopt_row(ledger, old, session_id, who)
+    close_launch_need(ledger, row.get("task") or plan.get("task") or "", session_id)
+    # the re-arm line rides on the printed row only; the ledger never stores it
+    print(json.dumps({**row, **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"adopted {row.get('task')}'s row from session {old['session_id'][:8]} ({row.get('state')})" + (f".{rearm}" if rearm else ""))
+    return 0
+
+
+def cmd_join(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return join_locked(args, ledger)
+
+
+def join_locked(args, ledger: Ledger) -> int:
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    if not session_id:
+        raise Refusal("no session id: run from a Claude Code session or pass --session")
+    who = identity(session_id)
+    cwd = os.path.abspath(args.cwd)
+    plan = crew_for(run, cwd, session_id, ledger.sessions())
+    if args.planned and plan is None:
+        raise Refusal("not in a planned worktree")
+    task = args.task or (plan or {}).get("task") or ""
+    branch = args.branch or run_git(cwd, "branch", "--show-current") or (plan or {}).get("branch") or ""
+    worktree = str(toplevel(cwd) or cwd)
+    row = ledger.sessions().get(session_id, {})
+    if not row and plan:
+        # a session restarted fresh or cleared in a planned worktree carries on the old row: its state, PR, summary and slots
+        old = stale_row_for(ledger, plan, who)
+        if old:
+            rearm = adopted_rearm(old, who, registry())
+            row = adopt_row(ledger, old, session_id, who)
+            close_launch_need(ledger, row.get("task") or task, session_id)
+            print(json.dumps({**row, **({"rearm": rearm.strip()} if rearm else {})}) if args.json else f"adopted {row.get('task') or row.get('branch')}'s row from session {old['session_id'][:8]} ({row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}); joined raid {run['name']}" + (f".{rearm}" if rearm else ""))
+            return 0
+    row.update({
+        "session_id": session_id,
+        "task": task,
+        "branch": branch,
+        "worktree": worktree,
+        "state": row.get("state") or "briefing",
+        "summary": row.get("summary", ""),
+        "pr": row.get("pr"),
+        "name": who.get("name", ""),
+        "socket": who.get("socket"),
+        "joined_at": row.get("joined_at") or now(),
+        "updated_at": now(),
+    })
+    ledger.save_session(row)
+    ledger.log("join", session_id=session_id, task=task, branch=branch)
+    close_launch_need(ledger, task, session_id)
+    print(json.dumps(row) if args.json else f"joined raid {run['name']} as {task or branch or session_id[:8]} ({worktree})")
+    return 0
+
+
+def cmd_report(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return report_locked(args, ledger)
+
+
+def report_locked(args, ledger: Ledger) -> int:
+    run = ledger.require_run()
+    caller = caller_session(args.session)
+    if not caller:
+        raise Refusal("no session id: run from a Claude Code session or pass --session")
+    session_id = caller
+    by = None
+    if args.for_session:
+        # the coordinator (or the person) corrects a crew row that the crew session cannot or did not
+        by = authorise(run, caller, args.by_user, "report for another session")
+        session_id = resolve_session(args.for_session, ledger.sessions())
+    row = ledger.sessions().get(session_id)
+    if row is None:
+        raise Refusal("this session has not joined the raid; run `warband.py join` first (the mod does it at its first turn)")
+    if args.state:
+        if args.state not in STATES:
+            raise Refusal(f"state must be one of {', '.join(STATES)}")
+        if args.state == "waiting":
+            if not args.on or not WAITING_ON.match(args.on):
+                raise Refusal("state waiting names what it waits on: --on reviewer:<login>, session:<task>, pr:<n>, ci or hold; a wait on the user is waiting-jason with a tribute on the list")
+            row["waiting_on"] = args.on
+        else:
+            row.pop("waiting_on", None)
+        row["state"] = args.state
+    elif args.on:
+        raise Refusal("--on goes with --state waiting")
+    if args.summary is not None:
+        row["summary"] = args.summary.strip()[:160]
+    if args.pr is not None:
+        row["pr"] = args.pr or None
+    if args.branch:
+        row["branch"] = args.branch
+    if args.context is not None:
+        row["context_percent"] = max(0, min(100, int(args.context)))
+    only_context = args.context is not None and not any((args.state, args.summary is not None, args.pr is not None, args.branch))
+    if only_context:
+        # the mod writes the context fill on a timer; that is a gauge, not a report, so neither the log nor the row's age moves
+        ledger.save_session(row)
+        print(json.dumps(row) if args.json else f"{row.get('task') or session_id[:8]}: context {row['context_percent']}%")
+        return 0
+    row["updated_at"] = now()
+    ledger.save_session(row)
+    ledger.log("report", session_id=session_id, state=row.get("state"), summary=row.get("summary"), pr=row.get("pr"), **({"by": by} if by else {}))
+    print(json.dumps(row) if args.json else f"{row.get('task') or session_id[:8]}: {row.get('state')} · {row.get('summary', '')}")
+    return 0
+
+
+def cmd_request(args) -> int:
+    ledger = ledger_for(args.cwd)
+    run = ledger.require_run()
+    found = find_config(args.cwd)
+    if found and args.resource not in resources(found[1]):
+        raise Refusal(f"no resource named {args.resource}; configured: {', '.join(resources(found[1]))}")
+    session_id = caller_session(args.session)
+    if not session_id:
+        raise Refusal("no session id")
+    spec = resources(found[1]).get(args.resource, {}) if found else {}
+    if isinstance(spec, dict) and spec.get("human_gate"):
+        note = " It is a taboo: the window is announced by the chief and the command is the human's to type."
+    else:
+        note = ""
+    req = {"resource": args.resource, "session_id": session_id, "minutes": args.minutes, "what": (args.what or "").strip()[:240], "at": now(), "command": args.command}
+    write_json(ledger.request_path(args.resource, session_id), req)
+    ledger.log("request", **req)
+    holder = ledger.slots().get(args.resource)
+    held = f" Currently held by {holder.get('holder', '')[:8]} until {clock(holder.get('until'))}." if holder else " Currently free."
+    print(json.dumps(req) if args.json else f"dibs called: {args.resource} for {args.minutes or '?'} min.{held}{note} The chief grants by message; do not run the command before the grant arrives.")
+    return 0
+
+
+def cmd_grant(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return grant_locked(args, ledger)
+
+
+def holds_a_slot(ledger: Ledger, session_id: str) -> bool:
+    """Whether a session still holds any slot; a row reads `in-slot` until its last one goes."""
+    return any(held.get("holder") == session_id for held in ledger.slots().values())
+
+
+def grant_locked(args, ledger: Ledger) -> int:
+    run = ledger.require_run()
+    by = authorise(run, caller_session(args.session), args.by_user, "grant dibs")
+    found = find_config(args.cwd)
+    if found and args.resource not in resources(found[1]):
+        raise Refusal(f"no resource named {args.resource}; configured: {', '.join(resources(found[1]))}")
+    sessions = ledger.sessions()
+    target = resolve_session(args.to, sessions)
+    holder = ledger.slots().get(args.resource)
+    if holder and holder.get("holder") == target:
+        # a grant to the holder extends the slot: more minutes, nothing else moves, and only the holder is told;
+        # the minutes come from the flag, then from the holder's own request, the way a first grant reads them
+        request = read_json(ledger.request_path(args.resource, target), {}) or {}
+        minutes = float(args.minutes or request.get("minutes") or 15)
+        holder["until"] = max(float(holder.get("until") or now()), now()) + 60 * minutes
+        holder["extended_at"] = now()
+        if args.note:
+            holder["note"] = args.note.strip()[:240]
+        write_json(ledger.slot_path(args.resource), holder)
+        # the holder asked for the time with warband_dibs request; granted, the request is answered and leaves the board
+        # (one sat as "requested" for an hour after its release in November 2026 and read as a session queueing for a free slot)
+        ledger.request_path(args.resource, target).unlink(missing_ok=True)
+        ledger.log("extend", resource=args.resource, holder=target, minutes=minutes, until=holder["until"], by=by)
+        print(json.dumps({**holder, "extended": True}) if args.json else f"{args.resource} extended for {(sessions.get(target) or {}).get('task') or target[:8]} until {clock(holder['until'])}")
+        return 0
+    if holder and holder.get("holder") != target and not args.force:
+        raise Refusal(f"{args.resource} is held by {holder.get('holder_task') or holder.get('holder', '')[:8]} since {clock(holder.get('granted_at'))}; wait for the release or pass --force to override")
+    request = read_json(ledger.request_path(args.resource, target), {}) or {}
+    minutes = args.minutes or request.get("minutes") or 15
+    # a request the hook recorded from a refused attempt reads `attempted: <command>`; the slot's purpose is the command
+    if isinstance(request.get("what"), str) and request["what"].startswith("attempted: "):
+        request["what"] = request["what"][len("attempted: "):]
+    slot = {
+        "resource": args.resource,
+        "holder": target,
+        "granted_at": now(),
+        "until": now() + 60 * float(minutes),
+        "what": (args.what or request.get("what") or "").strip()[:240],
+        "note": (args.note or "").strip()[:240],
+        "by": by,
+        "forced": bool(holder and holder.get("holder") != target),
+    }
+    row = sessions.get(target)
+    # what the holder was doing before the slot, so the release puts it back instead of forcing `working`
+    prior = (row or {}).get("state")
+    if row and prior == "in-slot":
+        # already in another slot (or this one): the state before the first of them is the one to restore
+        prior = next((held.get("prior_state") for held in ledger.slots().values() if held.get("holder") == target and held.get("prior_state")), None)
+    slot["prior_state"] = prior if prior in RESTORED_STATES else "working"
+    write_json(ledger.slot_path(args.resource), slot)
+    path = ledger.request_path(args.resource, target)
+    if path.exists():
+        path.unlink()
+    if row:
+        row["state"] = "in-slot"
+        row["updated_at"] = now()
+        ledger.save_session(row)
+    # a forced grant displaces the old holder, whose row must stop reading in-slot
+    displaced = sessions.get((holder or {}).get("holder", ""))
+    if slot["forced"] and displaced and displaced.get("state") == "in-slot" and not holds_a_slot(ledger, holder["holder"]):
+        displaced["state"] = holder.get("prior_state") or "working"
+        displaced["updated_at"] = now()
+        ledger.save_session(displaced)
+    ledger.log("grant", **slot)
+    print(json.dumps(slot) if args.json else f"{args.resource} granted to {(row or {}).get('task') or target[:8]} until {clock(slot['until'])}" + (" (forced)" if slot["forced"] else ""))
+    return 0
+
+
+def cmd_release(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return release_locked(args, ledger)
+
+
+def release_locked(args, ledger: Ledger) -> int:
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    slot = ledger.slots().get(args.resource)
+    if not slot:
+        raise Refusal(f"{args.resource} is not held")
+    if slot.get("holder") != session_id:
+        authorise(run, session_id, args.by_user, f"release the dibs on {args.resource} held by another session")
+    ledger.slot_path(args.resource).unlink(missing_ok=True)
+    # a request the holder still had open for this resource (more time asked and not yet granted) is moot once the slot goes
+    ledger.request_path(args.resource, slot["holder"]).unlink(missing_ok=True)
+    row = ledger.sessions().get(slot["holder"])
+    if row and row.get("state") == "in-slot" and not holds_a_slot(ledger, slot["holder"]):
+        row["state"] = slot.get("prior_state") or "working"
+        row["updated_at"] = now()
+        ledger.save_session(row)
+    ledger.log("release", resource=args.resource, holder=slot["holder"], note=(args.note or "")[:240], by=session_id)
+    print(json.dumps({"released": args.resource}) if args.json else f"{args.resource} released" + (f": {args.note}" if args.note else ""))
+    return 0
+
+
+def cmd_needs(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return needs_locked(args, ledger)
+
+
+def touches_human_gate(cwd: str, command: str) -> bool:
+    """True when the command is one the project's config gates behind a human-gated resource (the hosted project)."""
+    try:
+        found = find_config(cwd)
+    except Refusal:
+        return False
+    if not found or not command:
+        return False
+    return any(isinstance(resources(found[1]).get(hit["resource"]), dict) and resources(found[1])[hit["resource"]].get("human_gate") for hit in gated(found[1], command))
+
+
+def main_rooted(cwd: str, main: Path) -> str:
+    """The same place in the main checkout when `cwd` lies in a linked worktree; any other directory comes back as given.
+
+    A hosted command is typed by the user, and the link to the hosted project (`supabase/.temp`,
+    git-ignored) exists only in the main checkout: typed from a crew's worktree it fails with
+    LegacyProjectNotLinkedError, as eight calls did on 3 November 2026."""
+    if not cwd or not Path(cwd).is_dir():
+        return cwd
+    top = toplevel(cwd)
+    if top is None or same_path(top, main):
+        return cwd
+    # git answers with the canonical path and `cwd` may be spelled through a symlink (/var for /private/var), so both are resolved first
+    return os.path.normpath(os.path.join(main, os.path.relpath(Path(cwd).resolve(), Path(top).resolve())))
+
+
+def needs_locked(args, ledger: Ledger) -> int:
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    needs = run.setdefault("needs", [])
+    if args.action == "list":
+        print(json.dumps(needs, indent=2))
+        return 0
+    # each link flag belongs to one action; a swap of --supersedes for --superseded-by used to pass with nothing recorded
+    if args.supersedes and args.action != "add":
+        raise Refusal("--supersedes belongs on needs add; to close a tribute under its successor use needs done <n> --superseded-by <successor>")
+    if args.superseded_by and args.action != "done":
+        raise Refusal("--superseded-by belongs on needs done; to re-issue a tribute use needs add --supersedes <n>")
+    if args.note is not None and args.action != "start":
+        raise Refusal("--note belongs on needs start")
+    if args.result is not None and args.action != "done":
+        raise Refusal("--result belongs on needs done")
+    if args.pr is not None and args.action != "add":
+        raise Refusal("--pr belongs on needs add")
+    if args.action == "add":
+        if not args.why:
+            raise Refusal("needs add wants --why, and --command with --cwd when there is a command to type")
+        if args.kind == "question" and args.command:
+            raise Refusal("a question has no command; put the question in --why and the answer comes back with needs done --result")
+        row = ledger.sessions().get(session_id or "", {})
+        n = 1 + max([x.get("n", 0) for x in needs] or [0])
+        # a re-issue closes the need it replaces as superseded, so the trail reads old number to new on one list
+        old = find_need(needs, args.supersedes) if args.supersedes else None
+        if args.supersedes and old is None:
+            raise Refusal(f"no tribute {args.supersedes} to supersede")
+        if old is not None and old.get("superseded_by"):
+            raise Refusal(f"tribute #{old['n']} is already superseded by #{old['superseded_by']}")
+        # the session a need is for may re-issue it too: the coordinator raises a measurement on a crew session's behalf,
+        # and the crew skill sends that crew the re-issue. an anonymous shell (no session id) stays refused
+        if old is not None and old.get("session_id") != session_id and not (session_id and old.get("for") == session_id):
+            authorise(run, session_id, args.by_user, "supersede another session's tribute")
+        # the result of a measurement goes to the session that asked for it, or the one named; the board says which.
+        # a re-issue keeps the old need's kind, recipient and directory unless the flag says otherwise; the command is
+        # never carried over, since the first attempt usually failed on it and a missing one shows as missing on the board
+        inherited = old or {}
+        if args.for_session:
+            for_session = resolve_session(args.for_session, ledger.sessions())
+        else:
+            for_session = inherited.get("for") or (session_id if row else None)
+        for_task = (ledger.sessions().get(for_session or "") or {}).get("task", "") or (inherited.get("for_task", "") if for_session == inherited.get("for") else "")
+        command = (args.command or "").strip()
+        cwd = args.cwd_hint or inherited.get("cwd") or row.get("worktree") or ""
+        # a hosted command runs from the main checkout whatever directory was given: only that tree is linked to the hosted project
+        moved_from = None
+        if touches_human_gate(args.cwd, command):
+            rooted = main_rooted(cwd, ledger.main)
+            if rooted != cwd:
+                moved_from, cwd = cwd, rooted
+        need = {"id": uuid.uuid4().hex[:8], "n": n, "session_id": session_id, "task": row.get("task", "") or inherited.get("task", ""), "why": args.why.strip()[:NEED_WHY_LIMIT],
+                "command": command, "cwd": cwd, "status": "open", "at": now(),
+                "kind": args.kind or inherited.get("kind") or "action", "for": for_session, "for_task": for_task,
+                "supersedes": old["n"] if old else None}
+        if args.pr or inherited.get("pr"):
+            need["pr"] = args.pr or inherited.get("pr")
+        if moved_from:
+            need["cwd_moved_from"] = moved_from
+        needs.append(need)
+        # the new need is logged before the old one closes, so the log reads need then need-superseded, the way the link points
+        ledger.log("need", **need)
+        if old is not None:
+            supersede(ledger, old, need["n"])
+        ledger.save_run(run)
+        wants = f" (result to {need['for_task'] or (for_session or '')[:8]})" if need["kind"] == "measurement" and for_session else ""
+        replaces = f" (supersedes #{old['n']})" if old else ""
+        moved = f" (directory moved from {moved_from} to the main checkout, the only tree linked to the hosted project)" if moved_from else ""
+        print(json.dumps(need) if args.json else f"tribute #{n} owed: {need['why']}" + (f" · `{need['command']}`" if need["command"] else "") + wants + replaces + moved)
+        return 0
+    target = find_need(needs, args.ref)
+    if target is None:
+        raise Refusal(f"no open tribute {args.ref}")
+    if args.action == "start":
+        # the user has typed the command and it runs on; the tribute leaves the owed count and keeps its number until the result is in
+        if target.get("status") == "done":
+            raise Refusal(f"tribute #{target['n']} is already paid")
+        if target.get("session_id") != session_id:
+            authorise(run, session_id, args.by_user, "mark another session's tribute agreed")
+        target["status"] = "started"
+        # a second start only adds or changes the note; the time the user first typed it is the one the board shows
+        target["started_at"] = target.get("started_at") or now()
+        if args.note is not None:
+            target["note"] = args.note.strip()[:NEED_WHY_LIMIT]
+        ledger.save_run(run)
+        ledger.log("need-started", id=target["id"], n=target["n"], note=target.get("note", ""))
+        print(json.dumps(target) if args.json else f"tribute #{target['n']} agreed since {clock(target['started_at'])}" + (f": {target['note']}" if target.get("note") else ""))
+        return 0
+    # done
+    if target.get("session_id") != session_id:
+        authorise(run, session_id, args.by_user, "mark another session's tribute paid")
+    result = args.result
+    if result and result.startswith("@") and Path(result[1:]).is_file():
+        result = Path(result[1:]).read_text()
+    successor = find_need(needs, args.superseded_by) if args.superseded_by else None
+    if args.superseded_by and successor is None:
+        raise Refusal(f"no tribute {args.superseded_by} to be superseded by")
+    if successor is not None and successor is target:
+        raise Refusal(f"tribute #{target['n']} cannot supersede itself")
+    if successor is not None and successor.get("status") == "done":
+        raise Refusal(f"tribute #{successor['n']} is paid; a tribute is superseded by one still owed or agreed")
+    if successor is not None and target.get("superseded_by"):
+        raise Refusal(f"tribute #{target['n']} is already superseded by #{target['superseded_by']}")
+    if successor is not None:
+        supersede(ledger, target, successor["n"])
+        # the back-link is a scalar: a successor that already re-issues one need keeps that; superseded_by on each old need is the trail
+        successor["supersedes"] = successor.get("supersedes") or target["n"]
+    else:
+        target["status"] = "done"
+        # a second done (closed first, the result pasted later) keeps the first close time
+        target["done_at"] = target.get("done_at") or now()
+    if result is not None:
+        target["result"] = result.strip()[:RESULT_LIMIT]
+    ledger.save_run(run)
+    ledger.log("need-done", id=target["id"], n=target["n"], result_chars=len(target.get("result") or ""), superseded_by=target.get("superseded_by"))
+    recipient = target.get("for") or target.get("session_id") or ""
+    if args.json:
+        print(json.dumps({**target, "forward_to": recipient if result else None}))
+    else:
+        tail = f"; result ({len(target['result'])} chars) for {target.get('for_task') or recipient[:8]}" if result else ""
+        print(f"tribute #{target['n']} " + (f"superseded by #{target['superseded_by']}" if successor else "paid") + tail)
+    return 0
+
+
+def find_need(needs: list, ref) -> dict | None:
+    """A need by its number or its id; None when the list has neither."""
+    if ref is None:
+        return None
+    return next((x for x in needs if str(x.get("n")) == str(ref) or x.get("id") == ref), None)
+
+
+def supersede(ledger: Ledger, old: dict, by: int) -> None:
+    """Close a need the next attempt replaces: done, with the successor's number on it, so the audit trail across two numbers reads in one direction."""
+    old["status"] = "done"
+    # a need the user already closed keeps its close time; only the link is new
+    old["done_at"] = old.get("done_at") or now()
+    old["superseded_by"] = by
+    ledger.log("need-superseded", id=old["id"], n=old["n"], by=by)
+
+
+def cmd_jobs(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return jobs_locked(args, ledger)
+
+
+def jobs_locked(args, ledger: Ledger) -> int:
+    """A session's scheduled state in the ledger, so a resume can re-arm it: each cron job, Monitor and watch, with its spec and reason. `warband.py watch` keeps its own entry.
+
+    A crew session's jobs live on its row. The coordinator has no row, so its
+    jobs (the wake cron) live on run.json. A job whose session is gone can be
+    closed by the coordinator or by the user, since nobody else is left to.
+    """
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    sessions = ledger.sessions()
+    coordinating = is_coordinator(run, session_id)
+    coordinator_id = run.get("coordinator", {}).get("session_id") or ""
+    if args.action == "list":
+        target = resolve_session(args.ref, sessions) if args.ref else session_id
+        rows = [{**job, "task": r.get("task", ""), "session_id": sid} for sid, r in sessions.items() if (target is None or sid == target) for job in (r.get("jobs") or []) if args.all or job.get("status", "open") == "open"]
+        if target is None or (coordinating and not args.ref):
+            rows += [{**job, "task": "coordinator", "session_id": coordinator_id} for job in (run.get("jobs") or []) if args.all or job.get("status", "open") == "open"]
+        print(json.dumps(rows, indent=2))
+        return 0
+    row = sessions.get(session_id or "")
+    # where this session's own jobs are kept: its row, or the run for the coordinator
+    own = row if row is not None else (run if coordinating else None)
+    if args.action == "add":
+        if args.by_user:
+            raise Refusal(f"`jobs add` records what this session scheduled, so it takes no `{BY_USER}`")
+        if own is None:
+            raise Refusal("this session has not joined the raid; jobs belong to a session row, or to the raid for its chief")
+        if not args.kind or not args.spec:
+            raise Refusal("jobs add needs --kind (cron, monitor, watch, other) and --spec (the cron expression, the Monitor's condition, the watch's PR)")
+        job = {"id": args.id or f"{args.kind}-{uuid.uuid4().hex[:6]}", "kind": args.kind, "spec": args.spec.strip(), "prompt": (args.prompt or "").strip(), "reason": (args.reason or "").strip()[:240], "status": "open", "at": now()}
+        own["jobs"] = [j for j in (own.get("jobs") or []) if j.get("id") != job["id"]] + [job]
+        if own is run:
+            ledger.save_run(run)
+        else:
+            ledger.save_session(own)
+        ledger.log("job", session_id=session_id, **job)
+        print(json.dumps(job) if args.json else f"job {job['id']} recorded ({job['kind']}: {job['spec']}); a resume of this session is told to re-arm it")
+        return 0
+
+    def named(holder: dict | None, only_open: bool = False) -> dict | None:
+        return next((j for j in ((holder or {}).get("jobs") or []) if j.get("id") == args.ref and (not only_open or j.get("status", "open") == "open")), None)
+
+    holder, owner, by = own, session_id, "session"
+    # open jobs only: the coordinator can reach a gone session's job under the same id, so a finished one of its own must not stand in front of it, and a repeat closes nothing
+    target = None if args.by_user else named(own, True)
+    if target is None and (coordinating or args.by_user):
+        # nobody is left to close a job whose session is gone: the coordinator may, and so may the person
+        by = authorise(run, session_id, args.by_user, "close another session's job")
+        live = registry()
+        gone = [(sid, r) for sid, r in sessions.items() if named(r, True) and (sid not in live or r.get("retired"))]
+        if len(gone) > 1:
+            raise Refusal(f"job {args.ref} is open on {len(gone)} rows whose sessions are gone ({', '.join(r.get('task') or sid[:8] for sid, r in gone)}); `jobs done` cannot tell which, and `retire` closes a row's jobs")
+        if gone:
+            owner, holder = gone[0]
+            target = named(holder, True)
+        elif args.by_user and named(run, True) and coordinator_id not in live:
+            owner, holder, target = coordinator_id, run, named(run, True)
+        else:
+            still = next((r.get("task") or sid[:8] for sid, r in sessions.items() if named(r, True)), None) or ("the chief" if named(run, True) else None)
+            if still:
+                raise Refusal(f"job {args.ref} belongs to {still}, whose session is live; that session closes it")
+    if target is None or holder is None:
+        if own is None and not args.by_user:
+            raise Refusal("this session has not joined the raid; jobs belong to a session row, or to the raid for its chief")
+        # the id exists and nothing under it is open: say that, and name no listing, since `jobs list` is the caller's own and hides a finished job
+        reaches_all = coordinating or args.by_user
+        if any(named(h) for h in (own, *((run, *sessions.values()) if reaches_all else ()))):
+            raise Refusal(f"job {args.ref} is already done")
+        if reaches_all:
+            raise Refusal(f"no job {args.ref} on any session in this raid")
+        raise Refusal(f"no job {args.ref} on this session; `jobs list` names them")
+    target["status"] = "done"
+    target["done_at"] = now()
+    if by != "session":
+        target["note"] = f"closed by {by}: its session is gone"
+    if holder is run:
+        ledger.save_run(run)
+    else:
+        ledger.save_session(holder)
+    ledger.log("job-done", session_id=owner, id=target["id"], by=by)
+    print(f"job {target['id']} done" + ("" if by == "session" else f" (it was {'the chief' if holder is run else (holder.get('task') or owner[:8])}'s, whose session is gone)"))
+    return 0
+
+
+def cmd_pending(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return pending_locked(args, ledger)
+
+
+def pending_locked(args, ledger: Ledger) -> int:
+    """The coordinator's open threads, kept in the ledger so a compacted coordinator reads them back: approvals awaited, messages sent and unanswered, anything else it is waiting on."""
+    run = ledger.require_run()
+    pending = run.setdefault("pending", [])
+    if args.action == "list":
+        print(json.dumps([p for p in pending if args.all or p.get("status") == "open"], indent=2))
+        return 0
+    authorise(run, caller_session(args.session), args.by_user, "keep the pending list")
+    if args.action == "add":
+        if not args.text:
+            raise Refusal("pending add needs --text")
+        n = 1 + max([p.get("n", 0) for p in pending] or [0])
+        item = {"id": uuid.uuid4().hex[:8], "n": n, "kind": args.kind or "thread", "text": args.text.strip()[:NEED_WHY_LIMIT], "session_id": resolve_session(args.ref, ledger.sessions()) if args.ref else None, "status": "open", "at": now()}
+        pending.append(item)
+        ledger.save_run(run)
+        ledger.log("pending", **item)
+        print(json.dumps(item) if args.json else f"pending #{n} ({item['kind']}): {item['text']}")
+        return 0
+    if args.action in ("hold", "release"):
+        # the ref is the PR number: an approved PR can be held back from landing (reconcile says `approved-held`, not `landing is authorised`) until released
+        target = next((p for p in pending if p.get("kind") == "approval" and p.get("status") == "open" and str(p.get("pr")) == str(args.ref).lstrip("#")), None)
+        if target is None:
+            raise Refusal(f"no open approval for PR {args.ref}; the watcher records one when it sees the approval")
+        # the hold lives on the PR's own file, the one place the board, reconcile and the page read it
+        number = int(target["pr"])
+        row = ledger.prs().get(number) or {"number": number, "task": None, "at": now()}
+        if args.action == "hold":
+            if not args.text:
+                raise Refusal("pending hold needs --text, the reason the landing waits")
+            row["hold"] = {"reason": args.text.strip()[:NEED_WHY_LIMIT], "lifts_on": [], "at": now(), "by": "user" if args.by_user else "coordinator"}
+        else:
+            row.pop("hold", None)
+        target.pop("hold", None)
+        ledger.save_pr(row)
+        ledger.save_run(run)
+        ledger.log("pending-" + args.action, id=target["id"], n=target["n"], pr=number)
+        print(f"PR #{number} {'held: ' + row['hold']['reason'] + ' (`warband.py prs hold` records what lifts it)' if args.action == 'hold' else 'released'}")
+        return 0
+    target = next((p for p in pending if str(p.get("n")) == str(args.ref) or p.get("id") == args.ref), None)
+    if target is None:
+        raise Refusal(f"no open pending item {args.ref}")
+    target["status"] = "done"
+    target["done_at"] = now()
+    if args.text:
+        target["outcome"] = args.text.strip()[:NEED_WHY_LIMIT]
+    ledger.save_run(run)
+    ledger.log("pending-done", id=target["id"], n=target["n"])
+    print(f"pending #{target['n']} done")
+    return 0
+
+
+def cmd_prs(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return prs_locked(args, ledger)
+
+
+def prs_locked(args, ledger: Ledger) -> int:
+    """Each PR the run cares about as its own file: task, group, whether it was pinned from outside the run, a hold and what lifts it, and the coordinator's note.
+    add and pin record a PR; hold and release gate its landing; note attaches a sentence that stops showing once the head, the review or the state moves."""
+    run = ledger.require_run()
+    prs = ledger.prs()
+    if args.action == "list":
+        rows = sorted(prs.values(), key=lambda r: r["number"])
+        print(json.dumps(rows, indent=2) if args.json else "\n".join(f"#{r['number']} {r.get('task') or '(outside the raid)'}{' · ' + r['group'] if r.get('group') else ''}{' · held' if r.get('hold') else ''}{' · ignored' if r.get('ignored') else ''}" for r in rows) or "no PRs recorded")
+        return 0
+    if args.ref is None or not str(args.ref).lstrip("#").isdigit():
+        raise Refusal(f"prs {args.action} needs the PR number")
+    number = int(str(args.ref).lstrip("#"))
+    caller = caller_session(args.session)
+    sessions = ledger.sessions()
+    own = sessions.get(caller or "")
+    if args.action == "add" and own is None and not args.by_user and not is_coordinator(run, caller):
+        raise Refusal("prs add is for a session in the raid, the chief or --by-user")
+    if args.action != "add":
+        authorise(run, caller, args.by_user, "keep the PR records")
+    row = prs.get(number) or {"number": number, "at": now()}
+    plan = {entry.get("task"): entry for entry in run.get("crew", [])}
+    if args.action in ("add", "pin"):
+        task = args.task or (own or {}).get("task") if args.action == "add" else args.task
+        if task and task not in plan:
+            raise Refusal(f"{task} is not in the raiders' plan: {', '.join(plan) or 'none'}")
+        if task:
+            row["task"] = task
+        row.setdefault("task", None)
+        # a group is stored only when chosen; otherwise the page reads it from the crew plan at draw time, so a group set later still applies
+        if args.group:
+            row["group"] = args.group
+        elif args.action == "pin" and not row.get("group"):
+            row["group"] = OUTSIDE_GROUP
+        if args.shared:
+            row["shared"] = True
+            row["group"] = args.group or SHARED_GROUP
+        if args.action == "pin":
+            row["pinned"] = True
+        row.setdefault("opened_by", (own or {}).get("session_id"))
+        if own and not row.get("worktree"):
+            row["worktree"] = own.get("worktree")
+    elif args.action == "ignore":
+        row.setdefault("task", None)
+        row["ignored"] = True
+    elif args.action == "hold":
+        if not args.text:
+            raise Refusal("prs hold needs --text, the reason the landing waits")
+        lifts = [{"pr": int(x.lstrip("#"))} for x in (args.lifts_on_pr or "").split(",") if x.strip()] + [{"need": int(x)} for x in (args.lifts_on_need or "").split(",") if x.strip()]
+        row["hold"] = {"reason": args.text.strip()[:NEED_WHY_LIMIT], "lifts_on": lifts, "at": now(), "by": "user" if args.by_user else "coordinator"}
+    elif args.action == "release":
+        row.pop("hold", None)
+    elif args.action == "note":
+        if not args.text:
+            raise Refusal("prs note needs --text")
+        facts = pr_facts(ledger, {number}).get(number) or {}
+        row["note"] = {"text": args.text.strip()[:400], "at": now(), "head": facts.get("head"), "review_decision": facts.get("review_decision"), "state": facts.get("state")}
+    ledger.save_pr(row)
+    ledger.log("prs-" + args.action, pr=number, task=row.get("task"))
+    print(json.dumps(row) if args.json else f"PR #{number}: {args.action}" + (f" ({row['group']})" if row.get("group") else ""))
+    return 0
+
+
+# ---------------------------------------------------------------- the PR dashboard
+#
+# One local page per run, <ledger>/dashboard.html, outside every repository and never published. It is drawn from the
+# ledger and the cached PR facts alone, so any ledger write can redraw it without asking gh or git; reconcile, the
+# watchers and `dashboard --refresh` are what refresh the facts and the migration scan it reads.
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+DASHBOARD_FILE = "dashboard.html"
+DASHBOARD_STALE_SECONDS = 15 * 60
+# the commands that never redraw the page: reads, hooks (one runs on every Bash call) and the page's own command
+REDRAW_EXEMPT = {"detect", "status", "probe", "check", "hook", "classify", "gate", "dashboard", "watch"}
+OUTSIDE_GROUP = "Outside the run"
+# The stored group name stays (it is written into prs/<n>.json); the spoils page shows it in the warband's words.
+GROUP_WORDS = {OUTSIDE_GROUP: "Outside the raid"}
+SHARED_GROUP = "Shared code"
+
+
+def cached_facts(ledger: Ledger, numbers: set[int]) -> tuple[dict[int, dict], float | None]:
+    """What the PR facts cache holds for each PR, however old, and the oldest entry's time; never asks gh."""
+    cache = read_json(ledger.dir / "pr-facts.json", {}) or {}
+    found: dict[int, dict] = {}
+    oldest = None
+    for number in numbers:
+        hit = cache.get(str(number)) or {}
+        if isinstance(hit.get("facts"), dict):
+            found[number] = hit["facts"]
+            oldest = hit.get("at", 0) if oldest is None else min(oldest, hit.get("at", 0))
+    return found, oldest
+
+
+def migrations_dir(ledger: Ledger) -> str | None:
+    found = find_config(ledger.main)
+    folder = ((found[1] if found else {}) or {}).get("migrations", {}).get("dir") if found else None
+    return str(folder).strip("/") if folder else None
+
+
+def refresh_migrations(ledger: Ledger, facts: dict[int, dict], trunk: str) -> None:
+    """For each open PR, the lowest migration its head carries that the trunk does not, cached by head sha in migrations.json.
+    The head includes every layer below it, so this is the lowest unlanded migration of the stack up to that layer; "" means none."""
+    folder = migrations_dir(ledger)
+    if not folder or git_problem():
+        return
+    cache_path = ledger.dir / "migrations.json"
+    cache = read_json(cache_path, {}) or {}
+    wanted = {n: f for n, f in facts.items() if f.get("state") == "OPEN" and f.get("head") and (cache.get(str(n)) or {}).get("head") != f["head"]}
+    if not wanted:
+        return
+    run_git(ledger.main, "fetch", "--quiet", "origin")
+    trunk_names = run_git(ledger.main, "ls-tree", "--name-only", f"origin/{trunk}", "--", f"{folder}/")
+    if trunk_names is None:
+        return
+    landed = set(trunk_names.split())
+    for number, fact in wanted.items():
+        ref = fact["head"] if run_git(ledger.main, "cat-file", "-e", fact["head"]) is not None else None
+        if ref is None and fact.get("head_branch") and (run_git(ledger.main, "rev-parse", f"origin/{fact['head_branch']}") or "").strip() == fact["head"]:
+            ref = f"origin/{fact['head_branch']}"
+        names = run_git(ledger.main, "ls-tree", "--name-only", ref, "--", f"{folder}/") if ref else None
+        if names is None:
+            continue  # the head is not here to read: no scan is cached, so its merge reads `restamp cost unknown`
+        cache[str(number)] = {"head": fact["head"], "lowest": lowest_migration([n for n in names.split() if n not in landed]) or "", "at": now()}
+    write_json(cache_path, cache)
+
+
+def cached_migrations(ledger: Ledger, facts: dict[int, dict]) -> dict[int, str | None]:
+    """{PR: lowest unlanded migration} for the PRs that carry one, None where the scan is missing or older than the head; empty when the project names no migrations folder."""
+    if not migrations_dir(ledger):
+        return {}
+    cache = read_json(ledger.dir / "migrations.json", {}) or {}
+    out: dict[int, str | None] = {}
+    for number, fact in facts.items():
+        if fact.get("state") != "OPEN":
+            continue
+        hit = cache.get(str(number)) or {}
+        if hit.get("head") != fact.get("head"):
+            out[number] = None
+        elif hit.get("lowest"):
+            out[number] = hit["lowest"]
+    return out
+
+
+def note_current(note: dict | None, fact: dict | None) -> bool:
+    """The coordinator's note shows only while the PR is as it was when the note was written: same head, same review decision, still open."""
+    if not note or not fact:
+        return False
+    return fact.get("state") == "OPEN" and note.get("head") == fact.get("head") and note.get("review_decision") == fact.get("review_decision") and note.get("state") == fact.get("state")
+
+
+def dashboard_model(ledger: Ledger, run: dict) -> dict:
+    """Everything the page and the board draw, from the ledger and the caches alone."""
+    sessions = ledger.sessions()
+    by_task = {row.get("task"): row for row in sessions.values() if row.get("task")}
+    recorded = ledger.prs()
+    rows = {n: r for n, r in recorded.items() if not r.get("ignored")}
+    for row in sessions.values():
+        if row.get("pr") and int(row["pr"]) not in recorded:
+            rows[int(row["pr"])] = {"number": int(row["pr"]), "task": row.get("task"), "group": None}
+    facts, oldest = cached_facts(ledger, set(rows))
+    # the PRs a hold waits on lend their state to the hold and nothing else: kept out of `facts`, they are never drawn and never taken for a stack's layer
+    lift_facts, _ = cached_facts(ledger, hold_lift_prs(rows) - set(rows))
+    states = {n: f.get("state", "") for n, f in {**lift_facts, **facts}.items()}
+    shown = {n: r for n, r in rows.items() if (facts.get(n) or {}).get("state", "OPEN") == "OPEN"}
+    needs = [n for n in run.get("needs", []) if n.get("status") in ("open", "started")]
+    migrations = cached_migrations(ledger, {n: facts[n] for n in shown if n in facts})
+    plan_groups = []
+    for entry in run.get("crew", []):
+        group = entry.get("group") or entry.get("task")
+        if group and group not in plan_groups:
+            plan_groups.append(group)
+    heads = {f.get("head_branch"): n for n, f in facts.items() if n in shown and f.get("head_branch")}
+    items = []
+    for number, row in shown.items():
+        fact = facts.get(number)
+        plan = next((e for e in run.get("crew", []) if e.get("task") == row.get("task")), {})
+        group = row.get("group") or plan.get("group") or row.get("task") or OUTSIDE_GROUP
+        who = who_moves_next(number, shown, facts, by_task, needs, migrations, states=states)
+        parent = heads.get((fact or {}).get("base") or "")
+        items.append({
+            "number": number, "task": row.get("task"), "group": group, "who": who, "fact": fact or {}, "parent": parent if parent in shown else None,
+            "note": row.get("note") if note_current(row.get("note"), fact) else None, "needs": [n for n in needs if n.get("pr") == number],
+            "session": by_task.get(row.get("task") or ""), "migration": migrations.get(number), "pinned": bool(row.get("pinned")),
+        })
+    order = plan_groups + sorted({i["group"] for i in items} - set(plan_groups) - {SHARED_GROUP, OUTSIDE_GROUP}) + [SHARED_GROUP, OUTSIDE_GROUP]
+    groups = []
+    for group in order:
+        members = [i for i in items if i["group"] == group]
+        if not members:
+            continue
+        roots = [i for i in members if i["parent"] is None or all(m["number"] != i["parent"] for m in members)]
+        roots.sort(key=lambda i: (stack_lowest(i, members) or "99999999999999", i["number"]))
+        ordered = []
+        for position, root in enumerate(roots, 1):
+            walk_stack(root, members, 0, position, ordered)
+        groups.append({"name": group, "rows": ordered})
+    attached = {n["n"] for i in items for n in i["needs"]}
+    return {
+        "run": run.get("name"), "at": now(), "facts_at": oldest, "groups": groups, "items": items,
+        "loose_needs": [n for n in needs if n.get("n") not in attached],
+        # a layer that only waits on the one below ("lands after #n") is the same action as that layer, so it is not counted twice
+        "totals": {"open": len(items), "jason": sum(1 for i in items if i["who"]["kind"] == "jason" and not i["who"]["why"].startswith("lands after")) + sum(1 for n in needs if n.get("status") == "open" and n.get("n") not in attached),
+                   "held": sum(1 for i in items if i["who"]["kind"] == "hold"), "ready": sum(1 for i in items if i["who"]["kind"] == "jason" and i["who"]["why"].startswith("approved")),
+                   "questions": sum(1 for n in needs if n.get("kind") == "question" and n.get("status") == "open")},
+    }
+
+
+def stack_lowest(root: dict, members: list[dict]) -> str | None:
+    """The lowest migration anywhere in the stack that starts at this root; the stack with the earliest one lands first."""
+    stamps = [root.get("migration")]
+    frontier = [root["number"]]
+    while frontier:
+        current = frontier.pop()
+        for member in members:
+            if member["parent"] == current:
+                stamps.append(member.get("migration"))
+                frontier.append(member["number"])
+    stamps = [s for s in stamps if s]
+    return min(stamps) if stamps else None
+
+
+def walk_stack(item: dict, members: list[dict], depth: int, position: int, out: list[dict]) -> None:
+    out.append({**item, "depth": depth, "position": position if depth == 0 else None})
+    for child in sorted((m for m in members if m["parent"] == item["number"]), key=lambda m: m["number"]):
+        walk_stack(child, members, depth + 1, position, out)
+
+
+def review_chip(fact: dict) -> tuple[str, str]:
+    if fact.get("draft"):
+        return "wait", "draft"
+    decision = fact.get("review_decision")
+    if decision == "APPROVED":
+        return "good", "approved"
+    if decision == "CHANGES_REQUESTED":
+        return "bad", "changes requested"
+    return "wait", "awaiting review"
+
+
+CHECK_LABELS = {"good": "checks green", "wait": "checks running", "bad": "checks failing"}
+
+
+def need_html(need: dict) -> str:
+    kind = need.get("kind") or "action"
+    agreed = need.get("status") == "started"
+    label = TRIBUTE_WORDS["started"] if agreed else kind
+    body = escape(str(need.get("why") or ""))
+    command = need.get("command") or ""
+    if command and need.get("cwd") and command != "/compact":
+        cmd = f'<code class="cmd">cd {escape(need["cwd"])} &amp;&amp; {escape(command)}</code>'
+    else:
+        cmd = f'<code class="cmd">{escape(command)}</code>' if command else ""
+    since = f" since {escape(clock(need.get('started_at')))}" if agreed else ""
+    return f'<li class="{"agreed" if agreed else ""}"><span class="kind">tribute #{need.get("n")} · {escape(label)}{since}</span>{body}{cmd}</li>'
+
+
+TALLY_CAP = 25
+
+
+def tally_html(count: int) -> str:
+    """A count as tally marks: groups of four strokes with a fifth across them, then the ones. Past TALLY_CAP the marks stop and a + says
+    there are more. Hidden from screen readers, since the number always stands beside it."""
+    count = max(0, int(count))
+    drawn = min(count, TALLY_CAP)
+    fives, ones = divmod(drawn, 5)
+    marks = '<span class="five"><i></i><i></i><i></i><i></i></span>' * fives
+    if ones:
+        marks += f'<span class="ones">{"<i></i>" * ones}</span>'
+    if count > TALLY_CAP:
+        marks += '<span class="more">+</span>'
+    return f'<span class="tally" aria-hidden="true">{marks}</span>' if marks else ""
+
+
+# The faces the theme names, inlined so the page loads nothing (templates/fonts/README.md says where they came from).
+FONT_FACES = (
+    ("Cabin Sketch", 700, "cabin-sketch-latin-700-normal.woff2"),
+    ("Special Elite", 400, "special-elite-latin-400-normal.woff2"),
+    ("IBM Plex Sans", 400, "ibm-plex-sans-latin-400-normal.woff2"),
+    ("IBM Plex Sans", 600, "ibm-plex-sans-latin-600-normal.woff2"),
+    ("IBM Plex Mono", 400, "ibm-plex-mono-latin-400-normal.woff2"),
+    ("Permanent Marker", 400, "permanent-marker-latin-400-normal.woff2"),
+)
+
+
+def font_faces_css() -> str:
+    """@font-face rules with each face as a data URI; a face whose file is missing is left out and the theme's fallbacks take over."""
+    import base64
+    rules = []
+    for family, weight, name in FONT_FACES:
+        path = PLUGIN_ROOT / "templates" / "fonts" / name
+        try:
+            data = base64.b64encode(path.read_bytes()).decode("ascii")
+        except OSError:
+            continue
+        rules.append(f"@font-face {{ font-family: '{family}'; font-style: normal; font-weight: {weight}; font-display: swap; src: url(data:font/woff2;base64,{data}) format('woff2'); }}")
+    return "\n".join(rules)
+
+
+def render_dashboard(model: dict, repo_url: str | None) -> str:
+    """The spoils page as one HTML string: faces, theme tokens and components inlined, no script, no network.
+    A war table: each group is a column on the desk, each PR a card taped to it, each count drawn in tally marks beside its number."""
+    theme = (PLUGIN_ROOT / "templates" / "dashboard-theme.css").read_text()
+    components = (PLUGIN_ROOT / "templates" / "dashboard.css").read_text()
+    totals = model["totals"]
+    age = (model["at"] - model["facts_at"]) if model.get("facts_at") else None
+    facts_stamp = "never" if age is None else (f"{int(age // 60)} min ago" if age >= 60 else "just now")
+    stale = age is None or age > DASHBOARD_STALE_SECONDS
+    parts = []
+    if model["loose_needs"]:
+        owed = len(model["loose_needs"])
+        parts.append(f'<section class="tribute-owed slip" aria-labelledby="tribute-owed"><h2 id="tribute-owed">Tribute owed {tally_html(owed)}<span class="count">{owed}</span></h2>'
+                     f'<ul class="tributes">{"".join(need_html(n) for n in model["loose_needs"])}</ul></section>')
+    if model["groups"]:
+        parts.append('<div class="table">')
+    for at, group in enumerate(model["groups"]):
+        rows = len(group["rows"])
+        parts.append(f'<section class="column" aria-labelledby="group-{at}"><h2 id="group-{at}"><span class="name">{escape(GROUP_WORDS.get(group["name"], group["name"]))}</span>{tally_html(rows)}<span class="count">{rows}</span></h2><ul class="cards">')
+        for item in group["rows"]:
+            fact, who = item["fact"], item["who"]
+            number = item["number"]
+            href = f'{repo_url}/pull/{number}' if repo_url else "#"
+            chips = []
+            if fact:
+                chips.append('<span class="chip {}">{}</span>'.format(*review_chip(fact)))
+                word = fact.get("checks") or "good"
+                chips.append(f'<span class="chip {escape(word)}">{escape(CHECK_LABELS.get(word, word))}</span>')
+                if fact.get("mergeable") == "CONFLICTING":
+                    chips.append('<span class="chip bad">conflicts with base</span>')
+            if who.get("cost"):
+                chips.append(f'<span class="chip wait" title="{escape(who["cost"])}">restamp cost</span>')
+            order = f'<span class="order" title="landing order in this group">{item["position"]}</span>' if item.get("position") else ""
+            title = escape(fact.get("title") or "")
+            base = fact.get("base") or ""
+            base_html = f' · on <code>{escape(base)}</code>' if base and item["depth"] == 0 and base not in ("main", "master") else ""
+            migration = f' · migration {escape(item["migration"])}' if item.get("migration") else ""
+            session = item.get("session") or {}
+            owner = f' · {escape(session.get("name") or item.get("task") or "")}' if item.get("task") else (" · pinned" if item.get("pinned") else "")
+            cost_html = f'<p class="meta cost">{escape(who["cost"])}</p>' if who.get("cost") else ""
+            note = item.get("note")
+            note_html = f'<p class="note">{escape(note["text"])} <small>({escape(clock(note.get("at")))})</small></p>' if note else ""
+            owed = sum(1 for n in item["needs"] if n.get("status") != "started")
+            margin = f'<span class="margin-tally" title="tribute owed on this PR">{tally_html(owed)}<span>{owed} owed</span></span>' if owed else ""
+            needs_html = f'<ul class="tributes">{"".join(need_html(n) for n in item["needs"])}</ul>' if item["needs"] else ""
+            layer = f' layer depth-{item["depth"]}" style="--depth:{item["depth"]}' if item["depth"] else ""
+            waits = '<span class="waits">waits on the card above</span>' if item["depth"] else ""
+            parts.append(
+                f'<li class="card{layer}"><div class="card-head"><a class="num" href="{escape(href)}">{waits}{order}#{number}</a>{margin}</div>'
+                f'<p class="line"><span class="who who-{escape(who["kind"])}">{escape(who["actor"])}</span>{escape(who["why"])}</p>'
+                f'<p class="meta">{title}{owner}{base_html}{migration}</p>{cost_html}{note_html}{needs_html}'
+                f'<div class="chips">{"".join(chips)}</div></li>')
+        parts.append("</ul></section>")
+    if model["groups"]:
+        parts.append("</div>")
+    else:
+        parts.append('<p class="empty slip">No spoils recorded for this raid yet. Raiders\' PRs are recorded as they are opened; <code>warband.py prs pin &lt;n&gt;</code> adds one from outside the raid.</p>')
+    stale_html = ' <span class="stale">(stale: run reconcile or open /show-slate)</span>' if stale else ""
+    name = escape(str(model.get("run") or "Raid"))
+    totals_html = "".join(
+        f'<span class="total{" mine" if key == "jason" else ""}">{tally_html(totals[key])}<b>{totals[key]}</b> {label}</span>'
+        for key, label in (("jason", "await you"), ("questions", "questions for you"), ("ready", "ready to land"), ("held", "held"), ("open", "open")))
+    return f"""<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="60">
+<title>{name}: spoils</title>
+<style>
+{font_faces_css()}
+{theme}
+{components}
+</style></head><body><main>
+<header class="slip"><h1>Spoils of {name}</h1><span class="stamp">Drawn {escape(clock(model["at"]))} · GitHub facts {facts_stamp}{stale_html}</span>
+<div class="totals">{totals_html}</div></header>
+{"".join(parts)}
+<footer class="slip">The tag leading each card is who moves next, derived from GitHub and the ledger's holds and tribute; "restamp cost" names the PRs whose migrations would need renaming if this one lands first; a numbered badge is the stack's landing order in its column, and a card set in under another waits on it. A note on a card is the chief's and disappears once the PR moves. Every tally has its number beside it. This page is local to this machine and reloads every minute.</footer>
+</main></body></html>
+"""
+
+
+def repo_web_url(ledger: Ledger) -> str | None:
+    slug = remote_repo(ledger.main)
+    return f"https://github.com/{slug}" if slug else None
+
+
+def write_dashboard(ledger: Ledger) -> Path | None:
+    """Redraw the page from the ledger and the caches; None outside a run."""
+    run = ledger.run()
+    if run is None:
+        return None
+    return redraw_with_summary(ledger, run)[0]
+
+
+def redraw_with_summary(ledger: Ledger, run: dict) -> tuple[Path, dict]:
+    """Redraw the page and return its path with the board's summary of it, both from one model: totals, the facts' age and the PRs where the user moves next.
+    A layer that only waits on the one below ("lands after #n") is the same action as that layer, so it is left out of `mine`, as it is of the totals."""
+    model = dashboard_model(ledger, run)
+    path = ledger.dir / DASHBOARD_FILE
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(render_dashboard(model, repo_web_url(ledger)))
+    os.replace(tmp, path)
+    mine = sorted(({"number": i["number"], "actor": i["who"]["actor"], "why": i["who"]["why"], "cost": i["who"].get("cost")} for i in model["items"]
+                   if i["who"]["kind"] == "jason" and not i["who"]["why"].startswith("lands after")), key=lambda m: m["number"])
+    return path, {"path": str(path), "totals": model["totals"], "facts_at": model["facts_at"], "mine": mine}
+
+
+def redraw_quietly(cwd: str) -> None:
+    """After a ledger write: redraw the page, and never let the page fail the command that wrote."""
+    try:
+        write_dashboard(ledger_for(cwd))
+    except Exception:  # noqa: BLE001 - the page is a view; the write it follows has already succeeded
+        pass
+
+
+def refresh_task_facts(ledger: Ledger, task: str | None) -> None:
+    """A watcher's extra duty: fresh facts for every PR its task owns, so the page's quiet layers do not go stale behind the one PR it watches."""
+    if not task:
+        return
+    numbers = {n for n, r in ledger.prs().items() if r.get("task") == task and not r.get("ignored")}
+    if numbers:
+        pr_facts(ledger, numbers, fresh=numbers)
+
+
+def cmd_dashboard(args) -> int:
+    """Draw the page; --refresh asks gh and git first (every recorded PR's facts and the migration scan); --open opens it in the browser."""
+    ledger = ledger_for(args.cwd)
+    run = ledger.require_run()
+    if args.refresh:
+        numbers = {n for n, r in ledger.prs().items() if not r.get("ignored")} | {int(r["pr"]) for r in ledger.sessions().values() if r.get("pr")}
+        facts = pr_facts(ledger, numbers, fresh=numbers)
+        lifts = hold_lift_prs(ledger.prs()) - numbers
+        pr_facts(ledger, lifts, fresh=lifts)
+        refresh_migrations(ledger, facts, run.get("base", {}).get("branch") or "main")
+    path, summary = redraw_with_summary(ledger, run)
+    if args.json:
+        print(json.dumps(summary))
+    else:
+        print(path)
+    if args.open and path:
+        sh(["open", str(path)])
+    return 0
+
+
+def cmd_decide(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return decide_locked(args, ledger)
+
+
+def decide_locked(args, ledger: Ledger) -> int:
+    """What the user decided and when, appended to decisions.jsonl with the sessions told; a crew session acknowledges with `ack`."""
+    run = ledger.require_run()
+    session_id = caller_session(args.session)
+    sessions = ledger.sessions()
+    if args.action == "list":
+        for d in ledger.decisions():
+            told = ", ".join(sessions.get(t, {}).get("task") or t[:8] for t in d.get("told", [])) or "nobody"
+            acked = ", ".join(sessions.get(t, {}).get("task") or t[:8] for t in d.get("acks", []))
+            print(f"{d['n']}. {clock(d.get('at'))} {d.get('text')} (told {told}{'; acked ' + acked if acked else ''})")
+        return 0
+    if args.action == "ack":
+        if not session_id or session_id not in sessions:
+            raise Refusal("ack comes from a raider that has joined the raid")
+        target = next((d for d in ledger.decisions() if str(d.get("n")) == str(args.ref)), None)
+        if target is None:
+            raise Refusal(f"no ruling #{args.ref}")
+        ledger.append_decision({"n": target["n"], "ack": session_id, "at": now()})
+        ledger.log("decision-ack", n=target["n"], session_id=session_id)
+        print(f"ruling #{target['n']} acknowledged by {sessions[session_id].get('task') or session_id[:8]}")
+        return 0
+    authorise(run, session_id, args.by_user, "record a ruling")
+    if not args.text:
+        raise Refusal("decide add needs --text: what the user decided")
+    told = [resolve_session(ref.strip(), sessions) for ref in (args.told or "").split(",") if ref.strip()]
+    if args.told and args.told.strip().lower() == "all":
+        live = registry()
+        told = [sid for sid, r in sessions.items() if sid in live and r.get("state") != "done" and not r.get("retired")]
+    n = 1 + max([d.get("n", 0) for d in ledger.decisions()] or [0])
+    decision = {"n": n, "text": args.text.strip()[:NEED_WHY_LIMIT], "about": (args.about or "").strip()[:240], "told": told, "acks": [], "at": now(), "by": "user"}
+    ledger.append_decision(decision)
+    ledger.log("decision", **decision)
+    print(json.dumps(decision) if args.json else f"ruling #{n} recorded: {decision['text']}" + (f" (told {', '.join(sessions.get(t, {}).get('task') or t[:8] for t in told)})" if told else ""))
+    return 0
+
+
+def cmd_assume(args) -> int:
+    ledger = ledger_for(args.cwd)
+    with ledger.locked():
+        return assume_locked(args, ledger)
+
+
+def assume_locked(args, ledger: Ledger) -> int:
+    run = ledger.require_run()
+    assumptions = run.setdefault("assumptions", [])
+    if args.action == "list":
+        for a in assumptions:
+            flag = f" (changed {clock(a.get('changed_at'))})" if a.get("changed_at") else ""
+            print(f"{a['n']}. {a['text']}{flag}")
+        return 0
+    authorise(run, caller_session(args.session), args.by_user, "change a decree")
+    if not args.text:
+        raise Refusal("assume set needs text")
+    n = int(args.n) if args.n else 1 + max([a.get("n", 0) for a in assumptions] or [0])
+    existing = next((a for a in assumptions if a.get("n") == n), None)
+    if existing:
+        existing.update({"text": args.text.strip(), "changed_at": now(), "previous": existing.get("text")})
+    else:
+        assumptions.append({"n": n, "text": args.text.strip(), "at": now()})
+        assumptions.sort(key=lambda a: a["n"])
+    ledger.save_run(run)
+    ledger.log("assume", n=n, text=args.text.strip(), changed=bool(existing))
+    print(f"decree {n} {'changed' if existing else 'set'}: {args.text.strip()}")
+    return 0
+
+
+def resolve_session(ref: str, sessions: dict[str, dict]) -> str:
+    """A session by id, id prefix, task id or registry name; refuses an ambiguous or unknown one."""
+    if ref in sessions:
+        return ref
+    live = registry()
+    hits = {sid for sid, row in sessions.items()
+            if sid.startswith(ref) or (row.get("task") or "").lower() == ref.lower() or (row.get("branch") or "") == ref}
+    hits |= {sid for sid, row in live.items() if (row.get("name") or "").lower() == ref.lower() and sid in sessions}
+    if len(hits) == 1:
+        return hits.pop()
+    if not hits:
+        known = ", ".join(f"{row.get('task') or sid[:8]}" for sid, row in sessions.items()) or "none joined yet"
+        raise Refusal(f"no session matches {ref}; joined sessions: {known}")
+    # a task id matched by several rows: a ghost that joined and closed, a row already done or retired, and the one that
+    # still owns the work; the one still working is meant, and only a real tie refuses
+    working = {sid for sid in hits if sessions[sid].get("state") != "done" and not sessions[sid].get("retired")}
+    if len(working) == 1:
+        return working.pop()
+    pool = working or hits
+    # still working and one of them live in a worktree: that one can hear a grant, a gone one cannot
+    owners = {sid for sid in pool if sid in live and sessions[sid].get("worktree")}
+    if len(owners) == 1:
+        return owners.pop()
+    # nobody live (the shape retire meets, both rows done): the one that carried the PR did the work; a ghost that joined and closed has none
+    with_pr = {sid for sid in pool if sessions[sid].get("pr")}
+    if len(with_pr) == 1:
+        return with_pr.pop()
+
+    def describe(sid: str) -> str:
+        row = sessions[sid]
+        where = (row.get("worktree") or "").rstrip("/").rsplit("/", 1)[-1] or "no worktree"
+        return f"{sid[:8]} ({row.get('state')}{', live' if sid in live else ', gone'}{', retired' if row.get('retired') else ''}, {where})"
+    raise Refusal(f"{ref} matches several sessions: {', '.join(describe(sid) for sid in sorted(hits))}; name the one you mean by its id")
+
+
+# ---------------------------------------------------------------- hooks
+
+
+def hook_output(decision: str | None, reason: str | None, context: str | None) -> dict:
+    out: dict = {"hookEventName": "PreToolUse"}
+    if decision:
+        out["permissionDecision"] = decision
+        out["permissionDecisionReason"] = reason or ""
+    if context:
+        out["additionalContext"] = context
+    return {"hookSpecificOutput": out}
+
+
+OVERRIDE_FLAGS = (BY_USER, "--session")
+SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
+
+
+def overrides_identity(command: str, depth: int = 0) -> bool:
+    """True when a line that runs warband.py passes a flag or variable that changes who the CLI takes the caller to be.
+
+    Reads the line as shlex tokens, so quoting, `env` and `export` forms and an
+    abbreviated flag (`--by`, `--sess`) are seen; a quoted script is read the
+    same way, three levels down. A best-effort check on accidents: a variable
+    expanded later, a copied script or a hand-written ledger file get past it.
+    """
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
+        lexer.whitespace = " \t\r"
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        tokens = command.split()
+    # mc.py too: while a raid is carried on from the old ledger, the cached mission-control CLI writes to the same root
+    if any(os.path.basename(token) in ("warband.py", "mc.py") for token in tokens):
+        for token in tokens:
+            name = token.split("=", 1)[0]
+            if token.startswith(SESSION_ENV + "=") or token == SESSION_ENV:
+                return True
+            if name.startswith("--") and len(name) > 2 and any(flag.startswith(name) for flag in OVERRIDE_FLAGS):
+                return True
+    if depth < SHELL_DEPTH:
+        return any(overrides_identity(token, depth + 1) for token in tokens if re.search(r"\s", token))
+    return False
+
+
+# ---------------------------------------------------------------- the push gate
+
+# A repo opts in with `push_gate` in its config: the keys of its `commands` block that must pass
+# for a commit before that commit may be pushed. `warband.py gate` runs them and writes a record under the
+# git common dir, one file per commit; the PreToolUse hook refuses a `git push` while HEAD has no green
+# record. Like the rest of the guard it stops accidents: a hand-written record gets past it.
+GATE_DIR = ("goblin-warband", "gate")
+# pushes that carry no branch tip: nothing to have tested
+PUSH_NO_BRANCH = ("--dry-run", "-n", "--delete", "-d", "--tags")
+# `git push` options that take a separate value, so the value is not mistaken for the remote or a refspec
+PUSH_VALUE_FLAGS = ("--repo", "-o", "--push-option", "--receive-pack", "--exec", "--signed")
+
+
+def push_gate(config: dict) -> dict | None:
+    """The config's push gate as {"commands": [(key, shell line)], "missing": [key], "exempt": [glob]}, or None when the repo has not opted in.
+
+    `push_gate` is a list of keys of the config's `commands` block, or {"commands": [...], "exempt": [globs]}.
+    A change that touches only exempt paths (docs straight to main) needs no record."""
+    raw = config.get("push_gate")
+    if isinstance(raw, list):
+        raw = {"commands": raw}
+    if not isinstance(raw, dict):
+        return None
+    table = config.get("commands") if isinstance(config.get("commands"), dict) else {}
+    keys = [key for key in raw.get("commands") or [] if isinstance(key, str)]
+    if not keys:
+        return None
+    return {
+        "commands": [(key, table[key]) for key in keys if isinstance(table.get(key), str)],
+        "missing": [key for key in keys if not isinstance(table.get(key), str)],
+        "exempt": [glob_ for glob_ in raw.get("exempt") or [] if isinstance(glob_, str)],
+    }
+
+
+def gate_dir(cwd: str | Path) -> Path | None:
+    common = run_git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return Path(common, *GATE_DIR) if common else None
+
+
+def process_alive(pid) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except (OSError, ValueError, TypeError):
+        return False
+    return True
+
+
+def gate_running(lock: Path) -> bool:
+    row = read_json(lock)
+    return isinstance(row, dict) and process_alive(row.get("pid"))
+
+
+def git_pushes(command: str) -> list[dict]:
+    """Each `git push` on a shell line as {"args": words after push, "cd": cd target seen before it, "git_dir": the -C directory}."""
+    out = []
+    for words, cd_target in simple_commands(command):
+        if not words or os.path.basename(words[0]) != "git":
+            continue
+        i, git_dir = 1, None
+        while i < len(words) and words[i].startswith("-"):
+            if words[i] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace"):
+                if words[i] == "-C" and i + 1 < len(words):
+                    git_dir = words[i + 1]
+                i += 2
+            else:
+                i += 1
+        if i < len(words) and words[i] == "push":
+            out.append({"args": words[i + 1:], "cd": cd_target, "git_dir": git_dir})
+    return out
+
+
+def push_positionals(args: list[str]) -> list[str]:
+    """The words of a `git push` line that are neither options nor option values: the remote, then the refspecs."""
+    positional, skip = [], False
+    for word in args:
+        if skip:
+            skip = False
+        elif word in PUSH_VALUE_FLAGS:
+            skip = True
+        elif not word.startswith("-"):
+            positional.append(word)
+    return positional
+
+
+def push_refspecs(args: list[str]) -> list[str]:
+    """The refspecs of a `git push` line: the positionals after the remote."""
+    return push_positionals(args)[1:]
+
+
+def carries_no_branch(where: str, refspec: str) -> bool:
+    """A deletion (`:branch`) or a tag: a push of either has no tip to have tested.
+
+    A tag sent to `refs/heads/` is a branch tip like any other, so it is not excused."""
+    source, _, destination = refspec.lstrip("+").partition(":")
+    if not source:
+        return True
+    if destination.startswith("refs/heads/"):
+        return False
+    return source.startswith("refs/tags/") or run_git(where, "rev-parse", "-q", "--verify", f"refs/tags/{source}") is not None
+
+
+def push_base(where: str) -> str | None:
+    """The ref the exempt-paths check diffs against: the branch's upstream, else origin's HEAD (a detached worktree has no upstream)."""
+    return run_git(where, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}") or run_git(where, "rev-parse", "--abbrev-ref", "origin/HEAD")
+
+
+def only_exempt_paths(where: str, globs: list[str]) -> bool:
+    """True when everything HEAD adds beyond the branch's upstream (else origin's HEAD) is under an exempt glob."""
+    base = push_base(where)
+    if not base:
+        return False
+    names = run_git(where, "diff", "--name-only", f"{base}..HEAD")
+    if names is None:
+        return False
+    return all(any(fnmatch.fnmatchcase(name, glob_) for glob_ in globs) for name in names.splitlines())
+
+
+def gate_refusal(gate: dict, push: dict, where: str) -> str | None:
+    """Why this push may not go, or None."""
+    args = push["args"]
+    refspecs = push_refspecs(args)
+    # `--tags` pushes the listed refspecs as well, so it carries no branch tip only when none is listed
+    if any(arg in PUSH_NO_BRANCH for arg in args if arg != "--tags") or ("--tags" in args and not refspecs):
+        return None
+    branch_specs = [spec for spec in refspecs if not carries_no_branch(where, spec)]
+    if refspecs and not branch_specs:
+        return None
+    head = run_git(where, "rev-parse", "HEAD")
+    if not head:
+        return None  # git cannot say what is being pushed: the hook never blocks on its own failure
+    # each pushed source resolves to its own commit; no refspec, `HEAD` or a source git cannot resolve here means HEAD.
+    # Glob refspecs, `--all`, `--branches`, `--mirror` and `push.default=matching` name no single tip, so only HEAD's record is read and the other tips they send go unchecked.
+    tips = {}
+    for spec in branch_specs or ["HEAD"]:
+        source = spec.lstrip("+").split(":", 1)[0] or "HEAD"
+        tips[run_git(where, "rev-parse", "-q", "--verify", f"{source}^{{commit}}") or head] = source
+    exempt_ok = pushes_to_base(where, args, branch_specs)
+    for sha in tips:
+        reason = tip_refusal(gate, where, sha, sha == head and exempt_ok)
+        if reason:
+            return reason
+    return None
+
+
+def pushes_to_base(where: str, args: list[str], specs: list[str]) -> bool:
+    """True when the push goes only to the ref `only_exempt_paths` diffs against (`push_base`): its remote and its branch.
+
+    A docs-only diff says nothing about another branch or another remote. A bare name is its own destination
+    (`push origin other` sends to `other`), `HEAD` stands for the current branch, and no refspec means the upstream."""
+    base = push_base(where)
+    if not base:
+        return False
+    # a remote name may hold a slash (`team/fork`), so the remote is the longest known one the base starts with
+    remotes = (run_git(where, "remote") or "").splitlines()
+    remote = max((name for name in remotes if base.startswith(f"{name}/")), key=len, default=base.partition("/")[0])
+    branch = base[len(remote) + 1:]
+    # the positional remote wins over `--repo`, which names the same thing
+    named = push_positionals(args)[:1] or [word.removeprefix("--repo=") for word in args if word.startswith("--repo=")]
+    named = named or [args[i + 1] for i, word in enumerate(args[:-1]) if word == "--repo"]
+    if named and named[0] != remote:
+        return False
+    current = run_git(where, "rev-parse", "--abbrev-ref", "HEAD")
+    # a bare push goes to branch.<name>.pushRemote, else remote.pushDefault, when set; that can differ from the upstream the diff was taken against
+    # (`@{push}` cannot say: with push.default=simple git refuses to resolve it once the push remote differs from the pull remote)
+    if not named:
+        configured = run_git(where, "config", "--get", f"branch.{current}.pushRemote") or run_git(where, "config", "--get", "remote.pushDefault")
+        if configured and configured != remote:
+            return False
+    for spec in specs:
+        source, colon, destination = spec.lstrip("+").partition(":")
+        destination = (destination if colon else source).removeprefix("refs/heads/")
+        if destination == "HEAD":
+            destination = current or ""
+        if destination != branch:
+            return False
+    return True
+
+
+def tip_refusal(gate: dict, where: str, sha: str, exempt_applies: bool) -> str | None:
+    """Why the commit `sha` may not be pushed, or None."""
+    # the exempt-paths check diffs HEAD against its upstream, so it speaks only for HEAD pushed to that upstream
+    if exempt_applies and gate["exempt"] and only_exempt_paths(where, gate["exempt"]):
+        return None
+    keys = ", ".join(key for key, _ in gate["commands"]) or "(nothing runnable)"
+    if gate["missing"]:
+        return f"push_gate names {', '.join(gate['missing'])}, and the config's `commands` block has no such key. Fix {CONFIG_REL}, then run the gate."
+    folder = gate_dir(where)
+    if folder is None:
+        return None
+    if gate_running(folder / f"{sha}.running"):
+        return f"the push gate is still running for {sha[:8]}. Wait for it to finish before pushing; never push while a suite is in flight."
+    record = read_json(folder / f"{sha}.json")
+    run_it = f"python3 {Path(__file__).resolve()} gate"
+    if isinstance(record, dict) and record.get("result") == "green":
+        # the config is shared and untracked, so a key added to `push_gate` changes no sha: a record counts only for the steps it ran
+        ran = {step.get("key") for step in record.get("steps", []) if isinstance(step, dict)}
+        unrun = [key for key, _ in gate["commands"] if key not in ran]
+        if not unrun:
+            return None
+        return f"the green record for {sha[:8]} predates {', '.join(unrun)} joining push_gate. Run `{run_it}` from {where}, wait for it to finish, then push."
+    if isinstance(record, dict):
+        failed = next((step["key"] for step in record.get("steps", []) if step.get("code")), "a step")
+        return f"the push gate was red for {sha[:8]} ({failed}). Fix it, commit, and run `{run_it}` from {where}; push when it prints green."
+    return f"this repo gates pushes on {keys}, and {sha[:8]} has no green record. Run `{run_it}` from {where}, wait for it to finish, then push."
+
+
+def push_gate_reason(command: str, cwd: str) -> str | None:
+    """The refusal for a `git push` on this line when the repo gates pushes, else None."""
+    if "push" not in command:
+        return None
+    pushes = git_pushes(command)
+    if not pushes:
+        return None
+    try:
+        found = find_config(cwd)
+    except Refusal:
+        return None
+    gate = push_gate(found[1]) if found else None
+    if gate is None:
+        return None
+    for push in pushes:
+        where = runs_in(cwd, push["cd"]) or cwd
+        if push["git_dir"]:
+            where = os.path.normpath(os.path.join(where, push["git_dir"]))
+        reason = gate_refusal(gate, push, where)
+        if reason:
+            return reason
+    return None
+
+
+def assess(payload: dict) -> dict:
+    """What the warband says about a Bash command: the verdict and whether held dibs cover it.
+
+    A gated command needs the slot held by this session and must run inside
+    the holder's worktree. Without the slot the refusal says who holds it and
+    how to ask; the attempt is recorded as a request so the board shows it.
+    `covered` is true only when the whole line is gated commands this session
+    holds (a `cd`, a `VAR=` prefix and a redirect aside), each runs in its
+    worktree and is marked `approve_in_slot`: the mod's tool.check hook answers
+    `allow` over the project's `ask` on that alone.
+    """
+    out = {"decision": None, "reason": None, "context": None, "covered": False, "resources": []}
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command:
+        return out
+    cwd = payload.get("cwd") or os.getcwd()
+    session_id = payload.get("session_id")
+    if overrides_identity(command):
+        return {**out, "decision": "deny", "reason": f"`{BY_USER}` stands for the person typing one of the plugin's slash commands, and `--session` or `{SESSION_ENV}=` on a warband.py line would make a session someone else; a session passes none of them. Ask the chief, or the person types the slash command."}
+    # the push gate applies with or without a run: a session outside any run pushed three commits into a red suite on 4 November 2026
+    gate_reason = push_gate_reason(command, cwd)
+    if gate_reason:
+        return {**out, "decision": "deny", "reason": gate_reason}
+    try:
+        ledger = ledger_for(cwd)
+    except Refusal:
+        return out
+    run = ledger.run()
+    if run is None:
+        return out
+    found = find_config(cwd)
+    if not found:
+        return out
+    config = found[1]
+    hits = gated(config, command)
+    if not hits:
+        return out
+    out["resources"] = sorted({h["resource"] for h in hits})
+    slots = ledger.slots()
+    sessions = ledger.sessions()
+    me = sessions.get(session_id or "", {})
+    contexts = []
+    covered = True
+    for hit in hits:
+        spec = resources(config).get(hit["resource"], {})
+        label = spec.get("label", hit["resource"])
+        if spec.get("human_gate"):
+            covered = False
+            contexts.append(f"goblin-warband: `{hit['command']}` touches {label}, a taboo. Ask the chief for the window and give the human the exact command to type; never run it from this session.")
+            continue
+        where = runs_in(cwd, hit["cd"])
+        slot = slots.get(hit["resource"])
+        if slot and slot.get("holder") == session_id:
+            worktree = me.get("worktree")
+            if worktree and where is not None and not inside(where, worktree):
+                return {**out, "decision": "deny", "reason": f"You hold the dibs on the {label} for {worktree}, and this command would run in {where}. Run it from your own worktree (`cd {worktree}` first, as its own command)."}
+            if where is None:
+                return {**out, "decision": "ask", "reason": f"You hold the dibs on the {label}, and the command's directory cannot be read from the line. Run the cd as its own command, then the task."}
+            covered &= bool(spec.get("approve_in_slot"))
+            contexts.append(f"goblin-warband: you hold the dibs on the {label} until {clock(slot.get('until'))}; release them with warband_dibs when done, with results.")
+            continue
+        holder = f"held by {sessions.get(slot['holder'], {}).get('task') or slot['holder'][:8]} until {clock(slot.get('until'))}" if slot else "free, but not granted to you"
+        req = {"resource": hit["resource"], "session_id": session_id, "minutes": None, "what": f"attempted: {hit['command']}"[:240], "at": now(), "command": hit["command"]}
+        if session_id and not ledger.request_path(hit["resource"], session_id).exists():
+            write_json(ledger.request_path(hit["resource"], session_id), req)
+            ledger.log("attempt", **req)
+        return {**out, "decision": "deny", "reason": (
+            f"`{hit['command']}` touches the {label}, a shared resource of goblin-warband raid {run['name']}: {holder}. "
+            f"Call dibs (warband_dibs with the resource, what you will run and the minutes), wait for the grant message, then run it from your worktree. "
+            f"The attempt is on the slate as dibs called.")}
+    # A line is covered only when every simple command on it is one of the gated hits: `G && git push` is not, and
+    # neither is a line that hides commands in a substitution or in quoting shlex cannot read.
+    whole_line = {" ".join(normalise(words)) for words, _ in simple_commands(command)} <= {h["command"] for h in hits} and not opaque(command)
+    out["covered"] = covered and bool(contexts) and whole_line
+    out["context"] = " ".join(contexts) or None
+    return out
+
+
+def guard(payload: dict) -> dict | None:
+    """The PreToolUse hook output for a Bash command, or None when nothing applies."""
+    verdict = assess(payload)
+    if verdict["decision"] is None and not verdict["context"]:
+        return None
+    return hook_output(verdict["decision"], verdict["reason"], verdict["context"])
+
+
+def cmd_gate(args) -> int:
+    """Run the config's push gate against the committed HEAD and record the result, so `git push` is allowed only on green."""
+    found = find_config(args.cwd)
+    if not found:
+        raise Refusal(f"no {CONFIG_REL} above {args.cwd}")
+    gate = push_gate(found[1])
+    if gate is None:
+        raise Refusal(f"{found[0]} sets no `push_gate`; nothing to run")
+    if gate["missing"]:
+        raise Refusal(f"push_gate names {', '.join(gate['missing'])}, and `commands` in {found[0]} has no such key")
+    top = toplevel(args.cwd)
+    sha = run_git(args.cwd, "rev-parse", "HEAD")
+    folder = gate_dir(args.cwd)
+    if top is None or not sha or folder is None:
+        raise Refusal(f"not inside a git repository with a commit: {args.cwd}")
+    if run_git(top, "status", "--porcelain", "--untracked-files=no"):
+        raise Refusal(f"tracked changes are uncommitted in {top}; the record is for HEAD {sha[:8]}, so commit or set them aside first")
+    # a suite can import a file the commit lacks, so a green run over untracked files would record green for a HEAD that fails in a clean clone
+    untracked = (run_git(top, "ls-files", "--others", "--exclude-standard") or "").splitlines()
+    if untracked and not args.allow_untracked:
+        shown = ", ".join(untracked[:5]) + (f" and {len(untracked) - 5} more" if len(untracked) > 5 else "")
+        raise Refusal(f"untracked files in {top} ({shown}); a suite can import them, and the record is for the committed HEAD {sha[:8]}. Commit or ignore them, or pass --allow-untracked")
+    folder.mkdir(parents=True, exist_ok=True)
+    lock = folder / f"{sha}.running"
+    if gate_running(lock):
+        raise Refusal(f"the gate is already running for {sha[:8]} (pid {read_json(lock).get('pid')})")
+    write_json(lock, {"pid": os.getpid(), "started": now()})
+    started, steps, result = now(), [], "red"  # red until every step passes, so an interrupted run never reads green
+    try:
+        for key, line in gate["commands"]:
+            if not args.json:
+                print(f"== gate {key}: {line}", flush=True)
+            code = subprocess.run(line, shell=True, cwd=top, stdout=sys.stderr if args.json else None).returncode
+            steps.append({"key": key, "command": line, "code": code})
+            if code != 0:
+                break
+        else:
+            result = "green"
+    finally:
+        record = {"sha": sha, "result": result, "steps": steps, "started": started, "finished": now()}
+        write_json(folder / f"{sha}.json", record)
+        lock.unlink(missing_ok=True)
+    if args.json:
+        print(json.dumps(record))
+    elif result == "green":
+        print(f"✓ push gate green for {sha[:8]}: {', '.join(step['key'] for step in steps)}")
+    else:
+        print(f"✗ push gate red for {sha[:8]}: {steps[-1]['key']} exited {steps[-1]['code']}")
+    return 0 if result == "green" else 1
+
+
+def cmd_check(args) -> int:
+    """The mod's question: does a held slot cover this command, and what would the hook say."""
+    payload = {"tool_input": {"command": args.command}, "cwd": os.path.abspath(args.cwd), "session_id": caller_session(args.session)}
+    print(json.dumps(assess(payload)))
+    return 0
+
+
+def clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def with_pr_hold(item: dict, prs: dict[int, dict], states: dict[int, str] | None = None, open_needs: set[int] | None = None) -> dict:
+    """An approval item with its PR's hold read from prs/<n>.json, where holds live; the item itself no longer carries one.
+    A hold whose lift condition has happened (by `states` and `open_needs`, the cached PR states and the open need numbers) is no hold."""
+    row = prs.get(int(item["pr"])) if item.get("kind") == "approval" and str(item.get("pr") or "").isdigit() else None
+    hold = (row or {}).get("hold")
+    if not hold or hold_lifted(hold, states or {}, open_needs or set()):
+        return item
+    return {**item, "hold": hold_text(hold)}
+
+
+def hold_text(hold: dict | None) -> str:
+    """A hold as one line: its reason and what lifts it, or that nothing recorded will."""
+    if not hold:
+        return ""
+    lifts = ", ".join(f"#{c['pr']} lands" if c.get("pr") is not None else f"tribute #{c['need']} closes" for c in hold.get("lifts_on") or [])
+    return f"{hold.get('reason') or 'held'}; " + (f"lifts when {lifts}" if lifts else "lift condition not recorded")
+
+
+def pending_line(item: dict) -> str:
+    """One open thread as the start context says it. A held approval says held and why: its stored text still reads `landing is authorised`."""
+    if item.get("hold"):
+        return f"#{item.get('n')} PR #{item.get('pr')} approved and held, not to land yet: {item['hold']}"
+    return f"#{item.get('n')} {item.get('text')}"
+
+
+def fit_items(items: list[str], budget: int, where: str) -> str:
+    """As many items as fit the budget, joined, and a count of the rest with where to read them."""
+    kept: list[str] = []
+    for index, item in enumerate(items):
+        left = len(items) - index
+        tail = f"; and {left} more in {where}"
+        if len("; ".join(kept + [item])) + (len(tail) if left > 1 else 0) > budget:
+            return "; ".join(kept) + tail if kept else f"{left} open, too long to list here: {where}"
+        kept.append(item)
+    return "; ".join(kept)
+
+
+def pre_compact_instructions(payload: dict) -> str:
+    """What the compaction summary must keep for a session in a run: the harness uses a PreCompact hook's stdout as instructions for the summary.
+
+    The ledger keeps slots, needs, decisions and the pending list; this names what only the conversation holds.
+    """
+    cwd = payload.get("cwd") or os.getcwd()
+    session_id = payload.get("session_id")
+    try:
+        ledger = ledger_for(cwd)
+    except Refusal:
+        return ""
+    run = ledger.run()
+    if run is None:
+        return ""
+    if is_coordinator(run, session_id):
+        return (f"This session is the chief of goblin-warband raid {run['name']}. The raid ledger keeps the slate, dibs, tribute, the pending list and the user's rulings, so do not spend the summary restating them. "
+                "Keep what only this conversation holds, each with the session or person it concerns and the time: "
+                "every message sent to a raider and not yet answered, with what was asked; "
+                "every freeze or hold still in force (hold your pushes, a hosted window, a rebase held back), who it binds and what lifts it; "
+                "every review, PR description or check-in still in flight and whose reply is awaited; "
+                "every question or proposal put to the user and not yet answered, slicing included; "
+                "the user's standing instructions for this raid in their own words; "
+                "the ids of the cron jobs and Monitors this session created; "
+                "and anything promised to a session or to the user and not yet done. "
+                "State that the chief invokes /goblin-warband:lead-raid and runs reconcile before its next status.")
+    plan = crew_for(run, cwd, session_id, ledger.sessions())
+    if plan is None:
+        return ""
+    return (f"This session is raider {plan['task']} ({plan.get('branch')}) in goblin-warband raid {run['name']}; its orders are {plan.get('brief')}. "
+            "Keep: the orders path and the task; the branch, its last commit and anything uncommitted; the PR number and its state; "
+            "any dibs held or called and their deadline; the watch, cron jobs and Monitors this session started, with their ids; "
+            "every question sent to the chief and not yet answered; every numbered ruling received and whether it was acknowledged; "
+            "and what was being done when the summary was made.")
+
+
+def session_start_context(payload: dict) -> str:
+    """One paragraph for a session that starts inside a run's worktree or as its coordinator."""
+    cwd = payload.get("cwd") or os.getcwd()
+    session_id = payload.get("session_id")
+    try:
+        ledger = ledger_for(cwd)
+    except Refusal:
+        return ""
+    run = ledger.run()
+    if run is None:
+        return ""
+    coord = run.get("coordinator", {})
+    source = payload.get("source") or payload.get("matcher") or ""
+    if is_coordinator(run, session_id):
+        pending = [p for p in run.get("pending", []) if p.get("status") == "open"]
+        decisions = ledger.decisions()[-5:]
+        needs = [n for n in run.get("needs", []) if n.get("status") == "open"]
+        running = [n for n in run.get("needs", []) if n.get("status") == "started"]
+        rearm = "" if source == "compact" else rearm_line(run)  # a compaction keeps the process, so what it scheduled still runs
+        raiders = len(run.get('crew', []))
+        head = (f"Goblin warband: this session is the chief of raid {run['name']} ({raiders} raider{'s' if raiders != 1 else ''}). "
+                "Invoke /goblin-warband:lead-raid for the protocol; /show-slate opens the slate.")
+        back = ""
+        if pending or decisions or needs or running:
+            decision_text = "; ".join("#%s %s%s" % (d.get("n"), clip(str(d.get("text")), 600), f" (about {d['about']})" if d.get("about") else "") for d in decisions)
+            running_text = "; ".join("#%s since %s" % (n.get("n"), clock(n.get("started_at"))) for n in running)
+            opening = " Your open threads from the ledger, which a compaction does not keep: "
+            rest = ((f"recent rulings: {decision_text}. " if decisions else "")
+                    + (f"{len(needs)} tribute owed. " if needs else "")
+                    + (f"running for the user: {running_text}. " if running else "")
+                    + "Run reconcile before saying where things stand.")
+            # the harness cuts a hook's output at 10,000 characters and shows the model only a preview of the rest, so the pending list takes what the other parts leave
+            pr_rows = ledger.prs()
+            # a hook never asks gh: the hold's lift condition is judged on the cached PR states, which reconcile and the watchers keep current
+            cached, _ = cached_facts(ledger, hold_lift_prs(pr_rows))
+            lift_states = {n: f.get("state", "") for n, f in cached.items()}
+            live = {n["n"] for n in run.get("needs", []) if n.get("status") not in ("done", "superseded") and "n" in n}
+            pending_text = fit_items([pending_line(with_pr_hold(p, pr_rows, lift_states, live)) for p in pending], HOOK_CONTEXT_LIMIT - len(head) - len(opening) - len(rest) - len(rearm) - len("pending: . "), "`warband.py pending list`")
+            back = opening + (f"pending: {pending_text}. " if pending else "") + rest
+        return f"{head}{back}{rearm}"
+    candidate = coord.get("rebind_candidate") or {}
+    if candidate.get("session_id") == session_id:
+        return (f"Goblin warband: this process was the chief of raid {run['name']} under session id {str(coord.get('session_id') or '')[:8]} and now runs as {session_id[:8]} (a /clear issues a new id). "
+                "Nothing chief-only works until the raid is rebound: ask the user once, and on a yes run `python3 warband.py adopt coordinator`; the slate shows the same question, answered by /reclaim-post chief in this session.")
+    plan = crew_for(run, cwd, session_id, ledger.sessions())
+    if plan is None:
+        return ""
+    row = ledger.sessions().get(session_id or "", {})
+    if row and session_id:
+        # a resume in a new process keeps the id but not the socket, and join writes it only once: follow the process, or a later /clear reads as a different one
+        socket = identity(session_id).get("socket")
+        if socket and row.get("socket") != socket:
+            with ledger.locked():
+                current = ledger.sessions().get(session_id)
+                if current:
+                    current["socket"] = socket
+                    ledger.save_session(current)
+    if source == "compact" and row:  # a compaction keeps the process, so what it scheduled still runs: no re-arm line
+        return (f"Goblin warband: still raider {plan['task']} ({plan.get('branch')}) in raid {run['name']}, row {row.get('state')}{', PR #' + str(row['pr']) if row.get('pr') else ''}. "
+                f"Your orders: {plan.get('brief')}. The chief is \"{coord.get('name') or 'the chief'}\" (socket {coord.get('socket') or '?'}).")
+    rearm = rearm_line(row)
+    if not row and session_id:
+        # this hook runs before the session joins: a fresh process that is about to adopt a gone session's row is told what the row carries
+        who = identity(session_id)
+        old = stale_row_for(ledger, plan, who)
+        if old:
+            rearm = adopted_rearm(old, who, registry())
+    brief = plan.get("brief") or ""
+    has_brief = bool(brief) and Path(brief).is_file()
+    collab = run.get("collaboration") or {}
+    hours = collab.get("hours")
+    mode_line = (
+        f"The project is {collab['mode']} ({collab.get('source', '?')}): "
+        + (f"reviewers answer {hours['start']} to {hours['end']} on {', '.join(DAY_NAMES[d] for d in hours['days'])} ({collab.get('timezone', 'local')}), and the PR watch holds outside those hours. " if hours else "nobody is waited for, the merge is the user's and the PR watch covers checks and state only. ")
+        if collab.get("mode") else ""
+    )
+    return (
+        f"Goblin warband: this worktree is raider {plan['task']} ({plan.get('branch')}) in raid {run['name']}, started by the user with /goblin-warband:declare-raid. "
+        f"The chief is the session named \"{coord.get('name') or 'the chief'}\" (socket {coord.get('socket') or '?'}); its messages arrive as cross-session messages from that socket and carry the user's instructions on sequencing, shared code and shared resources. "
+        + (f"Read your orders first: {brief}. " if has_brief else "No orders have been written yet; the chief will message you. ")
+        + mode_line
+        + "Then invoke /goblin-warband:join-raid for how to report, call dibs, watch your PR once it exists and what stays with the user."
+        + rearm
+    )
+
+
+def cmd_hook(args) -> int:
+    try:
+        payload = json.loads(sys.stdin.read() or "{}")
+    except ValueError:
+        payload = {}
+    if not isinstance(payload, dict):
+        return 0
+    # A subagent does not get its parent's crew brief, but its Bash calls are the parent's: the gate applies to them.
+    if args.event == "session-start" and payload.get("agent_id"):
+        return 0
+    try:
+        if args.event == "pre-tool-use":
+            out = guard(payload)
+            if out:
+                json.dump(out, sys.stdout)
+        elif args.event == "session-start":
+            text = session_start_context(payload)
+            if text:
+                print(text)
+        elif args.event == "pre-compact":
+            text = pre_compact_instructions(payload)
+            if text:
+                print(text)
+    except Exception as error:  # a hook never breaks a session
+        print(f"goblin-warband hook error: {error}", file=sys.stderr)
+    return 0
+
+
+# ---------------------------------------------------------------- main
+
+
+class StrictParser(argparse.ArgumentParser):
+    """No flag abbreviations: `--by` must not reach `--by-user`. Subparsers are built from type(self), so they inherit this."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("allow_abbrev", False)
+        super().__init__(*args, **kwargs)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = StrictParser(prog="warband.py", description=__doc__.split("\n\n")[0])
+    parser.add_argument("--cwd", default=os.getcwd(), help="the directory to act from (default: the current one)")
+    parser.add_argument("--session", help="act as this session id (the mod passes its own; a Bash child needs none)")
+    parser.add_argument("--json", action="store_true")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("detect", help="print the project config path; exit 2 when there is none")
+    sp = sub.add_parser("init", help="write a starter .claude/goblin-warband.json")
+    sp.add_argument("--force", action="store_true")
+    sp = sub.add_parser("start", help="start a raid with this session as chief")
+    sp.add_argument("--name", required=True)
+    sp.add_argument("--base", help="the trunk branch (default: origin's HEAD)")
+    sp.add_argument("--pr-approval", dest="pr_approval", choices=["user", "coordinator"], default="user",
+                    help="who approves a raider's PR description before pr-create pushes: the user in each session (default), or the chief (coordinator)")
+    sp.add_argument("--collaboration", choices=["solo", "collaborative"], help="state the project's mode instead of taking the config's or the inferred one")
+    sp.add_argument("--small-model-ok", dest="small_model_ok", action="store_true", help="the mod refuses a start from a haiku or sonnet session; this flag says the user means it")
+    sp = sub.add_parser("end", help="end the raid and archive the ledger")
+    sp.add_argument("--force", action="store_true")
+    sp.add_argument("--old-ledger", dest="old_ledger", action="store_true", help="end this repository's raid in the old mission-control ledger beside the new one, archiving it there")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("status", help="the slate as text, or --json")
+    sp.add_argument("--probe", action="store_true", help="also probe each resource on the machine")
+    sp = sub.add_parser("probe", help="what the machine says about a resource")
+    sp.add_argument("resource", nargs="?")
+    sub.add_parser("reconcile", help="diff the ledger against the live registry, GitHub and the branches on origin (a merged PR's base, an open PR's branch); print what drifted and who each PR waits on")
+    sp = sub.add_parser("classify", help="solo or collaborative: the raid record's answer, else the config's, else inferred from 90 days of authors and the reviews on merged PRs")
+    sp.add_argument("--fresh", action="store_true", help="recompute even while a raid holds an answer")
+    sp = sub.add_parser("watch", help="watch a PR in the background until something changes (reviews, comments, checks, state), print what and exit; held outside the team's hours on a collaborative project unless merged or closed")
+    sp.add_argument("--pr", type=int, help="the PR number (default: this session's row)")
+    sp.add_argument("--interval", type=float, default=300, help="seconds between polls (default 300)")
+    sp.add_argument("--max-minutes", dest="max_minutes", type=float, default=720, help="give up and ask to be re-armed after this long (default 720)")
+    sp.add_argument("--once", action="store_true", help="print the PR as it stands and exit")
+    sp.add_argument("--stop", action="store_true", help="stop this session's own watcher for the PR, by the pid on its row (never by name)")
+    sp = sub.add_parser("retire", help="reclaim a finished raider's worktree mid-raid: session closed, row done, PR landed, tree clean, nothing running in it; removes it, prunes, deletes the branch with -d only (chief or --by-user)")
+    sp.add_argument("ref", help="the session: id, prefix, task, branch or name")
+    sp.add_argument("--dry-run", dest="dry_run", action="store_true", help="print what would go and the disk it holds; change nothing")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("crew", help="the raiders' plan: add a task's branch, worktree and orders path, or list")
+    sp.add_argument("action", choices=["add", "list"])
+    sp.add_argument("--task")
+    sp.add_argument("--branch")
+    sp.add_argument("--worktree")
+    sp.add_argument("--migration", help="the migration timestamp assigned to this task, if any")
+    sp.add_argument("--group", help="the heading this task's PRs sit under on the spoils page (a body or workstream); default the task id")
+    sp.add_argument("--unlisted", action="store_true", help="the task has no waypoint on the roadbook: no claim is expected and the slate marks it")
+    sp.add_argument("--model", help="the model the raider launches on (sonnet, opus, ...); goes on its launch line as --model, which beats ANTHROPIC_MODEL")
+    sp.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], help="the effort the raider launches at; goes on its launch line as --effort")
+    sp.add_argument("--name", help="the session name on the launch line (default: the task id lowercased plus 'raider')")
+    sp.add_argument("--reason", help="why this model and effort, in one line; shown with the launch line on the slate")
+    sp.add_argument("--plugin-dir", dest="plugin_dir", help="add --plugin-dir to the launch line, for a plugin run from a working tree rather than installed")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("join", help="register this session in the raid")
+    sp.add_argument("--task")
+    sp.add_argument("--branch")
+    sp.add_argument("--planned", action="store_true", help="refuse unless the cwd is in a worktree the raiders' plan names")
+    sp = sub.add_parser("report", help="update this session's row")
+    sp.add_argument("--for", dest="for_session", help="update another session's row (chief or --by-user): id, prefix, task, branch or name")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp.add_argument("--state", choices=STATES)
+    sp.add_argument("--summary")
+    sp.add_argument("--pr", type=int)
+    sp.add_argument("--branch")
+    sp.add_argument("--context", type=int, help="this session's context window fill, 0 to 100; alone it updates the gauge without a report")
+    sp.add_argument("--on", help="for state waiting: reviewer:<login>, session:<task>, pr:<n>, ci or hold")
+    sp = sub.add_parser("request", help="call dibs on a resource")
+    sp.add_argument("resource")
+    sp.add_argument("--minutes", type=float)
+    sp.add_argument("--what")
+    sp.add_argument("--command")
+    sp = sub.add_parser("grant", help="give a session the dibs (chief or --by-user)")
+    sp.add_argument("resource")
+    sp.add_argument("--to", required=True, help="session id, id prefix, task id, branch or session name")
+    sp.add_argument("--minutes", type=float)
+    sp.add_argument("--what")
+    sp.add_argument("--note")
+    sp.add_argument("--force", action="store_true", help="take the dibs from their holder")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("release", help="release the dibs: the holder, the chief or --by-user")
+    sp.add_argument("resource")
+    sp.add_argument("--note")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("needs", help="the tribute list: add, start (agreed: the user has typed it and it runs on), done (paid), list")
+    sp.add_argument("action", choices=["add", "start", "done", "list"])
+    sp.add_argument("ref", nargs="?", help="for start and done: the item number or id")
+    sp.add_argument("--why")
+    sp.add_argument("--command")
+    sp.add_argument("--cwd-hint", dest="cwd_hint", help="where the command must be typed")
+    sp.add_argument("--kind", choices=["action", "measurement", "approval", "launch", "question"], help="measurement: the user's output comes back to the session that wants it; question: a question put to the user, no command, the answer goes back with done; launch: a raider's launch line, closed when that session joins (crew add raises these)")
+    sp.add_argument("--pr", type=int, help="for add: the PR this tribute blocks; the PR's line on the slate and the spoils page carries it")
+    sp.add_argument("--for", dest="for_session", help="the session the result is for (task, branch, name or id); default: the asking session")
+    sp.add_argument("--supersedes", help="for add: the tribute this one re-issues; that one closes as superseded by the new number")
+    sp.add_argument("--note", help="for start: what is running and where to watch it (a background task id, the session watching)")
+    sp.add_argument("--result", help="for done: the output the user pasted, or @<file> to read it; the mod forwards it to the session the tribute is for")
+    sp.add_argument("--superseded-by", dest="superseded_by", help="for done: the tribute that replaces this one, when it already exists")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("adopt", help="bind this session to a post whose recorded id is dead: coordinator for the chief (own process after /clear, or --by-user for a fresh one) or crew for a raider (the planned worktree's old row)")
+    sp.add_argument("role", choices=["coordinator", "crew"])
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("jobs", help="this session's scheduled state in the ledger (cron, Monitor, watch), so a resume re-arms it: add, done, list. The chief's are kept on the raid; the chief, or the person, closes a job whose session is gone")
+    sp.add_argument("action", choices=["add", "done", "list"])
+    sp.add_argument("ref", nargs="?", help="for done: the job id; for list: a session (default: this one)")
+    sp.add_argument("--kind", choices=["cron", "monitor", "watch", "other"])
+    sp.add_argument("--spec", help="the cron expression, the Monitor's condition or the watch's PR")
+    sp.add_argument("--prompt", help="what runs when it fires")
+    sp.add_argument("--reason")
+    sp.add_argument("--id", help="a stable id, so re-arming replaces rather than duplicates")
+    sp.add_argument("--all", action="store_true", help="list: every session, done jobs included")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true", help="done: the person closing a job whose session is gone")
+    sp = sub.add_parser("pending", help="the chief's open threads (approvals awaited, unanswered messages), kept so a compaction does not lose them: add, done, list")
+    sp.add_argument("action", choices=["add", "done", "list", "hold", "release"])
+    sp.add_argument("ref", nargs="?", help="for add: the session it concerns; for done: the number or id; for hold and release: the PR number")
+    sp.add_argument("--kind", choices=["approval", "message", "thread", "other"])
+    sp.add_argument("--text", help="for add: the thread; for done: the outcome")
+    sp.add_argument("--all", action="store_true")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("dashboard", help="draw the raid's local spoils page (<ledger>/dashboard.html) and print its path; --refresh asks gh and git first, --open opens it")
+    sp.add_argument("--refresh", action="store_true")
+    sp.add_argument("--open", action="store_true")
+    sp = sub.add_parser("prs", help="one record per PR: task, group, hold and what lifts it, a self-expiring note: add, pin, hold, release, note, list")
+    sp.add_argument("action", choices=["add", "pin", "ignore", "hold", "release", "note", "list"])
+    sp.add_argument("ref", nargs="?", help="the PR number")
+    sp.add_argument("--task", help="the raider's task the PR belongs to; for add, the caller's own task by default")
+    sp.add_argument("--group", help="the group the page draws it under")
+    sp.add_argument("--shared", action="store_true", help="the PR changes code every body runs through")
+    sp.add_argument("--text", help="for hold: the reason; for note: the sentence")
+    sp.add_argument("--lifts-on-pr", dest="lifts_on_pr", help="for hold: comma-separated PR numbers whose merge lifts it")
+    sp.add_argument("--lifts-on-need", dest="lifts_on_need", help="for hold: comma-separated tribute numbers whose closing lifts it")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("decide", help="the record of rulings: add (chief or --by-user) what the user decided and who was told; ack from a raider; list")
+    sp.add_argument("action", choices=["add", "ack", "list"])
+    sp.add_argument("ref", nargs="?", help="for ack: the ruling number")
+    sp.add_argument("--text", help="what was decided, in the user's words")
+    sp.add_argument("--about", help="what it concerns: a finding, a task, a scope")
+    sp.add_argument("--told", help="comma-separated sessions told (task, branch, name or id), or all")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("assume", help="numbered decrees: set, list")
+    sp.add_argument("action", choices=["set", "list"])
+    sp.add_argument("--n", help="the number to set or change; default: the next")
+    sp.add_argument("--text")
+    sp.add_argument(BY_USER, dest="by_user", action="store_true")
+    sp = sub.add_parser("check", help="what the guard would say about a Bash command, and whether held dibs cover it (JSON)")
+    sp.add_argument("--command", required=True)
+    sp = sub.add_parser("gate", help="run the config's push_gate commands against the committed HEAD and record the result; the PreToolUse hook then lets `git push` through only on green")
+    sp.add_argument("--allow-untracked", dest="allow_untracked", action="store_true", help="run even with untracked, non-ignored files present")
+    sp = sub.add_parser("hook", help="Claude Code hook entry point; reads the payload on stdin")
+    sp.add_argument("event", choices=["pre-tool-use", "session-start", "pre-compact"])
+    return parser
+
+
+COMMANDS = {
+    "detect": cmd_detect, "init": cmd_init, "start": cmd_start, "end": cmd_end, "status": cmd_status, "probe": cmd_probe, "reconcile": cmd_reconcile, "retire": cmd_retire, "classify": cmd_classify, "watch": cmd_watch,
+    "crew": cmd_crew, "join": cmd_join, "report": cmd_report, "request": cmd_request, "grant": cmd_grant, "release": cmd_release,
+    "needs": cmd_needs, "assume": cmd_assume, "check": cmd_check, "gate": cmd_gate, "hook": cmd_hook,
+    "adopt": cmd_adopt, "jobs": cmd_jobs, "pending": cmd_pending, "prs": cmd_prs, "dashboard": cmd_dashboard, "decide": cmd_decide,
+}
+
+
+# ---------------------------------------------------------------- the move from mission-control
+
+OLD_CONFIG_RELS = ((OLD_CONFIG_REL, CONFIG_REL), (OLD_LOCAL_CONFIG_REL, LOCAL_CONFIG_REL))
+
+
+def old_ledger_root() -> Path | None:
+    """Where the plugin kept its ledger under its old name, derived like LEDGER_ROOT so a sandbox never reaches a real one:
+    once GOBLIN_WARBAND_HOME is set, only an explicit MISSION_CONTROL_HOME names an old ledger, and none is read from the defaults."""
+    if os.environ.get("GOBLIN_WARBAND_HOME"):
+        named = os.environ.get("MISSION_CONTROL_HOME")
+        return Path(named) if named else None
+    if os.environ.get("MISSION_CONTROL_HOME"):
+        return Path(os.environ["MISSION_CONTROL_HOME"])
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "mission-control"
+
+
+def live_raids_in(root: Path) -> list[str]:
+    """The raids still live in a ledger root, by name: a repo directory whose run.json parses and has not ended. Archived raids under runs/ never count."""
+    names = []
+    for path in sorted(root.glob("*/run.json")):
+        if path.parent.name == "runs":
+            continue
+        run = read_json(path)
+        if isinstance(run, dict) and not run.get("ended_at"):
+            # a raid whose repository has gone can never be ended there, so it never holds the move back
+            if run.get("repo_root") and not Path(str(run["repo_root"])).is_dir():
+                continue
+            names.append(f"{run.get('name') or '?'} ({path.parent.name})")
+    return names
+
+
+def git_ignores(root: Path, rel: str) -> bool:
+    """Whether git ignores a path in this checkout; False when git cannot say, so nothing moves on a guess."""
+    return run_git(root, "check-ignore", "-q", rel) is not None
+
+
+def config_note(path: Path) -> str | None:
+    """What to tell the person about a config still read from its old mission-control name: one git sees stays put, since
+    renaming it underneath git would dirty every checkout and hold every push behind a commit nobody was told to make."""
+    if not path.name.startswith("mission-control"):
+        return None
+    root = path.parent.parent
+    rel = f".claude/{path.name}"
+    new_rel = rel.replace("mission-control", "goblin-warband")
+    # every rename printed here keeps a session still on mission-control 0.13.1 gated, as the move's own link does
+    # (review 5981937523): a committed rename can leave no link, so it waits until no such session is left
+    if run_git(root, "ls-files", "--error-unmatch", rel) is not None:
+        return (f"goblin-warband: {path} is committed under its old name and is read from there; rename it in a commit "
+                f"once no session still runs mission-control (git mv {rel} {new_rel}).")
+    return (f"goblin-warband: {path} is read from its old name because the ignore rule that hides it does not cover {new_rel}; "
+            f"widen the rule, then rename the file and leave a link for sessions still on mission-control "
+            f"(mv {rel} {new_rel} && ln -s {path.name.replace('mission-control', 'goblin-warband')} {rel}).")
+
+
+# Set for the life of this process when a raid is live in the old ledger: the one line that says so.
+CARRYING: str | None = None
+# Set for the life of this process when the old ledger exists beside the new one: the one line that says so.
+OLD_LEDGER_NOTE: str | None = None
+
+
+def old_ledger_note(old_root: Path, new_root: Path) -> str:
+    """The one line for an old ledger found beside the new one. The new root is the ledger once it exists, so nothing in the
+    old one is read or moved; a raid there was started by a session still on mission-control 0.13.1, or raced the move."""
+    live = live_raids_in(old_root)
+    if live:
+        # never offer delete while a raid is live there: that loses its files, unarchived (review 5983944140). This CLI can end
+        # it itself, so nothing depends on a session still on mission-control that a restart would take away.
+        return (f"goblin-warband: the old mission-control ledger at {old_root} beside {new_root} holds {len(live)} live "
+                f"raid{'s' if len(live) != 1 else ''} ({', '.join(live)}) this CLI never reads; end each from its repository with "
+                f"`python3 {Path(__file__).resolve()} end --old-ledger --by-user`, which archives it under that folder's runs/.")
+    return (f"goblin-warband: the old mission-control ledger at {old_root} is still there beside {new_root} with no live raid; "
+            f"once every session still on mission-control has restarted, move or delete that folder by hand.")
+
+
+def carry_on_from(old_root: Path, live: list[str]) -> None:
+    """Ruling 23: while a raid is live in the old mission-control ledger, this process reads and writes that ledger (every
+    raid, a new one included, so state never splits across two roots) and the old config names, with every gate as before.
+    Nothing moves; the first command after the last raid there ends moves everything."""
+    global LEDGER_ROOT, CARRYING
+    new_root = LEDGER_ROOT
+    LEDGER_ROOT = old_root
+    CARRYING = (f"goblin-warband: carrying on {len(live)} live raid{'s' if len(live) != 1 else ''} ({', '.join(live)}) from the mission-control ledger at {old_root}; "
+                f"everything moves to {new_root} on the first command after the last raid there ends (/end-raid ends one).")
+
+
+def migrate_from_mission_control(cwd: str) -> str | None:
+    """Move the old ledger root and this repository's old config files to their new names, once, before any command reads them.
+
+    Returns the one line of notice when something moved, None when nothing needed to. While the old ledger holds a live raid
+    nothing moves: a ledger is never moved mid-raid, and this process carries the raid on from the old ledger instead
+    (carry_on_from), but only while the new root does not exist yet. Once it exists it is the ledger, whatever turns up in the
+    old one later, which is named in one line (old_ledger_note) and never read. The ledger moves whole (archived raids under
+    runs/ included) and only when the new root does not exist yet; a config moves only when its new name is free. Gate
+    records under <git-common-dir>/mission-control/ are a per-commit cache and stay where they are."""
+    global OLD_LEDGER_NOTE
+    old_root = old_ledger_root()
+    new_root = LEDGER_ROOT
+    if old_root is not None and old_root.is_dir() and old_root.resolve() != new_root.resolve():
+        if new_root.exists():
+            OLD_LEDGER_NOTE = old_ledger_note(old_root, new_root)
+        else:
+            live = live_raids_in(old_root)
+            if live:
+                carry_on_from(old_root, live)
+                return None
+    roots = []
+    for root in (toplevel(cwd), main_checkout(cwd)):
+        if root is not None and root not in roots:
+            roots.append(root)
+
+    def pending() -> tuple[bool, list[tuple[Path, Path]]]:
+        ledger = old_root is not None and old_root.is_dir() and not new_root.exists() and old_root.resolve() != new_root.resolve()
+        # a config moves only where git cannot see the move: ignored under both names (config_note says what to do otherwise)
+        configs = [(root / old_rel, root / new_rel) for root in roots for old_rel, new_rel in OLD_CONFIG_RELS
+                   # the move's own link points at the new name, so `not new.exists()` already rules it out; a link the
+                   # person made (to a shared file, or a worktree's to the main checkout) moves like any file
+                   if (root / old_rel).is_file() and not (root / new_rel).exists()
+                   and git_ignores(root, old_rel) and git_ignores(root, new_rel)]
+        return ledger, configs
+
+    if pending() == (False, []):
+        return None  # the common case: nothing to move, no lock taken
+    # Sessions start together (the mod's first refresh and the SessionStart hook run at once): one process moves, the
+    # others wait on the lock, look again and find nothing left to do.
+    new_root.parent.mkdir(parents=True, exist_ok=True)
+    with open(new_root.parent / ".goblin-warband-move.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return move_from_mission_control(old_root, new_root, *pending())
+
+
+def stay_with_old_ledger() -> None:
+    """After a failed move: while the old root is still there and the new one is not, keep reading the old one."""
+    global LEDGER_ROOT
+    old_root = old_ledger_root()
+    if old_root is not None and old_root.is_dir() and not LEDGER_ROOT.exists():
+        LEDGER_ROOT = old_root
+
+
+MOVED_NOTICE = "moved-from-mission-control.txt"
+
+
+def move_from_mission_control(old_root: Path | None, new_root: Path, ledger_moves: bool, config_moves: list[tuple[Path, Path]]) -> str | None:
+    """The move itself, under the lock, with what is left to move looked up after the lock was taken."""
+    if not ledger_moves and not config_moves:
+        return None
+    # only a ledger about to move is looked at again: once the new root exists it is the ledger, and a config move alone
+    # never sends a process back to the old root (review 5978367037)
+    if ledger_moves and old_root is not None and old_root.is_dir():
+        live = live_raids_in(old_root)
+        if live:  # a raid started under the old plugin between the first look and the lock: carry it on, move nothing
+            carry_on_from(old_root, live)
+            return None
+    moved = []
+    if ledger_moves:
+        new_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(old_root), str(new_root))
+        archived = len(list((new_root / "runs").iterdir())) if (new_root / "runs").is_dir() else 0
+        moved.append(f"the ledger {old_root} to {new_root} ({archived} archived raid{'s' if archived != 1 else ''})")
+    unlinked = []
+    for old_path, new_path in config_moves:
+        shutil.move(str(old_path), str(new_path))
+        moved.append(f"{old_path} to {new_path.name}")
+        # a session still on mission-control 0.13.1 reads the old name only; a relative link there keeps its push gate
+        # until it restarts (review 5978864222). Git ignores the old name, or the config would not have moved.
+        try:
+            os.symlink(new_path.name, old_path)
+        except OSError as error:
+            unlinked.append(f"{old_path.name} ({error.strerror or error})")
+    links = "; the old names stay as links for sessions not yet restarted, safe to delete once every session has restarted" if config_moves and not unlinked else ""
+    warning = (f"; could not leave a link at {', '.join(unlinked)}, so a session still on mission-control pushes with no gate "
+               f"until you restart it") if unlinked else ""
+    notice = "goblin-warband: moved " + "; ".join(moved) + f" (renamed from mission-control){links}{warning}."
+    # stderr from a hook reaches nobody: the first status (the mod's first refresh, which toasts it) tells it instead
+    with contextlib.suppress(OSError):
+        new_root.mkdir(parents=True, exist_ok=True)
+        with open(new_root / MOVED_NOTICE, "a") as marker:
+            marker.write(notice + "\n")
+    return notice
+
+
+def take_moved_notice() -> str | None:
+    """The move's notice, once: read and removed by the status that shows it."""
+    path = LEDGER_ROOT / MOVED_NOTICE
+    try:
+        text = path.read_text().strip()
+        path.unlink()
+    except OSError:
+        return None
+    return text or None
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        try:
+            notice = migrate_from_mission_control(args.cwd)
+        except OSError as error:
+            # never a traceback that fails a hook open: say so, and work from wherever the ledger still is
+            notice = None
+            print(f"goblin-warband: could not move the mission-control ledger or config ({error}); working from where they are", file=sys.stderr)
+            stay_with_old_ledger()
+        # stderr, so a hook's or --json's stdout stays parseable; a text status prints the notice itself
+        if notice and not (args.cmd == "status" and not getattr(args, "json", False)):
+            print(notice, file=sys.stderr)
+        code = COMMANDS[args.cmd](args)
+    except Refusal as refusal:
+        if getattr(args, "json", False):
+            print(json.dumps({"error": str(refusal)}))
+        else:
+            print(f"✗ {refusal}")
+        return 1
+    if code == 0 and args.cmd not in REDRAW_EXEMPT and getattr(args, "action", None) != "list":
+        redraw_quietly(args.cwd)
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
