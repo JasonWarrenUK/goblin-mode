@@ -46,6 +46,7 @@ const MATERIAL: [RegExp, RegExp, string][] = [
 	[/global\.css$/, /^\.stamp\./, '--surface'],
 	[/tutorial\.css$/, /\.code\b/, '--exhibit'],
 	[/tutorial\.css$/, /\.tab\b|\.viewbar\b/, '--card'],
+	[/tutorial\.css$/, /\.leaders\b/, '--surface'],
 	[/tutorial\.css$/, /\.co\b|\.exercise\b/, '--slip'],
 	// a bare `code` selector reaches the code panel (an exhibit) as well as inline code, so the panel is what it must clear
 	[/tutorial\.css$/, /(^| )code$/, '--exhibit'],
@@ -53,13 +54,6 @@ const MATERIAL: [RegExp, RegExp, string][] = [
 	[/\[mod\]\/\+page\.svelte$/, /^\.num$|^\.facts$/, '--surface'],
 ];
 
-/**
- * Elements dimmed below full opacity, each with the reason no text is dimmed with it. Text is never
- * thinned: a past or pending state is marked by an outline, a dashed border or a tag instead.
- */
-const DIMMED_WITHOUT_TEXT: [RegExp, string][] = [
-	[/^\.tutorial \.leaders \.past$/, 'an earlier callout\'s leader line and dot, drawn in SVG strokes with no text'],
-];
 
 const walk = (dir: string): string[] =>
 	readdirSync(dir).flatMap((entry) => {
@@ -90,20 +84,70 @@ interface Rule {
 	body: string;
 }
 
-/** Every rule in the site's stylesheets and component <style> blocks, media queries flattened. */
-const rules: Rule[] = walk(SRC)
-	.filter((path) => /\.(css|svelte)$/.test(path))
-	.flatMap((path) => {
-		let text = readFileSync(path, 'utf8');
-		if (path.endsWith('.svelte')) text = /<style>([\s\S]*?)<\/style>/.exec(text)?.[1] ?? '';
-		text = text.replace(/\/\*[\s\S]*?\*\//g, '');
-		return [...text.matchAll(/([^{}@]+)\{([^{}]*)\}/g)].flatMap((match) =>
-			topLevel(match[1]!)
-				.map((one) => one.replace(/:global\(([^)]*)\)/g, '$1').trim().replace(/\s+/g, ' '))
-				.filter(Boolean)
-				.map((selector) => ({ file: relative(SITE, path), selector, body: match[2]! })),
-		);
+const SOURCES = walk(SRC);
+
+/** The rules in one stylesheet's text, media queries and keyframes flattened (a keyframe stop reads as its own rule). */
+export const rulesIn = (file: string, css: string): Rule[] =>
+	[...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}@]+)\{([^{}]*)\}/g)].flatMap((match) =>
+		topLevel(match[1]!)
+			.map((one) => one.replace(/:global\(([^)]*)\)/g, '$1').trim().replace(/\s+/g, ' '))
+			.filter(Boolean)
+			.map((selector) => ({ file, selector, body: match[2]! })),
+	);
+
+/** Every rule the site can apply: stylesheets, every <style> block of every component, app.html's too. */
+const rules: Rule[] = SOURCES.filter((path) => /\.(css|svelte|html)$/.test(path)).flatMap((path) => {
+	const text = readFileSync(path, 'utf8');
+	const css = path.endsWith('.css') ? text : [...text.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)].map((match) => match[1]).join('\n');
+	return rulesIn(relative(SITE, path), css);
+});
+
+/**
+ * Every way a rule thins what it paints: an `opacity` or `filter: opacity()` below 1 (as a number, a
+ * percentage or a value the test cannot read, such as `var()`), and any keyframe stop after the first
+ * that is not fully opaque. A `0` outside keyframes hides an element and is allowed; a first stop may
+ * fade in from anything.
+ */
+export const dimmings = (from: Rule[]): string[] => {
+	const problems: string[] = [];
+	for (const rule of from) {
+		const stop = /^(?:from|to|\d+(?:\.\d+)?%)$/.test(rule.selector);
+		const firstStop = /^(?:from|0%)$/.test(rule.selector);
+		const values = [
+			...[...rule.body.matchAll(/(?:^|[;\s])opacity:\s*([^;]+)/g)].map((match) => ({ kind: 'opacity', raw: match[1]! })),
+			...[...rule.body.matchAll(/(?:^|[;\s])filter:[^;]*\bopacity\(([^)]*)\)/g)].map((match) => ({ kind: 'filter: opacity()', raw: match[1]! })),
+		];
+		for (const { kind, raw } of values) {
+			const value = raw.replace(/!important/, '').trim();
+			const number = /^(\d*\.?\d+)(%?)$/.exec(value);
+			const where = `${rule.file} ${rule.selector}: ${kind} ${raw.trim()}`;
+			if (!number) {
+				problems.push(`${where} (not a plain number)`);
+				continue;
+			}
+			const level = Number(number[1]) / (number[2] ? 100 : 1);
+			if (stop && !firstStop && level < 1) problems.push(where);
+			else if (!stop && kind === 'filter: opacity()' && level < 1) problems.push(where);
+			else if (!stop && level > 0 && level < 1) problems.push(where);
+		}
+	}
+	return problems;
+};
+
+/** Colour or opacity set where the stylesheet scan cannot see it: inline styles, style directives, script. */
+export const offSheetColour = (files: { path: string; text: string }[]): string[] => {
+	const property = '(?:color|opacity|filter|background(?:-color)?|-webkit-text-fill-color|fill|stroke)';
+	const markup = [new RegExp(`style="[^"]*\\b${property}\\s*:`), new RegExp(`style:${property}\\b`)];
+	const script = [/\.style\.(?:color|opacity|filter|background|backgroundColor|webkitTextFillColor|fill|stroke)\b/, new RegExp(`setProperty\\(\\s*['"]${property}['"]`)];
+	return files.flatMap(({ path, text }) => {
+		const checks = path.endsWith('.ts') ? script : markup;
+		return text
+			.split('\n')
+			.map((line, index) => ({ line: index + 1, text: line }))
+			.filter(({ text: line }) => checks.some((check) => check.test(line)) || /-webkit-text-fill-color/.test(line))
+			.map(({ line, text: content }) => `${path}:${line}: ${content.trim()}`);
 	});
+};
 
 const tokenIn = (body: string, property: RegExp): string | undefined => property.exec(body)?.[1];
 
@@ -156,13 +200,76 @@ describe('the forms of colour the contrast check can measure', () => {
 		expect(unmeasurable).toEqual([]);
 	});
 
-	it('dims nothing that holds text', () => {
-		const dimmed = declarations('opacity')
-			.filter(({ value }) => Number(value) > 0 && Number(value) < 1)
-			.filter(({ selector }) => !DIMMED_WITHOUT_TEXT.some(([pattern]) => pattern.test(selector)))
-			.map(({ where, value }) => `${where}: opacity: ${value}`);
-		expect(dimmed).toEqual([]);
+	it('dims nothing, in any form', () => {
+		expect(dimmings(rules)).toEqual([]);
 	});
+
+	it('reads every form of dimming the review found passing unseen', () => {
+		const probe = (selector: string, body: string): Rule => ({ file: 'probe.css', selector, body });
+		const found = dimmings([
+			probe('.a', 'opacity: 30%'),
+			probe('.b', 'filter: drop-shadow(0 0 1px black) opacity(0.3)'),
+			probe('.c', 'opacity: 0.3 !important'),
+			probe('.d', 'opacity: var(--dim)'),
+			probe('to', 'opacity: 0'),
+			probe('50%', 'opacity: 0.5'),
+			probe('from', 'opacity: 0'),
+			probe('.leaving', 'opacity: 0'),
+			probe('.solid', 'opacity: 1'),
+		]);
+		expect(found.map((line) => line.split(' ')[1])).toEqual(['.a:', '.b:', '.c:', '.d:', 'to:', '50%:']);
+	});
+
+	it('sets no colour or opacity outside a stylesheet: no inline style, style directive or script', () => {
+		const files = SOURCES.filter((path) => /\.(svelte|html|ts)$/.test(path)).map((path) => ({ path: relative(SITE, path), text: readFileSync(path, 'utf8') }));
+		expect(offSheetColour(files)).toEqual([]);
+	});
+
+	it('catches colour set by an inline style, a style directive, script or text fill', () => {
+		const found = offSheetColour([
+			{ path: 'a.svelte', text: '<h4 style="color:silver">' },
+			{ path: 'b.svelte', text: '<h4 style:color="silver">' },
+			{ path: 'c.svelte', text: '.motto { -webkit-text-fill-color: var(--surface) }' },
+			{ path: 'd.ts', text: "note.style.opacity = '0.3';" },
+			{ path: 'e.svelte', text: '<div style="display: contents">' },
+			{ path: 'f.svelte', text: '<div style:--states={n}>' },
+		]);
+		expect(found.map((line) => line.split(':')[0])).toEqual(['a.svelte', 'b.svelte', 'c.svelte', 'd.ts']);
+	});
+});
+
+/**
+ * The one thing that tells an earlier step's mark from the current one: a leader line's stroke, a gutter
+ * label's outline. Each must clear 3:1, WCAG's floor for a graphic that carries meaning.
+ */
+const markers: Pair[] = rules
+	.filter((rule) => /\.past\b|pastpin/.test(rule.selector))
+	.flatMap((rule) => {
+		const where = `${rule.file} ${rule.selector}`;
+		const material = MATERIAL.find(([file, selector]) => file.test(rule.file) && selector.test(rule.selector))?.[2] ?? '--unplaced';
+		const inks = [
+			tokenIn(rule.body, /(?:^|[;\s])stroke:\s*var\((--[\w-]+)\)/),
+			tokenIn(rule.body, /box-shadow:[^;]*\binset\b[^;]*var\((--[\w-]+)\)/),
+			tokenIn(rule.body, /border-color:\s*var\((--[\w-]+)\)/),
+		].filter((ink): ink is string => Boolean(ink));
+		return inks.flatMap((ink) =>
+			ink === '--tone' ? tones.map(([, tone]) => ({ ink: tone, material, where: `${where} (${tone})` })) : [{ ink, material, where }],
+		);
+	});
+
+describe('the marks that tell an earlier step apart', () => {
+	it('finds the past leader lines and past gutter labels', () => {
+		expect(markers.length).toBeGreaterThan(0);
+	});
+
+	for (const variant of ['light', 'dark'] as const) {
+		for (const { ink, material, where } of markers) {
+			it(`${variant}: ${where} draws ${ink} on ${material} at 3:1 or better`, () => {
+				expect(tokens[variant][material], `${material} is a token`).toMatch(/^#[0-9A-Fa-f]{6}$/);
+				expect(ratio(tokens[variant][ink]!, tokens[variant][material]!)).toBeGreaterThanOrEqual(3);
+			});
+		}
+	}
 });
 
 describe('the contrast of every colour rule', () => {

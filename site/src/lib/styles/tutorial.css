@@ -40,8 +40,8 @@
 .tutorial .code .ln.del { color: var(--exhibit-ink); text-decoration: line-through; background: color-mix(in oklab, var(--danger) 16%, var(--exhibit)); box-shadow: inset 5px 0 0 color-mix(in oklab, var(--danger) 70%, var(--exhibit-ink)); }
 .tutorial .code .ln.del::before { content: '\2212'; left: 1.1rem; color: var(--exhibit-ink); text-decoration: none; }
 .tutorial .code .ln[data-label]::before { content: attr(data-label); left: 0.35rem; top: 0.28em; font-family: var(--font-print); font-size: 0.6rem; line-height: 1.35; padding: 0 0.22rem; border-radius: var(--radius-sm); background: var(--tone); color: var(--on); }
-/* an earlier step's gutter label keeps full ink and drops its fill for an outline in its tone */
-.tutorial .code .ln.pastpin::before { background: transparent; color: var(--exhibit-ink); box-shadow: inset 0 0 0 1.5px var(--tone); }
+/* an earlier step's gutter label keeps full ink and drops its fill for an outline in the panel's ink */
+.tutorial .code .ln.pastpin::before { background: transparent; color: var(--exhibit-ink); box-shadow: inset 0 0 0 1.5px var(--exhibit-ink); }
 .tutorial .code .ln.fresh { animation: tut-line-in 480ms ease-out; }
 @keyframes tut-line-in { from { opacity: 0; background: color-mix(in oklab, var(--tone, var(--slime)) 55%, var(--exhibit)); } }
 .tutorial .file.small .code { font-size: 0.72rem; }
@@ -84,7 +84,8 @@
 .tutorial .leaders .ld { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; }
 .tutorial .leaders .br { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
 .tutorial .leaders .dot { fill: var(--tone); stroke: var(--ink); stroke-width: 1.6; }
-.tutorial .leaders .past { opacity: 0.4; }
+/* an earlier callout's leader is drawn dashed in muted ink, never thinned */
+.tutorial .leaders .past { stroke: var(--ink-muted); }
 .tutorial .leaders .ld.past { stroke-dasharray: 3 4; }
 
 /* ---------- the level header ---------- */
