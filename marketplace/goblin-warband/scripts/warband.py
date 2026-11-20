@@ -3701,7 +3701,7 @@ TALLY_CAP = 25
 
 def tally_html(count: int) -> str:
     """A count as tally marks: groups of four strokes with a fifth across them, then the ones. Past TALLY_CAP the marks stop and a + says
-    there are more. Hidden from screen readers, since the number always stands beside it."""
+    there are more. Hidden from screen readers, since count_html gives them the number."""
     count = max(0, int(count))
     drawn = min(count, TALLY_CAP)
     fives, ones = divmod(drawn, 5)
@@ -3711,6 +3711,12 @@ def tally_html(count: int) -> str:
     if count > TALLY_CAP:
         marks += '<span class="more">+</span>'
     return f'<span class="tally" aria-hidden="true">{marks}</span>' if marks else ""
+
+
+def count_html(count: int) -> str:
+    """A count as the page shows it: tally marks for the eye and the number for a screen reader, hidden from sight. Every count on the
+    page is a tally; numerals are kept for identifiers (PR numbers, tribute numbers, a stack's landing order)."""
+    return f'{tally_html(count)}<span class="sr">{max(0, int(count))}</span>'
 
 
 # The faces the theme names, inlined so the page loads nothing (templates/fonts/README.md says where they came from).
@@ -3740,7 +3746,7 @@ def font_faces_css() -> str:
 
 def render_dashboard(model: dict, repo_url: str | None) -> str:
     """The spoils page as one HTML string: faces, theme tokens and components inlined, no script, no network.
-    A war table: each group is a column on the desk, each PR a card taped to it, each count drawn in tally marks beside its number."""
+    A war table: each group is a column on the desk, each PR a card taped to it, each count drawn in tally marks alone."""
     theme = (PLUGIN_ROOT / "templates" / "dashboard-theme.css").read_text()
     components = (PLUGIN_ROOT / "templates" / "dashboard.css").read_text()
     totals = model["totals"]
@@ -3750,13 +3756,13 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
     parts = []
     if model["loose_needs"]:
         owed = len(model["loose_needs"])
-        parts.append(f'<section class="tribute-owed slip" aria-labelledby="tribute-owed"><h2 id="tribute-owed">Tribute owed {tally_html(owed)}<span class="count">{owed}</span></h2>'
+        parts.append(f'<section class="tribute-owed slip" aria-labelledby="tribute-owed"><h2 id="tribute-owed">Tribute owed {count_html(owed)}</h2>'
                      f'<ul class="tributes">{"".join(need_html(n) for n in model["loose_needs"])}</ul></section>')
     if model["groups"]:
         parts.append('<div class="table">')
     for at, group in enumerate(model["groups"]):
         rows = len(group["rows"])
-        parts.append(f'<section class="column" aria-labelledby="group-{at}"><h2 id="group-{at}"><span class="name">{escape(GROUP_WORDS.get(group["name"], group["name"]))}</span>{tally_html(rows)}<span class="count">{rows}</span></h2><ul class="cards">')
+        parts.append(f'<section class="column" aria-labelledby="group-{at}"><h2 id="group-{at}"><span class="name">{escape(GROUP_WORDS.get(group["name"], group["name"]))}</span>{count_html(rows)}</h2><ul class="cards">')
         for item in group["rows"]:
             fact, who = item["fact"], item["who"]
             number = item["number"]
@@ -3781,7 +3787,7 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
             note = item.get("note")
             note_html = f'<p class="note">{escape(note["text"])} <small>({escape(clock(note.get("at")))})</small></p>' if note else ""
             owed = sum(1 for n in item["needs"] if n.get("status") != "started")
-            margin = f'<span class="margin-tally" title="tribute owed on this PR">{tally_html(owed)}<span>{owed} owed</span></span>' if owed else ""
+            margin = f'<span class="margin-tally" title="tribute owed on this PR">{count_html(owed)}<span>owed</span></span>' if owed else ""
             needs_html = f'<ul class="tributes">{"".join(need_html(n) for n in item["needs"])}</ul>' if item["needs"] else ""
             layer = f' layer depth-{item["depth"]}" style="--depth:{item["depth"]}' if item["depth"] else ""
             waits = '<span class="waits">waits on the card above</span>' if item["depth"] else ""
@@ -3798,7 +3804,7 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
     stale_html = ' <span class="stale">(stale: run reconcile or open /show-slate)</span>' if stale else ""
     name = escape(str(model.get("run") or "Raid"))
     totals_html = "".join(
-        f'<span class="total{" mine" if key == "jason" else ""}">{tally_html(totals[key])}<b>{totals[key]}</b> {label}</span>'
+        f'<span class="total{" mine" if key == "jason" else ""}">{count_html(totals[key])} {label}</span>'
         for key, label in (("jason", "await you"), ("questions", "questions for you"), ("ready", "ready to land"), ("held", "held"), ("open", "open")))
     return f"""<!doctype html>
 <html lang="en-GB"><head><meta charset="utf-8">
@@ -3813,7 +3819,7 @@ def render_dashboard(model: dict, repo_url: str | None) -> str:
 <header class="slip"><h1>Spoils of {name}</h1><span class="stamp">Drawn {escape(clock(model["at"]))} · GitHub facts {facts_stamp}{stale_html}</span>
 <div class="totals">{totals_html}</div></header>
 {"".join(parts)}
-<footer class="slip">The tag leading each card is who moves next, derived from GitHub and the ledger's holds and tribute; "restamp cost" names the PRs whose migrations would need renaming if this one lands first; a numbered badge is the stack's landing order in its column, and a card set in under another waits on it. A note on a card is the chief's and disappears once the PR moves. Every tally has its number beside it. This page is local to this machine and reloads every minute.</footer>
+<footer class="slip">The tag leading each card is who moves next, derived from GitHub and the ledger's holds and tribute; "restamp cost" names the PRs whose migrations would need renaming if this one lands first; a numbered badge is the stack's landing order in its column, and a card set in under another waits on it. A note on a card is the chief's and disappears once the PR moves. Every count is drawn in tally marks; numerals name things (PRs, tribute, landing order). This page is local to this machine and reloads every minute.</footer>
 </main></body></html>
 """
 

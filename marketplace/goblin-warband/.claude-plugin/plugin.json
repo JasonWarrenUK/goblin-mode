@@ -1,6 +1,6 @@
 {
 	"name": "goblin-warband",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "A warband raids in good order or not at all. One chief, many sessions, one repo: orders read, dibs called, tribute paid, spoils counted. Coordinate several Claude Code sessions on one repository: a ledger of dibs on shared resources enforced by hooks, a /show-slate pane, tools that report, call dibs, grant and broadcast, a declaration that writes each raider's orders, and the protocol that came out of running it.",
 	"author": {
 		"name": "Jason Warren"
