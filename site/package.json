@@ -11,7 +11,8 @@
 		"build": "bun run generate && vite build",
 		"preview": "vite preview",
 		"check": "bun run generate && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"test": "bun run build && vitest run"
+		"test": "bun run build && vitest run",
+		"test:contrast": "playwright test"
 	},
 	"devDependencies": {
 		"@fontsource/cabin-sketch": "5.3.0",
@@ -19,6 +20,7 @@
 		"@fontsource/ibm-plex-sans": "5.3.0",
 		"@fontsource/permanent-marker": "5.3.0",
 		"@fontsource/special-elite": "5.3.0",
+		"@playwright/test": "1.65.0",
 		"@sveltejs/adapter-static": "4.0.1",
 		"@sveltejs/kit": "3.3.1",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",

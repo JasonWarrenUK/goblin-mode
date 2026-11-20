@@ -61,6 +61,18 @@ jobs:
       - run: bun run check
       # `test` builds the site first, then checks every page and link in build/.
       - run: bun run test
+      # The contrast sweep: Chromium measures every text on every built page, at four viewports, in both
+      # themes and every state, against 4.5:1. The browser is cached by the lockfile, which pins Playwright.
+      - id: browser-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('site/bun.lock') }}
+      - if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+      - if: steps.browser-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+      - run: bun run test:contrast
       - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
