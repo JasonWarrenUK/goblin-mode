@@ -12,18 +12,18 @@ Claude Code reads a fixed list of frontmatter fields and leaves `metadata` to yo
 
 ### 1. Define a Key
 
-Start with a skill that roasts your last commit message. Its frontmatter fetches the commit and takes away the tools Claude would need to change anything; the `metadata:` block at the bottom is the new part. Write any keys you like under it, with any values. Claude doesn't see them either. The skill listing carries only `description` and `when_to_use`, and a skill you run reaches Claude as its body alone.
+Start with a skill that roasts your last commit message. Its frontmatter fetches the commit and takes away Claude's tools for running commands, editing files and handing the job to a helper agent; the `metadata:` block at the bottom is the new part. Write any keys you like under it, with any values. Claude doesn't see them either. The skill listing carries only `description` and `when_to_use`, and a skill you run reaches Claude as its body alone.
 
 `.claude/skills/roast-commit/SKILL.md` after step 1:
 
 ```markdown
 ---
 name: roast-commit
-description: Roast the last commit message, without touching anything.
+description: Roast the last commit message.
 model: sonnet
 effort: low
 allowed-tools: Bash(git log *)
-disallowed-tools: [Bash, Edit, Write, NotebookEdit]
+disallowed-tools: [Agent, Bash, Edit, Write, NotebookEdit]
 metadata:
   family: roast
   heat: mild
@@ -41,7 +41,7 @@ person who wrote it.
 New in 1: every line.
 
 - **1a** `` !`git log -1 --format='%h %s%n%n%b'` `` runs before Claude reads the skill, and its output takes the line's place, so Claude reads the commit itself. `allowed-tools` approves `git log` for it; without that approval the skill stops before it starts.
-- **1b** `disallowed-tools` takes Bash, Edit, Write and NotebookEdit away from Claude until your next message. The injected `git log` still runs with Bash on that list.
+- **1b** `disallowed-tools` takes these five away from Claude until your next message. Tools from MCP servers you've connected stay unless you list them too. The injected `git log` still runs with Bash on the list.
 - **1c** `metadata:` holds keys of your own. Claude Code doesn't act on its contents and drops a value that isn't a map, so every key sits indented under it. Don't reuse a frontmatter field's name, such as `paths`, as a key.
 - **1d** `family: roast` groups this skill with the others you'll write; for now, no script reads it.
 - **1e** `heat: mild` is invented, key and value both. Nothing in Claude Code knows what a heat is, or that `mild` comes before `scorching`.
@@ -55,11 +55,11 @@ Nothing reads `heat` yet, so it does nothing. Add a second roast at the other en
 ```markdown
 ---
 name: roast-branch
-description: Roast every commit on this branch, in order, without touching anything.
+description: Roast every commit on this branch, in order.
 model: opus
 effort: high
 allowed-tools: Bash(git log *)
-disallowed-tools: [Bash, Edit, Write, NotebookEdit]
+disallowed-tools: [Agent, Bash, Edit, Write, NotebookEdit]
 metadata:
   family: roast
   heat: scorching
@@ -113,8 +113,8 @@ New in 2: both files, every line.
 The script prints:
 
 ```text
-mild       /roast-commit   Roast the last commit message, without touching anything.
-scorching  /roast-branch   Roast every commit on this branch, in order, without touching anything.
+mild       /roast-commit   Roast the last commit message.
+scorching  /roast-branch   Roast every commit on this branch, in order.
 ```
 
 ### 3. Add a Key That Repeats Another Field
@@ -126,11 +126,11 @@ A script that wants to know whether a roast is safe to run on someone else's bra
 ```markdown
 ---
 name: roast-commit
-description: Roast the last commit message, without touching anything.
+description: Roast the last commit message.
 model: sonnet
 effort: low
 allowed-tools: Bash(git log *)
-disallowed-tools: [Bash, Edit, Write, NotebookEdit]
+disallowed-tools: [Agent, Bash, Edit, Write, NotebookEdit]
 metadata:
   family: roast
   heat: mild
@@ -162,11 +162,11 @@ noor wants `roast-branch` to run `git blame` on the worst commit, takes Bash off
 ```markdown
 ---
 name: roast-branch
-description: Roast every commit on this branch, in order, without touching anything.
+description: Roast every commit on this branch, in order.
 model: opus
 effort: high
 allowed-tools: Bash(git log *)
-disallowed-tools: [Edit, Write, NotebookEdit]
+disallowed-tools: [Agent, Edit, Write, NotebookEdit]
 metadata:
   family: roast
   heat: scorching
@@ -190,7 +190,7 @@ import sys
 from pathlib import Path
 
 HEAT = ["mild", "medium", "scorching"]
-REMOVED = {"Bash", "Edit", "Write", "NotebookEdit"}
+REMOVED = {"Agent", "Bash", "Edit", "Write", "NotebookEdit"}
 ...
 
 menu, problems = [], []

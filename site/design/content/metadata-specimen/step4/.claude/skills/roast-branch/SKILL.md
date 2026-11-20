@@ -1,10 +1,10 @@
 ---
 name: roast-branch
-description: Roast every commit on this branch, in order, without touching anything.
+description: Roast every commit on this branch, in order.
 model: opus
 effort: high
 allowed-tools: Bash(git log *)
-disallowed-tools: [Edit, Write, NotebookEdit]
+disallowed-tools: [Agent, Edit, Write, NotebookEdit]
 metadata:
   family: roast
   heat: scorching

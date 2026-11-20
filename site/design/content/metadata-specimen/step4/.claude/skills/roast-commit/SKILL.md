@@ -1,10 +1,10 @@
 ---
 name: roast-commit
-description: Roast the last commit message, without touching anything.
+description: Roast the last commit message.
 model: sonnet
 effort: low
 allowed-tools: Bash(git log *)
-disallowed-tools: [Bash, Edit, Write, NotebookEdit]
+disallowed-tools: [Agent, Bash, Edit, Write, NotebookEdit]
 metadata:
   family: roast
   heat: mild

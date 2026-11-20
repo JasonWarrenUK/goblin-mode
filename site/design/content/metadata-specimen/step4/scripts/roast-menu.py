@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 HEAT = ["mild", "medium", "scorching"]
-REMOVED = {"Bash", "Edit", "Write", "NotebookEdit"}
+REMOVED = {"Agent", "Bash", "Edit", "Write", "NotebookEdit"}
 
 
 def field(block: str, key: str) -> str:
