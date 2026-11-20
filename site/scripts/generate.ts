@@ -101,18 +101,49 @@ export const metadataCounts = (files: readonly string[]): { skills: number; with
 	};
 };
 
-/** Slash commands a mod registers in hooks/register.tsx: `$.command.register({ name, description })`. */
+const QUOTED = `'((?:[^'\\\\]|\\\\.)*)'`;
+/** `{ name: 'x', [verb: '…',] description: '…' }` entries in a stretch of source. */
+const literalCommands = (text: string): [string, string][] =>
+	[...text.matchAll(new RegExp(`\\{\\s*name:\\s*'([a-z][a-z-]*)',\\s*(?:verb:\\s*'[^']*',\\s*)?description:\\s*${QUOTED}`, 'g'))].map((match) => [match[1]!, match[2]!]);
+
+/**
+ * Slash commands a mod registers in hooks/register.tsx. Each `$.command.register(` call is read in one of three
+ * shapes, and any other shape throws, so a command can never drop out of the table in silence:
+ *   - a literal: `$.command.register({ name: 'x', description: '…' })`;
+ *   - a constant: `const COMMAND = 'x'`, then `$.command.register({ name: COMMAND, description: '…' })`;
+ *   - a loop over a table: `for (const spec of [{ name: 'x', description: '…' }, ...COMMANDS])` with
+ *     `$.command.register({ name: spec.name, … })` inside, where each spread is `const COMMANDS = [ … ]`.
+ * Nothing outside a command registration is read, so a tool's `{ name, description }` never lists as a command.
+ */
 export const registeredCommands = (source: string): CommandFact[] => {
 	const found = new Map<string, string>();
-	const add = (name: string | undefined, description: string | undefined): void => {
-		if (name && !found.has(name)) found.set(name, (description ?? '').replace(/\\'/g, "'"));
+	const add = (name: string, description: string): void => {
+		if (!found.has(name)) found.set(name, description.replace(/\\'/g, "'"));
 	};
-	// `$.command.register({ name: 'x', description: '…' })`, and a table of `{ name: 'x', verb: '…', description: '…' }`
-	// entries that a loop registers (the warband's COMMANDS)
-	for (const match of source.matchAll(/\{\s*name:\s*'([a-z][a-z-]*)',\s*(?:verb:\s*'[^']*',\s*)?description:\s*'((?:[^'\\]|\\.)*)'/g)) add(match[1], match[2]);
-	// a name held in a constant: `const COMMAND = 'x'` then `$.command.register({ name: COMMAND, description: '…' })`
-	for (const match of source.matchAll(/\$\.command\.register\(\{\s*name:\s*([A-Z_]+),\s*description:\s*'((?:[^'\\]|\\.)*)'/g)) {
-		add(new RegExp(`const ${match[1]} = '([a-z][a-z-]*)'`).exec(source)?.[1], match[2]);
+	for (const call of source.matchAll(/\$\.command\.register\(/g)) {
+		const at = call.index;
+		const rest = source.slice(at + call[0].length);
+		const literal = new RegExp(`^\\{\\s*name:\\s*'([a-z][a-z-]*)',\\s*description:\\s*${QUOTED}`).exec(rest);
+		const constant = new RegExp(`^\\{\\s*name:\\s*([A-Z_]+),\\s*description:\\s*${QUOTED}`).exec(rest);
+		const looped = /^\{\s*name:\s*([a-z]\w*)\.name\b/.exec(rest);
+		if (literal) {
+			add(literal[1]!, literal[2]!);
+		} else if (constant) {
+			const value = new RegExp(`const ${constant[1]} = '([a-z][a-z-]*)'`).exec(source)?.[1];
+			if (!value) throw new Error(`register.tsx: ${constant[1]} names a command but holds no string this generator can read`);
+			add(value, constant[2]!);
+		} else if (looped) {
+			const loop = [...source.slice(0, at).matchAll(new RegExp(`for \\(const ${looped[1]} of \\[([\\s\\S]*?)\\]\\)`, 'g'))].at(-1);
+			if (!loop) throw new Error(`register.tsx: ${looped[1]}.name is registered outside a loop over a table this generator can read`);
+			for (const [name, description] of literalCommands(loop[1]!)) add(name, description);
+			for (const spread of loop[1]!.matchAll(/\.\.\.([A-Z_]+)/g)) {
+				const table = new RegExp(`const ${spread[1]} = \\[([\\s\\S]*?)\\] as const`).exec(source);
+				if (!table) throw new Error(`register.tsx: the table ${spread[1]} is not a readable const array`);
+				for (const [name, description] of literalCommands(table[1]!)) add(name, description);
+			}
+		} else {
+			throw new Error(`register.tsx: a $.command.register call this generator cannot read: ${rest.slice(0, 60).replace(/\s+/g, ' ')}`);
+		}
 	}
 	return [...found].map(([name, description]) => ({ invocation: `/${name}`, description }));
 };
@@ -155,8 +186,14 @@ const fail = (message: string): never => {
 	process.exit(1);
 };
 
+/** Plugins in marketplace.json that match no mod under any of its names: a rename the site has not caught up with, or a new mod. */
+export const unmatchedPlugins = (plugins: readonly { name: string }[]): string[] =>
+	plugins.map((plugin) => plugin.name).filter((name) => !Object.values(MOD_NAMES).some((names) => names.includes(name)));
+
 export const collect = async (): Promise<Facts> => {
 	const marketplace = readJson<{ name: string; plugins: MarketplaceEntry[] }>(join(REPO, '.claude-plugin/marketplace.json'));
+	const strangers = unmatchedPlugins(marketplace.plugins);
+	if (strangers.length > 0) fail(`marketplace.json lists ${strangers.join(', ')}, which the site knows under no name: add it to MOD_NAMES in src/lib/mod-names.ts`);
 	const mods = {} as Record<ModKey, ModFacts>;
 	const dirs = {} as Record<ModKey, string | null>;
 
