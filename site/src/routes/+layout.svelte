@@ -13,6 +13,6 @@
 	let { children } = $props();
 </script>
 
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#content">Skip to content</a>
 
 {@render children()}

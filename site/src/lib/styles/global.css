@@ -150,6 +150,8 @@ code { font-family: var(--font-mono); }
 	border-radius: var(--radius-md);
 }
 .skip:focus-visible { top: 0.75rem; outline-color: var(--ink); }
+/* the skip link's target is the page heading, focused but never drawn with a ring of its own */
+h1[tabindex='-1']:focus { outline: none; }
 
 .visually-hidden {
 	position: absolute;

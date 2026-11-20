@@ -26,7 +26,7 @@
 
 	<header class="sheet lvl-head">
 		<p class="kicker">Build Your Own</p>
-		<h1>{page.title}</h1>
+		<h1 id="content" tabindex="-1">{page.title}</h1>
 		<p class="lede">{@html toneMarks(page.intro, page)}</p>
 		<p class="key">
 			Colour key:

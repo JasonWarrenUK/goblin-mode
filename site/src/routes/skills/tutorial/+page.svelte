@@ -12,7 +12,7 @@
 	<p class="back"><a href={skillsIndex()}>Back to Build Your Own</a></p>
 	<header class="sheet lvl-head">
 		<p class="kicker">Build Your Own</p>
-		<h1>Some Assembly Required</h1>
+		<h1 id="content" tabindex="-1">Some Assembly Required</h1>
 		<p class="lede">One skill, built up over five levels. Each level adds to the files the last one left.</p>
 	</header>
 	<ol class="levels">

@@ -50,7 +50,7 @@
 	<header class="sheet head">
 		<div>
 			<span class="num">{mod.numeral}</span>
-			<h1>{mod.name}</h1>
+			<h1 id="content" tabindex="-1">{mod.name}</h1>
 			<p class="tag">{mod.tagline}</p>
 			<p class="facts">
 				{#if modFacts.version}<span>v{modFacts.version}</span>{/if}

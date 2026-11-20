@@ -65,13 +65,18 @@ describe('the build', () => {
 		expect(withSide[2]).toContain('Not built yet');
 	});
 
-	it('opens every page with a skip link to its main content', () => {
+	it('opens every page with a skip link that jumps past the navigation to the page heading', () => {
 		for (const page of pages) {
 			const html = readFileSync(page, 'utf8');
 			const body = html.slice(html.indexOf('<body'));
 			const firstLink = /<a\b[^>]*href="([^"]+)"/.exec(body)?.[1];
-			expect(firstLink, servedAt(page)).toBe('#main');
-			expect(html, servedAt(page)).toMatch(/<main\b[^>]*\bid="main"/);
+			expect(firstLink, servedAt(page)).toBe('#content');
+			const target = /<h1\b[^>]*\bid="content"[^>]*>/.exec(html);
+			expect(target, `${servedAt(page)}: the target is the page's h1`).not.toBeNull();
+			expect(target![0], servedAt(page)).toMatch(/tabindex="-1"/);
+			// the link must skip something: a link or a button between the top of <main> and the heading
+			const skipped = html.slice(html.indexOf('<main'), target!.index);
+			expect(skipped, `${servedAt(page)}: nothing focusable before the heading to skip`).toMatch(/<a\b[^>]*href=|<button\b/);
 		}
 	});
 

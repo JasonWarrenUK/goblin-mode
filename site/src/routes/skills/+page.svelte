@@ -9,9 +9,9 @@
 </svelte:head>
 
 <main id="main" class="desk">
-	<section class="sheet placeholder" aria-labelledby="skills-title">
+	<section class="sheet placeholder" aria-labelledby="content">
 		<p class="back"><a href={home()}>Back to the desk</a></p>
-		<h1 id="skills-title">Build Your Own</h1>
+		<h1 id="content" tabindex="-1">Build Your Own</h1>
 		<ul>
 			{#each SKILL_PAGES as page (page.slug)}
 				<li><a href={skillHref(page)}>{page.title}</a></li>

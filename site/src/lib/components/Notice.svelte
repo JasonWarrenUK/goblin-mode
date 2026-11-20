@@ -9,14 +9,14 @@
 	let { facts }: Props = $props();
 </script>
 
-<section class="sheet notice" aria-labelledby="notice-title">
+<section class="sheet notice" aria-labelledby="content">
 	<span class="tape" aria-hidden="true"></span>
 	<span class="tape right" aria-hidden="true"></span>
 	<div class="eyebrow">
 		<span>goblin-mode · a marketplace for Claude Code</span>
 		<ThemeToggle />
 	</div>
-	<h1 id="notice-title"><span>Every</span> <span>Human</span> <span>Need</span> <span>Goblin</span> <span>Mode</span></h1>
+	<h1 id="content" tabindex="-1"><span>Every</span> <span>Human</span> <span>Need</span> <span>Goblin</span> <span>Mode</span></h1>
 	<p class="lede">
 		Claude Code is built for professional developers, and this needs to be rectified immediately. Here are {countWord(
 			facts.counts.modsTotal,

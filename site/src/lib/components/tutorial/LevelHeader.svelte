@@ -24,7 +24,7 @@
 
 <header class="sheet lvl-head">
 	<p class="kicker">Some Assembly Required · Level {level.n} of {levels.length}</p>
-	<h1>{level.title}</h1>
+	<h1 id="content" tabindex="-1">{level.title}</h1>
 	<p class="lede">{@html toneMarks(level.intro, level)}</p>
 	<p class="key">
 		Colour key:
