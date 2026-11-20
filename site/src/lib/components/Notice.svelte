@@ -26,7 +26,6 @@
 		<span>{facts.counts.modsTotal} mods</span>
 		<span>{facts.counts.modsShipped} goblin-approved</span>
 		{#if facts.counts.modsProposed > 0}<span>{facts.counts.modsProposed} soon</span>{/if}
-		{#if facts.build.rootVersion}<span>goblin-mode {facts.build.rootVersion}</span>{/if}
 		<span>built from {facts.build.commit} on {facts.build.date}</span>
 	</p>
 </section>

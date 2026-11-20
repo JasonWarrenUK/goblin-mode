@@ -220,7 +220,6 @@ export const collect = async (): Promise<Facts> => {
 		build: {
 			commit: git('rev-parse', '--short', 'HEAD') ?? 'unknown',
 			date: new Date().toISOString().slice(0, 10),
-			rootVersion: git('describe', '--tags', '--match', 'v[0-9]*', '--abbrev=0'),
 		},
 	};
 };

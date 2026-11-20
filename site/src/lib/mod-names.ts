@@ -58,5 +58,5 @@ export interface Facts {
 		metadataGlyphs: number;
 		metadataSpinners: number;
 	};
-	build: { commit: string; date: string; rootVersion: string | null };
+	build: { commit: string; date: string };
 }
