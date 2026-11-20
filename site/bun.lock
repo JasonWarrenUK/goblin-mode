@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "goblin-mode-site",
+      "dependencies": {
+        "@fontsource/noto-sans-runic": "5.3.0",
+      },
       "devDependencies": {
         "@fontsource/cabin-sketch": "5.3.0",
         "@fontsource/ibm-plex-mono": "5.3.0",
@@ -34,6 +37,8 @@
     "@fontsource/ibm-plex-mono": ["@fontsource/ibm-plex-mono@5.3.0", "", {}, "sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q=="],
 
     "@fontsource/ibm-plex-sans": ["@fontsource/ibm-plex-sans@5.3.0", "", {}, "sha512-CbE4CbbEEZJX860XyUiRpsksXIQR8Rp2XDva2VO53NJox9tVNtusrysd2x5YkUEY3ErQ66W1IiiQL8/wihhw5w=="],
+
+    "@fontsource/noto-sans-runic": ["@fontsource/noto-sans-runic@5.3.0", "", {}, "sha512-MzUcFl+mURDW9NBk4qhZsxrdiNkXNL94mr/LClA05PPnHMINSuxxowmcAeKru1PaepWfztkaCgrVrfExqhJDOw=="],
 
     "@fontsource/permanent-marker": ["@fontsource/permanent-marker@5.3.0", "", {}, "sha512-ZO/NtYW4SCc/iY8N3dmjWyDITcXJ/vhWZFgnwRcvzwCKKnScMrM/a2/6VHlsjCVuIgmPzNrCFbedEYhv+/jJBg=="],
 
