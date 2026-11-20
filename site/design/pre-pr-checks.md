@@ -41,3 +41,10 @@ Jason ruled on 2026-11-19 that the tutorial states only what a test shows for th
 | A called skill's `model`, `effort` and `disallowed-tools` carry into the rest of its caller's turn | 3.2c, 3.3d, 4.2c | The callee pins a different model and removes `Edit`; after the call, ask the caller to edit a file and note the model |
 | Answering an `AskUserQuestion` prompt counts as a new message and clears `allowed-tools` | 4.3c | A skill that approves one script, asks a question, then runs the script; note whether Claude Code prompts |
 | A command comes from the folder name; `name` is shown beside it | 1.1a | A skill whose folder and `name` differ; type both |
+
+Results, run by Jason on 2026-11-20 with Claude Code 2.1.329 in default permission mode (need #52; fixture `site/design/tools/live-claims.zsh`; the model and effort readings come from the `api-request` params in that session's transcript):
+
+- **Refusal: holds.** The Skill tool returned `Skill callee-a cannot be used with Skill tool due to disable-model-invocation`, and the error tells Claude to ask the user to run the command and not to replicate the workflow by other means.
+- **Carry-over: splits.** After the call, the caller's remaining request ran at `effort: low` (medium before) with Edit and Write withheld, so `effort` and `disallowed-tools` carry. The `model` did not: Claude Code logged haiku, told Claude it was Haiku and showed `Loaded skill · claude-haiku-5-5`, but the request went to `claude-sonnet-5-5`. Typed directly, the same skill did run on haiku, and the next message returned to sonnet at medium.
+- **AskUserQuestion: does not clear the grant.** Both `hello.sh` runs went through with no Bash permission prompt, one before the question and one after the answer. 4.3c is unaffected: its gate stops and waits for a typed reply, which is a new message.
+- **Folder name: holds.** The `/` menu lists the skill as `/Display D`, and picking it runs it; typed, `/folder-d` runs and `/display-d` is an unknown command.
