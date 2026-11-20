@@ -93,5 +93,44 @@ class Cli(unittest.TestCase):
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
+def tools_skill(tools: str) -> str:
+	return "\n".join(["---", "name: x", tools, "---", "", "# body", 'allowed-tools: ["Bash"]'])
+
+
+class NarrowBashRule(unittest.TestCase):
+	"""allowed-tools pre-approves every listed tool for the skill's turn, so a bare Bash grant approves any shell command."""
+
+	def test_bare_bash_is_reported_in_every_list_form(self) -> None:
+		for form in (
+			'allowed-tools: ["Read", "Bash", "Grep"]',
+			"allowed-tools: Read, Bash, Grep",
+			"allowed-tools: Read Bash Grep",
+			"allowed-tools:\n  - Read\n  - Bash\n  - Grep",
+			"allowed-tools: ['Bash']",
+		):
+			with self.subTest(form=form):
+				self.assertEqual(skill_lint.lint_text(tools_skill(form)), [skill_lint.BARE_BASH])
+
+	def test_narrowed_bash_and_no_bash_pass(self) -> None:
+		for form in (
+			'allowed-tools: ["Read", "Bash(git diff *)", "Bash(bun ~/.claude/library/scripts/asset/*)"]',
+			'allowed-tools: ["Read", "Bash(git:*)", "Bash(cp -r * */skill-snapshot/)"]',
+			"allowed-tools: Read Bash(git log *) Grep",
+			'allowed-tools: ["Read", "Grep"]',
+			"name: no tools at all",
+		):
+			with self.subTest(form=form):
+				self.assertEqual(skill_lint.lint_text(tools_skill(form)), [])
+
+	def test_only_the_frontmatter_is_read(self) -> None:
+		self.assertEqual(skill_lint.lint_text(tools_skill('allowed-tools: ["Read"]')), [], "the body's allowed-tools line is prose")
+
+	def test_a_bare_grant_beside_a_glyph_finding_reports_both(self) -> None:
+		text = skill("sonnet", "ᚺ", 'allowed-tools: ["Bash"]')
+		findings = skill_lint.lint_text(text)
+		self.assertEqual(len(findings), 2, findings)
+		self.assertIn(skill_lint.BARE_BASH, findings)
+
+
 if __name__ == "__main__":
 	unittest.main()

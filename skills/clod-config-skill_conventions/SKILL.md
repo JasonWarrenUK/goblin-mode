@@ -46,6 +46,10 @@ metadata:
 
 `python3 ~/.claude/library/scripts/skill-lint.py` checks every skill's glyph against its model and exits 1 on drift; run it after editing either field, alongside `gen-skills-index.py`.
 
+## Tool grants
+
+`allowed-tools` pre-approves each listed tool for the turn that invokes the skill, so Claude uses it without asking; it restricts nothing. A bare `Bash` there pre-approves every shell command for that turn, which is more than any skill here needs. List the commands the skill runs instead, in the documented form with a space before the trailing `*`: `"Bash(bun ~/.claude/library/scripts/asset/*)"`, `"Bash(git diff *)"`. A rule matches the command text as written, so name a script by the path the skill's own text gives. A command the list leaves out still runs; it asks first. Leave a command off on purpose when asking is right, such as a project's dev server. A knowledge skill (`user-invocable: false`) loads on Claude's judgement, so it grants Bash only for commands it tells Claude to run, and none when it runs none. `skill-lint.py` reports a bare `Bash` grant and exits 1, and its test runs in the push gate.
+
 Knowledge skills (`user-invocable: false`) set neither `model` nor `effort`: both fields override the session absolutely while the skill is active, so an inline reference skill would hijack the very turn that triggered it.
 
 ## Terminal output templates

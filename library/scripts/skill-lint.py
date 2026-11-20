@@ -12,6 +12,10 @@ the frontmatter as text, stdlib only, and reports every skill whose glyph
 disagrees with its model, carries a glyph without a model, or pins a model
 without a glyph.
 
+It also reports a bare `Bash` in `allowed-tools`. That field pre-approves its
+tools for the skill's turn, so a bare grant approves any shell command; the
+convention lists the commands instead, as `Bash(<command> *)`.
+
 usage: skill-lint.py [SKILL.md ...]
 	With no arguments, lints every skills/*/SKILL.md under the repo root.
 	Exit 1 when anything is reported, so a hook or CI step can gate on it.
@@ -73,11 +77,39 @@ def tier_of(model: str) -> str | None:
 	return None
 
 
+BARE_BASH = "allowed-tools grants bare Bash, which pre-approves every shell command for the skill's turn; list the commands it runs, as Bash(<command> *)"
+
+
+def allowed_tools(block: str) -> list[str]:
+	"""The allowed-tools entries, from a flow list, a block list or a space- or comma-separated string; a Bash(...) entry stays whole."""
+	m = re.search(r"^allowed-tools:[ \t]*(.*)$", block, re.MULTILINE)
+	if not m:
+		return []
+	raw = m.group(1).strip()
+	if not raw:
+		items = []
+		for line in block[m.end():].splitlines()[1:]:
+			item = re.match(r"^\s+-\s+(.*)$", line)
+			if not item:
+				break
+			items.append(item.group(1))
+		raw = ",".join(items)
+	raw = raw.strip("[]")
+	tokens = re.findall(r"""["']([^"']*)["']|([^\s,"'()]+(?:\([^)]*\))?)""", raw)
+	return [quoted or bare for quoted, bare in tokens if (quoted or bare).strip()]
+
+
 def lint_text(text: str) -> list[str]:
 	"""Every finding for one SKILL.md, as a short sentence each; empty when it conforms."""
 	block = frontmatter_block(text)
 	if block is None:
 		return ["no frontmatter block"]
+	tools = [BARE_BASH] if "Bash" in (t.strip() for t in allowed_tools(block)) else []
+	return lint_glyph(block) + tools
+
+
+def lint_glyph(block: str) -> list[str]:
+	"""The glyph-mirrors-model rule for one frontmatter block."""
 	model = top_level(block, "model")
 	if model == "inherit":
 		model = None
