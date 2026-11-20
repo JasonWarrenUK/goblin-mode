@@ -4,6 +4,22 @@ All notable changes to this plugin are documented here, newest first.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-19
+
+### Breaking
+
+- Renamed from `mission-control`. The coordinator is the chief, crew are raiders, a run is a raid, slots are dibs, needs are tribute, briefs are orders and a raider's reply is its oath; the board is the slate and the PR page is the spoils page. `/mc` is fourteen commands, `mc.py` is `warband.py` and the tools take the `warband_` prefix.
+- The ledger moves from `~/.claude/mission-control` to `~/.claude/goblin-warband` once, under a lock, on the first command after the last raid there ends; a raid still live in the old ledger carries on until then. An ignored config moves to `.claude/goblin-warband.json` and leaves a link at its old name, so a session still on 0.13.1 keeps its push gate until it restarts. A committed config is never moved for you.
+
+### Added
+
+- `warband.py end --old-ledger` archives a raid still live in the old ledger, with its files kept, for when a session on the old plugin started one after the move.
+
+### Changed
+
+- The slate draws raiders in aligned columns sized by display width and gives each note its own full-width input. The spoils page takes the goblin theme, with every text colour at 4.5:1 or better in both themes.
+- A config read under its old name is never shadowed: `init` refuses beside it and says to leave it where it is.
+
 ## [0.13.1] - 2026-11-17
 
 ### Fixed

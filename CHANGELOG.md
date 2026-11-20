@@ -5,6 +5,16 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [12.0.0] - 2026-11-19
+
+### Breaking
+
+- The `mission-control` plugin is now `goblin-warband` 1.0.0. `mc.py` is `warband.py`, `/mc` is fourteen commands, the tools take the `warband_` prefix and the ledger moves from `~/.claude/mission-control` to `~/.claude/goblin-warband` on the first command after the last raid there ends; a raid still live in the old ledger carries on until it ends. A project's `.claude/mission-control.json` becomes `.claude/goblin-warband.json`. The marketplace's `renames` map moves existing installs.
+
+### Changed
+
+- `pr-land`, `next-task-ship`, `pr-handle_review` and the shared references point at `goblin-warband`.
+
 ## [11.0.0] - 2026-11-19
 
 ### Breaking
