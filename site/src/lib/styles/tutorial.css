@@ -35,11 +35,13 @@
 .tutorial .code .ln.fold { color: var(--exhibit-muted); }
 .tutorial .code .ln:is(.t1, .t2, .t3, .t4, .t5, .tr) { background: color-mix(in oklab, var(--tone) 12%, var(--exhibit)); box-shadow: inset 4px 0 0 color-mix(in oklab, var(--bar) 55%, var(--exhibit)); }
 .tutorial .code .ln.cur { background: color-mix(in oklab, var(--tone) 30%, var(--exhibit)); box-shadow: inset 5px 0 0 var(--bar); }
-.tutorial .code .ln.new::before { content: '+'; left: 1.1rem; color: var(--bar); }
-.tutorial .code .ln.del { color: color-mix(in oklab, var(--exhibit-ink) 55%, var(--exhibit)); text-decoration: line-through; background: color-mix(in oklab, var(--danger) 16%, var(--exhibit)); box-shadow: inset 5px 0 0 color-mix(in oklab, var(--danger) 70%, var(--exhibit-ink)); }
-.tutorial .code .ln.del::before { content: '\2212'; left: 1.1rem; color: color-mix(in oklab, var(--danger) 60%, var(--exhibit-ink)); text-decoration: none; }
+.tutorial .code .ln.new::before { content: '+'; left: 1.1rem; color: var(--exhibit-ink); }
+/* a removed line keeps the panel's full ink; the strike, the danger tint and the minus mark it */
+.tutorial .code .ln.del { color: var(--exhibit-ink); text-decoration: line-through; background: color-mix(in oklab, var(--danger) 16%, var(--exhibit)); box-shadow: inset 5px 0 0 color-mix(in oklab, var(--danger) 70%, var(--exhibit-ink)); }
+.tutorial .code .ln.del::before { content: '\2212'; left: 1.1rem; color: var(--exhibit-ink); text-decoration: none; }
 .tutorial .code .ln[data-label]::before { content: attr(data-label); left: 0.35rem; top: 0.28em; font-family: var(--font-print); font-size: 0.6rem; line-height: 1.35; padding: 0 0.22rem; border-radius: var(--radius-sm); background: var(--tone); color: var(--on); }
-.tutorial .code .ln.pastpin::before { opacity: 0.55; }
+/* an earlier step's gutter label keeps full ink and drops its fill for an outline in its tone */
+.tutorial .code .ln.pastpin::before { background: transparent; color: var(--exhibit-ink); box-shadow: inset 0 0 0 1.5px var(--tone); }
 .tutorial .code .ln.fresh { animation: tut-line-in 480ms ease-out; }
 @keyframes tut-line-in { from { opacity: 0; background: color-mix(in oklab, var(--tone, var(--slime)) 55%, var(--exhibit)); } }
 .tutorial .file.small .code { font-size: 0.72rem; }
@@ -73,7 +75,8 @@
 .tutorial .marginal .co { position: absolute; width: var(--co-w); pointer-events: auto; font-size: 0.76rem; padding: 0.45rem 0.55rem; }
 .tutorial .marginal .co[data-at='left'] { left: 0; border-left: 0; border-right: 6px solid var(--tone); }
 .tutorial .marginal .co[data-at='right'] { right: 0; }
-.tutorial .marginal .co.past { opacity: 0.5; padding-block: 0.2rem; }
+/* an earlier step's callout keeps full ink, marked by its dashed edge */
+.tutorial .marginal .co.past { border-style: dashed; padding-block: 0.2rem; }
 /* an earlier step's callout keeps its place and label in the margin; its sentence stays for screen readers */
 .tutorial .marginal .co.past .co-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .tutorial .marginal .leaders { display: block; }

@@ -53,10 +53,13 @@ const MATERIAL: [RegExp, RegExp, string][] = [
 	[/\[mod\]\/\+page\.svelte$/, /^\.num$|^\.facts$/, '--surface'],
 ];
 
-/** Text colours the test cannot compute, each with the reason it does not need to. */
-const EXEMPT: Record<string, string> = {
-	'--bar': "a colour-mix for the + beside a new line, whose line is already marked in the step's tone",
-};
+/**
+ * Elements dimmed below full opacity, each with the reason no text is dimmed with it. Text is never
+ * thinned: a past or pending state is marked by an outline, a dashed border or a tag instead.
+ */
+const DIMMED_WITHOUT_TEXT: [RegExp, string][] = [
+	[/^\.tutorial \.leaders \.past$/, 'an earlier callout\'s leader line and dot, drawn in SVG strokes with no text'],
+];
 
 const walk = (dir: string): string[] =>
 	readdirSync(dir).flatMap((entry) => {
@@ -119,7 +122,7 @@ const pairs: Pair[] = [];
 const unplaced: string[] = [];
 for (const rule of rules) {
 	const ink = tokenIn(rule.body, /(?:^|[;\s])color:\s*var\((--[\w-]+)\)/);
-	if (!ink || ink in EXEMPT) continue;
+	if (!ink) continue;
 	const where = `${rule.file} ${rule.selector}`;
 	if (ink === '--link') {
 		pairs.push({ ink: '--desk-link', material: '--desk', where }, { ink: '--accent', material: '--surface', where });
@@ -134,6 +137,33 @@ for (const rule of rules) {
 	if (placed) pairs.push({ ink, material: placed, where });
 	else unplaced.push(where);
 }
+
+/** Every `color:` declaration and every `opacity:` declaration, with where it is. */
+const declarations = (property: string): { where: string; selector: string; value: string }[] =>
+	rules.flatMap((rule) =>
+		[...rule.body.matchAll(new RegExp(`(?:^|[;\\s])${property}:\\s*([^;]+)`, 'g'))].map((match) => ({
+			where: `${rule.file} ${rule.selector}`,
+			selector: rule.selector,
+			value: match[1]!.trim(),
+		})),
+	);
+
+describe('the forms of colour the contrast check can measure', () => {
+	it('sets every text colour through a theme token, never a mix, currentColor or a named colour', () => {
+		const unmeasurable = declarations('color')
+			.filter(({ value }) => !/^var\(--[\w-]+(?:,\s*var\(--[\w-]+\))?\)$|^inherit$/.test(value))
+			.map(({ where, value }) => `${where}: color: ${value}`);
+		expect(unmeasurable).toEqual([]);
+	});
+
+	it('dims nothing that holds text', () => {
+		const dimmed = declarations('opacity')
+			.filter(({ value }) => Number(value) > 0 && Number(value) < 1)
+			.filter(({ selector }) => !DIMMED_WITHOUT_TEXT.some(([pattern]) => pattern.test(selector)))
+			.map(({ where, value }) => `${where}: opacity: ${value}`);
+		expect(dimmed).toEqual([]);
+	});
+});
 
 describe('the contrast of every colour rule', () => {
 	it('places every rule that sets a text colour on a material', () => {
