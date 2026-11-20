@@ -53,6 +53,9 @@
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
 		color: var(--slip-accent);
+		/* the heading sits on its own strip of paper, so no ruled line runs through it */
+		background: var(--slip);
+		width: fit-content;
 	}
 	ol { margin: 0.75rem 0 0; padding-left: 1.2rem; display: grid; gap: 0.9rem; }
 	li { min-width: 0; }
