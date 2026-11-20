@@ -7,6 +7,10 @@ const COUNTS = (facts: Facts): Record<string, number> => ({
 	jesterLines: facts.mods.jester.typescriptLines,
 	scoutSkills: facts.mods.scout.skills,
 	warbandRules: facts.counts.warbandRules,
+	metadataSkills: facts.counts.metadataSkills,
+	metadataFamilies: facts.counts.metadataFamilies,
+	metadataGlyphs: facts.counts.metadataGlyphs,
+	metadataSpinners: facts.counts.metadataSpinners,
 });
 
 const PLACEHOLDER = /\{([a-zA-Z]+)\}/g;

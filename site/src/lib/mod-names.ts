@@ -51,6 +51,12 @@ export interface Facts {
 		jesterDayStates: number;
 		seneschalHeartbeatSeconds: number;
 		warbandRules: number;
+		/** Every SKILL.md in the repository, plugin skills included, and how many carry each metadata key. */
+		metadataSkills: number;
+		metadataSkillsWithFamily: number;
+		metadataFamilies: number;
+		metadataGlyphs: number;
+		metadataSpinners: number;
 	};
 	build: { commit: string; date: string; rootVersion: string | null };
 }

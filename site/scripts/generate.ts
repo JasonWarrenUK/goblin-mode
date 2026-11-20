@@ -65,6 +65,42 @@ const frontmatterField = (markdown: string, field: string): string => {
 	return raw.replace(/^(["'])([\s\S]*)\1$/, '$2');
 };
 
+/** The value of `key:` nested under a SKILL.md's top-level `metadata:` block, read as text the way skill-lint.py does. */
+export const metadataKey = (markdown: string, key: string): string | null => {
+	const head = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown)?.[1];
+	if (head === undefined) return null;
+	const lines = head.split(/\r?\n/);
+	const start = lines.findIndex((line) => /^metadata:\s*(#.*)?$/.test(line));
+	if (start < 0) return null;
+	for (const line of lines.slice(start + 1)) {
+		if (/^\S/.test(line)) break;
+		const hit = new RegExp(`^\\s+${key}:[ \\t]*(.*)$`).exec(line);
+		if (hit) return hit[1]!.replace(/\s+#.*$/, '').trim().replace(/^(["'])(.*)\1$/, '$2') || null;
+	}
+	return null;
+};
+
+/** Every SKILL.md in the repository: the loose skills under skills/ and every plugin's under marketplace/. */
+export const repositorySkillFiles = (repo: string): string[] => {
+	const inside = (dir: string): string[] =>
+		existsSync(dir) ? readdirSync(dir).map((entry) => join(dir, entry, 'SKILL.md')).filter((path) => existsSync(path)) : [];
+	const plugins = existsSync(join(repo, 'marketplace')) ? readdirSync(join(repo, 'marketplace')).map((entry) => join(repo, 'marketplace', entry, 'skills')) : [];
+	return [...inside(join(repo, 'skills')), ...plugins.flatMap(inside)];
+};
+
+/** The Metadata page's counts: skills, how many carry each of the repository's own keys, and the distinct families. */
+export const metadataCounts = (files: readonly string[]): { skills: number; withFamily: number; families: number; glyphs: number; spinners: number } => {
+	const texts = files.map((path) => readFileSync(path, 'utf8'));
+	const families = texts.map((text) => metadataKey(text, 'family')).filter((value): value is string => value !== null);
+	return {
+		skills: texts.length,
+		withFamily: families.length,
+		families: new Set(families).size,
+		glyphs: texts.filter((text) => metadataKey(text, 'glyph') !== null).length,
+		spinners: texts.filter((text) => metadataKey(text, 'goblin-spinner') !== null).length,
+	};
+};
+
 /** Slash commands a mod registers in hooks/register.tsx: `$.command.register({ name, description })`. */
 export const registeredCommands = (source: string): CommandFact[] =>
 	[...source.matchAll(/\$\.command\.register\(\{\s*name:\s*'([^']+)',\s*description:\s*'((?:[^'\\]|\\.)*)'/g)].map(
@@ -148,6 +184,8 @@ export const collect = async (): Promise<Facts> => {
 	if (warbandRules === 0) fail("the warband README has no '- **Do not' rules");
 
 	const shipped = Object.values(mods).filter((mod) => mod.installable).length;
+	const metadata = metadataCounts(repositorySkillFiles(REPO));
+	if (metadata.skills === 0) fail('no SKILL.md found under skills/ or marketplace/');
 
 	return {
 		marketplace: {
@@ -163,6 +201,11 @@ export const collect = async (): Promise<Facts> => {
 			jesterDayStates,
 			seneschalHeartbeatSeconds: heartbeat as number,
 			warbandRules,
+			metadataSkills: metadata.skills,
+			metadataSkillsWithFamily: metadata.withFamily,
+			metadataFamilies: metadata.families,
+			metadataGlyphs: metadata.glyphs,
+			metadataSpinners: metadata.spinners,
 		},
 		build: {
 			commit: git('rev-parse', '--short', 'HEAD') ?? 'unknown',
