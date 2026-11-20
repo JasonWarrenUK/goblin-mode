@@ -2,7 +2,7 @@
 
 One page on the pinned stage (scope M6 to M12). Two invented skills, `roast-commit` and `roast-branch`, gain keys of their own over four steps; every step shows the files whole as they stand after it. Counts in braces are generated at build time.
 
-Draft status: copy only, for Jason's voice pass. Every behavioural claim is listed in **Sources** at the end; anything not settled is in **Open questions**.
+Draft status: copy approved by Jason on 2026-11-20. Every behavioural claim is listed in **Sources** at the end; anything not settled is in **Open questions**.
 
 ---
 
@@ -331,7 +331,7 @@ Before adding a key, ask three questions of it. Could it be worked out from the 
 
 ## Open Questions
 
-1. **NotebookEdit under `disallowed-tools`.** Test E showed Bash, Edit and Write absent from Claude's tools. NotebookEdit stayed in the deferred-tools list by name, and whether Claude could load and call it was not tested. The copy claims only what the docs say the field does.
+1. **The five removals.** Settled by tests E and F (needs #54 and #57): the injected `git log` runs, and Agent, Bash, Edit, Write and NotebookEdit are all out of Claude's reach for the turn. NotebookEdit shows in the deferred list for a moment before Claude Code withdraws it.
 2. **Which skills the counts cover.** The draft counts every `SKILL.md` in the repository, plugin skills included (85 on main on 2026-11-20). `skills/` alone holds 60. The build counts whatever the branch holds after the rebase.
 3. **The Real Thing excerpts come from main.** The branch is behind main; the excerpts are read from `origin/main` at `55a37e8` and are re-read after the rebase.
 4. **The drift R.a cites.** Settled from history: `4efab22` (2026-09-30) moved `project-tag_version` to `model: sonnet` and left `glyph: ᚺ`; `124d975` (2026-10-08) fixed the rune; the `95d248f` message names the skill and says the goblin read the field.
@@ -345,7 +345,7 @@ Before adding a key, ask three questions of it. Could it be worked out from the 
 | An invoked skill reaches Claude as its body, without the frontmatter | the live-claims session transcript, Claude Code 2.1.329 (need #52) | 2026-11-20 |
 | `` !`command` `` runs before Claude reads the skill and its output replaces the line; outside auto mode an unapproved command aborts the skill; `allowed-tools` pre-approves it | same page, "Inject dynamic context" and "Permission checks on injected commands" | 2026-11-20 |
 | `disallowed-tools` removes tools until the next message | same page, `disallowed-tools` row | 2026-11-20 |
-| The injected command runs with Bash in `disallowed-tools` | test E, Claude Code 2.1.329 (need #54) | 2026-11-20 |
+| The injected command runs with Bash in `disallowed-tools`; all five listed tools leave Claude's reach | tests E and F, Claude Code 2.1.329 (needs #54 and #57) | 2026-11-20 |
 | Python's standard library has no YAML parser; `skill-lint.py` reads keys as text | `skill-lint.py` docstring ("stdlib only") | 2026-11-20 |
 | The menu output and exit status | `site/design/content/metadata-specimen/step4`, run with `python3 -I scripts/roast-menu.py` | 2026-11-20 |
 | `project-tag_version` drifted 2026-09-30, fixed 2026-10-08; `skill-lint.py` arrived 2026-10-09 | commits `4efab22`, `124d975`, `95d248f` | 2026-11-20 |
