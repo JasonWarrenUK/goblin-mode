@@ -37,8 +37,9 @@ const fileFor = (urlPath: string): string | null => {
 
 describe('the build', () => {
 	it('prerendered the front page, every mod page and the skills wing', () => {
-		// 12 before the tutorial; its shared-route placeholder gave way to an index and five levels
-		expect(pages.length).toBe(17);
+		// 12 before the tutorial; its shared-route placeholder gave way to an index and five levels (17);
+		// the Red Family page was withdrawn on 2026-11-20 (16)
+		expect(pages.length).toBe(16);
 		for (const path of ['skills/tutorial/index.html', ...[1, 2, 3, 4, 5].map((n) => `skills/tutorial/${n}/index.html`)]) {
 			expect(existsSync(join(BUILD, path)), path).toBe(true);
 		}

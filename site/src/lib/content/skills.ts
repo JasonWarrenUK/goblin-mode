@@ -13,5 +13,4 @@ export const SKILL_PAGES: readonly SkillPage[] = [
 	{ slug: 'metadata', title: 'Metadata Is Whatever I Say It Is' },
 	{ slug: 'tutorial', title: 'Some Assembly Required', tutorial: true },
 	{ slug: 'dossier', title: 'Everyone Gets a File' },
-	{ slug: 'red', title: 'The Red Family' },
 ];

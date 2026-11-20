@@ -72,7 +72,7 @@ Every line below is a decision Jason made in the SITE interview on 2026-11-18, u
 | S1 | Explainers re-dressed in the goblin theme; their family hue survives only as an accent. |
 | S2 | "A Skill Is One Goblin", "Metadata Is Whatever I Say It Is" and "Everyone Gets a File": reworked section by section with Jason. |
 | S3 | "Some Assembly Required": kept in spirit; its baseline assumptions rethought (for instance, loose skills against a plugin). |
-| S4 | "Bob Will Not Open the Deep Dive": reworked as one red family page (`red-doc` and `red-branch` on the shared methodology), keeping the premise, the kill shot and Bob, with goblin flavour. |
+| S4 | Withdrawn 2026-11-20: Jason removed the Red Family explainer from the site. Its legacy page goes with the rest of `site/legacy/`. |
 
 ## Delivery
 
