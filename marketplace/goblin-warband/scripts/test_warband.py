@@ -3718,7 +3718,10 @@ class Dashboard(unittest.TestCase):
         self.assertIn("src: url(data:font/woff2;base64,", page)
         head = page.split("<body>")[0]
         self.assertNotIn("http", head.replace("http-equiv", ""), "the faces are inlined, nothing loads from the network")
-        self.assertIn('<b>2</b> open', page)
+        self.assertIn('<span class="sr">2</span> open', page, "the count is read aloud")
+        self.assertNotIn('<b>2</b>', page, "a count is drawn in tally marks alone, with no numeral beside it")
+        self.assertNotIn('class="count"', page)
+        self.assertIn(".sr { position: absolute", page, "the read-aloud numeral is hidden from sight")
 
     def test_a_pr_from_outside_the_raid_is_shown_in_the_warbands_words_and_stored_in_the_old(self):
         self.seed_facts(n286={**self.READY, "head": "x86", "head_branch": "feat/x"})
@@ -3791,6 +3794,8 @@ class Dashboard(unittest.TestCase):
         many = mc_module.tally_html(40)
         self.assertEqual(many.count('class="five"'), mc_module.TALLY_CAP // 5)
         self.assertIn('class="more"', many)
+        self.assertEqual(mc_module.count_html(7), seven + '<span class="sr">7</span>', "marks for the eye, the number for a screen reader")
+        self.assertEqual(mc_module.count_html(0), '<span class="sr">0</span>')
 
     def test_the_page_components_take_every_colour_from_the_theme(self):
         components = (HERE.parent / "templates" / "dashboard.css").read_text()

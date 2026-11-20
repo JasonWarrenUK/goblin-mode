@@ -18,10 +18,10 @@ h1 { font: 700 2rem/1.1 var(--font-display); margin: 0; overflow-wrap: anywhere;
 .stale { color: var(--slip-accent); font-weight: 600; }
 .totals { display: flex; flex-wrap: wrap; gap: var(--space) calc(var(--space) * 2.5); width: 100%; margin: var(--space) 0 0; padding: var(--space) 0 0; border-top: 1px dashed var(--slip-line); }
 .total { display: inline-flex; align-items: center; gap: var(--space); font: .95rem/1.3 var(--font-body); }
-.total b { font: 1.35rem/1 var(--font-marker); font-variant-numeric: tabular-nums; }
-.total.mine b, .total.mine .tally { color: var(--slip-accent); }
+.total.mine .tally { color: var(--slip-accent); }
 
-/* tally marks: four strokes and a fifth across them; the number beside them is the one read aloud */
+/* tally marks: four strokes and a fifth across them; every count is drawn this way, and its number is there only for a screen reader */
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .tally { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 7px; max-width: 13rem; line-height: 1; }
 .tally .five, .tally .ones { position: relative; display: inline-flex; gap: 3px; height: 1em; padding: 0 1px; }
 .tally i { display: block; width: 2px; height: 100%; border-radius: 1px; background: currentColor; transform: rotate(3deg); }
@@ -35,7 +35,6 @@ h1 { font: 700 2rem/1.1 var(--font-display); margin: 0; overflow-wrap: anywhere;
 /* the table: one column per group, as many as the width holds */
 .table { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: calc(var(--space) * 4) calc(var(--space) * 3); margin-top: calc(var(--space) * 4); align-items: start; }
 h2 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space) calc(var(--space) * 1.5); margin: 0 0 calc(var(--space) * 2); font: 700 1.35rem/1.2 var(--font-display); color: var(--ink); }
-h2 .count { font: 1rem/1 var(--font-marker); }
 .tribute-owed h2 { color: var(--slip-ink); }
 .cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--space) * 3); }
 
