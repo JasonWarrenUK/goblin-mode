@@ -48,3 +48,7 @@ Results, run by Jason on 2026-11-20 with Claude Code 2.1.329 in default permissi
 - **Carry-over: splits.** After the call, the caller's remaining request ran at `effort: low` (medium before) with Edit and Write withheld, so `effort` and `disallowed-tools` carry. The `model` did not: Claude Code logged haiku, told Claude it was Haiku and showed `Loaded skill · claude-haiku-5-5`, but the request went to `claude-sonnet-5-5`. Typed directly, the same skill did run on haiku, and the next message returned to sonnet at medium.
 - **AskUserQuestion: does not clear the grant.** Both `hello.sh` runs went through with no Bash permission prompt, one before the question and one after the answer. 4.3c is unaffected: its gate stops and waits for a typed reply, which is a new message.
 - **Folder name: holds.** The `/` menu lists the skill as `/Display D`, and picking it runs it; typed, `/folder-d` runs and `/display-d` is an unknown command.
+
+## Metadata page claim proved on a live install
+
+Test E (need #54, fixture `site/design/tools/live-claim-e.zsh`), run by Jason on 2026-11-20 with Claude Code 2.1.329 in default permission mode: a skill with `allowed-tools: Bash(git log *)` and `disallowed-tools: [Bash, Edit, Write, NotebookEdit]` still had its injected `` !`git log -3 --oneline` `` run before Claude read it, and Claude reported Bash, Edit and Write absent. NotebookEdit stayed in the deferred-tools list by name; whether Claude could fetch and call it was not tested, so the page claims nothing about it beyond the docs' description of `disallowed-tools`.
