@@ -33,7 +33,7 @@ the imports exactly as it was.
 
 New in 1.1: every line.
 
-- **1.1a** `name` is the command you'll type, `/tidy-imports`. Keep it the same as the folder name.
+- **1.1a** The folder name is the command you'll type, `/tidy-imports`, and `name` is what the `/` menu shows. Keep the two the same. A different `name` still works from the menu, but typed out it's an unknown command.
 - **1.1b** `description:` is the line Claude reads to decide whether this skill fits what you asked for, so it says what the skill does in plain words.
 - **1.1c** Everything under the frontmatter is what Claude follows: here, three lines on how to sort the imports.
 
@@ -447,7 +447,7 @@ New in 3.2: `model: sonnet` and `effort: low`.
 
 - **3.2a** `model` takes the same aliases as `/model`. If your organisation's allowed list or auto mode rules the model out, the skill falls back to the session's model.
 - **3.2b** `effort` takes `low`, `medium`, `high`, `xhigh` or `max`; which of those are available depends on the model.
-- **3.2c** Both settings hold until your next message, so if Claude starts the skill partway through other work, the rest of that turn also runs on `sonnet` at low effort.
+- **3.2c** Both settings hold until your next message. If Claude starts the skill partway through other work, the rest of that turn drops to low effort and stays on the session's model. In Claude Code 2.1.329, `model` only switches when your own message starts the skill.
 
 ### 3.3 Promises the Frontmatter Enforces
 
@@ -700,7 +700,7 @@ New in 4.2: the three lines from `Load the tidy-imports-check skill`.
 
 - **4.2a** `Load the tidy-imports-check skill on $path` names the skill and its argument, which is all one skill needs to call another.
 - **4.2b** `If the check cannot run, say why and stop` covers the day someone marks the check `disable-model-invocation: true` and the call is refused.
-- **4.2c** Both files pin `model: sonnet` and `effort: low`. A skill's `model` and `effort` hold for the rest of the turn, so a different pin in the check would carry on into the rest of the tidy.
+- **4.2c** Both files pin `model: sonnet` and `effort: low`. The check's `effort` carries on into the rest of the tidy, so a different effort there would change the tidy's too. Its `model` doesn't carry, so the tidy keeps the model it started on.
 
 ### 4.3 A Gate Before Anything Irreversible
 
@@ -1142,11 +1142,11 @@ tam installs `tidy@noor-tools` in a project that still has `.claude/skills/tidy-
 
 ## Open Questions
 
-1. **The `name` field in this repository's skills.** The docs say a skill's frontmatter `name` sets the command name, and in a plugin skill it sets the last segment. This repository writes display titles there: `name: "Project: Tag Version"`, `name: "Start Roadbook"`. This session lists plugin skills as `roadmap:claim (roadmap:Claim)`, which suggests the folder name is the command and `name` is shown beside it. The draft writes `/goblin-scout:start-roadbook` as the outline asks, but the docs as written would predict a command built from `Start Roadbook`. Needs a test on a live install.
+1. **The `name` field in this repository's skills.** The docs say a skill's frontmatter `name` sets the command name, and in a plugin skill it sets the last segment. This repository writes display titles there: `name: "Project: Tag Version"`, `name: "Start Roadbook"`. This session lists plugin skills as `roadmap:claim (roadmap:Claim)`, which suggests the folder name is the command and `name` is shown beside it. The draft writes `/goblin-scout:start-roadbook` as the outline asks, but the docs as written would predict a command built from `Start Roadbook`. Needs a test on a live install. **Settled 2026-11-20 on a live install (Claude Code 2.1.329):** the folder name is the typed command and the `/` menu shows `name`; a typed `name` is an unknown command. Tested on a project skill, not a plugin skill.
 2. **Whether R.b at level 2 runs without a prompt.** `project-tag_version` approves `Bash(~/.claude/library/scripts/safe-version-next.sh:*)`, but its body runs `TAG="$("$HOME"/.claude/...)" && git tag ...`. The permissions page says an allow rule does not match past an assignment of a variable outside a known-safe list, and the command uses `$HOME` where the rule writes `~`. The draft claims only what the frontmatter says and makes no claim about whether the command prompts.
-3. **Calling one skill from another.** The docs do not describe skill-to-skill calls as a feature. They say Claude invokes skills through the Skill tool and that `disable-model-invocation: true` stops Claude invoking a skill unless the person's message names it. The draft infers from these that a call made partway through another skill is refused in the same way. The docs do not name that case directly.
-4. **What a called skill's settings do to its caller.** The docs say `model` and `effort` hold for the rest of the turn and `disallowed-tools` until the next message. The draft infers that a called skill's pins and removals carry into the rest of the calling skill's turn (4.2c). The docs do not describe a nested case, so this is a reading of the wording.
-5. **Gates that wait for a reply.** The docs say an `allowed-tools` grant clears at the next message. Any skill whose gate waits for the person's yes (`pr-update` step 5, `tidy-imports` 4.3) runs its post-gate command without the skill's grant. Whether answering an `AskUserQuestion` prompt counts as a new message was not checked.
+3. **Calling one skill from another.** The docs do not describe skill-to-skill calls as a feature. They say Claude invokes skills through the Skill tool and that `disable-model-invocation: true` stops Claude invoking a skill unless the person's message names it. The draft infers from these that a call made partway through another skill is refused in the same way. The docs do not name that case directly. **Settled 2026-11-20 on a live install:** the Skill tool refuses with `cannot be used with Skill tool due to disable-model-invocation`.
+4. **What a called skill's settings do to its caller.** The docs say `model` and `effort` hold for the rest of the turn and `disallowed-tools` until the next message. The draft infers that a called skill's pins and removals carry into the rest of the calling skill's turn (4.2c). The docs do not describe a nested case, so this is a reading of the wording. **Settled 2026-11-20 on a live install:** `effort` and `disallowed-tools` carry into the caller's turn; `model` does not, though Claude is told it does. 3.2c and 4.2c were reworded to match, approved by Jason.
+5. **Gates that wait for a reply.** The docs say an `allowed-tools` grant clears at the next message. Any skill whose gate waits for the person's yes (`pr-update` step 5, `tidy-imports` 4.3) runs its post-gate command without the skill's grant. Whether answering an `AskUserQuestion` prompt counts as a new message was not checked. **Tested 2026-11-20 on a live install:** an `AskUserQuestion` answer does not clear the grant (no Bash prompt after it). `tidy-imports` 4.3 waits for a typed reply, which is a new message, so 4.3c stands.
 6. **goblin-scout is unmerged.** The level 5 excerpts come from `origin/feat/goblin-scout-rename` at `82719bd`. Line numbers and wording may change before it merges. The outline's word list (roadbook, `start-roadbook`, `tend-roadbook`, `unroll-chart`, `.claude/roadbook.json`) matches that branch.
 7. **Relative script paths.** Settled 2026-11-19 by Jason: levels 2 to 5 call scripts through `${CLAUDE_SKILL_DIR}`, taught in 2.1, so they work from any working directory; 5.2 only changes the call to the sibling skill.
 8. **3.1 leaves `tidy-imports` open to Claude with no gate until 4.3.** This repository's convention (`skills/clod-config-skill_conventions/SKILL.md:17`) keeps a command skill `disable-model-invocation: true` until it has its own approval gate. The draft names the gap in 3.1c and closes it in 4.3, because `when_to_use` only reaches Claude on a skill Claude may start, so a user-only 3.1 would teach a field that does nothing.
