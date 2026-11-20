@@ -1,0 +1,483 @@
+{
+	"$schema": "clod-theme/core@1",
+	"family": "goblin",
+	"version": 1,
+	"rationale": {
+		"mood": "Official paperwork as a goblin would produce it, having seen a form once: mouldy paper and bog-black ink on a stained desk, scavenged cardboard folders, one beetroot stamp, one moss stamp and a slime highlighter it found somewhere.",
+		"inspiration": "The Goblin Mode Notice artifact (November 2026), whose three voices are three materials: the pedant on a typewriter, the goblin in marker and the plain instruction on printed slips.",
+		"anchor_reason": "Beetroot is the stamp ink, the one mark on the page that means a ruling has been made; it clears AA on both the paper and the bog surface (7.1 and 6.9), where the slime highlighter the goblin loves fails as text on paper at 1.3.",
+		"rule_bent": "Slime stays in the theme although it can never carry text in the light variant: it is a highlighter and a fill, and only ever sits behind ink (on-slime). Beyond the twelve required roles the theme carries the notice's materials (desk, slip, card, tape, exhibit) and two extra type slots, because the look is made of them.",
+		"rejected": [
+			{
+				"palette": "Slime as the anchor",
+				"why": "The most goblin colour on the page fails 4.5:1 as text on paper in every lightness that keeps it slime; as an anchor it would have forced every link into an underline-only treatment."
+			},
+			{
+				"palette": "The skill explainers' per-family reasonable-colors hues on a neutral grey",
+				"why": "One site now carries both, and the explainers are being re-dressed in the notice's materials; a neutral base would have made the goblin a guest on its own site."
+			},
+			{
+				"palette": "Cardboard brown as the anchor",
+				"why": "At 2.5:1 on paper it needs darkening to an ochre that reads as mud, and the folders already own that colour as a material."
+			}
+		]
+	},
+	"anchor": {
+		"name": "beetroot stamp ink",
+		"hex": "#8C1D4C",
+		"oklch": [
+			0.431,
+			0.15,
+			0.5
+		]
+	},
+	"palette": {
+		"ink": {
+			"light": "#1D2718",
+			"dark": "#E3E8CC",
+			"role": "primary text: bog-black ink on paper, pale ink on bog"
+		},
+		"ink-muted": {
+			"light": "#4B5A3C",
+			"dark": "#A3AD8C",
+			"role": "secondary text, captions, meta: faded ink"
+		},
+		"surface": {
+			"light": "#E7E9CF",
+			"dark": "#22261A",
+			"role": "page background: the mouldy sheet"
+		},
+		"surface-raised": {
+			"light": "#D3D7B4",
+			"dark": "#2E3422",
+			"role": "cards, panels, code blocks: a box ruled onto the sheet"
+		},
+		"line": {
+			"light": "#B2B696",
+			"dark": "#4A5238",
+			"role": "borders, rules, dividers"
+		},
+		"accent": {
+			"light": "#8C1D4C",
+			"dark": "#FF86B4",
+			"role": "links, stamps, primary actions: beetroot"
+		},
+		"accent-ink": {
+			"light": "#FCFCF8",
+			"dark": "#1D2718",
+			"role": "text placed on beetroot"
+		},
+		"accent-2": {
+			"light": "#3C6A1C",
+			"dark": "#A6D46A",
+			"role": "secondary emphasis, gradient partner: moss stamp ink"
+		},
+		"ok": {
+			"light": "#3C6A1C",
+			"dark": "#A6D46A",
+			"role": "success, shipped, goblin approves: moss"
+		},
+		"warn": {
+			"light": "#8A5A00",
+			"dark": "#E0A84A",
+			"role": "caution, pending, stale: parcel-tape ochre"
+		},
+		"danger": {
+			"light": "#A3361F",
+			"dark": "#FF8A6B",
+			"role": "error, blocked, destructive: rust"
+		},
+		"info": {
+			"light": "#2D5A8C",
+			"dark": "#8DB4E8",
+			"role": "neutral notice, in progress: ballpoint blue"
+		},
+		"desk": {
+			"light": "#A9A88C",
+			"dark": "#11130C",
+			"role": "the desk under the sheet; page backdrop outside the paper"
+		},
+		"blot": {
+			"light": "#3A3E22",
+			"dark": "#000000",
+			"role": "stains on the desk; decoration only, always applied translucent (16% light, 35% dark: see goblin-html.json)"
+		},
+		"slip": {
+			"light": "#FCFCF8",
+			"dark": "#D9DCCB",
+			"role": "printed instruction slip; stays pale in both variants"
+		},
+		"slip-ink": {
+			"light": "#1B1F1A",
+			"dark": "#14180F",
+			"role": "text on a slip"
+		},
+		"slip-line": {
+			"light": "#C9CCBD",
+			"dark": "#A9AD98",
+			"role": "rules on a slip"
+		},
+		"slip-accent": {
+			"light": "#8C1D4C",
+			"dark": "#8C1D4C",
+			"role": "beetroot on a slip; the slip is pale in both variants so the light ink holds"
+		},
+		"slip-accent-2": {
+			"light": "#3C6A1C",
+			"dark": "#3C6A1C",
+			"role": "moss on a slip"
+		},
+		"card": {
+			"light": "#B38D58",
+			"dark": "#644A2A",
+			"role": "cardboard folder"
+		},
+		"card-dark": {
+			"light": "#8A6839",
+			"dark": "#3D2C17",
+			"role": "folder edge, tab shadow"
+		},
+		"card-ink": {
+			"light": "#1D2718",
+			"dark": "#F2E8D0",
+			"role": "text written on cardboard"
+		},
+		"slime": {
+			"light": "#B9D531",
+			"dark": "#C5E13E",
+			"role": "highlighter fill; never text on paper"
+		},
+		"on-slime": {
+			"light": "#1D2718",
+			"dark": "#1D2718",
+			"role": "text on slime"
+		},
+		"tape": {
+			"light": "#D6CB96",
+			"dark": "#787046",
+			"role": "masking tape; decoration only, always applied at 90% opacity (see goblin-html.json)"
+		},
+		"exhibit": {
+			"light": "#1D2718",
+			"dark": "#0A0C07",
+			"role": "exhibit panel: terminal output, code shown as evidence"
+		},
+		"exhibit-ink": {
+			"light": "#E7E9CF",
+			"dark": "#E3E8CC",
+			"role": "text on an exhibit panel"
+		},
+		"exhibit-muted": {
+			"light": "#8E9878",
+			"dark": "#8E9878",
+			"role": "folds and secondary marks on an exhibit panel, at 4.5:1 or better in both variants"
+		},
+		"desk-link": {
+			"light": "#561230",
+			"dark": "#FF86B4",
+			"role": "links set straight on the desk: beetroot darkened to hold 4.5:1 on the light desk, even at the centre of its ink blots; the accent itself in dark"
+		},
+		"slip-muted": {
+			"light": "#4B5A3C",
+			"dark": "#4B5A3C",
+			"role": "secondary text on a slip; the slip is pale in both variants, so the light faded ink holds"
+		}
+	},
+	"gradient": {
+		"light": [
+			"#8C1D4C",
+			"#A86B16",
+			"#74A249"
+		],
+		"dark": [
+			"#FF86B4",
+			"#EEAC53",
+			"#A9D974"
+		]
+	},
+	"typography": {
+		"display": {
+			"family": "Cabin Sketch",
+			"fallback": "'Arial Black', Impact, sans-serif",
+			"weight": 700
+		},
+		"body": {
+			"family": "Special Elite",
+			"fallback": "'Courier New', Courier, monospace",
+			"weight": 400
+		},
+		"mono": {
+			"family": "IBM Plex Mono",
+			"fallback": "ui-monospace, monospace",
+			"weight": 400
+		},
+		"print": {
+			"family": "IBM Plex Sans",
+			"fallback": "'Helvetica Neue', Arial, sans-serif",
+			"weight": 400
+		},
+		"marker": {
+			"family": "Permanent Marker",
+			"fallback": "'Marker Felt', cursive",
+			"weight": 400
+		},
+		"scale": {
+			"base_px": 16.5,
+			"ratio": 1.25,
+			"line_height": 1.6
+		}
+	},
+	"shape": {
+		"radius_px": {
+			"sm": 2,
+			"md": 4,
+			"lg": 8
+		},
+		"shadow": {
+			"blur_px": 0,
+			"offset_y_px": 3,
+			"opacity": 0.3
+		},
+		"space_px": {
+			"unit": 8
+		},
+		"wonk": [
+			"255px 18px 225px 16px / 16px 225px 18px 255px",
+			"18px 225px 16px 255px / 255px 16px 225px 18px"
+		],
+		"rag": [
+			"polygon(0.0% 1.9px,4.5% 2.2px,9.1% 0.8px,13.6% 0.4px,18.2% 0.9px,22.7% 0.5px,27.3% 1.9px,31.8% 0.6px,36.4% 1.6px,40.9% 3.1px,45.5% 1.1px,50.0% 3.9px,54.5% 3.6px,59.1% 1.0px,63.6% 0.6px,68.2% 0.8px,72.7% 1.0px,77.3% 3.3px,81.8% 4.2px,86.4% 3.6px,90.9% 0.9px,95.5% 3.7px,100.0% 3.1px,calc(100% - 0.6px) 16.7%,calc(100% - 2.0px) 33.3%,calc(100% - 1.3px) 50.0%,calc(100% - 0.9px) 66.7%,calc(100% - 1.8px) 83.3%,100.0% calc(100% - 1.9px),95.5% calc(100% - 1.3px),90.9% calc(100% - 4.8px),86.4% calc(100% - 0.6px),81.8% calc(100% - 3.5px),77.3% calc(100% - 1.7px),72.7% calc(100% - 1.6px),68.2% calc(100% - 0.1px),63.6% calc(100% - 1.7px),59.1% calc(100% - 1.2px),54.5% calc(100% - 1.9px),50.0% calc(100% - 4.1px),45.5% calc(100% - 3.6px),40.9% calc(100% - 1.3px),36.4% calc(100% - 1.6px),31.8% calc(100% - 3.8px),27.3% calc(100% - 0.8px),22.7% calc(100% - 1.5px),18.2% calc(100% - 4.1px),13.6% calc(100% - 4.7px),9.1% calc(100% - 4.6px),4.5% calc(100% - 4.8px),0.0% calc(100% - 1.7px),2.7px 83.3%,1.0px 66.7%,2.8px 50.0%,1.1px 33.3%,1.8px 16.7%)",
+			"polygon(0.0% 4.0px,4.5% 3.1px,9.1% 0.9px,13.6% 3.3px,18.2% 1.1px,22.7% 0.3px,27.3% 2.0px,31.8% 0.8px,36.4% 1.0px,40.9% 3.2px,45.5% 0.9px,50.0% 0.5px,54.5% 2.4px,59.1% 0.8px,63.6% 1.5px,68.2% 3.7px,72.7% 1.9px,77.3% 1.6px,81.8% 3.8px,86.4% 5.0px,90.9% 1.3px,95.5% 3.7px,100.0% 0.9px,calc(100% - 0.4px) 16.7%,calc(100% - 1.9px) 33.3%,calc(100% - 0.3px) 50.0%,calc(100% - 2.1px) 66.7%,calc(100% - 0.0px) 83.3%,100.0% calc(100% - 2.4px),95.5% calc(100% - 3.1px),90.9% calc(100% - 2.3px),86.4% calc(100% - 1.9px),81.8% calc(100% - 3.9px),77.3% calc(100% - 0.2px),72.7% calc(100% - 0.5px),68.2% calc(100% - 1.6px),63.6% calc(100% - 4.7px),59.1% calc(100% - 1.0px),54.5% calc(100% - 1.9px),50.0% calc(100% - 4.2px),45.5% calc(100% - 1.8px),40.9% calc(100% - 4.8px),36.4% calc(100% - 0.2px),31.8% calc(100% - 5.0px),27.3% calc(100% - 1.6px),22.7% calc(100% - 0.5px),18.2% calc(100% - 2.2px),13.6% calc(100% - 0.2px),9.1% calc(100% - 4.3px),4.5% calc(100% - 0.1px),0.0% calc(100% - 1.8px),1.4px 83.3%,0.3px 66.7%,1.9px 50.0%,2.6px 33.3%,2.1px 16.7%)",
+			"polygon(0.0% 4.1px,4.5% 4.3px,9.1% 0.6px,13.6% 0.7px,18.2% 3.1px,22.7% 1.5px,27.3% 0.2px,31.8% 3.6px,36.4% 3.2px,40.9% 4.7px,45.5% 1.7px,50.0% 3.3px,54.5% 0.8px,59.1% 1.2px,63.6% 1.3px,68.2% 1.5px,72.7% 1.1px,77.3% 1.6px,81.8% 1.6px,86.4% 0.7px,90.9% 3.1px,95.5% 1.6px,100.0% 1.8px,calc(100% - 1.9px) 16.7%,calc(100% - 2.6px) 33.3%,calc(100% - 1.7px) 50.0%,calc(100% - 2.1px) 66.7%,calc(100% - 0.1px) 83.3%,100.0% calc(100% - 1.3px),95.5% calc(100% - 0.9px),90.9% calc(100% - 0.4px),86.4% calc(100% - 2.1px),81.8% calc(100% - 1.2px),77.3% calc(100% - 1.2px),72.7% calc(100% - 1.7px),68.2% calc(100% - 4.6px),63.6% calc(100% - 3.6px),59.1% calc(100% - 3.7px),54.5% calc(100% - 1.0px),50.0% calc(100% - 2.0px),45.5% calc(100% - 4.7px),40.9% calc(100% - 1.2px),36.4% calc(100% - 0.2px),31.8% calc(100% - 0.8px),27.3% calc(100% - 1.8px),22.7% calc(100% - 1.4px),18.2% calc(100% - 3.9px),13.6% calc(100% - 1.2px),9.1% calc(100% - 1.9px),4.5% calc(100% - 4.5px),0.0% calc(100% - 1.1px),2.2px 83.3%,1.6px 66.7%,2.2px 50.0%,1.3px 33.3%,1.8px 16.7%)"
+		]
+	},
+	"contrast": {
+		"light": [
+			{
+				"fg": "ink",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 12.51
+			},
+			{
+				"fg": "ink",
+				"bg": "surface-raised",
+				"level": "AA",
+				"ratio": 10.44
+			},
+			{
+				"fg": "ink-muted",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 6
+			},
+			{
+				"fg": "accent",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 7.08
+			},
+			{
+				"fg": "accent-ink",
+				"bg": "accent",
+				"level": "AA",
+				"ratio": 8.52
+			},
+			{
+				"fg": "ok",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 5.18
+			},
+			{
+				"fg": "warn",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 4.79
+			},
+			{
+				"fg": "danger",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 5.46
+			},
+			{
+				"fg": "info",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 5.74
+			},
+			{
+				"fg": "ink",
+				"bg": "desk",
+				"level": "AA",
+				"ratio": 6.39
+			},
+			{
+				"fg": "slip-ink",
+				"bg": "slip",
+				"level": "AA",
+				"ratio": 16.24
+			},
+			{
+				"fg": "slip-accent",
+				"bg": "slip",
+				"level": "AA",
+				"ratio": 8.52
+			},
+			{
+				"fg": "slip-accent-2",
+				"bg": "slip",
+				"level": "AA",
+				"ratio": 6.24
+			},
+			{
+				"fg": "card-ink",
+				"bg": "card",
+				"level": "AA",
+				"ratio": 5.07
+			},
+			{
+				"fg": "on-slime",
+				"bg": "slime",
+				"level": "AA",
+				"ratio": 9.31
+			},
+			{
+				"fg": "exhibit-ink",
+				"bg": "exhibit",
+				"level": "AA",
+				"ratio": 12.51
+			},
+			{
+				"fg": "accent",
+				"bg": "surface-raised",
+				"level": "AA",
+				"ratio": 5.91
+			},
+			{
+				"fg": "ink-muted",
+				"bg": "surface-raised",
+				"level": "AA",
+				"ratio": 5.01
+			}
+		],
+		"dark": [
+			{
+				"fg": "ink",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 12.26
+			},
+			{
+				"fg": "ink",
+				"bg": "surface-raised",
+				"level": "AA",
+				"ratio": 10.23
+			},
+			{
+				"fg": "ink-muted",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 6.55
+			},
+			{
+				"fg": "accent",
+				"bg": "surface",
+				"level": "AA",
+				"ratio": 6.85
+			},
+			{
+				"fg": "accent-ink",
+				"bg": "accent",
+				"level": "AA",
+				"ratio": 6.88
+			},
+			{
+				"fg": "ok",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 9
+			},
+			{
+				"fg": "warn",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 7.26
+			},
+			{
+				"fg": "danger",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 6.69
+			},
+			{
+				"fg": "info",
+				"bg": "surface",
+				"level": "AA-large",
+				"ratio": 7.22
+			},
+			{
+				"fg": "ink",
+				"bg": "desk",
+				"level": "AA",
+				"ratio": 14.86
+			},
+			{
+				"fg": "slip-ink",
+				"bg": "slip",
+				"level": "AA",
+				"ratio": 12.89
+			},
+			{
+				"fg": "slip-accent",
+				"bg": "slip",
+				"level": "AA",
+				"ratio": 6.28
+			},
+			{
+				"fg": "slip-accent-2",
+				"bg": "slip",
+				"level": "AA",
+				"ratio": 4.6
+			},
+			{
+				"fg": "card-ink",
+				"bg": "card",
+				"level": "AA",
+				"ratio": 6.74
+			},
+			{
+				"fg": "on-slime",
+				"bg": "slime",
+				"level": "AA",
+				"ratio": 10.48
+			},
+			{
+				"fg": "exhibit-ink",
+				"bg": "exhibit",
+				"level": "AA",
+				"ratio": 15.61
+			},
+			{
+				"fg": "accent",
+				"bg": "surface-raised",
+				"level": "AA",
+				"ratio": 5.72
+			},
+			{
+				"fg": "ink-muted",
+				"bg": "surface-raised",
+				"level": "AA",
+				"ratio": 5.47
+			}
+		]
+	},
+	"provenance": {
+		"seed": "CSS custom properties of the Goblin Mode Notice artifact (claude.ai artifact BH1g2CsHQtRyQ87jeLEFCg, read 2026-11-18): its :root light block and prefers-color-scheme dark block, mapped to the twelve roles with the materials kept as named extras",
+		"derived_from": null,
+		"created": "2026-11-18",
+		"updated": "2026-11-20",
+		"tool": "theme-factory@1"
+	}
+}
