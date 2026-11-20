@@ -22,7 +22,7 @@
 	<LevelHeader {level} levels={data.levels} />
 
 	{#key level.n}
-		<TutorialStage {level} />
+		<TutorialStage {level} name={`Level ${level.n}`} />
 	{/key}
 
 	{#if level.realThing}

@@ -4,11 +4,11 @@
 	import { onMount } from 'svelte';
 	import Specimen from './Specimen.svelte';
 	import { toneMarks, type ShownCallout } from '#lib/content/tutorial-view.ts';
-	import type { Level } from '#lib/content/tutorial.types.ts';
+	import type { StagePage } from '#lib/content/tutorial.types.ts';
 
 	interface Props {
-		level: Level;
-		real: NonNullable<Level['realThing']>;
+		level: StagePage;
+		real: NonNullable<StagePage['realThing']>;
 	}
 
 	let { level, real }: Props = $props();

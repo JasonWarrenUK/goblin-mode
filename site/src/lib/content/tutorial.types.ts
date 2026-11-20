@@ -50,10 +50,13 @@ export interface Step {
 	output?: { label: string; text: string };
 }
 
-export interface Level {
-	n: 1 | 2 | 3 | 4 | 5;
+/**
+ * One page on the pinned stage: a tutorial level, or a skills-wing explainer
+ * such as "Metadata Is Whatever I Say It Is".
+ */
+export interface StagePage {
 	title: string;
-	/** The level's one- or two-sentence intro, HTML. */
+	/** The page's one- or two-sentence intro, HTML. */
 	intro: string;
 	/** Where the previous level left the files: the stage's opening state. Absent on level 1. */
 	opening?: { title: string; prose: string[]; files: FileView[] };
@@ -71,7 +74,12 @@ export interface Level {
 	exercise: {
 		title: string;
 		prompt: string[];
-		/** The answer: prose and code, in order. */
-		answer: ({ prose: string } | { code: string; lang: string })[];
+		/** The answer: prose, code and tables, in order. Table cells are HTML (code and marks only). */
+		answer: ({ prose: string } | { code: string; lang: string } | { table: { head: string[]; rows: string[][] } })[];
 	};
+}
+
+/** A tutorial level: a stage page with a number, one page per level at /skills/tutorial/<n>/. */
+export interface Level extends StagePage {
+	n: 1 | 2 | 3 | 4 | 5;
 }

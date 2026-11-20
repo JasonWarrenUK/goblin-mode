@@ -2,10 +2,10 @@
 	// The level's exercise on a torn slip, its answer folded away.
 	import CodePanel from './CodePanel.svelte';
 	import { toneMarks } from '#lib/content/tutorial-view.ts';
-	import type { Level } from '#lib/content/tutorial.types.ts';
+	import type { StagePage } from '#lib/content/tutorial.types.ts';
 
 	interface Props {
-		level: Level;
+		level: StagePage;
 	}
 
 	let { level }: Props = $props();
@@ -22,6 +22,17 @@
 		{#each exercise.answer as part, index (index)}
 			{#if 'prose' in part}
 				<p>{@html toneMarks(part.prose, level)}</p>
+			{:else if 'table' in part}
+				<div class="answer-table">
+					<table>
+						<thead><tr>{#each part.table.head as cell, c (c)}<th scope="col">{@html toneMarks(cell, level)}</th>{/each}</tr></thead>
+						<tbody>
+							{#each part.table.rows as row, r (r)}
+								<tr>{#each row as cell, c (c)}{#if c === 0}<th scope="row">{@html toneMarks(cell, level)}</th>{:else}<td>{@html toneMarks(cell, level)}</td>{/if}{/each}</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
 			{:else}
 				<div class="file">
 					<CodePanel file={{ path: 'answer', lang: part.lang, text: part.code }} markAdded={false} />

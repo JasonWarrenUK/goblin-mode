@@ -2,7 +2,7 @@
 // rules that data must keep for the stage to work. No DOM here: the components
 // and the tests both use it.
 
-import type { Callout, FileView, Level, Step } from './tutorial.types.ts';
+import type { Callout, FileView, Level, StagePage, Step } from './tutorial.types.ts';
 
 /** A colour per step, in order; the Real Thing has its own. */
 export type Tone = 't1' | 't2' | 't3' | 't4' | 't5' | 'tr';
@@ -22,7 +22,7 @@ export interface StageState {
 
 export const stepTone = (index: number): Tone => STEP_TONES[index % STEP_TONES.length]!;
 
-export const statesOf = (level: Level): StageState[] => [
+export const statesOf = (level: StagePage): StageState[] => [
 	...(level.opening ? [{ id: null, title: level.opening.title, prose: level.opening.prose, files: level.opening.files, callouts: [], tone: null }] : []),
 	...level.steps.map((step, index) => ({
 		id: step.id,
@@ -36,7 +36,7 @@ export const statesOf = (level: Level): StageState[] => [
 ];
 
 /** The tone of a callout label: its step's tone, or the Real Thing's. */
-export const toneOfLabel = (level: Level, label: string): Tone | null => {
+export const toneOfLabel = (level: StagePage, label: string): Tone | null => {
 	if (label.startsWith('R.')) return 'tr';
 	const index = level.steps.findIndex((step) => step.callouts.some((callout) => callout.label === label));
 	return index < 0 ? null : stepTone(index);
@@ -104,7 +104,7 @@ export interface StageView {
  * step's colour), and where each earlier callout's lines stand in later versions (so it stays
  * pinned, dimmed). A carried callout drops out once any of its lines is changed, removed or folded.
  */
-export const stageView = (level: Level): StageView => {
+export const stageView = (level: StagePage): StageView => {
 	const states = statesOf(level);
 	const versions = new Map<string, { lines: string[]; tones: (Tone | null)[] }>();
 	const carried: { callout: Callout; tone: Tone | null; lines: number[] }[] = [];
@@ -189,7 +189,7 @@ export const markLabels = (html: string): string[] => [...html.matchAll(MARK)].m
  * Gives each mark its callout's tone, and after a mark for one of `own` (the state's own
  * callouts) adds the label, so the phrase and its callout carry the same number.
  */
-export const toneMarks = (html: string, level: Level, own: readonly string[] = []): string =>
+export const toneMarks = (html: string, level: StagePage, own: readonly string[] = []): string =>
 	html.replace(/<mark data-c="([^"]+)">([\s\S]*?)<\/mark>/g, (_, label: string, inner: string) => {
 		const tone = toneOfLabel(level, label) ?? '';
 		const ref = own.includes(label) ? ` <span class="ref">${label}</span>` : '';
@@ -200,10 +200,20 @@ export const toneMarks = (html: string, level: Level, own: readonly string[] = [
 
 const ALLOWED_TAGS = /<\/?(?!code\b|mark\b)[a-z][^>]*>/i;
 
-/** Every way a level breaks what the stage needs; empty when it is sound. */
-export const checkLevel = (level: Level): string[] => {
+/** Every way a level breaks what the stage needs; empty when it is sound. Its steps are numbered "2.1", "2.2" and so on. */
+export const checkLevel = (level: Level): string[] => [
+	...(level.n === 1 && level.opening ? [`level 1, opening: level 1 has no opening`] : []),
+	...(level.n === 1 && level.realThing ? [`level 1, real thing: level 1 has none`] : []),
+	...checkStage(level, `level ${level.n}`, `${level.n}.`),
+];
+
+/**
+ * Every way a stage page breaks what the stage needs; empty when it is sound. `prefix` goes before
+ * each step's number: "2." for a tutorial level's "2.1", empty for a page whose steps are "1" to "4".
+ */
+export const checkStage = (level: StagePage, name: string, prefix: string): string[] => {
 	const problems: string[] = [];
-	const at = (where: string, problem: string): void => { problems.push(`level ${level.n}, ${where}: ${problem}`); };
+	const at = (where: string, problem: string): void => { problems.push(`${name}, ${where}: ${problem}`); };
 
 	const labels = new Set<string>();
 	const html: { where: string; text: string }[] = [{ where: 'intro', text: level.intro }];
@@ -247,7 +257,6 @@ export const checkLevel = (level: Level): string[] => {
 	};
 
 	// the opening is optional: without one the stage opens on the first step
-	if (level.n === 1 && level.opening) at('opening', 'level 1 has no opening');
 	if (level.opening) {
 		if (level.opening.files.length === 0) at('opening', 'shows no file');
 		for (const file of level.opening.files) checkFile(`opening ${file.path}`, file, new Set());
@@ -257,7 +266,7 @@ export const checkLevel = (level: Level): string[] => {
 	const ids = new Set<string>();
 	level.steps.forEach((step, index) => {
 		const where = `step ${step.id}`;
-		if (step.id !== `${level.n}.${index + 1}`) at(where, `should be numbered ${level.n}.${index + 1}`);
+		if (step.id !== `${prefix}${index + 1}`) at(where, `should be numbered ${prefix}${index + 1}`);
 		if (ids.has(step.id)) at(where, 'id appears twice');
 		ids.add(step.id);
 		if (step.files.length === 0) at(where, 'shows no file');
@@ -266,14 +275,16 @@ export const checkLevel = (level: Level): string[] => {
 		checkCallouts(where, step.files, step.callouts, new RegExp(`^${step.id.replace('.', '\\.')}[a-z]$`));
 		step.prose.forEach((text, index2) => html.push({ where: `${where} paragraph ${index2 + 1}`, text }));
 	});
-	if (level.n === 1 && level.realThing) at('real thing', 'level 1 has none');
 	if (level.realThing) {
 		checkCallouts('the real thing', level.realThing.files, level.realThing.callouts, /^R\.[a-z]$/);
 		html.push({ where: 'the real thing intro', text: level.realThing.intro });
 		(level.realThing.after ?? []).forEach((text, index) => html.push({ where: `the real thing paragraph ${index + 1}`, text }));
 	}
 	level.exercise.prompt.forEach((text, index) => html.push({ where: `exercise paragraph ${index + 1}`, text }));
-	level.exercise.answer.forEach((part, index) => { if ('prose' in part) html.push({ where: `answer part ${index + 1}`, text: part.prose }); });
+	level.exercise.answer.forEach((part, index) => {
+		if ('prose' in part) html.push({ where: `answer part ${index + 1}`, text: part.prose });
+		if ('table' in part) [...part.table.head, ...part.table.rows.flat()].forEach((text) => html.push({ where: `answer part ${index + 1} table`, text }));
+	});
 
 	for (const { where, text } of html) {
 		if (ALLOWED_TAGS.test(text)) at(where, `holds a tag other than <code> or <mark>: ${text.match(ALLOWED_TAGS)![0]}`);

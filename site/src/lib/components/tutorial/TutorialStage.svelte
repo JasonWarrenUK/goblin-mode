@@ -9,13 +9,15 @@
 	import { placeCallouts } from './place.ts';
 	import Specimen from './Specimen.svelte';
 	import { stageView, statesOf, tabLabels, toneMarks } from '#lib/content/tutorial-view.ts';
-	import type { FileView, Level } from '#lib/content/tutorial.types.ts';
+	import type { FileView, StagePage } from '#lib/content/tutorial.types.ts';
 
 	interface Props {
-		level: Level;
+		level: StagePage;
+		/** What a screen reader calls the stage, before ", step by step": "Level 2", say. */
+		name: string;
 	}
 
-	let { level }: Props = $props();
+	let { level, name }: Props = $props();
 
 	/**
 	 * Below this viewport height the stage never pins, so every level uses one layout at a given
@@ -360,7 +362,7 @@
 	data-mode={mode}
 	data-view={shownView}
 	data-step={current}
-	aria-label="Level {level.n}, step by step"
+	aria-label="{name}, step by step"
 	style:--states={states.length}
 	bind:this={tut}
 	onkeydown={onKey}

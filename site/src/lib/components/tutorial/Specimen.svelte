@@ -6,10 +6,10 @@
 	import CodePanel from './CodePanel.svelte';
 	import { clearCallouts, placeCallouts } from './place.ts';
 	import { tabLabels, toneMarks, type ShownCallout, type Tone } from '#lib/content/tutorial-view.ts';
-	import type { FileView, Level } from '#lib/content/tutorial.types.ts';
+	import type { FileView, StagePage } from '#lib/content/tutorial.types.ts';
 
 	interface Props {
-		level: Level;
+		level: StagePage;
 		files: FileView[];
 		tones?: Map<string, (Tone | null)[]>;
 		callouts: ShownCallout[];

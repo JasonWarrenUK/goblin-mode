@@ -128,6 +128,11 @@
 .tutorial .exercise summary { cursor: pointer; font-weight: 600; color: var(--slip-accent); }
 .tutorial .exercise code { color: var(--slip-accent); }
 .tutorial .exercise .code code { color: inherit; }
+.tutorial .exercise .answer-table { overflow-x: auto; min-width: 0; max-width: 100%; }
+.tutorial .exercise, .tutorial .exercise details { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.tutorial .exercise table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 0.88rem; }
+.tutorial .exercise th, .tutorial .exercise td { text-align: left; vertical-align: top; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--slip-line); }
+.tutorial .exercise thead th { font-family: var(--font-print); font-weight: 400; }
 .tutorial q { quotes: '\201C' '\201D'; }
 
 @media (min-width: 900px) {
