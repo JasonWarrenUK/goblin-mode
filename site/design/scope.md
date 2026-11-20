@@ -92,3 +92,17 @@ Every line below is a decision Jason made in the SITE interview on 2026-11-18, u
 | T3 | Every step is written to fit a 760px-tall window: a long step is split in two, and a long file shows its changed region with the rest folded as `...`. Below a minimum height the page uses the scrolling Steps/File layout. Nothing scrolls inside the sheet. |
 | T4 | A step that touches more than one file shows them as folder tabs across the specimen, opening on the file the step changes; callouts belong to the visible file. |
 | T5 | Every step's write-up stays in the accessibility tree; screen readers take priority over find-in-page. |
+
+## Skills wing: Metadata Is Whatever I Say It Is
+
+Decided with Jason on 2026-11-20.
+
+| ID | Requirement |
+|---|---|
+| M6 | The page is about defining your own `metadata` keys and consuming them. The title stays. Plain second person, as in the tutorial. |
+| M7 | It uses the tutorial's pinned stage (T2 to T5) on one page: define a key, consume it, add a key that repeats another field, check it. |
+| M8 | The specimen is a new invented skill family, `roast-commit` and `roast-branch`: read-only roasts of your git history. `heat` is the invented key a menu script sorts by; `hands-off` repeats what `disallowed-tools` enforces, and the check catches the two disagreeing. |
+| M9 | The reader is Python, standard library only, parsing frontmatter as text, the way `library/scripts/skill-lint.py` does. |
+| M10 | The Real Thing is this repository's three keys: `family` (read by `gen-skills-index.py` and goblin-jester's `frontmatter.ts`), `glyph` (policed by `skill-lint.py` since 2026-10-09) and `goblin-spinner` (read by goblin-jester). goblin-seneschal does not appear. |
+| M11 | The exercise is the four August candidates that still apply (`exercised`, `reads`/`writes`, `surface`, `status`), marked against the three-question test. |
+| M12 | Counts (skills, families, glyphs by rune, spinner coverage) are generated at build time from the files, never typed in. |
