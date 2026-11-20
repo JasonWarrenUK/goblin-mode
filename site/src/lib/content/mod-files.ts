@@ -416,7 +416,7 @@ export const MOD_FILES: Record<ModKey, ModFile> = {
 			],
 			remove: [
 				'There is no master switch. The branch question is switched off one branch at a time with <code>git config branch.&lt;name&gt;.roadbookClaim none</code>.',
-				'To remove the plugin, run <code>claude plugin uninstall goblin-scout@goblin-mode</code>. The roadbook stays in your repository as plain JSON, with the waypoint list and overview projected from it. Any chart you rendered stays where it was written, and the <code>roadmapClaim</code> keys stay in your git config. The plugin\'s own data directory under <code>~/.claude/plugins/data/</code> is removed unless you add <code>--keep-data</code>.',
+				'To remove the plugin, run <code>claude plugin uninstall goblin-scout@goblin-mode</code>. The roadbook stays in your repository as plain JSON, with the waypoint list and overview projected from it. Any chart you rendered stays where it was written, and the <code>roadbookClaim</code> keys stay in your git config. The plugin\'s own data directory under <code>~/.claude/plugins/data/</code> is removed unless you add <code>--keep-data</code>.',
 			],
 		},
 	},
@@ -521,7 +521,7 @@ export const MOD_FILES: Record<ModKey, ModFile> = {
 					"The slate shows each raider's state, branch, spoils, context fill and time since its last report. Raiders report their own state changes.",
 					'<code>/goblin-warband:summon-raiders</code> puts the check-in questions to every raider and returns one list of what the person needs to do.',
 					"A changed decree is set once and broadcast. Raiders mark messages from the chief as verified, so an instruction's source is known.",
-					"After a clear, the slate shows <code>rebind?</code>; <code>/reclaim-post</code> from the chief's session reattaches the raid. A hook tells each compaction what to keep.",
+					"After a clear, the slate shows <code>rebind?</code>; <code>/reclaim-post chief</code> from the chief's session reattaches the raid. A hook tells each compaction what to keep.",
 					"Each raider watches its own spoils, pausing outside the team's hours. A reconcile command lists where the ledger and reality have drifted.",
 				],
 				ruling: '{WarbandRules} rule to learn. Goblin learn every one the hard way. Now human learn them the easy way. All {warbandRules}.',
