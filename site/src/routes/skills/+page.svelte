@@ -8,7 +8,7 @@
 	<title>Build Your Own · Goblin Mode</title>
 </svelte:head>
 
-<main class="desk">
+<main id="main" class="desk">
 	<section class="sheet placeholder" aria-labelledby="skills-title">
 		<p class="back"><a href={home()}>Back to the desk</a></p>
 		<h1 id="skills-title">Build Your Own</h1>

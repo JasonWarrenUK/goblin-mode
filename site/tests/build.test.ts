@@ -65,6 +65,25 @@ describe('the build', () => {
 		expect(withSide[2]).toContain('Not built yet');
 	});
 
+	it('opens every page with a skip link to its main content', () => {
+		for (const page of pages) {
+			const html = readFileSync(page, 'utf8');
+			const body = html.slice(html.indexOf('<body'));
+			const firstLink = /<a\b[^>]*href="([^"]+)"/.exec(body)?.[1];
+			expect(firstLink, servedAt(page)).toBe('#main');
+			expect(html, servedAt(page)).toMatch(/<main\b[^>]*\bid="main"/);
+		}
+	});
+
+	it('gives every copy button a polite live region that announces the copy', () => {
+		for (const page of pages) {
+			const html = readFileSync(page, 'utf8');
+			const buttons = (html.match(/class="copy\b/g) ?? []).length;
+			const regions = (html.match(/aria-live="polite"[^>]*>[^<]*<\/span>/g) ?? []).length;
+			expect(regions, servedAt(page)).toBeGreaterThanOrEqual(buttons);
+		}
+	});
+
 	it('loads no font or stylesheet from another host', () => {
 		for (const page of pages) expect(readFileSync(page, 'utf8')).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
 	});

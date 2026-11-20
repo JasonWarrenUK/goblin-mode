@@ -19,7 +19,7 @@
 	<title>{page.title} · Goblin Mode</title>
 </svelte:head>
 
-<main class="desk tutorial">
+<main id="main" class="desk tutorial">
 	<nav class="level-nav" aria-label="Build Your Own">
 		<p><a href={skillsIndex()}>Build Your Own</a></p>
 	</nav>

@@ -27,7 +27,7 @@
 	/>
 </svelte:head>
 
-<main class="desk">
+<main id="main" class="desk">
 	<div class="top">
 		<Notice {facts} />
 		<InstallSlip addCommand={facts.marketplace.addCommand} {mods} bind:picked />

@@ -41,7 +41,7 @@
 	<meta name="description" content={mod.tagline} />
 </svelte:head>
 
-<main class="desk">
+<main id="main" class="desk">
 	<nav class="crumbs" aria-label="Site">
 		<a href={home()}>Back to the desk</a>
 		<span>{mod.numeral} of {lastNumeral}</span>

@@ -18,7 +18,7 @@
 	<title>Level {level.n}: {level.title} · Goblin Mode</title>
 </svelte:head>
 
-<main class="desk tutorial">
+<main id="main" class="desk tutorial">
 	<LevelHeader {level} levels={data.levels} />
 
 	{#key level.n}

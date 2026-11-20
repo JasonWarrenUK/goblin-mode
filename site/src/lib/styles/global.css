@@ -137,6 +137,20 @@ code { font-family: var(--font-mono); }
 	font-size: 0.8rem;
 }
 
+.skip {
+	position: absolute;
+	left: max(16px, env(safe-area-inset-left, 0px));
+	top: -4rem;
+	z-index: 10;
+	padding: 0.5rem 0.9rem;
+	background: var(--accent);
+	color: var(--accent-ink);
+	font-family: var(--font-print);
+	font-weight: 600;
+	border-radius: var(--radius-md);
+}
+.skip:focus-visible { top: 0.75rem; outline-color: var(--ink); }
+
 .visually-hidden {
 	position: absolute;
 	width: 1px;

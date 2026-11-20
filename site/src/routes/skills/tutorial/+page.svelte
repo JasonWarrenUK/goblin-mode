@@ -8,7 +8,7 @@
 	<title>Some Assembly Required · Goblin Mode</title>
 </svelte:head>
 
-<main class="desk tutorial">
+<main id="main" class="desk tutorial">
 	<p class="back"><a href={skillsIndex()}>Back to Build Your Own</a></p>
 	<header class="sheet lvl-head">
 		<p class="kicker">Build Your Own</p>

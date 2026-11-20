@@ -31,6 +31,8 @@
 <div class="row">
 	<code class="cmd" bind:this={code}>{command}</code>
 	<button type="button" class="copy" onclick={copy} aria-label={`Copy: ${label}`}>{copied ? 'Copied' : 'Copy'}</button>
+	<!-- the button's label hides its own change from a screen reader, so the copy is announced here -->
+	<span class="visually-hidden" aria-live="polite">{copied ? `Copied: ${label}` : ''}</span>
 </div>
 
 <style>
