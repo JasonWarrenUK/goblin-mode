@@ -6,11 +6,13 @@ export interface SkillPage {
 	title: string;
 	/** The tutorial lives at /skills/tutorial/ with a page per level, not on the shared route. */
 	tutorial?: boolean;
+	/** A page with its own route at /skills/<slug>/, built on the tutorial's stage; the shared route skips it. */
+	staged?: boolean;
 }
 
 export const SKILL_PAGES: readonly SkillPage[] = [
 	{ slug: 'frontmatter', title: 'A Skill Is One Goblin' },
-	{ slug: 'metadata', title: 'Metadata Is Whatever I Say It Is' },
+	{ slug: 'metadata', title: 'Metadata Is Whatever I Say It Is', staged: true },
 	{ slug: 'tutorial', title: 'Some Assembly Required', tutorial: true },
 	{ slug: 'dossier', title: 'Everyone Gets a File' },
 ];
