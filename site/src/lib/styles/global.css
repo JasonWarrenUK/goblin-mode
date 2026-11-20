@@ -39,6 +39,8 @@ h1, h2, h3 {
 a { color: var(--accent); text-underline-offset: 3px; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 code { font-family: var(--font-mono); }
+/* a plugin-qualified command (/goblin-seneschal:overhear-grievance) is wider than a phone; inline code in running text may break anywhere */
+:is(p, li, td, dd, figcaption) > code { overflow-wrap: anywhere; }
 
 .desk { max-width: 76rem; margin: 0 auto; display: grid; gap: 2.5rem; }
 

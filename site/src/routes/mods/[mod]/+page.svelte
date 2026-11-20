@@ -54,7 +54,7 @@
 			<p class="tag">{mod.tagline}</p>
 			<p class="facts">
 				{#if modFacts.version}<span>v{modFacts.version}</span>{/if}
-				{#if modFacts.skills > 0}<span>{modFacts.skills} skills</span>{/if}
+				{#if modFacts.skills > 0}<span>{modFacts.skills} {modFacts.skills === 1 ? 'skill' : 'skills'}</span>{/if}
 				{#if modFacts.typescriptLines > 0}<span>{modFacts.typescriptLines.toLocaleString('en-GB')} lines of TypeScript</span>{/if}
 				{#if mod.shipped}<span class="stamp shipped">Goblin Approve</span>{:else}<span class="stamp proposed">Soon. Very Soon.</span>{/if}
 			</p>
