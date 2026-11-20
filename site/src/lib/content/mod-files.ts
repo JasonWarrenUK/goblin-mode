@@ -715,7 +715,18 @@ export const MOD_FILES: Record<ModKey, ModFile> = {
 			{ shown: true, text: 'Local git net on every write', where: 'V.5', planned: true },
 			{ shown: false, text: 'The <code>/peek-vault</code> pane and its views: here, pile, hunches and holes', where: null, planned: true },
 		],
-		howTo: null,
+		howTo: {
+			firstRun: [
+				'Needs Claude Code 2.1.287 or later and <code>python3</code> on the path, and works only on the machine where the vault is, never in a cloud session. Set the Archivist folder in <code>/config</code> first; nothing runs without it. Then run <code>/goblin-archivist:sniff-vault</code>.',
+				'It has worked when <code>&lt;Archivist folder&gt;/vault/sniff/</code> holds <code>report.md</code>, <code>survey.json</code> and <code>schema.draft.json</code>, and Claude has written <code>schema.notes.md</code> beside them with its questions.',
+			],
+			configure: [
+				'Settings are in <code>/config</code> under goblin-archivist: the one switch, the vault (left empty, the skill lists the vaults Obsidian knows and asks) and the Archivist folder, which belongs somewhere no repository will commit.',
+			],
+			remove: [
+				'Run <code>claude plugin uninstall goblin-archivist@goblin-mode</code>. It never wrote to your vault, so there is nothing to undo there. Its reports stay in the Archivist folder until you delete them.',
+			],
+		},
 		plannedCommands: [
 			'/goblin-archivist:bind-repo',
 			'/goblin-archivist:whiff-grudge',

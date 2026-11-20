@@ -77,12 +77,12 @@ const COPY: Record<ModKey, Copy> = {
 	archivist: {
 		numeral: 'V',
 		schedule: 'feasts',
-		tagline: 'Reads and writes your Obsidian vault from every session.',
+		tagline: 'Surveys your Obsidian vault and reports what is in it.',
 		deficiency: 'Your notes sit in Obsidian, unread by Claude, as though they were private.',
 		remedy: () =>
-			'Every session reads your Obsidian vault, writes in it and files a note on each belief you hold so it can report when one has collapsed.',
+			'A script reads every note in your vault and files three reports on it, then Claude drafts a schema for your notes and asks you about every point.',
 		goblin: () =>
-			'Human vault and human code live APART. Never meet. Goblin will end this. One spec. No code yet. Soon. Very soon.',
+			'Human vault and human code live APART. Never meet. Goblin will end this. First goblin sniff whole vault. Touch nothing. Rest of plan still in spec. Soon. Very soon.',
 	},
 };
 
