@@ -173,9 +173,9 @@
 			"role": "folds and secondary marks on an exhibit panel, at 4.5:1 or better in both variants"
 		},
 		"desk-link": {
-			"light": "#691639",
+			"light": "#561230",
 			"dark": "#FF86B4",
-			"role": "links set straight on the desk: beetroot darkened to hold 4.5:1 on the light desk, the accent itself in dark"
+			"role": "links set straight on the desk: beetroot darkened to hold 4.5:1 on the light desk, even at the centre of its ink blots; the accent itself in dark"
 		},
 		"slip-muted": {
 			"light": "#4B5A3C",
