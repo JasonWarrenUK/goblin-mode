@@ -11,7 +11,6 @@ export interface SkillPage {
 }
 
 export const SKILL_PAGES: readonly SkillPage[] = [
-	{ slug: 'frontmatter', title: 'A Skill Is One Goblin' },
 	{ slug: 'metadata', title: 'Metadata Is Whatever I Say It Is', staged: true },
 	{ slug: 'tutorial', title: 'Some Assembly Required', tutorial: true },
 	{ slug: 'dossier', title: 'Everyone Gets a File' },
