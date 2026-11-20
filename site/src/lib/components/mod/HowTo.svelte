@@ -86,7 +86,7 @@
 	details > :not(summary) { margin: 0 0 0.9rem; }
 	table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
 	th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--slip-line); vertical-align: top; }
-	.title { color: var(--ink-muted); font-size: 0.85em; }
+	.title { color: var(--slip-muted); font-size: 0.85em; }
 	/* a long default (the jester's schedule) wraps instead of widening the table */
 	td :global(code) { overflow-wrap: anywhere; }
 	.scroll { overflow-x: auto; }

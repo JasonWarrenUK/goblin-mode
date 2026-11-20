@@ -36,7 +36,10 @@ h1, h2, h3 {
 	line-height: 1.05;
 }
 
-a { color: var(--accent); text-underline-offset: 3px; }
+/* a link set straight on the desk takes the desk's own beetroot (the accent reads 3.6:1 on the light desk); a sheet resets it */
+:root { --link: var(--desk-link); }
+.sheet { --link: var(--accent); }
+a { color: var(--link); text-underline-offset: 3px; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 code { font-family: var(--font-mono); }
 /* a plugin-qualified command (/goblin-seneschal:overhear-grievance) is wider than a phone; inline code in running text may break anywhere */

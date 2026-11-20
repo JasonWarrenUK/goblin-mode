@@ -166,6 +166,21 @@
 			"light": "#E7E9CF",
 			"dark": "#E3E8CC",
 			"role": "text on an exhibit panel"
+		},
+		"exhibit-muted": {
+			"light": "#8E9878",
+			"dark": "#8E9878",
+			"role": "folds and secondary marks on an exhibit panel, at 4.5:1 or better in both variants"
+		},
+		"desk-link": {
+			"light": "#691639",
+			"dark": "#FF86B4",
+			"role": "links set straight on the desk: beetroot darkened to hold 4.5:1 on the light desk, the accent itself in dark"
+		},
+		"slip-muted": {
+			"light": "#4B5A3C",
+			"dark": "#4B5A3C",
+			"role": "secondary text on a slip; the slip is pale in both variants, so the light faded ink holds"
 		}
 	},
 	"gradient": {
@@ -462,7 +477,7 @@
 		"seed": "CSS custom properties of the Goblin Mode Notice artifact (claude.ai artifact BH1g2CsHQtRyQ87jeLEFCg, read 2026-11-18): its :root light block and prefers-color-scheme dark block, mapped to the twelve roles with the materials kept as named extras",
 		"derived_from": null,
 		"created": "2026-11-18",
-		"updated": "2026-11-19",
+		"updated": "2026-11-20",
 		"tool": "theme-factory@1"
 	}
 }

@@ -43,7 +43,7 @@
 	td { padding: 0.3rem 0.25rem; border-bottom: 1px solid var(--slip-line); vertical-align: top; }
 	.box { width: 1.1rem; font-family: var(--font-mono); }
 	.where { white-space: nowrap; text-align: right; font-family: var(--font-mono); }
-	.missing { color: var(--ink-muted); }
+	.missing { color: var(--slip-muted); }
 	td :global(code) { color: var(--slip-accent); font-size: 0.9em; }
 	@media (max-width: 760px) {
 		.roster { position: static; transform: none; }

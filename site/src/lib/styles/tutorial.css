@@ -32,7 +32,7 @@
 .tutorial .code code { display: block; background: none; padding: 0; font-size: inherit; color: inherit; }
 .tutorial .code .ln { display: block; position: relative; min-height: 1.6em; white-space: pre-wrap; overflow-wrap: anywhere; padding: 0 0.8rem 0 3.1rem; }
 .tutorial .code .ln::before { position: absolute; left: 0.55rem; top: 0; font-weight: 600; }
-.tutorial .code .ln.fold { color: color-mix(in oklab, var(--exhibit-ink) 55%, var(--exhibit)); }
+.tutorial .code .ln.fold { color: var(--exhibit-muted); }
 .tutorial .code .ln:is(.t1, .t2, .t3, .t4, .t5, .tr) { background: color-mix(in oklab, var(--tone) 12%, var(--exhibit)); box-shadow: inset 4px 0 0 color-mix(in oklab, var(--bar) 55%, var(--exhibit)); }
 .tutorial .code .ln.cur { background: color-mix(in oklab, var(--tone) 30%, var(--exhibit)); box-shadow: inset 5px 0 0 var(--bar); }
 .tutorial .code .ln.new::before { content: '+'; left: 1.1rem; color: var(--bar); }

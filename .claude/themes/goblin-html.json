@@ -4,7 +4,7 @@
 	"target": "html",
 	"extends": "goblin.json",
 	"rationale": {
-		"mapping_notes": "Direct token copy of all twelve roles plus the material extras (desk, blot, slip, card, slime, tape, exhibit), each under its palette name. The one transformation: blot and tape are opaque hex in the core (every reader of a core expects 6-digit hex) and get their alpha here, blot at 16% light and 35% dark, tape at 90% in both, as the notice drew them; --gradient is the three-stop core gradient at 135deg. Two extra type tokens, --font-print and --font-marker, carry the slip and marker voices, and --wonk / --wonk-2 carry the hand-drawn border radii. google_fonts is deliberately empty: Jason chose to self-host the five faces (OFL, via @fontsource) so a page makes no third-party request; the consumer loads the files and these tokens only name the families. --rag-a, --rag-b and --rag-c are the three torn-paper outlines from the core shape block, used as clip-path on a slip's backing layer (added 2026-11-19 for the mod pages). 'Noto Sans Runic' follows the first face in the body, mono and print stacks (added 2026-11-20): none of the five faces has the Runic block, and the skills wing quotes the glyph convention's runes, so the consumer self-hosts its runic subset, which a browser fetches only for a page that holds a rune."
+		"mapping_notes": "Direct token copy of all twelve roles plus the material extras (desk, blot, slip, card, slime, tape, exhibit), each under its palette name. The one transformation: blot and tape are opaque hex in the core (every reader of a core expects 6-digit hex) and get their alpha here, blot at 16% light and 35% dark, tape at 90% in both, as the notice drew them; --gradient is the three-stop core gradient at 135deg. Two extra type tokens, --font-print and --font-marker, carry the slip and marker voices, and --wonk / --wonk-2 carry the hand-drawn border radii. google_fonts is deliberately empty: Jason chose to self-host the five faces (OFL, via @fontsource) so a page makes no third-party request; the consumer loads the files and these tokens only name the families. --rag-a, --rag-b and --rag-c are the three torn-paper outlines from the core shape block, used as clip-path on a slip's backing layer (added 2026-11-19 for the mod pages). 'Noto Sans Runic' follows the first face in the body, mono and print stacks (added 2026-11-20): none of the five faces has the Runic block, and the skills wing quotes the glyph convention's runes, so the consumer self-hosts its runic subset, which a browser fetches only for a page that holds a rune. --exhibit-muted, --desk-link and --slip-muted (added 2026-11-20 after the site's contrast review) carry the three text colours that sit on a material whose own ink is not enough: folds on the code panel, links straight on the light desk, where the beetroot accent reads at 3.6:1, and secondary text on a slip, which stays pale in dark mode."
 	},
 	"html": {
 		"tokens": {
@@ -36,7 +36,10 @@
 				"--on-slime": "#1D2718",
 				"--tape": "rgba(214,203,150,.9)",
 				"--exhibit": "#1D2718",
-				"--exhibit-ink": "#E7E9CF"
+				"--exhibit-ink": "#E7E9CF",
+				"--exhibit-muted": "#8E9878",
+				"--desk-link": "#691639",
+				"--slip-muted": "#4B5A3C"
 			},
 			"dark": {
 				"--ink": "#E3E8CC",
@@ -66,7 +69,10 @@
 				"--on-slime": "#1D2718",
 				"--tape": "rgba(120,112,70,.9)",
 				"--exhibit": "#0A0C07",
-				"--exhibit-ink": "#E3E8CC"
+				"--exhibit-ink": "#E3E8CC",
+				"--exhibit-muted": "#8E9878",
+				"--desk-link": "#FF86B4",
+				"--slip-muted": "#4B5A3C"
 			}
 		},
 		"type": {
