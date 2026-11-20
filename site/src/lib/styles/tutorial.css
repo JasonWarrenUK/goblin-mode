@@ -201,9 +201,8 @@ html.tut-snapping { scroll-snap-type: y mandatory; scroll-padding-top: 0; }
 .tut .viewbar .viewstate { font-family: var(--font-print); font-size: 0.85rem; font-weight: 600; }
 .tut[data-mode='list'] .step { scroll-margin-top: 4.5rem; min-height: 52vh; transition: box-shadow 180ms ease, color 180ms ease; }
 .tut[data-mode='list'] .step[data-state='active'] { box-shadow: 0 0 0 3px var(--accent), var(--shadow); }
-.tut[data-mode='list'] .step[data-state='pending'] { color: var(--ink-muted); border-style: dashed; border-color: var(--ink-muted); }
-.tut[data-mode='list'] .step[data-state='pending'] :is(.file, mark, .ref, .output, .snum) { opacity: 0.55; }
-.tut[data-mode='list'] .step[data-state='pending'] code { color: var(--ink-muted); }
+/* a step not reached yet keeps full-strength ink and is told apart by its dashed outline; the current step has the accent ring and its Now tag */
+.tut[data-mode='list'] .step[data-state='pending'] { border-style: dashed; border-color: var(--ink-muted); }
 .tut[data-mode='list'] .step[data-state='active'] .step-btn::after { content: 'Now'; display: inline-block; margin-left: 0.5rem; vertical-align: 0.3em;
 	font-family: var(--font-print); font-size: 0.42em; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
 	background: var(--accent); color: var(--accent-ink); padding: 0.1em 0.45em; border-radius: var(--radius-sm); }
