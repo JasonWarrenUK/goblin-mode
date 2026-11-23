@@ -1,5 +1,6 @@
 // The browser contrast sweep (e2e/contrast.e2e.ts): Chromium at a pinned version, serving the built
-// site from build/ under the Pages base path. Run `bun run build` first; `bun run test` does.
+// site from build/ under the Pages base path. `bun run test:contrast` builds first; CI runs
+// `bunx playwright test` on the build its `bun run test` step already made.
 
 import { defineConfig } from '@playwright/test';
 

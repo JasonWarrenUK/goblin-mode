@@ -72,7 +72,9 @@ jobs:
         run: bunx playwright install --with-deps chromium
       - if: steps.browser-cache.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
-      - run: bun run test:contrast
+      # `test` has already built build/ with this job's BASE_PATH, so the sweep reads that build rather
+      # than making its own (`test:contrast` builds first, for local runs); it is the build uploaded below.
+      - run: bunx playwright test
       - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
