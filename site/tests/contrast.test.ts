@@ -114,7 +114,7 @@ export const dimmings = (from: Rule[]): string[] => {
 		const stop = /^(?:from|to|\d+(?:\.\d+)?%)$/.test(rule.selector);
 		const firstStop = /^(?:from|0%)$/.test(rule.selector);
 		const values = [
-			...[...rule.body.matchAll(/(?:^|[;\s])opacity:\s*([^;]+)/g)].map((match) => ({ kind: 'opacity', raw: match[1]! })),
+			...[...rule.body.matchAll(/(?:^|[;\s])(opacity|fill-opacity|stroke-opacity):\s*([^;]+)/g)].map((match) => ({ kind: match[1]!, raw: match[2]! })),
 			...[...rule.body.matchAll(/(?:^|[;\s])filter:[^;]*\bopacity\(([^)]*)\)/g)].map((match) => ({ kind: 'filter: opacity()', raw: match[1]! })),
 		];
 		for (const { kind, raw } of values) {
@@ -138,7 +138,11 @@ export const dimmings = (from: Rule[]): string[] => {
 export const offSheetColour = (files: { path: string; text: string }[]): string[] => {
 	const property = '(?:color|opacity|filter|background(?:-color)?|-webkit-text-fill-color|fill|stroke)';
 	const markup = [new RegExp(`style="[^"]*\\b${property}\\s*:`), new RegExp(`style:${property}\\b`)];
-	const script = [/\.style\.(?:color|opacity|filter|background|backgroundColor|webkitTextFillColor|fill|stroke)\b/, new RegExp(`setProperty\\(\\s*['"]${property}['"]`)];
+	const script = [
+		/\.style\.(?:color|opacity|filter|background|backgroundColor|webkitTextFillColor|fill|stroke|fillOpacity|strokeOpacity)\b/,
+		new RegExp(`setProperty\\(\\s*['"]${property}['"]`),
+		/setAttribute\(\s*['"](?:style|fill|stroke|opacity|fill-opacity|stroke-opacity|color)['"]/,
+	];
 	return files.flatMap(({ path, text }) => {
 		const checks = path.endsWith('.ts') ? script : markup;
 		return text
@@ -216,8 +220,10 @@ describe('the forms of colour the contrast check can measure', () => {
 			probe('from', 'opacity: 0'),
 			probe('.leaving', 'opacity: 0'),
 			probe('.solid', 'opacity: 1'),
+			probe('.e', 'fill-opacity: 0.3'),
+			probe('.f', 'stroke-opacity: 40%'),
 		]);
-		expect(found.map((line) => line.split(' ')[1])).toEqual(['.a:', '.b:', '.c:', '.d:', 'to:', '50%:']);
+		expect(found.map((line) => line.split(' ')[1])).toEqual(['.a:', '.b:', '.c:', '.d:', 'to:', '50%:', '.e:', '.f:']);
 	});
 
 	it('sets no colour or opacity outside a stylesheet: no inline style, style directive or script', () => {
@@ -231,10 +237,11 @@ describe('the forms of colour the contrast check can measure', () => {
 			{ path: 'b.svelte', text: '<h4 style:color="silver">' },
 			{ path: 'c.svelte', text: '.motto { -webkit-text-fill-color: var(--surface) }' },
 			{ path: 'd.ts', text: "note.style.opacity = '0.3';" },
+			{ path: 'g.ts', text: "plant.setAttribute('style', 'fill: var(--ink); fill-opacity: 0.3');" },
 			{ path: 'e.svelte', text: '<div style="display: contents">' },
 			{ path: 'f.svelte', text: '<div style:--states={n}>' },
 		]);
-		expect(found.map((line) => line.split(':')[0])).toEqual(['a.svelte', 'b.svelte', 'c.svelte', 'd.ts']);
+		expect(found.map((line) => line.split(':')[0])).toEqual(['a.svelte', 'b.svelte', 'c.svelte', 'd.ts', 'g.ts']);
 	});
 });
 
