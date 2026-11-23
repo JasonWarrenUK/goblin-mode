@@ -9,6 +9,7 @@
 !/CLAUDE.md
 !/CHANGELOG.md
 !/keybindings.json
+!/.github/
 !/assets/
 
 # My customisations
@@ -55,6 +56,7 @@ marketplace/*/.claude-plugin/types/
 !/.claude/
 /.claude/*
 !/.claude/versioning.json
+!/.claude/themes/
 
 # === EXCLUDE INSIDE INCLUDED DIRS ===
 .DS_Store

@@ -1,0 +1,607 @@
+<style>
+/*
+	Tutorial directions: four layouts for one lesson (Some Assembly Required,
+	level 2), shown one at a time from the sticky switcher. Materials copied
+	from the mod-page and front-page wireframes: wonky sheets, torn slips with
+	tape, cardboard tabs, exhibit panels for code. Every colour, face and shape
+	is a token emitted from .claude/themes/goblin-html.json; tints are
+	color-mix() of those tokens. No marker face outside the zine drawing.
+*/
+[hidden]{display:none !important}
+*,*::before,*::after{box-sizing:border-box}
+body{
+	margin:0;
+	background-color:var(--desk);
+	background-image:radial-gradient(ellipse 22rem 14rem at 8% 12rem, var(--blot), transparent 70%);
+	color:var(--ink); font-family:var(--font-body); font-size:1.03rem; line-height:1.6;
+	padding-left:max(16px, env(safe-area-inset-left, 0px));
+	padding-right:max(16px, env(safe-area-inset-right, 0px));
+	padding-bottom:4rem;
+}
+h1,h2,h3,h4{font-family:var(--font-display); font-weight:700; text-wrap:balance; margin:0; line-height:1.08}
+p{margin:0}
+a{color:var(--accent); text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
+code{font-family:var(--font-mono); font-size:.86em; overflow-wrap:anywhere}
+.vh{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+
+/* switcher: a cardboard strip that stays at the top */
+.switcher{position:sticky; top:0; z-index:30; max-width:76rem; margin:0 auto;
+	display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.4rem 1rem;
+	background:var(--card); color:var(--card-ink); padding:.55rem .8rem;
+	border-radius:0 0 var(--radius-md) var(--radius-md); box-shadow:var(--shadow)}
+.switcher h1{font-size:1.2rem}
+.switch-buttons{display:flex; flex-wrap:wrap; gap:.4rem}
+.switch-buttons button{appearance:none; cursor:pointer; background:transparent; color:var(--card-ink);
+	border:2px solid var(--card-ink); border-radius:var(--radius-sm);
+	font-family:var(--font-print); font-weight:600; font-size:.85rem; line-height:1.2; padding:.35rem .65rem}
+.switch-buttons button[aria-pressed="true"]{background:var(--card-ink); color:var(--card)}
+.switch-buttons button:focus-visible{outline:3px solid var(--card-ink); outline-offset:2px}
+
+.desk{max-width:76rem; margin:0 auto; display:grid}
+.mockup{display:grid; gap:2rem; padding-top:1.5rem; scroll-margin-top:4rem; min-width:0}
+.mockup > *{min-width:0}
+.caption{justify-self:start; max-width:100%; background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); font-size:.92rem;
+	padding:.45rem .8rem; box-shadow:var(--shadow); transform:rotate(-.4deg)}
+.caption b{color:var(--slip-accent)}
+
+/* materials */
+.sheet{position:relative; min-width:0; background:var(--surface); color:var(--ink); border:2px solid var(--ink);
+	border-radius:var(--wonk); box-shadow:var(--shadow); padding:1.5rem clamp(1rem,3vw,2.25rem)}
+.sheet.alt{border-radius:var(--wonk-2)}
+.sheet > * + *{margin-top:.9rem}
+.sheet code{background:var(--surface-raised); padding:0 .25em; border-radius:var(--radius-sm)}
+.kicker{font-family:var(--font-print); font-weight:600; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted)}
+.lvl-head h2,.spec-head h2{font-size:clamp(2rem,5.2vw,3.5rem); margin-top:.35rem}
+.lede{font-size:1.1rem; max-width:46rem}
+.sec{font-size:clamp(1.6rem,3.4vw,2.3rem)}
+.snum{font-family:var(--font-print); font-weight:600; font-size:.6em; vertical-align:.25em; color:var(--card-ink);
+	background:var(--card); padding:.05em .4em; border-radius:var(--radius-sm); margin-right:.2em}
+.tag{font-family:var(--font-mono); font-size:.82em; white-space:nowrap; background:var(--exhibit); color:var(--slime); padding:0 .35em; border-radius:var(--radius-sm)}
+
+.slip{position:relative; background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); box-shadow:var(--shadow)}
+.slip code{background:none; color:var(--slip-accent); padding:0}
+.slip :focus-visible{outline-color:var(--slip-accent)}
+.slip.torn{background:none; box-shadow:none; isolation:isolate; filter:drop-shadow(var(--shadow)); --rag:var(--rag-a)}
+.slip.torn::after{content:""; position:absolute; inset:0; z-index:-1; background:var(--slip); clip-path:var(--rag)}
+.slip.torn::before{content:""; position:absolute; z-index:1; top:-.6rem; left:50%; width:4.2rem; height:1.15rem; margin-left:-2.1rem;
+	background:var(--tape); transform:rotate(-2.5deg);
+	clip-path:polygon(0 12%,6% 0,12% 14%,100% 0,97% 40%,100% 70%,95% 100%,10% 92%,4% 100%,0 60%)}
+
+/* code on an exhibit panel: one block span per line, so lines wrap under a gutter */
+.file{min-width:0}
+.sheet .file + .file,.after-step .file + .file{margin-top:1rem}
+.fname{display:inline-block; max-width:100%; overflow-wrap:anywhere; background:var(--card); color:var(--card-ink);
+	font-family:var(--font-mono); font-size:.74rem; padding:.2rem .6rem; border-radius:var(--radius-md) var(--radius-md) 0 0}
+.code{margin:0; background:var(--exhibit); color:var(--exhibit-ink); font-family:var(--font-mono); font-size:.8rem; line-height:1.6;
+	padding:.7rem 0; border-radius:0 var(--radius-md) var(--radius-md) var(--radius-md); tab-size:2; min-width:0}
+.code code{display:block; background:none; padding:0; font-size:inherit; color:inherit}
+.code .ln{display:block; position:relative; min-height:1.6em; white-space:pre-wrap; overflow-wrap:anywhere; padding:0 .9rem 0 2.4rem}
+.code .ln.cut{color:color-mix(in oklab, var(--exhibit-ink) 55%, var(--exhibit))}
+.code .ln.add{background:color-mix(in oklab, var(--slime) 17%, var(--exhibit))}
+.code .ln.add::before{content:"+"; position:absolute; left:.9rem; color:var(--slime); font-weight:600}
+.code.tagged .ln{padding-left:4.3rem}
+.code.tagged .ln.add::before{content:"+ " attr(data-step); left:.6rem; font-size:.85em}
+.code.marked .ln.mk{background:color-mix(in oklab, var(--card) 22%, var(--exhibit))}
+.code.marked .ln.mk::before{content:attr(data-mark); position:absolute; left:.6rem; color:var(--card); font-size:1.05em}
+.file.small .code{font-size:.76rem}
+.code :focus-visible{outline-color:var(--slime)}
+
+.logslip{margin-top:1rem; max-width:24rem}
+
+/* folded answer and exercise */
+.exercise{padding:1.6rem clamp(1rem,3vw,1.75rem) 1.2rem; max-width:52rem; transform:rotate(-.3deg); --rag:var(--rag-b)}
+.exercise h3{font-family:var(--font-display); font-size:1.5rem; color:var(--slip-ink)}
+.exercise > * + *{margin-top:.75rem}
+.exercise details > * + *{margin-top:.75rem}
+.exercise summary{cursor:pointer; font-weight:600; color:var(--slip-accent)}
+.exercise .file{margin-top:.75rem}
+q{quotes:"\201C" "\201D"}
+
+/* ========== 1. workshop ledger ========== */
+.levelbar{display:flex; align-items:end; flex-wrap:wrap; gap:.4rem 1.25rem; margin-bottom:-2rem; padding-left:1.5rem; position:relative; z-index:1}
+.lvl-count{font-family:var(--font-print); font-weight:600; font-size:.8rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink); padding-bottom:.4rem}
+.ltabs{display:flex; gap:.3rem; margin:0; padding:0; list-style:none}
+.ltabs a{display:block; min-width:2.6rem; text-align:center; text-decoration:none; background:var(--card); color:var(--card-ink);
+	font-family:var(--font-print); font-weight:600; padding:.35rem .7rem .3rem; border-radius:var(--radius-md) var(--radius-md) 0 0; box-shadow:var(--shadow)}
+.ltabs a[aria-current]{background:var(--surface); color:var(--ink); border:2px solid var(--ink); border-bottom:0; box-shadow:none; padding-bottom:.55rem; margin-bottom:-2px; position:relative}
+.ltabs a:focus-visible{outline-offset:-1px}
+#ledger .lvl-head{border-top-left-radius:var(--radius-md)}
+.prevnext{display:flex; flex-wrap:wrap; justify-content:space-between; gap:.5rem 1.5rem; font-family:var(--font-display); font-size:1.15rem; border-top:2px dashed var(--line); padding-top:.8rem}
+.spread{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:2rem; align-items:start}
+.steps{display:grid; gap:1.5rem; min-width:0}
+.step h3{font-size:clamp(1.5rem,3vw,2rem)}
+.step .pointer{font-size:.92rem; color:var(--ink-muted)}
+.step .also{font-family:var(--font-print); font-size:.9rem; font-weight:600}
+.step:nth-child(odd){border-radius:var(--wonk-2)}
+.filesheet{position:sticky; top:4.5rem; align-self:start; max-height:calc(100vh - 5.5rem); overflow:auto;
+	background:var(--slip); color:var(--slip-ink); padding:1.2rem 1.1rem 1.1rem; box-shadow:var(--shadow)}
+.filesheet h3{font-family:var(--font-print); font-weight:600; font-size:.82rem; letter-spacing:.14em; text-transform:uppercase; color:var(--slip-accent)}
+.filesheet .legend{font-size:.85rem; margin:.4rem 0 .8rem}
+.filesheet:focus-visible{outline-color:var(--slip-accent)}
+/* pointing at a step lights up its lines on the sheet */
+.spread:has(.step[data-step="2.1"]:is(:hover,:focus-within)) .filesheet .ln[data-step="2.1"],
+.spread:has(.step[data-step="2.2"]:is(:hover,:focus-within)) .filesheet .ln[data-step="2.2"],
+.spread:has(.step[data-step="2.3"]:is(:hover,:focus-within)) .filesheet .ln[data-step="2.3"]{
+	background:color-mix(in oklab, var(--slime) 40%, var(--exhibit)); box-shadow:inset 4px 0 0 var(--slime)}
+.real{display:grid; gap:1rem}
+.real > p{max-width:52rem}
+.realtabs{display:none; gap:.4rem; flex-wrap:wrap}
+.realtabs button{appearance:none; cursor:pointer; background:var(--card); color:var(--card-ink); border:2px solid var(--card-ink); border-radius:var(--radius-md) var(--radius-md) 0 0;
+	font-family:var(--font-print); font-weight:600; font-size:.85rem; padding:.4rem .7rem}
+.realtabs button[aria-pressed="true"]{background:var(--surface); color:var(--ink); border-color:var(--ink)}
+.pair{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); gap:1.5rem; align-items:start}
+.panel h4{font-size:1.35rem}
+.panel .note{font-size:.92rem; color:var(--ink-muted)}
+.marks{list-style:none; margin:0; padding:0; display:grid; gap:.7rem}
+.marks li{display:grid; grid-template-columns:2rem minmax(0,1fr); align-items:baseline}
+.marks .glyph{font-family:var(--font-print); font-size:1.35rem; color:var(--accent); line-height:1}
+
+/* ========== 2. scroll story ========== */
+.story{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.15fr); gap:2rem; align-items:start}
+.beats{display:grid; gap:1.5rem; min-width:0}
+.beat h3{font-size:clamp(1.4rem,2.8vw,1.9rem)}
+.beat .show{display:none}
+.pinned{display:none}
+.after-step{min-width:0}
+@media (min-width:761px) and (prefers-reduced-motion:no-preference){
+	.js .story .after-step{display:none}
+	.js .pinned{display:block; position:sticky; top:4.5rem; align-self:start}
+	.js .beats{gap:40vh; padding-block:10vh 30vh}
+	.js .beat{transition:box-shadow 160ms ease, transform 160ms ease}
+	.js .beat.on{box-shadow:0 0 0 3px var(--accent), var(--shadow)}
+	.js .beat .show{display:block; position:static; margin-top:1rem; appearance:none; cursor:pointer;
+		background:transparent; color:var(--ink); border:2px solid var(--ink); border-radius:var(--radius-sm);
+		font-family:var(--font-print); font-weight:600; font-size:.82rem; padding:.3rem .6rem}
+	/* the whole card is the button's hit area */
+	.js .beat .show::after{content:""; position:absolute; inset:0; border-radius:inherit}
+	.js .beat .show[aria-pressed="true"]{background:var(--ink); color:var(--surface)}
+	.js .pinned .ln{transition:background-color 200ms ease}
+	.js .pinned .ln.hl{background:color-mix(in oklab, var(--slime) 22%, var(--exhibit))}
+	.js .pinned .ln.hl::before{content:"+"; position:absolute; left:.9rem; color:var(--slime); font-weight:600}
+	.js .pinned .code.marked .ln.mk.hl::before{content:attr(data-mark); color:var(--slime)}
+	.js .pinned .code.marked .ln.mk.hl{background:color-mix(in oklab, var(--slime) 22%, var(--exhibit))}
+}
+
+/* ========== 3. specimen sheets ========== */
+.specimen{padding:1.75rem clamp(1rem,3vw,2.5rem) 2rem}
+.spec-head .key{font-family:var(--font-print); font-size:.88rem; display:flex; flex-wrap:wrap; gap:.4rem .6rem; align-items:center}
+mark{padding:0 .25em; border-radius:var(--radius-sm)}
+mark.m1{background:var(--slime); color:var(--on-slime)}
+mark.m2{background:var(--card); color:var(--card-ink)}
+mark.m3{background:var(--info); color:var(--surface)}
+.code.spec .ln.m1{background:color-mix(in oklab, var(--slime) 22%, var(--exhibit)); box-shadow:inset 5px 0 0 var(--slime)}
+.code.spec .ln.m2{background:color-mix(in oklab, var(--card) 30%, var(--exhibit)); box-shadow:inset 5px 0 0 var(--card)}
+.code.spec .ln.m3{background:color-mix(in oklab, var(--info) 40%, var(--exhibit)); box-shadow:inset 5px 0 0 color-mix(in oklab, var(--info) 55%, var(--exhibit-ink))}
+.code.spec .ln[data-n]::before{content:attr(data-n); position:absolute; left:.55rem; top:.2em; width:1.25rem; height:1.25rem; border-radius:50%;
+	display:grid; place-items:center; font-family:var(--font-print); font-weight:600; font-size:.72rem; line-height:1}
+.code.spec .ln.m1[data-n]::before{background:var(--slime); color:var(--on-slime)}
+.code.spec .ln.m2[data-n]::before{background:var(--card); color:var(--card-ink)}
+.code.spec .ln.m3[data-n]::before{background:var(--info); color:var(--surface)}
+.badge{display:inline-grid; place-items:center; width:1.5rem; height:1.5rem; border-radius:50%; font-family:var(--font-print); font-weight:600; font-size:.8rem; line-height:1; margin-right:.45rem; vertical-align:.1em}
+.badge.m1{background:var(--slime); color:var(--on-slime)}
+.badge.m2{background:var(--card); color:var(--card-ink)}
+.badge.m3{background:var(--info); color:var(--surface)}
+.callouts{list-style:none; margin:1rem 0 0; padding:0; display:grid; gap:.8rem}
+.co{background:var(--slip); color:var(--slip-ink); font-family:var(--font-print); font-size:.88rem; line-height:1.5; padding:.7rem .85rem; box-shadow:var(--shadow)}
+.co code{background:none; color:var(--slip-accent); padding:0}
+.co b{font-weight:600}
+.stage{position:relative}
+.stage2{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:1rem 1.5rem; align-items:start; margin-top:2rem}
+.stage2 .callouts{margin:0}
+.stage2 .logslip{grid-column:1; margin-top:0}
+@media (min-width:1100px){
+	/* callouts pinned beside the line they describe */
+	.stage{padding:0 15.25rem 5rem}
+	.stage .callouts{margin:0}
+	.stage .co{position:absolute; width:14rem; top:calc(1.6rem + .7rem + var(--at) * 1.28rem)}
+	.stage .co.left{left:0; transform:rotate(-.6deg)}
+	.stage .co.right{right:0; transform:rotate(.5deg)}
+	/* the edge facing the file carries the step colour */
+	.stage .co.left{border-right:5px solid var(--edge)}
+	.stage .co.right{border-left:5px solid var(--edge)}
+	.stage .co.m1{--edge:var(--slime)} .stage .co.m2{--edge:var(--card)} .stage .co.m3{--edge:var(--info)}
+	.stage .code{font-size:.8rem}
+	.stage .code .ln{white-space:pre}
+}
+.small-sheet{max-width:62rem}
+.realgrid{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:1.25rem; align-items:start}
+
+/* ========== 4. zine pages ========== */
+.zine{display:grid; gap:1.5rem; max-width:46rem; width:100%; margin:0 auto}
+.panel-fig{margin:0; padding:1rem}
+.zine-svg{display:block; width:100%; height:auto}
+.z-edge{stroke:var(--ink); stroke-width:3; stroke-linejoin:round; stroke-linecap:round}
+.z-edge2{stroke:var(--ink); stroke-width:2.5}
+.z-ledger{fill:var(--slip)}
+.z-rule{fill:none; stroke:var(--slip-line); stroke-width:2}
+.z-scrawl{fill:none; stroke:var(--slip-accent); stroke-width:3; stroke-linecap:round}
+.z-clip{fill:var(--card-dark)}
+.z-wire{fill:none; stroke:var(--ink); stroke-width:3; stroke-linecap:round}
+.z-skill{fill:var(--surface-raised)}
+.z-fold{fill:var(--line)}
+.z-front{fill:none; stroke:var(--accent-2); stroke-width:5; stroke-linecap:round}
+.z-body{fill:none; stroke:var(--ink-muted); stroke-width:3; stroke-linecap:round}
+.z-script{fill:var(--exhibit)}
+.z-code{fill:var(--slime); font-family:var(--font-mono); font-size:20px}
+.z-tape{fill:var(--tape)}
+.z-arrow{fill:none; stroke:var(--accent); stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round}
+.z-letter{font-family:var(--font-marker); fill:var(--accent)}
+.z-title{font-size:34px; fill:var(--ink)}
+.z-small{font-size:26px; fill:var(--slip-ink)}
+.z-tag{font-size:38px}
+.z-cap{font-size:54px; fill:var(--ink)}
+.transcript{padding:.8rem 1.1rem}
+.transcript summary{cursor:pointer; font-weight:600; color:var(--slip-accent)}
+.transcript p{margin-top:.6rem}
+.zpage{padding-bottom:2.4rem}
+.zpage h3{font-size:clamp(1.5rem,3.2vw,2rem)}
+.folio{position:absolute; right:1.4rem; bottom:.7rem; font-family:var(--font-print); font-size:.8rem; color:var(--ink-muted)}
+.zine .exercise{max-width:none}
+
+/* ========== narrow ========== */
+@media (max-width:760px){
+	.sheet,.sheet.alt,.step:nth-child(odd){border-radius:var(--radius-md)}
+	.caption,.filesheet,.exercise,.co{transform:none}
+	.spread,.story,.pair,.stage2,.realgrid{grid-template-columns:minmax(0,1fr)}
+	.filesheet{position:static; max-height:none; overflow:visible}
+	.js .realtabs{display:flex}
+	.js .real[data-show="ours"] .panel.yours,.js .real[data-show="yours"] .panel.ours{display:none}
+	.pair{gap:0}
+	.code .ln{padding-left:2rem; padding-right:.6rem}
+	.code .ln.add::before{left:.65rem}
+	.code.tagged .ln{padding-left:3.8rem}
+	.code.tagged .ln.add::before{left:.45rem}
+	.levelbar{padding-left:.5rem}
+	.switcher h1{font-size:1rem}
+	.panel-fig{padding:.4rem}
+	.switch-buttons button{font-size:.8rem; padding:.3rem .5rem}
+}
+
+@media (prefers-reduced-motion:reduce){
+	*,*::before,*::after{transition:none !important; scroll-behavior:auto !important}
+}
+</style>
+
+<nav class="switcher" aria-label="Mockups">
+	<h1>Tutorial directions</h1>
+	<div class="switch-buttons">
+		<button type="button" data-target="ledger" aria-pressed="true" aria-controls="ledger"><span aria-hidden="true">1</span> Ledger</button>
+		<button type="button" data-target="scroll" aria-pressed="false" aria-controls="scroll"><span aria-hidden="true">2</span> Scroll</button>
+		<button type="button" data-target="specimen" aria-pressed="false" aria-controls="specimen"><span aria-hidden="true">3</span> Specimen</button>
+		<button type="button" data-target="zine" aria-pressed="false" aria-controls="zine"><span aria-hidden="true">4</span> Zine</button>
+	</div>
+</nav>
+
+<main class="desk">
+<section class="mockup" id="ledger" aria-labelledby="ledger-cap">
+<p class="caption" id="ledger-cap"><b>1 · Workshop ledger.</b> Steps beside a sticky file sheet, the code column pattern from Stripe's API reference.</p>
+<div class="levelbar">
+	<p class="lvl-count">Level 2 of 5</p>
+	<ol class="ltabs" aria-label="Levels">
+		<li><a href="#ledger" title="One File, One Job">1</a></li><li><a href="#ledger" aria-current="step" title="Give It a Script and a Ledger">2</a></li><li><a href="#ledger" title="Split the Instructions">3</a></li><li><a href="#ledger" title="Let It Ask First">4</a></li><li><a href="#ledger" title="Ship It as a Plugin">5</a></li>
+	</ol>
+</div>
+<header class="sheet lvl-head">
+	<p class="kicker">Some Assembly Required</p>
+	<h2>Level 2: Give It a Script and a Ledger</h2>
+	<p class="lede">At level 1, <code>tidy-imports</code> was one file that asked Claude to sort a file's imports by hand. This level gives the sorting to a script, lets that one script run without a prompt and keeps a ledger of every file it touches.</p>
+	<nav class="prevnext" aria-label="Neighbouring levels"><a href="#ledger">← Level 1: One File, One Job</a><a href="#ledger">Level 3: Split the Instructions →</a></nav>
+</header>
+<div class="spread">
+	<div class="steps">
+<article class="sheet step" data-step="2.1" aria-labelledby="l-s21">
+	<h3 id="l-s21"><span class="snum">2.1</span> Give It a Script</h3>
+	<p>At level 1, Claude sorted the imports itself, and a model asked to reorder lines will now and then reflow one it was told to leave alone. A script does the same thing every time and costs no tokens, so the sorting moves into <code>scripts/sort-imports.sh</code> in the skill's folder.</p>
+<p>Make the script executable once with <code>chmod +x</code>, then replace the three sorting lines in SKILL.md with an instruction to run it.</p>
+	<p class="pointer">Its lines in SKILL.md are marked <span class="tag">+ 2.1</span> on the file sheet.</p>
+	<p class="also">The new script, whole:</p><div class="file"><p class="fname">.claude/skills/tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln add">#!/usr/bin/env bash</span><span class="ln add"># Sort the import lines at the top of a file, in place.</span><span class="ln add">set -euo pipefail</span><span class="ln add"></span><span class="ln add">file=&quot;$1&quot;</span><span class="ln add"></span><span class="ln add"># How many lines from the top start with &quot;import &quot;?</span><span class="ln add">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln add">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln add">	echo &quot;no imports at the top of $file&quot;</span><span class="ln add">	exit 0</span><span class="ln add">fi</span><span class="ln add"></span><span class="ln add">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln add">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln add">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div>
+</article>
+<article class="sheet step" data-step="2.2" aria-labelledby="l-s22">
+	<h3 id="l-s22"><span class="snum">2.2</span> Scope the Tool</h3>
+	<p>Running a script is a Bash call, and Claude asks before each one unless the skill approves it. <code>allowed-tools</code> approves calls for as long as the skill runs; naming the script's full path, with <code>:*</code> for whatever arguments follow, approves that one script and no other command.</p>
+<p>The rule matches the start of the command, so the body calls the script by exactly that path, with no <code>bash</code> or <code>./</code> in front.</p>
+	<p class="pointer">Its lines in SKILL.md are marked <span class="tag">+ 2.2</span> on the file sheet.</p>
+
+</article>
+<article class="sheet step" data-step="2.3" aria-labelledby="l-s23">
+	<h3 id="l-s23"><span class="snum">2.3</span> Keep a Ledger</h3>
+	<p>A ledger lets a later run say what an earlier one touched. The script appends one line per file to <code>.claude/tidy-imports.log</code>, the path and how many imports it sorted, so writing the ledger needs no extra permission.</p>
+<p>SKILL.md tells Claude to read the ledger first and to leave the writing to the script.</p>
+	<p class="pointer">Its lines in SKILL.md are marked <span class="tag">+ 2.3</span> on the file sheet.</p>
+	<p class="also">The script after this step, with the two ledger lines marked:</p><div class="file"><p class="fname">.claude/skills/tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln">#!/usr/bin/env bash</span><span class="ln"># Sort the import lines at the top of a file, in place.</span><span class="ln">set -euo pipefail</span><span class="ln"></span><span class="ln">file=&quot;$1&quot;</span><span class="ln add">ledger=&quot;.claude/tidy-imports.log&quot;</span><span class="ln"></span><span class="ln"># How many lines from the top start with &quot;import &quot;?</span><span class="ln">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln">	echo &quot;no imports at the top of $file&quot;</span><span class="ln">	exit 0</span><span class="ln">fi</span><span class="ln"></span><span class="ln">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln add">printf '%s\t%s\n' &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span><span class="ln">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div><div class="logslip"><div class="file small"><p class="fname">.claude/tidy-imports.log after two runs</p><pre class="code"><code><span class="ln">src/app.ts	6</span><span class="ln">src/routes/home.ts	3</span></code></pre></div></div>
+</article>
+	</div>
+	<aside class="filesheet" aria-labelledby="l-file" tabindex="0">
+		<h3 id="l-file">SKILL.md, as of Level 2</h3>
+		<p class="legend">A line marked <span class="tag">+ 2.1</span> arrived in step 2.1. Hover over a step to light up its lines.</p>
+		<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code tagged"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln add" data-step="2.2">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln add" data-step="2.3">Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln add" data-step="2.3">already listed there, say so before going on.</span><span class="ln add" data-step="2.3"></span><span class="ln add" data-step="2.1">Run the script on the file, by exactly this path:</span><span class="ln add" data-step="2.1"></span><span class="ln add" data-step="2.1">```bash</span><span class="ln add" data-step="2.1">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln add" data-step="2.1">```</span><span class="ln add" data-step="2.1"></span><span class="ln add" data-step="2.1">It sorts the import block in place. Do not reorder any</span><span class="ln add" data-step="2.1">lines yourself or edit the file after it runs. If the</span><span class="ln add" data-step="2.1">script exits non-zero, report its message and stop.</span><span class="ln add" data-step="2.3"></span><span class="ln add" data-step="2.3">The script also writes the ledger line. Never write to</span><span class="ln add" data-step="2.3">.claude/tidy-imports.log yourself.</span></code></pre></div>
+	</aside>
+</div>
+<section class="real" data-show="ours" aria-labelledby="l-real">
+	<h3 id="l-real" class="sec">The Real Thing</h3>
+	<p><code>project-tag_version</code> lives in this repository and tags a release after a merge to main. It makes two of this level's three moves: a script does the part that must come out the same every time, and <code>allowed-tools</code> names that script by its path. Its third marked line is one <code>tidy-imports</code> does not have yet.</p>
+	<div class="realtabs" role="group" aria-label="Which file to show">
+		<button type="button" data-show="yours" aria-pressed="false">tidy-imports</button>
+		<button type="button" data-show="ours" aria-pressed="true">project-tag_version</button>
+	</div>
+	<div class="pair">
+		<div class="sheet alt panel yours">
+			<h4>Invented: <code>tidy-imports</code></h4>
+			<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code marked"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln mk" data-mark="①">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln">Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln">already listed there, say so before going on.</span><span class="ln"></span><span class="ln">Run the script on the file, by exactly this path:</span><span class="ln"></span><span class="ln">```bash</span><span class="ln mk" data-mark="②">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln">```</span><span class="ln"></span><span class="ln">It sorts the import block in place. Do not reorder any</span><span class="ln">lines yourself or edit the file after it runs. If the</span><span class="ln">script exits non-zero, report its message and stop.</span><span class="ln"></span><span class="ln">The script also writes the ledger line. Never write to</span><span class="ln">.claude/tidy-imports.log yourself.</span></code></pre></div>
+			<p class="note">Markers ① and ② sit on the same two moves as the real file.</p>
+		</div>
+		<div class="sheet panel ours">
+			<h4>Real: <code>project-tag_version</code></h4>
+			<div class="file"><p class="fname">skills/project-tag_version/SKILL.md</p><pre class="code marked"><code><span class="ln">---</span><span class="ln">name: &quot;Project: Tag Version&quot;</span><span class="ln">description: &quot;Tag the release after a merge to main, computing the next semver tag with svu&quot;</span><span class="ln cut">...</span><span class="ln mk" data-mark="③">disable-model-invocation: true</span><span class="ln mk" data-mark="①">allowed-tools: [&quot;Bash(svu:*)&quot;, &quot;Bash(git:*)&quot;, &quot;Bash(~/.claude/library/scripts/safe-version-next.sh:*)&quot;]</span><span class="ln cut">...</span><span class="ln">---</span><span class="ln"></span><span class="ln"># Tag the release with `svu`</span><span class="ln"></span><span class="ln cut">...</span><span class="ln"></span><span class="ln">```bash</span><span class="ln mk" data-mark="②">TAG=&quot;$(&quot;$HOME&quot;/.claude/library/scripts/safe-version-next.sh)&quot; &amp;&amp; git tag &quot;$TAG&quot; &amp;&amp; git push origin &quot;$TAG&quot;</span><span class="ln">```</span><span class="ln cut">...</span></code></pre></div>
+			<ol class="marks"><li><span class="glyph" aria-hidden="true">①</span><span class="vh">Marker ①: </span><code>allowed-tools</code> names <code>safe-version-next.sh</code> by its full path, the move from step 2.2, beside <code>svu</code> and <code>git</code> for reading history and pushing one tag.</li><li><span class="glyph" aria-hidden="true">②</span><span class="vh">Marker ②: </span>The body never asks Claude to work out the next version: it runs the script and tags whatever the script prints.</li><li><span class="glyph" aria-hidden="true">③</span><span class="vh">Marker ③: </span><code>disable-model-invocation: true</code> stops Claude starting the skill on its own; a person types its slash command once a merge has landed, because a pushed tag is hard to take back.</li></ol>
+		</div>
+	</div>
+</section>
+<aside class="slip torn exercise" aria-labelledby="l-ex">
+	<h3 id="l-ex">Try it: make the ledger line include the date</h3>
+	<p>Change the script so each ledger line starts with the day it was written. Then change the ledger paragraph in SKILL.md so Claude says when a file was last tidied.</p>
+	<details>
+		<summary>Show the answer</summary>
+		<p>In <code>sort-imports.sh</code>, put the date in front of the path:</p>
+		<div class="file"><pre class="code"><code><span class="ln add">printf '%s\t%s\t%s\n' &quot;$(date +%F)&quot; &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span></code></pre></div>
+		<p><code>date +%F</code> prints the date as <code>2026-11-19</code>, which sorts in date order as plain text. In SKILL.md, the second ledger line becomes: <q>already listed there, say on which date it was last tidied.</q></p>
+	</details>
+</aside>
+</section>
+
+<section class="mockup" id="scroll" aria-labelledby="scroll-cap">
+<p class="caption" id="scroll-cap"><b>2 · Scroll story.</b> The file stays pinned and changes as each step scrolls past, after Code Hike's scrollycoding.</p>
+<header class="sheet lvl-head">
+	<p class="kicker">Some Assembly Required · Level 2 of 5</p>
+	<h2>Give It a Script and a Ledger</h2>
+</header>
+<div class="story">
+	<div class="beats">
+<article class="sheet beat" data-file="skill" data-upto="0" data-hl="none" aria-labelledby="s-b0">
+	<h3 id="s-b0">Where Level 1 Left It</h3>
+	<p>At level 1, <code>tidy-imports</code> was one file that asked Claude to sort a file's imports by hand. This level gives the sorting to a script, lets that one script run without a prompt and keeps a ledger of every file it touches.</p><p>Here is the whole of level 1: three lines of frontmatter and a body that does the sorting in prose.</p>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b0">Show in the file</button>
+</article>
+<div class="after-step"><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln">Sort the import statements at the top of the file</span><span class="ln">alphabetically, one per line. Leave everything below</span><span class="ln">the imports exactly as it was.</span></code></pre></div></div>
+<article class="sheet beat alt" data-file="script" data-upto="1" data-hl="2.1" aria-labelledby="s-b1">
+	<h3 id="s-b1"><span class="snum">2.1</span> Give It a Script</h3>
+	<p>At level 1, Claude sorted the imports itself, and a model asked to reorder lines will now and then reflow one it was told to leave alone. A script does the same thing every time and costs no tokens, so the sorting moves into <code>scripts/sort-imports.sh</code> in the skill's folder.</p>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b1">Show in the file</button>
+</article>
+<article class="sheet beat" data-file="skill" data-upto="1" data-hl="2.1" aria-labelledby="s-b2">
+	<h3 id="s-b2"><span class="snum">2.1</span> Point SKILL.md at It</h3>
+
+<p>Make the script executable once with <code>chmod +x</code>, then replace the three sorting lines in SKILL.md with an instruction to run it.</p>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b2">Show in the file</button>
+</article>
+<div class="after-step"><div class="file"><p class="fname">.claude/skills/tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln add">#!/usr/bin/env bash</span><span class="ln add"># Sort the import lines at the top of a file, in place.</span><span class="ln add">set -euo pipefail</span><span class="ln add"></span><span class="ln add">file=&quot;$1&quot;</span><span class="ln add"></span><span class="ln add"># How many lines from the top start with &quot;import &quot;?</span><span class="ln add">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln add">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln add">	echo &quot;no imports at the top of $file&quot;</span><span class="ln add">	exit 0</span><span class="ln add">fi</span><span class="ln add"></span><span class="ln add">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln add">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln add">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln add">Run the script on the file, by exactly this path:</span><span class="ln add"></span><span class="ln add">```bash</span><span class="ln add">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln add">```</span><span class="ln add"></span><span class="ln add">It sorts the import block in place. Do not reorder any</span><span class="ln add">lines yourself or edit the file after it runs. If the</span><span class="ln add">script exits non-zero, report its message and stop.</span></code></pre></div></div>
+<article class="sheet beat alt" data-file="skill" data-upto="2" data-hl="2.2" aria-labelledby="s-b3">
+	<h3 id="s-b3"><span class="snum">2.2</span> Scope the Tool</h3>
+	<p>Running a script is a Bash call, and Claude asks before each one unless the skill approves it. <code>allowed-tools</code> approves calls for as long as the skill runs; naming the script's full path, with <code>:*</code> for whatever arguments follow, approves that one script and no other command.</p>
+<p>The rule matches the start of the command, so the body calls the script by exactly that path, with no <code>bash</code> or <code>./</code> in front.</p>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b3">Show in the file</button>
+</article>
+<div class="after-step"><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln add">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln">Run the script on the file, by exactly this path:</span><span class="ln"></span><span class="ln">```bash</span><span class="ln">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln">```</span><span class="ln"></span><span class="ln">It sorts the import block in place. Do not reorder any</span><span class="ln">lines yourself or edit the file after it runs. If the</span><span class="ln">script exits non-zero, report its message and stop.</span></code></pre></div></div>
+<article class="sheet beat" data-file="script" data-upto="3" data-hl="2.3" aria-labelledby="s-b4">
+	<h3 id="s-b4"><span class="snum">2.3</span> Keep a Ledger</h3>
+	<p>A ledger lets a later run say what an earlier one touched. The script appends one line per file to <code>.claude/tidy-imports.log</code>, the path and how many imports it sorted, so writing the ledger needs no extra permission.</p><div class="logslip"><div class="file small"><p class="fname">.claude/tidy-imports.log after two runs</p><pre class="code"><code><span class="ln">src/app.ts	6</span><span class="ln">src/routes/home.ts	3</span></code></pre></div></div>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b4">Show in the file</button>
+</article>
+<article class="sheet beat alt" data-file="skill" data-upto="3" data-hl="2.3" aria-labelledby="s-b5">
+	<h3 id="s-b5"><span class="snum">2.3</span> Read the Ledger First</h3>
+
+<p>SKILL.md tells Claude to read the ledger first and to leave the writing to the script.</p>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b5">Show in the file</button>
+</article>
+<div class="after-step"><div class="file"><p class="fname">.claude/skills/tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln">#!/usr/bin/env bash</span><span class="ln"># Sort the import lines at the top of a file, in place.</span><span class="ln">set -euo pipefail</span><span class="ln"></span><span class="ln">file=&quot;$1&quot;</span><span class="ln add">ledger=&quot;.claude/tidy-imports.log&quot;</span><span class="ln"></span><span class="ln"># How many lines from the top start with &quot;import &quot;?</span><span class="ln">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln">	echo &quot;no imports at the top of $file&quot;</span><span class="ln">	exit 0</span><span class="ln">fi</span><span class="ln"></span><span class="ln">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln add">printf '%s\t%s\n' &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span><span class="ln">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln add">Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln add">already listed there, say so before going on.</span><span class="ln add"></span><span class="ln">Run the script on the file, by exactly this path:</span><span class="ln"></span><span class="ln">```bash</span><span class="ln">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln">```</span><span class="ln"></span><span class="ln">It sorts the import block in place. Do not reorder any</span><span class="ln">lines yourself or edit the file after it runs. If the</span><span class="ln">script exits non-zero, report its message and stop.</span><span class="ln add"></span><span class="ln add">The script also writes the ledger line. Never write to</span><span class="ln add">.claude/tidy-imports.log yourself.</span></code></pre></div></div>
+<article class="sheet beat" data-file="real" data-upto="3" data-hl="①" aria-labelledby="s-b6">
+	<h3 id="s-b6"><span class="snum">①</span> The Real Thing</h3>
+	<p><code>project-tag_version</code> lives in this repository and tags a release after a merge to main. It makes two of this level's three moves: a script does the part that must come out the same every time, and <code>allowed-tools</code> names that script by its path. Its third marked line is one <code>tidy-imports</code> does not have yet.</p><p><code>allowed-tools</code> names <code>safe-version-next.sh</code> by its full path, the move from step 2.2, beside <code>svu</code> and <code>git</code> for reading history and pushing one tag.</p>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b6">Show in the file</button>
+</article>
+<article class="sheet beat alt" data-file="real" data-upto="3" data-hl="②" aria-labelledby="s-b7">
+	<h3 id="s-b7"><span class="snum">②</span> The Script Call</h3>
+	<p>The body never asks Claude to work out the next version: it runs the script and tags whatever the script prints.</p>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b7">Show in the file</button>
+</article>
+<article class="sheet beat" data-file="real" data-upto="3" data-hl="③" aria-labelledby="s-b8">
+	<h3 id="s-b8"><span class="snum">③</span> Started by Hand</h3>
+	<p><code>disable-model-invocation: true</code> stops Claude starting the skill on its own; a person types its slash command once a merge has landed, because a pushed tag is hard to take back.</p>
+	<button type="button" class="show" aria-pressed="false" aria-describedby="s-b8">Show in the file</button>
+</article>
+<div class="after-step"><div class="file"><p class="fname">skills/project-tag_version/SKILL.md</p><pre class="code marked"><code><span class="ln">---</span><span class="ln">name: &quot;Project: Tag Version&quot;</span><span class="ln">description: &quot;Tag the release after a merge to main, computing the next semver tag with svu&quot;</span><span class="ln cut">...</span><span class="ln mk" data-mark="③">disable-model-invocation: true</span><span class="ln mk" data-mark="①">allowed-tools: [&quot;Bash(svu:*)&quot;, &quot;Bash(git:*)&quot;, &quot;Bash(~/.claude/library/scripts/safe-version-next.sh:*)&quot;]</span><span class="ln cut">...</span><span class="ln">---</span><span class="ln"></span><span class="ln"># Tag the release with `svu`</span><span class="ln"></span><span class="ln cut">...</span><span class="ln"></span><span class="ln">```bash</span><span class="ln mk" data-mark="②">TAG=&quot;$(&quot;$HOME&quot;/.claude/library/scripts/safe-version-next.sh)&quot; &amp;&amp; git tag &quot;$TAG&quot; &amp;&amp; git push origin &quot;$TAG&quot;</span><span class="ln">```</span><span class="ln cut">...</span></code></pre></div></div>
+	</div>
+	<aside class="pinned" aria-label="The file as it stands at the highlighted step" data-file="skill">
+		<div class="pf" data-file="skill"><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln" data-o="0" data-hl="1">---</span><span class="ln" data-o="0" data-hl="1">name: tidy-imports</span><span class="ln" data-o="0" data-hl="1">description: Sort the import statements at the top of a file</span><span class="ln" data-o="0" data-hl="1">arguments: [path]</span><span class="ln" data-o="2" data-hl="2.2">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln" data-o="0" data-hl="1">---</span><span class="ln" data-o="0" data-hl="1"></span><span class="ln" data-o="0" data-hl="1">Tidy the imports in $path.</span><span class="ln" data-o="0" data-hl="1"></span><span class="ln" data-o="-1" data-hl="L1" hidden>Sort the import statements at the top of the file</span><span class="ln" data-o="-1" data-hl="L1" hidden>alphabetically, one per line. Leave everything below</span><span class="ln" data-o="-1" data-hl="L1" hidden>the imports exactly as it was.</span><span class="ln" data-o="3" data-hl="2.3">Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln" data-o="3" data-hl="2.3">already listed there, say so before going on.</span><span class="ln" data-o="3" data-hl="2.3"></span><span class="ln" data-o="1" data-hl="2.1">Run the script on the file, by exactly this path:</span><span class="ln" data-o="1" data-hl="2.1"></span><span class="ln" data-o="1" data-hl="2.1">```bash</span><span class="ln" data-o="1" data-hl="2.1">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln" data-o="1" data-hl="2.1">```</span><span class="ln" data-o="1" data-hl="2.1"></span><span class="ln" data-o="1" data-hl="2.1">It sorts the import block in place. Do not reorder any</span><span class="ln" data-o="1" data-hl="2.1">lines yourself or edit the file after it runs. If the</span><span class="ln" data-o="1" data-hl="2.1">script exits non-zero, report its message and stop.</span><span class="ln" data-o="3" data-hl="2.3"></span><span class="ln" data-o="3" data-hl="2.3">The script also writes the ledger line. Never write to</span><span class="ln" data-o="3" data-hl="2.3">.claude/tidy-imports.log yourself.</span></code></pre></div></div>
+		<div class="pf" data-file="script" hidden><div class="file"><p class="fname">.claude/skills/tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln" data-o="1" data-hl="2.1">#!/usr/bin/env bash</span><span class="ln" data-o="1" data-hl="2.1"># Sort the import lines at the top of a file, in place.</span><span class="ln" data-o="1" data-hl="2.1">set -euo pipefail</span><span class="ln" data-o="1" data-hl="2.1"></span><span class="ln" data-o="1" data-hl="2.1">file=&quot;$1&quot;</span><span class="ln" data-o="3" data-hl="2.3">ledger=&quot;.claude/tidy-imports.log&quot;</span><span class="ln" data-o="1" data-hl="2.1"></span><span class="ln" data-o="1" data-hl="2.1"># How many lines from the top start with &quot;import &quot;?</span><span class="ln" data-o="1" data-hl="2.1">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln" data-o="1" data-hl="2.1">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln" data-o="1" data-hl="2.1">	echo &quot;no imports at the top of $file&quot;</span><span class="ln" data-o="1" data-hl="2.1">	exit 0</span><span class="ln" data-o="1" data-hl="2.1">fi</span><span class="ln" data-o="1" data-hl="2.1"></span><span class="ln" data-o="1" data-hl="2.1">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln" data-o="1" data-hl="2.1">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln" data-o="3" data-hl="2.3">printf '%s\t%s\n' &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span><span class="ln" data-o="1" data-hl="2.1">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div></div>
+		<div class="pf" data-file="real" hidden><div class="file"><p class="fname">skills/project-tag_version/SKILL.md</p><pre class="code marked"><code><span class="ln" data-o="0" data-hl="1">---</span><span class="ln" data-o="0" data-hl="1">name: &quot;Project: Tag Version&quot;</span><span class="ln" data-o="0" data-hl="1">description: &quot;Tag the release after a merge to main, computing the next semver tag with svu&quot;</span><span class="ln cut" data-o="0" data-hl="1">...</span><span class="ln mk" data-mark="③" data-o="0" data-hl="③">disable-model-invocation: true</span><span class="ln mk" data-mark="①" data-o="0" data-hl="①">allowed-tools: [&quot;Bash(svu:*)&quot;, &quot;Bash(git:*)&quot;, &quot;Bash(~/.claude/library/scripts/safe-version-next.sh:*)&quot;]</span><span class="ln cut" data-o="0" data-hl="1">...</span><span class="ln" data-o="0" data-hl="1">---</span><span class="ln" data-o="0" data-hl="1"></span><span class="ln" data-o="0" data-hl="1"># Tag the release with `svu`</span><span class="ln" data-o="0" data-hl="1"></span><span class="ln cut" data-o="0" data-hl="1">...</span><span class="ln" data-o="0" data-hl="1"></span><span class="ln" data-o="0" data-hl="1">```bash</span><span class="ln mk" data-mark="②" data-o="0" data-hl="②">TAG=&quot;$(&quot;$HOME&quot;/.claude/library/scripts/safe-version-next.sh)&quot; &amp;&amp; git tag &quot;$TAG&quot; &amp;&amp; git push origin &quot;$TAG&quot;</span><span class="ln" data-o="0" data-hl="1">```</span><span class="ln cut" data-o="0" data-hl="1">...</span></code></pre></div></div>
+	</aside>
+</div>
+<aside class="slip torn exercise" aria-labelledby="s-ex">
+	<h3 id="s-ex">Try it: make the ledger line include the date</h3>
+	<p>Change the script so each ledger line starts with the day it was written. Then change the ledger paragraph in SKILL.md so Claude says when a file was last tidied.</p>
+	<details>
+		<summary>Show the answer</summary>
+		<p>In <code>sort-imports.sh</code>, put the date in front of the path:</p>
+		<div class="file"><pre class="code"><code><span class="ln add">printf '%s\t%s\t%s\n' &quot;$(date +%F)&quot; &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span></code></pre></div>
+		<p><code>date +%F</code> prints the date as <code>2026-11-19</code>, which sorts in date order as plain text. In SKILL.md, the second ledger line becomes: <q>already listed there, say on which date it was last tidied.</q></p>
+	</details>
+</aside>
+</section>
+
+<section class="mockup" id="specimen" aria-labelledby="specimen-cap">
+<p class="caption" id="specimen-cap"><b>3 · Specimen sheets.</b> One annotated exhibit with colour-matched notes, after Bartosz Ciechanowski's explainers and Tailwind's code callouts.</p>
+<article class="sheet specimen" aria-labelledby="p-title">
+	<header class="spec-head">
+		<p class="kicker">Some Assembly Required · Specimen 2 of 5</p>
+		<h2 id="p-title">Give It a Script and a Ledger</h2>
+		<p class="lede">At level 1, <code>tidy-imports</code> was one file that asked Claude to sort a file's imports by hand. This level gives the sorting to a script, lets that one script run without a prompt and keeps a ledger of every file it touches.</p>
+		<p class="key">Colour key: <mark class="m1">2.1 Give It a Script</mark> <mark class="m2">2.2 Scope the Tool</mark> <mark class="m3">2.3 Keep a Ledger</mark></p>
+	</header>
+	<div class="stage">
+		<div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code spec"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln m2" data-n="1">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln m3" data-n="2">Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln m3">already listed there, say so before going on.</span><span class="ln m3"></span><span class="ln m1">Run the script on the file, by exactly this path:</span><span class="ln m1"></span><span class="ln m1">```bash</span><span class="ln m1" data-n="3">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln m1">```</span><span class="ln m1"></span><span class="ln m1">It sorts the import block in place. Do not reorder any</span><span class="ln m1">lines yourself or edit the file after it runs. If the</span><span class="ln m1">script exits non-zero, report its message and stop.</span><span class="ln m3"></span><span class="ln m3" data-n="4">The script also writes the ledger line. Never write to</span><span class="ln m3">.claude/tidy-imports.log yourself.</span></code></pre></div>
+		<ol class="callouts">
+			<li class="co left m2" style="--at:4"><span class="badge m2" aria-hidden="true">1</span><span class="vh">Note 1: </span><b>2.2 Scope the tool.</b> <mark class="m2">allowed-tools</mark> approves Bash calls to this one script for as long as the skill runs, so Claude stops asking. The <code>:*</code> covers whatever arguments follow.</li>
+			<li class="co right m3" style="--at:9"><span class="badge m3" aria-hidden="true">2</span><span class="vh">Note 2: </span><b>2.3 Keep a ledger.</b> Claude <mark class="m3">reads the ledger first</mark>, so a later run can say which files an earlier one touched.</li>
+			<li class="co left m1" style="--at:15"><span class="badge m1" aria-hidden="true">3</span><span class="vh">Note 3: </span><b>2.1 Give it a script.</b> <mark class="m1">The script call</mark> replaces the three lines that told Claude how to sort. It uses exactly the path in callout 1, because the rule matches the start of the command.</li>
+			<li class="co right m3" style="--at:22"><span class="badge m3" aria-hidden="true">4</span><span class="vh">Note 4: </span><b>2.3, continued.</b> The script <mark class="m3">writes the ledger line</mark> itself, so writing it needs no extra permission and comes out the same every time.</li>
+		</ol>
+	</div>
+	<div class="stage2">
+		<div class="file"><p class="fname">.claude/skills/tidy-imports/scripts/sort-imports.sh</p><pre class="code spec"><code><span class="ln m1" data-n="5">#!/usr/bin/env bash</span><span class="ln m1"># Sort the import lines at the top of a file, in place.</span><span class="ln m1">set -euo pipefail</span><span class="ln m1"></span><span class="ln m1">file=&quot;$1&quot;</span><span class="ln m3">ledger=&quot;.claude/tidy-imports.log&quot;</span><span class="ln m1"></span><span class="ln m1"># How many lines from the top start with &quot;import &quot;?</span><span class="ln m1">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln m1">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln m1">	echo &quot;no imports at the top of $file&quot;</span><span class="ln m1">	exit 0</span><span class="ln m1">fi</span><span class="ln m1"></span><span class="ln m1">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln m1">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln m3" data-n="6">printf '%s\t%s\n' &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span><span class="ln m1">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div>
+		<ol class="callouts flat" start="5">
+			<li class="co"><span class="badge m1" aria-hidden="true">5</span><span class="vh">Note 5: </span><b>2.1.</b> <mark class="m1">The whole script is new.</mark> It counts the <code>import</code> lines at the top, sorts just those and leaves the rest of the file alone. Make it executable once with <code>chmod +x</code>.</li>
+			<li class="co"><span class="badge m3" aria-hidden="true">6</span><span class="vh">Note 6: </span><b>2.3.</b> Two lines give the script <mark class="m3">its ledger</mark>: where it lives, then one line per file tidied, the path and the count.</li>
+		</ol>
+		<div class="logslip"><div class="file small"><p class="fname">.claude/tidy-imports.log after two runs</p><pre class="code"><code><span class="ln">src/app.ts	6</span><span class="ln">src/routes/home.ts	3</span></code></pre></div></div>
+	</div>
+</article>
+<article class="sheet alt specimen small-sheet" aria-labelledby="p-real">
+	<h3 id="p-real" class="sec">The Real Thing</h3>
+	<p><code>project-tag_version</code> lives in this repository and tags a release after a merge to main. It makes two of this level's three moves: a script does the part that must come out the same every time, and <code>allowed-tools</code> names that script by its path. Its third marked line is one <code>tidy-imports</code> does not have yet.</p>
+	<div class="realgrid">
+		<div class="file"><p class="fname">skills/project-tag_version/SKILL.md</p><pre class="code marked"><code><span class="ln">---</span><span class="ln">name: &quot;Project: Tag Version&quot;</span><span class="ln">description: &quot;Tag the release after a merge to main, computing the next semver tag with svu&quot;</span><span class="ln cut">...</span><span class="ln mk" data-mark="③">disable-model-invocation: true</span><span class="ln mk" data-mark="①">allowed-tools: [&quot;Bash(svu:*)&quot;, &quot;Bash(git:*)&quot;, &quot;Bash(~/.claude/library/scripts/safe-version-next.sh:*)&quot;]</span><span class="ln cut">...</span><span class="ln">---</span><span class="ln"></span><span class="ln"># Tag the release with `svu`</span><span class="ln"></span><span class="ln cut">...</span><span class="ln"></span><span class="ln">```bash</span><span class="ln mk" data-mark="②">TAG=&quot;$(&quot;$HOME&quot;/.claude/library/scripts/safe-version-next.sh)&quot; &amp;&amp; git tag &quot;$TAG&quot; &amp;&amp; git push origin &quot;$TAG&quot;</span><span class="ln">```</span><span class="ln cut">...</span></code></pre></div>
+		<ol class="marks"><li><span class="glyph" aria-hidden="true">①</span><span class="vh">Marker ①: </span><code>allowed-tools</code> names <code>safe-version-next.sh</code> by its full path, the move from step 2.2, beside <code>svu</code> and <code>git</code> for reading history and pushing one tag.</li><li><span class="glyph" aria-hidden="true">②</span><span class="vh">Marker ②: </span>The body never asks Claude to work out the next version: it runs the script and tags whatever the script prints.</li><li><span class="glyph" aria-hidden="true">③</span><span class="vh">Marker ③: </span><code>disable-model-invocation: true</code> stops Claude starting the skill on its own; a person types its slash command once a merge has landed, because a pushed tag is hard to take back.</li></ol>
+	</div>
+</article>
+<aside class="slip torn exercise" aria-labelledby="p-ex">
+	<h3 id="p-ex">Try it: make the ledger line include the date</h3>
+	<p>Change the script so each ledger line starts with the day it was written. Then change the ledger paragraph in SKILL.md so Claude says when a file was last tidied.</p>
+	<details>
+		<summary>Show the answer</summary>
+		<p>In <code>sort-imports.sh</code>, put the date in front of the path:</p>
+		<div class="file"><pre class="code"><code><span class="ln add">printf '%s\t%s\t%s\n' &quot;$(date +%F)&quot; &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span></code></pre></div>
+		<p><code>date +%F</code> prints the date as <code>2026-11-19</code>, which sorts in date order as plain text. In SKILL.md, the second ledger line becomes: <q>already listed there, say on which date it was last tidied.</q></p>
+	</details>
+</aside>
+</section>
+
+<section class="mockup" id="zine" aria-labelledby="zine-cap">
+<p class="caption" id="zine-cap"><b>4 · Zine pages.</b> One drawn panel opens the level and plain pages follow, after Julia Evans's zines.</p>
+<div class="zine">
+<figure class="sheet panel-fig">
+	<svg class="zine-svg" viewBox="0 0 600 640" role="img" aria-labelledby="z-svg-title z-svg-desc">
+	<title id="z-svg-title">Level 2: give it a helper and a memory</title>
+	<desc id="z-svg-desc">A sketched skill file with a small script taped to its side and a ledger page clipped behind it.</desc>
+	<defs>
+		<filter id="z-rough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="3.5"/></filter>
+	</defs>
+	<g transform="rotate(-8 170 210)">
+		<path class="z-ledger z-edge" filter="url(#z-rough)" d="M64 78 C120 74 210 72 282 70 C286 160 290 260 292 352 C220 356 140 358 70 362 C68 270 66 170 64 78 Z"/>
+		<path class="z-rule" d="M84 130 H272 M84 162 H272 M84 194 H272 M84 226 H272 M84 258 H272 M84 290 H272 M84 322 H272"/>
+		<path class="z-scrawl" d="M90 124 c10 -6 20 4 30 -2 s20 4 30 -1 M176 124 h18 M90 156 c12 -5 22 4 34 -2 s18 3 26 0 M176 156 h12 M90 188 c10 -4 20 3 28 -1 M176 188 h16"/>
+		<path class="z-clip z-edge" d="M146 52 h66 l-4 34 h-58 z"/>
+		<path class="z-wire" d="M160 58 c0 -22 38 -22 38 0"/>
+		<text class="z-letter z-small" x="84" y="344">ledger</text>
+	</g>
+	<g transform="rotate(2.5 310 220)">
+		<path class="z-skill z-edge" filter="url(#z-rough)" d="M196 44 C260 42 330 40 392 40 L426 74 C428 170 430 280 432 384 C360 388 270 390 200 392 C198 290 196 160 196 44 Z"/>
+		<path class="z-fold z-edge" d="M392 40 C393 52 394 64 394 76 C406 76 416 75 426 74"/>
+		<text class="z-letter z-title" x="222" y="98">SKILL.md</text>
+		<path class="z-front" d="M222 122 h40 M222 146 h120 M222 170 h150 M222 194 h96 M222 218 h40"/>
+		<path class="z-body" d="M222 256 c20 -4 40 4 60 0 s40 4 60 -1 s30 3 50 0 M222 284 c18 -4 38 4 58 0 s42 3 60 -1 M222 312 c20 -3 40 4 60 0 s30 3 46 0 M222 340 c16 -3 30 3 48 0"/>
+	</g>
+	<g transform="rotate(9 480 250)">
+		<rect class="z-script z-edge2" x="408" y="196" width="160" height="112" rx="6"/>
+		<text class="z-code" x="424" y="232">#!/bin/sh</text>
+		<text class="z-code" x="424" y="260">sort | tee</text>
+		<text class="z-code" x="424" y="288">&gt;&gt; log</text>
+		<rect class="z-tape" x="388" y="182" width="58" height="22" transform="rotate(-32 417 193)"/>
+		<rect class="z-tape" x="390" y="298" width="56" height="22" transform="rotate(28 418 309)"/>
+	</g>
+	<path class="z-arrow" d="M540 120 C548 140 540 160 520 182 M508 172 L520 184 L532 170"/>
+	<text class="z-letter z-tag" x="440" y="104">helper</text>
+	<path class="z-arrow" d="M58 404 C46 380 50 352 62 330 M50 342 L62 328 L74 340"/>
+	<text class="z-letter z-tag" x="12" y="446">memory</text>
+	<text class="z-letter z-cap" x="300" y="510" text-anchor="middle">level 2:</text>
+	<text class="z-letter z-cap" x="300" y="568" text-anchor="middle">give it a helper</text>
+	<text class="z-letter z-cap" x="300" y="626" text-anchor="middle">and a memory</text>
+</svg>
+</figure>
+<details class="slip transcript">
+	<summary>Read the transcript</summary>
+	<p>A sketched page labelled SKILL.md stands slightly askew, frontmatter at the top and a few lines of instructions below. A small dark slip of code, starting with a hash-bang, is taped to its right edge; an arrow labelled “helper” points at it. Behind the page, held by a bulldog clip, is a ruled sheet labelled “ledger” with a few lines written on it; an arrow labelled “memory” points at it. Lettered underneath: level 2: give it a helper and a memory.</p>
+</details>
+<article class="sheet zpage alt"><p class="kicker">Some Assembly Required · Level 2 of 5</p><h2>Give It a Script and a Ledger</h2><p class="lede">At level 1, <code>tidy-imports</code> was one file that asked Claude to sort a file's imports by hand. This level gives the sorting to a script, lets that one script run without a prompt and keeps a ledger of every file it touches.</p><p>Where level 1 left it:</p><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln">Sort the import statements at the top of the file</span><span class="ln">alphabetically, one per line. Leave everything below</span><span class="ln">the imports exactly as it was.</span></code></pre></div><p class="folio" aria-hidden="true">p. 1</p></article>
+<article class="sheet zpage"><h3><span class="snum">2.1</span> Give It a Script</h3><p>At level 1, Claude sorted the imports itself, and a model asked to reorder lines will now and then reflow one it was told to leave alone. A script does the same thing every time and costs no tokens, so the sorting moves into <code>scripts/sort-imports.sh</code> in the skill's folder.</p>
+<p>Make the script executable once with <code>chmod +x</code>, then replace the three sorting lines in SKILL.md with an instruction to run it.</p><div class="file"><p class="fname">.claude/skills/tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln add">#!/usr/bin/env bash</span><span class="ln add"># Sort the import lines at the top of a file, in place.</span><span class="ln add">set -euo pipefail</span><span class="ln add"></span><span class="ln add">file=&quot;$1&quot;</span><span class="ln add"></span><span class="ln add"># How many lines from the top start with &quot;import &quot;?</span><span class="ln add">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln add">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln add">	echo &quot;no imports at the top of $file&quot;</span><span class="ln add">	exit 0</span><span class="ln add">fi</span><span class="ln add"></span><span class="ln add">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln add">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln add">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln add">Run the script on the file, by exactly this path:</span><span class="ln add"></span><span class="ln add">```bash</span><span class="ln add">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln add">```</span><span class="ln add"></span><span class="ln add">It sorts the import block in place. Do not reorder any</span><span class="ln add">lines yourself or edit the file after it runs. If the</span><span class="ln add">script exits non-zero, report its message and stop.</span></code></pre></div><p class="folio" aria-hidden="true">p. 2</p></article>
+<article class="sheet zpage alt"><h3><span class="snum">2.2</span> Scope the Tool</h3><p>Running a script is a Bash call, and Claude asks before each one unless the skill approves it. <code>allowed-tools</code> approves calls for as long as the skill runs; naming the script's full path, with <code>:*</code> for whatever arguments follow, approves that one script and no other command.</p>
+<p>The rule matches the start of the command, so the body calls the script by exactly that path, with no <code>bash</code> or <code>./</code> in front.</p><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln add">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln">Run the script on the file, by exactly this path:</span><span class="ln"></span><span class="ln">```bash</span><span class="ln">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln">```</span><span class="ln"></span><span class="ln">It sorts the import block in place. Do not reorder any</span><span class="ln">lines yourself or edit the file after it runs. If the</span><span class="ln">script exits non-zero, report its message and stop.</span></code></pre></div><p class="folio" aria-hidden="true">p. 3</p></article>
+<article class="sheet zpage"><h3><span class="snum">2.3</span> Keep a Ledger</h3><p>A ledger lets a later run say what an earlier one touched. The script appends one line per file to <code>.claude/tidy-imports.log</code>, the path and how many imports it sorted, so writing the ledger needs no extra permission.</p>
+<p>SKILL.md tells Claude to read the ledger first and to leave the writing to the script.</p><div class="file"><p class="fname">.claude/skills/tidy-imports/scripts/sort-imports.sh</p><pre class="code"><code><span class="ln">#!/usr/bin/env bash</span><span class="ln"># Sort the import lines at the top of a file, in place.</span><span class="ln">set -euo pipefail</span><span class="ln"></span><span class="ln">file=&quot;$1&quot;</span><span class="ln add">ledger=&quot;.claude/tidy-imports.log&quot;</span><span class="ln"></span><span class="ln"># How many lines from the top start with &quot;import &quot;?</span><span class="ln">count=$(awk '/^import /{n++; next} {exit} END{print n+0}' &quot;$file&quot;)</span><span class="ln">if [ &quot;$count&quot; -eq 0 ]; then</span><span class="ln">	echo &quot;no imports at the top of $file&quot;</span><span class="ln">	exit 0</span><span class="ln">fi</span><span class="ln"></span><span class="ln">{ head -n &quot;$count&quot; &quot;$file&quot; | sort; tail -n +&quot;$((count + 1))&quot; &quot;$file&quot;; } &gt; &quot;$file.tmp&quot;</span><span class="ln">mv &quot;$file.tmp&quot; &quot;$file&quot;</span><span class="ln add">printf '%s\t%s\n' &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span><span class="ln">echo &quot;sorted $count imports in $file&quot;</span></code></pre></div><div class="file"><p class="fname">.claude/skills/tidy-imports/SKILL.md</p><pre class="code"><code><span class="ln">---</span><span class="ln">name: tidy-imports</span><span class="ln">description: Sort the import statements at the top of a file</span><span class="ln">arguments: [path]</span><span class="ln">allowed-tools: Bash(.claude/skills/tidy-imports/scripts/sort-imports.sh:*)</span><span class="ln">---</span><span class="ln"></span><span class="ln">Tidy the imports in $path.</span><span class="ln"></span><span class="ln add">Read .claude/tidy-imports.log if it exists. If $path is</span><span class="ln add">already listed there, say so before going on.</span><span class="ln add"></span><span class="ln">Run the script on the file, by exactly this path:</span><span class="ln"></span><span class="ln">```bash</span><span class="ln">.claude/skills/tidy-imports/scripts/sort-imports.sh &quot;$path&quot;</span><span class="ln">```</span><span class="ln"></span><span class="ln">It sorts the import block in place. Do not reorder any</span><span class="ln">lines yourself or edit the file after it runs. If the</span><span class="ln">script exits non-zero, report its message and stop.</span><span class="ln add"></span><span class="ln add">The script also writes the ledger line. Never write to</span><span class="ln add">.claude/tidy-imports.log yourself.</span></code></pre></div><div class="logslip"><div class="file small"><p class="fname">.claude/tidy-imports.log after two runs</p><pre class="code"><code><span class="ln">src/app.ts	6</span><span class="ln">src/routes/home.ts	3</span></code></pre></div></div><p class="folio" aria-hidden="true">p. 4</p></article>
+<article class="sheet zpage alt"><h3 class="sec">The Real Thing</h3><p><code>project-tag_version</code> lives in this repository and tags a release after a merge to main. It makes two of this level's three moves: a script does the part that must come out the same every time, and <code>allowed-tools</code> names that script by its path. Its third marked line is one <code>tidy-imports</code> does not have yet.</p><div class="file"><p class="fname">skills/project-tag_version/SKILL.md</p><pre class="code marked"><code><span class="ln">---</span><span class="ln">name: &quot;Project: Tag Version&quot;</span><span class="ln">description: &quot;Tag the release after a merge to main, computing the next semver tag with svu&quot;</span><span class="ln cut">...</span><span class="ln mk" data-mark="③">disable-model-invocation: true</span><span class="ln mk" data-mark="①">allowed-tools: [&quot;Bash(svu:*)&quot;, &quot;Bash(git:*)&quot;, &quot;Bash(~/.claude/library/scripts/safe-version-next.sh:*)&quot;]</span><span class="ln cut">...</span><span class="ln">---</span><span class="ln"></span><span class="ln"># Tag the release with `svu`</span><span class="ln"></span><span class="ln cut">...</span><span class="ln"></span><span class="ln">```bash</span><span class="ln mk" data-mark="②">TAG=&quot;$(&quot;$HOME&quot;/.claude/library/scripts/safe-version-next.sh)&quot; &amp;&amp; git tag &quot;$TAG&quot; &amp;&amp; git push origin &quot;$TAG&quot;</span><span class="ln">```</span><span class="ln cut">...</span></code></pre></div><ol class="marks"><li><span class="glyph" aria-hidden="true">①</span><span class="vh">Marker ①: </span><code>allowed-tools</code> names <code>safe-version-next.sh</code> by its full path, the move from step 2.2, beside <code>svu</code> and <code>git</code> for reading history and pushing one tag.</li><li><span class="glyph" aria-hidden="true">②</span><span class="vh">Marker ②: </span>The body never asks Claude to work out the next version: it runs the script and tags whatever the script prints.</li><li><span class="glyph" aria-hidden="true">③</span><span class="vh">Marker ③: </span><code>disable-model-invocation: true</code> stops Claude starting the skill on its own; a person types its slash command once a merge has landed, because a pushed tag is hard to take back.</li></ol><p class="folio" aria-hidden="true">p. 5</p></article>
+<aside class="slip torn exercise" aria-labelledby="z-ex">
+	<h3 id="z-ex">Try it: make the ledger line include the date</h3>
+	<p>Change the script so each ledger line starts with the day it was written. Then change the ledger paragraph in SKILL.md so Claude says when a file was last tidied.</p>
+	<details>
+		<summary>Show the answer</summary>
+		<p>In <code>sort-imports.sh</code>, put the date in front of the path:</p>
+		<div class="file"><pre class="code"><code><span class="ln add">printf '%s\t%s\t%s\n' &quot;$(date +%F)&quot; &quot;$file&quot; &quot;$count&quot; &gt;&gt; &quot;$ledger&quot;</span></code></pre></div>
+		<p><code>date +%F</code> prints the date as <code>2026-11-19</code>, which sorts in date order as plain text. In SKILL.md, the second ledger line becomes: <q>already listed there, say on which date it was last tidied.</q></p>
+	</details>
+</aside>
+</div>
+</section>
+</main>
+
+<script>
+// Switcher: one mockup at a time, linkable by hash. Without this script all four stack.
+(() => {
+	const root = document.documentElement;
+	root.classList.add('js');
+	const ids = ['ledger', 'scroll', 'specimen', 'zine'];
+	const sections = ids.map((id) => document.getElementById(id));
+	const buttons = [...document.querySelectorAll('.switch-buttons button')];
+
+	const show = (wanted, { updateHash = false, toTop = false } = {}) => {
+		const id = ids.includes(wanted) ? wanted : 'ledger';
+		sections.forEach((section) => { section.hidden = section.id !== id; });
+		buttons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.target === id)));
+		if (updateHash) history.replaceState(null, '', '#' + id);
+		if (toTop) window.scrollTo(0, 0);
+	};
+	buttons.forEach((button) => button.addEventListener('click', () => show(button.dataset.target, { updateHash: true, toTop: true })));
+	addEventListener('hashchange', () => show(location.hash.slice(1), { toTop: true }));
+	show(location.hash.slice(1), { toTop: Boolean(location.hash) });
+
+	// Ledger: invented and real files as two tabs at narrow widths.
+	const real = document.querySelector('#ledger .real');
+	real.querySelectorAll('.realtabs button').forEach((button) => button.addEventListener('click', () => {
+		real.dataset.show = button.dataset.show;
+		real.querySelectorAll('.realtabs button').forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+	}));
+
+	// Scroll story: the pinned file follows the step in the middle of the viewport.
+	const story = document.querySelector('#scroll .story');
+	const pinned = story.querySelector('.pinned');
+	const beats = [...story.querySelectorAll('.beat')];
+	const activate = (beat) => {
+		const { file, hl } = beat.dataset;
+		const upto = Number(beat.dataset.upto);
+		pinned.dataset.file = file;
+		pinned.querySelectorAll('.pf').forEach((pane) => {
+			const current = pane.dataset.file === file;
+			pane.hidden = !current;
+			if (!current) return;
+			pane.querySelectorAll('.ln').forEach((line) => {
+				const lineOrder = Number(line.dataset.o);
+				line.hidden = lineOrder === -1 ? upto !== 0 : lineOrder > upto;
+				line.classList.toggle('hl', line.dataset.hl === hl);
+			});
+		});
+		beats.forEach((other) => {
+			other.classList.toggle('on', other === beat);
+			other.querySelector('.show').setAttribute('aria-pressed', String(other === beat));
+		});
+	};
+	beats.forEach((beat) => beat.querySelector('.show').addEventListener('click', () => activate(beat)));
+	if ('IntersectionObserver' in window) {
+		const observer = new IntersectionObserver((entries) => {
+			entries.filter((entry) => entry.isIntersecting).forEach((entry) => activate(entry.target));
+		}, { rootMargin: '-45% 0px -50% 0px' });
+		beats.forEach((beat) => observer.observe(beat));
+	}
+	activate(beats[0]);
+})();
+</script>

@@ -1,0 +1,37 @@
+{
+	"name": "goblin-mode-site",
+	"private": true,
+	"type": "module",
+	"imports": {
+		"#lib/*": "./src/lib/*"
+	},
+	"scripts": {
+		"generate": "bun scripts/generate.ts",
+		"dev": "bun run generate && vite dev",
+		"build": "bun run generate && vite build",
+		"preview": "vite preview",
+		"check": "bun run generate && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"test": "bun run build && vitest run",
+		"test:contrast": "BASE_PATH=/goblin-mode bun run build && playwright test"
+	},
+	"devDependencies": {
+		"@fontsource/cabin-sketch": "5.3.0",
+		"@fontsource/ibm-plex-mono": "5.3.0",
+		"@fontsource/ibm-plex-sans": "5.3.0",
+		"@fontsource/permanent-marker": "5.3.0",
+		"@fontsource/special-elite": "5.3.0",
+		"@playwright/test": "1.65.0",
+		"@sveltejs/adapter-static": "4.0.1",
+		"@sveltejs/kit": "3.3.1",
+		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@types/bun": "1.4.4",
+		"svelte": "5.58.0",
+		"svelte-check": "4.7.8",
+		"typescript": "6.0.3",
+		"vite": "8.3.8",
+		"vitest": "5.1.1"
+	},
+	"dependencies": {
+		"@fontsource/noto-sans-runic": "5.3.0"
+	}
+}

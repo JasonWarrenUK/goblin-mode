@@ -1,0 +1,229 @@
+/*
+	The skills tutorial ("Some Assembly Required"): one pinned specimen sheet per
+	level that builds a file step by step, with callout slips pinned in its margins.
+	Loaded by the tutorial pages only. Static is the default; the stage sets
+	data-mode on .tut to "pinned" (wide, tall enough, motion allowed), "list"
+	(narrow or short, motion allowed) or "static". Colours are theme tokens and
+	color-mix() of them; this file holds no colour values.
+*/
+
+:root { --seg: 25dvh; --col-text: 21rem; --co-w: 9rem; --co-gap: 0.6rem; --pin-pad: 1rem 1.25rem 1.1rem; }
+
+/* step tones: one per step, plus the Real Thing's */
+.t1 { --tone: var(--slime); --on: var(--on-slime); --bar: var(--slime); }
+.t2 { --tone: var(--card); --on: var(--card-ink); --bar: color-mix(in oklab, var(--card) 70%, var(--exhibit-ink)); }
+.t3 { --tone: var(--info); --on: var(--surface); --bar: color-mix(in oklab, var(--info) 55%, var(--exhibit-ink)); }
+.t4 { --tone: var(--warn); --on: var(--surface); --bar: color-mix(in oklab, var(--warn) 60%, var(--exhibit-ink)); }
+.t5 { --tone: var(--accent-2); --on: var(--surface); --bar: color-mix(in oklab, var(--accent-2) 60%, var(--exhibit-ink)); }
+.tr { --tone: var(--accent); --on: var(--accent-ink); --bar: color-mix(in oklab, var(--accent) 60%, var(--exhibit-ink)); }
+/* the mark's breathing room is drawn with shadows, so a mark at the end of a line never pushes past it */
+.tutorial mark { background: var(--tone, var(--surface-raised)); color: var(--on, var(--ink)); padding: 0; box-shadow: 0.12em 0 0 var(--tone, var(--surface-raised)), -0.12em 0 0 var(--tone, var(--surface-raised)); border-radius: var(--radius-sm); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.tutorial mark code, .tutorial .sheet mark code { background: none; color: inherit; padding: 0; font-size: 0.9em; }
+.tutorial .ref { font-family: var(--font-print); font-weight: 600; font-size: 0.74em; white-space: nowrap; border: 1.5px solid currentColor; border-radius: var(--radius-sm); padding: 0 0.3em; vertical-align: 0.08em; }
+.tutorial .sheet code { background: var(--surface-raised); padding: 0 0.25em; border-radius: var(--radius-sm); font-size: 0.86em; overflow-wrap: anywhere; }
+.tutorial .kicker { margin: 0; font-family: var(--font-print); font-weight: 600; font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); }
+.tutorial .snum { font-family: var(--font-print); font-weight: 600; font-size: 0.6em; vertical-align: 0.25em; color: var(--card-ink); background: var(--card); padding: 0.05em 0.4em; border-radius: var(--radius-sm); margin-right: 0.2em; }
+.tutorial p { margin: 0; }
+
+/* ---------- code on an exhibit panel: one block span per line, wrapped lines hang under a gutter ---------- */
+.tutorial .file { min-width: 0; }
+.tutorial .fname { display: inline-block; max-width: 100%; margin: 0; overflow-wrap: anywhere; background: var(--card); color: var(--card-ink); font-family: var(--font-mono); font-size: 0.74rem; padding: 0.2rem 0.6rem; border-radius: var(--radius-md) var(--radius-md) 0 0; }
+.tutorial .code { margin: 0; background: var(--exhibit); color: var(--exhibit-ink); font-family: var(--font-mono); font-size: 0.76rem; line-height: 1.6; padding: 0.7rem 0; border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md); tab-size: 2; min-width: 0; }
+.tutorial .code code { display: block; background: none; padding: 0; font-size: inherit; color: inherit; }
+.tutorial .code .ln { display: block; position: relative; min-height: 1.6em; white-space: pre-wrap; overflow-wrap: anywhere; padding: 0 0.8rem 0 3.1rem; }
+.tutorial .code .ln::before { position: absolute; left: 0.55rem; top: 0; font-weight: 600; }
+.tutorial .code .ln.fold { color: var(--exhibit-muted); }
+.tutorial .code .ln:is(.t1, .t2, .t3, .t4, .t5, .tr) { background: color-mix(in oklab, var(--tone) 12%, var(--exhibit)); box-shadow: inset 4px 0 0 color-mix(in oklab, var(--bar) 55%, var(--exhibit)); }
+.tutorial .code .ln.cur { background: color-mix(in oklab, var(--tone) 30%, var(--exhibit)); box-shadow: inset 5px 0 0 var(--bar); }
+.tutorial .code .ln.new::before { content: '+'; left: 1.1rem; color: var(--exhibit-ink); }
+/* a removed line keeps the panel's full ink; the strike, the danger tint and the minus mark it */
+.tutorial .code .ln.del { color: var(--exhibit-ink); text-decoration: line-through; background: color-mix(in oklab, var(--danger) 16%, var(--exhibit)); box-shadow: inset 5px 0 0 color-mix(in oklab, var(--danger) 70%, var(--exhibit-ink)); }
+.tutorial .code .ln.del::before { content: '\2212'; left: 1.1rem; color: var(--exhibit-ink); text-decoration: none; }
+.tutorial .code .ln[data-label]::before { content: attr(data-label); left: 0.35rem; top: 0.28em; font-family: var(--font-print); font-size: 0.6rem; line-height: 1.35; padding: 0 0.22rem; border-radius: var(--radius-sm); background: var(--tone); color: var(--on); }
+/* an earlier step's gutter label keeps full ink and drops its fill for an outline in the panel's ink */
+.tutorial .code .ln.pastpin::before { background: transparent; color: var(--exhibit-ink); box-shadow: inset 0 0 0 1.5px var(--exhibit-ink); }
+.tutorial .code .ln.fresh { animation: tut-line-in 480ms ease-out; }
+@keyframes tut-line-in { from { opacity: 0; background: color-mix(in oklab, var(--tone, var(--slime)) 55%, var(--exhibit)); } }
+.tutorial .file.small .code { font-size: 0.72rem; }
+
+/* ---------- file tabs (a step that shows more than one file) ---------- */
+.tutorial .tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0; }
+.tutorial .tab { appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%; border: 0; margin: 0;
+	background: color-mix(in oklab, var(--card) 55%, var(--surface)); color: var(--card-ink); font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.3;
+	padding: 0.25rem 0.6rem; border-radius: var(--radius-md) var(--radius-md) 0 0; overflow-wrap: anywhere; text-align: left; }
+.tutorial .tab[aria-pressed='true'] { background: var(--card); }
+.tutorial .tab:focus-visible { outline-offset: 1px; }
+.tutorial .tab .marker { font-family: var(--font-print); font-weight: 600; font-size: 0.62rem; padding: 0 0.25rem; border-radius: var(--radius-sm); background: var(--tone); color: var(--on); }
+
+/* ---------- callout slips ---------- */
+.tutorial .callouts, .tutorial .co-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.tutorial .co { display: block; background: var(--slip); color: var(--slip-ink); font-family: var(--font-print); font-size: 0.84rem; line-height: 1.5; padding: 0.6rem 0.75rem; box-shadow: var(--shadow); border-left: 6px solid var(--tone); }
+.tutorial .co code { background: none; color: var(--slip-accent); padding: 0; }
+.tutorial .co mark code { color: inherit; }
+.tutorial .co p { overflow-wrap: anywhere; }
+
+.tutorial .lab { display: inline-block; font-weight: 600; font-size: 0.78rem; line-height: 1.3; padding: 0 0.3rem; margin-right: 0.3rem; border-radius: var(--radius-sm); background: var(--tone); color: var(--on); vertical-align: 0.05em; }
+.tutorial .stage { position: relative; min-width: 0; }
+.tutorial .stage > .callouts { margin-top: 1rem; }
+.tutorial .leaders { display: none; }
+
+/* margin callouts, placed by the script against measured line centres */
+.tutorial .marginal { padding: 0 calc(var(--co-w) + var(--co-gap)); }
+/* the file's name or tabs sit over the panel, inside the callout margins */
+.tutorial .over-panel { margin-left: calc(var(--co-w) + var(--co-gap)); max-width: calc(100% - 2 * (var(--co-w) + var(--co-gap))); }
+.tutorial .marginal > .callouts { display: block; margin: 0; position: absolute; inset: 0; pointer-events: none; }
+.tutorial .marginal .co { position: absolute; width: var(--co-w); pointer-events: auto; font-size: 0.76rem; padding: 0.45rem 0.55rem; }
+.tutorial .marginal .co[data-at='left'] { left: 0; border-left: 0; border-right: 6px solid var(--tone); }
+.tutorial .marginal .co[data-at='right'] { right: 0; }
+/* an earlier step's callout keeps full ink, marked by its dashed edge */
+.tutorial .marginal .co.past { border-style: dashed; padding-block: 0.2rem; }
+/* an earlier step's callout keeps its place and label in the margin; its sentence stays for screen readers */
+.tutorial .marginal .co.past .co-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tutorial .marginal .leaders { display: block; }
+.tutorial .leaders { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
+.tutorial .leaders .ld { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; }
+.tutorial .leaders .br { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.tutorial .leaders .dot { fill: var(--tone); stroke: var(--ink); stroke-width: 1.6; }
+/* an earlier callout's leader is drawn dashed in muted ink, never thinned */
+.tutorial .leaders .past { stroke: var(--ink-muted); }
+.tutorial .leaders .ld.past { stroke-dasharray: 3 4; }
+
+/* ---------- the level header ---------- */
+.tutorial .level-nav { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 0.5rem 1.25rem; font-family: var(--font-print); font-size: 0.9rem; }
+.tutorial .level-tabs { display: flex; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
+.tutorial .level-tabs a { display: block; min-width: 2.6rem; text-align: center; text-decoration: none; background: var(--card); color: var(--card-ink); font-weight: 600;
+	padding: 0.35rem 0.7rem 0.3rem; border-radius: var(--radius-md) var(--radius-md) 0 0; box-shadow: var(--shadow); }
+.tutorial .level-tabs a[aria-current='page'] { background: var(--surface); color: var(--ink); outline: 2px solid var(--ink); outline-offset: -2px; box-shadow: none; }
+.tutorial .level-tabs a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tutorial .lvl-head { padding: 1.5rem clamp(1rem, 3vw, 2.25rem); display: grid; gap: 0.9rem; }
+.tutorial .lvl-head h1 { font-size: clamp(2rem, 5.2vw, 3.5rem); }
+.tutorial .lede { font-size: 1.1rem; max-width: 46rem; }
+.tutorial .key { font-family: var(--font-print); font-size: 0.88rem; line-height: 2; }
+.tutorial .key mark { margin-right: 0.35rem; white-space: nowrap; }
+.tutorial .how { display: none; font-family: var(--font-print); font-size: 0.88rem; color: var(--ink-muted); max-width: 46rem; }
+.tutorial .pager { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: center; font-family: var(--font-display); font-size: 1.15rem; border-top: 2px dashed var(--line); padding-top: 0.8rem; }
+.tutorial .pager .next { text-align: right; }
+
+/* ---------- the stage: static by default (no JS, or reduced motion) ---------- */
+.tut { display: grid; gap: 1rem; min-width: 0; }
+.tut .viewbar, .tut .pin-bar, .tut .snaps, .tut .specimen { display: none; }
+.tut .track { min-width: 0; }
+.tut .pin { display: grid; gap: 1.5rem; min-width: 0; }
+.tut .writeups { display: grid; gap: 1.5rem; min-width: 0; max-width: 64rem; }
+.tut .step { padding: 1.5rem clamp(1rem, 3vw, 2.25rem); scroll-margin-top: 1rem; display: grid; gap: 0.9rem; align-content: start; }
+.tut .step:nth-child(even) { border-radius: var(--wonk-2); }
+.tut .step-h { font-size: clamp(1.5rem, 3vw, 2rem); }
+.tut .step-btn { appearance: none; display: block; width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; line-height: inherit; text-align: left; cursor: pointer; border-radius: var(--radius-sm); }
+.tut .output { display: grid; max-width: 24rem; }
+/* output keeps each line whole, so a printed table's columns stay lined up; long lines scroll inside the panel */
+.tut .output { min-width: 0; }
+.tut .output .code { overflow-x: auto; }
+.tut .output .code .ln { white-space: pre; overflow-wrap: normal; width: max-content; min-width: 100%; }
+.tut .after-step { border-top: 2px dashed var(--line); padding-top: 1rem; display: grid; gap: 0.9rem; }
+.tut .snap-title { font-family: var(--font-print); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); }
+.tut .snapshot { display: grid; gap: 1rem; }
+.tut .snapshot-file { display: grid; gap: 0.6rem; }
+
+/* the real thing and the exercise */
+.tutorial .real { padding: 1.5rem clamp(1rem, 3vw, 2.25rem); display: grid; gap: 0.9rem; }
+.tutorial .real h2, .tutorial .exercise h2 { font-size: clamp(1.6rem, 3.4vw, 2.3rem); }
+.tutorial .real-text { display: grid; gap: 0.9rem; align-content: start; }
+.tutorial .real-text > p { max-width: 50rem; }
+.tutorial .exercise { padding: 1.6rem clamp(1rem, 3vw, 1.75rem) 1.2rem; max-width: 52rem; --rag: var(--rag-b); display: grid; gap: 0.75rem; }
+.tutorial .exercise h2 { font-size: 1.5rem; color: var(--slip-ink); }
+.tutorial .exercise details { display: grid; gap: 0.75rem; }
+.tutorial .exercise details[open] > * + * { margin-top: 0.75rem; }
+.tutorial .exercise summary { cursor: pointer; font-weight: 600; color: var(--slip-accent); }
+.tutorial .exercise code { color: var(--slip-accent); }
+.tutorial .exercise .code code { color: inherit; }
+.tutorial .exercise .answer-table { overflow-x: auto; min-width: 0; max-width: 100%; }
+.tutorial .exercise, .tutorial .exercise details { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.tutorial .exercise table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 0.88rem; }
+.tutorial .exercise th, .tutorial .exercise td { text-align: left; vertical-align: top; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--slip-line); }
+.tutorial .exercise thead th { font-family: var(--font-print); font-weight: 400; }
+.tutorial q { quotes: '\201C' '\201D'; }
+
+@media (min-width: 900px) {
+	.tut .after-step { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0.6rem 1.25rem; align-items: start; }
+	.tut .after-step .snap-title { grid-column: 1 / -1; }
+	.tut .after-step .snapshot { grid-column: 1 / -1; }
+	.tut .snapshot-file { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0.6rem 1.25rem; align-items: start; }
+	.tut .snapshot-file .fname-wrap { grid-column: 1; }
+}
+/* the wide grid the stage and the Real Thing share: same edges, same columns */
+@media (min-width: 1100px) {
+	.tutorial .real { grid-template-columns: var(--col-text) minmax(0, 1fr); gap: 0.8rem 1.5rem; padding: var(--pin-pad); align-items: start; }
+	.tutorial .real .real-text > p { font-size: 0.92rem; line-height: 1.55; }
+}
+
+/* ---------- live modes ---------- */
+.tut:is([data-mode='pinned'], [data-mode='list']) .after-step { display: none; }
+.tut:is([data-mode='pinned'], [data-mode='list']) .specimen .co.fresh { animation: tut-fade 420ms ease-out; }
+@keyframes tut-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+	.js-tutorial .how { display: block; }
+}
+
+/* pinned: one stage, one viewport tall, that holds still while the track scrolls past */
+.tut[data-mode='pinned'] .track { position: relative; display: grid; height: calc(100dvh - 1rem + (var(--states) - 1) * var(--seg)); }
+.tut[data-mode='pinned'] .snaps { display: block; }
+.tut .snap { position: absolute; left: 0; width: 1px; height: 1px; top: calc(var(--k) * var(--seg)); scroll-snap-align: start; scroll-margin-top: 0.5rem; }
+html.tut-snapping { scroll-snap-type: y mandatory; scroll-padding-top: 0; }
+.tut[data-mode='pinned'] .pin { grid-area: 1 / 1; position: sticky; top: 0.5rem; z-index: 1; align-self: start; height: calc(100dvh - 1rem);
+	grid-template-columns: var(--col-text) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 0.8rem 1.5rem;
+	background: var(--surface); color: var(--ink); border: 2px solid var(--ink); border-radius: var(--wonk); box-shadow: var(--shadow); padding: var(--pin-pad); }
+.tut[data-mode='pinned'] .pin-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 1rem; border-bottom: 2px dashed var(--line); padding-bottom: 0.6rem; }
+.tut .pin-title { font-family: var(--font-print); font-weight: 600; font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); }
+.tut .pin-file { font-family: var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--ink); margin: 0 0.5rem 0 0.25rem; }
+.tut .spec-state { letter-spacing: 0.06em; color: var(--ink); }
+.tut .stepnav { display: flex; gap: 0.4rem; }
+.tut .stepnav button { appearance: none; cursor: pointer; background: transparent; color: var(--ink); border: 2px solid var(--ink); border-radius: var(--radius-sm); font-family: var(--font-print); font-weight: 600; font-size: 0.85rem; line-height: 1.2; padding: 0.3rem 0.7rem; }
+.tut .stepnav button[aria-current='step'] { background: var(--ink); color: var(--surface); }
+.tut[data-mode='pinned'] .writeups { grid-column: 1; grid-row: 2; display: grid; align-content: start; min-height: 0; max-width: none; }
+.tut[data-mode='pinned'] .step { grid-area: 1 / 1; align-self: start; min-width: 0; border: 0; border-radius: 0; background: none; box-shadow: none; padding: 0; gap: 0.6rem; }
+.tut[data-mode='pinned'] .step.inactive { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tut[data-mode='pinned'] .step-h { font-size: 1.5rem; }
+.tut[data-mode='pinned'] .step p { font-size: 0.9rem; line-height: 1.5; }
+.tut[data-mode='pinned'] .step .output .fname { font-size: 0.66rem; }
+.tut[data-mode='pinned'] .step .output .code { font-size: 0.64rem; line-height: 1.45; padding: 0.35rem 0; }
+.tut[data-mode='pinned'] .step .output .ln { padding-left: 2.4rem; }
+.tut[data-mode='pinned'] .step.entering { animation: tut-fade 200ms ease-out; }
+.tut[data-mode='pinned'] .step.leaving { opacity: 0; transition: opacity 160ms ease; }
+.tut[data-mode='pinned'] .specimen { display: grid; grid-template-rows: auto minmax(0, 1fr); grid-column: 2; grid-row: 2; min-height: 0; position: relative; }
+.tut[data-mode='pinned'] .specimen .stage { min-height: 0; }
+.tutorial .specimen > .fname, .tutorial .specimen > .tabs, .tutorial .real-specimen > .fname { justify-self: start; }
+.tut[data-mode='pinned'] .specimen .fname, .tut[data-mode='pinned'] .specimen .tab { font-size: 0.7rem; }
+.tut[data-mode='pinned'] .specimen .code { font-size: 0.7rem; line-height: 1.5; padding: 0.5rem 0; }
+
+/* list: narrow or short and live, a Steps / File switch over a normal scroll */
+.tut[data-mode='list'] .viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; position: sticky; top: 0; z-index: 5;
+	background: var(--card); color: var(--card-ink); padding: 0.5rem 0.7rem; border-radius: 0 0 var(--radius-md) var(--radius-md); box-shadow: var(--shadow); }
+.tut .viewbar .switch { display: flex; gap: 0.35rem; }
+.tut .viewbar button { appearance: none; cursor: pointer; background: transparent; color: var(--card-ink); border: 2px solid var(--card-ink); border-radius: var(--radius-sm); font-family: var(--font-print); font-weight: 600; font-size: 0.88rem; line-height: 1.2; padding: 0.4rem 0.8rem; }
+.tut .viewbar button[aria-pressed='true'] { background: var(--card-ink); color: var(--card); }
+.tut .viewbar button:focus-visible { outline: 3px solid var(--card-ink); outline-offset: 2px; }
+.tut .viewbar .viewstate { font-family: var(--font-print); font-size: 0.85rem; font-weight: 600; }
+.tut[data-mode='list'] .step { scroll-margin-top: 4.5rem; min-height: 52vh; transition: box-shadow 180ms ease, color 180ms ease; }
+.tut[data-mode='list'] .step[data-state='active'] { box-shadow: 0 0 0 3px var(--accent), var(--shadow); }
+/* a step not reached yet keeps full-strength ink and is told apart by its dashed outline; the current step has the accent ring and its Now tag */
+.tut[data-mode='list'] .step[data-state='pending'] { border-style: dashed; border-color: var(--ink-muted); }
+.tut[data-mode='list'] .step[data-state='active'] .step-btn::after { content: 'Now'; display: inline-block; margin-left: 0.5rem; vertical-align: 0.3em;
+	font-family: var(--font-print); font-size: 0.42em; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+	background: var(--accent); color: var(--accent-ink); padding: 0.1em 0.45em; border-radius: var(--radius-sm); }
+.tut[data-mode='list'][data-view='file'] .writeups { display: none; }
+.tut[data-mode='list'][data-view='file'] .specimen { display: grid; background: var(--surface); border: 2px solid var(--ink); border-radius: var(--radius-md); box-shadow: var(--shadow); padding: 1rem; }
+.tut[data-mode='list'] .specimen .stage > .callouts { margin-top: 0.9rem; }
+
+@media (max-width: 760px) {
+	.tutorial .sheet, .tut .step:nth-child(even) { border-radius: var(--radius-md); }
+	.tutorial .fname { font-size: 0.62rem; padding-inline: 0.4rem; }
+	.tutorial .code .ln { padding-left: 2.8rem; padding-right: 0.6rem; }
+	.tutorial .code .ln.new::before, .tutorial .code .ln.del::before { left: 0.9rem; }
+	.tutorial .code .ln[data-label]::before { left: 0.25rem; }
+	.tutorial .pager { grid-template-columns: 1fr; text-align: center; }
+	.tutorial .pager .next { text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html.tut-snapping { scroll-snap-type: none; }
+}
