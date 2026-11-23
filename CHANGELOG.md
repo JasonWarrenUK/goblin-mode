@@ -5,6 +5,22 @@ All notable changes to this project are documented here, newest first.
 
 ## [Unreleased]
 
+## [12.2.0] - 2026-11-23
+
+### Added
+
+- A GitHub Pages site at `jasonwarrenuk.github.io/goblin-mode/`, built from `site/` by `.github/workflows/pages.yml`. It holds the goblin's notice with a desk of the five mods and a page per mod with its situations, roster and how-to. Its skills wing holds the five-level tutorial "Some Assembly Required" and "Metadata Is Whatever I Say It Is". Its counts, versions and commands are read from the repository at build time, and a browser sweep in CI holds every text on every page to 4.5:1 contrast before it deploys.
+- The `goblin` theme family, `.claude/themes/goblin.json` with its `html` target, and self-hosted fonts for it.
+- `skill-lint.py` reports a bare `Bash` grant in a skill's `allowed-tools`, and the push gate fails on one.
+
+### Fixed
+
+- Fifteen skills granted bare `Bash`, so any shell command ran without asking in the turn that invoked them. Each now lists the commands it runs; anything else asks.
+
+### Removed
+
+- The old explainers Vercel served from `site/`. The tutorial and the Metadata page replace two; the other three are withdrawn.
+
 ## [12.1.0] - 2026-11-20
 
 ### Changed
