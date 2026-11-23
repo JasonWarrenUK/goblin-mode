@@ -66,7 +66,8 @@ const floorFor = (path: string): number => (path.endsWith('/skills/') || path.en
 /*
  * An allowed image must paint nothing but its worst-case colour and transparency: each colour stop in the
  * element's computed background-image is checked against `worst`, so a stop changed to any other colour
- * fails, and every other unmeasurable property on the element (a filter, a blend mode) still fails.
+ * fails. A layer that is an image file (`url()`, `image-set()` and the like) has no stops to check and
+ * fails outright, and every other unmeasurable property on the element (a filter, a blend mode) still fails.
  */
 const ALLOWED: { selector: string; reason: string; worst: string }[] = [
 	{ selector: 'body', reason: "the desk's ink blots: radial gradients of --blot over --desk, darkest at their centres", worst: '--blot' },
@@ -129,6 +130,8 @@ const measure = (allowed: { selector: string; worst: string }[]): { measured: nu
 		if (cs.backdropFilter && cs.backdropFilter !== 'none') flags.push(`backdrop-filter ${cs.backdropFilter}`);
 		return flags;
 	};
+	/** The first layer of an image that is a file rather than a gradient: its pixels have no colour stops to check. */
+	const imageFile = (image: string): string | undefined => /\b(url|image-set|cross-fade|element|paint)\(/.exec(image)?.[1];
 	/** The colour stops an image paints that are neither transparent nor the declared worst case. */
 	const strayStops = (image: string, worst: number[]): string[] =>
 		(image.match(/rgba?\([^)]*\)|color\([^)]*\)|oklab\([^)]*\)|oklch\([^)]*\)|#[0-9a-fA-F]{3,8}\b/g) ?? []).filter((stop) => {
@@ -147,8 +150,10 @@ const measure = (allowed: { selector: string; worst: string }[]): { measured: nu
 			for (const found of unmeasurable(own)) {
 				if (allowedHere && found.startsWith('background-image')) {
 					worstLayer = rgba(getComputedStyle(document.documentElement).getPropertyValue(allowedHere.worst).trim());
+					const file = imageFile(own.backgroundImage);
 					const stray = strayStops(own.backgroundImage, worstLayer);
-					if (stray.length && !flag) flag = `background-image on ${name(e)} paints ${stray.join(', ')}, not only ${allowedHere.worst}`;
+					if (file && !flag) flag = `background-image on ${name(e)} paints an image file (${file}()), whose colours cannot be read`;
+					else if (stray.length && !flag) flag = `background-image on ${name(e)} paints ${stray.join(', ')}, not only ${allowedHere.worst}`;
 				} else if (!flag) flag = `${found} on ${name(e)}`;
 			}
 			const own_ = rgba(own.backgroundColor);

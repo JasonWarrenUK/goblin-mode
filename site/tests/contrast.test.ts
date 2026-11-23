@@ -134,12 +134,25 @@ export const dimmings = (from: Rule[]): string[] => {
 	return problems;
 };
 
-/** Colour or opacity set where the stylesheet scan cannot see it: inline styles, style directives, script. */
+/**
+ * Every image file a rule paints as a background: a `url()`, an `image-set()`, a `cross-fade()` or an
+ * `element()`. Neither check can read the colours inside a file, so a background is only ever a gradient of
+ * theme tokens. A border image, generated content or a list marker sits beside text rather than behind it,
+ * so this leaves them to the browser sweep; a font's `src` is no image.
+ */
+export const imageFiles = (from: Rule[]): string[] =>
+	from.flatMap((rule) =>
+		[...rule.body.matchAll(/(?:^|[;\s])(background(?:-image)?)\s*:\s*([^;]+)/g)]
+			.filter((match) => /(?:\burl|image-set|cross-fade|\belement)\(/.test(match[2]!))
+			.map((match) => `${rule.file} ${rule.selector}: ${match[1]}: ${match[2]!.trim()}`),
+	);
+
+/** Colour, opacity or an image set where the stylesheet scan cannot see it: inline styles, style directives, script. */
 export const offSheetColour = (files: { path: string; text: string }[]): string[] => {
-	const property = '(?:color|opacity|filter|background(?:-color)?|-webkit-text-fill-color|fill|stroke)';
+	const property = '(?:color|opacity|filter|background(?:-color|-image)?|-webkit-text-fill-color|fill|stroke)';
 	const markup = [new RegExp(`style="[^"]*\\b${property}\\s*:`), new RegExp(`style:${property}\\b`)];
 	const script = [
-		/\.style\.(?:color|opacity|filter|background|backgroundColor|webkitTextFillColor|fill|stroke|fillOpacity|strokeOpacity)\b/,
+		/\.style\.(?:color|opacity|filter|background|backgroundColor|backgroundImage|webkitTextFillColor|fill|stroke|fillOpacity|strokeOpacity)\b/,
 		new RegExp(`setProperty\\(\\s*['"]${property}['"]`),
 		/setAttribute\(\s*['"](?:style|fill|stroke|opacity|fill-opacity|stroke-opacity|color)['"]/,
 	];
@@ -242,6 +255,37 @@ describe('the forms of colour the contrast check can measure', () => {
 			{ path: 'f.svelte', text: '<div style:--states={n}>' },
 		]);
 		expect(found.map((line) => line.split(':')[0])).toEqual(['a.svelte', 'b.svelte', 'c.svelte', 'd.ts', 'g.ts']);
+	});
+
+	it('paints no image file as a background: every background image is a gradient of theme tokens', () => {
+		expect(imageFiles(rules)).toEqual([]);
+	});
+
+	it('catches an image file in a background, and leaves other properties to the sweep', () => {
+		const probe = (selector: string, body: string): Rule => ({ file: 'probe.css', selector, body });
+		const found = imageFiles([
+			probe('.a', 'background-image: url(data:image/png;base64,iVBORw0KGgo=), linear-gradient(var(--slip-line) 0 1px, transparent 0)'),
+			probe('.b', 'background: var(--desk) url("ink.png")'),
+			probe('.c', 'background-image: image-set("blot.png" 1x)'),
+			probe('.d', 'background-image: -webkit-image-set(url(blot.png) 1x)'),
+			probe('.e', 'background-image: cross-fade(url(a.png), url(b.png), 50%)'),
+			probe('.f', 'border-image: url(frame.png) 30'),
+			probe('.g::before', 'content: url(mark.svg)'),
+			probe('.h', 'list-style-image: url(dot.png)'),
+			probe('.i', 'background-image: radial-gradient(var(--blot), transparent 70%)'),
+			probe('font-face', "src: url('/runic.woff2') format('woff2')"),
+		]);
+		expect(found.map((line) => line.split(' ')[1])).toEqual(['.a:', '.b:', '.c:', '.d:', '.e:']);
+	});
+
+	it('catches an image set outside a stylesheet', () => {
+		const found = offSheetColour([
+			{ path: 'a.svelte', text: '<div style="background-image: url(ink.png)">' },
+			{ path: 'b.svelte', text: '<div style:background-image="url(ink.png)">' },
+			{ path: 'c.ts', text: "slip.style.backgroundImage = 'url(ink.png)';" },
+			{ path: 'd.ts', text: "slip.style.setProperty('background-image', 'url(ink.png)');" },
+		]);
+		expect(found.map((line) => line.split(':')[0])).toEqual(['a.svelte', 'b.svelte', 'c.ts', 'd.ts']);
 	});
 });
 
